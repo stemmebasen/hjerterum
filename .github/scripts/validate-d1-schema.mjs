@@ -68,6 +68,13 @@ function assertEqual(actual, expected, label) {
   }
 }
 
+function assertColumn(table, column) {
+  const row = firstRow(
+    execute(`SELECT COUNT(*) AS n FROM pragma_table_info('${table}') WHERE name = '${column}'`)
+  );
+  assertEqual(Number(row.n), 1, `${table}.${column} column`);
+}
+
 runWrangler([
   "d1",
   "migrations",
@@ -84,6 +91,10 @@ const expectedTables = [
   "members",
   "room_bookings",
   "room_booking_attendees",
+  "tribes",
+  "tribe_members",
+  "tribe_applicants",
+  "tribe_email_logs",
   "webhook_events",
   "job_claims",
   "financial_reconciliation"
@@ -100,6 +111,12 @@ const strictCount = Number(
 );
 assertEqual(strictCount, expectedTables.length, "STRICT table count");
 
+assertColumn("teachers", "setup_intent_id");
+assertColumn("bookings", "phone");
+assertColumn("bookings", "cvr");
+assertColumn("tribe_applicants", "invitation_token");
+assertColumn("tribe_applicants", "personal_welcome_email_sent_at_ms");
+
 const fkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
 );
@@ -112,6 +129,11 @@ execute("INSERT INTO room_booking_attendees (id, room_booking_id, clerk_user_id,
 execute("INSERT INTO room_booking_attendees (id, room_booking_id, clerk_user_id, member_name, member_email, created_at_ms) VALUES (3, 999, 'orphan-user', 'Orphan', 'orphan@example.invalid', 1000)", { expectFailure: true });
 execute("INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, fee_minor, created_at_ms, updated_at_ms) VALUES (2, 'bad-time', 'Synthetic', 'synthetic@example.invalid', 'Invalid interval', 2000, 1000, 0, 1000, 1000)", { expectFailure: true });
 execute("INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, fee_minor, created_at_ms, updated_at_ms) VALUES (3, 'bad-money', 'Synthetic', 'synthetic@example.invalid', 'Invalid money', 3000, 4000, 1.5, 1000, 1000)", { expectFailure: true });
+
+execute("INSERT INTO tribes (id, name, contact_name, contact_email) VALUES (1, 'Historical Tribe', 'Archive Contact', 'archive@example.invalid')");
+execute("INSERT INTO tribe_applicants (id, full_name, email, tribe_id, invitation_token) VALUES (1, 'Historical Applicant', 'historical@example.invalid', 1, 'legacy-token')");
+execute("INSERT INTO tribe_email_logs (id, tribe_id, subject, body, recipient_count, sender_email, sent_at_ms) VALUES (1, 1, 'Archive subject', 'Archive body', 1, 'archive@example.invalid', 1000)");
+execute("INSERT INTO tribe_members (id, tribe_id, full_name, email) VALUES (1, 999, 'Orphan Archive Member', 'orphan-archive@example.invalid')", { expectFailure: true });
 
 execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1000)");
 execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1001)", { expectFailure: true });
