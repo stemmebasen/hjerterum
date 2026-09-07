@@ -71,3 +71,8 @@ export {
   calculateAdminFeeMinor,
   eventRefundsEnabled
 } from "./event-policy.js";
+export { calculateLegacyRoomFee } from "./legacy-room-pricing.js";
+export type {
+  LegacyRoomPricingInput,
+  LegacyRoomPricingResult
+} from "./legacy-room-pricing.js";
