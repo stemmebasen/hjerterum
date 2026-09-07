@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           test -n "$PREVIEW_URL"
-          curl --fail --silent --show-error "$PREVIEW_URL/api/health" | tee /tmp/health.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$PREVIEW_URL/api/health" | tee /tmp/health.json
           grep -q '"status":"ok"' /tmp/health.json
-          curl --fail --silent --show-error "$PREVIEW_URL/" >/tmp/index.html
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$PREVIEW_URL/" >/tmp/index.html
           grep -q '<div id="root"></div>' /tmp/index.html
