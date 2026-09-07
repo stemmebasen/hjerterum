@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hjerterum-d1-local-test",
+  "compatibility_date": "2026-09-07",
+  "main": "./worker/index.ts",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hjerterum-ci",
+      "database_id": "00000000-0000-0000-0000-000000000001",
+      "preview_database_id": "hjerterum-ci-local",
+      "migrations_dir": "migrations"
+    }
+  ]
+}
