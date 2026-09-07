@@ -9,6 +9,6 @@
     "build": "pnpm -r --if-present run build"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   }
 }

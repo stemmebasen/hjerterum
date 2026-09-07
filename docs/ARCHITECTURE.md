@@ -4,18 +4,24 @@
 
 Hjerterum must be portable, inexpensive to operate, easy to continue developing and not depend on a specific coding agent or hosting provider.
 
+## Deployment shape
+
+The initial Cloudflare deployment is a single React/Vite application with a Worker API and static assets in the same deployable unit. Browser navigation and assets stay same-origin with the API, reducing operational surface and avoiding an unnecessary CORS boundary.
+
+This is an operational packaging choice, not a domain coupling decision. Business rules remain in provider-neutral packages and provider-specific infrastructure stays behind adapters.
+
 ## Boundaries
 
-### Web
-Public website, member portal and admin UI. The web app talks only to the Hjerterum API and does not contain provider-specific database/payment/storage logic.
+### Platform app
 
-### API
-Cloudflare Worker used for routing, authentication boundary, caching, edge logic and orchestration. Business rules stay in the core package.
+`apps/web` contains the public website, member/admin frontend and the thin Cloudflare Worker transport layer. Requests under `/api/*` execute Worker code first. Static assets and SPA navigation are served through Workers Static Assets.
 
 ### Core
-Provider-independent domain model and use-case contracts for members, events, room bookings, payments, profiles and entitlements.
+
+`packages/core` contains provider-independent domain models and use-case contracts for members, events, room bookings, payments, profiles and entitlements. Cloudflare, payment-provider and database SDK types must not leak into this package.
 
 ### Adapters
+
 Concrete providers are isolated behind adapters. Expected adapter families include database, object storage, email, payments, identity and CIRKLER entitlement lookup.
 
 ## Data strategy
@@ -25,10 +31,11 @@ Transactional data should use a relational database with explicit migrations. Th
 ## Environments
 
 - local
+- temporary preview
 - staging
 - production
 
-Production data must never be used as a casual development database. Environment-specific configuration is injected at runtime and is not committed as secrets.
+Temporary previews are disposable runtime-verification environments and never contain production secrets or production data. Production data must never be used as a casual development database. Environment-specific configuration is injected at runtime and is not committed as secrets.
 
 ## Release rule
 
@@ -40,6 +47,8 @@ A deploy may only proceed when:
 4. Production build succeeds.
 5. Staging/runtime smoke checks pass for changed flows.
 6. The deployed production revision is traceable back to the verified GitHub commit.
+
+Production deployment remains intentionally non-automatic during migration.
 
 ## Product boundaries
 
