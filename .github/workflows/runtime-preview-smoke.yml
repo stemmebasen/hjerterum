@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/runtime-preview-smoke.yml"
+      - ".github/scripts/redact-cloudflare-preview.mjs"
+      - "apps/web/**"
+      - "packages/core/**"
+      - "pnpm-lock.yaml"
 
 permissions:
   contents: read
