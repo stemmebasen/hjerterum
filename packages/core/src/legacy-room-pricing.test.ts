@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { calculateLegacyRoomFee } from "./legacy-room-pricing.js";
+import {
+  calculateLegacyRoomFee,
+  LEGACY_SOME_PACKAGE_FEE_KR
+} from "./legacy-room-pricing.js";
 
 describe("calculateLegacyRoomFee", () => {
   it("uses A-time on weekends", () => {
@@ -42,6 +45,10 @@ describe("calculateLegacyRoomFee", () => {
     expect(
       calculateLegacyRoomFee({ dayOfWeek: 3, startMinutes: 9 * 60, durationMinutes: 120 })
     ).toEqual({ band: "B", roundedHours: 2, feeKr: 75 });
+  });
+
+  it("pins the legacy backend SoMe invoice item to 390 DKK", () => {
+    expect(LEGACY_SOME_PACKAGE_FEE_KR).toBe(390);
   });
 
   it("rejects invalid legacy pricing inputs", () => {
