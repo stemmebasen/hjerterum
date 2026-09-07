@@ -15,6 +15,9 @@ export type LegacyRoomPricingResult = {
 
 const A_TIME_START_MINUTES = 18 * 60 + 30;
 
+/** Legacy server-side SoMe invoice item. The legacy UI displays a different value. */
+export const LEGACY_SOME_PACKAGE_FEE_KR = 390;
+
 /**
  * Exact reference implementation of the validated legacy server-side room fee.
  * This is a migration fixture, not a declaration of future Hjerterum pricing.
