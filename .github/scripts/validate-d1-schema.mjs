@@ -1,0 +1,127 @@
+import { rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const root = resolve(here, "../..");
+const app = resolve(root, "apps/web");
+const persist = resolve(root, ".d1-ci");
+const database = "hjerterum-ci";
+const config = "wrangler.d1-test.jsonc";
+
+rmSync(persist, { recursive: true, force: true });
+
+function runWrangler(args, { expectFailure = false, json = false } = {}) {
+  const result = spawnSync(
+    "pnpm",
+    ["exec", "wrangler", ...args, "--config", config],
+    { cwd: app, encoding: "utf8" }
+  );
+
+  if (expectFailure) {
+    if (result.status === 0) {
+      throw new Error(`Expected Wrangler command to fail: ${args.join(" ")}`);
+    }
+    return null;
+  }
+
+  if (result.status !== 0) {
+    process.stderr.write(result.stdout ?? "");
+    process.stderr.write(result.stderr ?? "");
+    throw new Error(`Wrangler command failed: ${args.join(" ")}`);
+  }
+
+  if (!json) return result.stdout;
+  return JSON.parse(result.stdout);
+}
+
+function execute(sql, options = {}) {
+  return runWrangler(
+    [
+      "d1",
+      "execute",
+      database,
+      "--local",
+      "--persist-to",
+      persist,
+      "--command",
+      sql,
+      ...(options.json === false ? [] : ["--json"])
+    ],
+    { expectFailure: options.expectFailure ?? false, json: options.json ?? true }
+  );
+}
+
+function firstRow(result) {
+  const commandResult = Array.isArray(result) ? result[0] : result;
+  const rows = commandResult?.results;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("Expected at least one D1 result row");
+  }
+  return rows[0];
+}
+
+function assertEqual(actual, expected, label) {
+  if (actual !== expected) {
+    throw new Error(`${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
+runWrangler([
+  "d1",
+  "migrations",
+  "apply",
+  database,
+  "--local",
+  "--persist-to",
+  persist
+]);
+
+const expectedTables = [
+  "teachers",
+  "bookings",
+  "members",
+  "room_bookings",
+  "room_booking_attendees",
+  "webhook_events",
+  "job_claims",
+  "financial_reconciliation"
+];
+const names = expectedTables.map((name) => `'${name}'`).join(",");
+
+const tableCount = Number(
+  firstRow(execute(`SELECT COUNT(*) AS n FROM pragma_table_list WHERE name IN (${names})`)).n
+);
+assertEqual(tableCount, expectedTables.length, "target table count");
+
+const strictCount = Number(
+  firstRow(execute(`SELECT COUNT(*) AS n FROM pragma_table_list WHERE name IN (${names}) AND strict = 1`)).n
+);
+assertEqual(strictCount, expectedTables.length, "STRICT table count");
+
+const fkViolations = Number(
+  firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
+);
+assertEqual(fkViolations, 0, "foreign key violations after migration");
+
+execute("INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, max_attendees, fee_minor, created_at_ms, updated_at_ms) VALUES (1, 'synthetic-user', 'Synthetic Teacher', 'synthetic@example.invalid', 'Synthetic Event', 1000, 2000, 2, 20000, 1000, 1000)");
+execute("INSERT INTO room_booking_attendees (id, room_booking_id, clerk_user_id, member_name, member_email, created_at_ms) VALUES (1, 1, 'synthetic-attendee', 'Synthetic Member', 'synthetic-member@example.invalid', 1000)");
+
+execute("INSERT INTO room_booking_attendees (id, room_booking_id, clerk_user_id, member_name, member_email, created_at_ms) VALUES (2, 1, 'synthetic-attendee', 'Synthetic Member 2', 'synthetic2@example.invalid', 1000)", { expectFailure: true });
+execute("INSERT INTO room_booking_attendees (id, room_booking_id, clerk_user_id, member_name, member_email, created_at_ms) VALUES (3, 999, 'orphan-user', 'Orphan', 'orphan@example.invalid', 1000)", { expectFailure: true });
+execute("INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, fee_minor, created_at_ms, updated_at_ms) VALUES (2, 'bad-time', 'Synthetic', 'synthetic@example.invalid', 'Invalid interval', 2000, 1000, 0, 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO room_bookings (id, clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, fee_minor, created_at_ms, updated_at_ms) VALUES (3, 'bad-money', 'Synthetic', 'synthetic@example.invalid', 'Invalid money', 3000, 4000, 1.5, 1000, 1000)", { expectFailure: true });
+
+execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1000)");
+execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1001)", { expectFailure: true });
+
+execute("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES ('teacher-charge', 1000, 1000)");
+execute("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES ('teacher-charge', 1000, 1001)", { expectFailure: true });
+
+const finalFkViolations = Number(
+  firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
+);
+assertEqual(finalFkViolations, 0, "foreign key violations after synthetic checks");
+
+process.stdout.write("D1 schema validation passed.\n");
