@@ -1,0 +1,27 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hjerterum-platform",
+  "compatibility_date": "2026-09-07",
+  "main": "./worker/index.ts",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "vars": {
+    "ENVIRONMENT": "local"
+  },
+  "env": {
+    "staging": {
+      "name": "hjerterum-platform-staging",
+      "vars": {
+        "ENVIRONMENT": "staging"
+      }
+    },
+    "production": {
+      "name": "hjerterum-platform-production",
+      "vars": {
+        "ENVIRONMENT": "production"
+      }
+    }
+  }
+}

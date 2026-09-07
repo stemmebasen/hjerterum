@@ -1,22 +1,29 @@
 {
-  "name": "@hjerterum/web",
+  "name": "@hjerterum/platform",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.worker.json --noEmit",
     "test": "vitest run --passWithNoTests",
-    "build": "vite build"
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy:staging": "vite build && wrangler deploy --env staging",
+    "deploy:production": "vite build && wrangler deploy --env production"
   },
   "dependencies": {
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.54.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^7.0.2",
-    "vite": "^8.2.2",
-    "vitest": "^4.1.10"
+    "@vitejs/plugin-react": "6.1.1",
+    "typescript": "7.0.2",
+    "vite": "8.2.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.129.0"
   }
 }
