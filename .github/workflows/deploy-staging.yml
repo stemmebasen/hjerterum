@@ -37,8 +37,8 @@ jobs:
         shell: bash
         run: |
           test -n "$STAGING_URL"
-          curl --fail --silent --show-error "$STAGING_URL/api/health" | tee /tmp/health.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/health" | tee /tmp/health.json
           grep -q '"status":"ok"' /tmp/health.json
           grep -q '"environment":"staging"' /tmp/health.json
-          curl --fail --silent --show-error "$STAGING_URL/" >/tmp/index.html
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
           grep -q '<div id="root"></div>' /tmp/index.html
