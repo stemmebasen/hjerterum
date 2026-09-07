@@ -1,5 +1,8 @@
 interface Env {
   ENVIRONMENT?: string;
+  ASSETS: {
+    fetch(request: Request): Promise<Response>;
+  };
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -24,6 +27,10 @@ export default {
       });
     }
 
-    return json({ error: "not_found" }, { status: 404 });
+    if (url.pathname.startsWith("/api/")) {
+      return json({ error: "not_found" }, { status: 404 });
+    }
+
+    return env.ASSETS.fetch(request);
   }
 };
