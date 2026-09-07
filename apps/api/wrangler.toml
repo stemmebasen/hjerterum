@@ -1,0 +1,14 @@
+name = "hjerterum-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-07"
+
+[vars]
+ENVIRONMENT = "local"
+
+[env.staging]
+name = "hjerterum-api-staging"
+vars = { ENVIRONMENT = "staging" }
+
+[env.production]
+name = "hjerterum-api-production"
+vars = { ENVIRONMENT = "production" }
