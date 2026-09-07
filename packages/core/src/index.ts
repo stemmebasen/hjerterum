@@ -62,3 +62,6 @@ export interface PaymentGateway {
 export interface CirclesEntitlementGateway {
   getEligibility(memberId: MemberId): Promise<{ eligible: boolean; reason?: string }>;
 }
+
+export { intervalsOverlap } from "./booking.js";
+export type { TimeInterval } from "./booking.js";
