@@ -1,0 +1,43 @@
+name: Runtime Preview Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/runtime-preview-smoke.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Deploy isolated temporary Cloudflare preview
+        id: deploy
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --dir apps/web exec wrangler deploy --temporary 2>&1 | node .github/scripts/redact-cloudflare-preview.mjs
+      - name: Smoke test live API and frontend
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.preview_url }}
+        shell: bash
+        run: |
+          test -n "$PREVIEW_URL"
+          curl --fail --silent --show-error "$PREVIEW_URL/api/health" | tee /tmp/health.json
+          grep -q '"status":"ok"' /tmp/health.json
+          curl --fail --silent --show-error "$PREVIEW_URL/" >/tmp/index.html
+          grep -q '<div id="root"></div>' /tmp/index.html
