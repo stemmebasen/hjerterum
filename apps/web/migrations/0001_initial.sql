@@ -2,8 +2,7 @@
 -- Legacy production data is imported separately after validation.
 -- All *_at_ms and *_date_ms values are Unix epoch milliseconds in UTC.
 -- All monetary *_minor values are DKK øre.
-
-PRAGMA foreign_keys = ON;
+-- D1 enforces foreign keys by default; do not disable them during import.
 
 CREATE TABLE teachers (
   id INTEGER PRIMARY KEY,
@@ -17,7 +16,7 @@ CREATE TABLE teachers (
   default_payment_method_id TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL
-);
+) STRICT;
 
 CREATE INDEX idx_teachers_card_status ON teachers(card_status);
 CREATE INDEX idx_teachers_stripe_customer_id ON teachers(stripe_customer_id);
@@ -45,7 +44,7 @@ CREATE TABLE bookings (
   updated_at_ms INTEGER NOT NULL,
   FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE RESTRICT,
   CHECK (start_date_ms IS NULL OR end_date_ms IS NULL OR end_date_ms > start_date_ms)
-);
+) STRICT;
 
 CREATE INDEX idx_bookings_teacher_id ON bookings(teacher_id);
 CREATE INDEX idx_bookings_start_date_ms ON bookings(start_date_ms);
@@ -70,7 +69,7 @@ CREATE TABLE members (
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   CHECK (is_teacher IN (0, 1))
-);
+) STRICT;
 
 CREATE INDEX idx_members_status ON members(status);
 CREATE INDEX idx_members_stripe_subscription_id ON members(stripe_subscription_id);
@@ -100,7 +99,7 @@ CREATE TABLE room_bookings (
   CHECK (fee_invoiced IN (0, 1)),
   CHECK (some_package IN (0, 1)),
   CHECK (fee_minor >= 0)
-);
+) STRICT;
 
 CREATE INDEX idx_room_bookings_owner ON room_bookings(clerk_user_id);
 CREATE INDEX idx_room_bookings_starts_at_ms ON room_bookings(starts_at_ms);
@@ -117,7 +116,7 @@ CREATE TABLE room_booking_attendees (
   created_at_ms INTEGER NOT NULL,
   FOREIGN KEY (room_booking_id) REFERENCES room_bookings(id) ON DELETE CASCADE,
   UNIQUE (room_booking_id, clerk_user_id)
-);
+) STRICT;
 
 CREATE INDEX idx_room_booking_attendees_user ON room_booking_attendees(clerk_user_id);
 CREATE INDEX idx_room_booking_attendees_booking ON room_booking_attendees(room_booking_id);
@@ -133,7 +132,7 @@ CREATE TABLE webhook_events (
   processed_at_ms INTEGER,
   last_error TEXT,
   UNIQUE (provider, event_id)
-);
+) STRICT;
 
 CREATE INDEX idx_webhook_events_status ON webhook_events(status);
 CREATE INDEX idx_webhook_events_first_seen ON webhook_events(first_seen_at_ms);
@@ -148,7 +147,7 @@ CREATE TABLE job_claims (
   completed_at_ms INTEGER,
   last_error TEXT,
   UNIQUE (job_key, scheduled_for_ms)
-);
+) STRICT;
 
 CREATE INDEX idx_job_claims_status ON job_claims(status);
 
@@ -163,6 +162,6 @@ CREATE TABLE financial_reconciliation (
   created_at_ms INTEGER NOT NULL,
   resolved_at_ms INTEGER,
   UNIQUE (source_type, source_id, reason)
-);
+) STRICT;
 
 CREATE INDEX idx_financial_reconciliation_status ON financial_reconciliation(status);
