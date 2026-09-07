@@ -38,22 +38,47 @@ Concrete providers are isolated behind adapters. Required adapter families inclu
 
 ## Data strategy
 
-Transactional data uses PostgreSQL with explicit, versioned migrations in the target platform.
+### Legacy source database
 
-This is a deliberate improvement over the legacy Drizzle `push` model, which had no reliable checked-in DDL migration journal.
+The current production source is PostgreSQL managed through `pg` + Drizzle. It must be exported read-only as actual DDL + data baseline before cutover because the legacy project used Drizzle `push` rather than a reliable versioned SQL migration history.
+
+### Initial target database
+
+Cloudflare D1 is the initial target database for Hjerterum.
+
+Reasons:
+- current Hjerterum data volume and write rate are small
+- it keeps the initial operational stack on Cloudflare and reduces fixed hosting cost
+- it provides a relational model, indexes, foreign keys and transaction-capable SQLite semantics suitable for the current workload
+- the application already isolates database access behind provider-neutral boundaries, so D1 is replaceable later without moving domain logic
+
+D1 is not allowed to become an accidental source of data loss. Target migrations must carry every active legacy field or have an explicit documented mapping/archive decision.
+
+The target schema deliberately improves several legacy weaknesses with:
+- versioned SQL migrations
+- strict tables
+- attendee uniqueness
+- stronger foreign keys/checks
+- webhook idempotency ledger
+- scheduled-job claim ledger
+- explicit financial reconciliation records
+- private historical Tribes archive tables
 
 Migration must reconcile:
-1. actual production DDL
+1. actual production PostgreSQL DDL
 2. active legacy source schema
 3. validated runtime behavior
-
-Provider SDK/database types must not leak into core domain contracts.
+4. D1 target migrations
 
 ### Time contract
 
 Legacy booking timestamps are PostgreSQL `timestamp without time zone`, while the validated Replit runtime behaves effectively as UTC for those values.
 
-The migration must define and test this explicitly for Europe/Copenhagen browser input, UTC conversion, summer/winter time and DST transition edges. No implicit provider timezone behavior is acceptable.
+The target stores booking/event instants as Unix epoch milliseconds in UTC. Import conversion must be deterministic and regression-tested for Europe/Copenhagen browser input, UTC conversion, summer/winter time and DST transition edges. No implicit provider timezone behavior is acceptable.
+
+### Money contract
+
+Target monetary integer fields use DKK minor units (øre). Import must convert legacy decimal/krone fields deterministically and reject fractional minor units.
 
 ## Identity and membership
 
@@ -124,9 +149,10 @@ A deploy may only proceed when:
 3. type checks pass
 4. relevant automated tests pass
 5. production build succeeds
-6. staging/runtime smoke checks pass
-7. changed flows are verified
-8. deployed production revision is traceable to the verified GitHub commit
+6. target database migrations/constraints validate
+7. staging/runtime smoke checks pass
+8. changed flows are verified
+9. deployed production revision is traceable to the verified GitHub commit
 
 Production deployment remains intentionally non-automatic during migration.
 
