@@ -1,0 +1,29 @@
+interface Env {
+  ENVIRONMENT?: string;
+}
+
+function json(data: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(data), {
+    ...init,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...(init.headers ?? {})
+    }
+  });
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/health") {
+      return json({
+        status: "ok",
+        service: "hjerterum-api",
+        environment: env.ENVIRONMENT ?? "unknown"
+      });
+    }
+
+    return json({ error: "not_found" }, { status: 404 });
+  }
+};
