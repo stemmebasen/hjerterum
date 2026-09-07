@@ -24,3 +24,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      - name: Validate D1 schema and constraints
+        run: node .github/scripts/validate-d1-schema.mjs
