@@ -65,3 +65,9 @@ export interface CirclesEntitlementGateway {
 
 export { intervalsOverlap } from "./booking.js";
 export type { TimeInterval } from "./booking.js";
+export {
+  canCreateEvent,
+  requiresEventApproval,
+  calculateAdminFeeMinor,
+  eventRefundsEnabled
+} from "./event-policy.js";
