@@ -26,13 +26,18 @@ Remaining repository hygiene:
 Goal: bring the sanitized legacy source into GitHub without importing Replit control-plane state or secrets.
 
 Source package expected from legacy workspace:
-- sanitized bootstrap export hash: `24b7eb4cce879a5b32fd91f9b531ee50c5d70c30b1a9a5b9689f57f6730dd002`
-- active source areas: API server, admin SPA, member/public SPA, DB source schema, API contracts and OpenAI integration helpers
+- archive name: `hjerterum-sanitized-bootstrap.zip`
+- verified SHA-256: `24b7eb4cce879a5b32fd91f9b531ee50c5d70c30b1a9a5b9689f57f6730dd002`
+- expected sanitized contents: active source, manifests, lockfile and source assets
+- explicitly excluded: secrets, DB dumps, node_modules, generated dist, `.replit`, private keys and Replit runtime/control-plane state
+
+A clean local migration repository/branch was reported in the legacy workspace as `migration/bootstrap`, but it has not been verified as remotely available. If Replit Git push remains blocked, the ZIP with the verified hash is the authoritative transfer fallback.
 
 Rules:
 - never import `.replit`, Replit runtime state, secrets, `node_modules`, generated `dist`, private keys or database dumps into Git history
 - preserve legacy source initially as reference/import material; do not let it replace the new target architecture wholesale
 - compare imported behavior against the validated snapshot before deleting any legacy path
+- verify the archive hash before extraction/import
 
 ## Phase 2 — production database extraction and migration contract
 
@@ -217,8 +222,8 @@ Rollback must restore routing and scheduler/webhook ownership consistently, not 
 
 ## Current blockers
 
-The legacy application is now accessible and the read-only migration snapshot is complete. Remaining external blockers are:
-- sanitized legacy source still needs to be transferred into GitHub for code-level comparison
+The legacy application is accessible and the read-only migration snapshot is complete. Remaining external blockers are:
+- sanitized legacy source still needs transfer into GitHub for code-level comparison; Replit read access returned `Forbidden` on the latest verification attempt, so the verified ZIP remains the fallback
 - actual production PostgreSQL DDL/data snapshot must be exported read-only
 - GitHub repository default branch still points to bootstrap instead of `main`
 - permanent Cloudflare staging requires encrypted Cloudflare account/token secrets
