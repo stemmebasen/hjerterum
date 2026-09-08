@@ -67,9 +67,9 @@ async function requireUser(request: Request, env: Env) {
 async function requireAdmin(request: Request, env: Env) {
   try {
     return await authenticateAdmin(request, {
-      issuer: env.CLERK_JWT_ISSUER,
-      clerkSecretKey: env.CLERK_SECRET_KEY,
-      allowedEmails: env.ALLOWED_EMAILS
+      ...(env.CLERK_JWT_ISSUER ? { issuer: env.CLERK_JWT_ISSUER } : {}),
+      ...(env.CLERK_SECRET_KEY ? { clerkSecretKey: env.CLERK_SECRET_KEY } : {}),
+      ...(env.ALLOWED_EMAILS ? { allowedEmails: env.ALLOWED_EMAILS } : {})
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "admin_auth_failed";
