@@ -43,6 +43,9 @@ Already moved:
 - public room-booking feed
 - authenticated room-booking create/list/edit/delete
 - attendee register/unregister + capacity/duplicate protection
+- MembershipWorks RSS external event feed through `/api/events/external`
+- merged MembershipWorks + D1 calendar presentation
+- MembershipWorks event conflict protection for room bookings
 - Clerk JWT verification through JWKS/Web Crypto
 - member checkout
 - current member lookup/profile update
@@ -118,7 +121,6 @@ High priority:
 - visual regression baselines for the key pages after design approval
 
 Medium priority:
-- MembershipWorks RSS event feed
 - DAWA autocomplete
 - Resend/SMTP mail flows
 - event moderation/review
@@ -128,6 +130,21 @@ Non-blocking legacy/reference:
 - PostgreSQL DDL/data export
 - Google Sheets sync
 - retired Tribes CRUD/application/invitation UI
+
+## MembershipWorks bridge
+
+Current source during transition:
+`https://api.membershipworks.com/v2/events?_op=rss&org=22308`
+
+The Cloudflare Worker:
+- fetches and parses the RSS feed
+- caches parsed events for about 5 minutes per warm Worker isolate
+- preserves title, start/end, location, image, link, host/author when present, description and category
+- merges external events with D1 room/events chronologically in the public calendar
+- still shows D1 events if MembershipWorks is temporarily unavailable
+- checks MembershipWorks time intervals when creating or editing a room booking
+
+The staging pipeline smoke-tests `/api/events/external` on every deploy. The first permanent live validation returned 50 parsed MembershipWorks events.
 
 ## Visual parity gate
 
@@ -173,7 +190,7 @@ The staging workflow automatically:
 - applies all D1 migrations
 - builds and deploys Worker + frontend
 - syncs configured application secrets
-- smoke-tests `/api/health`, `/api/readiness`, client config and frontend
+- smoke-tests `/api/health`, `/api/readiness`, `/api/events/external`, client config and frontend
 
 Clerk and Stripe application secrets can be added incrementally without reintroducing Replit.
 
@@ -187,8 +204,9 @@ Acceptance:
 7. Worker deploys
 8. `/api/health` passes
 9. `/api/readiness` reports database ready
-10. booking/member flows are exercised against staging services
-11. visual/content parity is reviewed against approved Hjerterum references
+10. MembershipWorks external events endpoint returns a valid event array
+11. booking/member flows are exercised against staging services
+12. visual/content parity is reviewed against approved Hjerterum references
 
 ## Cutover principle
 
