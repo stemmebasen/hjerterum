@@ -20,23 +20,27 @@ export type MemberInvoice = {
   invoicePdf: string | null;
 };
 
-function optionalText(value: unknown, field: string, allowNull = false): string | null | undefined {
+function optionalRequiredText(value: unknown, field: string): string | undefined {
   if (value === undefined) return undefined;
-  if (value === null && allowNull) return null;
+  if (typeof value !== "string" || !value.trim()) throw new Error(`invalid_${field}`);
+  return value.trim();
+}
+
+function optionalNullableText(value: unknown, field: string): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
   if (typeof value !== "string") throw new Error(`invalid_${field}`);
-  const trimmed = value.trim();
-  if (!trimmed) return allowNull ? null : (() => { throw new Error(`invalid_${field}`); })();
-  return trimmed;
+  return value.trim() || null;
 }
 
 export function parseMemberProfileUpdate(value: unknown): MemberProfileUpdate {
   if (!value || typeof value !== "object") throw new Error("invalid_body");
   const body = value as Record<string, unknown>;
 
-  const fullName = optionalText(body.fullName, "full_name");
-  const email = optionalText(body.email, "email");
-  const phone = optionalText(body.phone, "phone", true);
-  const streetAddress = optionalText(body.streetAddress, "street_address", true);
+  const fullName = optionalRequiredText(body.fullName, "full_name");
+  const email = optionalRequiredText(body.email, "email");
+  const phone = optionalNullableText(body.phone, "phone");
+  const streetAddress = optionalNullableText(body.streetAddress, "street_address");
 
   if (fullName === undefined && email === undefined && phone === undefined && streetAddress === undefined) {
     throw new Error("invalid_empty_update");
@@ -91,7 +95,6 @@ export async function updateMemberProfile(
       );
       stripeSynced = true;
     } catch {
-      // Legacy behavior is best-effort Stripe profile synchronization.
       stripeSynced = false;
     }
   }
