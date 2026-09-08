@@ -2,11 +2,13 @@
 
 ## Primary objective
 
-Make Hjerterum independent of Replit as quickly as possible.
+Make Hjerterum independent of Replit as quickly as possible without losing the product identity that already works.
 
-GitHub `main` is the development/release source of truth. Cloudflare becomes the web/API/scheduled-runtime backbone. D1 is the initial target database behind an adapter. Replit is now only an optional legacy reference, never a required development or deployment dependency.
+GitHub `main` is the development/release source of truth. Cloudflare is the web/API/scheduled-runtime backbone. D1 is the initial target database behind an adapter. Replit is only an optional legacy reference, never a required development or deployment dependency.
 
 Hjerterum is still in development, so preserving the current development database byte-for-byte is not a release gate. Preserve known behavioral rules and useful data contracts, but do not delay Replit exit for archival perfection.
+
+Visual identity is a separate acceptance dimension. A technical migration must not become an accidental redesign. See `docs/DESIGN_SYSTEM.md`.
 
 ## Completed foundation
 
@@ -16,12 +18,14 @@ Hjerterum is still in development, so preserving the current development databas
 - provider-neutral core package
 - D1 baseline + legacy-parity migrations
 - CI with frozen install, typecheck, tests, build and D1 schema validation
-- temporary Cloudflare runtime deploy + live smoke test
+- permanent Cloudflare staging deployment
+- live Cloudflare staging smoke test
 - validated legacy read-only snapshot
 - exact legacy room-pricing fixture
 - booking overlap rule
 - event/admin-fee policy tests
-- Cloudflare account ID and API token supplied as GitHub Actions secrets on 2026-09-08
+- Cloudflare account ID and API token supplied as GitHub Actions secrets
+- Hjerterum visual design contract in `docs/DESIGN_SYSTEM.md`
 
 Repository hygiene still needed:
 - set GitHub default branch to `main`
@@ -64,7 +68,7 @@ Rules:
 - keep provider access behind adapters
 - preserve historical Tribes tables privately, but do not rebuild Tribes as a product
 
-Legacy PostgreSQL DDL/data export is now optional reference/rollback material, not an exit gate.
+Legacy PostgreSQL DDL/data export is optional reference/rollback material, not an exit gate.
 
 ### 3. Identity
 
@@ -105,10 +109,13 @@ Only one runtime may own a payment scheduler at a time.
 
 ## Functional work still to move
 
-High priority after permanent staging is online:
+High priority:
 - admin members/bookings UI polish
 - full end-to-end Clerk member flow against staging
 - full end-to-end Stripe test flow against staging
+- complete public/member content parity with the current Hjerterum experience
+- approved reference screenshots for desktop/tablet/mobile
+- visual regression baselines for the key pages after design approval
 
 Medium priority:
 - MembershipWorks RSS event feed
@@ -122,6 +129,30 @@ Non-blocking legacy/reference:
 - Google Sheets sync
 - retired Tribes CRUD/application/invitation UI
 
+## Visual parity gate
+
+Architecture can change aggressively. Visual identity must not drift by accident.
+
+Until an explicit redesign is approved, the existing Hjerterum/member-portal experience is the visual reference. The shared rules are defined in `docs/DESIGN_SYSTEM.md`.
+
+For each important page or flow:
+1. capture approved desktop and mobile reference screenshots
+2. reproduce the same overall visual language, hierarchy, density and tone using shared design tokens/components
+3. compare old/reference and new side-by-side
+4. obtain visual approval separately from functional approval
+5. save approved screenshots as regression baselines
+6. use automated screenshot regression tests for the most important breakpoints when practical
+
+A page is not considered migrated simply because its API calls work.
+
+Visual acceptance must cover at minimum:
+- public home
+- member portal/dashboard
+- calendar
+- profile/contact
+- login/sign-up
+- event/room booking flow
+
 ## Legacy room pricing authority
 
 Until explicitly redesigned, backend pricing remains:
@@ -133,14 +164,18 @@ The old frontend price table did not match backend billing. Do not silently use 
 
 ## Permanent staging gate
 
-Cloudflare account ID and API token are now present as GitHub encrypted secrets. The staging workflow automatically:
+Permanent Cloudflare staging is online at:
+`https://hjerterum-platform-staging.speak-e18.workers.dev`
+
+The staging workflow automatically:
 - creates or reuses `hjerterum-staging` D1 in WEUR
 - binds it as `DB`
 - applies all D1 migrations
 - builds and deploys Worker + frontend
-- smoke-tests `/api/health`, `/api/readiness` and the frontend
+- syncs configured application secrets
+- smoke-tests `/api/health`, `/api/readiness`, client config and frontend
 
-Clerk and Stripe application secrets are optional for the first Replit-independent staging cut. When present, the workflow syncs them to Cloudflare without committing them to Git.
+Clerk and Stripe application secrets can be added incrementally without reintroducing Replit.
 
 Acceptance:
 1. `main` revision identified
@@ -152,11 +187,12 @@ Acceptance:
 7. Worker deploys
 8. `/api/health` passes
 9. `/api/readiness` reports database ready
-10. booking/member flows are then exercised against staging services
+10. booking/member flows are exercised against staging services
+11. visual/content parity is reviewed against approved Hjerterum references
 
 ## Cutover principle
 
-Because the product is still in development, cut over once the new Cloudflare version can support the active development flows reliably. Do not wait for perfect migration of obsolete Replit-era scaffolding.
+Because the product is still in development, cut over once the new Cloudflare version can support the active development flows reliably and the important public/member experiences have acceptable visual/content parity. Do not wait for perfect migration of obsolete Replit-era scaffolding.
 
 After cutover:
 - Replit must not own code, database, webhooks, schedulers or production routing
@@ -165,9 +201,7 @@ After cutover:
 
 ## Current external blockers
 
-Permanent Cloudflare staging is now being provisioned from GitHub after the required account credentials were supplied.
-
-The only remaining repository-hygiene task that cannot be changed through the connected GitHub tool is:
+Permanent Cloudflare staging is online. The only remaining repository-hygiene task that cannot be changed through the connected GitHub tool is:
 - GitHub default branch metadata still needs to be changed from `migration/bootstrap-init` to `main`
 
 Legacy source transfer and PostgreSQL export are explicitly non-blocking.
