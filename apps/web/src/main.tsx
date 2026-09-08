@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { apiFetch, loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import "./styles.css";
 
+const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
+
 type PublicBooking = {
   id: number;
   teacherName: string;
@@ -118,10 +120,22 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
   return <div className="user-button" ref={ref} />;
 }
 
+function Brand({ className = "" }: { className?: string }) {
+  return (
+    <a className={`brand ${className}`.trim()} href="/" aria-label="Hjerterum forside">
+      <img
+        src={HJERTERUM_LOGO_URL}
+        alt="Hjerterum"
+        style={{ display: "block", height: "48px", width: "auto", maxWidth: "190px", objectFit: "contain" }}
+      />
+    </a>
+  );
+}
+
 function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?: ClerkBrowser; user?: ClerkUser }) {
   return (
     <header className="site-header">
-      <a className="brand" href="/">HJERTERUM</a>
+      <Brand />
       {member ? (
         <nav className="site-nav member-nav" aria-label="Medlemsnavigation">
           <a href="/member-portal/dashboard">Medlemskab</a>
@@ -158,7 +172,7 @@ function AuthPage({ clerk, mode }: { clerk: ClerkBrowser | null; mode: "sign-in"
 
   return (
     <main className="auth-shell">
-      <a className="brand auth-brand" href="/">HJERTERUM</a>
+      <Brand className="auth-brand" />
       <div className="auth-card">
         {!clerk ? (
           <div className="auth-unavailable">
