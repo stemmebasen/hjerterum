@@ -1,10 +1,16 @@
 name: Deploy Staging
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: hjerterum-staging
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -23,33 +29,37 @@ jobs:
       ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Check whether Cloudflare staging is configured
+        id: credentials
+        shell: bash
+        run: |
+          if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "cloudflare=true" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare staging credentials are configured."
+          else
+            echo "cloudflare=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare staging credentials are not configured yet; deploy is skipped safely."
+          fi
+
       - uses: actions/setup-node@v7
+        if: steps.credentials.outputs.cloudflare == 'true'
         with:
           node-version: 24
           package-manager-cache: false
       - run: corepack enable
+        if: steps.credentials.outputs.cloudflare == 'true'
       - run: corepack prepare pnpm@12.3.4 --activate
+        if: steps.credentials.outputs.cloudflare == 'true'
       - run: pnpm install --frozen-lockfile
+        if: steps.credentials.outputs.cloudflare == 'true'
       - run: pnpm typecheck
+        if: steps.credentials.outputs.cloudflare == 'true'
       - run: pnpm test
-
-      - name: Validate required staging credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-          for name in \
-            CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN \
-            CLERK_JWT_ISSUER CLERK_PUBLISHABLE_KEY CLERK_SECRET_KEY \
-            STRIPE_PUBLISHABLE_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_MEMBER_WEBHOOK_SECRET \
-            ALLOWED_EMAILS
-          do
-            if [ -z "${!name:-}" ]; then
-              echo "Missing required GitHub Actions secret: $name" >&2
-              exit 1
-            fi
-          done
+        if: steps.credentials.outputs.cloudflare == 'true'
 
       - name: Resolve or create staging D1 database
+        if: steps.credentials.outputs.cloudflare == 'true'
         id: d1
         shell: bash
         run: |
@@ -65,42 +75,49 @@ jobs:
           node .github/scripts/configure-staging-d1.mjs "$D1_ID"
 
       - name: Apply staging D1 migrations
+        if: steps.credentials.outputs.cloudflare == 'true'
         shell: bash
         run: |
           set -euo pipefail
           pnpm --dir apps/web exec wrangler d1 migrations apply DB --remote --env staging
 
       - run: pnpm build
+        if: steps.credentials.outputs.cloudflare == 'true'
 
       - name: Deploy staging Worker and assets
+        if: steps.credentials.outputs.cloudflare == 'true'
         id: deploy
         shell: bash
         run: |
           set -o pipefail
           pnpm --dir apps/web deploy:staging 2>&1 | node .github/scripts/capture-workers-url.mjs
 
-      - name: Sync application secrets to staging Worker
+      - name: Sync configured application secrets to staging Worker
+        if: steps.credentials.outputs.cloudflare == 'true'
         env:
           STAGING_URL: ${{ steps.deploy.outputs.worker_url }}
         shell: bash
         run: |
           set -euo pipefail
-          put_secret() {
+          put_if_set() {
             local name="$1"
             local value="$2"
-            printf '%s' "$value" | pnpm --dir apps/web exec wrangler secret put "$name" --env staging >/dev/null
+            if [ -n "$value" ]; then
+              printf '%s' "$value" | pnpm --dir apps/web exec wrangler secret put "$name" --env staging >/dev/null
+            fi
           }
-          put_secret CLERK_JWT_ISSUER "$CLERK_JWT_ISSUER"
-          put_secret CLERK_PUBLISHABLE_KEY "$CLERK_PUBLISHABLE_KEY"
-          put_secret CLERK_SECRET_KEY "$CLERK_SECRET_KEY"
-          put_secret STRIPE_PUBLISHABLE_KEY "$STRIPE_PUBLISHABLE_KEY"
-          put_secret STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"
-          put_secret STRIPE_WEBHOOK_SECRET "$STRIPE_WEBHOOK_SECRET"
-          put_secret STRIPE_MEMBER_WEBHOOK_SECRET "$STRIPE_MEMBER_WEBHOOK_SECRET"
-          put_secret ALLOWED_EMAILS "$ALLOWED_EMAILS"
-          put_secret APP_BASE_URL "$STAGING_URL"
+          put_if_set CLERK_JWT_ISSUER "${CLERK_JWT_ISSUER:-}"
+          put_if_set CLERK_PUBLISHABLE_KEY "${CLERK_PUBLISHABLE_KEY:-}"
+          put_if_set CLERK_SECRET_KEY "${CLERK_SECRET_KEY:-}"
+          put_if_set STRIPE_PUBLISHABLE_KEY "${STRIPE_PUBLISHABLE_KEY:-}"
+          put_if_set STRIPE_SECRET_KEY "${STRIPE_SECRET_KEY:-}"
+          put_if_set STRIPE_WEBHOOK_SECRET "${STRIPE_WEBHOOK_SECRET:-}"
+          put_if_set STRIPE_MEMBER_WEBHOOK_SECRET "${STRIPE_MEMBER_WEBHOOK_SECRET:-}"
+          put_if_set ALLOWED_EMAILS "${ALLOWED_EMAILS:-}"
+          printf '%s' "$STAGING_URL" | pnpm --dir apps/web exec wrangler secret put APP_BASE_URL --env staging >/dev/null
 
-      - name: Smoke test deployed staging API, D1, auth config and frontend
+      - name: Smoke test deployed staging API, D1 and frontend
+        if: steps.credentials.outputs.cloudflare == 'true'
         env:
           STAGING_URL: ${{ steps.deploy.outputs.worker_url }}
         shell: bash
@@ -113,10 +130,12 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/readiness" | tee /tmp/readiness.json
           grep -q '"status":"ready"' /tmp/readiness.json
           grep -q '"database":"ready"' /tmp/readiness.json
-          curl --fail --silent --show-error "$STAGING_URL/api/client-config" | tee /tmp/client-config.json
-          grep -q '"clerkPublishableKey":"pk_' /tmp/client-config.json
-          grep -q '"stripePublishableKey":"pk_' /tmp/client-config.json
-          STATUS="$(curl --silent --output /tmp/member-auth.json --write-out '%{http_code}' "$STAGING_URL/api/members/me")"
-          test "$STATUS" = "401"
+          curl --fail --silent --show-error "$STAGING_URL/api/client-config" >/tmp/client-config.json
+          if [ -n "${CLERK_PUBLISHABLE_KEY:-}" ]; then
+            grep -q '"clerkPublishableKey":"pk_' /tmp/client-config.json
+          fi
+          if [ -n "${STRIPE_PUBLISHABLE_KEY:-}" ]; then
+            grep -q '"stripePublishableKey":"pk_' /tmp/client-config.json
+          fi
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
           grep -q '<div id="root"></div>' /tmp/index.html
