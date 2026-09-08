@@ -77,7 +77,13 @@ export async function authenticateBearer(
   const parts = token.split(".");
   if (parts.length !== 3) throw new Error("auth_invalid_token");
 
-  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  const encodedHeader = parts[0];
+  const encodedPayload = parts[1];
+  const encodedSignature = parts[2];
+  if (!encodedHeader || !encodedPayload || !encodedSignature) {
+    throw new Error("auth_invalid_token");
+  }
+
   const header = decodeJsonPart<JwtHeader>(encodedHeader);
   const payload = decodeJsonPart<JwtPayload>(encodedPayload);
 
@@ -90,15 +96,17 @@ export async function authenticateBearer(
 
   const key = await getVerificationKey(issuer, header.kid);
   const signedData = new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`);
-  const signature = decodeBase64Url(encodedSignature);
+  const signature = Uint8Array.from(decodeBase64Url(encodedSignature));
   const valid = await crypto.subtle.verify(
     { name: "RSASSA-PKCS1-v1_5" },
     key,
-    signature,
+    signature.buffer,
     signedData
   );
 
   if (!valid) throw new Error("auth_invalid_signature");
 
-  return { userId: payload.sub, sessionId: payload.sid };
+  return payload.sid
+    ? { userId: payload.sub, sessionId: payload.sid }
+    : { userId: payload.sub };
 }
