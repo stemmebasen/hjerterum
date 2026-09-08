@@ -1,5 +1,6 @@
 import { calculateLegacyRoomFee } from "../../../packages/core/src/legacy-room-pricing.js";
 import type { D1Database } from "./db.js";
+import { hasExternalEventConflict } from "./external-events.js";
 
 export type CreateRoomBookingInput = {
   teacherName: string;
@@ -170,7 +171,9 @@ export async function createRoomBooking(
     )
     .bind(endMs, startMs)
     .first<{ id: number }>();
-  if (conflict) throw new Error("booking_conflict");
+  if (conflict || await hasExternalEventConflict(startMs, endMs)) {
+    throw new Error("booking_conflict");
+  }
 
   const feeKr = calculateFee(startMs, endMs);
   const now = Date.now();
@@ -238,7 +241,9 @@ export async function updateOwnedRoomBooking(
     )
     .bind(bookingId, endMs, startMs)
     .first<{ id: number }>();
-  if (conflict) throw new Error("booking_conflict");
+  if (conflict || await hasExternalEventConflict(startMs, endMs)) {
+    throw new Error("booking_conflict");
+  }
 
   const feeKr = calculateFee(startMs, endMs);
   const result = await db
