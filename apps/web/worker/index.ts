@@ -14,8 +14,16 @@ import {
   processMemberStripeEvent
 } from "./members.js";
 import {
+  attendRoomBooking,
   createRoomBooking,
-  normalizeCreateRoomBookingInput
+  deleteOwnedRoomBooking,
+  listBookingAttendees,
+  listOwnedRoomBookings,
+  normalizeAttendeeInput,
+  normalizeCreateRoomBookingInput,
+  unattendRoomBooking,
+  updateOwnedRoomBooking,
+  type RoomBookingRow
 } from "./room-bookings.js";
 import { verifyStripeWebhook } from "./stripe.js";
 
@@ -59,6 +67,28 @@ async function requireUser(request: Request, env: Env): Promise<AuthenticatedUse
 
 function isResponse(value: AuthenticatedUser | Response): value is Response {
   return value instanceof Response;
+}
+
+function parseRouteId(pathname: string, pattern: RegExp): number | null {
+  const match = pathname.match(pattern);
+  if (!match?.[1]) return null;
+  const id = Number(match[1]);
+  return Number.isInteger(id) && id > 0 ? id : null;
+}
+
+function roomBookingView(row: RoomBookingRow) {
+  return {
+    id: row.id,
+    ownerClerkUserId: row.clerk_user_id,
+    teacherName: row.teacher_name,
+    teacherEmail: row.teacher_email,
+    title: row.title,
+    description: row.description,
+    startsAt: new Date(row.starts_at_ms).toISOString(),
+    endsAt: new Date(row.ends_at_ms).toISOString(),
+    maxAttendees: row.max_attendees,
+    feeKr: row.fee_minor / 100
+  };
 }
 
 async function readiness(env: Env): Promise<Response> {
@@ -118,6 +148,19 @@ async function publicRoomBookings(env: Env): Promise<Response> {
   }
 }
 
+async function ownedRoomBookings(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  try {
+    const rows = await listOwnedRoomBookings(env.DB, user.userId);
+    return json(rows.map(roomBookingView));
+  } catch {
+    return json({ error: "database_query_failed" }, { status: 503 });
+  }
+}
+
 async function postRoomBooking(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
@@ -139,6 +182,131 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
     if (code === "booking_conflict") return json({ error: code }, { status: 409 });
     if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
     return json({ error: code }, { status: 503 });
+  }
+}
+
+async function putRoomBooking(
+  request: Request,
+  env: Env,
+  bookingId: number
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  try {
+    const result = await updateOwnedRoomBooking(
+      env.DB,
+      user.userId,
+      bookingId,
+      normalizeCreateRoomBookingInput(body)
+    );
+    return json({ status: "updated", ...result });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "booking_update_failed";
+    if (code === "booking_not_found") return json({ error: code }, { status: 404 });
+    if (code === "booking_conflict") return json({ error: code }, { status: 409 });
+    if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
+    return json({ error: code }, { status: 503 });
+  }
+}
+
+async function deleteRoomBooking(
+  request: Request,
+  env: Env,
+  bookingId: number
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  try {
+    await deleteOwnedRoomBooking(env.DB, user.userId, bookingId);
+    return json({ status: "deleted" });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "booking_delete_failed";
+    return json({ error: code }, { status: code === "booking_not_found" ? 404 : 503 });
+  }
+}
+
+async function bookingAttendees(
+  request: Request,
+  env: Env,
+  bookingId: number
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  try {
+    const attendees = await listBookingAttendees(env.DB, user.userId, bookingId);
+    return json(
+      attendees.map((attendee) => ({
+        id: attendee.id,
+        clerkUserId: attendee.clerk_user_id,
+        memberName: attendee.member_name,
+        memberEmail: attendee.member_email,
+        createdAt: new Date(attendee.created_at_ms).toISOString()
+      }))
+    );
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "attendee_list_failed";
+    return json({ error: code }, { status: code === "booking_not_found" ? 404 : 503 });
+  }
+}
+
+async function attendBooking(
+  request: Request,
+  env: Env,
+  bookingId: number
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  try {
+    await attendRoomBooking(env.DB, user.userId, bookingId, normalizeAttendeeInput(body));
+    return json({ status: "attending" }, { status: 201 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "attendance_failed";
+    if (code === "booking_not_found") return json({ error: code }, { status: 404 });
+    if (code === "already_attending" || code === "booking_full") {
+      return json({ error: code }, { status: 409 });
+    }
+    if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
+    return json({ error: code }, { status: 503 });
+  }
+}
+
+async function unattendBooking(
+  request: Request,
+  env: Env,
+  bookingId: number
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+
+  try {
+    await unattendRoomBooking(env.DB, user.userId, bookingId);
+    return json({ status: "not_attending" });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "unattend_failed";
+    return json({ error: code }, { status: code === "attendance_not_found" ? 404 : 503 });
   }
 }
 
@@ -248,16 +416,38 @@ export default {
         environment: env.ENVIRONMENT ?? "unknown"
       });
     }
-
     if (request.method === "GET" && url.pathname === "/api/readiness") {
       return readiness(env);
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
     }
+    if (request.method === "GET" && url.pathname === "/api/room-bookings") {
+      return ownedRoomBookings(request, env);
+    }
     if (request.method === "POST" && url.pathname === "/api/room-bookings") {
       return postRoomBooking(request, env);
     }
+
+    const attendeeListId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/attendees$/);
+    if (request.method === "GET" && attendeeListId !== null) {
+      return bookingAttendees(request, env, attendeeListId);
+    }
+    const attendanceId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/attend$/);
+    if (request.method === "POST" && attendanceId !== null) {
+      return attendBooking(request, env, attendanceId);
+    }
+    if (request.method === "DELETE" && attendanceId !== null) {
+      return unattendBooking(request, env, attendanceId);
+    }
+    const bookingId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)$/);
+    if (request.method === "PUT" && bookingId !== null) {
+      return putRoomBooking(request, env, bookingId);
+    }
+    if (request.method === "DELETE" && bookingId !== null) {
+      return deleteRoomBooking(request, env, bookingId);
+    }
+
     if (request.method === "POST" && url.pathname === "/api/members/checkout") {
       return memberCheckout(request, env);
     }
