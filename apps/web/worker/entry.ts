@@ -26,6 +26,7 @@ interface Env {
   APP_BASE_URL?: string;
   ALLOWED_EMAILS?: string;
   CLERK_JWT_ISSUER?: string;
+  CLERK_PUBLISHABLE_KEY?: string;
   CLERK_SECRET_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
@@ -152,11 +153,7 @@ async function teachersListOrCreate(request: Request, env: Env): Promise<Respons
   }
 }
 
-async function teacherDetail(
-  request: Request,
-  env: Env,
-  teacherId: number
-): Promise<Response> {
+async function teacherDetail(request: Request, env: Env, teacherId: number): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const admin = await requireAdmin(request, env);
   if (admin instanceof Response) return admin;
@@ -176,11 +173,7 @@ async function teacherDetail(
   }
 }
 
-async function teacherSetupLink(
-  request: Request,
-  env: Env,
-  teacherId: number
-): Promise<Response> {
+async function teacherSetupLink(request: Request, env: Env, teacherId: number): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   if (!env.APP_BASE_URL) return json({ error: "app_base_url_not_configured" }, { status: 503 });
   const admin = await requireAdmin(request, env);
@@ -198,12 +191,7 @@ async function teacherSetupView(env: Env, token: string): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const teacher = await getTeacherBySetupToken(env.DB, token);
   if (!teacher) return json({ error: "setup_token_not_found" }, { status: 404 });
-  return json({
-    id: teacher.id,
-    name: teacher.name,
-    email: teacher.email,
-    cardStatus: teacher.card_status
-  });
+  return json({ id: teacher.id, name: teacher.name, email: teacher.email, cardStatus: teacher.card_status });
 }
 
 async function teacherSetupConfirm(env: Env, token: string): Promise<Response> {
@@ -219,16 +207,10 @@ async function teacherSetupConfirm(env: Env, token: string): Promise<Response> {
 
 async function teacherStripeWebhook(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
-  if (!env.STRIPE_WEBHOOK_SECRET) {
-    return json({ error: "teacher_webhook_not_configured" }, { status: 503 });
-  }
+  if (!env.STRIPE_WEBHOOK_SECRET) return json({ error: "teacher_webhook_not_configured" }, { status: 503 });
   const rawBody = await request.text();
   try {
-    const event = await verifyStripeWebhook(
-      rawBody,
-      request.headers.get("stripe-signature"),
-      env.STRIPE_WEBHOOK_SECRET
-    );
+    const event = await verifyStripeWebhook(rawBody, request.headers.get("stripe-signature"), env.STRIPE_WEBHOOK_SECRET);
     const result = await processTeacherStripeEvent(env.DB, event);
     return json({ received: true, duplicate: result.duplicate });
   } catch (error) {
@@ -241,19 +223,19 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method === "PUT" && url.pathname === "/api/members/me") {
-      return putMemberMe(request, env);
+    if (request.method === "GET" && url.pathname === "/api/client-config") {
+      return json({
+        clerkPublishableKey: env.CLERK_PUBLISHABLE_KEY ?? null
+      }, { headers: { "cache-control": "public, max-age=300" } });
     }
-    if (request.method === "GET" && url.pathname === "/api/members/me/payments") {
-      return memberInvoices(request, env);
-    }
+
+    if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
+    if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);
 
     const legacyPayments = url.pathname.match(/^\/api\/members\/(\d+)\/payments$/);
     if (request.method === "GET" && legacyPayments?.[1]) {
       const memberId = Number(legacyPayments[1]);
-      if (!Number.isInteger(memberId) || memberId <= 0) {
-        return json({ error: "invalid_member_id" }, { status: 400 });
-      }
+      if (!Number.isInteger(memberId) || memberId <= 0) return json({ error: "invalid_member_id" }, { status: 400 });
       return memberInvoices(request, env, memberId);
     }
 
@@ -270,16 +252,10 @@ export default {
     }
 
     const setupConfirmMatch = url.pathname.match(/^\/api\/setup\/([^/]+)\/confirm$/);
-    if (request.method === "POST" && setupConfirmMatch?.[1]) {
-      return teacherSetupConfirm(env, setupConfirmMatch[1]);
-    }
+    if (request.method === "POST" && setupConfirmMatch?.[1]) return teacherSetupConfirm(env, setupConfirmMatch[1]);
     const setupMatch = url.pathname.match(/^\/api\/setup\/([^/]+)$/);
-    if (request.method === "GET" && setupMatch?.[1]) {
-      return teacherSetupView(env, setupMatch[1]);
-    }
-    if (request.method === "POST" && url.pathname === "/api/stripe/webhook") {
-      return teacherStripeWebhook(request, env);
-    }
+    if (request.method === "GET" && setupMatch?.[1]) return teacherSetupView(env, setupMatch[1]);
+    if (request.method === "POST" && url.pathname === "/api/stripe/webhook") return teacherStripeWebhook(request, env);
 
     return base.fetch(request, env);
   },
