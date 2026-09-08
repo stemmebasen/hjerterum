@@ -1,229 +1,168 @@
 # Hjerterum migration plan
 
-## Migration principle
+## Primary objective
 
-GitHub `main` is the release source of truth. Replit is now only a legacy source/runtime reference during migration. Cloudflare becomes the web/API/edge backbone, while stateful services remain replaceable behind adapters.
+Make Hjerterum independent of Replit as quickly as possible.
 
-The goal is behavioral and data continuity, not a 1:1 copy of Replit infrastructure.
+GitHub `main` is the development/release source of truth. Cloudflare becomes the web/API/scheduled-runtime backbone. D1 is the initial target database behind an adapter. Replit is now only an optional legacy reference, never a required development or deployment dependency.
 
-## Phase 0 — source of truth and validated baseline
+Hjerterum is still in development, so preserving the current development database byte-for-byte is not a release gate. Preserve known behavioral rules and useful data contracts, but do not delay Replit exit for archival perfection.
 
-Status: substantially complete.
+## Completed foundation
 
-Completed:
-- real `main` platform foundation
-- CI with frozen dependency graph, typecheck, tests and production build
-- private repository before legacy import
-- provider-neutral core/adapters
-- validated read-only legacy snapshot captured in `docs/LEGACY_SNAPSHOT_2026-09-07.md`
+- private GitHub repository
+- real platform on `main`
+- React/Vite + Cloudflare Worker deployment model
+- provider-neutral core package
+- D1 baseline + legacy-parity migrations
+- CI with frozen install, typecheck, tests, build and D1 schema validation
+- temporary Cloudflare runtime deploy + live smoke test
+- validated legacy read-only snapshot
+- exact legacy room-pricing fixture
+- booking overlap rule
+- event/admin-fee policy tests
 
-Remaining repository hygiene:
-- change GitHub default branch from `migration/bootstrap-init` to `main`
+Repository hygiene still needed:
+- set GitHub default branch to `main`
 - retire bootstrap initializer branch after verification
 
-## Phase 1 — import legacy source safely
+## Replit-exit workstream
 
-Goal: bring the sanitized legacy source into GitHub without importing Replit control-plane state or secrets.
+### 1. Runtime/API
 
-Source package expected from legacy workspace:
-- archive name: `hjerterum-sanitized-bootstrap.zip`
-- verified SHA-256: `24b7eb4cce879a5b32fd91f9b531ee50c5d70c30b1a9a5b9689f57f6730dd002`
-- expected sanitized contents: active source, manifests, lockfile and source assets
-- explicitly excluded: secrets, DB dumps, node_modules, generated dist, `.replit`, private keys and Replit runtime/control-plane state
+Move active backend behavior directly into Cloudflare Worker.
 
-A clean local migration repository/branch was reported in the legacy workspace as `migration/bootstrap`, but it has not been verified as remotely available. If Replit Git push remains blocked, the ZIP with the verified hash is the authoritative transfer fallback.
+Already moved or in progress:
+- `/api/health`
+- `/api/readiness`
+- public room-booking feed
+- authenticated room-booking creation
+- Clerk JWT verification through JWKS/Web Crypto
+- member checkout
+- current member lookup
+- membership cancellation request
+- Stripe Billing Portal session
+- Stripe member webhook verification + idempotency ledger
+- teacher auto-charge scheduler on Cloudflare Cron
 
-Rules:
-- never import `.replit`, Replit runtime state, secrets, `node_modules`, generated `dist`, private keys or database dumps into Git history
-- preserve legacy source initially as reference/import material; do not let it replace the new target architecture wholesale
-- compare imported behavior against the validated snapshot before deleting any legacy path
-- verify the archive hash before extraction/import
+Do not reintroduce an Express/Node server merely to reproduce Replit architecture.
 
-## Phase 2 — production database extraction and migration contract
+### 2. Database
 
-This phase is a hard prerequisite before production data migration.
-
-Required read-only exports:
-- actual production schema/DDL
-- table/index/constraint/FK inventory
-- row counts
-- selected integrity checks
-- data-only backup/snapshot stored outside Git
-
-Reconcile three sources of truth:
-1. actual production DDL
-2. active source schema in `lib/db/src/schema`
-3. validated runtime behavior
-
-Do **not** trust stale generated DB artifacts.
-
-Active data sets to preserve:
-- members
-- teachers
-- bookings
-- room_bookings
-- room_booking_attendees
-- tribes
-- tribe_members
-- tribe_applicants
-- tribe_email_logs
-
-Known deviation to carry into reconciliation:
-- 2 room bookings previously observed with a fee but without local Stripe invoice-item reference
-
-No automatic repair during migration.
-
-## Phase 3 — identity, Stripe and external integration adapters
-
-### Identity
-
-Preserve Clerk IDs and current login/owner-scoping semantics. Evaluate whether the legacy Clerk proxy is still required on the new runtime.
-
-### Membership
-
-Correct legacy model:
-- membership is local `members` + Clerk + Stripe
-- MembershipWorks is **not** a membership backend
-- MembershipWorks is only an external RSS event source
-
-Any future introductory/free membership period is a target-product change and must not be confused with legacy migration behavior.
-
-### Stripe
-
-Preserve all existing customer, subscription, payment-method, SetupIntent and invoice-item IDs.
-
-Before cutover:
-- configure new webhook endpoints
-- verify raw-body signature validation
-- introduce explicit event idempotency/deduplication if needed
-- ensure old and new runtimes never perform the same auto-charge/webhook side effect simultaneously
-
-### Other adapters
-
-Recreate:
-- Resend
-- SMTP teacher setup mails
-- Google Sheets CSV sync
-- MembershipWorks RSS
-- DAWA
-- OpenAI moderation/review
-
-## Phase 4 — runtime and job migration to Cloudflare-compatible services
-
-The target deployment is a combined React/Vite + Cloudflare Worker platform for web/API edge orchestration.
-
-Stateful and scheduled behavior must be moved deliberately.
-
-Required active schedules:
-- teacher booking auto-charge every 5 minutes
-- Google Sheets sync hourly
+D1 is the initial target database because Hjerterum has a small dataset and the system is still under development.
 
 Rules:
-- exactly one active scheduler owner during cutover
-- jobs must be idempotent or protected against duplicate execution
-- Tribes schedulers remain disabled unless explicitly reintroduced
+- keep all D1 changes as explicit versioned migrations
+- use UTC epoch milliseconds for persisted timestamps
+- use integer minor currency units
+- keep provider access behind adapters
+- preserve historical Tribes tables privately, but do not rebuild Tribes as a product
 
-Production routing must preserve or deliberately redirect:
-- `/member-portal/`
-- `/member-portal/dashboard`
-- `/member-portal/kalender`
-- `/member-portal/profil`
-- `/member-portal/kontakt`
-- `/member-portal/success`
-- admin routes such as `/teachers`, `/bookings`, `/members`, `/setup/:token`
-- `/api/*`
-- both Stripe webhook paths
+Legacy PostgreSQL DDL/data export is now optional reference/rollback material, not an exit gate.
 
-## Phase 5 — event, room and money parity
+### 3. Identity
 
-Port the current behavior as testable domain rules before redesigning it.
+Keep Clerk as identity provider for now. Cloudflare Worker validates Clerk JWTs directly using the issuer JWKS endpoint, avoiding any Replit/Express dependency.
 
-Must be regression-tested:
-- room overlap logic
-- capacity and duplicate attendance protection
-- owner-only edit/delete
-- creator auto-attendance
-- public upcoming event feed
-- MembershipWorks event merge/cache
-- event mail triggers
-- AI moderation/review sequencing including current fail-open behavior
-- timezone conversion around Europe/Copenhagen DST boundaries
+Preserve:
+- Clerk user IDs
+- owner scoping
+- authenticated/private route boundaries
 
-### Legacy room pricing authority
+### 4. Stripe
 
-Until a separate product decision is made, the backend A/B formula is authoritative:
+Keep Stripe as payment provider and call it directly from Worker over HTTPS.
+
+Required behavior:
+- membership checkout
+- customer/subscription association
+- cancel-at-period-end
+- Billing Portal
+- member webhook signature validation
+- webhook idempotency
+- teacher off-session auto-charge
+- Stripe idempotency keys for scheduled charges
+
+No Stripe secret or webhook secret may be committed to Git.
+
+### 5. Scheduled jobs
+
+Cloudflare owns scheduled jobs after cutover.
+
+Active target schedule:
+- teacher auto-charge every 5 minutes
+
+Google Sheets sync is not a blocker for Replit exit. Reintroduce it only if the legacy teacher-booking import is still genuinely needed after the Cloudflare system is usable.
+
+Only one runtime may own a payment scheduler at a time.
+
+## Functional parity still to move
+
+High priority:
+- authenticated room-booking list/edit/delete
+- attendee register/unregister + capacity protection
+- member profile update
+- Stripe invoice history
+- teacher setup/payment-method flow
+- admin members/teachers/bookings views and endpoints
+- permanent D1 binding + staging deployment
+
+Medium priority:
+- MembershipWorks RSS event feed
+- DAWA autocomplete
+- Resend/SMTP mail flows
+- event moderation/review
+
+Non-blocking legacy/reference:
+- sanitized legacy source ZIP import
+- PostgreSQL DDL/data export
+- Google Sheets sync
+- retired Tribes CRUD/application/invitation UI
+
+## Legacy room pricing authority
+
+Until explicitly redesigned, backend pricing remains:
 - A-time: weekend or weekday start >= 18:30; first 2h 200 DKK, then +75 DKK/hour
 - B-time: weekday start < 18:30; first 2h 75 DKK, then +37.5 DKK/hour, rounded to whole DKK
-- legacy SoMe invoice item: 390 DKK
+- legacy SoMe item: 390 DKK
 
-The current UI price table and UI SoMe price do not match backend billing. Do not silently resolve this mismatch as part of migration.
+The old frontend price table did not match backend billing. Do not silently use that table as payment authority.
 
-## Phase 6 — public website and member experience
+## Permanent staging gate
 
-Migrate useful public content and redesign confusing flows only after behavior/data contracts are safe.
+To stop depending on temporary Cloudflare previews, permanent staging needs:
+- Cloudflare account ID in GitHub encrypted secret
+- least-privilege Cloudflare API token in GitHub encrypted secret
+- a D1 staging database bound as `DB`
+- Clerk issuer configured
+- Stripe test credentials configured
+- application base URL configured
 
-Preserve search/link equity with redirects where needed.
-
-CIRKLER remains a separate product/organisation. Hjerterum may expose an entitlement/link integration, but CIRKLER domain logic stays out of this repository.
-
-Do not rebuild the old Tribes product.
-
-## Phase 7 — Tribes archive/retirement
-
-Preserve privately:
-- historical Tribes tables and applicant answers
-- email logs
-- admin-gated export capability until retention/archival policy is settled
-
-Explicitly decide treatment of:
-- old Tribes URLs
-- still-mounted applicant AI endpoints
-- archive page vs redirect vs closed response
-
-Do not let sensitive Tribes data enter public bundles or public logs.
-
-## Phase 8 — staging acceptance
-
-Permanent staging requires Cloudflare credentials stored only as encrypted GitHub secrets.
-
-Acceptance gates:
-1. GitHub `main` commit identified
-2. frozen install succeeds
+Acceptance:
+1. `main` revision identified
+2. frozen install passes
 3. typecheck passes
-4. automated tests pass
-5. production build succeeds
-6. staging deploy succeeds
-7. `/api/health` smoke test passes
-8. member/public frontend smoke test passes
-9. DB connectivity verified with staging DB only
-10. changed user flows exercised end-to-end
+4. tests pass
+5. build passes
+6. D1 migrations apply
+7. Worker deploys
+8. `/api/health` passes
+9. `/api/readiness` reports database ready
+10. booking/member flows pass against staging services
 
-Production data is never a casual staging database.
+## Cutover principle
 
-## Phase 9 — production cutover with rollback
+Because the product is still in development, cut over once the new Cloudflare version can support the active development flows reliably. Do not wait for perfect migration of obsolete Replit-era scaffolding.
 
-Before cutover:
-- take fresh DB backup/snapshot
-- record old runtime/webhook/job ownership
-- verify new runtime against production-like staging
-- prepare DNS/routing rollback
-- ensure Stripe webhooks/jobs have a single active owner
+After cutover:
+- Replit must not own code, database, webhooks, schedulers or production routing
+- Replit may remain temporarily available only as read-only historical reference
+- remove it completely once any useful remaining reference has been captured
 
-Cutover order:
-1. freeze or quiesce migration-sensitive writes if needed
-2. take final data delta/snapshot
-3. migrate/apply data
-4. activate new runtime without duplicate schedulers
-5. switch routing
-6. smoke-test identity, membership, calendar, checkout/billing, teacher setup and webhooks
-7. monitor errors and payment side effects
+## Current external blockers
 
-Rollback must restore routing and scheduler/webhook ownership consistently, not only frontend DNS.
+Only two external/account-level items materially block a permanent Replit-free staging runtime:
+- GitHub default branch metadata still needs to be changed to `main`
+- Cloudflare staging credentials/D1 resource must be configured
 
-## Current blockers
-
-The legacy application is accessible and the read-only migration snapshot is complete. Remaining external blockers are:
-- sanitized legacy source still needs transfer into GitHub for code-level comparison; Replit read access returned `Forbidden` on the latest verification attempt, so the verified ZIP remains the fallback
-- actual production PostgreSQL DDL/data snapshot must be exported read-only
-- GitHub repository default branch still points to bootstrap instead of `main`
-- permanent Cloudflare staging requires encrypted Cloudflare account/token secrets
+Legacy source transfer and PostgreSQL export are explicitly non-blocking.
