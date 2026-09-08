@@ -4,6 +4,7 @@ import {
   listUpcomingPublicRoomBookings,
   type D1Database
 } from "./db.js";
+import { runTeacherAutoCharge } from "./jobs.js";
 import {
   cancelMembership,
   createBillingPortalUrl,
@@ -28,6 +29,11 @@ interface Env {
   ASSETS: {
     fetch(request: Request): Promise<Response>;
   };
+}
+
+interface ScheduledControllerLike {
+  scheduledTime: number;
+  cron: string;
 }
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -272,5 +278,10 @@ export default {
       return json({ error: "not_found" }, { status: 404 });
     }
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
+    if (!env.DB || !env.STRIPE_SECRET_KEY) return;
+    await runTeacherAutoCharge(env.DB, env.STRIPE_SECRET_KEY, controller.scheduledTime);
   }
 };
