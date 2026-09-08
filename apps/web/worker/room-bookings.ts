@@ -148,7 +148,9 @@ export async function createRoomBooking(
     .run();
 
   const id = insert.meta?.last_row_id;
-  if (!Number.isInteger(id)) throw new Error("booking_insert_failed");
+  if (typeof id !== "number" || !Number.isInteger(id)) {
+    throw new Error("booking_insert_failed");
+  }
 
   const attendeeName = input.memberName ?? input.teacherName;
   const attendeeEmail = input.memberEmail ?? input.teacherEmail;
