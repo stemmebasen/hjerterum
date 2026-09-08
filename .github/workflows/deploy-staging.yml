@@ -116,7 +116,7 @@ jobs:
           put_if_set ALLOWED_EMAILS "${ALLOWED_EMAILS:-}"
           printf '%s' "$STAGING_URL" | pnpm --dir apps/web exec wrangler secret put APP_BASE_URL --env staging >/dev/null
 
-      - name: Smoke test deployed staging API, D1 and frontend
+      - name: Smoke test deployed staging API, D1, MembershipWorks and frontend
         if: steps.credentials.outputs.cloudflare == 'true'
         env:
           STAGING_URL: ${{ steps.deploy.outputs.worker_url }}
@@ -130,7 +130,9 @@ jobs:
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/readiness" | tee /tmp/readiness.json
           grep -q '"status":"ready"' /tmp/readiness.json
           grep -q '"database":"ready"' /tmp/readiness.json
-          curl --fail --silent --show-error "$STAGING_URL/api/client-config" >/tmp/client-config.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/events/external" >/tmp/external-events.json
+          node -e 'const fs=require("fs");const data=JSON.parse(fs.readFileSync("/tmp/external-events.json","utf8"));if(!Array.isArray(data))process.exit(1);console.log(`membershipworks_events=${data.length}`)'
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/client-config" >/tmp/client-config.json
           if [ -n "${CLERK_PUBLISHABLE_KEY:-}" ]; then
             grep -q '"clerkPublishableKey":"pk_' /tmp/client-config.json
           fi
