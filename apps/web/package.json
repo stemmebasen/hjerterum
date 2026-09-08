@@ -9,8 +9,8 @@
     "test": "vitest run --config vitest.config.ts --passWithNoTests",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy:staging": "vite build && wrangler deploy --env staging",
-    "deploy:production": "vite build && wrangler deploy --env production"
+    "deploy:staging": "CLOUDFLARE_ENV=staging vite build && CLOUDFLARE_ENV=staging wrangler deploy",
+    "deploy:production": "CLOUDFLARE_ENV=production vite build && CLOUDFLARE_ENV=production wrangler deploy"
   },
   "dependencies": {
     "react": "19.2.8",
