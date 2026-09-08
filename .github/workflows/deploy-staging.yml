@@ -16,6 +16,7 @@ jobs:
       CLERK_JWT_ISSUER: ${{ secrets.CLERK_JWT_ISSUER }}
       CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
       STRIPE_MEMBER_WEBHOOK_SECRET: ${{ secrets.STRIPE_MEMBER_WEBHOOK_SECRET }}
@@ -39,7 +40,7 @@ jobs:
           for name in \
             CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN \
             CLERK_JWT_ISSUER CLERK_PUBLISHABLE_KEY CLERK_SECRET_KEY \
-            STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_MEMBER_WEBHOOK_SECRET \
+            STRIPE_PUBLISHABLE_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET STRIPE_MEMBER_WEBHOOK_SECRET \
             ALLOWED_EMAILS
           do
             if [ -z "${!name:-}" ]; then
@@ -92,6 +93,7 @@ jobs:
           put_secret CLERK_JWT_ISSUER "$CLERK_JWT_ISSUER"
           put_secret CLERK_PUBLISHABLE_KEY "$CLERK_PUBLISHABLE_KEY"
           put_secret CLERK_SECRET_KEY "$CLERK_SECRET_KEY"
+          put_secret STRIPE_PUBLISHABLE_KEY "$STRIPE_PUBLISHABLE_KEY"
           put_secret STRIPE_SECRET_KEY "$STRIPE_SECRET_KEY"
           put_secret STRIPE_WEBHOOK_SECRET "$STRIPE_WEBHOOK_SECRET"
           put_secret STRIPE_MEMBER_WEBHOOK_SECRET "$STRIPE_MEMBER_WEBHOOK_SECRET"
@@ -113,6 +115,7 @@ jobs:
           grep -q '"database":"ready"' /tmp/readiness.json
           curl --fail --silent --show-error "$STAGING_URL/api/client-config" | tee /tmp/client-config.json
           grep -q '"clerkPublishableKey":"pk_' /tmp/client-config.json
+          grep -q '"stripePublishableKey":"pk_' /tmp/client-config.json
           STATUS="$(curl --silent --output /tmp/member-auth.json --write-out '%{http_code}' "$STAGING_URL/api/members/me")"
           test "$STATUS" = "401"
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
