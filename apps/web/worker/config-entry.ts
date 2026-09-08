@@ -1,4 +1,5 @@
 import appWorker from "./entry.js";
+import { getExternalEvents } from "./external-events.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -19,6 +20,18 @@ const app = appWorker as unknown as {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === "GET" && url.pathname === "/api/events/external") {
+      try {
+        return Response.json(await getExternalEvents(), {
+          headers: { "cache-control": "public, max-age=60, s-maxage=300" }
+        });
+      } catch (error) {
+        const code = error instanceof Error ? error.message : "external_events_failed";
+        return Response.json({ error: code }, { status: 503 });
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/api/client-config") {
       return Response.json(
         {
