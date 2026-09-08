@@ -15,12 +15,16 @@ export async function stripeRequest<T>(
   params: Record<string, string | number | boolean | null | undefined> = {},
   options: { idempotencyKey?: string } = {}
 ): Promise<T> {
-  const body = new URLSearchParams();
+  const encoded = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) body.set(key, String(value));
+    if (value !== undefined && value !== null) encoded.set(key, String(value));
   }
 
-  const response = await fetch(`${STRIPE_API}${path}`, {
+  const url = method === "GET" && encoded.size > 0
+    ? `${STRIPE_API}${path}?${encoded.toString()}`
+    : `${STRIPE_API}${path}`;
+
+  const response = await fetch(url, {
     method,
     headers: {
       authorization: `Bearer ${secretKey}`,
@@ -31,7 +35,7 @@ export async function stripeRequest<T>(
         ? { "idempotency-key": options.idempotencyKey }
         : {})
     },
-    ...(method === "POST" ? { body: body.toString() } : {})
+    ...(method === "POST" ? { body: encoded.toString() } : {})
   });
 
   const payload = (await response.json()) as Record<string, unknown>;
