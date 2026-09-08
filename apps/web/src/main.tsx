@@ -12,6 +12,33 @@ type PublicBooking = {
   endsAt: string;
 };
 
+type ExternalEvent = {
+  id: string;
+  source: "membershipworks";
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  location: string | null;
+  imageUrl: string | null;
+  link: string | null;
+  host: string | null;
+  description: string | null;
+  category: string | null;
+};
+
+type CalendarEvent = {
+  key: string;
+  title: string;
+  description: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  host: string | null;
+  location: string | null;
+  imageUrl: string | null;
+  link: string | null;
+  source: "hjerterum" | "membershipworks";
+};
+
 type Member = {
   id: number;
   tier: string;
@@ -244,7 +271,7 @@ function MemberPortal({ clerk, user }: { clerk: ClerkBrowser; user: ClerkUser })
   );
 }
 
-function EventSection({ events, reachable }: { events: PublicBooking[]; reachable: boolean }) {
+function EventSection({ events, reachable }: { events: CalendarEvent[]; reachable: boolean }) {
   return (
     <section className="content-section events-section" id="kalender">
       <div className="section-intro">
@@ -254,13 +281,27 @@ function EventSection({ events, reachable }: { events: PublicBooking[]; reachabl
       </div>
       {reachable && events.length ? (
         <div className="event-grid">
-          {events.slice(0, 6).map((event) => (
-            <article className="event-card" key={event.id}>
-              <time>{formatDate(event.startsAt)}</time>
-              <h3>{event.title}</h3>
-              <p>{event.description || `Med ${event.teacherName}`}</p>
-            </article>
-          ))}
+          {events.slice(0, 6).map((event) => {
+            const content = (
+              <>
+                {event.imageUrl && <img className="event-card-image" src={event.imageUrl} alt="" loading="lazy" />}
+                <time>{formatDate(event.startsAt)}</time>
+                <h3>{event.title}</h3>
+                {(event.location || event.host) && (
+                  <p className="event-meta">{[event.location, event.host].filter(Boolean).join(" · ")}</p>
+                )}
+                <p>{event.description || (event.host ? `Med ${event.host}` : "")}</p>
+              </>
+            );
+
+            return event.link ? (
+              <a className="event-card event-card-link" key={event.key} href={event.link}>
+                {content}
+              </a>
+            ) : (
+              <article className="event-card" key={event.key}>{content}</article>
+            );
+          })}
         </div>
       ) : (
         <div className="calendar-empty">
@@ -273,17 +314,59 @@ function EventSection({ events, reachable }: { events: PublicBooking[]; reachabl
 }
 
 function PublicHome() {
-  const [events, setEvents] = useState<PublicBooking[]>([]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsReachable, setEventsReachable] = useState(false);
 
   useEffect(() => {
-    void fetch("/api/room-bookings/public")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("events_unavailable");
+    let active = true;
+
+    void Promise.allSettled([
+      fetch("/api/room-bookings/public").then(async (response) => {
+        if (!response.ok) throw new Error("room_events_unavailable");
         return (await response.json()) as PublicBooking[];
+      }),
+      fetch("/api/events/external").then(async (response) => {
+        if (!response.ok) throw new Error("external_events_unavailable");
+        return (await response.json()) as ExternalEvent[];
       })
-      .then((data) => { setEvents(data); setEventsReachable(true); })
-      .catch(() => setEventsReachable(false));
+    ]).then(([roomResult, externalResult]) => {
+      if (!active) return;
+
+      const roomEvents: CalendarEvent[] = roomResult.status === "fulfilled"
+        ? roomResult.value.map((event) => ({
+            key: `room-${event.id}`,
+            title: event.title,
+            description: event.description,
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+            host: event.teacherName,
+            location: "Hjerterum",
+            imageUrl: null,
+            link: null,
+            source: "hjerterum" as const
+          }))
+        : [];
+
+      const externalEvents: CalendarEvent[] = externalResult.status === "fulfilled"
+        ? externalResult.value.map((event) => ({
+            key: `mw-${event.id}`,
+            title: event.title,
+            description: event.description,
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+            host: event.host,
+            location: event.location,
+            imageUrl: event.imageUrl,
+            link: event.link,
+            source: "membershipworks" as const
+          }))
+        : [];
+
+      setEvents([...roomEvents, ...externalEvents].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)));
+      setEventsReachable(roomResult.status === "fulfilled" || externalResult.status === "fulfilled");
+    });
+
+    return () => { active = false; };
   }, []);
 
   return (
