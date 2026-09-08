@@ -10,6 +10,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -21,24 +24,49 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test
+
+      - name: Resolve or create staging D1 database
+        id: d1
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATABASE_NAME="hjerterum-staging"
+          D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$DATABASE_NAME")"
+          if [ -z "$D1_ID" ]; then
+            pnpm --dir apps/web exec wrangler d1 create "$DATABASE_NAME" --location weur >/tmp/d1-create.log
+            D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$DATABASE_NAME")"
+          fi
+          test -n "$D1_ID"
+          echo "database_id=$D1_ID" >> "$GITHUB_OUTPUT"
+          node .github/scripts/configure-staging-d1.mjs "$D1_ID"
+
+      - name: Apply staging D1 migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --dir apps/web exec wrangler d1 migrations apply DB --remote --env staging
+
       - run: pnpm build
+
       - name: Deploy staging Worker and assets
         id: deploy
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         shell: bash
         run: |
           set -o pipefail
           pnpm --dir apps/web deploy:staging 2>&1 | node .github/scripts/capture-workers-url.mjs
-      - name: Smoke test deployed staging API and frontend
+
+      - name: Smoke test deployed staging API, D1 and frontend
         env:
           STAGING_URL: ${{ steps.deploy.outputs.worker_url }}
         shell: bash
         run: |
+          set -euo pipefail
           test -n "$STAGING_URL"
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/health" | tee /tmp/health.json
           grep -q '"status":"ok"' /tmp/health.json
           grep -q '"environment":"staging"' /tmp/health.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/api/readiness" | tee /tmp/readiness.json
+          grep -q '"status":"ready"' /tmp/readiness.json
+          grep -q '"database":"ready"' /tmp/readiness.json
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
           grep -q '<div id="root"></div>' /tmp/index.html
