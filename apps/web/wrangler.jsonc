@@ -16,12 +16,18 @@
       "name": "hjerterum-platform-staging",
       "vars": {
         "ENVIRONMENT": "staging"
+      },
+      "triggers": {
+        "crons": ["*/5 * * * *"]
       }
     },
     "production": {
       "name": "hjerterum-platform-production",
       "vars": {
         "ENVIRONMENT": "production"
+      },
+      "triggers": {
+        "crons": ["*/5 * * * *"]
       }
     }
   }
