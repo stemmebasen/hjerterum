@@ -12,7 +12,8 @@ export async function stripeRequest<T>(
   secretKey: string,
   method: "GET" | "POST",
   path: string,
-  params: Record<string, string | number | boolean | null | undefined> = {}
+  params: Record<string, string | number | boolean | null | undefined> = {},
+  options: { idempotencyKey?: string } = {}
 ): Promise<T> {
   const body = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -25,6 +26,9 @@ export async function stripeRequest<T>(
       authorization: `Bearer ${secretKey}`,
       ...(method === "POST"
         ? { "content-type": "application/x-www-form-urlencoded" }
+        : {}),
+      ...(options.idempotencyKey
+        ? { "idempotency-key": options.idempotencyKey }
         : {})
     },
     ...(method === "POST" ? { body: body.toString() } : {})
