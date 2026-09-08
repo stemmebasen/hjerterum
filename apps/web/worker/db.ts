@@ -1,5 +1,6 @@
 export interface D1RunMeta {
   changes?: number;
+  last_row_id?: number;
 }
 
 export interface D1Result<T = unknown> {
