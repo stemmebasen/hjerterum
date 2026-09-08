@@ -1,11 +1,17 @@
+import { authenticateBearer } from "./auth.js";
 import {
   checkDatabase,
   listUpcomingPublicRoomBookings,
   type D1Database
 } from "./db.js";
+import {
+  createRoomBooking,
+  normalizeCreateRoomBookingInput
+} from "./room-bookings.js";
 
 interface Env {
   ENVIRONMENT?: string;
+  CLERK_JWT_ISSUER?: string;
   DB?: D1Database;
   ASSETS: {
     fetch(request: Request): Promise<Response>;
@@ -86,6 +92,37 @@ async function publicRoomBookings(env: Env): Promise<Response> {
   }
 }
 
+async function postRoomBooking(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+
+  let user;
+  try {
+    user = await authenticateBearer(request, env.CLERK_JWT_ISSUER);
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "auth_failed";
+    const status = code === "auth_not_configured" ? 503 : 401;
+    return json({ error: code }, { status });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  try {
+    const input = normalizeCreateRoomBookingInput(body);
+    const result = await createRoomBooking(env.DB, user.userId, input);
+    return json(result, { status: 201 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "booking_failed";
+    if (code === "booking_conflict") return json({ error: code }, { status: 409 });
+    if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
+    return json({ error: code }, { status: 503 });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -104,6 +141,10 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/room-bookings") {
+      return postRoomBooking(request, env);
     }
 
     if (url.pathname.startsWith("/api/")) {
