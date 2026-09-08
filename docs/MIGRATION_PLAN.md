@@ -21,6 +21,7 @@ Hjerterum is still in development, so preserving the current development databas
 - exact legacy room-pricing fixture
 - booking overlap rule
 - event/admin-fee policy tests
+- Cloudflare account ID and API token supplied as GitHub Actions secrets on 2026-09-08
 
 Repository hygiene still needed:
 - set GitHub default branch to `main`
@@ -32,18 +33,23 @@ Repository hygiene still needed:
 
 Move active backend behavior directly into Cloudflare Worker.
 
-Already moved or in progress:
+Already moved:
 - `/api/health`
 - `/api/readiness`
 - public room-booking feed
-- authenticated room-booking creation
+- authenticated room-booking create/list/edit/delete
+- attendee register/unregister + capacity/duplicate protection
 - Clerk JWT verification through JWKS/Web Crypto
 - member checkout
-- current member lookup
+- current member lookup/profile update
 - membership cancellation request
 - Stripe Billing Portal session
+- Stripe invoice history
 - Stripe member webhook verification + idempotency ledger
+- teacher CRUD/setup-link/card setup
+- teacher Stripe webhook
 - teacher auto-charge scheduler on Cloudflare Cron
+- public/member development UI and Clerk browser auth bridge
 
 Do not reintroduce an Express/Node server merely to reproduce Replit architecture.
 
@@ -73,13 +79,14 @@ Preserve:
 
 Keep Stripe as payment provider and call it directly from Worker over HTTPS.
 
-Required behavior:
+Required behavior now implemented in Worker:
 - membership checkout
 - customer/subscription association
 - cancel-at-period-end
 - Billing Portal
 - member webhook signature validation
 - webhook idempotency
+- teacher setup/payment-method flow
 - teacher off-session auto-charge
 - Stripe idempotency keys for scheduled charges
 
@@ -96,16 +103,12 @@ Google Sheets sync is not a blocker for Replit exit. Reintroduce it only if the 
 
 Only one runtime may own a payment scheduler at a time.
 
-## Functional parity still to move
+## Functional work still to move
 
-High priority:
-- authenticated room-booking list/edit/delete
-- attendee register/unregister + capacity protection
-- member profile update
-- Stripe invoice history
-- teacher setup/payment-method flow
-- admin members/teachers/bookings views and endpoints
-- permanent D1 binding + staging deployment
+High priority after permanent staging is online:
+- admin members/bookings UI polish
+- full end-to-end Clerk member flow against staging
+- full end-to-end Stripe test flow against staging
 
 Medium priority:
 - MembershipWorks RSS event feed
@@ -130,13 +133,14 @@ The old frontend price table did not match backend billing. Do not silently use 
 
 ## Permanent staging gate
 
-To stop depending on temporary Cloudflare previews, permanent staging needs:
-- Cloudflare account ID in GitHub encrypted secret
-- least-privilege Cloudflare API token in GitHub encrypted secret
-- a D1 staging database bound as `DB`
-- Clerk issuer configured
-- Stripe test credentials configured
-- application base URL configured
+Cloudflare account ID and API token are now present as GitHub encrypted secrets. The staging workflow automatically:
+- creates or reuses `hjerterum-staging` D1 in WEUR
+- binds it as `DB`
+- applies all D1 migrations
+- builds and deploys Worker + frontend
+- smoke-tests `/api/health`, `/api/readiness` and the frontend
+
+Clerk and Stripe application secrets are optional for the first Replit-independent staging cut. When present, the workflow syncs them to Cloudflare without committing them to Git.
 
 Acceptance:
 1. `main` revision identified
@@ -148,7 +152,7 @@ Acceptance:
 7. Worker deploys
 8. `/api/health` passes
 9. `/api/readiness` reports database ready
-10. booking/member flows pass against staging services
+10. booking/member flows are then exercised against staging services
 
 ## Cutover principle
 
@@ -161,8 +165,9 @@ After cutover:
 
 ## Current external blockers
 
-Only two external/account-level items materially block a permanent Replit-free staging runtime:
-- GitHub default branch metadata still needs to be changed to `main`
-- Cloudflare staging credentials/D1 resource must be configured
+Permanent Cloudflare staging is now being provisioned from GitHub after the required account credentials were supplied.
+
+The only remaining repository-hygiene task that cannot be changed through the connected GitHub tool is:
+- GitHub default branch metadata still needs to be changed from `migration/bootstrap-init` to `main`
 
 Legacy source transfer and PostgreSQL export are explicitly non-blocking.
