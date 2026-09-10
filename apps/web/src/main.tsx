@@ -509,7 +509,7 @@ function PublicHome() {
       </section>
 
       <section className="contact-section" id="kontakt">
-        <div><p className="kicker">Kontakt</p><h2>Kom forbi Hjerterum.</h2></div>
+        <div><p className="kicker">Kontakt</p><h2>Kom forbi Hjerterum.</h2><p>Mejlgade 26B, 8000 Aarhus C</p></div>
         <div className="contact-links">
           <a href="mailto:team@holistisk.org">team@holistisk.org</a>
           <a href="#english">English</a>
@@ -703,7 +703,7 @@ function PublicContentPage({ path }: { path: string }) {
         </a>
       </section>
       <section className="contact-section">
-        <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2></div>
+        <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2><p>Mejlgade 26B, 8000 Aarhus C</p></div>
         <div className="contact-links">        <a href="mailto:team@holistisk.org">team@holistisk.org</a><a href="/">Hjerterum</a></div>
       </section>
     </main>
