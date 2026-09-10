@@ -16,6 +16,30 @@ This is a migration inventory, not a specification. Legacy content must be revie
 - `/price-list/` — room price calculator/pricing
 - `/tribes/` — obsolete product surface; do not rebuild
 
+## URL decisions for the Cloudflare public site
+
+| Legacy URL | Decision | Replacement |
+| --- | --- | --- |
+| `/` | Preserve as standalone route | Danish public home |
+| `/welcome/` | Preserve URL and integrate content | English-language public home |
+| `/events/` | Preserve as standalone route | Calendar and event policy page |
+| `/events-en/` | Preserve as standalone route | English calendar and event policy page |
+| `/vision/` | Preserve URL and integrate content | Hjerterum vision section |
+| `/kontakt-os/` | Preserve URL and integrate content | Contact section |
+| `/fordele-ved-medlemskab/` | Preserve as standalone route | Membership benefits and sign-up |
+| `/bliv-medlem/` | Preserve as standalone route | Membership sign-up entry point |
+| `/become-a-member/` | Preserve as standalone route | English membership sign-up entry point |
+| `/book-dit-event/` | Preserve URL and integrate content | Danish event-hosting guidance and member booking |
+| `/book-your-event/` | Preserve URL and integrate content | English event-hosting guidance and member booking |
+| `/brug-centret/` | Preserve as standalone route | Event-hosting guidance |
+| `/price-list/` | Preserve URL, replace stale calculator | Current booking entry point; no unauthorised price table |
+| `/tribes/` | Retire explicitly | No replacement; Tribes is not part of Hjerterum |
+
+The inventory was checked against the live `holistisk.org` pages on 2026-09-10.
+The public replacement keeps established URLs and purpose while consolidating thin
+legacy pages into stronger destination pages. No redirect or retirement should be
+shipped until the corresponding route has been reviewed in staging.
+
 ## Migration observations
 
 - The legacy site contains time-sensitive instructions embedded in static pages. These must become structured content/configuration where possible so old dates do not linger.

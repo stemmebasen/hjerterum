@@ -14,6 +14,20 @@ This document is the primary product and migration specification for the new Hje
 - CIRKLER is a separate product/domain and integrates only through explicit entitlement contracts.
 - The old Tribes product is retired and must not be rebuilt. Historical Tribes data may be preserved under restricted access where retention requires it.
 
+### Current implementation checkpoint (2026-09-10)
+
+- The active Cloudflare Worker and React/Vite application are implemented on `main`.
+- Clerk JWT verification, member profile/member billing routes, room booking and attendee
+  protection, teacher setup/payment flows, Stripe webhooks/idempotency, teacher
+  auto-charge scheduling and the MembershipWorks event bridge are present in the Worker.
+- The public home, sign-in/sign-up entry points and member portal are live in the
+  frontend. Public legacy URL parity is the next implementation block.
+- Permanent staging remains the acceptance environment:
+  `https://hjerterum-platform-staging.speak-e18.workers.dev`.
+- No newer binding board decision was found in the repository that authorises changing
+  the legacy room-price formula. Existing room-price fixtures therefore remain
+  reference behaviour and are not a licence to change booking prices.
+
 ## 2. Product scope
 
 ### Public site
@@ -173,6 +187,15 @@ Do not cut over production until all of the following are true:
 10. Staging passes end-to-end tests for membership, events, room booking and payment.
 11. Rollback is documented and production revision is traceable to a verified GitHub commit.
 12. Only one production scheduler/automatic charge worker is active at cutover.
+
+## 6a. Public URL/content parity checkpoint
+
+The initial URL/content inventory and route decisions are maintained in
+`docs/LEGACY_INVENTORY.md`. The migration preserves established public URLs where
+they still serve a useful purpose, integrates thin pages into stronger routes, and
+retires only the obsolete `/tribes/` product surface. Public parity is accepted only
+after Danish/English content, links, mobile layout and SEO metadata have been reviewed
+on staging.
 
 ## 7. Target data safety requirements
 

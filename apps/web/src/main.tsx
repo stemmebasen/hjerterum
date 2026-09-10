@@ -327,7 +327,7 @@ function EventSection({ events, reachable }: { events: CalendarEvent[]; reachabl
   );
 }
 
-function PublicHome() {
+function usePublicEvents() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsReachable, setEventsReachable] = useState(false);
 
@@ -382,6 +382,12 @@ function PublicHome() {
 
     return () => { active = false; };
   }, []);
+
+  return { events, eventsReachable };
+}
+
+function PublicHome() {
+  const { events, eventsReachable } = usePublicEvents();
 
   return (
     <main className="page-shell">
@@ -472,6 +478,144 @@ function PublicHome() {
   );
 }
 
+function PublicContentPage({ path }: { path: string }) {
+  const normalizedPath = path.replace(/\/+$/, "") || "/";
+  const english = normalizedPath === "/welcome" || normalizedPath === "/events-en" ||
+    normalizedPath === "/book-your-event" || normalizedPath === "/become-a-member";
+  const { events, eventsReachable } = usePublicEvents();
+
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      "/welcome": "Welcome to Hjerterum",
+      "/events": "Events i Hjerterum",
+      "/events-en": "Events at Hjerterum",
+      "/vision": "Hvad er Hjerterum?",
+      "/kontakt-os": "Kontakt Hjerterum",
+      "/fordele-ved-medlemskab": "Fordele ved et medlemskab",
+      "/bliv-medlem": "Bliv medlem af Hjerterum",
+      "/become-a-member": "Become a member of Hjerterum",
+      "/book-dit-event": "Book dit event i Hjerterum",
+      "/book-your-event": "Book your event at Hjerterum",
+      "/brug-centret": "Brug Hjerterum",
+      "/price-list": "Book Room at Hjerterum"
+    };
+    document.title = `${titles[normalizedPath] || "Hjerterum"} · Hjerterum`;
+  }, [normalizedPath]);
+
+  if (normalizedPath === "/events" || normalizedPath === "/events-en") {
+    return (
+      <main className="page-shell">
+        <SiteHeader />
+        <section className="content-section public-page-intro">
+          <p className="kicker">{english ? "Calendar" : "Kalender"}</p>
+          <h1>{english ? "Events at Hjerterum" : "Events i Hjerterum"}</h1>
+          <p className="lead-copy">
+            {english
+              ? "A varied program of yoga, meditation, breathwork, talks, music, community and inner exploration."
+              : "Et levende program med yoga, meditation, åndedræt, musik, fællesskab og plads til indre fordybelse."}
+          </p>
+        </section>
+        <EventSection events={events} reachable={eventsReachable} />
+        <section className="soft-panel public-policy">
+          <h2>{english ? "A safe and respectful space" : "Et trygt og respektfuldt rum"}</h2>
+          <p>{english
+            ? "Ask before filming or photographing, and respect a no. We look after each other's safety, privacy and trust."
+            : "Spørg før du filmer eller fotograferer, og respekter et nej. Vi passer på hinandens tryghed, privatliv og tillid."}</p>
+          <p>{english
+            ? "For events arranged by external teachers, Hjerterum acts as mediator and lessor of the premises. Questions about content or agreements should be addressed to the organiser."
+            : "Ved events arrangeret af eksterne undervisere fungerer Hjerterum som formidler og udlejer af lokalerne. Spørgsmål om indhold eller aftaler skal rettes til arrangøren."}</p>
+        </section>
+      </main>
+    );
+  }
+
+  const page = (() => {
+    switch (normalizedPath) {
+      case "/vision":
+        return {
+          kicker: "Hjerterum",
+          title: "Et rum for nærvær, praksis og fællesskab.",
+          body: "Hjerterum er et levende hus i Aarhus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.",
+          action: ["Se kalenderen", "/events"]
+        };
+      case "/kontakt-os":
+        return {
+          kicker: "Kontakt",
+          title: "Kom forbi Hjerterum.",
+          body: "Har du spørgsmål til huset, medlemskab eller events, er du velkommen til at skrive til os.",
+          action: ["Skriv til os", "mailto:jh@holistisk.org"]
+        };
+      case "/fordele-ved-medlemskab":
+      case "/bliv-medlem":
+      case "/become-a-member":
+        return {
+          kicker: english ? "Membership" : "Medlemskab",
+          title: english ? "Be part of Hjerterum." : "Hjerterum er noget, vi skaber sammen.",
+          body: english
+            ? "Membership connects you to the house, its community and a varied program of events."
+            : "Som medlem er du med til at holde huset levende og tilgængeligt. Du bliver en del af fællesskabet og får adgang til aktiviteter og mulighed for selv at skabe noget i Hjerterum.",
+          action: [english ? "Sign up" : "Bliv medlem", "/sign-up"]
+        };
+      case "/book-dit-event":
+      case "/book-your-event":
+      case "/brug-centret":
+      case "/price-list":
+        return {
+          kicker: english ? "Use the house" : "Brug Hjerterum",
+          title: english ? "Create your own event in the house." : "Skab dit eget arrangement i Hjerterum.",
+          body: english
+            ? "Our rooms can be used for teaching, workshops, treatments, meetings and events. Members can create and reserve events through the member area."
+            : "Hjerterums lokaler kan bruges til undervisning, workshops, behandlinger, møder og events. Medlemmer kan oprette og reservere arrangementer gennem medlemsområdet.",
+          action: [english ? "Open member area" : "Åbn medlemsområdet", "/member-portal/kalender"]
+        };
+      case "/welcome":
+        return {
+          kicker: "Hjerterum",
+          title: "A space for presence, practice and community.",
+          body: "Hjerterum is a community space in Aarhus for practice, creativity, connection and inner exploration.",
+          action: ["Explore events", "/events-en"]
+        };
+      default:
+        return null;
+    }
+  })();
+
+  if (!page) return <PublicHome />;
+
+  return (
+    <main className="page-shell">
+      <SiteHeader />
+      <section className="content-section public-page-intro">
+        <p className="kicker">{page.kicker}</p>
+        <h1>{page.title}</h1>
+        <p className="lead-copy">{page.body}</p>
+        <a className="pill-button dark" href={page.action[1]}>{page.action[0]}</a>
+      </section>
+      <section className="three-grid public-link-grid">
+        <a className="story-card" href={english ? "/events-en" : "/events"}>
+          <span className="story-number">01</span>
+          <h3>{english ? "Events" : "Events"}</h3>
+          <p>{english ? "Find workshops, practice and community." : "Find workshops, praksis og fællesskab."}</p>
+        </a>
+        <a className="story-card" href={english ? "/become-a-member" : "/bliv-medlem"}>
+          <span className="story-number">02</span>
+          <h3>{english ? "Membership" : "Medlemskab"}</h3>
+          <p>{english ? "Join the community around the house." : "Bliv en del af fællesskabet omkring huset."}</p>
+        </a>
+        <a className="story-card" href={english ? "/book-your-event" : "/book-dit-event"}>
+          <span className="story-number">03</span>
+          <h3>{english ? "Use the house" : "Brug huset"}</h3>
+          <p>{english ? "Create an event in Hjerterum." : "Skab dit eget arrangement i Hjerterum."}</p>
+        </a>
+      </section>
+      <section className="contact-section">
+        <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2></div>
+        <div className="contact-links"><a href="mailto:jh@holistisk.org">jh@holistisk.org</a><a href="/">Hjerterum</a></div>
+      </section>
+    </main>
+  );
+}
+
 function App() {
   const { clerk, user, loaded } = useClerk();
   const path = window.location.pathname;
@@ -490,6 +634,7 @@ function App() {
     return <MemberPortal clerk={clerk} user={user} />;
   }
 
+  if (path !== "/") return <PublicContentPage path={path} />;
   return <PublicHome />;
 }
 
