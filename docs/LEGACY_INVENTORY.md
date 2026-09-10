@@ -9,6 +9,7 @@ This is a migration inventory, not a specification. Legacy content must be revie
 - `/events/` — Danish events
 - `/events-en/` — English events
 - `/vision/` — Hjerterum description/vision
+- `/historien-bag-hjerterum/`, `/team/` — story and people
 - `/kontakt-os/` — contact information
 - `/fordele-ved-medlemskab/` — membership benefits
 - `/book-dit-event/` — Danish legacy event-booking guidance
@@ -47,6 +48,7 @@ explicitly retired after review:
 | `/tribes/` | Retire explicitly | No replacement; Tribes is not part of Hjerterum |
 | `/team/`, `/contact-us/` | Preserve URL and integrate content | Contact/people section |
 | `/history-behind-hjerterum/` | Preserve URL and integrate content | Story/vision section |
+| `/historien-bag-hjerterum/`, `/team/`, `/teamet/` | Preserve URL and integrate content | Story and people destinations |
 | `/vision-en/` | Preserve URL and integrate content | English vision section |
 | `/benefits-of-membership/`, `/conditions-of-membership/` | Preserve URL and integrate content | Membership destination |
 | `/conditions-for-renting-the-room/`, `/betingelser-for-leje-af-sal/` | Preserve URL and integrate content | Booking guidance |

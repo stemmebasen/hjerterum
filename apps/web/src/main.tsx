@@ -146,10 +146,11 @@ function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?:
         </nav>
       ) : (
         <nav className="site-nav" aria-label="Hovednavigation">
-          <a href="#kalender">Kalender</a>
-          <a href="#medlemskab">Medlemskab</a>
-          <a href="#huset">Huset</a>
-          <a href="#kontakt">Kontakt</a>
+          <a href="/events">Events</a>
+          <a href="/vision">Om Hjerterum</a>
+          <a href="/fordele-ved-medlemskab">Medlemskab</a>
+          <a href="/brug-centret">Brug huset</a>
+          <a href="/kontakt-os">Kontakt</a>
           <a className="nav-login" href="/sign-in">Log ind</a>
         </nav>
       )}
@@ -490,6 +491,9 @@ function PublicContentPage({ path }: { path: string }) {
       "/events": "Events i Hjerterum",
       "/events-en": "Events at Hjerterum",
       "/vision": "Hvad er Hjerterum?",
+      "/historien-bag-hjerterum": "Historien bag Hjerterum",
+      "/team": "Mød Hjerterum",
+      "/teamet": "Mød Hjerterum",
       "/kontakt-os": "Kontakt Hjerterum",
       "/fordele-ved-medlemskab": "Fordele ved et medlemskab",
       "/bliv-medlem": "Bliv medlem af Hjerterum",
@@ -532,11 +536,22 @@ function PublicContentPage({ path }: { path: string }) {
   const page = (() => {
     switch (normalizedPath) {
       case "/vision":
+      case "/historien-bag-hjerterum":
         return {
           kicker: "Hjerterum",
-          title: "Et rum for nærvær, praksis og fællesskab.",
-          body: "Hjerterum er et levende hus i Aarhus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.",
+          title: normalizedPath === "/historien-bag-hjerterum" ? "Historien bag Hjerterum." : "Et rum for nærvær, praksis og fællesskab.",
+          body: normalizedPath === "/historien-bag-hjerterum"
+            ? "Hjerterum er vokset frem af et ønske om at skabe et åbent hus i Aarhus for personlig udvikling, indre transformation og fællesskab."
+            : "Hjerterum er et levende hus i Aarhus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.",
           action: ["Se kalenderen", "/events"]
+        };
+      case "/team":
+      case "/teamet":
+        return {
+          kicker: "Menneskene i huset",
+          title: "Mød Hjerterum.",
+          body: "Hjerterum er skabt og holdt levende af mennesker, undervisere, behandlere og arrangører, der deler huset og fællesskabet.",
+          action: ["Kontakt os", "/kontakt-os"]
         };
       case "/kontakt-os":
         return {
