@@ -151,6 +151,7 @@ function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?:
           <a href="/vision">Om Hjerterum</a>
           <a href="/fordele-ved-medlemskab">Medlemskab</a>
           <a href="/brug-centret">Brug huset</a>
+          <a href="/price-list">Prisberegner</a>
           <a href="/behandlere">Behandlere</a>
           <a href="/artikler">Artikler</a>
           <a href="/kontakt-os">Kontakt</a>
@@ -659,7 +660,6 @@ function PublicContentPage({ path }: { path: string }) {
         };
       case "/book-dit-event":
       case "/book-your-event":
-      case "/brug-centret":
         return {
           kicker: english ? "Use the house" : "Brug Hjerterum",
           title: english ? "Create your own event in the house." : "Skab dit eget arrangement i Hjerterum.",
@@ -667,6 +667,13 @@ function PublicContentPage({ path }: { path: string }) {
             ? "Our rooms can be used for teaching, workshops, treatments, meetings and events. Members can create and reserve events through the member area."
             : "Hjerterums lokaler kan bruges til undervisning, workshops, behandlinger, møder og events. Medlemmer kan oprette og reservere arrangementer gennem medlemsområdet.",
           action: [english ? "Open member area" : "Åbn medlemsområdet", "/member-portal/kalender"]
+        };
+      case "/brug-centret":
+        return {
+          kicker: "Brug Hjerterum",
+          title: "Skab dit eget arrangement i huset.",
+          body: "Hjerterums sal på Mejlgade 26B kan bruges til undervisning, workshops, behandlinger, møder og events.",
+          action: ["Beregn lejepris", "/price-list"]
         };
       case "/price-list":
         return {
@@ -715,6 +722,20 @@ function PublicContentPage({ path }: { path: string }) {
           <h3>{english ? "Use the house" : "Brug huset"}</h3>
           <p>{english ? "Create an event in Hjerterum." : "Skab dit eget arrangement i Hjerterum."}</p>
         </a>
+        {normalizedPath === "/brug-centret" && (
+          <>
+            <a className="story-card" href="/price-list">
+              <span className="story-number">04</span>
+              <h3>Prisberegner</h3>
+              <p>Beregn et estimat ud fra bookingtype, dato, tidspunkt og varighed.</p>
+            </a>
+            <a className="story-card" href="/praktisk-information">
+              <span className="story-number">05</span>
+              <h3>Praktisk information</h3>
+              <p>Læs om forberedelse, brug af huset og bookingprocessen.</p>
+            </a>
+          </>
+        )}
       </section>
       <section className="contact-section">
         <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2><p>Mejlgade 26B, 8000 Aarhus C</p></div>

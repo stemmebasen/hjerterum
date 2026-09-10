@@ -177,7 +177,7 @@ p { line-height: 1.7; }
   .site-header { padding:8px 4px 18px; }
   .brand img { height:80px !important; max-width:290px !important; }
   .auth-brand img { height:78px !important; max-width:290px !important; }
-  .site-nav { gap:10px 13px; font-size:.78rem; }
+  .site-nav { gap:10px 13px; font-size:.76rem; }
   .home-hero { grid-template-columns:1fr; min-height:auto; padding:38px 28px 28px; }
   .hero-orbit { width:220px; justify-self:center; margin-top:-18px; }
   .event-grid,.three-grid,.explore-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
