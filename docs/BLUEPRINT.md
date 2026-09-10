@@ -197,6 +197,13 @@ retires only the obsolete `/tribes/` product surface. Public parity is accepted 
 after Danish/English content, links, mobile layout and SEO metadata have been reviewed
 on staging.
 
+### Non-payment migration scope
+
+The current technical/public migration may proceed without activating paid checkout,
+Stripe webhooks, Billing Portal or automatic teacher charges. These flows must remain
+disabled and must not be presented as available to users until a payment provider is
+configured and acceptance-tested. Stripe activation is a separate later milestone.
+
 ## 7. Target data safety requirements
 
 Regardless of database provider, the target schema must enforce at least:
@@ -225,12 +232,12 @@ Resolved:
 - Legacy room-price code has been extracted and documented.
 - GitHub default branch is now `main`.
 - Permanent Cloudflare staging has passed post-merge deploy smoke tests with D1 ready.
-- The project has no Stripe account yet; payment acceptance cannot start.
+- Stripe payment integration is intentionally deferred; paid flows remain inactive.
 
 Still open:
 
 - Preserve/import the sanitized legacy source snapshot outside Replit.
 - Future room pricing must be deliberately chosen because the legacy frontend and server disagree.
 - The two legacy room-fee rows without Stripe invoice-item references require reconciliation before financial cutover.
-- A project-owned Stripe account, test-mode configuration and full end-to-end Clerk/Stripe acceptance remain open.
+- Stripe account, test-mode configuration and full end-to-end Clerk/Stripe acceptance are deferred, not blockers for the non-payment migration scope.
 - Full public/member visual parity remains open.

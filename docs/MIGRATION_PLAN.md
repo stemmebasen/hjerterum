@@ -25,7 +25,7 @@ Visual identity is a separate acceptance dimension. A technical migration must n
 - booking overlap rule
 - event/admin-fee policy tests
 - Cloudflare account ID and API token supplied as GitHub Actions secrets
-- The project has no Stripe account yet; Stripe application and webhook secrets are not configured
+- Stripe payment integration is implemented but intentionally deferred; no Stripe account or secrets are configured
 - Hjerterum visual design contract in `docs/DESIGN_SYSTEM.md`
 
 Repository hygiene completed:
@@ -116,7 +116,7 @@ Only one runtime may own a payment scheduler at a time.
 High priority:
 - admin members/bookings UI polish
 - full end-to-end Clerk member flow against staging
-- configure Stripe test-mode secrets and complete the end-to-end Stripe flow against staging
+- deferred: configure Stripe test-mode secrets and complete the end-to-end Stripe flow against staging
 - complete public/member content parity with the current Hjerterum experience
 - approved reference screenshots for desktop/tablet/mobile
 - visual regression baselines for the key pages after design approval
@@ -220,11 +220,10 @@ After cutover:
 
 ## Current external blockers
 
-Permanent Cloudflare staging is online and verified from `main`. The project does
-not have a Stripe account yet, so payment flows cannot be configured or
-acceptance-tested. Remaining cutover blockers are product and operational work:
-the organisation must first create and own a Stripe account, then configure
-test-mode secrets, complete Clerk/Stripe end-to-end acceptance, finish public/member
-visual parity, explicitly reconcile two historical room-fee rows without Stripe
-invoice-item references, and verify production routing/webhooks/scheduler.
+Permanent Cloudflare staging is online and verified from `main`. Stripe is
+intentionally deferred and paid flows remain inactive until a payment provider is
+configured. It is not a blocker for the public/member technical migration or
+non-payment cutover scope. Remaining cutover work is final public/member visual
+parity, production routing verification and explicit documentation of disabled
+paid flows. Stripe configuration and payment acceptance are a later milestone.
 Legacy source transfer and PostgreSQL export are explicitly non-blocking.
