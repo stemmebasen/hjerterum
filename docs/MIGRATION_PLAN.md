@@ -27,9 +27,9 @@ Visual identity is a separate acceptance dimension. A technical migration must n
 - Cloudflare account ID and API token supplied as GitHub Actions secrets
 - Hjerterum visual design contract in `docs/DESIGN_SYSTEM.md`
 
-Repository hygiene still needed:
-- set GitHub default branch to `main`
-- retire bootstrap initializer branch after verification
+Repository hygiene completed:
+- GitHub default branch is `main`
+- staging deployment and post-merge smoke tests pass on `main`
 
 ## Replit-exit workstream
 
@@ -219,7 +219,8 @@ After cutover:
 
 ## Current external blockers
 
-Permanent Cloudflare staging is online. The only remaining repository-hygiene task that cannot be changed through the connected GitHub tool is:
-- GitHub default branch metadata still needs to be changed from `migration/bootstrap-init` to `main`
-
-Legacy source transfer and PostgreSQL export are explicitly non-blocking.
+Permanent Cloudflare staging is online and verified from `main`. Remaining cutover
+blockers are product and operational work: final public/member visual parity, full
+Clerk/Stripe end-to-end acceptance, explicit reconciliation of two historical room-fee
+rows without Stripe invoice-item references, and production routing/webhook/scheduler
+verification. Legacy source transfer and PostgreSQL export are explicitly non-blocking.

@@ -223,11 +223,12 @@ Resolved:
 - Production database schema/count baseline has been validated read-only.
 - Hjerterum GitHub repository is now private.
 - Legacy room-price code has been extracted and documented.
+- GitHub default branch is now `main`.
+- Permanent Cloudflare staging has passed post-merge deploy smoke tests with D1 ready.
 
 Still open:
 
 - Preserve/import the sanitized legacy source snapshot outside Replit.
-- Permanent Cloudflare staging still requires the configured account credentials/secrets to be verified by an actual staging deploy.
-- GitHub repository metadata still needs `main` set as the repository default branch.
 - Future room pricing must be deliberately chosen because the legacy frontend and server disagree.
 - The two legacy room-fee rows without Stripe invoice-item references require reconciliation before financial cutover.
+- Full public/member visual parity and end-to-end Clerk/Stripe acceptance remain open.
