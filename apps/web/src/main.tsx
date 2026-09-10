@@ -436,6 +436,20 @@ function PublicHome() {
         </div>
       </section>
 
+      <section className="content-section explore-section" id="udforsk">
+        <div className="section-intro wide">
+          <p className="kicker">Udforsk Hjerterum</p>
+          <h2>Find det, du vil vide mere om.</h2>
+          <p>Vi samler det vigtigste indhold fra Hjerterums tidligere sider i færre, tydelige destinationer.</p>
+        </div>
+        <div className="public-link-grid explore-grid">
+          <a className="story-card" href="/historien-bag-hjerterum"><span className="story-number">01</span><h3>Historien bag Hjerterum</h3><p>Læs om huset, visionen og fællesskabet, der har skabt Hjerterum.</p></a>
+          <a className="story-card" href="/behandlere"><span className="story-number">02</span><h3>Behandlere og undervisere</h3><p>Mød de mennesker og praksisser, der bruger huset.</p></a>
+          <a className="story-card" href="/praktisk-information"><span className="story-number">03</span><h3>Praktisk information</h3><p>Find information om at bruge huset, holde event eller blive en del af fællesskabet.</p></a>
+          <a className="story-card" href="/artikler"><span className="story-number">04</span><h3>Artikler og inspiration</h3><p>Fordyb dig i temaer fra Hjerterums univers.</p></a>
+        </div>
+      </section>
+
       <section className="split-section room-section">
         <div className="room-art" aria-hidden="true"><span>H</span></div>
         <div className="section-intro">
@@ -492,6 +506,9 @@ function PublicContentPage({ path }: { path: string }) {
       "/events-en": "Events at Hjerterum",
       "/vision": "Hvad er Hjerterum?",
       "/historien-bag-hjerterum": "Historien bag Hjerterum",
+      "/behandlere": "Behandlere og undervisere",
+      "/praktisk-information": "Praktisk information",
+      "/artikler": "Artikler og inspiration",
       "/team": "Mød Hjerterum",
       "/teamet": "Mød Hjerterum",
       "/kontakt-os": "Kontakt Hjerterum",
@@ -551,6 +568,27 @@ function PublicContentPage({ path }: { path: string }) {
           kicker: "Menneskene i huset",
           title: "Mød Hjerterum.",
           body: "Hjerterum er skabt og holdt levende af mennesker, undervisere, behandlere og arrangører, der deler huset og fællesskabet.",
+          action: ["Kontakt os", "/kontakt-os"]
+        };
+      case "/behandlere":
+        return {
+          kicker: "Menneskene i huset",
+          title: "Behandlere og undervisere i Hjerterum.",
+          body: "Hjerterum er hjem for undervisere, behandlere og arrangører med forskellige faglige og holistiske perspektiver. Kalenderen viser de aktuelle events og tilbud i huset.",
+          action: ["Se aktuelle events", "/events"]
+        };
+      case "/praktisk-information":
+        return {
+          kicker: "Brug Hjerterum",
+          title: "Praktisk information om huset.",
+          body: "Her samler vi den praktiske viden fra Hjerterums tidligere sider: hvordan du holder event, bruger salen, markedsfører dit arrangement og bliver en del af husets fællesskab.",
+          action: ["Læs om at bruge huset", "/brug-centret"]
+        };
+      case "/artikler":
+        return {
+          kicker: "Inspiration",
+          title: "Artikler og inspiration fra Hjerterum.",
+          body: "Hjerterums artikler og faglige indhold samles løbende her, så viden om praksis, nærvær og personlig udvikling bliver lettere at finde.",
           action: ["Kontakt os", "/kontakt-os"]
         };
       case "/kontakt-os":
