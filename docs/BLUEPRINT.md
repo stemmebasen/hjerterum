@@ -225,10 +225,12 @@ Resolved:
 - Legacy room-price code has been extracted and documented.
 - GitHub default branch is now `main`.
 - Permanent Cloudflare staging has passed post-merge deploy smoke tests with D1 ready.
+- Stripe secrets are not configured in staging; payment acceptance has not started.
 
 Still open:
 
 - Preserve/import the sanitized legacy source snapshot outside Replit.
 - Future room pricing must be deliberately chosen because the legacy frontend and server disagree.
 - The two legacy room-fee rows without Stripe invoice-item references require reconciliation before financial cutover.
-- Full public/member visual parity and end-to-end Clerk/Stripe acceptance remain open.
+- Stripe test-mode configuration and full end-to-end Clerk/Stripe acceptance remain open.
+- Full public/member visual parity remains open.
