@@ -61,6 +61,58 @@ The public replacement keeps established URLs and purpose while consolidating th
 legacy pages into stronger destination pages. No redirect or retirement should be
 shipped until the corresponding route has been reviewed in staging.
 
+## Content scan and proposed information architecture
+
+The WordPress REST inventory was scanned on 2026-09-11. It contains 56 pages and
+only one generic blog post. The pages fall into five useful public destinations:
+
+1. **Oplev Hjerterum** — the live event calendar, Hjerterum Open, online events,
+   communal meals and event participation.
+2. **Om Hjerterum** — vision, history, team, regular teachers, therapists and the
+   house/community story.
+3. **Bliv en del af fællesskabet** — membership benefits, membership terms,
+   low-income membership and the future membership entry point.
+4. **Brug huset** — room description, rental conditions, booking, pricing,
+   teacher/event administration and marketing guidance.
+5. **Kontakt og hjælp** — contact, directions, newsletter, donations and any
+   authenticated invoice/account actions.
+
+The public header should expose only **Events**, **Om Hjerterum**, **Medlemskab**,
+**Brug huset** and **Kontakt**. Each destination can have an in-page subnavigation
+or related-content cards. This preserves discoverability without reproducing the
+legacy navigation's long, flat list.
+
+### Consolidation decisions from the scan
+
+| Content group | Keep as canonical destination | Integrate or redirect |
+| --- | --- | --- |
+| `events`, `events-en`, `nye-community-events-hjerterum-events`, `online-events`, `faellesspisning-i-hjerterum` | `/events/` and `/events-en/` | Fold special event formats into calendar filters or editorial cards |
+| `vision`, `vision-en`, `historien-bag-hjerterum`, `team`, `teamet`, `faste-laerere-regular-teachers` | `/vision/` and `/welcome/` | Integrate story, people and regular teachers under “Om Hjerterum” |
+| `behandling-terapi`, `treatment-and-therapy`, `himalayan-hermitage`, `himalayan-hermitage-2` | `/behandlere/` or a reviewed partner directory | Keep as reviewed profiles only; do not copy stale offers automatically |
+| `fordele-ved-medlemskab`, `benefits-of-membership`, `medlemskabs-betingelser`, `conditions-of-membership`, low-income membership | `/fordele-ved-medlemskab/` and `/bliv-medlem/` | Localize paired pages and move terms/variants into one membership destination |
+| `brug-centret`, `use-hjerterum`, `lejepriser`, `price-list`, rental conditions | `/brug-centret/` and `/price-list/` | Combine room story, booking guidance and current approved pricing |
+| `book-dit-event`, `book-your-event`, teacher guidelines, event administration, marketing | `/book-dit-event/` and `/book-your-event/` | Make one host resource with sections for setup, practical use, promotion and management |
+| `kontakt-os`, `contact-us`, `kontakt`, `teamet` | `/kontakt-os/` | Use one reviewed address/contact source; old addresses must not be copied |
+| `artikler`, breathwork pages and legacy newsletter | `/artikler/` | Keep only content with current editorial value; archive or redirect stale pages |
+| `donationer`, `donations` | `/donationer/` | Keep as a secondary support page, not a primary menu item |
+| `fakturaer`, `pay-your-invoice`, `hjerterum-betalinger`, `medlems-login`, `kalendervisning`, `log-ud` | Authenticated member area | Do not expose as public content pages |
+| `tribes`, `hjerterum-tribes` | None | Retire explicitly; Tribes is not part of the target product |
+
+### Content safety findings
+
+- Several legacy pages contain dated offers, old payment embeds and references to
+  MembershipWorks or Stripe. They are source material only, not deployable copy.
+- The scan contains conflicting addresses, including Guldsmedgade and an older
+  Mejlgade address. The current approved address must be verified before publishing
+  contact or room content.
+- Room price pages contain historical price tables that must not override newer
+  documented decisions. Pricing remains configuration/data, not copied prose.
+- Membership pages contain payment and trial language. Because paid checkout is
+  deferred, those statements must remain inactive or be rewritten before reuse.
+- Danish and English pages are often near-duplicates rather than separate content
+  strategies. The target should keep URL parity while sharing one reviewed content
+  model and explicit translations.
+
 ## Migration observations
 
 - The legacy site contains time-sensitive instructions embedded in static pages. These must become structured content/configuration where possible so old dates do not linger.
