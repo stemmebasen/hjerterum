@@ -26,11 +26,11 @@ a { color: inherit; }
 button, input, textarea { font: inherit; }
 
 .page-shell { width: min(1220px, calc(100% - 34px)); margin: 0 auto; padding: 18px 0 52px; }
-.site-header { display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 10px 4px 24px; }
+.site-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 4px 24px; }
 .brand { display:inline-flex; align-items:center; text-decoration: none; }
-.brand img { display:block; height:72px !important; width:auto !important; max-width:270px !important; object-fit:contain; }
+.brand img { display:block; height:96px !important; width:auto !important; max-width:340px !important; object-fit:contain; }
 .auth-brand img { height:96px !important; max-width:340px !important; }
-.site-nav { display: flex; align-items: center; gap: 18px; font-size: .84rem; }
+.site-nav { display: flex; align-items: center; justify-content: flex-end; gap: 16px; flex-wrap: wrap; font-size: .84rem; }
 .site-nav a { text-decoration: none; color: var(--muted); }
 .site-nav a:hover { color: var(--ink); }
 .nav-login { padding: 10px 15px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.62); }
@@ -161,10 +161,9 @@ p { line-height: 1.7; }
 @media (max-width: 900px) {
   .page-shell { width:min(100% - 20px,1220px); padding-top:8px; }
   .site-header { padding:8px 4px 18px; }
-  .brand img { height:64px !important; max-width:235px !important; }
+  .brand img { height:80px !important; max-width:290px !important; }
   .auth-brand img { height:78px !important; max-width:290px !important; }
-  .site-nav { gap:13px; font-size:.78rem; }
-  .site-nav a:nth-child(4), .site-nav a:nth-child(5) { display:none; }
+  .site-nav { gap:10px 13px; font-size:.78rem; }
   .home-hero { grid-template-columns:1fr; min-height:auto; padding:38px 28px 28px; }
   .hero-orbit { width:220px; justify-self:center; margin-top:-18px; }
   .event-grid,.three-grid { grid-template-columns:1fr; }
@@ -178,9 +177,10 @@ p { line-height: 1.7; }
 }
 
 @media (max-width: 560px) {
-  .brand img { height:56px !important; max-width:205px !important; }
+  .brand img { height:72px !important; max-width:260px !important; }
   .auth-brand img { height:72px !important; max-width:260px !important; }
-  .site-nav a:not(.nav-login), .member-nav a { display:none; }
+  .site-header { align-items:flex-start; flex-wrap:wrap; }
+  .site-nav { width:100%; justify-content:flex-start; overflow-x:auto; flex-wrap:nowrap; padding-bottom:4px; }
   .home-hero { border-radius:30px; padding:30px 20px 20px; }
   h1 { font-size:clamp(2.8rem,12vw,4rem); }
   .hero-actions { flex-direction:column; }
