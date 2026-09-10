@@ -413,13 +413,13 @@ function PublicHome() {
           <p className="kicker">Medlemskab</p>
           <h2>Hjerterum er noget, vi skaber sammen.</h2>
           <p>Som medlem er du med til at holde huset levende og tilgængeligt. Du bliver en del af fællesskabet og får adgang til medlemsfordele, aktiviteter og mulighed for selv at skabe noget i Hjerterum.</p>
-          <a className="pill-button dark" href="/sign-up">Bliv medlem</a>
+          <a className="pill-button dark" href="/fordele-ved-medlemskab">Læs om medlemskab</a>
         </div>
         <div className="membership-price-card">
           <span>Medlemskab</span>
           <strong>222 kr.</strong>
           <small>pr. måned</small>
-          <p>Et enkelt medlemskab til fællesskabet og huset.</p>
+          <p>Et enkelt medlemskab til fællesskabet og huset. Aktivering af betaling kommer senere.</p>
         </div>
       </section>
 
@@ -554,7 +554,7 @@ function PublicContentPage({ path }: { path: string }) {
           body: english
             ? "Membership connects you to the house, its community and a varied program of events."
             : "Som medlem er du med til at holde huset levende og tilgængeligt. Du bliver en del af fællesskabet og får adgang til aktiviteter og mulighed for selv at skabe noget i Hjerterum.",
-          action: [english ? "Sign up" : "Bliv medlem", "/sign-up"]
+          action: [english ? "Contact us about membership" : "Kontakt os om medlemskab", "/kontakt-os"]
         };
       case "/book-dit-event":
       case "/book-your-event":
