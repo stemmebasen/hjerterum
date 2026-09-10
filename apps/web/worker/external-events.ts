@@ -23,6 +23,16 @@ function escapeRegExp(value: string): string {
 }
 
 function decodeXml(value: string): string {
+  const htmlEntities: Record<string, string> = {
+    nbsp: " ",
+    aring: "å",
+    Aring: "Å",
+    aelig: "æ",
+    AElig: "Æ",
+    oslash: "ø",
+    Oslash: "Ø"
+  };
+
   return value
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
     .replace(/&amp;/g, "&")
@@ -30,7 +40,9 @@ function decodeXml(value: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
+    .replace(/&(nbsp|aring|Aring|aelig|AElig|oslash|Oslash);/g, (_match, name: string) => htmlEntities[name] ?? _match)
     .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
     .trim();
 }
 

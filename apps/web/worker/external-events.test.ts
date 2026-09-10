@@ -39,4 +39,14 @@ describe("MembershipWorks RSS parser", () => {
     const xml = `<rss><channel><item><title>No time</title></item></channel></rss>`;
     expect(parseMembershipWorksRss(xml)).toEqual([]);
   });
+
+  it("decodes HTML entities from MembershipWorks descriptions", () => {
+    const xml = `<rss><channel><item>
+      <title>Hjerterum</title>
+      <ev:startdate xmlns:ev="http://purl.org/rss/1.0/modules/event/">2026-09-10T17:30:00+02:00</ev:startdate>
+      <description>En h&amp;aring;ndfuld &amp;aelig;bler, &amp;oslash;velser og plads&nbsp;til ro.</description>
+    </item></channel></rss>`;
+    const event = parseMembershipWorksRss(xml)[0];
+    expect(event?.description).toBe("En håndfuld æbler, øvelser og plads til ro.");
+  });
 });
