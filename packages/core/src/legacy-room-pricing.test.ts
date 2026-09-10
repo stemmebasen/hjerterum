@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateLegacyRoomFee,
+  calculateRoomPriceQuote,
   LEGACY_SOME_PACKAGE_FEE_KR
 } from "./legacy-room-pricing.js";
 
@@ -61,5 +62,17 @@ describe("calculateLegacyRoomFee", () => {
     expect(() =>
       calculateLegacyRoomFee({ dayOfWeek: 1, startMinutes: 0, durationMinutes: 0 })
     ).toThrow();
+  });
+
+  it("calculates the three public booking types", () => {
+    expect(calculateRoomPriceQuote({
+      bookingType: "standard", dayOfWeek: 1, startMinutes: 600, durationMinutes: 180
+    }).totalPriceKr).toBe(1080);
+    expect(calculateRoomPriceQuote({
+      bookingType: "reduced", dayOfWeek: 6, startMinutes: 600, durationMinutes: 120, memberPriceKr: 300
+    })).toMatchObject({ totalPriceKr: 300, nonMemberPriceKr: 400, discountPercent: 25 });
+    expect(calculateRoomPriceQuote({
+      bookingType: "free", dayOfWeek: 1, startMinutes: 600, durationMinutes: 120
+    })).toMatchObject({ totalPriceKr: 0, minimumNonMemberPriceKr: 75 });
   });
 });

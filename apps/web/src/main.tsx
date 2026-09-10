@@ -1,7 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { apiFetch, loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
-import { calculateLegacyRoomFee } from "../../../packages/core/src/legacy-room-pricing.js";
+import { calculateRoomPriceQuote, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 
 const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
@@ -151,6 +151,8 @@ function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?:
           <a href="/vision">Om Hjerterum</a>
           <a href="/fordele-ved-medlemskab">Medlemskab</a>
           <a href="/brug-centret">Brug huset</a>
+          <a href="/behandlere">Behandlere</a>
+          <a href="/artikler">Artikler</a>
           <a href="/kontakt-os">Kontakt</a>
           <a className="nav-login" href="/sign-in">Log ind</a>
         </nav>
@@ -330,16 +332,20 @@ function EventSection({ events, reachable }: { events: CalendarEvent[]; reachabl
 }
 
 function RoomPriceCalculator() {
+  const [bookingType, setBookingType] = useState<RoomBookingType>("standard");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [start, setStart] = useState("10:00");
   const [hours, setHours] = useState("2");
+  const [memberPrice, setMemberPrice] = useState("");
   const dateValue = new Date(`${date}T12:00:00`);
   const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
-  const durationHours = Number(hours);
-  const pricing = calculateLegacyRoomFee({
+  const durationHours = Math.max(2, Number(hours) || 2);
+  const pricing = calculateRoomPriceQuote({
+    bookingType,
     dayOfWeek: dateValue.getDay(),
     startMinutes: startHour * 60 + startMinute,
-    durationMinutes: (Number.isFinite(durationHours) && durationHours > 0 ? durationHours : 1) * 60
+    durationMinutes: durationHours * 60,
+    ...(bookingType === "reduced" ? { memberPriceKr: Number(memberPrice) || 0 } : {})
   });
   const bandLabel = pricing.band === "A"
     ? "A-pris (weekend eller fra kl. 18.30)"
@@ -347,15 +353,23 @@ function RoomPriceCalculator() {
 
   return (
     <section className="price-calculator" aria-label="Prisberegner for leje af sal">
+      <div className="booking-type-grid">
+      <button className={bookingType === "standard" ? "selected" : ""} onClick={() => setBookingType("standard")}><strong>Standard</strong><span>Pakkepris uden medlemsrabat</span></button>
+      <button className={bookingType === "reduced" ? "selected" : ""} onClick={() => setBookingType("reduced")}><strong>Reduceret pris</strong><span>Medlemsrabat og pris for ikke-medlemmer</span></button>
+      <button className={bookingType === "free" ? "selected" : ""} onClick={() => setBookingType("free")}><strong>Gratis leje</strong><span>Medlemmer gratis; underviser opkræver deltagere</span></button>
+      </div>
       <div className="price-form">
         <label>Dato<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
         <label>Starttid<input type="time" value={start} onChange={(event) => setStart(event.target.value)} /></label>
-        <label>Varighed i timer<input type="number" min="1" max="24" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
+        <label>Varighed i timer<input type="number" min="2" max="24" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
+        {bookingType === "reduced" && <label>Medlemspris pr. deltager<input type="number" min="0" step="1" value={memberPrice} onChange={(event) => setMemberPrice(event.target.value)} placeholder="Fx 300" /></label>}
       </div>
       <div className="price-result">
         <p className="kicker">Anslået lejepris</p>
-        <strong>{pricing.feeKr.toLocaleString("da-DK")} kr.</strong>
-        <p>{bandLabel}. Beregningen runder op til påbegyndte timer.</p>
+        <strong>{pricing.totalPriceKr.toLocaleString("da-DK")} kr.</strong>
+        <p>{bandLabel}. Beregningen bruger pakkepris eller påbegyndte halve timer.</p>
+        {bookingType === "reduced" && pricing.memberPriceKr !== null && <p>Medlemspris: {pricing.memberPriceKr.toLocaleString("da-DK")} kr. · ikke-medlemmer: {pricing.nonMemberPriceKr?.toLocaleString("da-DK")} kr.</p>}
+        {bookingType === "free" && <p>Ikke-medlemmer skal mindst betale {pricing.minimumNonMemberPriceKr} kr. pr. deltager.</p>}
         <small>Prisen er en beregning og udgør ikke en onlinebetaling eller endelig bookingbekræftelse.</small>
       </div>
     </section>
