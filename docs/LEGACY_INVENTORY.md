@@ -16,6 +16,17 @@ This is a migration inventory, not a specification. Legacy content must be revie
 - `/price-list/` — room price calculator/pricing
 - `/tribes/` — obsolete product surface; do not rebuild
 
+The broader WordPress content inventory also includes the following relevant
+surfaces, which must be represented in the public information architecture or
+explicitly retired after review:
+
+- `/team/`, `/contact-us/` — contact and people
+- `/history-behind-hjerterum/`, `/vision-en/` — story and English vision
+- `/benefits-of-membership/`, `/conditions-of-membership/`, `/low-income-membership-low-income-membership/` — membership information
+- `/conditions-for-renting-the-room/`, `/betingelser-for-leje-af-sal/`, `/treatment-and-therapy/`, `/himalayan-hermitage/` — room use and practitioners
+- `/guidelines-for-teachers/`, `/guidelines-for-undervisere/`, `/marketing-of-your-event/`, `/markedsforing/`, `/managing-your-event/`, `/administrer-dine-events/` — teacher/event guidance
+- `/newsletter/`, `/nyhedsbrev/`, `/donations/`, `/donationer/`, `/articles/`, `/artikler/` — secondary content
+
 ## URL decisions for the Cloudflare public site
 
 | Legacy URL | Decision | Replacement |
@@ -34,6 +45,14 @@ This is a migration inventory, not a specification. Legacy content must be revie
 | `/brug-centret/` | Preserve as standalone route | Event-hosting guidance |
 | `/price-list/` | Preserve URL, replace stale calculator | Current booking entry point; no unauthorised price table |
 | `/tribes/` | Retire explicitly | No replacement; Tribes is not part of Hjerterum |
+| `/team/`, `/contact-us/` | Preserve URL and integrate content | Contact/people section |
+| `/history-behind-hjerterum/` | Preserve URL and integrate content | Story/vision section |
+| `/vision-en/` | Preserve URL and integrate content | English vision section |
+| `/benefits-of-membership/`, `/conditions-of-membership/` | Preserve URL and integrate content | Membership destination |
+| `/conditions-for-renting-the-room/`, `/betingelser-for-leje-af-sal/` | Preserve URL and integrate content | Booking guidance |
+| `/treatment-and-therapy/`, `/himalayan-hermitage/` | Preserve URL and integrate content | Practitioner/room information |
+| Teacher/event guidance routes | Preserve URL and integrate content | One coherent host resource |
+| Newsletter, donations and article routes | Review individually | Keep only where content remains current |
 
 The inventory was checked against the live `holistisk.org` pages on 2026-09-10.
 The public replacement keeps established URLs and purpose while consolidating thin

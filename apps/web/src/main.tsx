@@ -395,9 +395,9 @@ function PublicHome() {
 
       <section className="home-hero">
         <div className="hero-copy">
-          <p className="kicker">Holistisk fællesskab i Aarhus</p>
+          <p className="kicker">Hjerterum i Aarhus</p>
           <h1>Et rum for nærvær, praksis og fællesskab.</h1>
-          <p className="hero-lead">Hjerterum er et levende hus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.</p>
+          <p className="hero-lead">Hjerterum tilbyder arrangementer, workshops og fællesskab inden for personlig udvikling, indre transformation og spiritualitet.</p>
           <div className="hero-actions">
             <a className="pill-button dark" href="#kalender">Se kalenderen</a>
             <a className="pill-button light" href="#medlemskab">Bliv medlem</a>
