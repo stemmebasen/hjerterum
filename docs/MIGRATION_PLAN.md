@@ -25,7 +25,7 @@ Visual identity is a separate acceptance dimension. A technical migration must n
 - booking overlap rule
 - event/admin-fee policy tests
 - Cloudflare account ID and API token supplied as GitHub Actions secrets
-- Stripe application and webhook secrets are not configured in staging yet
+- The project has no Stripe account yet; Stripe application and webhook secrets are not configured
 - Hjerterum visual design contract in `docs/DESIGN_SYSTEM.md`
 
 Repository hygiene completed:
@@ -220,10 +220,11 @@ After cutover:
 
 ## Current external blockers
 
-Permanent Cloudflare staging is online and verified from `main`. Stripe is not
-configured in staging yet, so payment flows are not acceptance-tested. Remaining
-cutover blockers are product and operational work: configure Stripe test-mode
-secrets, complete Clerk/Stripe end-to-end acceptance, final public/member visual
-parity, explicit reconciliation of two historical room-fee rows without Stripe
-invoice-item references, and production routing/webhook/scheduler verification.
+Permanent Cloudflare staging is online and verified from `main`. The project does
+not have a Stripe account yet, so payment flows cannot be configured or
+acceptance-tested. Remaining cutover blockers are product and operational work:
+the organisation must first create and own a Stripe account, then configure
+test-mode secrets, complete Clerk/Stripe end-to-end acceptance, finish public/member
+visual parity, explicitly reconcile two historical room-fee rows without Stripe
+invoice-item references, and verify production routing/webhooks/scheduler.
 Legacy source transfer and PostgreSQL export are explicitly non-blocking.
