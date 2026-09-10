@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { apiFetch, loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
+import { calculateLegacyRoomFee } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 
 const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
@@ -328,6 +329,39 @@ function EventSection({ events, reachable }: { events: CalendarEvent[]; reachabl
   );
 }
 
+function RoomPriceCalculator() {
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [start, setStart] = useState("10:00");
+  const [hours, setHours] = useState("2");
+  const dateValue = new Date(`${date}T12:00:00`);
+  const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
+  const durationHours = Number(hours);
+  const pricing = calculateLegacyRoomFee({
+    dayOfWeek: dateValue.getDay(),
+    startMinutes: startHour * 60 + startMinute,
+    durationMinutes: (Number.isFinite(durationHours) && durationHours > 0 ? durationHours : 1) * 60
+  });
+  const bandLabel = pricing.band === "A"
+    ? "A-pris (weekend eller fra kl. 18.30)"
+    : "B-pris (hverdage før kl. 18.30)";
+
+  return (
+    <section className="price-calculator" aria-label="Prisberegner for leje af sal">
+      <div className="price-form">
+        <label>Dato<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label>Starttid<input type="time" value={start} onChange={(event) => setStart(event.target.value)} /></label>
+        <label>Varighed i timer<input type="number" min="1" max="24" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
+      </div>
+      <div className="price-result">
+        <p className="kicker">Anslået lejepris</p>
+        <strong>{pricing.feeKr.toLocaleString("da-DK")} kr.</strong>
+        <p>{bandLabel}. Beregningen runder op til påbegyndte timer.</p>
+        <small>Prisen er en beregning og udgør ikke en onlinebetaling eller endelig bookingbekræftelse.</small>
+      </div>
+    </section>
+  );
+}
+
 function usePublicEvents() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [eventsReachable, setEventsReachable] = useState(false);
@@ -477,7 +511,7 @@ function PublicHome() {
       <section className="contact-section" id="kontakt">
         <div><p className="kicker">Kontakt</p><h2>Kom forbi Hjerterum.</h2></div>
         <div className="contact-links">
-          <a href="mailto:jh@holistisk.org">jh@holistisk.org</a>
+          <a href="mailto:team@holistisk.org">team@holistisk.org</a>
           <a href="#english">English</a>
           <a href="/sign-in">Medlemslogin</a>
         </div>
@@ -596,7 +630,7 @@ function PublicContentPage({ path }: { path: string }) {
           kicker: "Kontakt",
           title: "Kom forbi Hjerterum.",
           body: "Har du spørgsmål til huset, medlemskab eller events, er du velkommen til at skrive til os.",
-          action: ["Skriv til os", "mailto:jh@holistisk.org"]
+          action: ["Skriv til os", "mailto:team@holistisk.org"]
         };
       case "/fordele-ved-medlemskab":
       case "/bliv-medlem":
@@ -612,7 +646,6 @@ function PublicContentPage({ path }: { path: string }) {
       case "/book-dit-event":
       case "/book-your-event":
       case "/brug-centret":
-      case "/price-list":
         return {
           kicker: english ? "Use the house" : "Brug Hjerterum",
           title: english ? "Create your own event in the house." : "Skab dit eget arrangement i Hjerterum.",
@@ -620,6 +653,13 @@ function PublicContentPage({ path }: { path: string }) {
             ? "Our rooms can be used for teaching, workshops, treatments, meetings and events. Members can create and reserve events through the member area."
             : "Hjerterums lokaler kan bruges til undervisning, workshops, behandlinger, møder og events. Medlemmer kan oprette og reservere arrangementer gennem medlemsområdet.",
           action: [english ? "Open member area" : "Åbn medlemsområdet", "/member-portal/kalender"]
+        };
+      case "/price-list":
+        return {
+          kicker: "Brug Hjerterum",
+          title: "Beregn prisen for at leje salen.",
+          body: "Vælg dato, starttid og varighed for at få et estimat efter Hjerterums aktuelle prisberegner.",
+          action: ["Læs om at bruge huset", "/brug-centret"]
         };
       case "/welcome":
         return {
@@ -644,6 +684,7 @@ function PublicContentPage({ path }: { path: string }) {
         <p className="lead-copy">{page.body}</p>
         <a className="pill-button dark" href={page.action[1]}>{page.action[0]}</a>
       </section>
+      {normalizedPath === "/price-list" && <RoomPriceCalculator />}
       <section className="three-grid public-link-grid">
         <a className="story-card" href={english ? "/events-en" : "/events"}>
           <span className="story-number">01</span>
@@ -663,7 +704,7 @@ function PublicContentPage({ path }: { path: string }) {
       </section>
       <section className="contact-section">
         <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2></div>
-        <div className="contact-links"><a href="mailto:jh@holistisk.org">jh@holistisk.org</a><a href="/">Hjerterum</a></div>
+        <div className="contact-links">        <a href="mailto:team@holistisk.org">team@holistisk.org</a><a href="/">Hjerterum</a></div>
       </section>
     </main>
   );
