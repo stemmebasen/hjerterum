@@ -100,7 +100,8 @@ const expectedTables = [
   "financial_reconciliation",
   "membership_import_batches",
   "external_memberships",
-  "membership_import_changes"
+  "membership_import_changes",
+  "member_access_changes"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 
@@ -127,6 +128,7 @@ assertColumn("room_bookings", "status");
 assertColumn("room_bookings", "cancelled_at_ms");
 assertColumn("members", "access_blocked");
 assertColumn("external_memberships", "access_blocked");
+assertColumn("member_access_changes", "changed_by_email");
 
 const fkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
