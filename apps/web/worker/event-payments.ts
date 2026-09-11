@@ -361,12 +361,24 @@ export async function processEventPaymentWebhook(
   db: D1Database,
   event: StripeEvent
 ): Promise<{ duplicate: boolean }> {
-  const claimed = await db.prepare(
-    `INSERT OR IGNORE INTO webhook_events
-     (provider, event_id, event_type, first_seen_at_ms)
-     VALUES ('stripe_event', ?, ?, ?)`
-  ).bind(event.id, event.type, Date.now()).run();
-  if ((claimed.meta?.changes ?? 0) === 0) return { duplicate: true };
+  const existingEvent = await db.prepare(
+    "SELECT status FROM webhook_events WHERE provider = 'stripe_event' AND event_id = ?"
+  ).bind(event.id).first<{ status: string }>();
+  if (existingEvent?.status === "processed") return { duplicate: true };
+
+  if (existingEvent) {
+    await db.prepare(
+      `UPDATE webhook_events SET status = 'pending', last_error = NULL
+       WHERE provider = 'stripe_event' AND event_id = ? AND status = 'failed'`
+    ).bind(event.id).run();
+  } else {
+    const claimed = await db.prepare(
+      `INSERT OR IGNORE INTO webhook_events
+       (provider, event_id, event_type, first_seen_at_ms)
+       VALUES ('stripe_event', ?, ?, ?)`
+    ).bind(event.id, event.type, Date.now()).run();
+    if ((claimed.meta?.changes ?? 0) === 0) return { duplicate: true };
+  }
 
   try {
     const object = event.data?.object ?? {};
