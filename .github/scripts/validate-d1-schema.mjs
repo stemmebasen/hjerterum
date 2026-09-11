@@ -101,7 +101,9 @@ const expectedTables = [
   "membership_import_batches",
   "external_memberships",
   "membership_import_changes",
-  "member_access_changes"
+  "member_access_changes",
+  "platform_settings",
+  "member_payout_accounts"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 
@@ -126,9 +128,21 @@ assertColumn("external_memberships", "last_import_batch_id");
 assertColumn("membership_import_changes", "change_type");
 assertColumn("room_bookings", "status");
 assertColumn("room_bookings", "cancelled_at_ms");
+assertColumn("room_bookings", "ticket_price_minor");
+assertColumn("room_bookings", "payout_clerk_user_id");
+assertColumn("room_booking_attendees", "registration_status");
+assertColumn("room_booking_attendees", "stripe_checkout_session_id");
+assertColumn("room_booking_attendees", "handling_fee_minor");
+assertColumn("member_payout_accounts", "stripe_account_id");
 assertColumn("members", "access_blocked");
 assertColumn("external_memberships", "access_blocked");
 assertColumn("member_access_changes", "changed_by_email");
+
+assertEqual(
+  Number(firstRow(execute("SELECT setting_value AS value FROM platform_settings WHERE setting_key = 'event_transaction_fee_minor'")).value),
+  0,
+  "default event handling fee"
+);
 
 const fkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
