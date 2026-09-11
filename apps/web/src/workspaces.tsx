@@ -99,6 +99,7 @@ function WorkspaceHeader({
 }) {
   const memberLinks: Array<readonly [string, string]> = [
     ["/member-portal/", "Overblik"],
+    ["/member-portal/medlemskab", "Medlemskab"],
     ["/member-portal/events", "Mine events"],
     ["/member-portal/kalender", "Kalender"],
     ["/member-portal/profil", "Profil"],
@@ -156,7 +157,7 @@ function MemberOverview({ member, calendar }: { member: Member | null; calendar:
               <p>{member.managedExternally ? "Eksisterende medlemskab via MembershipWorks" : member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
               {member.managedExternally
                 ? <span className="workspace-note">Dit eksisterende medlemskab fortsætter uændret.</span>
-                : <span className="workspace-note">Dit medlemskab administreres i Hjerterum.</span>}
+                : <a className="text-link" href="/member-portal/medlemskab">Betaling og medlemskab →</a>}
             </>
           )}
         </article>
@@ -369,6 +370,103 @@ function MemberCalendar({
   );
 }
 
+type MemberInvoice = {
+  id: string;
+  status: string | null;
+  amountPaidMinor: number;
+  amountDueMinor: number;
+  currency: string;
+  createdAt: string;
+  hostedInvoiceUrl: string | null;
+  invoicePdf: string | null;
+};
+
+function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member | null }) {
+  const [invoices, setInvoices] = useState<MemberInvoice[]>([]);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!member || member.managedExternally) return;
+    let active = true;
+    void apiFetch(clerk, "/api/members/me/payments").then(async (response) => {
+      if (active && response.ok) setInvoices(await response.json() as MemberInvoice[]);
+    });
+    return () => { active = false; };
+  }, [clerk, member?.id, member?.managedExternally]);
+
+  async function openPortal() {
+    setBusy(true);
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/members/portal-url");
+    const body = await response.json().catch(() => ({})) as { portalUrl?: string };
+    if (response.ok && body.portalUrl) {
+      window.location.assign(body.portalUrl);
+      return;
+    }
+    setMessage("Betalingsadministrationen er ikke tilgængelig endnu.");
+    setBusy(false);
+  }
+
+  async function cancelMembership() {
+    if (!window.confirm("Vil du opsige medlemskabet ved udgangen af den nuværende betalingsperiode?")) return;
+    setBusy(true);
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/members/me/cancel", { method: "POST" });
+    setMessage(response.ok
+      ? "Opsigelsen er registreret. Medlemskabet fortsætter til periodens udløb."
+      : "Opsigelsen kunne ikke gennemføres.");
+    setBusy(false);
+  }
+
+  if (member?.managedExternally) {
+    return (
+      <section className="workspace-section workspace-narrow">
+        <p className="kicker">Medlemskab</p>
+        <h1>Dit medlemskab</h1>
+        <div className="workspace-card">
+          <Status value={member.status} />
+          <h2>{member.tier}</h2>
+          <p>Dit nuværende medlemskab og din betaling fortsætter uændret i MembershipWorks.</p>
+          <a className="text-link" href="mailto:team@holistisk.org">Kontakt os om medlemskabet →</a>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="workspace-section workspace-narrow">
+      <p className="kicker">Medlemskab</p>
+      <h1>Betaling og medlemskab</h1>
+      <div className="workspace-card">
+        <Status value={member?.status ?? "unknown"} />
+        <h2>{member?.tier}</h2>
+        <p>{member?.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
+        <div className="workspace-actions">
+          <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
+          <button type="button" className="text-button is-danger" disabled={busy} onClick={() => void cancelMembership()}>Opsig medlemskab</button>
+        </div>
+        {message && <p className="workspace-message" role="status">{message}</p>}
+      </div>
+      <div className="workspace-card">
+        <h2>Betalingshistorik</h2>
+        {invoices.length ? (
+          <div className="workspace-list">
+            {invoices.map((invoice) => (
+              <article key={invoice.id}>
+                <time>{new Date(invoice.createdAt).toLocaleDateString("da-DK")}</time>
+                <strong>{(invoice.amountPaidMinor / 100).toLocaleString("da-DK")} {invoice.currency.toUpperCase()}</strong>
+                <span>{invoice.status ?? "Ukendt status"}</span>
+                {(invoice.hostedInvoiceUrl || invoice.invoicePdf) && <a className="text-link" href={invoice.hostedInvoiceUrl || invoice.invoicePdf || "#"} target="_blank" rel="noreferrer">Åbn faktura →</a>}
+              </article>
+            ))}
+          </div>
+        ) : <p>Der er ingen fakturaer at vise endnu.</p>}
+      </div>
+    </section>
+  );
+}
+
 function MemberProfile({
   clerk,
   member,
@@ -484,7 +582,9 @@ export function MemberWorkspace({
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
-        normalized === "/member-portal/events" ? (
+        normalized === "/member-portal/medlemskab" ? (
+          <MemberBilling clerk={clerk} member={member} />
+        ) : normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
