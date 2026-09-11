@@ -36,6 +36,14 @@ This document is the primary product and migration specification for the new Hje
   e-mail deduplication, import/change history, combined admin counts and legacy-member
   recognition. It preserves existing MembershipWorks payments while new members remain
   native to Hjerterum.
+- Member event self-service now uses one shared active-membership rule across calendar,
+  registrations and owned-event actions. The signed-in identity supplies member name/e-mail;
+  client-provided identity is not trusted.
+- Members can register, unregister, create, edit and cancel upcoming events in the portal.
+  Cancellation preserves the event and registrations as history. Admin can cancel events and
+  reversibly block either native or MembershipWorks member access with an audit record.
+- Membership billing routes are connected to the current portal UI. They remain unavailable
+  at runtime until the deferred Stripe configuration and acceptance work is completed.
 
 ## 2. Product scope
 
@@ -252,3 +260,5 @@ Still open:
 - The two legacy room-fee rows without Stripe invoice-item references require reconciliation before financial cutover.
 - Stripe account, test-mode configuration and full end-to-end Clerk/Stripe acceptance are deferred, not blockers for the non-payment migration scope.
 - Full public/member visual parity remains open.
+- Event signup payments, the 5% payout/admin-fee model, payment-linked cancellation policy,
+  notifications and authenticated browser acceptance tests remain open before production cutover.
