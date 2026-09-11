@@ -109,6 +109,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) {
     throw new Error("invalid_booking_interval");
   }
+  if (startMs <= Date.now()) throw new Error("invalid_booking_start");
 
   const maxAttendeesRaw = body.maxAttendees;
   const maxAttendees =
@@ -309,9 +310,9 @@ export async function deleteOwnedRoomBooking(
     .prepare(
       `UPDATE room_bookings
        SET status = 'cancelled', cancelled_at_ms = ?, updated_at_ms = ?
-       WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled'`
+       WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled' AND starts_at_ms > ?`
     )
-    .bind(now, now, bookingId, ownerClerkUserId)
+    .bind(now, now, bookingId, ownerClerkUserId, now)
     .run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_not_found");
 }
