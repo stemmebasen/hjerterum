@@ -101,7 +101,12 @@ async function memberMe(request: Request, env: Env): Promise<Response> {
   if (user instanceof Response) return user;
 
   const localMember = await getMemberByClerkUserId(env.DB, user.userId);
-  if (localMember) return json({ ...localMember, source: "hjerterum", managedExternally: false });
+  if (localMember) {
+    if (localMember.status !== "active") {
+      return json({ error: "membership_inactive" }, { status: 403 });
+    }
+    return json({ ...localMember, source: "hjerterum", managedExternally: false });
+  }
   if (!env.CLERK_SECRET_KEY) return json({ error: "membership_lookup_not_configured" }, { status: 503 });
 
   try {
