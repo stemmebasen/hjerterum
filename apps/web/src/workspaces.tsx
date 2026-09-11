@@ -55,6 +55,7 @@ type AdminOverview = {
   totals: {
     members: number;
     activeMembers: number;
+    externalMembers: number;
     teachers: number;
     upcomingBookings: number;
   };
@@ -468,7 +469,7 @@ export function AdminWorkspace({
             <p className="kicker">Administration</p><h1>Overblik</h1>
             <div className="metric-grid">
               <article><strong>{overview.totals.activeMembers}</strong><span>aktive medlemmer</span></article>
-              <article><strong>{overview.totals.members}</strong><span>medlemmer i alt</span></article>
+              <article><strong>{overview.totals.members}</strong><span>medlemmer i alt</span><small>{overview.totals.externalMembers} fra MembershipWorks</small></article>
               <article><strong>{overview.totals.upcomingBookings}</strong><span>kommende events</span></article>
               <article><strong>{overview.totals.teachers}</strong><span>undervisere</span></article>
             </div>
