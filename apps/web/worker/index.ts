@@ -1,3 +1,4 @@
+import { clerkPrimaryEmail } from "./admin-auth.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import {
   checkDatabase,
@@ -5,6 +6,7 @@ import {
   type D1Database
 } from "./db.js";
 import { runTeacherAutoCharge } from "./jobs.js";
+import { findMembershipWorksMemberByEmail } from "./membership-import.js";
 import {
   cancelMembership,
   createBillingPortalUrl,
@@ -31,6 +33,7 @@ interface Env {
   ENVIRONMENT?: string;
   APP_BASE_URL?: string;
   CLERK_JWT_ISSUER?: string;
+  CLERK_SECRET_KEY?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_MEMBER_WEBHOOK_SECRET?: string;
   DB?: D1Database;
@@ -167,7 +170,17 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
   if (isResponse(user)) return user;
 
   const member = await getMemberByClerkUserId(env.DB, user.userId);
-  if (!member || member.status !== "active") {
+  let activeMembership = member?.status === "active";
+  if (!activeMembership && !member && env.CLERK_SECRET_KEY) {
+    try {
+      const email = await clerkPrimaryEmail(user.userId, env.CLERK_SECRET_KEY);
+      const externalMember = await findMembershipWorksMemberByEmail(env.DB, email);
+      activeMembership = externalMember?.status === "active";
+    } catch {
+      activeMembership = false;
+    }
+  }
+  if (!activeMembership) {
     return json({ error: "active_membership_required" }, { status: 403 });
   }
 

@@ -1,4 +1,4 @@
-import { authenticateAdmin } from "./admin-auth.js";
+import { authenticateAdmin, clerkPrimaryEmail } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
@@ -8,6 +8,12 @@ import {
   updateMemberProfile
 } from "./member-profile.js";
 import { getMemberByClerkUserId } from "./members.js";
+import {
+  findMembershipWorksMemberByEmail,
+  importMembershipWorksCsv,
+  listMembershipImportBatches,
+  listMembershipWorksMembers
+} from "./membership-import.js";
 import {
   beginTeacherCardSetup,
   createTeacher,
@@ -86,6 +92,72 @@ async function parseJson(request: Request): Promise<unknown | Response> {
     return await request.json();
   } catch {
     return json({ error: "invalid_json" }, { status: 400 });
+  }
+}
+
+async function memberMe(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (user instanceof Response) return user;
+
+  const localMember = await getMemberByClerkUserId(env.DB, user.userId);
+  if (localMember) {
+    if (localMember.status !== "active") {
+      return json({ error: "membership_inactive" }, { status: 403 });
+    }
+    return json({ ...localMember, source: "hjerterum", managedExternally: false });
+  }
+  if (!env.CLERK_SECRET_KEY) return json({ error: "membership_lookup_not_configured" }, { status: 503 });
+
+  try {
+    const email = await clerkPrimaryEmail(user.userId, env.CLERK_SECRET_KEY);
+    const externalMember = await findMembershipWorksMemberByEmail(env.DB, email);
+    if (!externalMember) return json({ error: "membership_required" }, { status: 403 });
+    if (externalMember.status !== "active") {
+      return json({ error: "membership_inactive" }, { status: 403 });
+    }
+    return json({
+      id: -externalMember.id,
+      tier: externalMember.membershipLevel ?? "MembershipWorks",
+      interval: "legacy",
+      status: externalMember.status,
+      fullName: externalMember.fullName,
+      email: externalMember.email,
+      phone: null,
+      streetAddress: null,
+      isTeacher: false,
+      source: "membershipworks",
+      managedExternally: true
+    });
+  } catch {
+    return json({ error: "membership_lookup_failed" }, { status: 503 });
+  }
+}
+
+async function membershipImports(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+
+  try {
+    if (request.method === "GET") return json(await listMembershipImportBatches(env.DB));
+    const body = await parseJson(request);
+    if (body instanceof Response) return body;
+    return json(await importMembershipWorksCsv(env.DB, body, admin.email), { status: 201 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "membership_import_failed";
+    return json({ error: code }, { status: code.startsWith("invalid_") ? 400 : 503 });
+  }
+}
+
+async function membershipWorksMembers(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+  try {
+    return json(await listMembershipWorksMembers(env.DB));
+  } catch {
+    return json({ error: "membership_list_failed" }, { status: 503 });
   }
 }
 
@@ -249,10 +321,18 @@ export default {
       }, { headers: { "cache-control": "public, max-age=300" } });
     }
 
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/membership-imports") {
+      return membershipImports(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/membershipworks-members") {
+      return membershipWorksMembers(request, env);
+    }
+
     if (request.method === "GET" && url.pathname === "/api/admin/overview") return adminRead(request, env, "overview");
     if (request.method === "GET" && url.pathname === "/api/admin/members") return adminRead(request, env, "members");
     if (request.method === "GET" && url.pathname === "/api/admin/room-bookings") return adminRead(request, env, "room-bookings");
 
+    if (request.method === "GET" && url.pathname === "/api/members/me") return memberMe(request, env);
     if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);
 

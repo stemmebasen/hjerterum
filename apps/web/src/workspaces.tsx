@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
+import { MembershipAdmin } from "./membership-admin";
 
 const LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
 
@@ -13,6 +14,8 @@ type Member = {
   phone: string | null;
   streetAddress: string | null;
   isTeacher: boolean;
+  source?: "hjerterum" | "membershipworks";
+  managedExternally?: boolean;
 };
 
 type Booking = {
@@ -52,6 +55,7 @@ type AdminOverview = {
   totals: {
     members: number;
     activeMembers: number;
+    externalMembers: number;
     teachers: number;
     upcomingBookings: number;
   };
@@ -146,8 +150,10 @@ function MemberOverview({ member, bookings }: { member: Member | null; bookings:
             <>
               <Status value={member.status} />
               <h2>{member.tier}</h2>
-              <p>{member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
-              <a className="text-link" href="/member-portal/dashboard">Se medlemskab →</a>
+              <p>{member.managedExternally ? "Eksisterende medlemskab via MembershipWorks" : member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
+              {member.managedExternally
+                ? <span className="workspace-note">Dit eksisterende medlemskab fortsætter uændret.</span>
+                : <a className="text-link" href="/member-portal/dashboard">Se medlemskab →</a>}
             </>
           ) : (
             <>
@@ -308,6 +314,20 @@ function MemberProfile({
     setMessage("Dine oplysninger er gemt.");
   }
 
+  if (member?.managedExternally) {
+    return (
+      <section className="workspace-section workspace-narrow">
+        <p className="kicker">Profil</p>
+        <h1>Dine oplysninger</h1>
+        <div className="workspace-card">
+          <h2>{member.fullName}</h2>
+          <p>{member.email}</p>
+          <p>Dit medlemskab administreres fortsat i MembershipWorks og ændres ikke her.</p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="workspace-section workspace-narrow">
       <p className="kicker">Profil</p>
@@ -340,6 +360,7 @@ export function MemberWorkspace({
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [publicBookings, setPublicBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessError, setAccessError] = useState("");
 
   async function loadBookings() {
     const response = await apiFetch(clerk, "/api/room-bookings");
@@ -357,7 +378,11 @@ export function MemberWorkspace({
       fetch("/api/room-bookings/public")
     ]).then(async ([memberResponse, bookingResponse, publicResponse]) => {
       if (!active) return;
-      if (memberResponse.ok) setMember(await memberResponse.json() as Member);
+      if (memberResponse.ok) {
+        setMember(await memberResponse.json() as Member);
+      } else if (memberResponse.status === 403) {
+        setAccessError("Der er ikke knyttet et aktivt medlemskab til din e-mail.");
+      }
       if (bookingResponse.ok) {
         const rows = await bookingResponse.json() as Booking[];
         setBookings(rows.filter((booking) => Date.parse(booking.endsAt) >= Date.now()));
@@ -374,6 +399,7 @@ export function MemberWorkspace({
     <main className="workspace-shell">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
+        accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
         normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={bookings} reload={loadBookings} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
@@ -433,7 +459,7 @@ export function AdminWorkspace({
       {error ? <section className="workspace-section workspace-narrow"><h1>Adgang kræves</h1><div className="workspace-card"><p>{error}</p><a className="text-link" href="/">Tilbage til Hjerterum →</a></div></section> :
         !overview ? <section className="workspace-loading">Henter administrationen …</section> :
         normalized === "/admin/members" ? (
-          <AdminTable title="Medlemmer" kicker="Administration" headings={["Navn", "Medlemskab", "Status", "Kontakt"]} rows={members.map((member) => [member.fullName, member.tier + " · " + (member.interval === "year" ? "årligt" : "månedligt"), <Status value={member.status} />, member.email])} />
+          <MembershipAdmin clerk={clerk} members={members} />
         ) : normalized === "/admin/bookings" ? (
           <AdminTable title="Events og reservationer" kicker="Administration" headings={["Event", "Tid", "Arrangør", "Deltagere", "Leje"]} rows={bookings.map((booking) => [booking.title, formatDate(booking.startsAt), booking.teacherName, String(booking.attendeeCount || 0) + (booking.maxAttendees ? " / " + booking.maxAttendees : ""), booking.feeKr.toLocaleString("da-DK") + " kr."])} />
         ) : normalized === "/admin/teachers" ? (
@@ -443,7 +469,7 @@ export function AdminWorkspace({
             <p className="kicker">Administration</p><h1>Overblik</h1>
             <div className="metric-grid">
               <article><strong>{overview.totals.activeMembers}</strong><span>aktive medlemmer</span></article>
-              <article><strong>{overview.totals.members}</strong><span>medlemmer i alt</span></article>
+              <article><strong>{overview.totals.members}</strong><span>medlemmer i alt</span><small>{overview.totals.externalMembers} fra MembershipWorks</small></article>
               <article><strong>{overview.totals.upcomingBookings}</strong><span>kommende events</span></article>
               <article><strong>{overview.totals.teachers}</strong><span>undervisere</span></article>
             </div>

@@ -32,6 +32,10 @@ This document is the primary product and migration specification for the new Hje
   member overview, event creation, calendar, profile and contact surfaces.
 - Event creation is enforced server-side for active paying members. A frontend-only
   membership check is not considered sufficient authorization.
+- The MembershipWorks transition layer is implemented with idempotent CSV mirroring,
+  e-mail deduplication, import/change history, combined admin counts and legacy-member
+  recognition. It preserves existing MembershipWorks payments while new members remain
+  native to Hjerterum.
 
 ## 2. Product scope
 
@@ -45,10 +49,12 @@ This document is the primary product and migration specification for the new Hje
 
 ### Membership
 
-- Existing MembershipWorks members remain intact during transition and must not be destructively migrated.
-- Legacy source validation shows that MembershipWorks is currently used only as an external event RSS source, not as the active login/member-sync system.
-- The current application identity model is Clerk + local `members` table + Stripe.
-- New members are onboarded into the new system according to the agreed introductory-period rule.
+- Existing MembershipWorks members and payment agreements remain intact during transition and must not be destructively migrated.
+- MembershipWorks has no supported member API. Existing members are therefore mirrored read-only through full CSV imports; the platform never writes back to MembershipWorks.
+- Re-imports match normalized e-mail addresses, update changed records without duplicates and preserve an auditable batch/change history visible to admin.
+- A verified active MembershipWorks mirror record grants member access while its membership and payment remain managed externally.
+- The current application identity model is Clerk + local `members` table + Stripe, with the MembershipWorks mirror as a temporary entitlement adapter.
+- New members are onboarded into the new system and receive the agreed first 30 days free. Existing records do not receive a new trial merely because they are re-imported.
 - Member profiles can expose practitioner/teacher visit-card information where the member chooses to do so.
 - Hjerterum membership may confer CIRKLER eligibility through the separate CIRKLER integration.
 - Email-based fallback linking between Clerk and an existing member record is legacy behaviour that must be acceptance-tested before replacement.
@@ -168,7 +174,7 @@ Legacy SoMe package fee: 390 kr.
 - Stripe: subscriptions, customer portal, webhooks, teacher SetupIntents/PaymentIntents and room-booking invoice items.
 - Resend: primary mail provider, with SMTP fallback.
 - Google Sheets: CSV source for legacy teacher-booking data.
-- MembershipWorks: external event RSS feed only (`org=22308`), not member synchronization.
+- MembershipWorks: external event RSS feed (`org=22308`) plus admin-initiated read-only CSV member mirroring. No write-back or payment migration.
 - DAWA: address autocomplete.
 - OpenAI-compatible integration: moderation/review and retired Tribes-related AI flows.
 - CIRKLER: legacy system only links externally to `cirkler.net`; there is no legacy CIRKLER API/data sync to preserve.

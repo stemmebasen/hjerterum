@@ -117,8 +117,12 @@ export async function createMembershipCheckout(
     "metadata[full_name]": input.fullName
   };
 
-  if (existing?.stripeCustomerId) params.customer = existing.stripeCustomerId;
-  else params.customer_email = input.email;
+  if (existing?.stripeCustomerId) {
+    params.customer = existing.stripeCustomerId;
+  } else {
+    params.customer_email = input.email;
+    params["subscription_data[trial_period_days]"] = 30;
+  }
 
   const session = await stripeRequest<{ url?: string }>(
     stripeSecretKey,
