@@ -19,6 +19,21 @@ describe("MembershipWorks import normalization", () => {
     });
   });
 
+  it("stores only canonical membership fields from source rows", () => {
+    const member = normalizeMembershipWorksRow({
+      Email: "member@example.dk",
+      Name: "Medlem",
+      Status: "Active",
+      "Private note": "must-not-be-copied"
+    });
+    expect(member.rawJson).not.toContain("must-not-be-copied");
+    expect(JSON.parse(member.rawJson)).toMatchObject({
+      email: "member@example.dk",
+      fullName: "Medlem",
+      status: "active"
+    });
+  });
+
   it("rejects records without a usable email", () => {
     expect(() => normalizeMembershipWorksRow({ Name: "Uden mail" })).toThrow("missing_or_invalid_email");
   });
