@@ -13,7 +13,7 @@ describe("member event input rules", () => {
       title: "Meditation",
       startsAt: futureIso(60),
       endsAt: futureIso(120),
-      maxAttendees: 12
+      maxAttendees: 12,
       ticketPriceKr: 125.5
     })).toMatchObject({ title: "Meditation", maxAttendees: 12, ticketPriceMinor: 12_550 });
   });
