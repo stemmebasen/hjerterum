@@ -166,6 +166,11 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
 
+  const member = await getMemberByClerkUserId(env.DB, user.userId);
+  if (!member || member.status !== "active") {
+    return json({ error: "active_membership_required" }, { status: 403 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
