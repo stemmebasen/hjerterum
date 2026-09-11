@@ -91,14 +91,14 @@ function WorkspaceHeader({
   mode: "member" | "admin";
   path: string;
 }) {
-  const memberLinks = [
+  const memberLinks: Array<readonly [string, string]> = [
     ["/member-portal/", "Overblik"],
     ["/member-portal/events", "Mine events"],
     ["/member-portal/kalender", "Kalender"],
     ["/member-portal/profil", "Profil"],
     ["/member-portal/kontakt", "Kontakt"]
   ];
-  const adminLinks = [
+  const adminLinks: Array<readonly [string, string]> = [
     ["/admin/", "Overblik"],
     ["/admin/members", "Medlemmer"],
     ["/admin/bookings", "Events"],
