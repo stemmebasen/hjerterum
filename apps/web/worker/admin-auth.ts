@@ -19,7 +19,7 @@ function allowedEmailSet(value: string | undefined): Set<string> {
   );
 }
 
-async function clerkPrimaryEmail(userId: string, secretKey: string): Promise<string> {
+export async function clerkPrimaryEmail(userId: string, secretKey: string): Promise<string> {
   const response = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`, {
     headers: {
       authorization: `Bearer ${secretKey}`,
