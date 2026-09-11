@@ -21,7 +21,6 @@ import {
   listBookingAttendees,
   listMemberCalendarBookings,
   listOwnedRoomBookings,
-  normalizeAttendeeInput,
   normalizeCreateRoomBookingInput,
   unattendRoomBooking,
   updateOwnedRoomBooking,
@@ -261,7 +260,7 @@ async function deleteRoomBooking(
 
   try {
     await deleteOwnedRoomBooking(env.DB, user.userId, bookingId);
-    return json({ status: "deleted" });
+    return json({ status: "cancelled" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "booking_delete_failed";
     return json({ error: code }, { status: code === "booking_not_found" ? 404 : 503 });
