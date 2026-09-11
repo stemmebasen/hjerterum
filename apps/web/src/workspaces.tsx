@@ -31,6 +31,7 @@ type Booking = {
   isAttending?: boolean;
   isOwner?: boolean;
   feeKr: number;
+  status?: string;
 };
 
 type AdminMember = {
@@ -42,6 +43,7 @@ type AdminMember = {
   interval: string;
   status: string;
   isTeacher: boolean;
+  accessBlocked: boolean;
   createdAt: string;
 };
 
@@ -637,6 +639,18 @@ export function AdminWorkspace({
     return () => { active = false; };
   }, [clerk]);
 
+  async function cancelAdminBooking(booking: Booking) {
+    if (!window.confirm("Vil du annullere “" + booking.title + "”?")) return;
+    const response = await apiFetch(clerk, "/api/admin/room-bookings/" + booking.id, { method: "DELETE" });
+    if (!response.ok) {
+      setError("Eventet kunne ikke annulleres.");
+      return;
+    }
+    setBookings((current) => current.map((item) =>
+      item.id === booking.id ? { ...item, status: "cancelled" } : item
+    ));
+  }
+
   return (
     <main className="workspace-shell admin-workspace">
       <WorkspaceHeader clerk={clerk} mode="admin" path={path} />
@@ -645,7 +659,26 @@ export function AdminWorkspace({
         normalized === "/admin/members" ? (
           <MembershipAdmin clerk={clerk} members={members} />
         ) : normalized === "/admin/bookings" ? (
-          <AdminTable title="Events og reservationer" kicker="Administration" headings={["Event", "Tid", "Arrangør", "Deltagere", "Leje"]} rows={bookings.map((booking) => [booking.title, formatDate(booking.startsAt), booking.teacherName, String(booking.attendeeCount || 0) + (booking.maxAttendees ? " / " + booking.maxAttendees : ""), booking.feeKr.toLocaleString("da-DK") + " kr."])} />
+          <section className="workspace-section">
+            <p className="kicker">Administration</p>
+            <h1>Events og reservationer</h1>
+            <div className="workspace-table-wrap">
+              <table className="workspace-table">
+                <thead><tr><th>Event</th><th>Tid</th><th>Arrangør</th><th>Deltagere</th><th>Leje</th><th>Status</th><th>Handling</th></tr></thead>
+                <tbody>{bookings.map((booking) => (
+                  <tr key={booking.id}>
+                    <td>{booking.title}</td>
+                    <td>{formatDate(booking.startsAt)}</td>
+                    <td>{booking.teacherName}</td>
+                    <td>{String(booking.attendeeCount || 0) + (booking.maxAttendees ? " / " + booking.maxAttendees : "")}</td>
+                    <td>{booking.feeKr.toLocaleString("da-DK")} kr.</td>
+                    <td>{booking.status === "cancelled" ? "Annulleret" : "Planlagt"}</td>
+                    <td>{booking.status !== "cancelled" && <button type="button" className="text-button is-danger" onClick={() => void cancelAdminBooking(booking)}>Annullér</button>}</td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </section>
         ) : normalized === "/admin/teachers" ? (
           <AdminTable title="Undervisere" kicker="Administration" headings={["Navn", "Kontakt", "Kortstatus"]} rows={teachers.map((teacher) => [teacher.name, teacher.email || teacher.phone || "—", <Status value={teacher.card_status} />])} />
         ) : (
