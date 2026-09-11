@@ -328,6 +328,7 @@ export async function createEventCheckout(
           "line_items[1][price_data][product_data][name]": "Håndteringsgebyr"
         } : {}),
         "payment_intent_data[application_fee_amount]": applicationFeeMinor,
+        "payment_intent_data[receipt_email]": attendee.email,
         "metadata[booking_id]": String(bookingId),
         "metadata[clerk_user_id]": clerkUserId,
         "metadata[registration_id]": String(registrationId),
