@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { apiFetch, loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
+import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 
@@ -162,18 +163,26 @@ function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?:
   );
 }
 
-function AuthPage({ clerk, mode }: { clerk: ClerkBrowser | null; mode: "sign-in" | "sign-up" }) {
+function AuthPage({
+  clerk,
+  mode,
+  redirectUrl
+}: {
+  clerk: ClerkBrowser | null;
+  mode: "sign-in" | "sign-up";
+  redirectUrl?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!clerk || !ref.current) return;
     const node = ref.current;
-    if (mode === "sign-in") clerk.mountSignIn(node);
-    else clerk.mountSignUp(node);
+    if (mode === "sign-in") clerk.mountSignIn(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
+    else clerk.mountSignUp(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
     return () => {
       if (mode === "sign-in") clerk.unmountSignIn(node);
       else clerk.unmountSignUp(node);
     };
-  }, [clerk, mode]);
+  }, [clerk, mode, redirectUrl]);
 
   return (
     <main className="auth-shell">
@@ -795,11 +804,18 @@ function App() {
     return <AuthPage clerk={clerk} mode="sign-up" />;
   }
 
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    if (!loaded) return <main className="auth-shell"><p>Åbner administrationen …</p></main>;
+    if (!clerk) return <AuthPage clerk={null} mode="sign-in" redirectUrl="/admin/" />;
+    if (!user) return <AuthPage clerk={clerk} mode="sign-in" redirectUrl="/admin/" />;
+    return <AdminWorkspace clerk={clerk} user={user} path={path} />;
+  }
+
   if (path === "/member-portal" || path.startsWith("/member-portal/")) {
     if (!loaded) return <main className="auth-shell"><p>Åbner Hjerterum …</p></main>;
     if (!clerk) return <AuthPage clerk={null} mode="sign-in" />;
     if (!user) return <AuthPage clerk={clerk} mode="sign-in" />;
-    return <MemberPortal clerk={clerk} user={user} />;
+    return <MemberWorkspace clerk={clerk} user={user} path={path} />;
   }
 
   if (path !== "/") return <PublicContentPage path={path} />;
