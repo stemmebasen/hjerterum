@@ -29,6 +29,7 @@ export type PublicRoomBookingRow = {
   starts_at_ms: number;
   ends_at_ms: number;
   max_attendees: number | null;
+  ticket_price_minor: number;
 };
 
 export async function checkDatabase(db: D1Database): Promise<void> {
@@ -43,7 +44,7 @@ export async function listUpcomingPublicRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees
+              starts_at_ms, ends_at_ms, max_attendees, ticket_price_minor
        FROM room_bookings
        WHERE status = 'scheduled' AND ends_at_ms >= ?
        ORDER BY starts_at_ms ASC`
