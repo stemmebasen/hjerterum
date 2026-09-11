@@ -294,7 +294,7 @@ export async function listMembershipWorksMembers(db: D1Database) {
     `SELECT id, source_external_id AS externalId, normalized_email AS email,
             full_name AS fullName, membership_level AS membershipLevel, status,
             joined_at_text AS joinedAt, expires_at_text AS expiresAt,
-            last_seen_at_ms AS lastSeenAt
+            last_seen_at_ms AS lastSeenAt, access_blocked AS accessBlocked
      FROM external_memberships
      WHERE source = 'membershipworks'
      ORDER BY full_name COLLATE NOCASE ASC
@@ -319,7 +319,7 @@ export async function listMembershipImportBatches(db: D1Database) {
 export async function findMembershipWorksMemberByEmail(db: D1Database, email: string) {
   return db.prepare(
     `SELECT id, normalized_email AS email, full_name AS fullName,
-            membership_level AS membershipLevel, status
+            membership_level AS membershipLevel, status, access_blocked AS accessBlocked
      FROM external_memberships
      WHERE source = 'membershipworks' AND normalized_email = ?
      LIMIT 1`
@@ -329,5 +329,6 @@ export async function findMembershipWorksMemberByEmail(db: D1Database, email: st
     fullName: string;
     membershipLevel: string | null;
     status: string;
+    accessBlocked: number;
   }>();
 }
