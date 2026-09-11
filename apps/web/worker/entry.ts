@@ -11,6 +11,7 @@ import {
 import { getMemberByClerkUserId } from "./members.js";
 import { resolveActiveMembership } from "./membership-access.js";
 import { cancelRoomBookingAsAdmin } from "./room-bookings.js";
+import { getHandlingFeeMinor, setHandlingFeeMinor } from "./event-payments.js";
 import {
   importMembershipWorksCsv,
   listMembershipImportBatches,
@@ -240,6 +241,30 @@ async function adminMemberAccess(request: Request, env: Env): Promise<Response> 
   }
 }
 
+async function adminEventPaymentSettings(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+
+  try {
+    if (request.method === "GET") {
+      return json({
+        handlingFeeMinor: await getHandlingFeeMinor(env.DB),
+        platformFeePercent: 5
+      });
+    }
+    const body = await parseJson(request);
+    if (body instanceof Response) return body;
+    return json({
+      ...await setHandlingFeeMinor(env.DB, body, admin.email),
+      platformFeePercent: 5
+    });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "event_payment_settings_failed";
+    return json({ error: code }, { status: code.startsWith("invalid_") ? 400 : 503 });
+  }
+}
+
 async function adminCancelBooking(request: Request, env: Env, bookingId: number): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const admin = await requireAdmin(request, env);
@@ -355,6 +380,10 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/admin/members/access") {
       return adminMemberAccess(request, env);
+    }
+    if ((request.method === "GET" || request.method === "PUT") &&
+        url.pathname === "/api/admin/event-payment-settings") {
+      return adminEventPaymentSettings(request, env);
     }
     const adminBookingMatch = url.pathname.match(/^\/api\/admin\/room-bookings\/(\d+)$/);
     if (request.method === "DELETE" && adminBookingMatch?.[1]) {
