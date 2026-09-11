@@ -1,4 +1,3 @@
-import { clerkPrimaryEmail } from "./admin-auth.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import {
   checkDatabase,
@@ -6,7 +5,6 @@ import {
   type D1Database
 } from "./db.js";
 import { runTeacherAutoCharge } from "./jobs.js";
-import { findMembershipWorksMemberByEmail } from "./membership-import.js";
 import {
   cancelMembership,
   createBillingPortalUrl,
@@ -15,11 +13,13 @@ import {
   parseCheckoutInput,
   processMemberStripeEvent
 } from "./members.js";
+import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
 import {
   attendRoomBooking,
   createRoomBooking,
   deleteOwnedRoomBooking,
   listBookingAttendees,
+  listMemberCalendarBookings,
   listOwnedRoomBookings,
   normalizeAttendeeInput,
   normalizeCreateRoomBookingInput,
@@ -68,8 +68,22 @@ async function requireUser(request: Request, env: Env): Promise<AuthenticatedUse
   }
 }
 
-function isResponse(value: AuthenticatedUser | Response): value is Response {
+function isResponse(value: unknown): value is Response {
   return value instanceof Response;
+}
+
+async function requireActiveMembershipForUser(
+  env: Env,
+  clerkUserId: string
+): Promise<ActiveMembership | Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  try {
+    const membership = await resolveActiveMembership(env.DB, clerkUserId, env.CLERK_SECRET_KEY);
+    return membership ?? json({ error: "active_membership_required" }, { status: 403 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "membership_lookup_failed";
+    return json({ error: code }, { status: 503 });
+  }
 }
 
 function parseRouteId(pathname: string, pattern: RegExp): number | null {
@@ -155,6 +169,8 @@ async function ownedRoomBookings(request: Request, env: Env): Promise<Response> 
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   try {
     const rows = await listOwnedRoomBookings(env.DB, user.userId);
@@ -169,20 +185,8 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
 
-  const member = await getMemberByClerkUserId(env.DB, user.userId);
-  let activeMembership = member?.status === "active";
-  if (!activeMembership && !member && env.CLERK_SECRET_KEY) {
-    try {
-      const email = await clerkPrimaryEmail(user.userId, env.CLERK_SECRET_KEY);
-      const externalMember = await findMembershipWorksMemberByEmail(env.DB, email);
-      activeMembership = externalMember?.status === "active";
-    } catch {
-      activeMembership = false;
-    }
-  }
-  if (!activeMembership) {
-    return json({ error: "active_membership_required" }, { status: 403 });
-  }
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   let body: unknown;
   try {
@@ -193,7 +197,13 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
 
   try {
     const input = normalizeCreateRoomBookingInput(body);
-    const result = await createRoomBooking(env.DB, user.userId, input);
+    const result = await createRoomBooking(env.DB, user.userId, {
+      ...input,
+      teacherName: membership.fullName,
+      teacherEmail: membership.email,
+      memberName: membership.fullName,
+      memberEmail: membership.email
+    });
     return json(result, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "booking_failed";
@@ -211,6 +221,8 @@ async function putRoomBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   let body: unknown;
   try {
@@ -244,6 +256,8 @@ async function deleteRoomBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   try {
     await deleteOwnedRoomBooking(env.DB, user.userId, bookingId);
@@ -262,6 +276,8 @@ async function bookingAttendees(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   try {
     const attendees = await listBookingAttendees(env.DB, user.userId, bookingId);
@@ -288,20 +304,19 @@ async function attendBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
-
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "invalid_json" }, { status: 400 });
-  }
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   try {
-    await attendRoomBooking(env.DB, user.userId, bookingId, normalizeAttendeeInput(body));
+    await attendRoomBooking(env.DB, user.userId, bookingId, {
+      memberName: membership.fullName,
+      memberEmail: membership.email
+    });
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
     if (code === "booking_not_found") return json({ error: code }, { status: 404 });
+    if (code === "booking_started") return json({ error: code }, { status: 409 });
     if (code === "already_attending" || code === "booking_full") {
       return json({ error: code }, { status: 409 });
     }
@@ -318,13 +333,38 @@ async function unattendBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
 
   try {
     await unattendRoomBooking(env.DB, user.userId, bookingId);
     return json({ status: "not_attending" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "unattend_failed";
-    return json({ error: code }, { status: code === "attendance_not_found" ? 404 : 503 });
+    if (code === "attendance_not_found" || code === "booking_not_found") {
+      return json({ error: code }, { status: 404 });
+    }
+    return json({ error: code }, { status: code === "booking_started" ? 409 : 503 });
+  }
+}
+
+async function memberCalendar(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
+
+  try {
+    const rows = await listMemberCalendarBookings(env.DB, user.userId);
+    return json(rows.map((row) => ({
+      ...roomBookingView(row),
+      attendeeCount: row.attendee_count,
+      isAttending: row.is_attending === 1,
+      isOwner: row.clerk_user_id === user.userId
+    })));
+  } catch {
+    return json({ error: "database_query_failed" }, { status: 503 });
   }
 }
 
@@ -439,6 +479,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/room-bookings/calendar") {
+      return memberCalendar(request, env);
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings") {
       return ownedRoomBookings(request, env);
