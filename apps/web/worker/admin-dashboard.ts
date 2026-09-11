@@ -21,6 +21,7 @@ export type AdminMember = {
   interval: string;
   status: string;
   isTeacher: boolean;
+  accessBlocked: boolean;
   createdAt: string;
 };
 
@@ -34,6 +35,7 @@ export type AdminBooking = {
   maxAttendees: number | null;
   attendeeCount: number;
   feeKr: number;
+  status: string;
 };
 
 type MemberRow = {
@@ -45,6 +47,7 @@ type MemberRow = {
   interval: string;
   status: string;
   is_teacher: number;
+  access_blocked: number;
   created_at_ms: number;
 };
 
@@ -58,6 +61,7 @@ type BookingRow = {
   max_attendees: number | null;
   attendee_count: number;
   fee_minor: number;
+  status: string;
 };
 
 function memberView(row: MemberRow): AdminMember {
@@ -70,6 +74,7 @@ function memberView(row: MemberRow): AdminMember {
     interval: row.interval,
     status: row.status,
     isTeacher: row.is_teacher === 1,
+    accessBlocked: row.access_blocked === 1,
     createdAt: new Date(row.created_at_ms).toISOString()
   };
 }
@@ -84,7 +89,8 @@ function bookingView(row: BookingRow): AdminBooking {
     endsAt: new Date(row.ends_at_ms).toISOString(),
     maxAttendees: row.max_attendees,
     attendeeCount: row.attendee_count,
-    feeKr: row.fee_minor / 100
+    feeKr: row.fee_minor / 100,
+    status: row.status
   };
 }
 
@@ -96,7 +102,7 @@ async function count(db: D1Database, sql: string, value?: number): Promise<numbe
 
 export async function listAdminMembers(db: D1Database, limit = 200): Promise<AdminMember[]> {
   const result = await db.prepare(
-    `SELECT id, full_name, email, phone, tier, interval, status, is_teacher, created_at_ms
+    `SELECT id, full_name, email, phone, tier, interval, status, is_teacher, access_blocked, created_at_ms
      FROM members
      ORDER BY created_at_ms DESC
      LIMIT ?`
@@ -112,11 +118,11 @@ export async function listAdminBookings(
   const limit = options.limit ?? 200;
   const result = await db.prepare(
     `SELECT rb.id, rb.title, rb.teacher_name, rb.teacher_email,
-            rb.starts_at_ms, rb.ends_at_ms, rb.max_attendees, rb.fee_minor,
+            rb.starts_at_ms, rb.ends_at_ms, rb.max_attendees, rb.fee_minor, rb.status,
             COUNT(rba.id) AS attendee_count
      FROM room_bookings rb
      LEFT JOIN room_booking_attendees rba ON rba.room_booking_id = rb.id
-     WHERE (? = 0 OR rb.ends_at_ms >= ?)
+     WHERE (? = 0 OR (rb.status = 'scheduled' AND rb.ends_at_ms >= ?))
      GROUP BY rb.id
      ORDER BY rb.starts_at_ms ${upcomingOnly ? "ASC" : "DESC"}
      LIMIT ?`
@@ -129,11 +135,11 @@ export async function getAdminOverview(db: D1Database): Promise<AdminOverview> {
   const [localMembers, activeLocalMembers, externalMembers, activeExternalMembers, teachers, upcomingBookings, recentMembers, bookings] =
     await Promise.all([
       count(db, "SELECT COUNT(*) AS count FROM members"),
-      count(db, "SELECT COUNT(*) AS count FROM members WHERE status = 'active'"),
+      count(db, "SELECT COUNT(*) AS count FROM members WHERE status = 'active' AND access_blocked = 0"),
       count(db, "SELECT COUNT(*) AS count FROM external_memberships WHERE source = 'membershipworks'"),
-      count(db, "SELECT COUNT(*) AS count FROM external_memberships WHERE source = 'membershipworks' AND status = 'active'"),
+      count(db, "SELECT COUNT(*) AS count FROM external_memberships WHERE source = 'membershipworks' AND status = 'active' AND access_blocked = 0"),
       count(db, "SELECT COUNT(*) AS count FROM teachers"),
-      count(db, "SELECT COUNT(*) AS count FROM room_bookings WHERE ends_at_ms >= ?", now),
+      count(db, "SELECT COUNT(*) AS count FROM room_bookings WHERE status = 'scheduled' AND ends_at_ms >= ?", now),
       listAdminMembers(db, 6),
       listAdminBookings(db, { upcomingOnly: true, limit: 6 })
     ]);

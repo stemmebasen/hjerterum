@@ -23,6 +23,7 @@ export type MemberView = {
   phone: string | null;
   streetAddress: string | null;
   isTeacher: boolean;
+  accessBlocked: boolean;
 };
 
 function requireString(value: unknown, field: string): string {
@@ -57,7 +58,7 @@ export async function getMemberByClerkUserId(
   const row = await db
     .prepare(
       `SELECT id, clerk_user_id, stripe_customer_id, stripe_subscription_id,
-              tier, interval, status, full_name, email, phone, street_address, is_teacher
+              tier, interval, status, full_name, email, phone, street_address, is_teacher, access_blocked
        FROM members WHERE clerk_user_id = ? LIMIT 1`
     )
     .bind(clerkUserId)
@@ -74,6 +75,7 @@ export async function getMemberByClerkUserId(
       phone: string | null;
       street_address: string | null;
       is_teacher: number;
+      access_blocked: number;
     }>();
 
   if (!row) return null;
@@ -89,7 +91,8 @@ export async function getMemberByClerkUserId(
     email: row.email,
     phone: row.phone,
     streetAddress: row.street_address,
-    isTeacher: row.is_teacher === 1
+    isTeacher: row.is_teacher === 1,
+    accessBlocked: row.access_blocked === 1
   };
 }
 

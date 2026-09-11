@@ -1,5 +1,6 @@
-import { authenticateAdmin, clerkPrimaryEmail } from "./admin-auth.js";
+import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
+import { changeMemberAccess } from "./admin-members.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import {
@@ -8,8 +9,9 @@ import {
   updateMemberProfile
 } from "./member-profile.js";
 import { getMemberByClerkUserId } from "./members.js";
+import { resolveActiveMembership } from "./membership-access.js";
+import { cancelRoomBookingAsAdmin } from "./room-bookings.js";
 import {
-  findMembershipWorksMemberByEmail,
   importMembershipWorksCsv,
   listMembershipImportBatches,
   listMembershipWorksMembers
@@ -100,37 +102,30 @@ async function memberMe(request: Request, env: Env): Promise<Response> {
   const user = await requireUser(request, env);
   if (user instanceof Response) return user;
 
-  const localMember = await getMemberByClerkUserId(env.DB, user.userId);
-  if (localMember) {
-    if (localMember.status !== "active") {
-      return json({ error: "membership_inactive" }, { status: 403 });
-    }
-    return json({ ...localMember, source: "hjerterum", managedExternally: false });
-  }
-  if (!env.CLERK_SECRET_KEY) return json({ error: "membership_lookup_not_configured" }, { status: 503 });
-
   try {
-    const email = await clerkPrimaryEmail(user.userId, env.CLERK_SECRET_KEY);
-    const externalMember = await findMembershipWorksMemberByEmail(env.DB, email);
-    if (!externalMember) return json({ error: "membership_required" }, { status: 403 });
-    if (externalMember.status !== "active") {
-      return json({ error: "membership_inactive" }, { status: 403 });
+    const membership = await resolveActiveMembership(env.DB, user.userId, env.CLERK_SECRET_KEY);
+    if (!membership) return json({ error: "membership_inactive" }, { status: 403 });
+
+    if (membership.source === "hjerterum") {
+      return json({ ...membership.member, source: "hjerterum", managedExternally: false });
     }
+
     return json({
-      id: -externalMember.id,
-      tier: externalMember.membershipLevel ?? "MembershipWorks",
+      id: -membership.externalId,
+      tier: membership.membershipLevel ?? "MembershipWorks",
       interval: "legacy",
-      status: externalMember.status,
-      fullName: externalMember.fullName,
-      email: externalMember.email,
+      status: "active",
+      fullName: membership.fullName,
+      email: membership.email,
       phone: null,
       streetAddress: null,
       isTeacher: false,
       source: "membershipworks",
       managedExternally: true
     });
-  } catch {
-    return json({ error: "membership_lookup_failed" }, { status: 503 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "membership_lookup_failed";
+    return json({ error: code }, { status: 503 });
   }
 }
 
@@ -226,6 +221,36 @@ async function adminRead(
   } catch (error) {
     const code = error instanceof Error ? error.message : "admin_query_failed";
     return json({ error: code }, { status: 503 });
+  }
+}
+
+async function adminMemberAccess(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+  const body = await parseJson(request);
+  if (body instanceof Response) return body;
+
+  try {
+    return json(await changeMemberAccess(env.DB, body, admin.email));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "member_access_change_failed";
+    if (code === "member_not_found") return json({ error: code }, { status: 404 });
+    return json({ error: code }, { status: code.startsWith("invalid_") ? 400 : 503 });
+  }
+}
+
+async function adminCancelBooking(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+
+  try {
+    await cancelRoomBookingAsAdmin(env.DB, bookingId);
+    return json({ status: "cancelled" });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "booking_cancel_failed";
+    return json({ error: code }, { status: code === "booking_not_found" ? 404 : 503 });
   }
 }
 
@@ -326,6 +351,14 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/membershipworks-members") {
       return membershipWorksMembers(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/members/access") {
+      return adminMemberAccess(request, env);
+    }
+    const adminBookingMatch = url.pathname.match(/^\/api\/admin\/room-bookings\/(\d+)$/);
+    if (request.method === "DELETE" && adminBookingMatch?.[1]) {
+      return adminCancelBooking(request, env, Number(adminBookingMatch[1]));
     }
 
     if (request.method === "GET" && url.pathname === "/api/admin/overview") return adminRead(request, env, "overview");

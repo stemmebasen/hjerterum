@@ -9,6 +9,7 @@ type HjerterumMember = {
   tier: string;
   interval: string;
   status: string;
+  accessBlocked: boolean;
 };
 
 type ExternalMember = {
@@ -18,6 +19,7 @@ type ExternalMember = {
   fullName: string;
   membershipLevel: string | null;
   status: string;
+  accessBlocked: boolean;
   joinedAt: string | null;
   expiresAt: string | null;
   lastSeenAt: number;
@@ -48,6 +50,7 @@ export function MembershipAdmin({
   clerk: ClerkBrowser;
   members: HjerterumMember[];
 }) {
+  const [nativeMembers, setNativeMembers] = useState<HjerterumMember[]>(members);
   const [externalMembers, setExternalMembers] = useState<ExternalMember[]>([]);
   const [imports, setImports] = useState<ImportBatch[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -64,8 +67,35 @@ export function MembershipAdmin({
   }
 
   useEffect(() => {
+    setNativeMembers(members);
+  }, [members]);
+
+  useEffect(() => {
     void refresh();
   }, [clerk]);
+
+  async function toggleAccess(source: "hjerterum" | "membershipworks", memberId: number, blocked: boolean) {
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/admin/members/access", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ source, memberId, blocked })
+    });
+    if (!response.ok) {
+      setMessage("Adgangen kunne ikke ændres.");
+      return;
+    }
+    if (source === "hjerterum") {
+      setNativeMembers((current) => current.map((member) =>
+        member.id === memberId ? { ...member, accessBlocked: blocked } : member
+      ));
+    } else {
+      setExternalMembers((current) => current.map((member) =>
+        member.id === memberId ? { ...member, accessBlocked: blocked } : member
+      ));
+    }
+    setMessage(blocked ? "Medlemsadgangen er blokeret." : "Medlemsadgangen er genåbnet.");
+  }
 
   async function importFile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,7 +142,7 @@ export function MembershipAdmin({
 
       <div className="membership-source-summary">
         <article>
-          <strong>{members.length}</strong>
+          <strong>{nativeMembers.length}</strong>
           <span>Nye Hjerterum-medlemmer</span>
           <small>Administreres i det nye system</small>
         </article>
@@ -151,13 +181,14 @@ export function MembershipAdmin({
       <h2 className="membership-list-title">Nye Hjerterum-medlemmer</h2>
       <div className="workspace-table-wrap">
         <table className="workspace-table">
-          <thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Kontakt</th></tr></thead>
-          <tbody>{members.map((member) => (
+          <thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Kontakt</th><th>Adgang</th></tr></thead>
+          <tbody>{nativeMembers.map((member) => (
             <tr key={member.id}>
               <td>{member.fullName}</td>
               <td>{member.tier} · {member.interval === "year" ? "årligt" : "månedligt"}</td>
               <td><Status value={member.status} /></td>
               <td>{member.email}</td>
+              <td><button type="button" className={"text-button " + (member.accessBlocked ? "" : "is-danger")} onClick={() => void toggleAccess("hjerterum", member.id, !member.accessBlocked)}>{member.accessBlocked ? "Genåbn" : "Blokér"}</button></td>
             </tr>
           ))}</tbody>
         </table>
@@ -166,7 +197,7 @@ export function MembershipAdmin({
       <h2 className="membership-list-title">MembershipWorks-spejl</h2>
       <div className="workspace-table-wrap">
         <table className="workspace-table">
-          <thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Kontakt</th><th>Senest set</th></tr></thead>
+          <thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Kontakt</th><th>Senest set</th><th>Adgang</th></tr></thead>
           <tbody>{externalMembers.map((member) => (
             <tr key={member.id}>
               <td>{member.fullName}</td>
@@ -174,6 +205,7 @@ export function MembershipAdmin({
               <td><Status value={member.status} /></td>
               <td>{member.email}</td>
               <td>{new Date(member.lastSeenAt).toLocaleDateString("da-DK")}</td>
+              <td><button type="button" className={"text-button " + (member.accessBlocked ? "" : "is-danger")} onClick={() => void toggleAccess("membershipworks", member.id, !member.accessBlocked)}>{member.accessBlocked ? "Genåbn" : "Blokér"}</button></td>
             </tr>
           ))}</tbody>
         </table>

@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { apiFetch, loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
+import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
@@ -41,29 +41,6 @@ type CalendarEvent = {
   imageUrl: string | null;
   link: string | null;
   source: "hjerterum" | "membershipworks";
-};
-
-type Member = {
-  id: number;
-  tier: string;
-  interval: string;
-  status: string;
-  fullName: string;
-  email: string;
-  phone: string | null;
-  streetAddress: string | null;
-  isTeacher: boolean;
-};
-
-type OwnedBooking = {
-  id: number;
-  teacherName: string;
-  title: string;
-  description: string | null;
-  startsAt: string;
-  endsAt: string;
-  maxAttendees: number | null;
-  feeKr: number;
 };
 
 function formatDate(value: string) {
@@ -196,105 +173,6 @@ function AuthPage({
           </div>
         ) : <div ref={ref} />}
       </div>
-    </main>
-  );
-}
-
-function MemberPortal({ clerk, user }: { clerk: ClerkBrowser; user: ClerkUser }) {
-  const [member, setMember] = useState<Member | null>(null);
-  const [memberMissing, setMemberMissing] = useState(false);
-  const [bookings, setBookings] = useState<OwnedBooking[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    void Promise.all([
-      apiFetch(clerk, "/api/members/me").then(async (response) => {
-        if (response.status === 404) return null;
-        if (!response.ok) throw new Error("member_load_failed");
-        return (await response.json()) as Member;
-      }),
-      apiFetch(clerk, "/api/room-bookings").then(async (response) => {
-        if (!response.ok) throw new Error("booking_load_failed");
-        return (await response.json()) as OwnedBooking[];
-      })
-    ])
-      .then(([memberData, bookingData]) => {
-        if (!active) return;
-        setMember(memberData);
-        setMemberMissing(memberData === null);
-        setBookings(bookingData);
-      })
-      .catch(() => {
-        if (active) setMemberMissing(true);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => { active = false; };
-  }, [clerk, user.id]);
-
-  const displayName = member?.fullName || user.fullName || user.firstName || "Medlem";
-  const email = member?.email || user.primaryEmailAddress?.emailAddress || "";
-
-  return (
-    <main className="page-shell portal-shell">
-      <SiteHeader member clerk={clerk} user={user} />
-      <section className="portal-welcome">
-        <p className="kicker">Dit Hjerterum</p>
-        <h1>Velkommen, {displayName.split(" ")[0]}</h1>
-        <p>Her finder du dit medlemskab, dine tilmeldinger, kalenderen og dine oplysninger.</p>
-      </section>
-
-      {loading ? (
-        <section className="soft-panel"><p>Henter dit medlemsområde …</p></section>
-      ) : (
-        <div className="portal-grid">
-          <section className="soft-panel membership-card">
-            <p className="kicker">Medlemskab</p>
-            {member ? (
-              <>
-                <div className="member-state"><span className={member.status === "active" ? "dot active" : "dot"} />{member.status === "active" ? "Aktivt medlem" : member.status}</div>
-                <h2>{member.tier}</h2>
-                <p>{member.interval === "year" ? "Årligt medlemskab" : "Månedligt medlemskab"}</p>
-                <a className="text-link" href="/member-portal/dashboard">Administrér medlemskab →</a>
-              </>
-            ) : (
-              <>
-                <h2>Du er logget ind</h2>
-                <p>Der er endnu ikke knyttet et medlemskab til din bruger i den nye udviklingsdatabase.</p>
-              </>
-            )}
-          </section>
-
-          <section className="soft-panel profile-card">
-            <p className="kicker">Dine oplysninger</p>
-            <h2>{displayName}</h2>
-            {email && <p>{email}</p>}
-            {member?.phone && <p>{member.phone}</p>}
-            {member?.streetAddress && <p>{member.streetAddress}</p>}
-            {memberMissing && <p className="small-note">Profilen kan stadig administreres via Clerk, mens medlemsdata flyttes.</p>}
-            <a className="text-link" href="/member-portal/kontakt">Redigér oplysninger →</a>
-          </section>
-
-          <section className="soft-panel booking-panel">
-            <div className="panel-title-row">
-              <div><p className="kicker">Dine events</p><h2>Mine tilmeldinger</h2></div>
-              <a className="pill-button" href="/member-portal/kalender">Se kalender</a>
-            </div>
-            {bookings.length ? (
-              <div className="booking-list">
-                {bookings.slice(0, 5).map((booking) => (
-                  <article key={booking.id}>
-                    <time>{formatDate(booking.startsAt)}</time>
-                    <strong>{booking.title}</strong>
-                  </article>
-                ))}
-              </div>
-            ) : <p className="muted">Du har ingen kommende bookinger eller tilmeldinger endnu.</p>}
-          </section>
-        </div>
-      )}
     </main>
   );
 }
