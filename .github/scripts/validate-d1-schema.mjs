@@ -97,7 +97,10 @@ const expectedTables = [
   "tribe_email_logs",
   "webhook_events",
   "job_claims",
-  "financial_reconciliation"
+  "financial_reconciliation",
+  "membership_import_batches",
+  "external_memberships",
+  "membership_import_changes"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 
@@ -116,6 +119,10 @@ assertColumn("bookings", "phone");
 assertColumn("bookings", "cvr");
 assertColumn("tribe_applicants", "invitation_token");
 assertColumn("tribe_applicants", "personal_welcome_email_sent_at_ms");
+assertColumn("membership_import_batches", "imported_by_email");
+assertColumn("external_memberships", "normalized_email");
+assertColumn("external_memberships", "last_import_batch_id");
+assertColumn("membership_import_changes", "change_type");
 
 const fkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
@@ -134,6 +141,11 @@ execute("INSERT INTO tribes (id, name, contact_name, contact_email) VALUES (1, '
 execute("INSERT INTO tribe_applicants (id, full_name, email, tribe_id, invitation_token) VALUES (1, 'Historical Applicant', 'historical@example.invalid', 1, 'legacy-token')");
 execute("INSERT INTO tribe_email_logs (id, tribe_id, subject, body, recipient_count, sender_email, sent_at_ms) VALUES (1, 1, 'Archive subject', 'Archive body', 1, 'archive@example.invalid', 1000)");
 execute("INSERT INTO tribe_members (id, tribe_id, full_name, email) VALUES (1, 999, 'Orphan Archive Member', 'orphan-archive@example.invalid')", { expectFailure: true });
+
+execute("INSERT INTO membership_import_batches (id, source, filename, imported_by_email, status, total_rows, started_at_ms, completed_at_ms) VALUES (1, 'membershipworks', 'members.csv', 'admin@example.invalid', 'completed', 1, 1000, 1001)");
+execute("INSERT INTO external_memberships (id, source, normalized_email, full_name, status, raw_json, first_seen_at_ms, last_seen_at_ms, last_changed_at_ms, last_import_batch_id) VALUES (1, 'membershipworks', 'member@example.invalid', 'External Member', 'active', '{}', 1000, 1000, 1000, 1)");
+execute("INSERT INTO external_memberships (id, source, normalized_email, full_name, status, raw_json, first_seen_at_ms, last_seen_at_ms, last_changed_at_ms, last_import_batch_id) VALUES (2, 'membershipworks', 'member@example.invalid', 'Duplicate Member', 'active', '{}', 1000, 1000, 1000, 1)", { expectFailure: true });
+execute("INSERT INTO membership_import_changes (import_batch_id, external_membership_id, normalized_email, change_type, current_json, created_at_ms) VALUES (1, 1, 'member@example.invalid', 'created', '{}', 1000)");
 
 execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1000)");
 execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms) VALUES ('stripe', 'evt_synthetic', 'test.event', 1001)", { expectFailure: true });
