@@ -123,6 +123,8 @@ assertColumn("membership_import_batches", "imported_by_email");
 assertColumn("external_memberships", "normalized_email");
 assertColumn("external_memberships", "last_import_batch_id");
 assertColumn("membership_import_changes", "change_type");
+assertColumn("room_bookings", "status");
+assertColumn("room_bookings", "cancelled_at_ms");
 
 const fkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n
