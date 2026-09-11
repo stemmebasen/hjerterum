@@ -298,7 +298,7 @@ function MemberEvents({
   }
 
   async function cancelEvent(booking: Booking) {
-    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken.")) return;
+    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken, og betalte billetter refunderes ikke automatisk.")) return;
     setMessage("");
     const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id, { method: "DELETE" });
     if (!response.ok) {
@@ -760,7 +760,7 @@ export function AdminWorkspace({
   }
 
   async function cancelAdminBooking(booking: Booking) {
-    if (!window.confirm("Vil du annullere “" + booking.title + "”?")) return;
+    if (!window.confirm("Vil du annullere “" + booking.title + "”? Betalte billetter refunderes ikke automatisk.")) return;
     const response = await apiFetch(clerk, "/api/admin/room-bookings/" + booking.id, { method: "DELETE" });
     if (!response.ok) {
       setError("Eventet kunne ikke annulleres.");
