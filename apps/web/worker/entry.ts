@@ -1,4 +1,4 @@
-import { authenticateAdmin, clerkPrimaryEmail } from "./admin-auth.js";
+import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
@@ -8,8 +8,8 @@ import {
   updateMemberProfile
 } from "./member-profile.js";
 import { getMemberByClerkUserId } from "./members.js";
+import { resolveActiveMembership } from "./membership-access.js";
 import {
-  findMembershipWorksMemberByEmail,
   importMembershipWorksCsv,
   listMembershipImportBatches,
   listMembershipWorksMembers
@@ -100,37 +100,30 @@ async function memberMe(request: Request, env: Env): Promise<Response> {
   const user = await requireUser(request, env);
   if (user instanceof Response) return user;
 
-  const localMember = await getMemberByClerkUserId(env.DB, user.userId);
-  if (localMember) {
-    if (localMember.status !== "active") {
-      return json({ error: "membership_inactive" }, { status: 403 });
-    }
-    return json({ ...localMember, source: "hjerterum", managedExternally: false });
-  }
-  if (!env.CLERK_SECRET_KEY) return json({ error: "membership_lookup_not_configured" }, { status: 503 });
-
   try {
-    const email = await clerkPrimaryEmail(user.userId, env.CLERK_SECRET_KEY);
-    const externalMember = await findMembershipWorksMemberByEmail(env.DB, email);
-    if (!externalMember) return json({ error: "membership_required" }, { status: 403 });
-    if (externalMember.status !== "active") {
-      return json({ error: "membership_inactive" }, { status: 403 });
+    const membership = await resolveActiveMembership(env.DB, user.userId, env.CLERK_SECRET_KEY);
+    if (!membership) return json({ error: "membership_inactive" }, { status: 403 });
+
+    if (membership.source === "hjerterum") {
+      return json({ ...membership.member, source: "hjerterum", managedExternally: false });
     }
+
     return json({
-      id: -externalMember.id,
-      tier: externalMember.membershipLevel ?? "MembershipWorks",
+      id: -membership.externalId,
+      tier: membership.membershipLevel ?? "MembershipWorks",
       interval: "legacy",
-      status: externalMember.status,
-      fullName: externalMember.fullName,
-      email: externalMember.email,
+      status: "active",
+      fullName: membership.fullName,
+      email: membership.email,
       phone: null,
       streetAddress: null,
       isTeacher: false,
       source: "membershipworks",
       managedExternally: true
     });
-  } catch {
-    return json({ error: "membership_lookup_failed" }, { status: 503 });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "membership_lookup_failed";
+    return json({ error: code }, { status: 503 });
   }
 }
 
