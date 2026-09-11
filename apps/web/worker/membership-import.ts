@@ -299,8 +299,22 @@ export async function listMembershipWorksMembers(db: D1Database) {
      WHERE source = 'membershipworks'
      ORDER BY full_name COLLATE NOCASE ASC
      LIMIT 5000`
-  ).all();
-  return result.results ?? [];
+  ).all<{
+    id: number;
+    externalId: string | null;
+    email: string;
+    fullName: string;
+    membershipLevel: string | null;
+    status: string;
+    joinedAt: string | null;
+    expiresAt: string | null;
+    lastSeenAt: number;
+    accessBlocked: number;
+  }>();
+  return (result.results ?? []).map((member) => ({
+    ...member,
+    accessBlocked: member.accessBlocked === 1
+  }));
 }
 
 export async function listMembershipImportBatches(db: D1Database) {
