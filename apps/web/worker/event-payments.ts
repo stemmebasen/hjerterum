@@ -2,7 +2,7 @@ import type { D1Database } from "./db.js";
 import { stripeRequest, stripeV2Request, type StripeEvent } from "./stripe.js";
 
 const PLATFORM_FEE_PERCENT = 5;
-const CHECKOUT_RESERVATION_MINUTES = 30;
+const CHECKOUT_RESERVATION_MINUTES = 31;
 
 type PayoutRow = {
   stripe_account_id: string;
@@ -167,6 +167,19 @@ export async function requireActivePayoutAccount(
   return account.id;
 }
 
+export function calculateEventFees(ticketAmountMinor: number, handlingFeeMinor: number): {
+  platformShareMinor: number;
+  applicationFeeMinor: number;
+  buyerTotalMinor: number;
+} {
+  const platformShareMinor = Math.round(ticketAmountMinor * PLATFORM_FEE_PERCENT / 100);
+  return {
+    platformShareMinor,
+    applicationFeeMinor: platformShareMinor + handlingFeeMinor,
+    buyerTotalMinor: ticketAmountMinor + handlingFeeMinor
+  };
+}
+
 export async function getHandlingFeeMinor(db: D1Database): Promise<number> {
   const row = await db.prepare(
     "SELECT setting_value FROM platform_settings WHERE setting_key = 'event_transaction_fee_minor'"
@@ -220,8 +233,10 @@ export async function createEventCheckout(
   if (booking.ticket_price_minor <= 0) throw new Error("event_payment_not_required");
 
   const handlingFeeMinor = await getHandlingFeeMinor(db);
-  const platformShareMinor = Math.round(booking.ticket_price_minor * PLATFORM_FEE_PERCENT / 100);
-  const applicationFeeMinor = platformShareMinor + handlingFeeMinor;
+  const { applicationFeeMinor } = calculateEventFees(
+    booking.ticket_price_minor,
+    handlingFeeMinor
+  );
   const expiresAt = Date.now() + CHECKOUT_RESERVATION_MINUTES * 60_000;
   const now = Date.now();
 
@@ -250,13 +265,16 @@ export async function createEventCheckout(
        ) AND (
          (SELECT max_attendees FROM room_bookings WHERE id = ?) IS NULL OR
          (SELECT COUNT(*) FROM room_booking_attendees
-          WHERE room_booking_id = ? AND registration_status = 'confirmed') <
+          WHERE room_booking_id = ? AND id <> ? AND (
+            registration_status = 'confirmed' OR
+            (registration_status = 'pending' AND expires_at_ms > ?)
+          )) <
          (SELECT max_attendees FROM room_bookings WHERE id = ?)
        )`
     ).bind(
       attendee.fullName, attendee.email, booking.ticket_price_minor,
       handlingFeeMinor, applicationFeeMinor, expiresAt, existing.id, now,
-      bookingId, bookingId, bookingId
+      bookingId, bookingId, existing.id, now, bookingId
     ).run();
     if ((reserved.meta?.changes ?? 0) === 0) throw new Error("booking_full_or_pending");
     registrationId = existing.id;
@@ -354,33 +372,67 @@ export async function processEventPaymentWebhook(
     const object = event.data?.object ?? {};
     const metadata = (object.metadata ?? {}) as Record<string, unknown>;
     const registrationId = Number(stringField(metadata, "registration_id"));
+    const bookingId = Number(stringField(metadata, "booking_id"));
+    const clerkUserId = stringField(metadata, "clerk_user_id");
     const sessionId = stringField(object, "id");
     const paymentIntentId = stringField(object, "payment_intent");
+    const paymentStatus = stringField(object, "payment_status");
 
-    if (
-      event.type === "checkout.session.completed" ||
-      event.type === "checkout.session.async_payment_succeeded"
-    ) {
-      if (!Number.isInteger(registrationId) || !sessionId) {
-        throw new Error("event_checkout_metadata_incomplete");
-      }
-      await db.prepare(
+    if (!Number.isInteger(registrationId) || !Number.isInteger(bookingId) ||
+        !clerkUserId || !sessionId || !event.account) {
+      throw new Error("event_checkout_metadata_incomplete");
+    }
+
+    const registration = await db.prepare(
+      `SELECT a.id, a.room_booking_id, a.clerk_user_id, a.stripe_checkout_session_id,
+              p.stripe_account_id
+       FROM room_booking_attendees a
+       JOIN room_bookings b ON b.id = a.room_booking_id
+       JOIN member_payout_accounts p ON p.clerk_user_id = b.payout_clerk_user_id
+       WHERE a.id = ?`
+    ).bind(registrationId).first<{
+      id: number;
+      room_booking_id: number;
+      clerk_user_id: string;
+      stripe_checkout_session_id: string | null;
+      stripe_account_id: string;
+    }>();
+
+    if (!registration ||
+        registration.room_booking_id !== bookingId ||
+        registration.clerk_user_id !== clerkUserId ||
+        registration.stripe_account_id !== event.account ||
+        (registration.stripe_checkout_session_id &&
+          registration.stripe_checkout_session_id !== sessionId)) {
+      throw new Error("event_checkout_mismatch");
+    }
+
+    const succeeded = event.type === "checkout.session.async_payment_succeeded" ||
+      (event.type === "checkout.session.completed" && paymentStatus === "paid");
+    if (succeeded) {
+      const result = await db.prepare(
         `UPDATE room_booking_attendees
          SET registration_status = 'confirmed', stripe_checkout_session_id = ?,
              stripe_payment_intent_id = ?, confirmed_at_ms = ?, expires_at_ms = NULL
          WHERE id = ? AND registration_status = 'pending'`
       ).bind(sessionId, paymentIntentId ?? null, Date.now(), registrationId).run();
+      if ((result.meta?.changes ?? 0) === 0) {
+        const current = await db.prepare(
+          "SELECT registration_status FROM room_booking_attendees WHERE id = ?"
+        ).bind(registrationId).first<{ registration_status: string }>();
+        if (current?.registration_status !== "confirmed") {
+          throw new Error("event_registration_not_pending");
+        }
+      }
     } else if (
       event.type === "checkout.session.expired" ||
       event.type === "checkout.session.async_payment_failed"
     ) {
-      if (Number.isInteger(registrationId)) {
-        await db.prepare(
-          `UPDATE room_booking_attendees
-           SET registration_status = 'cancelled', cancelled_at_ms = ?, expires_at_ms = NULL
-           WHERE id = ? AND registration_status = 'pending'`
-        ).bind(Date.now(), registrationId).run();
-      }
+      await db.prepare(
+        `UPDATE room_booking_attendees
+         SET registration_status = 'cancelled', cancelled_at_ms = ?, expires_at_ms = NULL
+         WHERE id = ? AND registration_status = 'pending'`
+      ).bind(Date.now(), registrationId).run();
     }
 
     await db.prepare(
