@@ -1,4 +1,5 @@
 import { authenticateAdmin } from "./admin-auth.js";
+import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import {
@@ -137,6 +138,25 @@ async function memberInvoices(
   }
 }
 
+async function adminRead(
+  request: Request,
+  env: Env,
+  resource: "overview" | "members" | "room-bookings"
+): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+
+  try {
+    if (resource === "overview") return json(await getAdminOverview(env.DB));
+    if (resource === "members") return json(await listAdminMembers(env.DB));
+    return json(await listAdminBookings(env.DB));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "admin_query_failed";
+    return json({ error: code }, { status: 503 });
+  }
+}
+
 async function teachersListOrCreate(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const admin = await requireAdmin(request, env);
@@ -228,6 +248,10 @@ export default {
         clerkPublishableKey: env.CLERK_PUBLISHABLE_KEY ?? null
       }, { headers: { "cache-control": "public, max-age=300" } });
     }
+
+    if (request.method === "GET" && url.pathname === "/api/admin/overview") return adminRead(request, env, "overview");
+    if (request.method === "GET" && url.pathname === "/api/admin/members") return adminRead(request, env, "members");
+    if (request.method === "GET" && url.pathname === "/api/admin/room-bookings") return adminRead(request, env, "room-bookings");
 
     if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);

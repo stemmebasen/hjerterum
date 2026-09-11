@@ -216,3 +216,307 @@ p { line-height: 1.7; }
   .panel-title-row { flex-direction:column; }
   .booking-list article { grid-template-columns:1fr; gap:7px; }
 }
+
+
+/* Shared member and admin workspace */
+.workspace-shell {
+  min-height: 100vh;
+  color: var(--ink);
+  background: #f4f0eb;
+}
+.workspace-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 28px;
+  padding: 14px clamp(20px, 4vw, 64px);
+  border-bottom: 1px solid rgba(45, 40, 37, .12);
+  background: rgba(244, 240, 235, .94);
+  backdrop-filter: blur(16px);
+}
+.workspace-brand img {
+  display: block;
+  width: auto;
+  height: 48px;
+  max-width: 190px;
+  object-fit: contain;
+}
+.workspace-header nav {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.workspace-header nav a {
+  padding: 10px 13px;
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: .92rem;
+  text-decoration: none;
+}
+.workspace-header nav a:hover,
+.workspace-header nav a[aria-current="page"] {
+  background: rgba(255, 255, 255, .78);
+}
+.workspace-section,
+.workspace-hero {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+}
+.workspace-hero {
+  padding: clamp(64px, 9vw, 120px) 0 40px;
+}
+.workspace-hero h1,
+.workspace-section > h1 {
+  max-width: 900px;
+  margin: 8px 0 14px;
+  font-size: clamp(2.6rem, 6vw, 5.4rem);
+  line-height: .96;
+}
+.workspace-hero > p:last-child {
+  max-width: 650px;
+  color: var(--muted);
+  font-size: 1.12rem;
+}
+.workspace-section {
+  padding: clamp(48px, 7vw, 88px) 0;
+}
+.workspace-narrow {
+  max-width: 720px;
+}
+.workspace-cards,
+.workspace-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding-bottom: 72px;
+}
+.workspace-section .workspace-two-column {
+  width: 100%;
+  padding: 28px 0 0;
+}
+.workspace-card {
+  min-width: 0;
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid rgba(45, 40, 37, .1);
+  border-radius: 30px;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 16px 50px rgba(46, 40, 36, .05);
+}
+.workspace-card h2 {
+  margin: 12px 0 8px;
+  font-size: clamp(1.6rem, 3vw, 2.5rem);
+}
+.workspace-card time,
+.workspace-list time {
+  color: var(--muted);
+  font-size: .82rem;
+  text-transform: capitalize;
+}
+.workspace-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.workspace-list {
+  display: grid;
+  gap: 0;
+}
+.workspace-list article {
+  display: grid;
+  gap: 5px;
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(45, 40, 37, .1);
+}
+.workspace-list article:last-child {
+  border-bottom: 0;
+}
+.workspace-list span {
+  color: var(--muted);
+  font-size: .92rem;
+}
+.workspace-calendar {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 28px;
+}
+.workspace-calendar article {
+  padding: 24px;
+  border: 1px solid rgba(45, 40, 37, .1);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .7);
+}
+.workspace-form {
+  display: grid;
+  gap: 18px;
+}
+.workspace-form label {
+  display: grid;
+  gap: 8px;
+  font-size: .9rem;
+  font-weight: 650;
+}
+.workspace-form input,
+.workspace-form textarea {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid rgba(45, 40, 37, .2);
+  border-radius: 14px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, .85);
+  font: inherit;
+}
+.workspace-form textarea {
+  resize: vertical;
+}
+.workspace-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.workspace-form .pill-button {
+  justify-self: start;
+  border: 0;
+  cursor: pointer;
+}
+.workspace-form .pill-button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+.workspace-check {
+  grid-template-columns: auto 1fr !important;
+  align-items: center;
+  justify-content: start;
+}
+.workspace-check input {
+  width: 18px;
+}
+.workspace-message {
+  margin: 0;
+  color: var(--muted);
+}
+.workspace-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #eee4dc;
+  color: #725b4e;
+  font-size: .76rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.workspace-status.is-active {
+  background: #dfe9db;
+  color: #3f5b3b;
+}
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 30px 0 20px;
+}
+.metric-grid article {
+  display: grid;
+  gap: 5px;
+  padding: 25px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .75);
+}
+.metric-grid strong {
+  font-size: clamp(2rem, 4vw, 3.6rem);
+  line-height: 1;
+}
+.metric-grid span {
+  color: var(--muted);
+}
+.workspace-table-wrap {
+  overflow-x: auto;
+  margin-top: 30px;
+  border: 1px solid rgba(45, 40, 37, .1);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .72);
+}
+.workspace-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.workspace-table th,
+.workspace-table td {
+  padding: 17px 20px;
+  border-bottom: 1px solid rgba(45, 40, 37, .09);
+  text-align: left;
+  vertical-align: middle;
+}
+.workspace-table th {
+  color: var(--muted);
+  font-size: .78rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.workspace-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.workspace-loading {
+  display: grid;
+  min-height: 60vh;
+  place-items: center;
+  color: var(--muted);
+}
+.admin-workspace {
+  background: #ece9e3;
+}
+
+@media (max-width: 860px) {
+  .workspace-header {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+  }
+  .workspace-header nav {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+  .workspace-header nav a {
+    flex: 0 0 auto;
+  }
+  .workspace-cards,
+  .workspace-two-column,
+  .workspace-calendar {
+    grid-template-columns: 1fr;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .workspace-header {
+    padding: 10px 16px;
+  }
+  .workspace-brand img {
+    height: 42px;
+  }
+  .workspace-section,
+  .workspace-hero,
+  .workspace-cards,
+  .workspace-two-column {
+    width: min(100% - 28px, 1180px);
+  }
+  .workspace-hero {
+    padding-top: 48px;
+  }
+  .workspace-form-row,
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+  .workspace-card {
+    border-radius: 22px;
+  }
+}
