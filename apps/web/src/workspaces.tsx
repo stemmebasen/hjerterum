@@ -34,6 +34,17 @@ type Booking = {
   status?: string;
 };
 
+type ExternalEvent = {
+  id: string;
+  title: string;
+  description: string | null;
+  startsAt: string;
+  endsAt: string | null;
+  host: string | null;
+  location: string | null;
+  link: string | null;
+};
+
 type AdminMember = {
   id: number;
   fullName: string;
@@ -313,10 +324,12 @@ function MemberEvents({
 function MemberCalendar({
   clerk,
   bookings,
+  externalEvents,
   reload
 }: {
   clerk: ClerkBrowser;
   bookings: Booking[];
+  externalEvents: ExternalEvent[];
   reload: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -366,8 +379,24 @@ function MemberCalendar({
               )}
             </article>
           );
-        }) : <p>Der er ingen kommende events i kalenderen.</p>}
+        }) : <p>Der er ingen kommende Hjerterum-events i kalenderen.</p>}
       </div>
+      {externalEvents.length > 0 && (
+        <>
+          <h2 className="membership-list-title">Øvrige events i Hjerterum</h2>
+          <div className="workspace-list workspace-calendar">
+            {externalEvents.map((event) => (
+              <article key={event.id}>
+                <time>{formatDate(event.startsAt)}</time>
+                <strong>{event.title}</strong>
+                <span>{[event.host, event.location].filter(Boolean).join(" · ")}</span>
+                {event.description && <p>{event.description}</p>}
+                {event.link && <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld →</a>}
+              </article>
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -548,6 +577,7 @@ export function MemberWorkspace({
 }) {
   const [member, setMember] = useState<Member | null>(null);
   const [calendar, setCalendar] = useState<Booking[]>([]);
+  const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState("");
 
@@ -562,8 +592,12 @@ export function MemberWorkspace({
       if (!active) return;
       if (memberResponse.ok) {
         setMember(await memberResponse.json() as Member);
-        const calendarResponse = await apiFetch(clerk, "/api/room-bookings/calendar");
+        const [calendarResponse, externalResponse] = await Promise.all([
+          apiFetch(clerk, "/api/room-bookings/calendar"),
+          fetch("/api/events/external")
+        ]);
         if (active && calendarResponse.ok) setCalendar(await calendarResponse.json() as Booking[]);
+        if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
       } else if (memberResponse.status === 403) {
         setAccessError("Der er ikke knyttet et aktivt medlemskab til din verificerede e-mail.");
       } else {
@@ -592,7 +626,7 @@ export function MemberWorkspace({
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:team@holistisk.org">team@holistisk.org →</a><p>Mejlgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
-          <MemberCalendar clerk={clerk} bookings={calendar} reload={loadCalendar} />
+          <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} />}
     </main>
   );
