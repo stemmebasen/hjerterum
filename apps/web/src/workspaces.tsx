@@ -112,11 +112,14 @@ function WorkspaceHeader({
         <img src={LOGO_URL} alt="Hjerterum" />
       </a>
       <nav aria-label={mode === "admin" ? "Adminnavigation" : "Medlemsnavigation"}>
-        {links.map(([href, label]) => (
-          <a key={href} href={href} aria-current={path === href || (href.endsWith("/") && path === href.slice(0, -1)) ? "page" : undefined}>
+        {links.map(([href, label]) => {
+          const isMemberOverview = href === "/member-portal/" && path === "/member-portal/dashboard";
+          return (
+          <a key={href} href={href} aria-current={path === href || (href.endsWith("/") && path === href.slice(0, -1)) || isMemberOverview ? "page" : undefined}>
             {label}
           </a>
-        ))}
+          );
+        })}
       </nav>
       <UserButton clerk={clerk} />
     </header>
@@ -194,7 +197,8 @@ function MemberEvents({
     if (!member) return;
     setSaving(true);
     setMessage("");
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       const response = await apiFetch(clerk, "/api/room-bookings", {
         method: "POST",
@@ -215,7 +219,7 @@ function MemberEvents({
         const body = await response.json().catch(() => ({})) as { error?: string };
         throw new Error(body.error || "event_create_failed");
       }
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage("Eventet er oprettet og salen reserveret.");
       await reload();
     } catch (error) {
@@ -339,7 +343,10 @@ export function MemberWorkspace({
 
   async function loadBookings() {
     const response = await apiFetch(clerk, "/api/room-bookings");
-    if (response.ok) setBookings(await response.json() as Booking[]);
+    if (response.ok) {
+      const rows = await response.json() as Booking[];
+      setBookings(rows.filter((booking) => Date.parse(booking.endsAt) >= Date.now()));
+    }
   }
 
   useEffect(() => {
@@ -351,7 +358,10 @@ export function MemberWorkspace({
     ]).then(async ([memberResponse, bookingResponse, publicResponse]) => {
       if (!active) return;
       if (memberResponse.ok) setMember(await memberResponse.json() as Member);
-      if (bookingResponse.ok) setBookings(await bookingResponse.json() as Booking[]);
+      if (bookingResponse.ok) {
+        const rows = await bookingResponse.json() as Booking[];
+        setBookings(rows.filter((booking) => Date.parse(booking.endsAt) >= Date.now()));
+      }
       if (publicResponse.ok) setPublicBookings(await publicResponse.json() as Booking[]);
     }).finally(() => {
       if (active) setLoading(false);
