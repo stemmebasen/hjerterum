@@ -27,6 +27,11 @@ This document is the primary product and migration specification for the new Hje
 - No newer binding board decision was found in the repository that authorises changing
   the legacy room-price formula. Existing room-price fixtures therefore remain
   reference behaviour and are not a licence to change booking prices.
+- The admin/member foundation is implemented on the `codex/admin-member-foundation`
+  delivery branch: protected admin overview/member/event/teacher views and distinct
+  member overview, event creation, calendar, profile and contact surfaces.
+- Event creation is enforced server-side for active paying members. A frontend-only
+  membership check is not considered sufficient authorization.
 
 ## 2. Product scope
 
