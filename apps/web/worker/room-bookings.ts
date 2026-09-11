@@ -10,6 +10,7 @@ export type CreateRoomBookingInput = {
   startsAt: string;
   endsAt: string;
   maxAttendees?: number | null;
+  ticketPriceMinor: number;
   memberName?: string;
   memberEmail?: string;
 };
@@ -30,6 +31,7 @@ export type RoomBookingRow = {
   ends_at_ms: number;
   max_attendees: number | null;
   fee_minor: number;
+  ticket_price_minor: number;
   status: "scheduled" | "cancelled";
   cancelled_at_ms: number | null;
 };
@@ -37,6 +39,7 @@ export type RoomBookingRow = {
 export type MemberCalendarRow = RoomBookingRow & {
   attendee_count: number;
   is_attending: number;
+  registration_status: "pending" | "confirmed" | "cancelled" | null;
 };
 
 export type AttendeeRow = {
@@ -45,6 +48,7 @@ export type AttendeeRow = {
   member_name: string;
   member_email: string;
   created_at_ms: number;
+  registration_status: "pending" | "confirmed" | "cancelled";
 };
 
 const weekdayMap: Record<string, number> = {
@@ -120,6 +124,12 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     throw new Error("invalid_max_attendees");
   }
 
+  const ticketPriceKr = body.ticketPriceKr === undefined ? 0 : Number(body.ticketPriceKr);
+  if (!Number.isFinite(ticketPriceKr) || ticketPriceKr < 0 || ticketPriceKr > 100_000) {
+    throw new Error("invalid_ticket_price");
+  }
+  const ticketPriceMinor = Math.round(ticketPriceKr * 100);
+
   return {
     teacherName,
     teacherEmail,
@@ -128,6 +138,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     endsAt: new Date(endMs).toISOString(),
     ...(typeof body.description === "string" ? { description: body.description.trim() || null } : {}),
     ...(maxAttendees !== null ? { maxAttendees } : { maxAttendees: null }),
+    ticketPriceMinor,
     ...(typeof body.memberName === "string" && body.memberName.trim()
       ? { memberName: body.memberName.trim() }
       : {}),
@@ -153,7 +164,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -170,15 +181,17 @@ export async function listMemberCalendarBookings(
 ): Promise<MemberCalendarRow[]> {
   const result = await db.prepare(
     `SELECT b.id, b.clerk_user_id, b.teacher_name, b.teacher_email, b.title, b.description,
-            b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.status,
-            b.cancelled_at_ms, COUNT(a.id) AS attendee_count,
-            MAX(CASE WHEN a.clerk_user_id = ? THEN 1 ELSE 0 END) AS is_attending
+            b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.ticket_price_minor, b.status,
+            b.cancelled_at_ms,
+            SUM(CASE WHEN a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count,
+            MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,
+            MAX(CASE WHEN a.clerk_user_id = ? THEN a.registration_status ELSE NULL END) AS registration_status
      FROM room_bookings b
      LEFT JOIN room_booking_attendees a ON a.room_booking_id = b.id
      WHERE b.status = 'scheduled' AND b.ends_at_ms >= ?
      GROUP BY b.id
      ORDER BY b.starts_at_ms ASC`
-  ).bind(clerkUserId, fromMs).all<MemberCalendarRow>();
+  ).bind(clerkUserId, clerkUserId, fromMs).all<MemberCalendarRow>();
   return result.results ?? [];
 }
 
@@ -208,9 +221,9 @@ export async function createRoomBooking(
     .prepare(
       `INSERT INTO room_bookings (
          clerk_user_id, teacher_name, teacher_email, title, description,
-         starts_at_ms, ends_at_ms, max_attendees, fee_minor,
-         created_at_ms, updated_at_ms
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
+         payout_clerk_user_id, created_at_ms, updated_at_ms
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -222,6 +235,8 @@ export async function createRoomBooking(
       endMs,
       input.maxAttendees ?? null,
       feeKr * 100,
+      input.ticketPriceMinor,
+      ownerClerkUserId,
       now,
       now
     )
@@ -238,10 +253,11 @@ export async function createRoomBooking(
     await db
       .prepare(
         `INSERT INTO room_booking_attendees (
-           room_booking_id, clerk_user_id, member_name, member_email, created_at_ms
-         ) VALUES (?, ?, ?, ?, ?)`
+           room_booking_id, clerk_user_id, member_name, member_email, created_at_ms,
+           registration_status, confirmed_at_ms
+         ) VALUES (?, ?, ?, ?, ?, 'confirmed', ?)`
       )
-      .bind(id, ownerClerkUserId, attendeeName, attendeeEmail, now)
+      .bind(id, ownerClerkUserId, attendeeName, attendeeEmail, now, now)
       .run();
   } catch (error) {
     await db.prepare("DELETE FROM room_bookings WHERE id = ?").bind(id).run();
@@ -272,13 +288,26 @@ export async function updateOwnedRoomBooking(
     throw new Error("booking_conflict");
   }
 
+  const current = await db.prepare(
+    "SELECT ticket_price_minor FROM room_bookings WHERE id = ? AND clerk_user_id = ?"
+  ).bind(bookingId, ownerClerkUserId).first<{ ticket_price_minor: number }>();
+  if (!current) throw new Error("booking_not_found");
+  if (current.ticket_price_minor !== input.ticketPriceMinor) {
+    const registrations = await db.prepare(
+      `SELECT COUNT(*) AS count FROM room_booking_attendees
+       WHERE room_booking_id = ? AND clerk_user_id <> ?
+         AND registration_status IN ('pending', 'confirmed')`
+    ).bind(bookingId, ownerClerkUserId).first<{ count: number }>();
+    if ((registrations?.count ?? 0) > 0) throw new Error("booking_has_registrations");
+  }
+
   const feeKr = calculateFee(startMs, endMs);
   const result = await db
     .prepare(
       `UPDATE room_bookings
        SET teacher_name = ?, teacher_email = ?, title = ?, description = ?,
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
-           updated_at_ms = ?
+           ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -290,6 +319,8 @@ export async function updateOwnedRoomBooking(
       endMs,
       input.maxAttendees ?? null,
       feeKr * 100,
+      input.ticketPriceMinor,
+      ownerClerkUserId,
       Date.now(),
       bookingId,
       ownerClerkUserId
@@ -343,9 +374,9 @@ export async function listBookingAttendees(
 
   const result = await db
     .prepare(
-      `SELECT id, clerk_user_id, member_name, member_email, created_at_ms
+      `SELECT id, clerk_user_id, member_name, member_email, created_at_ms, registration_status
        FROM room_booking_attendees
-       WHERE room_booking_id = ?
+       WHERE room_booking_id = ? AND registration_status = 'confirmed'
        ORDER BY created_at_ms ASC`
     )
     .bind(bookingId)
@@ -359,42 +390,54 @@ export async function attendRoomBooking(
   bookingId: number,
   attendee: { memberName: string; memberEmail: string }
 ): Promise<void> {
-  const booking = await db
-    .prepare(
-      "SELECT id, starts_at_ms, max_attendees FROM room_bookings WHERE id = ? AND status = 'scheduled'"
-    )
-    .bind(bookingId)
-    .first<{ id: number; starts_at_ms: number; max_attendees: number | null }>();
+  const now = Date.now();
+  const booking = await db.prepare(
+    `SELECT id, clerk_user_id, starts_at_ms, max_attendees, ticket_price_minor
+     FROM room_bookings WHERE id = ? AND status = 'scheduled'`
+  ).bind(bookingId).first<{
+    id: number; clerk_user_id: string; starts_at_ms: number;
+    max_attendees: number | null; ticket_price_minor: number;
+  }>();
   if (!booking) throw new Error("booking_not_found");
-  if (booking.starts_at_ms <= Date.now()) throw new Error("booking_started");
+  if (booking.starts_at_ms <= now) throw new Error("booking_started");
+  if (booking.ticket_price_minor > 0) throw new Error("event_payment_required");
 
-  const existing = await db
-    .prepare(
-      `SELECT id FROM room_booking_attendees
-       WHERE room_booking_id = ? AND clerk_user_id = ?`
-    )
-    .bind(bookingId, clerkUserId)
-    .first<{ id: number }>();
-  if (existing) throw new Error("already_attending");
+  const existing = await db.prepare(
+    `SELECT id, registration_status FROM room_booking_attendees
+     WHERE room_booking_id = ? AND clerk_user_id = ?`
+  ).bind(bookingId, clerkUserId).first<{ id: number; registration_status: string }>();
+  if (existing?.registration_status === "confirmed") throw new Error("already_attending");
+  if (existing?.registration_status === "pending") throw new Error("booking_full_or_pending");
+
+  if (existing) {
+    const result = await db.prepare(
+      `UPDATE room_booking_attendees
+       SET member_name = ?, member_email = ?, registration_status = 'confirmed',
+           confirmed_at_ms = ?, cancelled_at_ms = NULL
+       WHERE id = ? AND registration_status = 'cancelled'
+         AND ((SELECT max_attendees FROM room_bookings WHERE id = ?) IS NULL OR
+           (SELECT COUNT(*) FROM room_booking_attendees
+            WHERE room_booking_id = ? AND registration_status = 'confirmed') <
+           (SELECT max_attendees FROM room_bookings WHERE id = ?))`
+    ).bind(attendee.memberName, attendee.memberEmail, now, existing.id, bookingId, bookingId, bookingId).run();
+    if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_full");
+    return;
+  }
 
   const result = await db.prepare(
     `INSERT INTO room_booking_attendees
-     (room_booking_id, clerk_user_id, member_name, member_email, created_at_ms)
-     SELECT b.id, ?, ?, ?, ?
+     (room_booking_id, clerk_user_id, member_name, member_email, created_at_ms,
+      registration_status, confirmed_at_ms)
+     SELECT b.id, ?, ?, ?, ?, 'confirmed', ?
      FROM room_bookings b
      WHERE b.id = ? AND b.status = 'scheduled' AND b.starts_at_ms > ?
-       AND (
-         b.max_attendees IS NULL OR
-         (SELECT COUNT(*) FROM room_booking_attendees WHERE room_booking_id = b.id) < b.max_attendees
-       )`
-  ).bind(
-    clerkUserId,
-    attendee.memberName,
-    attendee.memberEmail,
-    Date.now(),
-    bookingId,
-    Date.now()
-  ).run();
+       AND (b.max_attendees IS NULL OR
+         (SELECT COUNT(*) FROM room_booking_attendees
+          WHERE room_booking_id = b.id AND (
+            registration_status = 'confirmed' OR
+            (registration_status = 'pending' AND expires_at_ms > ?)
+          )) < b.max_attendees)`
+  ).bind(clerkUserId, attendee.memberName, attendee.memberEmail, now, now, bookingId, now, now).run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_full");
 }
 
@@ -403,18 +446,19 @@ export async function unattendRoomBooking(
   clerkUserId: string,
   bookingId: number
 ): Promise<void> {
+  const now = Date.now();
   const booking = await db.prepare(
-    "SELECT starts_at_ms FROM room_bookings WHERE id = ? AND status = 'scheduled'"
-  ).bind(bookingId).first<{ starts_at_ms: number }>();
+    "SELECT clerk_user_id, starts_at_ms FROM room_bookings WHERE id = ? AND status = 'scheduled'"
+  ).bind(bookingId).first<{ clerk_user_id: string; starts_at_ms: number }>();
   if (!booking) throw new Error("booking_not_found");
-  if (booking.starts_at_ms <= Date.now()) throw new Error("booking_started");
+  if (booking.starts_at_ms <= now) throw new Error("booking_started");
+  if (booking.clerk_user_id === clerkUserId) throw new Error("event_owner_cannot_unregister");
 
-  const result = await db
-    .prepare(
-      `DELETE FROM room_booking_attendees
-       WHERE room_booking_id = ? AND clerk_user_id = ?`
-    )
-    .bind(bookingId, clerkUserId)
-    .run();
+  const result = await db.prepare(
+    `UPDATE room_booking_attendees
+     SET registration_status = 'cancelled', cancelled_at_ms = ?, expires_at_ms = NULL
+     WHERE room_booking_id = ? AND clerk_user_id = ?
+       AND registration_status IN ('pending', 'confirmed')`
+  ).bind(now, bookingId, clerkUserId).run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("attendance_not_found");
 }
