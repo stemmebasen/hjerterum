@@ -236,7 +236,8 @@ Resolved:
 Still open:
 
 - Preserve/import the sanitized legacy source snapshot outside Replit.
-- Future room pricing must be deliberately chosen because the legacy frontend and server disagree.
+- The approved three-mode room-price calculator is implemented; its shared calculation
+  rules are now the public pricing authority.
 - The two legacy room-fee rows without Stripe invoice-item references require reconciliation before financial cutover.
 - Stripe account, test-mode configuration and full end-to-end Clerk/Stripe acceptance are deferred, not blockers for the non-payment migration scope.
 - Full public/member visual parity remains open.

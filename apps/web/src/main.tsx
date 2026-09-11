@@ -545,7 +545,10 @@ function PublicHome() {
 function PublicContentPage({ path }: { path: string }) {
   const normalizedPath = path.replace(/\/+$/, "") || "/";
   const english = normalizedPath === "/welcome" || normalizedPath === "/events-en" ||
-    normalizedPath === "/book-your-event" || normalizedPath === "/become-a-member";
+    normalizedPath === "/vision-en" || normalizedPath === "/book-your-event" ||
+    normalizedPath === "/become-a-member" || normalizedPath === "/conditions-of-membership" ||
+    normalizedPath === "/use-hjerterum" || normalizedPath === "/conditions-for-renting-the-room" ||
+    normalizedPath === "/guidelines-for-teachers";
   const { events, eventsReachable } = usePublicEvents();
 
   useEffect(() => {
@@ -554,6 +557,7 @@ function PublicContentPage({ path }: { path: string }) {
       "/events": "Events i Hjerterum",
       "/events-en": "Events at Hjerterum",
       "/vision": "Hvad er Hjerterum?",
+      "/vision-en": "What is Hjerterum?",
       "/historien-bag-hjerterum": "Historien bag Hjerterum",
       "/behandlere": "Behandlere og undervisere",
       "/praktisk-information": "Praktisk information",
@@ -562,11 +566,20 @@ function PublicContentPage({ path }: { path: string }) {
       "/teamet": "Mød Hjerterum",
       "/kontakt-os": "Kontakt Hjerterum",
       "/fordele-ved-medlemskab": "Fordele ved et medlemskab",
+      "/benefits-of-membership": "Benefits of membership",
+      "/medlemskabs-betingelser": "Vilkår for medlemskab",
+      "/conditions-of-membership": "Terms of membership",
       "/bliv-medlem": "Bliv medlem af Hjerterum",
       "/become-a-member": "Become a member of Hjerterum",
       "/book-dit-event": "Book dit event i Hjerterum",
       "/book-your-event": "Book your event at Hjerterum",
       "/brug-centret": "Brug Hjerterum",
+      "/use-hjerterum": "Use Hjerterum",
+      "/lejepriser": "Lejepriser",
+      "/betingelser-for-leje-af-sal": "Vilkår for leje af sal",
+      "/conditions-for-renting-the-room": "Conditions for renting the room",
+      "/guidelines-for-undervisere": "Praktisk information",
+      "/guidelines-for-teachers": "Practical information",
       "/price-list": "Book Room at Hjerterum"
     };
     document.title = `${titles[normalizedPath] || "Hjerterum"} · Hjerterum`;
@@ -611,6 +624,13 @@ function PublicContentPage({ path }: { path: string }) {
             : "Hjerterum er et levende hus i Aarhus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.",
           action: ["Se kalenderen", "/events"]
         };
+      case "/vision-en":
+        return {
+          kicker: "Hjerterum",
+          title: "A space for community, creativity and personal development.",
+          body: "Hjerterum is an open and safe space in Aarhus for meaningful events, practice, creativity and connection.",
+          action: ["Explore events", "/events-en"]
+        };
       case "/team":
       case "/teamet":
         return {
@@ -648,6 +668,7 @@ function PublicContentPage({ path }: { path: string }) {
           action: ["Skriv til os", "mailto:team@holistisk.org"]
         };
       case "/fordele-ved-medlemskab":
+      case "/benefits-of-membership":
       case "/bliv-medlem":
       case "/become-a-member":
         return {
@@ -657,6 +678,16 @@ function PublicContentPage({ path }: { path: string }) {
             ? "Membership connects you to the house, its community and a varied program of events."
             : "Som medlem er du med til at holde huset levende og tilgængeligt. Du bliver en del af fællesskabet og får adgang til aktiviteter og mulighed for selv at skabe noget i Hjerterum.",
           action: [english ? "Contact us about membership" : "Kontakt os om medlemskab", "/kontakt-os"]
+        };
+      case "/medlemskabs-betingelser":
+      case "/conditions-of-membership":
+        return {
+          kicker: english ? "Membership" : "Medlemskab",
+          title: english ? "Membership terms." : "Vilkår for medlemskab.",
+          body: english
+            ? "Membership is personal and connected to the community around Hjerterum. The current terms are reviewed before any paid membership flow is activated."
+            : "Medlemskabet er personligt og knyttet til fællesskabet omkring Hjerterum. Vilkårene gennemgås, før et betalt medlemsflow aktiveres.",
+          action: [english ? "Membership overview" : "Se medlemskab", english ? "/become-a-member" : "/bliv-medlem"]
         };
       case "/book-dit-event":
       case "/book-your-event":
@@ -669,11 +700,19 @@ function PublicContentPage({ path }: { path: string }) {
           action: [english ? "Open member area" : "Åbn medlemsområdet", "/member-portal/kalender"]
         };
       case "/brug-centret":
+      case "/use-hjerterum":
+      case "/lejepriser":
+      case "/betingelser-for-leje-af-sal":
+      case "/conditions-for-renting-the-room":
+      case "/guidelines-for-undervisere":
+      case "/guidelines-for-teachers":
         return {
-          kicker: "Brug Hjerterum",
-          title: "Skab dit eget arrangement i huset.",
-          body: "Hjerterums sal på Mejlgade 26B kan bruges til undervisning, workshops, behandlinger, møder og events.",
-          action: ["Beregn lejepris", "/price-list"]
+          kicker: english ? "Use the house" : "Brug Hjerterum",
+          title: english ? "Create your own event in the house." : "Skab dit eget arrangement i huset.",
+          body: english
+            ? "Hjerterum's room at Mejlgade 26B can host teaching, workshops, treatments, meetings and events."
+            : "Hjerterums sal på Mejlgade 26B kan bruges til undervisning, workshops, behandlinger, møder og events.",
+          action: [english ? "Calculate the rental price" : "Beregn lejepris", "/price-list"]
         };
       case "/price-list":
         return {
