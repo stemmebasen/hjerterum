@@ -54,14 +54,12 @@ function first(values: Map<string, string>, names: readonly string[]): string | 
   return null;
 }
 
-function stableRawJson(row: ImportRow): string {
-  return JSON.stringify(
-    Object.fromEntries(
-      Object.entries(row)
-        .map(([name, value]) => [name.trim(), value === null || value === undefined ? "" : String(value).trim()] as const)
-        .sort(([a], [b]) => a.localeCompare(b))
-    )
-  );
+function canonicalSourceSnapshot(member: Omit<NormalizedExternalMember, "rawJson">): string {
+  return JSON.stringify(member);
+}
+
+function rejectedRowMetadata(row: ImportRow): string {
+  return JSON.stringify({ columns: Object.keys(row).map((name) => name.trim()).sort() });
 }
 
 export function normalizeMembershipStatus(value: string | null): string {
@@ -82,15 +80,19 @@ export function normalizeMembershipWorksRow(row: ImportRow): NormalizedExternalM
     .join(" ");
   const fullName = explicitName || combinedName || email.split("@")[0] || "MembershipWorks-medlem";
 
-  return {
+  const member = {
     externalId: first(values, aliases.externalId),
     email,
     fullName,
     membershipLevel: first(values, aliases.level),
     status: normalizeMembershipStatus(first(values, aliases.status)),
     joinedAtText: first(values, aliases.joined),
-    expiresAtText: first(values, aliases.expires),
-    rawJson: stableRawJson(row)
+    expiresAtText: first(values, aliases.expires)
+  };
+
+  return {
+    ...member,
+    rawJson: canonicalSourceSnapshot(member)
   };
 }
 
@@ -182,7 +184,7 @@ export async function importMembershipWorksCsv(
           `INSERT INTO membership_import_changes
            (import_batch_id, normalized_email, change_type, current_json, reason, created_at_ms)
            VALUES (?, NULL, 'rejected', ?, ?, ?)`
-        ).bind(batchId, stableRawJson(row), reason, Date.now()).run();
+        ).bind(batchId, rejectedRowMetadata(row), reason, Date.now()).run();
         continue;
       }
 
