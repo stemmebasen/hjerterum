@@ -207,7 +207,9 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
   try {
     const input = normalizeCreateRoomBookingInput(body);
     if (input.ticketPriceMinor > 0) {
-      if (!env.STRIPE_SECRET_KEY) throw new Error("payments_not_configured");
+      if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET) {
+        throw new Error("payments_not_configured");
+      }
       await requireActivePayoutAccount(env.DB, env.STRIPE_SECRET_KEY, user.userId);
     }
     const result = await createRoomBooking(env.DB, user.userId, {
@@ -249,7 +251,9 @@ async function putRoomBooking(
   try {
     const input = normalizeCreateRoomBookingInput(body);
     if (input.ticketPriceMinor > 0) {
-      if (!env.STRIPE_SECRET_KEY) throw new Error("payments_not_configured");
+      if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET) {
+        throw new Error("payments_not_configured");
+      }
       await requireActivePayoutAccount(env.DB, env.STRIPE_SECRET_KEY, user.userId);
     }
     const result = await updateOwnedRoomBooking(
@@ -339,7 +343,7 @@ async function attendBooking(
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
     if (code === "event_payment_required") {
-      if (!env.STRIPE_SECRET_KEY || !env.APP_BASE_URL) {
+      if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET || !env.APP_BASE_URL) {
         return json({ error: "payments_not_configured" }, { status: 503 });
       }
       try {
@@ -420,7 +424,9 @@ async function payoutAccount(request: Request, env: Env): Promise<Response> {
   if (isResponse(user)) return user;
   const membership = await requireActiveMembershipForUser(env, user.userId);
   if (isResponse(membership)) return membership;
-  if (!env.STRIPE_SECRET_KEY) return json({ configured: false, account: null });
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET || !env.APP_BASE_URL) {
+    return json({ configured: false, account: null });
+  }
   try {
     const account = await getPayoutAccount(env.DB, env.STRIPE_SECRET_KEY, user.userId);
     return json({ configured: true, account });
@@ -432,7 +438,7 @@ async function payoutAccount(request: Request, env: Env): Promise<Response> {
 
 async function payoutOnboarding(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
-  if (!env.STRIPE_SECRET_KEY || !env.APP_BASE_URL) {
+  if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET || !env.APP_BASE_URL) {
     return json({ error: "payments_not_configured" }, { status: 503 });
   }
   const user = await requireUser(request, env);
