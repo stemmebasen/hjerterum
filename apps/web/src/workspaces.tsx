@@ -28,6 +28,8 @@ type Booking = {
   endsAt: string;
   maxAttendees: number | null;
   attendeeCount?: number;
+  isAttending?: boolean;
+  isOwner?: boolean;
   feeKr: number;
 };
 
@@ -135,7 +137,8 @@ function Status({ value }: { value: string }) {
   return <span className={"workspace-status " + (active ? "is-active" : "")}>{active ? "Aktiv" : value.replaceAll("_", " ")}</span>;
 }
 
-function MemberOverview({ member, bookings }: { member: Member | null; bookings: Booking[] }) {
+function MemberOverview({ member, calendar }: { member: Member | null; calendar: Booking[] }) {
+  const registrations = calendar.filter((booking) => booking.isAttending);
   return (
     <>
       <section className="workspace-hero">
@@ -146,34 +149,29 @@ function MemberOverview({ member, bookings }: { member: Member | null; bookings:
       <div className="workspace-cards">
         <article className="workspace-card">
           <p className="kicker">Medlemskab</p>
-          {member ? (
+          {member && (
             <>
               <Status value={member.status} />
               <h2>{member.tier}</h2>
               <p>{member.managedExternally ? "Eksisterende medlemskab via MembershipWorks" : member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
               {member.managedExternally
                 ? <span className="workspace-note">Dit eksisterende medlemskab fortsætter uændret.</span>
-                : <a className="text-link" href="/member-portal/dashboard">Se medlemskab →</a>}
-            </>
-          ) : (
-            <>
-              <h2>Ingen medlemsprofil endnu</h2>
-              <p>Din bruger er oprettet, men et medlemskab er endnu ikke knyttet til den.</p>
+                : <span className="workspace-note">Dit medlemskab administreres i Hjerterum.</span>}
             </>
           )}
         </article>
         <article className="workspace-card">
-          <p className="kicker">Næste event</p>
-          {bookings[0] ? (
+          <p className="kicker">Næste tilmelding</p>
+          {registrations[0] ? (
             <>
-              <time>{formatDate(bookings[0].startsAt)}</time>
-              <h2>{bookings[0].title}</h2>
-              <a className="text-link" href="/member-portal/events">Se mine events →</a>
+              <time>{formatDate(registrations[0].startsAt)}</time>
+              <h2>{registrations[0].title}</h2>
+              <a className="text-link" href="/member-portal/kalender">Se dine tilmeldinger →</a>
             </>
           ) : (
             <>
               <h2>Din kalender er åben</h2>
-              <p>Du har ingen egne bookinger endnu.</p>
+              <p>Du er ikke tilmeldt et kommende event.</p>
               <a className="text-link" href="/member-portal/kalender">Se kalenderen →</a>
             </>
           )}
@@ -181,6 +179,12 @@ function MemberOverview({ member, bookings }: { member: Member | null; bookings:
       </div>
     </>
   );
+}
+
+function localDateTimeInput(value: string): string {
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 function MemberEvents({
@@ -196,9 +200,10 @@ function MemberEvents({
 }) {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Booking | null>(null);
   const active = member?.status === "active";
 
-  async function createEvent(event: FormEvent<HTMLFormElement>) {
+  async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!member) return;
     setSaving(true);
@@ -206,34 +211,50 @@ function MemberEvents({
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     try {
-      const response = await apiFetch(clerk, "/api/room-bookings", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          teacherName: member.fullName,
-          teacherEmail: member.email,
-          memberName: member.fullName,
-          memberEmail: member.email,
-          title: String(form.get("title") || ""),
-          description: String(form.get("description") || ""),
-          startsAt: new Date(String(form.get("startsAt"))).toISOString(),
-          endsAt: new Date(String(form.get("endsAt"))).toISOString(),
-          maxAttendees: Number(form.get("maxAttendees")) || null
-        })
-      });
+      const response = await apiFetch(
+        clerk,
+        editing ? "/api/room-bookings/" + editing.id : "/api/room-bookings",
+        {
+          method: editing ? "PUT" : "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            teacherName: member.fullName,
+            teacherEmail: member.email,
+            title: String(form.get("title") || ""),
+            description: String(form.get("description") || ""),
+            startsAt: new Date(String(form.get("startsAt"))).toISOString(),
+            endsAt: new Date(String(form.get("endsAt"))).toISOString(),
+            maxAttendees: Number(form.get("maxAttendees")) || null
+          })
+        }
+      );
       if (!response.ok) {
         const body = await response.json().catch(() => ({})) as { error?: string };
-        throw new Error(body.error || "event_create_failed");
+        throw new Error(body.error || "event_save_failed");
       }
       formElement.reset();
-      setMessage("Eventet er oprettet og salen reserveret.");
+      setEditing(null);
+      setMessage(editing ? "Ændringerne er gemt." : "Eventet er oprettet og salen reserveret.");
       await reload();
     } catch (error) {
-      const code = error instanceof Error ? error.message : "event_create_failed";
-      setMessage(code === "booking_conflict" ? "Tidsrummet er allerede optaget." : "Eventet kunne ikke oprettes. Tjek tiderne og prøv igen.");
+      const code = error instanceof Error ? error.message : "event_save_failed";
+      setMessage(code === "booking_conflict" ? "Tidsrummet er allerede optaget." : "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen.");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function cancelEvent(booking: Booking) {
+    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken.")) return;
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id, { method: "DELETE" });
+    if (!response.ok) {
+      setMessage("Eventet kunne ikke annulleres.");
+      return;
+    }
+    if (editing?.id === booking.id) setEditing(null);
+    setMessage("Eventet er annulleret.");
+    await reload();
   }
 
   return (
@@ -243,37 +264,106 @@ function MemberEvents({
       </div>
       <div className="workspace-two-column">
         <div className="workspace-card">
-          <h2>Opret event og reservér salen</h2>
+          <h2>{editing ? "Redigér event" : "Opret event og reservér salen"}</h2>
           {!active ? (
             <p>Du skal have et aktivt betalende medlemskab for at oprette et event.</p>
           ) : (
-            <form className="workspace-form" onSubmit={createEvent}>
-              <label>Titel<input name="title" required /></label>
-              <label>Beskrivelse<textarea name="description" rows={4} /></label>
+            <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new"}>
+              <label>Titel<input name="title" defaultValue={editing?.title ?? ""} required /></label>
+              <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? ""} /></label>
               <div className="workspace-form-row">
-                <label>Starter<input name="startsAt" type="datetime-local" required /></label>
-                <label>Slutter<input name="endsAt" type="datetime-local" required /></label>
+                <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
+                <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
               </div>
-              <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" /></label>
-              <button className="pill-button dark" disabled={saving}>{saving ? "Opretter …" : "Opret event"}</button>
+              <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
+              <div className="workspace-actions">
+                <button className="pill-button dark" disabled={saving}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
+                {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
+              </div>
               {message && <p className="workspace-message" role="status">{message}</p>}
             </form>
           )}
         </div>
         <div className="workspace-card">
-          <h2>Kommende bookinger</h2>
+          <h2>Kommende events</h2>
           {bookings.length ? (
             <div className="workspace-list">
               {bookings.map((booking) => (
                 <article key={booking.id}>
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
-                  <span>{booking.feeKr.toLocaleString("da-DK")} kr. · {booking.maxAttendees ? booking.maxAttendees + " pladser" : "uden deltagergrænse"}</span>
+                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje</span>
+                  <div className="workspace-actions">
+                    <button type="button" className="text-button" onClick={() => setEditing(booking)}>Redigér</button>
+                    <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
+                  </div>
                 </article>
               ))}
             </div>
-          ) : <p>Du har ingen kommende bookinger.</p>}
+          ) : <p>Du har ingen kommende events.</p>}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function MemberCalendar({
+  clerk,
+  bookings,
+  reload
+}: {
+  clerk: ClerkBrowser;
+  bookings: Booking[];
+  reload: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
+
+  async function toggleAttendance(booking: Booking) {
+    setBusyId(booking.id);
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id + "/attend", {
+      method: booking.isAttending ? "DELETE" : "POST"
+    });
+    const body = await response.json().catch(() => ({})) as { error?: string };
+    if (!response.ok) {
+      setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : "Tilmeldingen kunne ikke ændres.");
+    } else {
+      setMessage(booking.isAttending ? "Du er nu afmeldt." : "Du er nu tilmeldt.");
+      await reload();
+    }
+    setBusyId(null);
+  }
+
+  return (
+    <section className="workspace-section">
+      <p className="kicker">Kalender</p>
+      <h1>Det sker i huset</h1>
+      {message && <p className="workspace-message" role="status">{message}</p>}
+      <div className="workspace-list workspace-calendar">
+        {bookings.length ? bookings.map((booking) => {
+          const full = booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees;
+          return (
+            <article key={booking.id}>
+              <time>{formatDate(booking.startsAt)}</time>
+              <strong>{booking.title}</strong>
+              <span>{booking.teacherName} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</span>
+              {booking.description && <p>{booking.description}</p>}
+              {booking.isOwner ? (
+                <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
+              ) : (
+                <button
+                  type="button"
+                  className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
+                  disabled={busyId === booking.id || (!booking.isAttending && full)}
+                  onClick={() => void toggleAttendance(booking)}
+                >
+                  {busyId === booking.id ? "Arbejder …" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : "Tilmeld"}
+                </button>
+              )}
+            </article>
+          );
+        }) : <p>Der er ingen kommende events i kalenderen.</p>}
       </div>
     </section>
   );
@@ -357,37 +447,30 @@ export function MemberWorkspace({
   path: string;
 }) {
   const [member, setMember] = useState<Member | null>(null);
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [publicBookings, setPublicBookings] = useState<Booking[]>([]);
+  const [calendar, setCalendar] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState("");
 
-  async function loadBookings() {
-    const response = await apiFetch(clerk, "/api/room-bookings");
-    if (response.ok) {
-      const rows = await response.json() as Booking[];
-      setBookings(rows.filter((booking) => Date.parse(booking.endsAt) >= Date.now()));
-    }
+  async function loadCalendar() {
+    const response = await apiFetch(clerk, "/api/room-bookings/calendar");
+    if (response.ok) setCalendar(await response.json() as Booking[]);
   }
 
   useEffect(() => {
     let active = true;
-    void Promise.all([
-      apiFetch(clerk, "/api/members/me"),
-      apiFetch(clerk, "/api/room-bookings"),
-      fetch("/api/room-bookings/public")
-    ]).then(async ([memberResponse, bookingResponse, publicResponse]) => {
+    void apiFetch(clerk, "/api/members/me").then(async (memberResponse) => {
       if (!active) return;
       if (memberResponse.ok) {
         setMember(await memberResponse.json() as Member);
+        const calendarResponse = await apiFetch(clerk, "/api/room-bookings/calendar");
+        if (active && calendarResponse.ok) setCalendar(await calendarResponse.json() as Booking[]);
       } else if (memberResponse.status === 403) {
-        setAccessError("Der er ikke knyttet et aktivt medlemskab til din e-mail.");
+        setAccessError("Der er ikke knyttet et aktivt medlemskab til din verificerede e-mail.");
+      } else {
+        setAccessError("Medlemsområdet kunne ikke indlæses.");
       }
-      if (bookingResponse.ok) {
-        const rows = await bookingResponse.json() as Booking[];
-        setBookings(rows.filter((booking) => Date.parse(booking.endsAt) >= Date.now()));
-      }
-      if (publicResponse.ok) setPublicBookings(await publicResponse.json() as Booking[]);
+    }).catch(() => {
+      if (active) setAccessError("Medlemsområdet kunne ikke indlæses.");
     }).finally(() => {
       if (active) setLoading(false);
     });
@@ -395,19 +478,20 @@ export function MemberWorkspace({
   }, [clerk, user.id]);
 
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
+  const ownedBookings = calendar.filter((booking) => booking.isOwner);
   return (
     <main className="workspace-shell">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
         normalized === "/member-portal/events" ? (
-          <MemberEvents clerk={clerk} member={member} bookings={bookings} reload={loadBookings} />
+          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:team@holistisk.org">team@holistisk.org →</a><p>Mejlgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
-          <section className="workspace-section"><p className="kicker">Kalender</p><h1>Det sker i huset</h1><div className="workspace-list workspace-calendar">{publicBookings.length ? publicBookings.map((booking) => <article key={booking.id}><time>{formatDate(booking.startsAt)}</time><strong>{booking.title}</strong><span>{booking.teacherName}</span></article>) : <p>Der er ingen kommende events i kalenderen.</p>}</div></section>
-        ) : <MemberOverview member={member} bookings={bookings} />}
+          <MemberCalendar clerk={clerk} bookings={calendar} reload={loadCalendar} />
+        ) : <MemberOverview member={member} calendar={calendar} />}
     </main>
   );
 }
