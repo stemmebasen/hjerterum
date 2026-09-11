@@ -316,6 +316,19 @@ export async function deleteOwnedRoomBooking(
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_not_found");
 }
 
+export async function cancelRoomBookingAsAdmin(
+  db: D1Database,
+  bookingId: number
+): Promise<void> {
+  const now = Date.now();
+  const result = await db.prepare(
+    `UPDATE room_bookings
+     SET status = 'cancelled', cancelled_at_ms = ?, updated_at_ms = ?
+     WHERE id = ? AND status = 'scheduled'`
+  ).bind(now, now, bookingId).run();
+  if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_not_found");
+}
+
 export async function listBookingAttendees(
   db: D1Database,
   ownerClerkUserId: string,
