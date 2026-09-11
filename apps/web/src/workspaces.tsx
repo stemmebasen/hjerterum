@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 
 const LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
@@ -456,7 +456,7 @@ function AdminTable({
   title: string;
   kicker: string;
   headings: string[];
-  rows: Array<Array<string | JSX.Element>>;
+  rows: Array<Array<ReactNode>>;
 }) {
   return (
     <section className="workspace-section">
