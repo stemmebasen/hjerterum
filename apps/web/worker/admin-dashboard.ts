@@ -4,6 +4,7 @@ export type AdminOverview = {
   totals: {
     members: number;
     activeMembers: number;
+    externalMembers: number;
     teachers: number;
     upcomingBookings: number;
   };
@@ -125,10 +126,12 @@ export async function listAdminBookings(
 
 export async function getAdminOverview(db: D1Database): Promise<AdminOverview> {
   const now = Date.now();
-  const [members, activeMembers, teachers, upcomingBookings, recentMembers, bookings] =
+  const [localMembers, activeLocalMembers, externalMembers, activeExternalMembers, teachers, upcomingBookings, recentMembers, bookings] =
     await Promise.all([
       count(db, "SELECT COUNT(*) AS count FROM members"),
       count(db, "SELECT COUNT(*) AS count FROM members WHERE status = 'active'"),
+      count(db, "SELECT COUNT(*) AS count FROM external_memberships WHERE source = 'membershipworks'"),
+      count(db, "SELECT COUNT(*) AS count FROM external_memberships WHERE source = 'membershipworks' AND status = 'active'"),
       count(db, "SELECT COUNT(*) AS count FROM teachers"),
       count(db, "SELECT COUNT(*) AS count FROM room_bookings WHERE ends_at_ms >= ?", now),
       listAdminMembers(db, 6),
@@ -136,7 +139,13 @@ export async function getAdminOverview(db: D1Database): Promise<AdminOverview> {
     ]);
 
   return {
-    totals: { members, activeMembers, teachers, upcomingBookings },
+    totals: {
+      members: localMembers + externalMembers,
+      activeMembers: activeLocalMembers + activeExternalMembers,
+      externalMembers,
+      teachers,
+      upcomingBookings
+    },
     recentMembers,
     upcomingBookings: bookings
   };
