@@ -405,7 +405,7 @@ function MemberCalendar({
     const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id + "/attend", {
       method: booking.isAttending ? "DELETE" : "POST"
     });
-    const body = await response.json().catch(() => ({})) as { error?: string };
+    const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
       setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : "Tilmeldingen kunne ikke ændres.");
     } else if (body.checkoutUrl) {
