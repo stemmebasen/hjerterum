@@ -3,6 +3,7 @@ const STRIPE_API = "https://api.stripe.com/v1";
 export type StripeEvent = {
   id: string;
   type: string;
+  account?: string;
   data?: {
     object?: Record<string, unknown>;
   };
