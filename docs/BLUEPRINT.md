@@ -150,11 +150,10 @@ This does **not** match the server calculation and must not be copied into the t
 
 ### Pricing cutover rule
 
-Before production cutover, the future room-price policy must be deliberately chosen and acceptance-tested. Until then:
-
-- preserve the legacy server formula as fixtures/reference behaviour;
-- do not present the inconsistent legacy frontend table in the new product;
-- do not silently change existing legacy booking fees during migration.
+The approved room-price calculator is the public pricing source of truth. The
+new `/price-list/` route must use the shared calculator implementation and must
+not copy the inconsistent legacy frontend table. Online payment remains
+disabled until Stripe is configured, but the estimate must remain visible.
 
 Legacy SoMe package fee: 390 kr.
 

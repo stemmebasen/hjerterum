@@ -102,11 +102,11 @@ legacy navigation's long, flat list.
 
 - Several legacy pages contain dated offers, old payment embeds and references to
   MembershipWorks or Stripe. They are source material only, not deployable copy.
-- The scan contains conflicting addresses, including Guldsmedgade and an older
-  Mejlgade address. The current approved address must be verified before publishing
-  contact or room content.
-- Room price pages contain historical price tables that must not override newer
-  documented decisions. Pricing remains configuration/data, not copied prose.
+- The current approved address is **Mejlgade 26B, 8000 Aarhus C**. Older
+  Guldsmedgade and other address variants must not be republished.
+- The approved room-price calculator is the pricing source of truth. Historical
+  tables must not override its result; pricing remains configuration/data, not
+  copied prose.
 - Membership pages contain payment and trial language. Because paid checkout is
   deferred, those statements must remain inactive or be rewritten before reuse.
 - Danish and English pages are often near-duplicates rather than separate content
