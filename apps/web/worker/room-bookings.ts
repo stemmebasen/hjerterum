@@ -30,6 +30,13 @@ export type RoomBookingRow = {
   ends_at_ms: number;
   max_attendees: number | null;
   fee_minor: number;
+  status: "scheduled" | "cancelled";
+  cancelled_at_ms: number | null;
+};
+
+export type MemberCalendarRow = RoomBookingRow & {
+  attendee_count: number;
+  is_attending: number;
 };
 
 export type AttendeeRow = {
@@ -145,13 +152,32 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, status, cancelled_at_ms
        FROM room_bookings
-       WHERE clerk_user_id = ?
+       WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
     )
     .bind(ownerClerkUserId)
     .all<RoomBookingRow>();
+  return result.results ?? [];
+}
+
+export async function listMemberCalendarBookings(
+  db: D1Database,
+  clerkUserId: string,
+  fromMs = Date.now()
+): Promise<MemberCalendarRow[]> {
+  const result = await db.prepare(
+    `SELECT b.id, b.clerk_user_id, b.teacher_name, b.teacher_email, b.title, b.description,
+            b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.status,
+            b.cancelled_at_ms, COUNT(a.id) AS attendee_count,
+            MAX(CASE WHEN a.clerk_user_id = ? THEN 1 ELSE 0 END) AS is_attending
+     FROM room_bookings b
+     LEFT JOIN room_booking_attendees a ON a.room_booking_id = b.id
+     WHERE b.status = 'scheduled' AND b.ends_at_ms >= ?
+     GROUP BY b.id
+     ORDER BY b.starts_at_ms ASC`
+  ).bind(clerkUserId, fromMs).all<MemberCalendarRow>();
   return result.results ?? [];
 }
 
@@ -166,7 +192,7 @@ export async function createRoomBooking(
   const conflict = await db
     .prepare(
       `SELECT id FROM room_bookings
-       WHERE starts_at_ms < ? AND ends_at_ms > ?
+       WHERE status = 'scheduled' AND starts_at_ms < ? AND ends_at_ms > ?
        LIMIT 1`
     )
     .bind(endMs, startMs)
@@ -236,7 +262,7 @@ export async function updateOwnedRoomBooking(
   const conflict = await db
     .prepare(
       `SELECT id FROM room_bookings
-       WHERE id <> ? AND starts_at_ms < ? AND ends_at_ms > ?
+       WHERE status = 'scheduled' AND id <> ? AND starts_at_ms < ? AND ends_at_ms > ?
        LIMIT 1`
     )
     .bind(bookingId, endMs, startMs)
@@ -278,9 +304,14 @@ export async function deleteOwnedRoomBooking(
   ownerClerkUserId: string,
   bookingId: number
 ): Promise<void> {
+  const now = Date.now();
   const result = await db
-    .prepare("DELETE FROM room_bookings WHERE id = ? AND clerk_user_id = ?")
-    .bind(bookingId, ownerClerkUserId)
+    .prepare(
+      `UPDATE room_bookings
+       SET status = 'cancelled', cancelled_at_ms = ?, updated_at_ms = ?
+       WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled'`
+    )
+    .bind(now, now, bookingId, ownerClerkUserId)
     .run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_not_found");
 }
@@ -315,10 +346,13 @@ export async function attendRoomBooking(
   attendee: { memberName: string; memberEmail: string }
 ): Promise<void> {
   const booking = await db
-    .prepare("SELECT id, max_attendees FROM room_bookings WHERE id = ?")
+    .prepare(
+      "SELECT id, starts_at_ms, max_attendees FROM room_bookings WHERE id = ? AND status = 'scheduled'"
+    )
     .bind(bookingId)
-    .first<{ id: number; max_attendees: number | null }>();
+    .first<{ id: number; starts_at_ms: number; max_attendees: number | null }>();
   if (!booking) throw new Error("booking_not_found");
+  if (booking.starts_at_ms <= Date.now()) throw new Error("booking_started");
 
   const existing = await db
     .prepare(
@@ -329,22 +363,25 @@ export async function attendRoomBooking(
     .first<{ id: number }>();
   if (existing) throw new Error("already_attending");
 
-  if (booking.max_attendees !== null) {
-    const count = await db
-      .prepare("SELECT COUNT(*) AS count FROM room_booking_attendees WHERE room_booking_id = ?")
-      .bind(bookingId)
-      .first<{ count: number }>();
-    if ((count?.count ?? 0) >= booking.max_attendees) throw new Error("booking_full");
-  }
-
-  await db
-    .prepare(
-      `INSERT INTO room_booking_attendees
-       (room_booking_id, clerk_user_id, member_name, member_email, created_at_ms)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .bind(bookingId, clerkUserId, attendee.memberName, attendee.memberEmail, Date.now())
-    .run();
+  const result = await db.prepare(
+    `INSERT INTO room_booking_attendees
+     (room_booking_id, clerk_user_id, member_name, member_email, created_at_ms)
+     SELECT b.id, ?, ?, ?, ?
+     FROM room_bookings b
+     WHERE b.id = ? AND b.status = 'scheduled' AND b.starts_at_ms > ?
+       AND (
+         b.max_attendees IS NULL OR
+         (SELECT COUNT(*) FROM room_booking_attendees WHERE room_booking_id = b.id) < b.max_attendees
+       )`
+  ).bind(
+    clerkUserId,
+    attendee.memberName,
+    attendee.memberEmail,
+    Date.now(),
+    bookingId,
+    Date.now()
+  ).run();
+  if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_full");
 }
 
 export async function unattendRoomBooking(
@@ -352,6 +389,12 @@ export async function unattendRoomBooking(
   clerkUserId: string,
   bookingId: number
 ): Promise<void> {
+  const booking = await db.prepare(
+    "SELECT starts_at_ms FROM room_bookings WHERE id = ? AND status = 'scheduled'"
+  ).bind(bookingId).first<{ starts_at_ms: number }>();
+  if (!booking) throw new Error("booking_not_found");
+  if (booking.starts_at_ms <= Date.now()) throw new Error("booking_started");
+
   const result = await db
     .prepare(
       `DELETE FROM room_booking_attendees
