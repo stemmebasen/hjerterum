@@ -1,5 +1,6 @@
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
+import { changeMemberAccess } from "./admin-members.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import {
@@ -9,6 +10,7 @@ import {
 } from "./member-profile.js";
 import { getMemberByClerkUserId } from "./members.js";
 import { resolveActiveMembership } from "./membership-access.js";
+import { cancelRoomBookingAsAdmin } from "./room-bookings.js";
 import {
   importMembershipWorksCsv,
   listMembershipImportBatches,
@@ -222,6 +224,36 @@ async function adminRead(
   }
 }
 
+async function adminMemberAccess(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+  const body = await parseJson(request);
+  if (body instanceof Response) return body;
+
+  try {
+    return json(await changeMemberAccess(env.DB, body, admin.email));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "member_access_change_failed";
+    if (code === "member_not_found") return json({ error: code }, { status: 404 });
+    return json({ error: code }, { status: code.startsWith("invalid_") ? 400 : 503 });
+  }
+}
+
+async function adminCancelBooking(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const admin = await requireAdmin(request, env);
+  if (admin instanceof Response) return admin;
+
+  try {
+    await cancelRoomBookingAsAdmin(env.DB, bookingId);
+    return json({ status: "cancelled" });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "booking_cancel_failed";
+    return json({ error: code }, { status: code === "booking_not_found" ? 404 : 503 });
+  }
+}
+
 async function teachersListOrCreate(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const admin = await requireAdmin(request, env);
@@ -319,6 +351,14 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/admin/membershipworks-members") {
       return membershipWorksMembers(request, env);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/members/access") {
+      return adminMemberAccess(request, env);
+    }
+    const adminBookingMatch = url.pathname.match(/^\/api\/admin\/room-bookings\/(\d+)$/);
+    if (request.method === "DELETE" && adminBookingMatch?.[1]) {
+      return adminCancelBooking(request, env, Number(adminBookingMatch[1]));
     }
 
     if (request.method === "GET" && url.pathname === "/api/admin/overview") return adminRead(request, env, "overview");
