@@ -35,6 +35,7 @@ export type AdminBooking = {
   maxAttendees: number | null;
   attendeeCount: number;
   feeKr: number;
+  ticketPriceKr: number;
   status: string;
 };
 
@@ -61,6 +62,7 @@ type BookingRow = {
   max_attendees: number | null;
   attendee_count: number;
   fee_minor: number;
+  ticket_price_minor: number;
   status: string;
 };
 
@@ -90,6 +92,7 @@ function bookingView(row: BookingRow): AdminBooking {
     maxAttendees: row.max_attendees,
     attendeeCount: row.attendee_count,
     feeKr: row.fee_minor / 100,
+    ticketPriceKr: row.ticket_price_minor / 100,
     status: row.status
   };
 }
@@ -118,8 +121,9 @@ export async function listAdminBookings(
   const limit = options.limit ?? 200;
   const result = await db.prepare(
     `SELECT rb.id, rb.title, rb.teacher_name, rb.teacher_email,
-            rb.starts_at_ms, rb.ends_at_ms, rb.max_attendees, rb.fee_minor, rb.status,
-            COUNT(rba.id) AS attendee_count
+            rb.starts_at_ms, rb.ends_at_ms, rb.max_attendees, rb.fee_minor,
+            rb.ticket_price_minor, rb.status,
+            SUM(CASE WHEN rba.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count
      FROM room_bookings rb
      LEFT JOIN room_booking_attendees rba ON rba.room_booking_id = rb.id
      WHERE (? = 0 OR (rb.status = 'scheduled' AND rb.ends_at_ms >= ?))

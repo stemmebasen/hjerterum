@@ -3,6 +3,7 @@ const STRIPE_API = "https://api.stripe.com/v1";
 export type StripeEvent = {
   id: string;
   type: string;
+  account?: string;
   data?: {
     object?: Record<string, unknown>;
   };
@@ -13,7 +14,7 @@ export async function stripeRequest<T>(
   method: "GET" | "POST",
   path: string,
   params: Record<string, string | number | boolean | null | undefined> = {},
-  options: { idempotencyKey?: string } = {}
+  options: { idempotencyKey?: string; connectedAccount?: string } = {}
 ): Promise<T> {
   const encoded = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -33,6 +34,9 @@ export async function stripeRequest<T>(
         : {}),
       ...(options.idempotencyKey
         ? { "idempotency-key": options.idempotencyKey }
+        : {}),
+      ...(options.connectedAccount
+        ? { "stripe-account": options.connectedAccount }
         : {})
     },
     ...(method === "POST" ? { body: encoded.toString() } : {})
@@ -45,6 +49,34 @@ export async function stripeRequest<T>(
       typeof stripeError?.message === "string"
         ? stripeError.message
         : `Stripe request failed with ${response.status}`;
+    throw new Error(`stripe_request_failed:${message}`);
+  }
+  return payload as T;
+}
+
+export async function stripeV2Request<T>(
+  secretKey: string,
+  method: "GET" | "POST",
+  path: string,
+  body?: Record<string, unknown>,
+  options: { idempotencyKey?: string } = {}
+): Promise<T> {
+  const response = await fetch(`https://api.stripe.com/v2${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${secretKey}`,
+      "stripe-version": "2026-08-26.dahlia",
+      ...(method === "POST" ? { "content-type": "application/json" } : {}),
+      ...(options.idempotencyKey ? { "idempotency-key": options.idempotencyKey } : {})
+    },
+    ...(method === "POST" ? { body: JSON.stringify(body ?? {}) } : {})
+  });
+  const payload = (await response.json()) as Record<string, unknown>;
+  if (!response.ok) {
+    const error = payload.error as Record<string, unknown> | undefined;
+    const message = typeof error?.message === "string"
+      ? error.message
+      : `Stripe v2 request failed with ${response.status}`;
     throw new Error(`stripe_request_failed:${message}`);
   }
   return payload as T;

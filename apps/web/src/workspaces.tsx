@@ -31,6 +31,9 @@ type Booking = {
   isAttending?: boolean;
   isOwner?: boolean;
   feeKr: number;
+  ticketPriceKr: number;
+  handlingFeeKr?: number;
+  registrationStatus?: "pending" | "confirmed" | "cancelled" | null;
   status?: string;
 };
 
@@ -215,7 +218,37 @@ function MemberEvents({
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
+  const [payout, setPayout] = useState<{
+    configured: boolean;
+    account: { status: string; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
+  } | null>(null);
   const active = member?.status === "active";
+
+  useEffect(() => {
+    let mounted = true;
+    void apiFetch(clerk, "/api/members/payout-account").then(async (response) => {
+      if (mounted && response.ok) setPayout(await response.json());
+    });
+    return () => { mounted = false; };
+  }, [clerk]);
+
+  async function startPayoutOnboarding() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await apiFetch(clerk, "/api/members/payout-account/onboarding", {
+        method: "POST"
+      });
+      const body = await response.json().catch(() => ({})) as {
+        onboardingUrl?: string; error?: string;
+      };
+      if (!response.ok || !body.onboardingUrl) throw new Error(body.error || "onboarding_failed");
+      window.location.assign(body.onboardingUrl);
+    } catch {
+      setMessage("Stripe-opsætningen kunne ikke startes.");
+      setSaving(false);
+    }
+  }
 
   async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -238,12 +271,13 @@ function MemberEvents({
             description: String(form.get("description") || ""),
             startsAt: new Date(String(form.get("startsAt"))).toISOString(),
             endsAt: new Date(String(form.get("endsAt"))).toISOString(),
-            maxAttendees: Number(form.get("maxAttendees")) || null
+            maxAttendees: Number(form.get("maxAttendees")) || null,
+            ticketPriceKr: Number(form.get("ticketPriceKr")) || 0
           })
         }
       );
       if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { error?: string };
+        const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
         throw new Error(body.error || "event_save_failed");
       }
       formElement.reset();
@@ -252,14 +286,19 @@ function MemberEvents({
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
-      setMessage(code === "booking_conflict" ? "Tidsrummet er allerede optaget." : "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen.");
+      setMessage(
+        code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
+        code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
+        code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :
+        "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen."
+      );
     } finally {
       setSaving(false);
     }
   }
 
   async function cancelEvent(booking: Booking) {
-    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken.")) return;
+    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken, og betalte billetter refunderes ikke automatisk.")) return;
     setMessage("");
     const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id, { method: "DELETE" });
     if (!response.ok) {
@@ -282,6 +321,18 @@ function MemberEvents({
           {!active ? (
             <p>Du skal have et aktivt betalende medlemskab for at oprette et event.</p>
           ) : (
+            <>
+            <div className="workspace-message">
+              <strong>Udbetaling fra betalte events</strong>
+              <p>{!payout?.configured
+                ? "Stripe er endnu ikke aktiveret på platformen."
+                : payout.account?.chargesEnabled && payout.account?.payoutsEnabled
+                  ? "Stripe er klar til at modtage betalinger og udbetale dine billetindtægter."
+                  : "Klargør din Stripe-konto, hvis du vil tage betaling for events."}</p>
+              {payout?.configured && !(payout.account?.chargesEnabled && payout.account?.payoutsEnabled) &&
+                <button type="button" className="pill-button subtle" disabled={saving}
+                  onClick={() => void startPayoutOnboarding()}>Klargør udbetaling med Stripe</button>}
+            </div>
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new"}>
               <label>Titel<input name="title" defaultValue={editing?.title ?? ""} required /></label>
               <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? ""} /></label>
@@ -289,13 +340,20 @@ function MemberEvents({
                 <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
                 <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
               </div>
-              <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
+              <div className="workspace-form-row">
+                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
+                <label>Billetpris pr. deltager
+                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} />
+                  <small>0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling.</small>
+                </label>
+              </div>
               <div className="workspace-actions">
                 <button className="pill-button dark" disabled={saving}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
               </div>
               {message && <p className="workspace-message" role="status">{message}</p>}
             </form>
+            </>
           )}
         </div>
         <div className="workspace-card">
@@ -306,7 +364,7 @@ function MemberEvents({
                 <article key={booking.id}>
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
-                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje</span>
+                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => setEditing(booking)}>Redigér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
@@ -333,17 +391,26 @@ function MemberCalendar({
   reload: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState(() => {
+    const payment = new URLSearchParams(window.location.search).get("payment");
+    return payment === "success" ? "Tak. Din tilmelding bekræftes, så snart Stripe har registreret betalingen." :
+      payment === "cancelled" ? "Betalingen blev afbrudt, og pladsen frigives automatisk." : "";
+  });
 
   async function toggleAttendance(booking: Booking) {
+    if (booking.isAttending && booking.ticketPriceKr > 0 &&
+        !window.confirm("Vil du afmelde dig? En betalt billet refunderes ikke automatisk.")) return;
     setBusyId(booking.id);
     setMessage("");
     const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id + "/attend", {
       method: booking.isAttending ? "DELETE" : "POST"
     });
-    const body = await response.json().catch(() => ({})) as { error?: string };
+    const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
       setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : "Tilmeldingen kunne ikke ændres.");
+    } else if (body.checkoutUrl) {
+      window.location.assign(body.checkoutUrl);
+      return;
     } else {
       setMessage(booking.isAttending ? "Du er nu afmeldt." : "Du er nu tilmeldt.");
       await reload();
@@ -363,7 +430,7 @@ function MemberCalendar({
             <article key={booking.id}>
               <time>{formatDate(booking.startsAt)}</time>
               <strong>{booking.title}</strong>
-              <span>{booking.teacherName} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</span>
+              <span>{booking.teacherName} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}</span>
               {booking.description && <p>{booking.description}</p>}
               {booking.isOwner ? (
                 <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
@@ -371,10 +438,10 @@ function MemberCalendar({
                 <button
                   type="button"
                   className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
-                  disabled={busyId === booking.id || (!booking.isAttending && full)}
+                  disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
                   onClick={() => void toggleAttendance(booking)}
                 >
-                  {busyId === booking.id ? "Arbejder …" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : "Tilmeld"}
+                  {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : booking.ticketPriceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>
               )}
             </article>
@@ -644,6 +711,7 @@ export function AdminWorkspace({
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [paymentSettings, setPaymentSettings] = useState({ handlingFeeMinor: 0, platformFeePercent: 5 });
   const [error, setError] = useState("");
   const normalized = path.replace(/\/+$/, "") || "/admin";
 
@@ -653,7 +721,8 @@ export function AdminWorkspace({
       apiFetch(clerk, "/api/admin/overview"),
       apiFetch(clerk, "/api/admin/members"),
       apiFetch(clerk, "/api/admin/room-bookings"),
-      apiFetch(clerk, "/api/teachers")
+      apiFetch(clerk, "/api/teachers"),
+      apiFetch(clerk, "/api/admin/event-payment-settings")
     ]).then(async (responses) => {
       if (!active) return;
       const forbidden = responses.some((response) => response.status === 403);
@@ -669,12 +738,29 @@ export function AdminWorkspace({
       setMembers(await responses[1].json() as AdminMember[]);
       setBookings(await responses[2].json() as Booking[]);
       setTeachers(await responses[3].json() as Teacher[]);
+      setPaymentSettings(await responses[4].json() as { handlingFeeMinor: number; platformFeePercent: number });
     }).catch(() => active && setError("Administrationen kunne ikke indlæses."));
     return () => { active = false; };
   }, [clerk]);
 
+  async function savePaymentSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const handlingFeeMinor = Math.round(Number(form.get("handlingFeeKr")) * 100);
+    const response = await apiFetch(clerk, "/api/admin/event-payment-settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ handlingFeeMinor })
+    });
+    if (!response.ok) {
+      setError("Håndteringsgebyret kunne ikke gemmes.");
+      return;
+    }
+    setPaymentSettings(await response.json());
+  }
+
   async function cancelAdminBooking(booking: Booking) {
-    if (!window.confirm("Vil du annullere “" + booking.title + "”?")) return;
+    if (!window.confirm("Vil du annullere “" + booking.title + "”? Betalte billetter refunderes ikke automatisk.")) return;
     const response = await apiFetch(clerk, "/api/admin/room-bookings/" + booking.id, { method: "DELETE" });
     if (!response.ok) {
       setError("Eventet kunne ikke annulleres.");
@@ -696,15 +782,27 @@ export function AdminWorkspace({
           <section className="workspace-section">
             <p className="kicker">Administration</p>
             <h1>Events og reservationer</h1>
+            <div className="workspace-card">
+              <h2>Betaling</h2>
+              <p>Hjerterum modtager {paymentSettings.platformFeePercent} % af billetprisen samt dette gebyr pr. transaktion.</p>
+              <form className="workspace-form" onSubmit={savePaymentSettings}>
+                <label>Håndteringsgebyr
+                  <input name="handlingFeeKr" type="number" min="0" step="0.01"
+                    defaultValue={paymentSettings.handlingFeeMinor / 100} />
+                </label>
+                <button className="pill-button dark">Gem gebyr</button>
+              </form>
+            </div>
             <div className="workspace-table-wrap">
               <table className="workspace-table">
-                <thead><tr><th>Event</th><th>Tid</th><th>Arrangør</th><th>Deltagere</th><th>Leje</th><th>Status</th><th>Handling</th></tr></thead>
+                <thead><tr><th>Event</th><th>Tid</th><th>Arrangør</th><th>Deltagere</th><th>Billet</th><th>Leje</th><th>Status</th><th>Handling</th></tr></thead>
                 <tbody>{bookings.map((booking) => (
                   <tr key={booking.id}>
                     <td>{booking.title}</td>
                     <td>{formatDate(booking.startsAt)}</td>
                     <td>{booking.teacherName}</td>
                     <td>{String(booking.attendeeCount || 0) + (booking.maxAttendees ? " / " + booking.maxAttendees : "")}</td>
+                    <td>{booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr." : "Gratis"}</td>
                     <td>{booking.feeKr.toLocaleString("da-DK")} kr.</td>
                     <td>{booking.status === "cancelled" ? "Annulleret" : "Planlagt"}</td>
                     <td>{booking.status !== "cancelled" && <button type="button" className="text-button is-danger" onClick={() => void cancelAdminBooking(booking)}>Annullér</button>}</td>

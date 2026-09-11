@@ -13,8 +13,30 @@ describe("member event input rules", () => {
       title: "Meditation",
       startsAt: futureIso(60),
       endsAt: futureIso(120),
-      maxAttendees: 12
-    })).toMatchObject({ title: "Meditation", maxAttendees: 12 });
+      maxAttendees: 12,
+      ticketPriceKr: 125.5
+    })).toMatchObject({ title: "Meditation", maxAttendees: 12, ticketPriceMinor: 12_550 });
+  });
+
+  it("defaults free events to zero", () => {
+    expect(normalizeCreateRoomBookingInput({
+      teacherName: "Anna",
+      teacherEmail: "anna@example.dk",
+      title: "Gratis",
+      startsAt: futureIso(60),
+      endsAt: futureIso(120)
+    }).ticketPriceMinor).toBe(0);
+  });
+
+  it("rejects negative ticket prices", () => {
+    expect(() => normalizeCreateRoomBookingInput({
+      teacherName: "Anna",
+      teacherEmail: "anna@example.dk",
+      title: "Forkert pris",
+      startsAt: futureIso(60),
+      endsAt: futureIso(120),
+      ticketPriceKr: -1
+    })).toThrow("invalid_ticket_price");
   });
 
   it("rejects events in the past", () => {
