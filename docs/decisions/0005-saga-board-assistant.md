@@ -16,6 +16,10 @@ Requested by the chair: "Jeg vil ikke have hun interagerer i gruppen." Unless `S
 
 The board keeps all minutes and decisions in one Google Doc (`GOOGLE_MINUTES_DOC_ID`), shared with Saga's service account as editor. Saga reads it (exported as text, trimmed to its start and newest end) for her private answers and as background for new minutes. When the chair approves minutes, she appends them at the end, with the title as a heading and nothing above it touched. This replaces a new Doc per meeting and avoids service-account file ownership.
 
+## Hjerterum's mailbox (team@holistisk.org)
+
+Requested: "Saga can use it to read the temperature and let me know if something demands my attention", without it appearing in Posthus or Samtaler. Matrix reads the mailbox over IMAP in its own, separate mailbox (never the chair's) and relays new mail to `POST /api/saga/liva/mail` (bearer `SAGA_LIVA_SECRET`). Saga stores each mail once (`board_mail`), judges it (attention / fyi / ignore) and sends the chair one Telegram message per batch with only what demands his attention. A mail she cannot judge is shown to him rather than dropped. The mail is part of her private answers, the weekly summary and Matrix' Hjerterum page. She never replies to it.
+
 ## Behaviour
 
 - **Board chat.** Every text message is stored (`board_messages`). A message that mentions `@<bot>`, replies to Saga, or names "Saga" in a question gets a drafted answer for approval, as a reply to the question.

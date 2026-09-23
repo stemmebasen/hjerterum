@@ -106,7 +106,8 @@ const expectedTables = [
   "member_payout_accounts",
   "board_messages",
   "board_post_drafts",
-  "board_minutes"
+  "board_minutes",
+  "board_mail"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 

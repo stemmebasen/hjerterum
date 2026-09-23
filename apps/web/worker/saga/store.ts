@@ -125,3 +125,24 @@ export async function claimJob(db: D1Database, key: string, slotMs: number, nowM
   const result = await db.prepare("INSERT OR IGNORE INTO job_claims (job_key, scheduled_for_ms, status, claimed_at_ms) VALUES (?, ?, 'claimed', ?)").bind(key, slotMs, nowMs).run();
   return Number(result.meta?.changes ?? 0) === 1;
 }
+
+// ---- Hjerterum's mailbox (team@), relayed from Matrix ----
+
+export type BoardMail = { id: number; message_ref: string; sender: string; subject: string; received_at_ms: number; preview: string; verdict: string; reason: string | null };
+
+/** Stores a relayed mail once (by its mailbox reference); null when it was already seen. */
+export async function insertMail(db: D1Database, mail: { ref: string; sender: string; subject: string; receivedAtMs: number; preview: string; nowMs: number }): Promise<number | null> {
+  const result = await db.prepare(`INSERT OR IGNORE INTO board_mail (message_ref, sender, subject, received_at_ms, preview, created_at_ms) VALUES (?, ?, ?, ?, ?, ?)`)
+    .bind(mail.ref, mail.sender, mail.subject, mail.receivedAtMs, mail.preview, mail.nowMs).run();
+  return Number(result.meta?.changes ?? 0) === 1 ? Number(result.meta?.last_row_id) : null;
+}
+
+export async function setMailVerdict(db: D1Database, id: number, verdict: "attention" | "fyi" | "ignore", reason: string, notified: boolean): Promise<void> {
+  await db.prepare("UPDATE board_mail SET verdict = ?, reason = ?, notified = ? WHERE id = ?").bind(verdict, reason, notified ? 1 : 0, id).run();
+}
+
+export async function recentMail(db: D1Database, sinceMs: number, limit = 60): Promise<BoardMail[]> {
+  const rows = await db.prepare("SELECT id, message_ref, sender, subject, received_at_ms, preview, verdict, reason FROM board_mail WHERE received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
+    .bind(sinceMs, limit).all<BoardMail>();
+  return rows.results ?? [];
+}

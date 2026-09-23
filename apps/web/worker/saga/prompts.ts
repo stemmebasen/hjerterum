@@ -35,15 +35,31 @@ export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kor
   + "Ved du det ikke, så sig det kort. Dit svar bliver først sendt, når formanden har godkendt det.";
 
 export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til bestyrelsens chat ud fra ugens beskeder: "
-  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Højst 10 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
+  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Er der mail til team@ i materialet, så slut med én linje om stemningen i mailen og det, der kræver opmærksomhed. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
 
-export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne og referatdokumentet nedenfor. Sig det, hvis svaret ikke står der.";
+export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne, referatdokumentet og Hjerterums mail nedenfor. Sig det, hvis svaret ikke står der.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 
-export function boardContext(messages: BoardMessage[], minutes: Minutes[], archive = ""): string {
+export function boardContext(messages: BoardMessage[], minutes: Minutes[], archive = "", mail = ""): string {
   const chat = messages.map(m => `[${time(m.sent_at_ms)}] ${m.from_assistant ? SAGA_NAME : m.author_name}: ${m.text}`).join("\n");
   const notes = minutes.filter(m => m.draft_markdown).map(m => `--- Referat ${m.meeting_date ?? ""} (${m.status === "approved" ? "godkendt" : "udkast"}) ---\n${m.draft_markdown}`).join("\n\n");
   return `BESTYRELSENS CHAT:\n${chat || "(ingen beskeder)"}\n\nREFERATER:\n${notes || "(ingen)"}`
-    + (archive ? `\n\nBESTYRELSENS REFERATDOKUMENT (tidligere referater og beslutninger):\n${archive}` : "");
+    + (archive ? `\n\nBESTYRELSENS REFERATDOKUMENT (tidligere referater og beslutninger):\n${archive}` : "")
+    + (mail ? `\n\n${mail}` : "");
+}
+
+/** Requested: "Saga can use [team@] to read the temperature and let me know if something demands my attention." */
+export const MAIL_SYSTEM = IDENTITY + ` Du vurderer nye mails til Hjerterums fælles mail (team@holistisk.org) for Jacob, bestyrelsesformand. Han læser ikke selv den indbakke.
+For hver mail vælger du:
+- "attention": kræver Jacobs eller bestyrelsens handling eller stillingtagen snart: myndigheder, bank, revisor, advokat, forsikring, udlejer; klager eller utilfredse medlemmer, lejere eller gæster; økonomi, betalingsproblemer, rykkere; aflysninger eller problemer med bookinger; presse; frister; sikkerhed; noget der er gået galt; direkte spørgsmål til bestyrelsen eller formanden.
+- "fyi": relevant for Hjerterum, men haster ikke.
+- "ignore": nyhedsbreve, reklame, spam, automatiske kvitteringer og notifikationer.
+Vær sparsom med "attention" - Jacob skal kun forstyrres, når det er nødvendigt. Giv en kort grund på dansk (højst 15 ord).
+Svar KUN med JSON: [{"n": 1, "verdict": "attention", "reason": "..."}] - én post pr. mail.`;
+
+export function mailContext(mails: Array<{ sender: string; subject: string; received_at_ms: number; verdict: string; reason: string | null }>): string {
+  if (!mails.length) return "";
+  return "HJERTERUMS MAIL (team@holistisk.org), seneste 14 dage:\n" + mails.map(m =>
+    `[${time(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.verdict === "attention" ? " - KRÆVER OPMÆRKSOMHED" : ""}${m.reason ? ` (${m.reason})` : ""}`).join("\n");
 }
