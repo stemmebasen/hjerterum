@@ -12,6 +12,10 @@ Saga is a Telegram bot in the board's group chat. She keeps the board's messages
 
 Requested by the chair: "Jeg vil ikke have hun interagerer i gruppen." Unless `SAGA_BOARD_POSTING` is `on`, Saga only reads the board group. A question to her there is just part of the chat. The weekly summary goes to the chair privately, and approved minutes are saved on Drive (or kept as the file he already has) without being shared in the group. Everything below about posting applies only when posting is switched on.
 
+## The board's minutes document
+
+The board keeps all minutes and decisions in one Google Doc (`GOOGLE_MINUTES_DOC_ID`), shared with Saga's service account as editor. Saga reads it (exported as text, trimmed to its start and newest end) for her private answers and as background for new minutes. When the chair approves minutes, she appends them at the end, with the title as a heading and nothing above it touched. This replaces a new Doc per meeting and avoids service-account file ownership.
+
 ## Behaviour
 
 - **Board chat.** Every text message is stored (`board_messages`). A message that mentions `@<bot>`, replies to Saga, or names "Saga" in a question gets a drafted answer for approval, as a reply to the question.

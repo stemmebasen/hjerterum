@@ -168,6 +168,34 @@ describe("Saga as a listener only (the default)", () => {
   });
 });
 
+// Requested: "the doc we use for all referater and decisions ... Saga should use to read up on
+// things, but also to paste summaries".
+describe("Saga and the board's minutes document", () => {
+  it("reads the document for answers and appends approved minutes at its end", async () => {
+    const db = testDatabase();
+    const prompts: string[] = [];
+    const services = fakeServices({ ai: (_system, user) => { prompts.push(user); return user.includes("JACOB SPØRGER") ? "Kagekassen blev vedtaget 1. september." : MINUTES; } });
+    const { SAGA_BOARD_POSTING: _on, ...env } = sagaEnv(db, { GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }),
+      GOOGLE_MINUTES_DOC_ID: "minutes-doc" });
+    await webhook(env as SagaEnv, services.fetcher, privateMessage(4, { text: "Hvad besluttede vi om kage?" }));
+    expect(prompts[0]).toContain("BESTYRELSENS REFERATDOKUMENT");
+    expect(prompts[0]).toContain("Beslutning: Ny kagekasse.");
+    expect(services.telegram("sendMessage")[0]?.body).toMatchObject({ chat_id: OWNER, text: "Kagekassen blev vedtaget 1. september." });
+
+    await webhook(env as SagaEnv, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
+    expect(prompts[1]).toContain("BAGGRUND - tidligere referater");
+    await webhook(env as SagaEnv, services.fetcher, callback("approve:minutes:1"));
+    const update = services.calls.find(c => c.url.endsWith("minutes-doc:batchUpdate"));
+    const requests = (update?.body as { requests: Array<Record<string, any>> }).requests;
+    expect(requests[0]).toEqual({ insertText: { location: { index: 119 }, text: expect.stringContaining("\nReferat - bestyrelsesmøde 2026-09-23\nReferat\n\nTil stede\n• Jacob") } });
+    expect(requests[0]!.insertText.text).toContain("• Budgettet er vedtaget.");
+    expect(requests[1]).toMatchObject({ updateParagraphStyle: { range: { startIndex: 120, endIndex: 120 + "Referat - bestyrelsesmøde 2026-09-23".length + 1 }, paragraphStyle: { namedStyleType: "HEADING_2" } } });
+    expect(await getMinutes(db, 1)).toMatchObject({ status: "approved", drive_document_url: "https://docs.google.com/document/d/minutes-doc/edit" });
+    expect(services.telegram("answerCallbackQuery").at(-1)?.body).toMatchObject({ text: "Skrevet ind i referatdokumentet: https://docs.google.com/document/d/minutes-doc/edit" });
+    expect(services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
+  });
+});
+
 describe("Saga's minutes", () => {
   it("drafts minutes from a recording, revises them and shares decisions after approval", async () => {
     const db = testDatabase();

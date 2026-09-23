@@ -80,3 +80,40 @@ export async function createGoogleDoc(env: SagaEnv, deps: SagaDeps, token: strin
   if (!response.ok || !data?.id) throw new Error(`drive_create_failed: ${response.status}`);
   return { id: data.id, url: data.webViewLink ?? `https://docs.google.com/document/d/${data.id}/edit` };
 }
+
+const DOCS = "https://docs.googleapis.com/v1/documents";
+
+/** The board's own minutes document as plain text (for Saga's answers and new minutes). */
+export async function readDocText(deps: SagaDeps, token: string, docId: string): Promise<string> {
+  const response = await deps.fetcher(`${DRIVE}/files/${encodeURIComponent(docId)}/export?mimeType=text%2Fplain&supportsAllDrives=true`, { headers: { authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`drive_doc_read_failed: ${response.status}`);
+  return (await response.text()).replace(/^\uFEFF/, "");
+}
+
+/** Saga's Markdown as plain document text: headings as lines, bullets as "•". */
+export function plainMinutes(markdown: string): string {
+  return markdown.split(/\r?\n/).map(line => line.replace(/^#{1,6}\s+/, "").replace(/^\s*[-*]\s+/, "• ").replace(/\*\*(.+?)\*\*/g, "$1")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Appends a titled section at the end of the document: the title as a heading, the rest as
+ * normal text. Nothing above it is touched. */
+export async function appendToDoc(deps: SagaDeps, token: string, docId: string, title: string, body: string): Promise<string> {
+  const auth = { authorization: `Bearer ${token}` };
+  const current = await deps.fetcher(`${DOCS}/${encodeURIComponent(docId)}?fields=body(content(endIndex))`, { headers: auth });
+  const data = await current.json().catch(() => null) as { body?: { content?: Array<{ endIndex?: number }> } } | null;
+  const end = Math.max(...(data?.body?.content ?? []).map(c => Number(c.endIndex) || 1), 1);
+  if (!current.ok) throw new Error(`drive_doc_open_failed: ${current.status}`);
+  const at = Math.max(end - 1, 1);
+  const text = `\n${title}\n${body.trim()}\n`;
+  const titleEnd = at + 1 + title.length + 1;
+  const requests = [
+    { insertText: { location: { index: at }, text } },
+    { updateParagraphStyle: { range: { startIndex: at + 1, endIndex: titleEnd }, paragraphStyle: { namedStyleType: "HEADING_2" }, fields: "namedStyleType" } },
+    { updateParagraphStyle: { range: { startIndex: titleEnd, endIndex: at + text.length }, paragraphStyle: { namedStyleType: "NORMAL_TEXT" }, fields: "namedStyleType" } }
+  ];
+  const response = await deps.fetcher(`${DOCS}/${encodeURIComponent(docId)}:batchUpdate`, {
+    method: "POST", headers: { ...auth, "content-type": "application/json" }, body: JSON.stringify({ requests })
+  });
+  if (!response.ok) throw new Error(`drive_doc_append_failed: ${response.status}`);
+  return `https://docs.google.com/document/d/${docId}/edit`;
+}
