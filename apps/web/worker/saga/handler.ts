@@ -3,7 +3,7 @@ import {
   answerOwnerPrivately, approveMinutes, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
   processNextMinutes, reviseMinutes, revisePost
 } from "./saga.js";
-import { minutesByApprovalMessage, pendingPostCount, postDraftByApprovalMessage, recentBoardMessages, recentMinutes, saveBoardMessage } from "./store.js";
+import { latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
 import { telegramClient } from "./telegram.js";
 
@@ -14,6 +14,7 @@ type TgMessage = { message_id: number; date: number; chat: { id: number; type: s
   voice?: TgFile; audio?: TgFile; video?: TgFile; document?: TgFile };
 type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: { id: string; from: TgUser; data?: string } };
 
+const POST_LABELS: Record<string, string> = { reply: "Svar i bestyrelseschatten", weekly_summary: "Ugeopsummering", announcement: "Opslag i bestyrelseschatten" };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
 /** Constant-time comparison of two secrets. */
@@ -107,20 +108,47 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     if (deps.waitUntil) deps.waitUntil(work); else await work;
     return json({ ok: true });
   }
-  if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
+  if (url.pathname.startsWith("/api/saga/liva/")) {
+    // Matrix (Liva and the chair's Hjerterum page) - one bearer secret, never the Telegram one.
     const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
     if (!sameSecret(bearer, env.SAGA_LIVA_SECRET)) return json({ error: "unauthorized" }, 401);
     if (!env.SAGA_BOARD_CHAT_ID) return json({ error: "board_not_configured" }, 503);
     const db = requireDb(env);
-    const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
-    const [messages, minutes, pending] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200), recentMinutes(db, 5), pendingPostCount(db)]);
-    return json({
-      assistant: SAGA_NAME, days,
-      messages: messages.map(m => ({ author: m.from_assistant ? SAGA_NAME : m.author_name, text: m.text, sentAt: new Date(m.sent_at_ms).toISOString() })),
-      minutes: minutes.map(m => ({ meetingDate: m.meeting_date, status: m.status, decisions: section(m.draft_markdown ?? "", /beslutninger/i),
-        tasks: section(m.draft_markdown ?? "", /opgaver/i), url: m.drive_document_url })),
-      pendingApprovals: pending
-    });
+    if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
+      const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
+      const [messages, minutes, pending, weekly] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
+        recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db)]);
+      const at = (ms: number) => new Date(ms).toISOString();
+      return json({
+        assistant: SAGA_NAME, days,
+        messages: messages.map(m => ({ author: m.from_assistant ? SAGA_NAME : m.author_name, text: m.text, sentAt: at(m.sent_at_ms) })),
+        minutes: minutes.map(m => ({ id: m.id, meetingDate: m.meeting_date, status: m.status, decisions: section(m.draft_markdown ?? "", /beslutninger/i),
+          tasks: section(m.draft_markdown ?? "", /opgaver/i), url: m.drive_document_url })),
+        pending: [
+          ...pending.minutes.map(m => ({ kind: "minutes" as const, id: m.id, label: `Referat ${m.meeting_date ?? ""}`.trim(), text: m.draft_markdown ?? "", fileName: m.file_name, at: at(m.updated_at_ms) })),
+          ...pending.posts.map(p => ({ kind: "post" as const, id: p.id, label: POST_LABELS[p.kind] ?? "Opslag", text: p.text, at: at(p.created_at_ms) }))
+        ],
+        pendingApprovals: pending.posts.length + pending.minutes.length,
+        weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null
+      });
+    }
+    // The chair decides or revises in Matrix exactly as with the buttons in Telegram (once only).
+    if (request.method === "POST" && (url.pathname === "/api/saga/liva/decide" || url.pathname === "/api/saga/liva/revise")) {
+      const body = await request.json().catch(() => null) as { kind?: unknown; id?: unknown; approve?: unknown; instruction?: unknown } | null;
+      const kind = body?.kind === "post" || body?.kind === "minutes" ? body.kind : null;
+      const id = Number(body?.id);
+      if (!kind || !Number.isSafeInteger(id) || id <= 0) return json({ error: "invalid_request" }, 400);
+      if (url.pathname.endsWith("/decide")) {
+        if (typeof body?.approve !== "boolean") return json({ error: "invalid_request" }, 400);
+        const result = kind === "post" ? await approvePost(env, deps, id, body.approve) : await approveMinutes(env, deps, id, body.approve);
+        return json({ result, decided: result !== "Allerede afgjort." });
+      }
+      const instruction = typeof body?.instruction === "string" ? body.instruction.trim().slice(0, 2000) : "";
+      if (!instruction) return json({ error: "invalid_request" }, 400);
+      if (kind === "post") await revisePost(env, deps, id, instruction); else await reviseMinutes(env, deps, id, instruction);
+      return json({ revised: true });
+    }
+    return json({ error: "not_found" }, 404);
   }
   return json({ error: "not_found" }, 404);
 }
