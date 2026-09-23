@@ -16,7 +16,6 @@
       "name": "hjerterum-platform-staging",
       "vars": {
         "ENVIRONMENT": "staging",
-        // Saga (docs/decisions/0005): the bot, the board group and its chair. Not secrets.
         "SAGA_TELEGRAM_BOT_USERNAME": "jacobhaugemathiassen_bot_bot",
         "SAGA_BOARD_CHAT_ID": "-1003488840083",
         "SAGA_OWNER_TELEGRAM_ID": "8490500029",
