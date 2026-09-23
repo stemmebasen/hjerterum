@@ -37,12 +37,13 @@ export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kor
 export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til bestyrelsens chat ud fra ugens beskeder: "
   + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Højst 10 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
 
-export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat og referaterne nedenfor.";
+export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne og referatdokumentet nedenfor. Sig det, hvis svaret ikke står der.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 
-export function boardContext(messages: BoardMessage[], minutes: Minutes[]): string {
+export function boardContext(messages: BoardMessage[], minutes: Minutes[], archive = ""): string {
   const chat = messages.map(m => `[${time(m.sent_at_ms)}] ${m.from_assistant ? SAGA_NAME : m.author_name}: ${m.text}`).join("\n");
   const notes = minutes.filter(m => m.draft_markdown).map(m => `--- Referat ${m.meeting_date ?? ""} (${m.status === "approved" ? "godkendt" : "udkast"}) ---\n${m.draft_markdown}`).join("\n\n");
-  return `BESTYRELSENS CHAT:\n${chat || "(ingen beskeder)"}\n\nREFERATER:\n${notes || "(ingen)"}`;
+  return `BESTYRELSENS CHAT:\n${chat || "(ingen beskeder)"}\n\nREFERATER:\n${notes || "(ingen)"}`
+    + (archive ? `\n\nBESTYRELSENS REFERATDOKUMENT (tidligere referater og beslutninger):\n${archive}` : "");
 }

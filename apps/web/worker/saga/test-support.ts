@@ -51,6 +51,9 @@ export function fakeServices(options: { ai?: (system: string, user: string) => s
     }
     if (url === "https://oauth2.googleapis.com/token") return reply({ access_token: "drive-token" });
     if (url.startsWith("https://www.googleapis.com/drive/v3/files?")) return reply({ files: [{ id: "rec-1", name: "Bestyrelsesmøde.m4a", mimeType: "audio/mp4", size: "1000", createdTime: "2026-09-22T17:00:00Z" }] });
+    if (url.includes("/export?")) return new Response("Referat 1. september 2026\nBeslutning: Ny kagekasse.");
+    if (url.startsWith("https://docs.googleapis.com/v1/documents/") && url.endsWith(":batchUpdate")) return reply({ documentId: "minutes-doc" });
+    if (url.startsWith("https://docs.googleapis.com/v1/documents/")) return reply({ body: { content: [{ endIndex: 1 }, { endIndex: 120 }] } });
     if (url.startsWith("https://www.googleapis.com/drive/v3/files/")) return new Response(new Uint8Array([4, 5, 6]));
     if (url.startsWith("https://www.googleapis.com/upload/drive/v3/files")) return reply({ id: "doc-1", webViewLink: "https://docs.google.com/document/d/doc-1/edit" });
     return reply({ error: "unexpected" }, 404);

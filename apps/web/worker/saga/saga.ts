@@ -1,5 +1,5 @@
 import { complete } from "./ai.js";
-import { createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES } from "./drive.js";
+import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, plainMinutes, readDocText } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
@@ -20,9 +20,22 @@ const danishDate = (iso: string | null) => {
 const owner = (env: SagaEnv) => { if (!env.SAGA_OWNER_TELEGRAM_ID) throw new Error("owner_not_configured"); return env.SAGA_OWNER_TELEGRAM_ID; };
 const board = (env: SagaEnv) => { if (!env.SAGA_BOARD_CHAT_ID) throw new Error("board_not_configured"); return env.SAGA_BOARD_CHAT_ID; };
 
+/** The board's minutes document, trimmed to what fits (its start and its newest end). Never
+ * stops Saga: without it she answers from the chat and her own minutes. */
+async function archive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<string> {
+  if (!env.GOOGLE_SERVICE_ACCOUNT_JSON || !env.GOOGLE_MINUTES_DOC_ID) return "";
+  try {
+    const text = (await readDocText(deps, await driveAccessToken(env, deps), env.GOOGLE_MINUTES_DOC_ID)).trim();
+    return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
+  } catch (error) {
+    console.warn("saga_doc_read_failed", error instanceof Error ? error.message : error);
+    return "";
+  }
+}
+
 async function context(env: SagaEnv, deps: SagaDeps, days = 30) {
   const db = requireDb(env);
-  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3));
+  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3), await archive(env, deps));
 }
 
 /** Every post to the board goes through here: saved as pending and sent to Jacob with Godkend/Afvis. */
@@ -130,7 +143,8 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
     const draft = await complete(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
-      { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}\n\nTRANSSKRIPTION:\n${transcript}` }]);
+      { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}\n\nTRANSSKRIPTION:\n${transcript}`
+        + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
     await sendMinutesForApproval(env, deps, item.id, draft, item.meeting_date, `Referatudkast fra ${item.file_name}.`);
   } catch (error) {
@@ -164,8 +178,17 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
   if (item.approval_message_id) await telegram.editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);
   if (!approve) return "Afvist - intet gemt eller delt.";
   const title = `Referat - bestyrelsesmøde ${item.meeting_date ?? ""}`.trim();
-  let link = "";
-  if (env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_DRIVE_MINUTES_FOLDER_ID) {
+  let link = "", failed = "";
+  if (env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_MINUTES_DOC_ID) {
+    // Requested: approved minutes go into the board's own minutes document, at the end.
+    try {
+      link = await appendToDoc(deps, await driveAccessToken(env, deps), env.GOOGLE_MINUTES_DOC_ID, title, plainMinutes(item.draft_markdown));
+      await updateMinutes(db, id, { driveId: env.GOOGLE_MINUTES_DOC_ID, driveUrl: link }, deps.now());
+    } catch (error) {
+      failed = error instanceof Error ? error.message : "drive_failed";
+      await updateMinutes(db, id, { error: failed }, deps.now());
+    }
+  } else if (env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_DRIVE_MINUTES_FOLDER_ID) {
     try {
       const doc = await createGoogleDoc(env, deps, await driveAccessToken(env, deps), title, markdownToHtml(item.draft_markdown));
       await updateMinutes(db, id, { driveId: doc.id, driveUrl: doc.url }, deps.now());
@@ -174,7 +197,9 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
       await updateMinutes(db, id, { error: error instanceof Error ? error.message : "drive_failed" }, deps.now());
     }
   }
-  if (!postsToBoard(env)) return link ? `Gemt på Drevet: ${link}` : "Godkendt. Referatet er filen ovenfor (Drevet er ikke sat op endnu).";
+  if (!postsToBoard(env)) return link ? `Skrevet ind i referatdokumentet: ${link}`
+    : failed ? `Godkendt, men det kunne ikke skrives i referatdokumentet (${failed}). Referatet er filen ovenfor.`
+    : "Godkendt. Referatet er filen ovenfor (referatdokumentet er ikke koblet på endnu).";
   const decisions = section(item.draft_markdown, /beslutninger/i), tasks = section(item.draft_markdown, /opgaver/i);
   const text = [`${title}`, decisions && `Beslutninger:\n${decisions}`, tasks && `Opgaver:\n${tasks}`, link ? `Hele referatet: ${link}` : ""].filter(Boolean).join("\n\n");
   const sent = await telegram.sendMessage(board(env), text);
