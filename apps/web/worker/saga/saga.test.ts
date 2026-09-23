@@ -254,9 +254,26 @@ describe("Saga's weekly summary and Liva's overview", () => {
     expect(await response.json()).toEqual({
       assistant: "Saga", days: 3,
       messages: [{ author: "Mette", text: "Husk kage til mødet", sentAt: new Date(NOW - 60_000).toISOString() }],
-      minutes: [{ meetingDate: "2026-09-23", status: "drafted", decisions: "- Budgettet er vedtaget.", tasks: "- Jacob - sender budgettet - fredag", url: null }],
-      pendingApprovals: 0
+      minutes: [{ id: 1, meetingDate: "2026-09-23", status: "drafted", decisions: "- Budgettet er vedtaget.", tasks: "- Jacob - sender budgettet - fredag", url: null }],
+      pending: [{ kind: "minutes", id: 1, label: "Referat 2026-09-23", text: MINUTES, fileName: "optagelse-" + NOW / 1000, at: new Date(NOW).toISOString() }],
+      pendingApprovals: 1, weeklySummary: null
     });
+  });
+
+  it("lets the chair decide and revise from Matrix exactly as in Telegram, once", async () => {
+    const db = testDatabase(), services = fakeServices({ ai: (_system, user) => user.includes("RETTELSE") ? "Kortere svar." : "Langt svar." });
+    const env = sagaEnv(db);
+    await webhook(env, services.fetcher, boardMessage(2, "Saga, hvornår er næste møde?"));
+    const call = (path: string, body: unknown, secret = "liva-secret") => handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/" + path, {
+      method: "POST", headers: { authorization: "Bearer " + secret, "content-type": "application/json" }, body: JSON.stringify(body) }), env, deps(services.fetcher, NOW));
+
+    expect((await call("decide", { kind: "post", id: 1, approve: true }, "wrong-secre")).status).toBe(401);
+    expect((await call("decide", { kind: "other", id: 1, approve: true })).status).toBe(400);
+    expect(await (await call("revise", { kind: "post", id: 1, instruction: "Kortere" })).json()).toEqual({ revised: true });
+    expect(await getPostDraft(db, 1)).toMatchObject({ text: "Kortere svar.", status: "pending" });
+    expect(await (await call("decide", { kind: "post", id: 1, approve: true })).json()).toEqual({ result: "Sendt til bestyrelsen.", decided: true });
+    expect(await (await call("decide", { kind: "post", id: 1, approve: true })).json()).toEqual({ result: "Allerede afgjort.", decided: false });
+    expect(services.telegram("sendMessage").filter(c => (c.body as { chat_id: string }).chat_id === BOARD)).toHaveLength(1);
   });
 
   it("answers unknown paths with 404", async () => {

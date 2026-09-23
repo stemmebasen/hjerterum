@@ -106,6 +106,20 @@ export async function recentMinutes(db: D1Database, limit = 5): Promise<Minutes[
   return rows.results ?? [];
 }
 
+/** What waits for the chair: posts not yet decided and minutes drafted but not yet approved. */
+export async function pendingForOwner(db: D1Database) {
+  const posts = await db.prepare("SELECT id, kind, text, created_at_ms FROM board_post_drafts WHERE status = 'pending' ORDER BY created_at_ms DESC LIMIT 20")
+    .all<{ id: number; kind: string; text: string; created_at_ms: number }>();
+  const minutes = await db.prepare("SELECT id, file_name, meeting_date, draft_markdown, updated_at_ms FROM board_minutes WHERE status = 'drafted' ORDER BY created_at_ms DESC LIMIT 10")
+    .all<{ id: number; file_name: string; meeting_date: string | null; draft_markdown: string | null; updated_at_ms: number }>();
+  return { posts: posts.results ?? [], minutes: minutes.results ?? [] };
+}
+
+/** The latest weekly summary the board has seen (posted), if any. */
+export const latestWeeklySummary = (db: D1Database) =>
+  db.prepare("SELECT text, created_at_ms FROM board_post_drafts WHERE kind = 'weekly_summary' AND status = 'posted' ORDER BY created_at_ms DESC LIMIT 1")
+    .first<{ text: string; created_at_ms: number }>();
+
 /** One run of a scheduled job per slot (the repo's job_claims ledger). */
 export async function claimJob(db: D1Database, key: string, slotMs: number, nowMs: number): Promise<boolean> {
   const result = await db.prepare("INSERT OR IGNORE INTO job_claims (job_key, scheduled_for_ms, status, claimed_at_ms) VALUES (?, ?, 'claimed', ?)").bind(key, slotMs, nowMs).run();
