@@ -196,6 +196,51 @@ describe("Saga and the board's minutes document", () => {
   });
 });
 
+// Requested: "connect Hjerterums main email ... Saga can use it to read the temperature and let
+// me know if something demands my attention" - not shown in Posthus or Samtaler.
+describe("Saga watching team@holistisk.org", () => {
+  const relay = (env: SagaEnv, fetcher: typeof fetch, mails: unknown[], secret = "liva-secret") => handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/mail", {
+    method: "POST", headers: { authorization: "Bearer " + secret, "content-type": "application/json" }, body: JSON.stringify({ mails }) }), env, deps(fetcher, NOW));
+  const mails = [
+    { ref: "m1", from: "udlejer@ejendom.dk", subject: "Varsel om huslejestigning", receivedAt: "2026-09-23T08:00:00Z", text: "Kære Hjerterum, huslejen stiger pr. 1. januar. Svar inden 1. oktober." },
+    { ref: "m2", from: "news@shop.dk", subject: "Ugens tilbud", receivedAt: "2026-09-23T09:00:00Z", text: "Spar 20 %." },
+    { ref: "m3", from: "medlem@gmail.com", subject: "Tak for sidst", receivedAt: "2026-09-23T09:30:00Z", text: "Det var en dejlig aften." },
+  ];
+
+  it("judges each new mail once and tells the chair only what demands his attention", async () => {
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => 'Her er vurderingen: [{"n":1,"verdict":"attention","reason":"Huslejestigning med svarfrist 1. oktober"},{"n":2,"verdict":"ignore","reason":"Reklame"},{"n":3,"verdict":"fyi","reason":"Tak fra et medlem"}]' });
+    const env = sagaEnv(db);
+    expect((await relay(env, services.fetcher, mails, "wrong-secre")).status).toBe(401);
+    expect(await (await relay(env, services.fetcher, mails)).json()).toEqual({ received: 3, fresh: 3, attention: 1 });
+    const [notice] = services.telegram("sendMessage");
+    expect(notice?.body).toMatchObject({ chat_id: OWNER });
+    expect((notice?.body as { text: string }).text).toContain('Fra udlejer@ejendom.dk: "Varsel om huslejestigning"');
+    expect((notice?.body as { text: string }).text).toContain("Huslejestigning med svarfrist 1. oktober");
+    expect((notice?.body as { text: string }).text).not.toContain("Ugens tilbud");
+    // The same mails again: nothing new, nothing sent.
+    expect(await (await relay(env, services.fetcher, mails)).json()).toEqual({ received: 3, fresh: 0, attention: 0 });
+    expect(services.telegram("sendMessage")).toHaveLength(1);
+    expect(services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
+
+    const overview = await (await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/overview", { headers: { authorization: "Bearer liva-secret" } }), env, deps(services.fetcher, NOW))).json() as { mail: unknown };
+    expect(overview.mail).toEqual({ week: { total: 3, attention: 1, ignored: 1 },
+      attention: [{ sender: "udlejer@ejendom.dk", subject: "Varsel om huslejestigning", reason: "Huslejestigning med svarfrist 1. oktober", receivedAt: "2026-09-23T08:00:00.000Z" }] });
+  });
+
+  it("shows the chair a mail it could not judge rather than dropping it, and uses the mail in his answers", async () => {
+    const db = testDatabase();
+    const prompts: string[] = [];
+    const services = fakeServices({ ai: (_system, user) => { prompts.push(user); return user.includes("JACOB SPØRGER") ? "Udlejeren varsler huslejestigning." : "ikke json"; } });
+    const env = sagaEnv(db);
+    expect(await (await relay(env, services.fetcher, mails.slice(0, 1))).json()).toEqual({ received: 1, fresh: 1, attention: 1 });
+    expect((services.telegram("sendMessage")[0]?.body as { text: string }).text).toContain("Kunne ikke vurderes automatisk");
+    await webhook(env, services.fetcher, privateMessage(9, { text: "Er der noget i mailen?" }));
+    expect(prompts.at(-1)).toContain("HJERTERUMS MAIL (team@holistisk.org)");
+    expect(prompts.at(-1)).toContain("Varsel om huslejestigning - KRÆVER OPMÆRKSOMHED");
+  });
+});
+
 describe("Saga's minutes", () => {
   it("drafts minutes from a recording, revises them and shares decisions after approval", async () => {
     const db = testDatabase();
@@ -316,7 +361,8 @@ describe("Saga's weekly summary and Liva's overview", () => {
       messages: [{ author: "Mette", text: "Husk kage til mødet", sentAt: new Date(NOW - 60_000).toISOString() }],
       minutes: [{ id: 1, meetingDate: "2026-09-23", status: "drafted", decisions: "- Budgettet er vedtaget.", tasks: "- Jacob - sender budgettet - fredag", url: null }],
       pending: [{ kind: "minutes", id: 1, label: "Referat 2026-09-23", text: MINUTES, fileName: "optagelse-" + NOW / 1000, at: new Date(NOW).toISOString() }],
-      pendingApprovals: 1, weeklySummary: null
+      pendingApprovals: 1, weeklySummary: null,
+      mail: { week: { total: 0, attention: 0, ignored: 0 }, attention: [] }
     });
   });
 

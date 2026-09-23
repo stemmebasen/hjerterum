@@ -1,9 +1,9 @@
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
   answerOwnerPrivately, approveMinutes, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
-  processNextMinutes, reviseMinutes, revisePost
+  processNextMinutes, reviseMinutes, revisePost, watchMail, type RelayedMail
 } from "./saga.js";
-import { latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMinutes, saveBoardMessage } from "./store.js";
+import { latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
 import { telegramClient } from "./telegram.js";
 
@@ -118,8 +118,9 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     const db = requireDb(env);
     if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
-      const [messages, minutes, pending, weekly] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
-        recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db)]);
+      const [messages, minutes, pending, weekly, mail] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
+        recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db), recentMail(db, deps.now() - 14 * 86_400_000, 200)]);
+      const week = mail.filter(m => m.received_at_ms >= deps.now() - 7 * 86_400_000);
       const at = (ms: number) => new Date(ms).toISOString();
       return json({
         assistant: SAGA_NAME, days,
@@ -131,8 +132,20 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
           ...pending.posts.map(p => ({ kind: "post" as const, id: p.id, label: POST_LABELS[p.kind] ?? "Opslag", text: p.text, at: at(p.created_at_ms) }))
         ],
         pendingApprovals: pending.posts.length + pending.minutes.length,
-        weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null
+        weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null,
+        mail: { week: { total: week.length, attention: week.filter(m => m.verdict === "attention").length, ignored: week.filter(m => m.verdict === "ignore").length },
+          attention: mail.filter(m => m.verdict === "attention").slice(0, 10).map(m => ({ sender: m.sender, subject: m.subject, reason: m.reason, receivedAt: at(m.received_at_ms) })) }
       });
+    }
+    // Hjerterum's mailbox (team@), read in Matrix and relayed here for Saga to judge.
+    if (url.pathname === "/api/saga/liva/mail" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { mails?: unknown } | null;
+      const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
+      const mails: RelayedMail[] = (Array.isArray(body?.mails) ? body.mails : []).slice(0, 50)
+        .map(m => m as Record<string, unknown>).filter(m => typeof m?.ref === "string" && m.ref)
+        .map(m => ({ ref: text(m.ref, 1600), from: text(m.from, 320) || "ukendt", subject: text(m.subject, 500), receivedAt: text(m.receivedAt, 40), text: text(m.text, 4000) }));
+      if (!Array.isArray(body?.mails)) return json({ error: "invalid_request" }, 400);
+      return json(await watchMail(env, deps, mails));
     }
     // The chair decides or revises in Matrix exactly as with the buttons in Telegram (once only).
     if (request.method === "POST" && (url.pathname === "/api/saga/liva/decide" || url.pathname === "/api/saga/liva/revise")) {

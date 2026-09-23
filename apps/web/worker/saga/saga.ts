@@ -3,9 +3,9 @@ import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, list
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
-import { boardContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
+import { boardContext, MAIL_SYSTEM, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  claimJob, claimNextMinutes, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -35,7 +35,49 @@ async function archive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<stri
 
 async function context(env: SagaEnv, deps: SagaDeps, days = 30) {
   const db = requireDb(env);
-  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3), await archive(env, deps));
+  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3), await archive(env, deps),
+    mailContext(await recentMail(db, deps.now() - Math.min(days, 14) * DAY, 60)));
+}
+
+// ---- Hjerterum's mailbox ----
+
+export type RelayedMail = { ref: string; from: string; subject: string; receivedAt: string; text: string };
+
+/** New mails to team@ (relayed from Matrix): each is judged once, and only what demands the
+ * chair's attention reaches him - one Telegram message per batch. */
+export async function watchMail(env: SagaEnv, deps: SagaDeps, mails: RelayedMail[]): Promise<{ received: number; fresh: number; attention: number }> {
+  const db = requireDb(env);
+  const fresh: Array<{ id: number; mail: RelayedMail }> = [];
+  for (const mail of mails) {
+    const at = Date.parse(mail.receivedAt);
+    const id = await insertMail(db, { ref: mail.ref, sender: mail.from.slice(0, 320), subject: (mail.subject || "(intet emne)").slice(0, 500),
+      receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: mail.text.replace(/\s+/g, " ").trim().slice(0, 1500), nowMs: deps.now() });
+    if (id) fresh.push({ id, mail });
+  }
+  if (!fresh.length) return { received: mails.length, fresh: 0, attention: 0 };
+  let verdicts: Array<{ n?: number; verdict?: string; reason?: string }> = [];
+  try {
+    const answer = await complete(env, deps, [{ role: "system", content: MAIL_SYSTEM }, { role: "user", content: fresh.map(({ mail }, i) =>
+      `MAIL ${i + 1}\nFra: ${mail.from}\nEmne: ${mail.subject}\nModtaget: ${mail.receivedAt}\n${mail.text.replace(/\s+/g, " ").trim().slice(0, 1500)}`).join("\n\n") }]);
+    const json = answer.slice(answer.indexOf("["), answer.lastIndexOf("]") + 1);
+    verdicts = JSON.parse(json) as typeof verdicts;
+  } catch (error) {
+    console.warn("saga_mail_triage_failed", error instanceof Error ? error.message : error);
+  }
+  const flagged: Array<{ mail: RelayedMail; reason: string }> = [];
+  for (const [i, { id, mail }] of fresh.entries()) {
+    const found = verdicts.find(v => Number(v.n) === i + 1);
+    // A mail she could not judge is shown to the chair rather than quietly dropped.
+    const verdict = found?.verdict === "ignore" || found?.verdict === "fyi" ? found.verdict : "attention";
+    const reason = String(found?.reason || (found ? "" : "Kunne ikke vurderes automatisk")).slice(0, 200);
+    await setMailVerdict(db, id, verdict, reason, verdict === "attention");
+    if (verdict === "attention") flagged.push({ mail, reason });
+  }
+  if (flagged.length) {
+    const lines = flagged.map(({ mail, reason }) => `• Fra ${mail.from}: "${mail.subject}"${reason ? `\n  ${reason}` : ""}`);
+    await telegramClient(env, deps).sendMessage(owner(env), `📬 team@holistisk.org - ${flagged.length === 1 ? "én mail kræver" : `${flagged.length} mails kræver`} din opmærksomhed:\n\n${lines.join("\n")}`);
+  }
+  return { received: mails.length, fresh: fresh.length, attention: flagged.length };
 }
 
 /** Every post to the board goes through here: saved as pending and sent to Jacob with Godkend/Afvis. */
@@ -93,7 +135,7 @@ export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, questio
 
 export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<boolean> {
   const messages = await recentBoardMessages(requireDb(env), board(env), deps.now() - 7 * DAY);
-  if (!messages.some(m => !m.from_assistant)) return false;
+  if (!messages.some(m => !m.from_assistant) && !(await recentMail(requireDb(env), deps.now() - 7 * DAY, 1)).length) return false;
   const summary = await complete(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
   if (postsToBoard(env)) { await proposePost(env, deps, "weekly_summary", summary); return true; }
   // Listening only: the summary is the chair's own, straight to him (and to Matrix).
