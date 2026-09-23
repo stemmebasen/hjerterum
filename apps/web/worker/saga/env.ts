@@ -13,6 +13,9 @@ export interface SagaEnv {
   SAGA_OWNER_TELEGRAM_ID?: string;
   /** Bearer secret for Liva (Matrix) reading Saga's overview. */
   SAGA_LIVA_SECRET?: string;
+  /** "on" lets Saga post in the board group (always after the chair's approval). Anything else:
+   * she only reads along, and everything she makes goes to the chair privately. */
+  SAGA_BOARD_POSTING?: string;
   /** OpenAI-compatible chat completions provider. */
   AI_API_KEY?: string;
   AI_BASE_URL?: string;
@@ -35,3 +38,6 @@ export function requireDb(env: SagaEnv): D1Database {
   if (!env.DB) throw new Error("database_not_configured");
   return env.DB;
 }
+
+/** Requested: "Jeg vil ikke have hun interagerer i gruppen." Off unless explicitly turned on. */
+export const postsToBoard = (env: SagaEnv) => env.SAGA_BOARD_POSTING === "on";
