@@ -136,6 +136,38 @@ describe("Saga's Telegram webhook", () => {
   });
 });
 
+// Requested: "Jeg vil ikke have hun interagerer i gruppen." Posting is off unless turned on.
+describe("Saga as a listener only (the default)", () => {
+  const listening = (db: ReturnType<typeof testDatabase>, extra: Partial<SagaEnv> = {}) => { const { SAGA_BOARD_POSTING: _on, ...env } = sagaEnv(db, extra); return env as SagaEnv; };
+  const toBoard = (services: ReturnType<typeof fakeServices>) => services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD);
+
+  it("reads the group but never drafts or posts there, even when asked", async () => {
+    const db = testDatabase(), services = fakeServices();
+    const env = listening(db);
+    await webhook(env, services.fetcher, boardMessage(2, "Saga, hvornår er næste møde?"));
+    expect(await count(db, "board_messages")).toBe(1);
+    expect(await count(db, "board_post_drafts")).toBe(0);
+    expect(services.calls).toHaveLength(0);
+  });
+
+  it("gives the weekly summary to the chair privately, and approved minutes stay with him", async () => {
+    const db = testDatabase(), services = fakeServices({ ai: (system) => system.includes("referat") || system.includes("Referat") ? MINUTES : "Ugen i bestyrelsen: kage." });
+    const env = listening(db);
+    const sunday18 = Date.parse("2026-09-27T16:30:00Z");
+    await webhook(env, services.fetcher, { ...boardMessage(1, "Husk kage"), message: { ...boardMessage(1, "Husk kage").message, date: sunday18 / 1000 - 3600 } });
+    await runSagaJobs(env, deps(services.fetcher, sunday18));
+    const [summary] = services.telegram("sendMessage");
+    expect(summary?.body).toMatchObject({ chat_id: OWNER });
+    expect((summary?.body as { text: string; reply_markup?: unknown }).reply_markup).toBeUndefined();
+    expect(await getPostDraft(db, 1)).toMatchObject({ kind: "weekly_summary", status: "posted" });
+
+    await webhook(env, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
+    await webhook(env, services.fetcher, callback("approve:minutes:1"));
+    expect(await getMinutes(db, 1)).toMatchObject({ status: "approved" });
+    expect(toBoard(services)).toHaveLength(0);
+  });
+});
+
 describe("Saga's minutes", () => {
   it("drafts minutes from a recording, revises them and shares decisions after approval", async () => {
     const db = testDatabase();

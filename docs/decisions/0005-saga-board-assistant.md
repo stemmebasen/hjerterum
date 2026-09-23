@@ -8,6 +8,10 @@ Saga is a Telegram bot in the board's group chat. She keeps the board's messages
 
 **Nothing is posted to the board chat without the chair's approval.** Every post (a reply, the weekly summary, the decisions and tasks from approved minutes) is saved as a pending draft and sent privately to the chair with Godkend/Afvis buttons. Replying to that message revises the draft. A draft is decided exactly once, so a double tap cannot post twice.
 
+## Listening only (the default)
+
+Requested by the chair: "Jeg vil ikke have hun interagerer i gruppen." Unless `SAGA_BOARD_POSTING` is `on`, Saga only reads the board group. A question to her there is just part of the chat. The weekly summary goes to the chair privately, and approved minutes are saved on Drive (or kept as the file he already has) without being shared in the group. Everything below about posting applies only when posting is switched on.
+
 ## Behaviour
 
 - **Board chat.** Every text message is stored (`board_messages`). A message that mentions `@<bot>`, replies to Saga, or names "Saga" in a question gets a drafted answer for approval, as a reply to the question.

@@ -1,4 +1,4 @@
-import { requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
+import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
   answerOwnerPrivately, approveMinutes, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
   processNextMinutes, reviseMinutes, revisePost
@@ -61,7 +61,8 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
     if (!text || message.from?.is_bot) return;
     const db = requireDb(env);
     await saveBoardMessage(db, { chatId, messageId: message.message_id, author: name(message.from), authorId: message.from ? String(message.from.id) : null, text, sentAtMs: message.date * 1000 });
-    if (addressesSaga(message, env.SAGA_TELEGRAM_BOT_USERNAME)) await draftBoardReply(env, deps, text, name(message.from), message.message_id);
+    // Listening only (the default), a question to her is just part of the chat she reads.
+    if (postsToBoard(env) && addressesSaga(message, env.SAGA_TELEGRAM_BOT_USERNAME)) await draftBoardReply(env, deps, text, name(message.from), message.message_id);
     return;
   }
 
@@ -86,7 +87,8 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
   }
   if (/^\/(start|hjælp|help)\b/i.test(text)) {
     await telegram.sendMessage(chatId, `Hej, jeg er ${SAGA_NAME}. Send mig en lydoptagelse af et bestyrelsesmøde, så laver jeg et referat til din godkendelse. `
-      + "Skriv /opsummering for en ugeopsummering til bestyrelsen, eller spørg mig om noget fra bestyrelsens chat og referater.");
+      + (postsToBoard(env) ? "Skriv /opsummering for en ugeopsummering til bestyrelsen" : "Jeg læser med i bestyrelsens gruppe uden at skrive der. Skriv /opsummering for en opsummering af ugen")
+      + ", eller spørg mig om noget fra bestyrelsens chat og referater.");
     return;
   }
   if (/^\/opsummering\b/i.test(text)) {

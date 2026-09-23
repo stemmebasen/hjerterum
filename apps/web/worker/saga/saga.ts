@@ -1,6 +1,6 @@
 import { complete } from "./ai.js";
 import { createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES } from "./drive.js";
-import { requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
+import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
 import { boardContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
@@ -82,7 +82,12 @@ export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<
   const messages = await recentBoardMessages(requireDb(env), board(env), deps.now() - 7 * DAY);
   if (!messages.some(m => !m.from_assistant)) return false;
   const summary = await complete(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
-  await proposePost(env, deps, "weekly_summary", summary);
+  if (postsToBoard(env)) { await proposePost(env, deps, "weekly_summary", summary); return true; }
+  // Listening only: the summary is the chair's own, straight to him (and to Matrix).
+  const db = requireDb(env);
+  const id = await createPostDraft(db, { kind: "weekly_summary", text: summary, nowMs: deps.now() });
+  const sent = await telegramClient(env, deps).sendMessage(owner(env), `Ugen i bestyrelsen:\n\n${summary}`);
+  if (await decidePostDraft(db, id, "approved", deps.now())) await markPosted(db, id, sent.message_id);
   return true;
 }
 
@@ -109,7 +114,7 @@ export async function queueDriveRecordings(env: SagaEnv, deps: SagaDeps): Promis
 
 async function sendMinutesForApproval(env: SagaEnv, deps: SagaDeps, id: number, markdown: string, meetingDate: string | null, note: string): Promise<void> {
   const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${meetingDate ?? ""}.md`.replace(/\s+\.md$/, ".md"), markdown,
-    `${note}\n\nGodkend = gem på Drevet og del beslutninger og opgaver i bestyrelseschatten. Svar på denne besked for at rette referatet.`, approvalButtons("minutes", id));
+    `${note}\n\n${postsToBoard(env) ? "Godkend = gem på Drevet og del beslutninger og opgaver i bestyrelseschatten." : "Godkend = gem på Drevet (intet deles i gruppen)."} Svar på denne besked for at rette referatet.`, approvalButtons("minutes", id));
   await updateMinutes(requireDb(env), id, { approvalMessageId: sent.message_id }, deps.now());
 }
 
@@ -169,6 +174,7 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
       await updateMinutes(db, id, { error: error instanceof Error ? error.message : "drive_failed" }, deps.now());
     }
   }
+  if (!postsToBoard(env)) return link ? `Gemt på Drevet: ${link}` : "Godkendt. Referatet er filen ovenfor (Drevet er ikke sat op endnu).";
   const decisions = section(item.draft_markdown, /beslutninger/i), tasks = section(item.draft_markdown, /opgaver/i);
   const text = [`${title}`, decisions && `Beslutninger:\n${decisions}`, tasks && `Opgaver:\n${tasks}`, link ? `Hele referatet: ${link}` : ""].filter(Boolean).join("\n\n");
   const sent = await telegram.sendMessage(board(env), text);
