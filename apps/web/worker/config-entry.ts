@@ -1,10 +1,17 @@
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
+import type { SagaEnv } from "./saga/env.js";
+import { handleSagaRequest } from "./saga/handler.js";
+import { runSagaJobs } from "./saga/saga.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
   STRIPE_PUBLISHABLE_KEY?: string;
   [key: string]: unknown;
+}
+
+interface ExecutionContextLike {
+  waitUntil(promise: Promise<unknown>): void;
 }
 
 interface ScheduledControllerLike {
@@ -18,8 +25,17 @@ const app = appWorker as unknown as {
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
+
+    // Saga, the board assistant (docs/decisions/0005-saga-board-assistant.md).
+    if (url.pathname.startsWith("/api/saga/")) {
+      return handleSagaRequest(request, env as SagaEnv, {
+        fetcher: (input, init) => fetch(input, init),
+        now: () => Date.now(),
+        ...(ctx ? { waitUntil: (work: Promise<unknown>) => ctx.waitUntil(work) } : {})
+      });
+    }
 
     if (request.method === "GET" && url.pathname === "/api/events/external") {
       try {
@@ -45,6 +61,8 @@ export default {
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
-    return app.scheduled(controller, env);
+    await app.scheduled(controller, env);
+    await runSagaJobs(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
+      .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
   }
 };

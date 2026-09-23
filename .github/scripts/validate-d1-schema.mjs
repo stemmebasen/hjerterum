@@ -103,7 +103,10 @@ const expectedTables = [
   "membership_import_changes",
   "member_access_changes",
   "platform_settings",
-  "member_payout_accounts"
+  "member_payout_accounts",
+  "board_messages",
+  "board_post_drafts",
+  "board_minutes"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 
@@ -118,6 +121,8 @@ const strictCount = Number(
 assertEqual(strictCount, expectedTables.length, "STRICT table count");
 
 assertColumn("teachers", "setup_intent_id");
+assertColumn("board_post_drafts", "approval_message_id");
+assertColumn("board_minutes", "drive_document_url");
 assertColumn("bookings", "phone");
 assertColumn("bookings", "cvr");
 assertColumn("tribe_applicants", "invitation_token");
