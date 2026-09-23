@@ -15,7 +15,13 @@
     "staging": {
       "name": "hjerterum-platform-staging",
       "vars": {
-        "ENVIRONMENT": "staging"
+        "ENVIRONMENT": "staging",
+        // Saga (docs/decisions/0005): the bot, the board group and its chair. Not secrets.
+        "SAGA_TELEGRAM_BOT_USERNAME": "jacobhaugemathiassen_bot_bot",
+        "SAGA_BOARD_CHAT_ID": "-1003488840083",
+        "SAGA_OWNER_TELEGRAM_ID": "8490500029",
+        "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
+        "AI_MODEL": "deepseek-v4-flash"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]
