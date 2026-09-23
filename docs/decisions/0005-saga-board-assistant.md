@@ -1,0 +1,34 @@
+# Saga, the board's assistant in Telegram
+
+Status: Accepted — 2026-09-23
+
+## Decision
+
+Saga is a Telegram bot in the board's group chat. She keeps the board's messages, drafts minutes from meeting recordings and writes a weekly summary. Liva, the chair's assistant in Matrix, reads what is going on through a read-only endpoint.
+
+**Nothing is posted to the board chat without the chair's approval.** Every post (a reply, the weekly summary, the decisions and tasks from approved minutes) is saved as a pending draft and sent privately to the chair with Godkend/Afvis buttons. Replying to that message revises the draft. A draft is decided exactly once, so a double tap cannot post twice.
+
+## Behaviour
+
+- **Board chat.** Every text message is stored (`board_messages`). A message that mentions `@<bot>`, replies to Saga, or names "Saga" in a question gets a drafted answer for approval, as a reply to the question.
+- **Private chat.** Only the chair (`SAGA_OWNER_TELEGRAM_ID`) is answered; everyone else is ignored, and only the chair's approvals count. The chair can ask questions about the board's chat and minutes, request `/opsummering`, and send recordings.
+- **Minutes.** A recording comes from the chair's private chat (Telegram lets a bot download at most 20 MB) or the Drive recordings folder (polled every five minutes, each file once). ElevenLabs Scribe transcribes it in Danish with speakers told apart, and the AI drafts the minutes: attendees, items with discussion and decision, decisions, tasks (who, what, when) and next meeting. The draft goes to the chair as a file. When it is approved it is saved as a Google Doc in the minutes folder, and the title, decisions, tasks and link are posted to the board. Without Drive, the file is attached instead. A failing recording is retried up to three times, and then the chair is told why.
+- **Weekly summary.** On Sunday between 18 and 19 Copenhagen time, once per week (`job_claims`), if the board wrote anything that week.
+- **Liva.** `GET /api/saga/liva/overview?days=N` with `Authorization: Bearer <SAGA_LIVA_SECRET>` returns recent messages, the latest minutes' decisions and tasks, and the number of pending approvals.
+
+## Security
+
+- The webhook (`POST /api/saga/telegram`) requires Telegram's `X-Telegram-Bot-Api-Secret-Token` header, compared in constant time. It answers 200 at once and continues the slow work with `waitUntil`.
+- Tokens only go to their own hosts (Telegram, ElevenLabs, the configured AI endpoint, Google).
+- Drive uses a service account. It sees and changes only the folders the chair shares with it.
+
+## Configuration
+
+Secrets: `SAGA_TELEGRAM_BOT_TOKEN`, `SAGA_TELEGRAM_WEBHOOK_SECRET`, `SAGA_LIVA_SECRET`, `AI_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`.
+Variables: `SAGA_TELEGRAM_BOT_USERNAME`, `SAGA_BOARD_CHAT_ID`, `SAGA_OWNER_TELEGRAM_ID`, `AI_BASE_URL` (OpenAI-compatible, default OpenAI), `AI_MODEL`, `GOOGLE_DRIVE_RECORDINGS_FOLDER_ID`, `GOOGLE_DRIVE_MINUTES_FOLDER_ID`.
+
+Until the bot token and owner are set, Saga does nothing. The bot needs privacy mode turned off in BotFather to see the group's messages.
+
+## Later
+
+Answers from Drive documents (statutes, budgets), the chair's Hjerterum mail, and the platform's members, events and bookings (read first; any action only with approval).
