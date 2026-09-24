@@ -1,9 +1,10 @@
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
-  answerOwnerPrivately, approveMinutes, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
+  answerOwnerPrivately, approveMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
   processNextMinutes, reviseMinutes, revisePost, watchMail, type RelayedMail
 } from "./saga.js";
-import { latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
+import { sagaConnections } from "./connections.js";
+import { claimJob, latestOverview, setServiceStatus, latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
 import { telegramClient } from "./telegram.js";
 
@@ -54,6 +55,8 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
   const message = update.message;
   if (!message) return;
   const chatId = String(message.chat.id);
+  // For the connection check: a group Saga hears but is not set up for (a wrong board id).
+  if (env.DB && boardId && chatId !== boardId && /group/.test(message.chat.type)) await setServiceStatus(env.DB, "telegram_other_group", false, chatId, deps.now());
 
   // The board chat: every text is kept for Saga's overview; a question to her is answered via Jacob's approval.
   if (boardId && chatId === boardId) {
@@ -118,8 +121,11 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     const db = requireDb(env);
     if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
-      const [messages, minutes, pending, weekly, mail] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
-        recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db), recentMail(db, deps.now() - 14 * 86_400_000, 200)]);
+      const [messages, minutes, pending, weekly, mail, overview, connections] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
+        recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db), recentMail(db, deps.now() - 14 * 86_400_000, 200),
+        latestOverview(db), sagaConnections(env, deps, url.origin)]);
+      // The first overview is written as soon as the chair looks, if the cron has not yet.
+      if (!overview && env.AI_API_KEY && deps.waitUntil && await claimJob(db, "saga_overview_first", Math.floor(deps.now() / 600_000), deps.now())) deps.waitUntil(draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error)));
       const week = mail.filter(m => m.received_at_ms >= deps.now() - 7 * 86_400_000);
       const at = (ms: number) => new Date(ms).toISOString();
       return json({
@@ -133,6 +139,8 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         ],
         pendingApprovals: pending.posts.length + pending.minutes.length,
         weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null,
+        overview: overview ? { text: overview.text, at: at(overview.created_at_ms) } : null,
+        connections,
         mail: { week: { total: week.length, attention: week.filter(m => m.verdict === "attention").length, ignored: week.filter(m => m.verdict === "ignore").length },
           attention: mail.filter(m => m.verdict === "attention").slice(0, 10).map(m => ({ sender: m.sender, subject: m.subject, reason: m.reason, receivedAt: at(m.received_at_ms) })) }
       });

@@ -362,7 +362,14 @@ describe("Saga's weekly summary and Liva's overview", () => {
       minutes: [{ id: 1, meetingDate: "2026-09-23", status: "drafted", decisions: "- Budgettet er vedtaget.", tasks: "- Jacob - sender budgettet - fredag", url: null }],
       pending: [{ kind: "minutes", id: 1, label: "Referat 2026-09-23", text: MINUTES, fileName: "optagelse-" + NOW / 1000, at: new Date(NOW).toISOString() }],
       pendingApprovals: 1, weeklySummary: null,
-      mail: { week: { total: 0, attention: 0, ignored: 0 }, attention: [] }
+      mail: { week: { total: 0, attention: 0, ignored: 0 }, attention: [] },
+      overview: null,
+      connections: {
+        telegram: { ok: false, detail: expect.stringContaining("ingen webhook") },
+        googleDoc: { ok: false, detail: expect.stringContaining("ingen Google-adgang") },
+        mail: { ok: null, detail: expect.any(String) },
+        ai: { ok: true, detail: expect.stringContaining("Virker") }
+      }
     });
   });
 
@@ -385,5 +392,63 @@ describe("Saga's weekly summary and Liva's overview", () => {
   it("answers unknown paths with 404", async () => {
     const response = await handleSagaRequest(new Request("https://hjerterum.test/api/saga/other"), sagaEnv(testDatabase()), deps(fakeServices().fetcher));
     expect(response.status).toBe(404);
+  });
+});
+
+// Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume" and
+// "Er der kontakt til Google doc, telegram gruppen og mailen?"
+describe("Saga's overview and connection check for the chair", () => {
+  const overviewOf = async (env: SagaEnv, fetcher: typeof fetch, now = NOW) => (await (await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/overview", {
+    headers: { authorization: "Bearer liva-secret" } }), env, deps(fetcher, now))).json()) as { overview: { text: string } | null; connections: { telegram: { ok: boolean | null; detail: string }; googleDoc: { ok: boolean | null; detail: string }; mail: { ok: boolean | null; detail: string }; ai: { ok: boolean | null; detail: string } } };
+  const withWebhook = (fetcher: typeof fetch, info: Record<string, unknown>): typeof fetch => async (input, init) =>
+    String(input).endsWith("/getWebhookInfo") ? new Response(JSON.stringify({ ok: true, result: info })) : fetcher(input, init);
+  const google = async () => ({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }), GOOGLE_MINUTES_DOC_ID: "minutes-doc" });
+
+  it("writes an overall overview from the group, the minutes document and the mail, four times a day", async () => {
+    const db = testDatabase();
+    let context = "";
+    const services = fakeServices({ ai: (system, user) => { if (system.includes("overordnet overblik")) { context = user; return "## Besluttet\n- Ny kagekasse."; } return "[]"; } });
+    const env = sagaEnv(db, await google());
+    await webhook(env, services.fetcher, boardMessage(1, "Husk kage til mødet"));
+    await runSagaJobs(env, deps(services.fetcher, NOW));
+    await runSagaJobs(env, deps(services.fetcher, NOW + 300_000));
+    expect(await count(db, "board_overviews")).toBe(1);
+    expect(context).toContain("Husk kage til mødet");
+    expect(context).toContain("Ny kagekasse");
+    expect((await overviewOf(env, services.fetcher)).overview).toMatchObject({ text: "## Besluttet\n- Ny kagekasse." });
+    await runSagaJobs(env, deps(services.fetcher, NOW + 6 * 3_600_000));
+    expect(await count(db, "board_overviews")).toBe(2);
+  });
+
+  it("says the group is connected once the bot delivers to Saga and she has read the group", async () => {
+    const db = testDatabase(), services = fakeServices();
+    const env = sagaEnv(db, await google());
+    const fetcher = withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram" });
+    expect((await overviewOf(env, fetcher)).connections.telegram).toMatchObject({ ok: false, detail: expect.stringContaining("/setprivacy") });
+    await webhook(env, services.fetcher, boardMessage(1, "Husk kage"));
+    const { connections } = await overviewOf(env, fetcher);
+    expect(connections.telegram).toMatchObject({ ok: true, detail: expect.stringContaining("Forbundet") });
+    expect(connections.googleDoc).toMatchObject({ ok: true, detail: expect.stringContaining("referatdokumentet") });
+  });
+
+  it("names what is wrong: a bot pointed elsewhere, a group with another id, a document not shared, a failing AI", async () => {
+    const db = testDatabase(), services = fakeServices();
+    const env = sagaEnv(db, await google());
+    expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://matrix.example/telegram" }))).connections.telegram.detail).toContain("matrix.example");
+    expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram", last_error_message: "Wrong response from the webhook: 401 Unauthorized" })))
+      .connections.telegram.detail).toContain("401");
+    await webhook(env, services.fetcher, { ...boardMessage(2, "Hej"), message: { ...boardMessage(2, "Hej").message, chat: { id: -100999, type: "supergroup" } } });
+    expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram" }))).connections.telegram.detail).toContain("-100999");
+
+    const unshared: typeof fetch = async (input, init) => String(input).includes("/export?") ? new Response("", { status: 404 }) : services.fetcher(input, init);
+    expect((await overviewOf(env, unshared)).connections.googleDoc).toMatchObject({ ok: false, detail: expect.stringContaining("Del det") });
+
+    const failing: typeof fetch = async (input, init) => String(input).endsWith("/chat/completions")
+      ? new Response(JSON.stringify({ error: { message: "Invalid API key" } }), { status: 401 }) : services.fetcher(input, init);
+    await webhook(env, services.fetcher, boardMessage(3, "Husk kage"));
+    await runSagaJobs(env, deps(failing, NOW));
+    expect((await overviewOf(env, failing)).connections.ai).toMatchObject({ ok: false, detail: expect.stringContaining("Invalid API key") });
+    const { AI_API_KEY: _key, ...keyless } = env;
+    expect((await overviewOf(keyless, failing)).connections.ai).toMatchObject({ ok: false, detail: expect.stringContaining("AI_API_KEY") });
   });
 });
