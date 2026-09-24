@@ -146,3 +146,31 @@ export async function recentMail(db: D1Database, sinceMs: number, limit = 60): P
     .bind(sinceMs, limit).all<BoardMail>();
   return rows.results ?? [];
 }
+
+// ---- The chair's overview and the connection check ----
+
+export async function saveOverview(db: D1Database, text: string, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO board_overviews (text, created_at_ms) VALUES (?, ?)").bind(text, nowMs).run();
+}
+
+export async function latestOverview(db: D1Database): Promise<{ text: string; created_at_ms: number } | null> {
+  return db.prepare("SELECT text, created_at_ms FROM board_overviews ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<{ text: string; created_at_ms: number }>();
+}
+
+export type ServiceStatus = { ok: number; detail: string | null; at_ms: number };
+
+/** The last outcome of an outside service (the AI, Telegram deliveries); never throws. */
+export async function setServiceStatus(db: D1Database, key: string, ok: boolean, detail: string, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO saga_status (key, ok, detail, at_ms) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO UPDATE SET ok = excluded.ok, detail = excluded.detail, at_ms = excluded.at_ms")
+    .bind(key, ok ? 1 : 0, detail.slice(0, 300), nowMs).run().catch(() => undefined);
+}
+
+export async function serviceStatus(db: D1Database, key: string): Promise<ServiceStatus | null> {
+  return db.prepare("SELECT ok, detail, at_ms FROM saga_status WHERE key = ?").bind(key).first<ServiceStatus>();
+}
+
+export async function boardActivity(db: D1Database, chatId: string): Promise<{ groupMessages: number; lastGroupMessageMs: number | null; mails: number; lastMailMs: number | null; lastRelayedMs: number | null }> {
+  const chat = await db.prepare("SELECT COUNT(*) AS n, MAX(sent_at_ms) AS last FROM board_messages WHERE chat_id = ? AND from_assistant = 0").bind(chatId).first<{ n: number; last: number | null }>();
+  const mail = await db.prepare("SELECT COUNT(*) AS n, MAX(received_at_ms) AS last, MAX(created_at_ms) AS relayed FROM board_mail").first<{ n: number; last: number | null; relayed: number | null }>();
+  return { groupMessages: Number(chat?.n ?? 0), lastGroupMessageMs: chat?.last ?? null, mails: Number(mail?.n ?? 0), lastMailMs: mail?.last ?? null, lastRelayedMs: mail?.relayed ?? null };
+}

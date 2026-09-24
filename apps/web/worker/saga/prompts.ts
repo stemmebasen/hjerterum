@@ -37,6 +37,12 @@ export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kor
 export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til bestyrelsens chat ud fra ugens beskeder: "
   + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Er der mail til team@ i materialet, så slut med én linje om stemningen i mailen og det, der kræver opmærksomhed. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
 
+/** Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume". */
+export const OVERVIEW_SYSTEM = IDENTITY + " Skriv et overordnet overblik til Jacob, bestyrelsesformand, over hvad der rører sig i Hjerterum lige nu, "
+  + "ud fra bestyrelsens chat, referaterne, referatdokumentet og mailen til team@ nedenfor. Saml det i emner, ikke i enkelte beskeder eller mails: "
+  + "hvad der er besluttet, hvad der er i gang og hvem der har det, hvad der kræver hans opmærksomhed eller en beslutning, og hvad der er på vej (datoer). "
+  + "Nævn ikke enkelte mails, afsendere eller reklamer, medmindre de kræver handling. Højst 10 korte punkter under få overskrifter. Er der intet væsentligt, så skriv det på én linje.";
+
 export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne, referatdokumentet og Hjerterums mail nedenfor. Sig det, hvis svaret ikke står der.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);

@@ -3,9 +3,9 @@ import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, list
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
-import { boardContext, MAIL_SYSTEM, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
+import { OVERVIEW_SYSTEM, boardContext, MAIL_SYSTEM, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -146,6 +146,16 @@ export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<
   return true;
 }
 
+/** Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume" - the board as a whole,
+ * from its group, the minutes, the minutes document and team@, for the chair's Hjerterum page. */
+export async function draftOverview(env: SagaEnv, deps: SagaDeps): Promise<void> {
+  const db = requireDb(env), since = deps.now() - 14 * DAY;
+  // Nothing written, mailed or recorded: nothing to sum up (and no AI call).
+  if (!(await recentBoardMessages(db, board(env), since, 1)).length && !(await recentMail(db, since, 1)).length && !(await recentMinutes(db, 1)).length) return;
+  const text = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: await context(env, deps, 14) }]);
+  await saveOverview(requireDb(env), text, deps.now());
+}
+
 // ---- Minutes ----
 
 /** A recording Jacob sent Saga privately. Telegram lets a bot download at most 20 MB. */
@@ -260,6 +270,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));
+  // A fresh overview four times a day (the first one as soon as Saga runs).
+  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / (6 * 3_600_000)), deps.now()))
+    await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));
