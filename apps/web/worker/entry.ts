@@ -104,7 +104,7 @@ async function memberMe(request: Request, env: Env): Promise<Response> {
   if (user instanceof Response) return user;
 
   try {
-    const membership = await resolveActiveMembership(env.DB, user.userId, env.CLERK_SECRET_KEY);
+    const membership = await resolveActiveMembership(env.DB, user.userId, env.CLERK_SECRET_KEY, false);
     if (!membership) return json({ error: "membership_inactive" }, { status: 403 });
 
     if (membership.source === "hjerterum") {

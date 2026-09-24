@@ -32,6 +32,17 @@ const activeMember = {
 };
 
 describe("active membership resolution", () => {
+  it("allows generous members to use member benefits", async () => {
+    const result = await resolveActiveMembership(new MemberDatabase({ ...activeMember, tier: "generoest" }), "user_1");
+    expect(result).toMatchObject({ source: "hjerterum" });
+  });
+
+  it("denies member benefits to support members but lets them manage their own membership", async () => {
+    const db = new MemberDatabase({ ...activeMember, tier: "support" });
+    expect(await resolveActiveMembership(db, "user_1")).toBeNull();
+    expect(await resolveActiveMembership(db, "user_1", undefined, false)).toMatchObject({ source: "hjerterum" });
+  });
+
   it("returns a native active member", async () => {
     const result = await resolveActiveMembership(new MemberDatabase(activeMember), "user_1");
     expect(result).toMatchObject({ source: "hjerterum", fullName: "Anna", email: "anna@example.dk" });

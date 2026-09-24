@@ -1,3 +1,4 @@
+import { includesMemberBenefits } from "../membership.js";
 import { clerkPrimaryEmail } from "./admin-auth.js";
 import type { D1Database } from "./db.js";
 import { getMemberByClerkUserId, type MemberView } from "./members.js";
@@ -21,11 +22,13 @@ export type ActiveMembership =
 export async function resolveActiveMembership(
   db: D1Database,
   clerkUserId: string,
-  clerkSecretKey?: string
+  clerkSecretKey?: string,
+  requireBenefits = true
 ): Promise<ActiveMembership | null> {
   const local = await getMemberByClerkUserId(db, clerkUserId);
   if (local) {
     if (local.status !== "active" || local.accessBlocked) return null;
+    if (requireBenefits && !includesMemberBenefits(local.tier)) return null;
     return {
       source: "hjerterum",
       fullName: local.fullName,
@@ -38,6 +41,7 @@ export async function resolveActiveMembership(
   const email = await clerkPrimaryEmail(clerkUserId, clerkSecretKey);
   const external = await findMembershipWorksMemberByEmail(db, email);
   if (!external || external.status !== "active" || external.accessBlocked === 1) return null;
+  if (requireBenefits && !includesMemberBenefits(external.membershipLevel)) return null;
 
   return {
     source: "membershipworks",

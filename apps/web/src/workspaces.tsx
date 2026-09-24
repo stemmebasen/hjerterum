@@ -1,6 +1,10 @@
+import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
+import { MembershipPlans } from "./membership-plans";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
+
+const membershipPlansSupportText = membershipPlan("support")!.description;
 
 const LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
 
@@ -169,7 +173,7 @@ function MemberOverview({ member, calendar }: { member: Member | null; calendar:
           {member && (
             <>
               <Status value={member.status} />
-              <h2>{member.tier}</h2>
+              <h2>{membershipName(member.tier)}</h2>
               <p>{member.managedExternally ? "Eksisterende medlemskab via MembershipWorks" : member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
               {member.managedExternally
                 ? <span className="workspace-note">Dit eksisterende medlemskab fortsætter uændret.</span>
@@ -222,7 +226,7 @@ function MemberEvents({
     configured: boolean;
     account: { status: string; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   } | null>(null);
-  const active = member?.status === "active";
+  const active = member?.status === "active" && includesMemberBenefits(member.tier);
 
   useEffect(() => {
     let mounted = true;
@@ -524,10 +528,12 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <h1>Dit medlemskab</h1>
         <div className="workspace-card">
           <Status value={member.status} />
-          <h2>{member.tier}</h2>
+          <h2>{membershipName(member.tier)}</h2>
+          <p>{membershipPlan(member.tier)?.description}</p>
           <p>Dit nuværende medlemskab og din betaling fortsætter uændret i MembershipWorks.</p>
           <a className="text-link" href="mailto:team@holistisk.org">Kontakt os om medlemskabet →</a>
         </div>
+        <MembershipPlans />
       </section>
     );
   }
@@ -538,7 +544,9 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
       <h1>Betaling og medlemskab</h1>
       <div className="workspace-card">
         <Status value={member?.status ?? "unknown"} />
-        <h2>{member?.tier}</h2>
+        <h2>{membershipName(member?.tier ?? "")}</h2>
+        <p>{membershipPlan(member?.tier ?? "")?.description}</p>
+        {member && membershipPlan(member.tier) && <p>{membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"])} {member.interval === "year" ? "pr. år" : "pr. måned"}</p>}
         <p>{member?.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
         <div className="workspace-actions">
           <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
@@ -561,6 +569,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           </div>
         ) : <p>Der er ingen fakturaer at vise endnu.</p>}
       </div>
+      <MembershipPlans />
     </section>
   );
 }
@@ -658,7 +667,9 @@ export function MemberWorkspace({
     void apiFetch(clerk, "/api/members/me").then(async (memberResponse) => {
       if (!active) return;
       if (memberResponse.ok) {
-        setMember(await memberResponse.json() as Member);
+        const loadedMember = await memberResponse.json() as Member;
+        setMember(loadedMember);
+        if (!includesMemberBenefits(loadedMember.tier)) return;
         const [calendarResponse, externalResponse] = await Promise.all([
           apiFetch(clerk, "/api/room-bookings/calendar"),
           fetch("/api/events/external")
@@ -687,6 +698,8 @@ export function MemberWorkspace({
         accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
         normalized === "/member-portal/medlemskab" ? (
           <MemberBilling clerk={clerk} member={member} />
+        ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
+          <section className="workspace-section workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
