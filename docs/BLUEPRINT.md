@@ -6,7 +6,7 @@ This document is the primary product and migration specification for the new Hje
 
 - GitHub `main` is the code and release source of truth.
 - A commit is not a finished release. Typecheck, relevant tests, production build and runtime verification must pass before deployment is accepted.
-- Replit is legacy runtime/rollback reference during migration only. It is not the future development centre.
+- GitHub remains the development and release source of truth. Replit may be used for the agreed later UI/UX polish on a separate branch of this repository, preserving the existing layout and design direction. It must not introduce a parallel platform or change backend, database or hosting without a separate decision. The legacy Replit runtime remains a migration/rollback reference.
 - Cloudflare is the initial web/API/edge/static-assets backbone; provider-specific code stays behind adapters.
 - The target business/domain layer must remain portable even where Cloudflare is used as the first runtime.
 - Staging and production are separate.
@@ -44,6 +44,17 @@ This document is the primary product and migration specification for the new Hje
   reversibly block either native or MembershipWorks member access with an audit record.
 - Membership billing routes are connected to the current portal UI. They remain unavailable
   at runtime until the deferred Stripe configuration and acceptance work is completed.
+
+### Staging acceptance checkpoint (2026-09-24)
+
+- The newly created Hjerterum Clerk development instance is connected to staging. The user clarified that the previously assumed Clerk instance belonged to another project; no legacy identity migration has been accepted on that basis.
+- Native login and session persistence have been verified in the browser. An explicitly approved staging-only test membership is active without a paid subscription.
+- Membership names, descriptions and monthly/yearly prices follow https://holistisk.org/bliv-medlem/: Standard 222/2310 DKK, Generøst 333/3465 DKK, Reduceret pris 111/1155 DKK and Support 50/540 DKK. Support excludes member benefits while retaining own membership management.
+- Native profile saving and persistence across navigation/reload have been verified.
+- A clearly labelled staging event was created, edited, shown in the calendar and cancelled. An overlapping booking was rejected. The test event no longer appears among upcoming events.
+- The profile's self-service teacher checkbox is removed because the backend does not persist it. A future public practitioner/teacher profile requires an explicit opt-in and a working publication flow; the internal teacher flag is not publication consent or an approval bypass.
+- The billing view distinguishes loading, unavailable payments, request errors and a genuinely empty invoice list. Payment-management actions are not offered while payment availability is unconfirmed or payments are unconfigured.
+- Participant signup/unregistration using a second identity, imported MembershipWorks identity linking, concurrency, payment acceptance, notifications and public profile publication are not yet accepted end-to-end. The browser checks above must not be treated as production-cutover approval.
 
 ## 2. Product scope
 
