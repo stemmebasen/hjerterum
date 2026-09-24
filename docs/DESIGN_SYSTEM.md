@@ -103,3 +103,17 @@ A migration is not considered visually complete merely because the new page is f
 ## Current implementation
 
 The shared CSS tokens and components in `apps/web/src/styles.css` and `apps/web/src/main.tsx` are the first implementation of this contract. They should be refined against approved reference screenshots rather than replaced ad hoc.
+
+## Approved profile direction — 2026-09-25
+
+The user approved the interactive profile proposal, including colours and typography.
+The first application is the member profile; remaining pages retain their existing layouts pending the same deliberate rollout.
+
+- Georgia headings, Arial functional copy.
+- Light palette: background #f1eee8, opaque surface #fffdfa, ink #292723, muted #716b62, warm brown action #58483d, sage #e4eadc, clay #eee0d5.
+- System dark appearance: background #24231f, surface #302e29, ink #f3eee4, muted #c3bbb0, action #dfc9b7.
+- Rounded 20–24px opaque cards, restrained borders, no decorative shadows.
+- Private membership information collapses into its own editable section.
+- Two independent cards introduce the public teacher/practitioner visit card and the private CIRKLER profile.
+- Public profile currently supports an explicitly unsaved preview only. Publication/storage are separate unfinished capabilities; no simulated success or fake publication controls may ship.
+- CIRKLER starts with a detailed profile and explicit enrolment confirmation in its own system at the joint launch. The current Hjerterum introduction shows the planned steps and launch availability; it does not collect or claim to save CIRKLER information.

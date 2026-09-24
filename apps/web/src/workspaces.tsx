@@ -3,6 +3,7 @@ import { MembershipPlans } from "./membership-plans";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
+import { ProfileFeatures } from "./profile-features";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
 
@@ -631,34 +632,32 @@ function MemberProfile({
     setMessage("Dine oplysninger er gemt.");
   }
 
-  if (member?.managedExternally) {
-    return (
-      <section className="workspace-section workspace-narrow">
-        <p className="kicker">Profil</p>
-        <h1>Dine oplysninger</h1>
-        <div className="workspace-card">
-          <h2>{member.fullName}</h2>
-          <p>{member.email}</p>
-          <p>Dit medlemskab administreres fortsat i MembershipWorks og ændres ikke her.</p>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="workspace-section workspace-narrow">
-      <p className="kicker">Profil</p>
-      <h1>Dine oplysninger</h1>
-      {!member ? <div className="workspace-card"><p>Der er endnu ikke en medlemsprofil at redigere.</p></div> : (
-        <form className="workspace-card workspace-form" onSubmit={save}>
-          <label>Navn<input name="fullName" defaultValue={member.fullName} required /></label>
-          <label>E-mail<input name="email" type="email" defaultValue={member.email} required /></label>
-          <label>Telefon<input name="phone" defaultValue={member.phone || ""} /></label>
-          <label>Adresse<input name="streetAddress" defaultValue={member.streetAddress || ""} /></label>
-          <button className="pill-button dark">Gem oplysninger</button>
-          {message && <p className="workspace-message" role="status">{message}</p>}
-        </form>
-      )}
+    <section className="workspace-section member-profile-page">
+      <p className="kicker">Min profil</p>
+      <h1>Dig i Hjerterum</h1>
+      <p className="profile-lead">Dine oplysninger, det du deler — og de fællesskaber, du vælger.</p>
+      <details className="profile-basics">
+        <summary>
+          <span><strong>Dine medlemsoplysninger</strong><small>Navn, e-mail, telefon og adresse · kun til administration</small></span>
+          <span className="profile-badge">Privat</span>
+        </summary>
+        {member?.managedExternally ? <div className="profile-basics-content">
+          <h2>{member.fullName}</h2><p>{member.email}</p>
+          <p>Dit medlemskab administreres fortsat i MembershipWorks og ændres ikke her.</p>
+        </div> : !member ? <p>Der er endnu ikke en medlemsprofil at redigere.</p> :
+          <form className="workspace-form profile-basics-content" onSubmit={save}>
+            <div className="workspace-form-row">
+              <label>Navn<input name="fullName" defaultValue={member.fullName} required /></label>
+              <label>E-mail<input name="email" type="email" defaultValue={member.email} required /></label>
+              <label>Telefon<input name="phone" defaultValue={member.phone || ""} /></label>
+              <label>Adresse<input name="streetAddress" defaultValue={member.streetAddress || ""} /></label>
+            </div>
+            <button className="pill-button dark">Gem oplysninger</button>
+            {message && <p className="workspace-message" role="status">{message}</p>}
+          </form>}
+      </details>
+      <ProfileFeatures fullName={member?.fullName ?? ""} />
     </section>
   );
 }
@@ -713,7 +712,7 @@ export function MemberWorkspace({
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
   return (
-    <main className="workspace-shell">
+    <main className={"workspace-shell" + (normalized === "/member-portal/profil" ? " profile-workspace" : "")}>
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
