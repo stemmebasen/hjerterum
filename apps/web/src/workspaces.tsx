@@ -546,7 +546,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <Status value={member?.status ?? "unknown"} />
         <h2>{membershipName(member?.tier ?? "")}</h2>
         <p>{membershipPlan(member?.tier ?? "")?.description}</p>
-        {member && membershipPlan(member.tier) && <p>{membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"])} {member.interval === "year" ? "pr. år" : "pr. måned"}</p>
+        {member && membershipPlan(member.tier) && <p>{membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"])} {member.interval === "year" ? "pr. år" : "pr. måned"}</p>}
         <p>{member?.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
         <div className="workspace-actions">
           <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
