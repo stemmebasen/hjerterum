@@ -487,13 +487,30 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   const [invoices, setInvoices] = useState<MemberInvoice[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [billingState, setBillingState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
 
   useEffect(() => {
     if (!member || member.managedExternally) return;
     let active = true;
-    void apiFetch(clerk, "/api/members/me/payments").then(async (response) => {
-      if (active && response.ok) setInvoices(await response.json() as MemberInvoice[]);
-    });
+    setBillingState("loading");
+    setInvoices([]);
+    void (async () => {
+      try {
+        const response = await apiFetch(clerk, "/api/members/me/payments");
+        if (response.ok) {
+          const result = await response.json() as MemberInvoice[];
+          if (active) {
+            setInvoices(result);
+            setBillingState("ready");
+          }
+        } else {
+          const result = await response.json().catch(() => ({})) as { error?: string };
+          if (active) setBillingState(result.error === "payments_not_configured" ? "unavailable" : "error");
+        }
+      } catch {
+        if (active) setBillingState("error");
+      }
+    })();
     return () => { active = false; };
   }, [clerk, member?.id, member?.managedExternally]);
 
@@ -548,15 +565,21 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <p>{membershipPlan(member?.tier ?? "")?.description}</p>
         {member && membershipPlan(member.tier) && <p>{membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"])} {member.interval === "year" ? "pr. år" : "pr. måned"}</p>}
         <p>{member?.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
+        {billingState === "ready" ? (
         <div className="workspace-actions">
           <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
           <button type="button" className="text-button is-danger" disabled={busy} onClick={() => void cancelMembership()}>Opsig medlemskab</button>
         </div>
+        ) : <p role="status">{billingState === "loading"
+          ? "Henter betalingsoplysninger …"
+          : billingState === "unavailable"
+            ? "Betaling er endnu ikke aktiveret. Du kan derfor ikke administrere betaling eller opsige et abonnement her endnu."
+            : "Betalingsoplysningerne kunne ikke hentes. Prøv at genindlæse siden, eller kontakt os."}</p>}
         {message && <p className="workspace-message" role="status">{message}</p>}
       </div>
       <div className="workspace-card">
         <h2>Betalingshistorik</h2>
-        {invoices.length ? (
+        {billingState !== "ready" ? <p>{billingState === "loading" ? "Henter betalingshistorik …" : billingState === "unavailable" ? "Betalingshistorik bliver tilgængelig, når betaling er aktiveret." : "Betalingshistorikken kunne ikke hentes."}</p> : invoices.length ? (
           <div className="workspace-list">
             {invoices.map((invoice) => (
               <article key={invoice.id}>
@@ -596,8 +619,7 @@ function MemberProfile({
         fullName: String(form.get("fullName") || ""),
         email: String(form.get("email") || ""),
         phone: String(form.get("phone") || ""),
-        streetAddress: String(form.get("streetAddress") || ""),
-        isTeacher: form.get("isTeacher") === "on"
+        streetAddress: String(form.get("streetAddress") || "")
       })
     });
     if (!response.ok) {
@@ -633,7 +655,6 @@ function MemberProfile({
           <label>E-mail<input name="email" type="email" defaultValue={member.email} required /></label>
           <label>Telefon<input name="phone" defaultValue={member.phone || ""} /></label>
           <label>Adresse<input name="streetAddress" defaultValue={member.streetAddress || ""} /></label>
-          <label className="workspace-check"><input name="isTeacher" type="checkbox" defaultChecked={member.isTeacher} /> Jeg underviser eller behandler i Hjerterum</label>
           <button className="pill-button dark">Gem oplysninger</button>
           {message && <p className="workspace-message" role="status">{message}</p>}
         </form>
