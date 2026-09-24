@@ -1,3 +1,4 @@
+import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
@@ -353,10 +354,11 @@ function PublicHome() {
           <a className="pill-button dark" href="/fordele-ved-medlemskab">Læs om medlemskab</a>
         </div>
         <div className="membership-price-card">
-          <span>Medlemskab</span>
+          <span>Standard medlemskab</span>
           <strong>222 kr.</strong>
           <small>pr. måned</small>
-          <p>Et enkelt medlemskab til fællesskabet og huset. Aktivering af betaling kommer senere.</p>
+          <p>Bliv medlem af Hjerterum og få adgang til en lang række fordele.</p>
+          <a className="text-link" href="/bliv-medlem">Se alle fire medlemstyper →</a>
         </div>
       </section>
 
@@ -632,6 +634,7 @@ function PublicContentPage({ path }: { path: string }) {
         <a className="pill-button dark" href={page.action[1]}>{page.action[0]}</a>
       </section>
       {normalizedPath === "/price-list" && <RoomPriceCalculator />}
+      {(normalizedPath === "/bliv-medlem" || normalizedPath === "/fordele-ved-medlemskab") && <MembershipPlans />}
       <section className="three-grid public-link-grid">
         <a className="story-card" href={english ? "/events-en" : "/events"}>
           <span className="story-number">01</span>
