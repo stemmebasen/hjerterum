@@ -1,14 +1,11 @@
 import type { D1Database } from "./db.js";
 import { stripeRequest, type StripeEvent } from "./stripe.js";
 
-export type MembershipTier = "standard" | "reduceret" | "support";
+import { membershipPlans, type MembershipTier } from "../membership.js";
+export type { MembershipTier } from "../membership.js";
 export type BillingInterval = "month" | "year";
 
-const membershipAmounts: Record<MembershipTier, Record<BillingInterval, number>> = {
-  standard: { month: 22_200, year: 231_000 },
-  reduceret: { month: 11_100, year: 115_500 },
-  support: { month: 5_000, year: 54_000 }
-};
+const membershipAmounts = membershipPlans;
 
 export type MemberView = {
   id: number;
@@ -46,7 +43,7 @@ export function parseCheckoutInput(value: unknown): {
   const email = requireString(body.email, "email");
   const fullName = requireString(body.fullName, "full_name");
 
-  if (!(tier in membershipAmounts)) throw new Error("invalid_tier");
+  if (!Object.prototype.hasOwnProperty.call(membershipAmounts, tier)) throw new Error("invalid_tier");
   if (interval !== "month" && interval !== "year") throw new Error("invalid_interval");
   return { tier, interval, email, fullName };
 }
