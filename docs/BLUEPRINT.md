@@ -89,6 +89,15 @@ This document is the primary product and migration specification for the new Hje
 - Event creation, room reservation and payment must not be split across unrelated forms, email and social-media workflows.
 - AI moderation must not fail open in the target system.
 
+### CIRKLER meetings, venues and calendar integrations — confirmed 2026-09-25
+
+- Hjerterum is one possible venue for CIRKLER meetings. CIRKLER must also support additional venues with external calendar integrations; it is not restricted to Hjerterum.
+- CIRKLER remains a separate product/domain. Meetings held at Hjerterum must use Hjerterum's room reservations and conflict checks. Meetings elsewhere must use the selected venue's calendar integration and availability rules.
+- Model the selected venue/resource and calendar connection explicitly behind provider adapters. Creating, moving or cancelling a circle meeting must keep the corresponding venue reservation consistent; retries must not duplicate reservations. Do not block a Hjerterum room for meetings held elsewhere.
+- Calendar occupancy must be distinguished from public visibility and access to circle/member details. Do not infer permission to publish circle participant data from this integration requirement.
+- The concrete prior agreement on AI event approval is being recovered. The current Worker booking path does not yet apply AI moderation or the fixed-teacher approval exception. Do not describe these as implemented.
+- External calendar providers and their read/write capabilities, visibility of circle meetings, booking permissions, recurring-series behaviour, applicable approval exemptions and venue-payment policies must follow recovered/confirmed product rules; this checkpoint does not invent those decisions.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.
