@@ -813,3 +813,10 @@ h3 { font-size: 25px; line-height: 1.2; }
   .public-page-intro { padding-top: 32px; }
   .site-nav details:last-of-type .nav-dropdown { left: auto; right: 0; }
 }
+
+@media (max-width: 600px) {
+  .site-nav { position: relative; overflow: visible; flex-wrap: wrap; gap: 4px 14px; }
+  .site-nav summary { white-space: nowrap; }
+  .site-nav details { position: static; }
+  .site-nav .nav-dropdown, .site-nav details:last-of-type .nav-dropdown { left: 0; right: 0; width: 100%; min-width: 0; max-height: 60vh; overflow-y: auto; }
+}
