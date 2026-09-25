@@ -657,7 +657,7 @@ function MemberProfile({
             {message && <p className="workspace-message" role="status">{message}</p>}
           </form>}
       </details>
-      <ProfileFeatures fullName={member?.fullName ?? ""} />
+      <ProfileFeatures clerk={clerk} fullName={member?.fullName ?? ""} />
     </section>
   );
 }
@@ -715,7 +715,7 @@ export function MemberWorkspace({
     <main className={"workspace-shell" + (normalized === "/member-portal/profil" ? " profile-workspace" : "")}>
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
-        accessError ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
+        accessError && normalized !== "/member-portal/profil" ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
         normalized === "/member-portal/medlemskab" ? (
           <MemberBilling clerk={clerk} member={member} />
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
@@ -888,3 +888,4 @@ function AdminTable({
     </section>
   );
 }
+
