@@ -1,3 +1,4 @@
+import { ownPublicProfile, publicProfiles } from "./public-profiles.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { changeMemberAccess } from "./admin-members.js";
@@ -364,6 +365,8 @@ async function teacherStripeWebhook(request: Request, env: Env): Promise<Respons
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/api/public-profiles") return publicProfiles(request, env);
+    if (url.pathname === "/api/members/me/public-profile") return ownPublicProfile(request, env);
 
     if (request.method === "GET" && url.pathname === "/api/client-config") {
       return json({
@@ -430,3 +433,4 @@ export default {
     return base.scheduled(controller, env);
   }
 };
+
