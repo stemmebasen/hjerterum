@@ -486,7 +486,7 @@ function MemberCalendar({
 function calendarText(value: string): string {
   const decoder = document.createElement("textarea");
   decoder.innerHTML = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return decoder.value.replace(/\\s+/g, " ").trim();
+  return decoder.value.replace(/\s+/g, " ").trim();
 }
 
 function calendarMonth(value: string): string {
