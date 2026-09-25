@@ -1,3 +1,4 @@
+import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -444,20 +445,10 @@ function MemberCalendar({
         <div className="member-event-grid">
           {entries.filter(entry => calendarMonth(entry.startsAt) === month).map(({ key, booking, external }) => {
             const event = booking ?? external!;
-            const description = calendarText(event.description ?? "");
-            const short = description.length > 190 ? description.slice(0, 187).replace(/\s+\S*$/, "") + "…" : description;
             const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
-            return <article className="member-event-card" key={key}>
-              <CalendarImage src={external?.imageUrl ?? null} startsAt={event.startsAt} />
-              <div className="member-event-content">
-                <div className="member-event-eyebrow"><span>{calendarText(external?.category || "I fællesskab")}</span>
-                  {booking?.isAttending && <span className="calendar-attending">Du er tilmeldt</span>}</div>
-                <h3>{calendarText(event.title)}</h3>
-                <time dateTime={event.startsAt}>{formatDate(event.startsAt)}{event.endsAt ? " – " + new Intl.DateTimeFormat("da-DK", {hour:"2-digit", minute:"2-digit", timeZone:"Europe/Copenhagen"}).format(new Date(event.endsAt)) : ""}</time>
-                <p className="member-event-host">{calendarText([booking?.teacherName || external?.host, external?.location || "Hjerterum"].filter(Boolean).join(" · "))}</p>
-                {short && <p className="member-event-summary">{short}</p>}
-                {booking && description.length > 190 && <details className="calendar-description"><summary>Læs hele præsentationen</summary><p>{description}</p></details>}
-                <div className="member-event-footer">
+            return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
+              host={booking?.teacherName || external?.host || null} location={external?.location || "Hjerterum"}
+              imageUrl={external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
                   {booking ? <>
                     <p className="member-event-price">{booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
               {booking.isOwner ? (
@@ -473,35 +464,12 @@ function MemberCalendar({
                 </button>
               )}
                   </> : external?.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
-                </div>
-              </div>
-            </article>;
+            </EventCard>;
           })}
         </div>
       </section>)}
     </section>
   );
-}
-
-function calendarText(value: string): string {
-  const decoder = document.createElement("textarea");
-  decoder.innerHTML = value.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return decoder.value.replace(/\s+/g, " ").trim();
-}
-
-function calendarMonth(value: string): string {
-  return new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(new Date(value));
-}
-
-function CalendarImage({ src, startsAt }: { src: string | null; startsAt: string }) {
-  const [failed, setFailed] = useState(false);
-  const date = new Date(startsAt);
-  const day = new Intl.DateTimeFormat("da-DK", {day:"numeric", timeZone:"Europe/Copenhagen"}).format(date);
-  const month = new Intl.DateTimeFormat("da-DK", {month:"short", timeZone:"Europe/Copenhagen"}).format(date);
-  return <div className={"member-event-visual" + (!src || failed ? " calendar-no-image" : "")}>
-    {src && !failed ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} /> : <div className="calendar-placeholder" aria-hidden="true"><span>Hjerterum</span><strong>Rum til<br />at mødes.</strong></div>}
-    <div className="calendar-date" aria-hidden="true"><strong>{day}</strong><span>{month}</span></div>
-  </div>;
 }
 
 type MemberInvoice = {
@@ -580,7 +548,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
           <p>Dit nuværende medlemskab og din betaling fortsætter uændret i MembershipWorks.</p>
-          <a className="text-link" href="mailto:team@holistisk.org">Kontakt os om medlemskabet →</a>
+          <a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt os om medlemskabet →</a>
         </div>
         <MembershipPlans />
       </section>
@@ -743,10 +711,10 @@ export function MemberWorkspace({
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
   return (
-    <main className={"workspace-shell" + ((normalized === "/member-portal/profil" || normalized === "/member-portal/kalender") ? " profile-workspace" : "")}>
+    <main className="workspace-shell profile-workspace">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
-        accessError && normalized !== "/member-portal/profil" ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:team@holistisk.org">Kontakt Hjerterum →</a></div></section> :
+        accessError && normalized !== "/member-portal/profil" ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section> :
         normalized === "/member-portal/medlemskab" ? (
           <MemberBilling clerk={clerk} member={member} />
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
@@ -755,7 +723,7 @@ export function MemberWorkspace({
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
-          <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:team@holistisk.org">team@holistisk.org →</a><p>Mejlgade 26B, 8000 Aarhus C</p></div></section>
+          <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} />}
