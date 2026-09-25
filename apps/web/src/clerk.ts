@@ -89,6 +89,18 @@ async function initializeClerk(): Promise<ClerkBrowser | null> {
   if (!window.Clerk) throw new Error("clerk_global_missing");
   await window.Clerk.load({
     ui: { ClerkUI: window.__internal_ClerkUICtor },
+    appearance: { variables: {
+      fontFamily: "Arial, sans-serif",
+      colorPrimary: "var(--profile-button)",
+      colorPrimaryForeground: "var(--profile-button-ink)",
+      colorBackground: "var(--profile-surface)",
+      colorForeground: "var(--ink)",
+      colorMutedForeground: "var(--muted)",
+      colorInput: "var(--profile-surface)",
+      colorInputForeground: "var(--ink)",
+      colorBorder: "var(--profile-line)",
+      borderRadius: "1rem"
+    } },
     signInUrl: "/sign-in",
     signUpUrl: "/sign-up",
     signInFallbackRedirectUrl: "/member-portal/",
