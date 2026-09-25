@@ -404,7 +404,7 @@ describe("Saga's overview and connection check for the chair", () => {
     String(input).endsWith("/getWebhookInfo") ? new Response(JSON.stringify({ ok: true, result: info })) : fetcher(input, init);
   const google = async () => ({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }), GOOGLE_MINUTES_DOC_ID: "minutes-doc" });
 
-  it("writes an overall overview from the group, the minutes document and the mail, four times a day", async () => {
+  it("writes an overall overview from the group, the minutes document and the mail, up to four times a day", async () => {
     const db = testDatabase();
     let context = "";
     const services = fakeServices({ ai: (system, user) => { if (system.includes("overordnet overblik")) { context = user; return "## Besluttet\n- Ny kagekasse."; } return "[]"; } });
@@ -416,7 +416,14 @@ describe("Saga's overview and connection check for the chair", () => {
     expect(context).toContain("Husk kage til mødet");
     expect(context).toContain("Ny kagekasse");
     expect((await overviewOf(env, services.fetcher)).overview).toMatchObject({ text: "## Besluttet\n- Ny kagekasse." });
+    // Requested: "Undersøg igen unødvendig og kontinuerlig brug af AI" - six hours with nothing new
+    // write no new overview; a new message in the group does.
     await runSagaJobs(env, deps(services.fetcher, NOW + 6 * 3_600_000));
+    expect(await count(db, "board_overviews")).toBe(1);
+    const later = boardMessage(2, "Mødet flyttes til torsdag");
+    later.message.date = (NOW + 7 * 3_600_000) / 1000;
+    await webhook(env, services.fetcher, later);
+    await runSagaJobs(env, deps(services.fetcher, NOW + 12 * 3_600_000));
     expect(await count(db, "board_overviews")).toBe(2);
   });
 

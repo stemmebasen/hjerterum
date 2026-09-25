@@ -157,6 +157,17 @@ export async function latestOverview(db: D1Database): Promise<{ text: string; cr
   return db.prepare("SELECT text, created_at_ms FROM board_overviews ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<{ text: string; created_at_ms: number }>();
 }
 
+/** Anything new for the board since a moment: a message in its chat, a mail to team@, or minutes
+ * drafted or decided. */
+export async function boardActivitySince(db: D1Database, chatId: string, sinceMs: number): Promise<boolean> {
+  const [message, mail, minutes] = await Promise.all([
+    db.prepare("SELECT 1 AS hit FROM board_messages WHERE chat_id = ? AND sent_at_ms > ? LIMIT 1").bind(chatId, sinceMs).first<{ hit: number }>(),
+    db.prepare("SELECT 1 AS hit FROM board_mail WHERE received_at_ms > ? LIMIT 1").bind(sinceMs).first<{ hit: number }>(),
+    db.prepare("SELECT 1 AS hit FROM board_minutes WHERE updated_at_ms > ? AND status IN ('drafted', 'approved') LIMIT 1").bind(sinceMs).first<{ hit: number }>(),
+  ]);
+  return Boolean(message || mail || minutes);
+}
+
 export type ServiceStatus = { ok: number; detail: string | null; at_ms: number };
 
 /** The last outcome of an outside service (the AI, Telegram deliveries); never throws. */

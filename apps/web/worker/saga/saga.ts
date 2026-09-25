@@ -5,7 +5,7 @@ import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
 import { OVERVIEW_SYSTEM, boardContext, MAIL_SYSTEM, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  saveOverview, claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, latestOverview, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -270,9 +270,14 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));
-  // A fresh overview four times a day (the first one as soon as Saga runs).
-  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / (6 * 3_600_000)), deps.now()))
-    await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
+  // A fresh overview up to four times a day (the first one as soon as Saga runs) - only when
+  // something happened since the last one. Requested: "Undersøg igen unødvendig og kontinuerlig
+  // brug af AI" - it was rewritten every six hours whether or not anything was new.
+  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / (6 * 3_600_000)), deps.now())) {
+    const last = await latestOverview(env.DB);
+    if (!last || await boardActivitySince(env.DB, env.SAGA_BOARD_CHAT_ID, last.created_at_ms))
+      await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
+  }
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));
