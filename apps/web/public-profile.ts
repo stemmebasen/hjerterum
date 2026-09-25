@@ -35,17 +35,17 @@ export function parsePublicProfile(input: unknown): PublicProfile {
     const trimmed = value.trim();
     if (!trimmed) continue;
     if (key === "publicEmail") {
-      if (!/^[^\\s@?#%&]+@[^\\s@?#%&]+\\.[^\\s@?#%&]+$/.test(trimmed)) throw new Error("invalid_profile");
+      if (!/^[^\s@?#%&]+@[^\s@?#%&]+\.[^\s@?#%&]+$/.test(trimmed)) throw new Error("invalid_profile");
       contact.publicEmail = trimmed;
     }
     if (key === "publicPhone") {
-      if (!/^\\+?[0-9 ()-]+$/.test(trimmed) || trimmed.replace(/\\D/g, "").length < 5) throw new Error("invalid_profile");
+      if (!/^\+?[0-9 ()-]+$/.test(trimmed) || trimmed.replace(/\D/g, "").length < 5) throw new Error("invalid_profile");
       contact.publicPhone = trimmed;
     }
     if (key === "websiteUrl") {
       let url: URL;
       try { url = new URL(trimmed); } catch { throw new Error("invalid_profile"); }
-      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || /[\\s\\x00-\\x1f]/.test(trimmed)) throw new Error("invalid_profile");
+      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || /[\s\x00-\x1f]/.test(trimmed)) throw new Error("invalid_profile");
       contact.websiteUrl = url.href;
     }
   }
