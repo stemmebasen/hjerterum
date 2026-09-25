@@ -1,7 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600&display=swap");
-
 :root {
-  font-family: "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Arial, sans-serif;
   color: #2f2925;
   background: #faf8f3;
   font-synthesis: none;
@@ -38,7 +36,7 @@ button, input, textarea { font: inherit; }
 
 .kicker { margin: 0 0 14px; font-size: .74rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #8e7079; }
 h1,h2,h3,p { margin-top: 0; }
-h1,h2 { font-family: "Playfair Display", Georgia, "Times New Roman", serif; font-weight: 500; letter-spacing: -.035em; }
+h1,h2 { font-family: Georgia, serif; font-weight: 500; letter-spacing: -.035em; }
 h1 { font-size: clamp(3rem, 5.8vw, 5.7rem); line-height: .96; }
 h2 { font-size: clamp(2.3rem, 4.6vw, 4.6rem); line-height: .98; }
 h3 { font-size: 1.12rem; margin-bottom: 10px; }
@@ -78,7 +76,7 @@ p { line-height: 1.7; }
 .price-form label { display:grid; gap:8px; color:var(--muted); font-size:.86rem; font-weight:700; }
 .price-form input { width:100%; min-height:46px; padding:0 13px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.7); color:var(--ink); }
 .price-result { padding:24px; border-radius:24px; background:rgba(255,255,255,.62); }
-.price-result strong { display:block; margin:8px 0 14px; font-family:"Playfair Display",Georgia,serif; font-size:clamp(3rem,6vw,5rem); line-height:1; font-weight:500; }
+.price-result strong { display:block; margin:8px 0 14px; font-family:Georgia,serif; font-size:clamp(3rem,6vw,5rem); line-height:1; font-weight:500; }
 .price-result p { color:var(--muted); }
 .price-result small { display:block; color:var(--muted); line-height:1.5; }
 .section-intro { max-width: 700px; }
@@ -612,7 +610,8 @@ p { line-height: 1.7; }
   margin-top: 0.75rem;
 }
 
-/* Approved profile proposal, 2026-09-25: Georgia/Arial and warm opaque surfaces. */
+/* Approved Hjerterum design, shared by public, member and admin pages. */
+:root,
 .profile-workspace {
   --ink: #292723; --muted: #716b62; --profile-bg: #f1eee8;
   --profile-surface: #fffdfa; --profile-line: #ded8cf;
@@ -668,8 +667,8 @@ p { line-height: 1.7; }
 .profile-steps span { color: var(--muted); margin-top: 6px; }
 .profile-workspace :is(button, input, textarea, summary):focus-visible { outline: 2px solid var(--profile-button); outline-offset: 4px; }
 @media (prefers-color-scheme: dark) {
-  .profile-workspace { color-scheme: dark; --ink: #f3eee4; --muted: #c3bbb0; --profile-bg: #24231f; --profile-surface: #302e29; --profile-line: #504a42; --profile-button: #dfc9b7; --profile-button-ink: #2c231c; --profile-sage: #394333; --profile-clay: #45382f; }
-  .profile-workspace .workspace-brand img { filter: invert(1); }
+  :root, .profile-workspace { color-scheme: dark; --ink: #f3eee4; --muted: #c3bbb0; --profile-bg: #24231f; --profile-surface: #302e29; --profile-line: #504a42; --profile-button: #dfc9b7; --profile-button-ink: #2c231c; --profile-sage: #394333; --profile-clay: #45382f; }
+  .workspace-brand img, .brand img { filter: invert(1); }
 }
 @media (max-width: 650px) {
   .profile-feature-grid { grid-template-columns: 1fr; }
@@ -736,3 +735,81 @@ p { line-height: 1.7; }
 .calendar-description p { white-space: pre-wrap; }
 @media (max-width: 1000px) { .member-event-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .calendar-intro { align-items: flex-start; flex-direction: column; } }
 @media (max-width: 600px) { .member-event-grid { grid-template-columns: 1fr; gap: 22px; } .calendar-intro { margin-bottom: 32px; } .member-calendar-page { padding-top: 32px; } }
+
+/* One visual language for every Hjerterum route. */
+:root { --cream: var(--profile-bg); --paper: var(--profile-surface); --line: var(--profile-line); --brown: var(--profile-button); --sage: var(--profile-sage); --rose: var(--profile-clay); }
+body, .workspace-shell, .admin-workspace, .auth-shell { background: var(--profile-bg); color: var(--ink); }
+h1, h2, h3 { font-family: Georgia, serif; font-weight: 400; }
+h1 { line-height: 1.05; }
+h2 { line-height: 1.12; }
+h3 { font-size: 25px; line-height: 1.2; }
+.kicker { color: var(--muted); font-size: 11px; letter-spacing: 1.7px; font-weight: 500; }
+.pill-button { font-weight: 500; min-height: 44px; }
+.pill-button.dark { background: var(--profile-button); color: var(--profile-button-ink); border-color: var(--profile-button); }
+.pill-button.light, .nav-login { background: var(--profile-surface); color: var(--ink); }
+.pill-button.subtle { background: transparent; color: var(--ink); }
+:is(a,button,input,select,textarea,summary):focus-visible { outline: 2px solid var(--profile-button); outline-offset: 4px; }
+.workspace-header { background: var(--profile-bg); border-color: var(--profile-line); backdrop-filter: none; }
+.workspace-header nav a:hover, .workspace-header nav a[aria-current="page"] { background: var(--profile-surface); }
+:is(.workspace-card,.soft-panel,.story-card,.membership-price-card,.price-result,.auth-unavailable,.workspace-table-wrap,.metric-grid article,.membership-source-summary article) { background: var(--profile-surface); border-color: var(--profile-line); border-radius: 24px; box-shadow: none; }
+.story-card:nth-child(n) { background: var(--profile-surface); }
+:is(.home-hero,.membership-section,.room-section,.contact-section,.public-policy,.portal-welcome) { background: var(--profile-clay); border-radius: 24px; }
+.price-calculator, .membership-card, .booking-panel { background: var(--profile-sage); border-radius: 24px; }
+.profile-card { background: var(--profile-surface); }
+.hero-lead, .story-number, .membership-price-card > span { color: var(--muted); }
+.hero-orbit, .room-art { background: var(--profile-surface); box-shadow: none; }
+.hero-orbit span, .room-art span { color: var(--profile-button); }
+.circles-section { background: var(--profile-button); color: var(--profile-button-ink); border-radius: 24px; }
+.circles-section .kicker, .circles-section p { color: inherit; }
+:is(.workspace-form,.price-form) :is(input,textarea,select), .booking-type-grid button { background: var(--profile-surface); color: var(--ink); border: 1px solid var(--profile-line); border-radius: 12px; }
+.booking-type-grid button.selected { background: var(--profile-surface); border-color: var(--profile-button); box-shadow: 0 0 0 1px var(--profile-button); }
+.site-header { border-bottom: 1px solid var(--profile-line); margin-bottom: 24px; }
+.brand img, .auth-brand img { height: 48px !important; max-width: 190px !important; }
+.site-nav { gap: 8px 14px; font-size: 13px; }
+.site-nav > a, .site-nav summary { padding: 10px 4px; color: var(--ink); }
+.site-nav details { position: relative; }
+.site-nav summary { cursor: pointer; }
+.site-nav .nav-dropdown { position: absolute; z-index: 30; top: 100%; right: 0; min-width: 250px; max-width: calc(100vw - 40px); display: grid; padding: 12px; background: var(--profile-surface); border: 1px solid var(--profile-line); border-radius: 18px; }
+.nav-dropdown a { display: block; padding: 10px; border-radius: 9px; }
+.nav-dropdown a:hover { background: var(--profile-bg); }
+.public-calendar { padding-top: 24px; padding-bottom: 32px; }
+.legacy-page { padding: 40px 0 60px; }
+.legacy-page > header { max-width: 920px; margin-bottom: 40px; }
+.legacy-page h1 { font-size: clamp(36px,5vw,56px); max-width: 22ch; }
+.legacy-content { max-width: 100%; overflow-wrap: anywhere; }
+.legacy-content > :is(p,ul,ol,h2,h3,h4,blockquote) { max-width: 820px; }
+.legacy-content h2 { font-size: clamp(28px,4vw,40px); margin: 40px 0 20px; }
+.legacy-content h3 { margin-top: 32px; }
+.legacy-content h4 { font: 24px Georgia,serif; margin: 24px 0 16px; }
+.legacy-content p, .legacy-content li { line-height: 1.75; }
+.legacy-content li { margin-bottom: 8px; }
+.legacy-content img { display: block; max-width: 100%; height: auto; border-radius: 20px; margin: 20px 0; }
+.legacy-content figure { margin: 24px 0; }
+.legacy-content figcaption { color: var(--muted); font-size: 13px; margin-top: 12px; }
+.legacy-content details { padding: 24px; margin: 20px 0; background: var(--profile-surface); border: 1px solid var(--profile-line); border-radius: 20px; }
+.legacy-content summary { cursor: pointer; }
+.legacy-content details[open] summary { margin-bottom: 20px; }
+.legacy-content hr { border: 0; border-top: 1px solid var(--profile-line); margin: 32px 0; }
+.legacy-content table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+.legacy-content td, .legacy-content th { padding: 12px; border: 1px solid var(--profile-line); }
+.legacy-columns, .legacy-gallery { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 28px; margin: 28px 0; }
+.legacy-columns > * { min-width: 0; }
+.legacy-gallery img { width: 100%; height: 270px; object-fit: cover; margin: 0; }
+.legacy-gallery { grid-template-columns: repeat(3,minmax(0,1fr)); }
+.legacy-related { display: flex; flex-wrap: wrap; gap: 12px; padding: 24px 0; border-block: 1px solid var(--profile-line); margin-bottom: 32px; }
+.legacy-related a { font-size: 13px; }
+.legacy-source { color: var(--muted); font-size: 13px; margin-top: 40px; }
+.legacy-embed-link { padding: 20px; border-radius: 16px; background: var(--profile-surface); }
+@media (max-width: 860px) {
+  .workspace-header > .user-button { grid-column: 2; grid-row: 1; }
+  .site-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .site-nav { justify-content: flex-start; }
+  .site-nav .nav-dropdown { left: 0; right: auto; min-width: min(250px, calc(100vw - 40px)); }
+}
+@media (max-width: 600px) {
+  .legacy-columns, .legacy-gallery { grid-template-columns: 1fr; }
+  .legacy-gallery img { height: auto; }
+  .legacy-page { padding-top: 24px; }
+  .public-page-intro { padding-top: 32px; }
+  .site-nav details:last-of-type .nav-dropdown { left: auto; right: 0; }
+}
