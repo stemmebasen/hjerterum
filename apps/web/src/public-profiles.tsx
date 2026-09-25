@@ -1,0 +1,122 @@
+import { useEffect, useState } from "react";
+import { isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
+import { apiFetch, type ClerkBrowser } from "./clerk";
+
+export function ProfileCard({ profile }: { profile: PublicProfile }) {
+  return <article className="profile-preview">
+    <div className="profile-portrait" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>
+    <div><h3>{profile.name || "Dit navn"}</h3><p>{profile.title || "Din faglige titel"}</p>
+      <p className="profile-badge">{[profile.teaching && "Undervisning", profile.treatment && "Behandling"].filter(Boolean).join(" · ") || "Dit tilbud"}</p>
+      <p className="profile-bio">{profile.bio || "Din korte præsentation vises her."}</p><p>{profile.topics}</p>
+    </div>
+  </article>;
+}
+
+export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkBrowser; fullName: string; onBack: () => void }) {
+  const [saved, setSaved] = useState<OwnPublicProfile | null>(null);
+  const [draft, setDraft] = useState<PublicProfile>({ name: fullName, title: "", bio: "", topics: "", teaching: false, treatment: false });
+  const [preview, setPreview] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [conflict, setConflict] = useState(false);
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setBusy(true);
+    void apiFetch(clerk, "/api/members/me/public-profile", { cache: "no-store" }).then(async response => {
+      if (!response.ok) throw new Error();
+      const data = await response.json() as OwnPublicProfile;
+      if (active) { setSaved(data); if (data.draft) setDraft(data.draft); setConflict(false); setMessage(""); }
+    }).catch(() => { if (active) setMessage("Visitkortet kunne ikke hentes. Prøv igen."); })
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [clerk, reload]);
+  const dirty = saved !== null && JSON.stringify(draft) !== JSON.stringify(saved.draft ?? { name: fullName, title: "", bio: "", topics: "", teaching: false, treatment: false });
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    if (dirty) window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  function change(patch: Partial<PublicProfile>) { setDraft(current => ({ ...current, ...patch })); setConsent(false); setMessage(""); }
+  async function save(action: "save" | "publish" | "hide") {
+    if (!saved || busy || conflict) return;
+    setBusy(true); setMessage("");
+    try {
+      const response = await apiFetch(clerk, "/api/members/me/public-profile", {
+        method: "PUT", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, revision: saved.revision, ...(action === "hide" ? {} : { profile: draft, consent }) })
+      });
+      if (response.status === 409) { setConflict(true); setMessage("Visitkortet er ændret i en anden fane. Hent den gemte version, før du fortsætter."); return; }
+      if (response.status === 403) { setMessage("Du skal have et aktivt medlemskab med medlemsfordele for at offentliggøre visitkortet."); return; }
+      if (!response.ok) throw new Error();
+      const result = await response.json() as { revision: number; profile?: PublicProfile };
+      const nextDraft = result.profile ?? draft;
+      setSaved({ ...saved, revision: result.revision, draft: action === "hide" ? saved.draft : nextDraft,
+        published: action === "publish" ? nextDraft : action === "hide" ? null : saved.published });
+      if (action !== "hide") setDraft(nextDraft);
+      setConsent(false);
+      setMessage(action === "save" ? "Din kladde er gemt. Den offentlige version er uændret." : action === "publish" ? "Dit visitkort er offentliggjort på hjemmesiden." : "Dit visitkort er nu skjult fra hjemmesiden. Din kladde er bevaret.");
+    } catch { setMessage("Ændringen kunne ikke bekræftes. Hent den gemte version, og prøv igen."); setConflict(true); }
+    finally { setBusy(false); }
+  }
+  return <section className="profile-editor" aria-label="Mit offentlige visitkort" aria-busy={busy}>
+    <button className="text-button" disabled={busy} onClick={() => { if (!dirty || window.confirm("Du har ændringer, der ikke er gemt. Vil du forlade visitkortet?")) onBack(); }}>← Tilbage til min profil</button>
+    <p className="kicker">Underviser & behandler</p><h2>{preview ? "Sådan ser besøgende dig" : "Lad folk møde dig"}</h2>
+    <p>Gem dit visitkort som kladde, og offentliggør det, når du er klar.</p>
+    <p className="profile-badge">{!saved ? "Henter visitkort …" : saved.published && saved.canPublish ? "Offentlig" : saved.published ? "Skjult · medlemskab kræves" : "Ikke offentlig"}{dirty ? " · Ændringer er ikke gemt" : ""}</p>
+    {!saved ? <button className="text-button" disabled={busy} onClick={() => setReload(n => n + 1)}>Prøv igen</button> : <>
+      {preview ? <ProfileCard profile={draft} /> : <fieldset className="profile-fields workspace-form" disabled={busy || conflict}>
+        <div className="workspace-form-row">
+          <label>Navn på visitkortet<input value={draft.name} maxLength={80} onChange={e => change({ name: e.target.value })} /></label>
+          <label>Faglig titel<input value={draft.title} maxLength={120} placeholder="Fx yogalærer og kropsterapeut" onChange={e => change({ title: e.target.value })} /></label>
+        </div>
+        <fieldset className="profile-roles"><legend>Jeg tilbyder</legend>
+          <label><input type="checkbox" checked={draft.teaching} onChange={e => change({ teaching: e.target.checked })} /> Undervisning</label>
+          <label><input type="checkbox" checked={draft.treatment} onChange={e => change({ treatment: e.target.checked })} /> Behandling</label>
+        </fieldset>
+        <label>Kort præsentation<textarea rows={4} value={draft.bio} maxLength={600} onChange={e => change({ bio: e.target.value })} /></label>
+        <label>Specialer<input value={draft.topics} maxLength={160} placeholder="Fx yoga · kropsterapi · nærvær" onChange={e => change({ topics: e.target.value })} /></label>
+      </fieldset>}
+      <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Din private adresse, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
+      <div className="workspace-actions">
+        <button className="pill-button" disabled={busy || conflict} onClick={() => void save("save")}>Gem kladde</button>
+        <button className="text-button" disabled={busy} onClick={() => setPreview(!preview)}>{preview ? "Redigér visitkortet" : "Se forhåndsvisning →"}</button>
+      </div>
+      <div className="profile-publication">
+        {!saved.canPublish ? <p>Offentliggørelse kræver et aktivt medlemskab med medlemsfordele.</p> : <>
+          {!isCompleteProfile(draft) && <p>Udfyld navn, faglig titel og præsentation, og vælg mindst ét tilbud.</p>}
+          <label className="profile-consent"><input type="checkbox" checked={consent} disabled={busy || conflict} onChange={e => setConsent(e.target.checked)} /> Jeg ønsker at vise dette visitkort offentligt på Hjerterums hjemmeside.</label>
+          <button className="pill-button dark" disabled={busy || conflict || !consent || !isCompleteProfile(draft)} onClick={() => void save("publish")}>{saved.published ? "Offentliggør ændringer" : "Offentliggør visitkort"}</button>
+        </>}
+        {saved.published && <button className="text-button" disabled={busy || conflict} onClick={() => void save("hide")}>Skjul fra hjemmesiden</button>}
+        <a className="text-link" href="/behandlere" target="_blank" rel="noreferrer">Se oversigten på hjemmesiden ↗</a>
+      </div>
+    </>}
+    {message && <p className="workspace-message" role="status">{message}</p>}
+    {conflict && <button className="text-button" disabled={busy} onClick={() => { if (!dirty || window.confirm("Vil du erstatte dine ændringer med den gemte version?")) { setConsent(false); setReload(n => n + 1); } }}>Hent den gemte version</button>}
+  </section>;
+}
+
+export function PublicProfiles() {
+  const [profiles, setProfiles] = useState<Array<PublicProfile & { id: string }> | null>(null);
+  const [error, setError] = useState(false);
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setError(false);
+    void fetch("/api/public-profiles", { cache: "no-store" }).then(async response => {
+      if (!response.ok) throw new Error();
+      const data = await response.json() as Array<PublicProfile & { id: string }>;
+      if (active) setProfiles(data.sort((a, b) => a.name.localeCompare(b.name, "da")));
+    }).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, [reload]);
+  return <section className="workspace-section member-profile-page public-profile-directory">
+    <p className="kicker">Menneskene i huset</p><h1>Undervisere & behandlere</h1>
+    <p className="profile-lead">Mød dem, der deler deres faglighed i Hjerterum.</p>
+    {error ? <p role="alert">Profilerne kunne ikke hentes. <button className="text-button" onClick={() => setReload(n => n + 1)}>Prøv igen</button></p> : !profiles ? <p role="status">Henter profiler …</p> : profiles.length ?
+      <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} />)}</div> :
+      <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>}
+  </section>;
+}
