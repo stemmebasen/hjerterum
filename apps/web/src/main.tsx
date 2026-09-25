@@ -502,10 +502,10 @@ function PublicContentPage({ path }: { path: string }) {
     );
   }
 
-  const page = (() => {
-    if (normalizedPath === "/behandlere") return <main className="profile-workspace"><div className="page-shell"><SiteHeader /><PublicProfiles /></div></main>;
+  if (normalizedPath === "/behandlere") return <main className="profile-workspace"><div className="page-shell"><SiteHeader /><PublicProfiles /></div></main>;
 
-  switch (normalizedPath) {
+  const page = (() => {
+    switch (normalizedPath) {
       case "/vision":
       case "/historien-bag-hjerterum":
         return {
