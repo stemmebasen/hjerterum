@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
-import { isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
+import { parsePublicProfile, isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 
 export function ProfileCard({ profile }: { profile: PublicProfile }) {
+  let contact: Partial<PublicProfile> = {};
+  try { contact = parsePublicProfile(profile); } catch { /* Incomplete contact input is never rendered as a link. */ }
   return <article className="profile-preview">
     <div className="profile-portrait" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>
     <div><h3>{profile.name || "Dit navn"}</h3><p>{profile.title || "Din faglige titel"}</p>
       <p className="profile-badge">{[profile.teaching && "Undervisning", profile.treatment && "Behandling"].filter(Boolean).join(" · ") || "Dit tilbud"}</p>
       <p className="profile-bio">{profile.bio || "Din korte præsentation vises her."}</p><p>{profile.topics}</p>
+      <div className="profile-contact-links">
+        {contact.publicEmail && <a href={"mailto:" + encodeURIComponent(contact.publicEmail)}>{contact.publicEmail}</a>}
+        {contact.publicPhone && <a href={"tel:" + contact.publicPhone.replace(/[ ()-]/g, "")}>{contact.publicPhone}</a>}
+        {contact.websiteUrl && <a className="text-link" href={contact.websiteUrl} target="_blank" rel="noopener noreferrer">{contact.linkLabel} ↗</a>}
+      </div>
     </div>
   </article>;
 }
@@ -41,6 +48,12 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
   function change(patch: Partial<PublicProfile>) { setDraft(current => ({ ...current, ...patch })); setConsent(false); setMessage(""); }
   async function save(action: "save" | "publish" | "hide") {
     if (!saved || busy || conflict) return;
+    if (action !== "hide") {
+      try { parsePublicProfile(draft); } catch {
+        setMessage("Kontrollér kontaktoplysningerne: skriv en gyldig e-mail, et telefonnummer og et link med https:// eller http://. Felterne må gerne være tomme.");
+        return;
+      }
+    }
     setBusy(true); setMessage("");
     try {
       const response = await apiFetch(clerk, "/api/members/me/public-profile", {
@@ -77,6 +90,16 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
         </fieldset>
         <label>Kort præsentation<textarea rows={4} value={draft.bio} maxLength={600} onChange={e => change({ bio: e.target.value })} /></label>
         <label>Specialer<input value={draft.topics} maxLength={160} placeholder="Fx yoga · kropsterapi · nærvær" onChange={e => change({ topics: e.target.value })} /></label>
+        <fieldset className="profile-fields workspace-form">
+          <legend>Offentlig kontaktinfo · valgfrit</legend>
+          <p className="profile-note">Udfyld kun det, du vil dele med besøgende. Vi henter ikke kontaktinfo fra dine private medlemsoplysninger.</p>
+          <div className="workspace-form-row">
+            <label>Offentlig e-mail<input type="email" autoComplete="off" value={draft.publicEmail ?? ""} maxLength={254} onChange={e => change({ publicEmail: e.target.value })} /></label>
+            <label>Offentligt telefonnummer<input type="tel" autoComplete="off" value={draft.publicPhone ?? ""} maxLength={40} onChange={e => change({ publicPhone: e.target.value })} /></label>
+          </div>
+          <label>Hjemmeside eller bookinglink<input type="url" placeholder="https://" value={draft.websiteUrl ?? ""} maxLength={512} onChange={e => change({ websiteUrl: e.target.value })} /></label>
+          <label>Tekst på linket<select value={draft.linkLabel ?? "Læs mere"} onChange={e => change({ linkLabel: e.target.value as "Læs mere" | "Book en tid" })}><option>Læs mere</option><option>Book en tid</option></select></label>
+        </fieldset>
       </fieldset>}
       <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Din private adresse, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
       <div className="workspace-actions">
