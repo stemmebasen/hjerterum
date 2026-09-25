@@ -25,6 +25,29 @@ async function native(user = "owner") {
 beforeEach(async () => { db = testDatabase(); await native(); });
 
 describe("public profile lifecycle with actual migrations", () => {
+  it("publishes only explicitly supplied contact info and keeps contact edits private until publication", async () => {
+    const contact = { ...profile, publicEmail: "hello@example.test", publicPhone: "+45 12 34 56 78", websiteUrl: "https://example.test/book", linkLabel: "Book en tid" };
+    expect((await own({ action: "save", revision: 0, profile: contact })).status).toBe(200);
+    expect(await (await list()).json()).toEqual([]);
+    expect(await (await own()).json()).toMatchObject({ draft: contact });
+    expect((await own({ action: "publish", revision: 1, profile: contact, consent: true })).status).toBe(200);
+    expect(await (await list()).json()).toEqual([{ id: expect.any(String), ...contact }]);
+    expect((await own({ action: "save", revision: 2, profile: { ...contact, publicEmail: "new@example.test" } })).status).toBe(200);
+    expect(await (await list()).json()).toEqual([{ id: expect.any(String), ...contact }]);
+    expect((await own({ action: "publish", revision: 3, profile: { ...profile, publicEmail: "", publicPhone: "", websiteUrl: "" }, consent: true })).status).toBe(200);
+    expect(await (await list()).json()).toEqual([{ id: expect.any(String), ...profile }]);
+  });
+  it.each([
+    { websiteUrl: "javascript:alert(1)" }, { websiteUrl: "data:text/html,test" },
+    { websiteUrl: "https://user:password@example.test" }, { websiteUrl: "/relative" },
+    { publicEmail: "a@example.test?bcc=private@example.test" }, { publicEmail: "not-an-email" },
+    { publicPhone: "1234;phone-context=example.test" }, { publicPhone: 12345678 },
+    { websiteUrl: "https://example.test", linkLabel: "Unapproved label" }
+  ])("rejects invalid contact values: %j", async contact => {
+    expect((await own({ action: "publish", revision: 0, profile: { ...profile, ...contact }, consent: true })).status).toBe(400);
+    expect(await (await list()).json()).toEqual([]);
+  });
+
   it("keeps drafts private, publishes only a consented snapshot, then hides it without losing the draft", async () => {
     expect((await own({ action: "save", revision: 0, profile })).status).toBe(200);
     expect(await (await list()).json()).toEqual([]);
