@@ -693,3 +693,6 @@ p { line-height: 1.7; }
 .public-profile-directory .profile-preview { margin: 0; }
 .profile-workspace .nav-login { background: var(--profile-surface); }
 @media (max-width: 760px) { .public-profile-grid { grid-template-columns: 1fr; } }
+
+.profile-contact-links { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 20px; overflow-wrap: anywhere; }
+.member-profile-page .workspace-form select { padding: 12px; border: 1px solid var(--profile-line); border-radius: 11px; background: var(--profile-surface); color: var(--ink); font: inherit; }
