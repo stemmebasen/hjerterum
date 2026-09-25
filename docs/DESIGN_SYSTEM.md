@@ -115,5 +115,7 @@ The first application is the member profile; remaining pages retain their existi
 - Rounded 20–24px opaque cards, restrained borders, no decorative shadows.
 - Private membership information collapses into its own editable section.
 - Two independent cards introduce the public teacher/practitioner visit card and the private CIRKLER profile.
-- Public profile currently supports an explicitly unsaved preview only. Publication/storage are separate unfinished capabilities; no simulated success or fake publication controls may ship.
+- Public profiles support private saved drafts, preview, explicit consent to publication, and hiding. Saving a draft never changes the published snapshot. The public directory uses the same card renderer as preview and includes only profiles with currently eligible, unblocked membership. Offering teaching/treatment does not change booking rights or internal teacher status.
+- Publication is opt-in; private contact/payment data and CIRKLER data never enter the directory. Existing authenticated owners can still read and hide their profile after membership ends. Concurrent edits require reloading the saved version.
 - CIRKLER starts with a detailed profile and explicit enrolment confirmation in its own system at the joint launch. The current Hjerterum introduction shows the planned steps and launch availability; it does not collect or claim to save CIRKLER information.
+

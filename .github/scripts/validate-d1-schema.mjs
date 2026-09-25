@@ -86,6 +86,7 @@ runWrangler([
 ]);
 
 const expectedTables = [
+  "public_profiles",
   "teachers",
   "bookings",
   "members",
@@ -185,3 +186,4 @@ const finalFkViolations = Number(
 assertEqual(finalFkViolations, 0, "foreign key violations after synthetic checks");
 
 process.stdout.write("D1 schema validation passed.\n");
+

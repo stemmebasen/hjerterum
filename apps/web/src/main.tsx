@@ -1,3 +1,4 @@
+import { PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -500,6 +501,8 @@ function PublicContentPage({ path }: { path: string }) {
       </main>
     );
   }
+
+  if (normalizedPath === "/behandlere") return <main className="profile-workspace"><div className="page-shell"><SiteHeader /><PublicProfiles /></div></main>;
 
   const page = (() => {
     switch (normalizedPath) {
