@@ -143,11 +143,11 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         overview: overview ? { text: overview.text, at: at(overview.created_at_ms) } : null,
         connections,
         minutesDoc: { url: minutesDocUrl(env), writable: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_MINUTES_DOC_ID) },
-        mail: { week: { total: week.length, attention: week.filter(m => m.verdict === "attention").length, ignored: week.filter(m => m.verdict === "ignore").length },
-          attention: mail.filter(m => m.verdict === "attention").slice(0, 10).map(m => ({ sender: m.sender, subject: m.subject, reason: m.reason, receivedAt: at(m.received_at_ms) })) }
+        // Only a count: the chair does not handle team@ (no single mail is shown to him).
+        mail: { week: { total: week.length } }
       });
     }
-    // Hjerterum's mailbox (team@), read in Matrix and relayed here for Saga to judge.
+    // Hjerterum's mailbox (team@), read in Matrix and relayed here as background for the overview.
     if (url.pathname === "/api/saga/liva/mail" && request.method === "POST") {
       const body = await request.json().catch(() => null) as { mails?: unknown } | null;
       const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
