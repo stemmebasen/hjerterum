@@ -3,7 +3,7 @@ import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, list
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
-import { docHash, parsePicture } from "./picture.js";
+import { docHash, parsePicture, trimMinutesDoc } from "./picture.js";
 import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
   saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
@@ -21,13 +21,13 @@ const danishDate = (iso: string | null) => {
 const owner = (env: SagaEnv) => { if (!env.SAGA_OWNER_TELEGRAM_ID) throw new Error("owner_not_configured"); return env.SAGA_OWNER_TELEGRAM_ID; };
 const board = (env: SagaEnv) => { if (!env.SAGA_BOARD_CHAT_ID) throw new Error("board_not_configured"); return env.SAGA_BOARD_CHAT_ID; };
 
-/** The board's minutes document, trimmed to what fits (its start and its newest end), and a
+/** The board's minutes document, trimmed to what fits (its newest meetings), and a
  * fingerprint of all of it. Never stops Saga: without it she answers from the chat and her own minutes. */
 async function readArchive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<{ text: string; hash: string }> {
   if (!env.GOOGLE_MINUTES_DOC_ID) return { text: "", hash: "none" };
   try {
     const text = (await minutesDocText(env, deps)).trim();
-    return { text: text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`, hash: await docHash(text) };
+    return { text: trimMinutesDoc(text, max), hash: await docHash(text) };
   } catch (error) {
     console.warn("saga_doc_read_failed", error instanceof Error ? error.message : error);
     return { text: "", hash: "unread" };
@@ -137,7 +137,7 @@ export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: 
   if (!(await recentBoardMessages(db, board(env), since, 1)).length && !(await recentMail(db, since, 1)).length && !(await recentMinutes(db, 1)).length) return;
   const read = doc ?? await readArchive(env, deps);
   const done = await ownerDone(db, deps.now() - 60 * DAY);
-  const answer = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: `${await context(env, deps, 14, read.text)}${doneContext(done)}` }]);
+  const answer = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}` }]);
   const picture = parsePicture(answer);
   await saveOverview(db, picture ? picture.summary : answer, deps.now(), { data: picture ? JSON.stringify(picture) : null, docHash: read.hash });
 }
