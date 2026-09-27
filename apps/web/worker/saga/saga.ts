@@ -3,9 +3,9 @@ import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, list
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
-import { OVERVIEW_SYSTEM, boardContext, MAIL_SYSTEM, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
+import { OVERVIEW_SYSTEM, boardContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  saveOverview, latestOverview, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, setMailVerdict, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, latestOverview, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -43,41 +43,19 @@ async function context(env: SagaEnv, deps: SagaDeps, days = 30) {
 
 export type RelayedMail = { ref: string; from: string; subject: string; receivedAt: string; text: string };
 
-/** New mails to team@ (relayed from Matrix): each is judged once, and only what demands the
- * chair's attention reaches him - one Telegram message per batch. */
-export async function watchMail(env: SagaEnv, deps: SagaDeps, mails: RelayedMail[]): Promise<{ received: number; fresh: number; attention: number }> {
+/** New mails to team@ (relayed from Matrix) are kept, each once, as background for the overview.
+ * Requested: "jeg skal ikke have hjælp til de daglige mails. Det er ikke mig der står for team@" -
+ * no mail is judged one by one or sent on to the chair (and no AI call). */
+export async function watchMail(env: SagaEnv, deps: SagaDeps, mails: RelayedMail[]): Promise<{ received: number; fresh: number }> {
   const db = requireDb(env);
-  const fresh: Array<{ id: number; mail: RelayedMail }> = [];
+  const fresh: number[] = [];
   for (const mail of mails) {
     const at = Date.parse(mail.receivedAt);
     const id = await insertMail(db, { ref: mail.ref, sender: mail.from.slice(0, 320), subject: (mail.subject || "(intet emne)").slice(0, 500),
       receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: mail.text.replace(/\s+/g, " ").trim().slice(0, 1500), nowMs: deps.now() });
-    if (id) fresh.push({ id, mail });
+    if (id) fresh.push(id);
   }
-  if (!fresh.length) return { received: mails.length, fresh: 0, attention: 0 };
-  let verdicts: Array<{ n?: number; verdict?: string; reason?: string }> = [];
-  try {
-    const answer = await complete(env, deps, [{ role: "system", content: MAIL_SYSTEM }, { role: "user", content: fresh.map(({ mail }, i) =>
-      `MAIL ${i + 1}\nFra: ${mail.from}\nEmne: ${mail.subject}\nModtaget: ${mail.receivedAt}\n${mail.text.replace(/\s+/g, " ").trim().slice(0, 1500)}`).join("\n\n") }]);
-    const json = answer.slice(answer.indexOf("["), answer.lastIndexOf("]") + 1);
-    verdicts = JSON.parse(json) as typeof verdicts;
-  } catch (error) {
-    console.warn("saga_mail_triage_failed", error instanceof Error ? error.message : error);
-  }
-  const flagged: Array<{ mail: RelayedMail; reason: string }> = [];
-  for (const [i, { id, mail }] of fresh.entries()) {
-    const found = verdicts.find(v => Number(v.n) === i + 1);
-    // A mail she could not judge is shown to the chair rather than quietly dropped.
-    const verdict = found?.verdict === "ignore" || found?.verdict === "fyi" ? found.verdict : "attention";
-    const reason = String(found?.reason || (found ? "" : "Kunne ikke vurderes automatisk")).slice(0, 200);
-    await setMailVerdict(db, id, verdict, reason, verdict === "attention");
-    if (verdict === "attention") flagged.push({ mail, reason });
-  }
-  if (flagged.length) {
-    const lines = flagged.map(({ mail, reason }) => `• Fra ${mail.from}: "${mail.subject}"${reason ? `\n  ${reason}` : ""}`);
-    await telegramClient(env, deps).sendMessage(owner(env), `📬 team@holistisk.org - ${flagged.length === 1 ? "én mail kræver" : `${flagged.length} mails kræver`} din opmærksomhed:\n\n${lines.join("\n")}`);
-  }
-  return { received: mails.length, fresh: fresh.length, attention: flagged.length };
+  return { received: mails.length, fresh: fresh.length };
 }
 
 /** Every post to the board goes through here: saved as pending and sent to Jacob with Godkend/Afvis. */

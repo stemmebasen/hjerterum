@@ -35,13 +35,24 @@ export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kor
   + "Ved du det ikke, så sig det kort. Dit svar bliver først sendt, når formanden har godkendt det.";
 
 export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til bestyrelsens chat ud fra ugens beskeder: "
-  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Er der mail til team@ i materialet, så slut med én linje om stemningen i mailen og det, der kræver opmærksomhed. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
+  + "hvad der er besluttet, hvem der gør hvad, og hvad der er på vej (datoer). Nævn aldrig enkelte mails eller afsendere. Højst 12 linjer, punktform. Er der intet væsentligt, så skriv det på én linje.";
 
-/** Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume". */
+// Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume" - "jeg skal ikke have hjælp til de daglige mails. Det er ikke mig der står for team@
+// Jeg skal blot have et overordnet resume og temperaturtjek" - "Jeg skal ikke have underretninger om
+// bookinger. Men jeg vil gerne vide besked om overordnet ting som f.eks medlemmer, gode nyheder, god
+// energi, vigtigere admin ting" - "Og så vigtigst: Om telegram gruppen og hvad er rører sig, da det er
+// bestyrelsesarbejde som jeg er en del af".
 export const OVERVIEW_SYSTEM = IDENTITY + " Skriv et overordnet overblik til Jacob, bestyrelsesformand, over hvad der rører sig i Hjerterum lige nu, "
-  + "ud fra bestyrelsens chat, referaterne, referatdokumentet og mailen til team@ nedenfor. Saml det i emner, ikke i enkelte beskeder eller mails: "
-  + "hvad der er besluttet, hvad der er i gang og hvem der har det, hvad der kræver hans opmærksomhed eller en beslutning, og hvad der er på vej (datoer). "
-  + "Nævn ikke enkelte mails, afsendere eller reklamer, medmindre de kræver handling. Højst 10 korte punkter under få overskrifter. Er der intet væsentligt, så skriv det på én linje.";
+  + "ud fra bestyrelsens chat, referaterne, referatdokumentet og mailen til team@ nedenfor. "
+  + "Vigtigst er bestyrelsens Telegram-gruppe - det er bestyrelsesarbejdet, han selv er en del af: start med hvad der rører sig dér, "
+  + "hvad der drøftes, hvad der er besluttet, hvad der mangler en afklaring eller venter på ham, og hvem der har hvad. "
+  + "Derefter, i få emner: medlemmerne (nye, stoppede, hvordan det går), gode nyheder, god energi og det, der lykkes, "
+  + "vigtigere administrative ting (økonomi, lokaler, myndigheder, aftaler) og hvad der er på vej (datoer). "
+  + "Bookinger, aflysninger og den daglige drift nævnes ikke. "
+  + "Jacob står ikke for team@ og skal ikke hjælpe med de daglige mails: nævn aldrig en enkelt mail, en afsender eller et emne fra en mail - "
+  + "mailen bruges kun til at se de overordnede temaer og mærke stemningen. "
+  + "Slut med en linje, der begynder med \"Temperatur:\", og som i én sætning siger, hvordan stemningen er i bestyrelsen og omkring Hjerterum (fx god, rolig, travl, presset, anspændt) og hvorfor. "
+  + "Højst 10 korte punkter under få overskrifter plus temperaturen. Er der intet væsentligt, så skriv det på én linje og giv temperaturen.";
 
 export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne, referatdokumentet og Hjerterums mail nedenfor. Sig det, hvis svaret ikke står der.";
 
@@ -55,17 +66,8 @@ export function boardContext(messages: BoardMessage[], minutes: Minutes[], archi
     + (mail ? `\n\n${mail}` : "");
 }
 
-/** Requested: "Saga can use [team@] to read the temperature and let me know if something demands my attention." */
-export const MAIL_SYSTEM = IDENTITY + ` Du vurderer nye mails til Hjerterums fælles mail (team@holistisk.org) for Jacob, bestyrelsesformand. Han læser ikke selv den indbakke.
-For hver mail vælger du:
-- "attention": kræver Jacobs eller bestyrelsens handling eller stillingtagen snart: myndigheder, bank, revisor, advokat, forsikring, udlejer; klager eller utilfredse medlemmer, lejere eller gæster; økonomi, betalingsproblemer, rykkere; aflysninger eller problemer med bookinger; presse; frister; sikkerhed; noget der er gået galt; direkte spørgsmål til bestyrelsen eller formanden.
-- "fyi": relevant for Hjerterum, men haster ikke.
-- "ignore": nyhedsbreve, reklame, spam, automatiske kvitteringer og notifikationer.
-Vær sparsom med "attention" - Jacob skal kun forstyrres, når det er nødvendigt. Giv en kort grund på dansk (højst 15 ord).
-Svar KUN med JSON: [{"n": 1, "verdict": "attention", "reason": "..."}] - én post pr. mail.`;
-
-export function mailContext(mails: Array<{ sender: string; subject: string; received_at_ms: number; verdict: string; reason: string | null }>): string {
+export function mailContext(mails: Array<{ sender: string; subject: string; received_at_ms: number }>): string {
   if (!mails.length) return "";
   return "HJERTERUMS MAIL (team@holistisk.org), seneste 14 dage:\n" + mails.map(m =>
-    `[${time(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.verdict === "attention" ? " - KRÆVER OPMÆRKSOMHED" : ""}${m.reason ? ` (${m.reason})` : ""}`).join("\n");
+    `[${time(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}`).join("\n");
 }
