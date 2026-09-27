@@ -4,6 +4,7 @@ import {
   processNextMinutes, reviseMinutes, revisePost, watchMail, type RelayedMail
 } from "./saga.js";
 import { sagaConnections } from "./connections.js";
+import { minutesDocUrl } from "./drive.js";
 import { claimJob, latestOverview, setServiceStatus, latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
 import { telegramClient } from "./telegram.js";
@@ -141,6 +142,7 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null,
         overview: overview ? { text: overview.text, at: at(overview.created_at_ms) } : null,
         connections,
+        minutesDoc: { url: minutesDocUrl(env), writable: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_MINUTES_DOC_ID) },
         mail: { week: { total: week.length, attention: week.filter(m => m.verdict === "attention").length, ignored: week.filter(m => m.verdict === "ignore").length },
           attention: mail.filter(m => m.verdict === "attention").slice(0, 10).map(m => ({ sender: m.sender, subject: m.subject, reason: m.reason, receivedAt: at(m.received_at_ms) })) }
       });

@@ -90,6 +90,24 @@ export async function readDocText(deps: SagaDeps, token: string, docId: string):
   return (await response.text()).replace(/^\uFEFF/, "");
 }
 
+/** Requested: "Du har allerede fået link til det åbne referatdokument" - a document shared as
+ * "Alle med linket" is read through its public export, with no Google account at all. A document
+ * that is not open answers with Google's login page, never with text. */
+export async function readPublicDocText(deps: SagaDeps, docId: string): Promise<string> {
+  const response = await deps.fetcher(`https://docs.google.com/document/d/${encodeURIComponent(docId)}/export?format=txt`);
+  const type = response.headers.get("content-type") ?? "";
+  if (!response.ok || !/^text\/plain/i.test(type) || /accounts\.google\.com/.test(response.url)) throw new Error(`public_doc_read_failed: ${response.ok ? 403 : response.status}`);
+  return (await response.text()).replace(/^\uFEFF/, "");
+}
+
+/** The minutes document as text: through the service account when Saga has one, else through the open link. */
+export async function minutesDocText(env: SagaEnv, deps: SagaDeps): Promise<string> {
+  if (!env.GOOGLE_MINUTES_DOC_ID) throw new Error("minutes_doc_not_configured");
+  return env.GOOGLE_SERVICE_ACCOUNT_JSON ? readDocText(deps, await driveAccessToken(env, deps), env.GOOGLE_MINUTES_DOC_ID) : readPublicDocText(deps, env.GOOGLE_MINUTES_DOC_ID);
+}
+
+export const minutesDocUrl = (env: SagaEnv) => env.GOOGLE_MINUTES_DOC_ID ? `https://docs.google.com/document/d/${encodeURIComponent(env.GOOGLE_MINUTES_DOC_ID)}/edit` : null;
+
 /** Saga's Markdown as plain document text: headings as lines, bullets as "•". */
 export function plainMinutes(markdown: string): string {
   return markdown.split(/\r?\n/).map(line => line.replace(/^#{1,6}\s+/, "").replace(/^\s*[-*]\s+/, "• ").replace(/\*\*(.+?)\*\*/g, "$1")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
