@@ -5,8 +5,9 @@ import {
 } from "./saga.js";
 import { sagaConnections } from "./connections.js";
 import { minutesDocUrl } from "./drive.js";
-import { claimJob, latestOverview, setServiceStatus, latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
+import { claimJob, latestOverview, markOwnerDone, ownerDone, setServiceStatus, latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
+import { groupActivity, itemKey, telegramLink, type BoardPicture } from "./picture.js";
 import { telegramClient } from "./telegram.js";
 
 type TgUser = { id: number; first_name?: string; last_name?: string; username?: string; is_bot?: boolean };
@@ -17,6 +18,13 @@ type TgMessage = { message_id: number; date: number; chat: { id: number; type: s
 type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: { id: string; from: TgUser; data?: string } };
 
 const POST_LABELS: Record<string, string> = { reply: "Svar i bestyrelseschatten", weekly_summary: "Ugeopsummering", announcement: "Opslag i bestyrelseschatten" };
+/** The stored picture without what the chair already marked as done. */
+function picture(data: string | null, done: Set<string>): BoardPicture | null {
+  if (!data) return null;
+  try { const parsed = JSON.parse(data) as BoardPicture; return { ...parsed, forJacob: (parsed.forJacob ?? []).filter(f => !done.has(f.key)) }; }
+  catch { return null; }
+}
+
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
 /** Constant-time comparison of two secrets. */
@@ -122,9 +130,10 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     const db = requireDb(env);
     if (url.pathname === "/api/saga/liva/overview" && request.method === "GET") {
       const days = Math.min(Math.max(Number(url.searchParams.get("days") || 7), 1), 60);
-      const [messages, minutes, pending, weekly, mail, overview, connections] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
+      const [messages, minutes, pending, weekly, mail, overview, connections, fortnight, done] = await Promise.all([recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - days * 86_400_000, 200),
         recentMinutes(db, 5), pendingForOwner(db), latestWeeklySummary(db), recentMail(db, deps.now() - 14 * 86_400_000, 200),
-        latestOverview(db), sagaConnections(env, deps, url.origin)]);
+        latestOverview(db), sagaConnections(env, deps, url.origin), recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, deps.now() - 14 * 86_400_000, 1000),
+        ownerDone(db, deps.now() - 60 * 86_400_000)]);
       // The first overview is written as soon as the chair looks, if the cron has not yet.
       if (!overview && env.AI_API_KEY && deps.waitUntil && await claimJob(db, "saga_overview_first", Math.floor(deps.now() / 600_000), deps.now())) deps.waitUntil(draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error)));
       const week = mail.filter(m => m.received_at_ms >= deps.now() - 7 * 86_400_000);
@@ -141,6 +150,15 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         pendingApprovals: pending.posts.length + pending.minutes.length,
         weeklySummary: weekly ? { text: weekly.text, at: at(weekly.created_at_ms) } : null,
         overview: overview ? { text: overview.text, at: at(overview.created_at_ms) } : null,
+        // Requested: "hvad vil være en smart gengivelse af telegram gruppechatten?" - "Ja!" - and the
+        // same for the minutes document, with one list of questions and tasks for the chair.
+        picture: picture(overview?.data ?? null, new Set(done.map(d => d.item_key))),
+        group: {
+          activity: groupActivity(fortnight, deps.now()),
+          recent: fortnight.filter(m => !m.from_assistant).slice(-15).map(m => ({ author: m.author_name, text: m.text.slice(0, 600), sentAt: at(m.sent_at_ms),
+            link: telegramLink(env.SAGA_BOARD_CHAT_ID!, m.telegram_message_id) })),
+          link: telegramLink(env.SAGA_BOARD_CHAT_ID, fortnight.at(-1)?.telegram_message_id)
+        },
         connections,
         minutesDoc: { url: minutesDocUrl(env), writable: Boolean(env.GOOGLE_SERVICE_ACCOUNT_JSON && env.GOOGLE_MINUTES_DOC_ID) },
         // Only a count: the chair does not handle team@ (no single mail is shown to him).
@@ -156,6 +174,15 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         .map(m => ({ ref: text(m.ref, 1600), from: text(m.from, 320) || "ukendt", subject: text(m.subject, 500), receivedAt: text(m.receivedAt, 40), text: text(m.text, 4000) }));
       if (!Array.isArray(body?.mails)) return json({ error: "invalid_request" }, 400);
       return json(await watchMail(env, deps, mails));
+    }
+    // Requested: "samle ét sted med spørgsmål og todos til mig" - the chair marks one as done.
+    if (url.pathname === "/api/saga/liva/done" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { key?: unknown; text?: unknown } | null;
+      const key = typeof body?.key === "string" && /^[a-z0-9]{1,16}$/.test(body.key) ? body.key : "";
+      const text = typeof body?.text === "string" ? body.text.trim().slice(0, 300) : "";
+      if (!key || !text || itemKey(text) !== key) return json({ error: "invalid_request" }, 400);
+      await markOwnerDone(db, key, text, deps.now());
+      return json({ done: true });
     }
     // The chair decides or revises in Matrix exactly as with the buttons in Telegram (once only).
     if (request.method === "POST" && (url.pathname === "/api/saga/liva/decide" || url.pathname === "/api/saga/liva/revise")) {

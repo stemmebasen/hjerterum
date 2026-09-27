@@ -362,6 +362,9 @@ describe("Saga's weekly summary and Liva's overview", () => {
       pendingApprovals: 1, weeklySummary: null,
       mail: { week: { total: 0 } },
       overview: null,
+      picture: null,
+      group: { activity: { thisWeek: 1, lastWeek: 0, members: [{ name: "Mette", count: 1 }] }, link: "https://t.me/c/222/1",
+        recent: [{ author: "Mette", text: "Husk kage til mødet", sentAt: new Date(NOW - 60_000).toISOString(), link: "https://t.me/c/222/1" }] },
       connections: {
         telegram: { ok: true, detail: expect.stringContaining("Forbundet") },
         googleDoc: { ok: false, detail: expect.stringContaining("ingen Google-adgang") },
@@ -499,5 +502,88 @@ describe("Saga reads the open minutes document through its link", () => {
     expect(services.calls.some(c => c.url.includes("googleapis.com"))).toBe(false);
     expect(await getMinutes(db, 1)).toMatchObject({ status: "approved" });
     expect(services.telegram("answerCallbackQuery").at(-1)?.body).toMatchObject({ text: expect.stringContaining("https://docs.google.com/document/d/open-doc/edit") });
+  });
+});
+
+// Requested: "hvad vil være en smart gengivelse af telegram gruppechatten?" - "Ja!" - "Men vi skal også
+// have lavet en lignende analyse af dokumentet - f.eks. beslutninger, foreslag, opgaver. Måske skal vi
+// samle ét sted med spørgsmål og todos til mig drager ud af både telegram og doc og mail".
+describe("the board's picture: the group, the document and what waits on the chair", () => {
+  const PICTURE = {
+    summary: "## Gruppen\n- Kagekassen er besluttet.\n\nTemperatur: God - folk er engagerede.",
+    temperature: { level: "god", why: "Folk er engagerede." },
+    topics: [{ title: "Kagekasse", status: "besluttet", who: ["Mette"], waitsOnJacob: false, note: "Vedtaget." },
+      { title: "Nyt lokale", status: "venter", who: ["Mette", "Ole"], waitsOnJacob: true, note: "Venter på formandens svar." }, { title: "" }],
+    document: { decisions: [{ text: "Ny kagekasse.", date: "1. september 2026" }], proposals: [{ text: "Sommerfest i juni", by: "Ole" }],
+      tasks: [{ who: "Mette", what: "Indkøbe kage", due: "fredag" }, { who: "x" }] },
+    forJacob: [{ kind: "spørgsmål", text: "Skal vi leje lokalet på Nørrebro?", source: "telegram", from: "Mette" },
+      { kind: "opgave", text: "Underskriv lejekontrakten", source: "dokument", from: "" },
+      { kind: "opgave", text: "Svar kommunen om tilskud", source: "mail", from: "Kommunen" },
+      { kind: "opgave", text: "Underskriv  lejekontrakten!", source: "dokument", from: "" }]
+  };
+  const google = async () => ({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }), GOOGLE_MINUTES_DOC_ID: "minutes-doc" });
+  const overviewOf = async (env: SagaEnv, fetcher: typeof fetch) => (await (await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/overview", {
+    headers: { authorization: "Bearer liva-secret" } }), env, deps(fetcher, NOW))).json()) as { overview: { text: string }; picture: { topics: unknown[]; document: Record<string, unknown[]>; forJacob: Array<{ key: string; text: string; source: string }>; temperature: unknown } };
+  const done = (env: SagaEnv, fetcher: typeof fetch, body: unknown) => handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/done", {
+    method: "POST", headers: { authorization: "Bearer liva-secret", "content-type": "application/json" }, body: JSON.stringify(body) }), env, deps(fetcher, NOW));
+
+  it("keeps the picture from the same one AI call, checked field by field, and hides what the chair marked as done", async () => {
+    const db = testDatabase();
+    const contexts: string[] = [];
+    const services = fakeServices({ ai: (system, user) => { if (system.includes("overordnet overblik")) { contexts.push(user); return "```json\n" + JSON.stringify(PICTURE) + "\n```"; } return "[]"; } });
+    const env = sagaEnv(db, await google());
+    await webhook(env, services.fetcher, boardMessage(1, "Skal vi leje lokalet på Nørrebro, Jacob?"));
+    await runSagaJobs(env, deps(services.fetcher, NOW));
+    expect(contexts).toHaveLength(1);
+    const first = await overviewOf(env, services.fetcher);
+    expect(first.overview.text).toBe(PICTURE.summary);
+    expect(first.picture.temperature).toEqual({ level: "god", why: "Folk er engagerede." });
+    // An unknown status becomes "drøftes"; an item without a title or text is dropped; the same item twice is shown once.
+    expect(first.picture.topics).toEqual([PICTURE.topics[0], { ...PICTURE.topics[1], status: "drøftes" }]);
+    expect(first.picture.document).toEqual({ decisions: PICTURE.document.decisions, proposals: PICTURE.document.proposals, tasks: [PICTURE.document.tasks[0]] });
+    expect(first.picture.forJacob.map(f => [f.text, f.source])).toEqual([["Skal vi leje lokalet på Nørrebro?", "telegram"], ["Underskriv lejekontrakten", "dokument"], ["Svar kommunen om tilskud", "mail"]]);
+
+    const sign = first.picture.forJacob[1]!;
+    expect((await done(env, services.fetcher, { key: sign.key, text: "Noget andet" })).status).toBe(400);
+    expect(await (await done(env, services.fetcher, { key: sign.key, text: sign.text })).json()).toEqual({ done: true });
+    expect((await overviewOf(env, services.fetcher)).picture.forJacob.map(f => f.text)).toEqual(["Skal vi leje lokalet på Nørrebro?", "Svar kommunen om tilskud"]);
+
+    // The next overview is told what is done, so it is not raised again.
+    const later = boardMessage(2, "Lokalet er lejet");
+    later.message.date = (NOW + 7 * 3_600_000) / 1000;
+    await webhook(env, services.fetcher, later);
+    await runSagaJobs(env, deps(services.fetcher, NOW + 12 * 3_600_000));
+    expect(contexts).toHaveLength(2);
+    expect(contexts[1]).toContain("JACOB HAR MARKERET SOM KLARET:\n- Underskriv lejekontrakten");
+  });
+
+  it("writes a new overview when only the minutes document changed, read without AI, and keeps a plain-text answer as text", async () => {
+    const db = testDatabase();
+    let doc = "Referat 1. september 2026\nBeslutning: Ny kagekasse.", calls = 0;
+    const services = fakeServices({ ai: (system) => { if (system.includes("overordnet overblik")) { calls++; return "Roligt i bestyrelsen.\n\nTemperatur: Rolig."; } return "[]"; } });
+    const fetcher: typeof fetch = async (input, init) => String(input).includes("/export?") ? new Response(doc) : services.fetcher(input, init);
+    const env = sagaEnv(db, await google());
+    await webhook(env, services.fetcher, boardMessage(1, "Husk kage"));
+    await runSagaJobs(env, deps(fetcher, NOW));
+    expect(calls).toBe(1);
+    expect((await overviewOf(env, fetcher)).picture).toBeNull();
+    expect((await overviewOf(env, fetcher)).overview.text).toBe("Roligt i bestyrelsen.\n\nTemperatur: Rolig.");
+    await runSagaJobs(env, deps(fetcher, NOW + 6 * 3_600_000));
+    expect(calls).toBe(1);
+    doc += "\nReferat 20. september 2026\nForslag: Sommerfest.";
+    await runSagaJobs(env, deps(fetcher, NOW + 12 * 3_600_000));
+    expect(calls).toBe(2);
+  });
+
+  it("writes the picture once for an overview from before it, then only when something is new", async () => {
+    const db = testDatabase();
+    let calls = 0;
+    const services = fakeServices({ ai: (system) => { if (system.includes("overordnet overblik")) { calls++; return JSON.stringify(PICTURE); } return "[]"; } });
+    const env = sagaEnv(db);
+    await webhook(env, services.fetcher, boardMessage(1, "Husk kage"));
+    await db.prepare("INSERT INTO board_overviews (text, created_at_ms) VALUES (?, ?)").bind("Gammelt overblik", NOW).run();
+    await runSagaJobs(env, deps(services.fetcher, NOW + 3_600_000));
+    await runSagaJobs(env, deps(services.fetcher, NOW + 7 * 3_600_000));
+    expect(calls).toBe(1);
   });
 });

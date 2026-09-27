@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 
-export type BoardMessage = { author_name: string; text: string; sent_at_ms: number; from_assistant: number };
+export type BoardMessage = { author_name: string; text: string; sent_at_ms: number; from_assistant: number; telegram_message_id?: number };
 export type PostDraft = { id: number; kind: string; text: string; status: string; reply_to_message_id: number | null;
   minutes_id: number | null; approval_message_id: number | null };
 export type Minutes = { id: number; source: string; source_file_id: string; file_name: string; mime_type: string | null;
@@ -16,7 +16,7 @@ export async function saveBoardMessage(db: D1Database, message: { chatId: string
 }
 
 export async function recentBoardMessages(db: D1Database, chatId: string, sinceMs: number, limit = 300): Promise<BoardMessage[]> {
-  const rows = await db.prepare(`SELECT author_name, text, sent_at_ms, from_assistant FROM board_messages
+  const rows = await db.prepare(`SELECT author_name, text, sent_at_ms, from_assistant, telegram_message_id FROM board_messages
     WHERE chat_id = ? AND sent_at_ms >= ? ORDER BY sent_at_ms DESC LIMIT ?`).bind(chatId, sinceMs, limit).all<BoardMessage>();
   return (rows.results ?? []).reverse();
 }
@@ -149,12 +149,27 @@ export async function recentMail(db: D1Database, sinceMs: number, limit = 60): P
 
 // ---- The chair's overview and the connection check ----
 
-export async function saveOverview(db: D1Database, text: string, nowMs: number): Promise<void> {
-  await db.prepare("INSERT INTO board_overviews (text, created_at_ms) VALUES (?, ?)").bind(text, nowMs).run();
+export type Overview = { text: string; data: string | null; doc_hash: string | null; created_at_ms: number };
+
+/** The overview's text, its structured picture (JSON, when the AI gave one) and the fingerprint of the minutes document it read. */
+export async function saveOverview(db: D1Database, text: string, nowMs: number, extra: { data?: string | null; docHash?: string | null } = {}): Promise<void> {
+  await db.prepare("INSERT INTO board_overviews (text, created_at_ms, data, doc_hash) VALUES (?, ?, ?, ?)").bind(text, nowMs, extra.data ?? null, extra.docHash ?? null).run();
 }
 
-export async function latestOverview(db: D1Database): Promise<{ text: string; created_at_ms: number } | null> {
-  return db.prepare("SELECT text, created_at_ms FROM board_overviews ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<{ text: string; created_at_ms: number }>();
+export async function latestOverview(db: D1Database): Promise<Overview | null> {
+  return db.prepare("SELECT text, data, doc_hash, created_at_ms FROM board_overviews ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<Overview>();
+}
+
+/** Requested: "samle ét sted med spørgsmål og todos til mig" - an item the chair marked as done is
+ * hidden and not raised again by the next overview (for 60 days). */
+export async function markOwnerDone(db: D1Database, key: string, text: string, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO board_owner_done (item_key, text, done_at_ms) VALUES (?, ?, ?) ON CONFLICT(item_key) DO UPDATE SET done_at_ms = excluded.done_at_ms")
+    .bind(key, text.slice(0, 300), nowMs).run();
+}
+
+export async function ownerDone(db: D1Database, sinceMs: number): Promise<Array<{ item_key: string; text: string }>> {
+  const rows = await db.prepare("SELECT item_key, text FROM board_owner_done WHERE done_at_ms >= ? ORDER BY done_at_ms DESC LIMIT 60").bind(sinceMs).all<{ item_key: string; text: string }>();
+  return rows.results ?? [];
 }
 
 /** Anything new for the board since a moment: a message in its chat, a mail to team@, or minutes
