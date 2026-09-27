@@ -5,20 +5,29 @@
  * and anything that does not fit is dropped rather than shown. */
 export type TopicStatus = "besluttet" | "drøftes" | "afventer" | "på vej";
 export type Source = "telegram" | "dokument" | "mail";
+export type ThreadStatus = "udsat" | "afventer" | "ingen opfølgning";
 export type BoardPicture = {
   summary: string;
   temperature: { level: string; why: string } | null;
   topics: Array<{ title: string; status: TopicStatus; who: string[]; waitsOnJacob: boolean; note: string }>;
   document: {
-    decisions: Array<{ text: string; date: string }>;
+    latestMeeting: string;
+    missingMinutes: string[];
+    dates: Array<{ date: string; what: string }>;
+    figures: Array<{ label: string; value: string; date: string; previous: string }>;
+    decisions: Array<{ topic: string; text: string; date: string; replaces: string }>;
+    openThreads: Array<{ text: string; since: string; status: ThreadStatus }>;
     proposals: Array<{ text: string; by: string }>;
-    tasks: Array<{ who: string; what: string; due: string }>;
+    tasks: Array<{ who: string; what: string; due: string; since: string }>;
+    nextAgenda: string[];
   };
-  forJacob: Array<{ key: string; kind: "spørgsmål" | "opgave"; text: string; source: Source; from: string }>;
+  forJacob: Array<{ key: string; kind: "spørgsmål" | "opgave"; text: string; source: Source; from: string; since: string }>;
 };
 
 const STATUSES: readonly TopicStatus[] = ["besluttet", "drøftes", "afventer", "på vej"];
 const SOURCES: readonly Source[] = ["telegram", "dokument", "mail"];
+const THREAD_STATUSES: readonly ThreadStatus[] = ["udsat", "afventer", "ingen opfølgning"];
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const str = (value: unknown, max: number) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 const list = (value: unknown, max: number) => (Array.isArray(value) ? value : []).slice(0, max).filter(x => x && typeof x === "object") as Array<Record<string, unknown>>;
 
@@ -54,13 +63,21 @@ export function parsePicture(answer: string): BoardPicture | null {
       who: (Array.isArray(t.who) ? t.who : []).map(w => str(w, 60)).filter(Boolean).slice(0, 6), waitsOnJacob: t.waitsOnJacob === true, note: str(t.note, 300)
     })).filter(t => t.title),
     document: {
-      decisions: list(doc.decisions, 15).map(d => ({ text: str(d.text, 300), date: str(d.date, 40) })).filter(d => d.text),
+      latestMeeting: str(doc.latestMeeting, 40),
+      missingMinutes: (Array.isArray(doc.missingMinutes) ? doc.missingMinutes : []).map(d => str(d, 40)).filter(Boolean).slice(0, 6),
+      // Only real days; the page sorts and drops the ones that have passed.
+      dates: list(doc.dates, 12).map(d => ({ date: str(d.date, 10), what: str(d.what, 200) })).filter(d => ISO_DAY.test(d.date) && d.what),
+      figures: list(doc.figures, 8).map(f => ({ label: str(f.label, 60), value: str(f.value, 80), date: str(f.date, 40), previous: str(f.previous, 120) })).filter(f => f.label && f.value),
+      decisions: list(doc.decisions, 15).map(d => ({ topic: str(d.topic, 80), text: str(d.text, 300), date: str(d.date, 40), replaces: str(d.replaces, 200) })).filter(d => d.text),
+      openThreads: list(doc.openThreads, 12).map(t => ({ text: str(t.text, 300), since: str(t.since, 40),
+        status: THREAD_STATUSES.includes(t.status as ThreadStatus) ? t.status as ThreadStatus : "afventer" })).filter(t => t.text),
       proposals: list(doc.proposals, 15).map(p => ({ text: str(p.text, 300), by: str(p.by, 60) })).filter(p => p.text),
-      tasks: list(doc.tasks, 20).map(t => ({ who: str(t.who, 60), what: str(t.what, 300), due: str(t.due, 40) })).filter(t => t.what)
+      tasks: list(doc.tasks, 25).map(t => ({ who: str(t.who, 60), what: str(t.what, 300), due: str(t.due, 40), since: str(t.since, 40) })).filter(t => t.what),
+      nextAgenda: (Array.isArray(doc.nextAgenda) ? doc.nextAgenda : []).map(a => str(a, 200)).filter(Boolean).slice(0, 8)
     },
     forJacob: list(data.forJacob, 15).map(f => ({
       key: "", kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: str(f.text, 300),
-      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60)
+      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40)
     })).filter(f => f.text).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key))
   };
 }
@@ -84,4 +101,30 @@ export function telegramLink(chatId: string, messageId?: number | null): string 
 export async function docHash(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest).slice(0, 8)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+const MONTHS: Record<string, number> = { januar: 1, februar: 2, marts: 3, april: 4, maj: 5, juni: 6, juli: 7, august: 8, september: 9, oktober: 10, november: 11, december: 12 };
+/** Where a meeting starts in the minutes document: the board's own "Dato for møde: 17/9/ 2026", or
+ * the heading of minutes Saga added ("Referat - bestyrelsesmøde 1. oktober 2026"). */
+const MEETING = /Dato for møde:\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/?\s*(\d{4})|Referat - bestyrelsesmøde\s+(\d{1,2})\.\s*([a-zæøå]+)\s+(\d{4})/giu;
+
+/** The minutes document for the AI, newest meetings first, as many whole meetings as fit. The
+ * board writes its newest meeting at the top and Saga adds hers at the end, so the document is cut
+ * into meetings by their dates rather than by where they stand. Without dates: its start and its
+ * newest end, as before. */
+export function trimMinutesDoc(text: string, max: number): string {
+  const starts = [...text.matchAll(MEETING)].map(m => {
+    const [day, month, year] = m[1] ? [Number(m[1]), Number(m[2]), Number(m[3])] : [Number(m[4]), MONTHS[m[5]!.toLowerCase()] ?? 0, Number(m[6])];
+    return { at: m.index ?? 0, date: year * 10_000 + month * 100 + day, label: `${day}/${month} ${year}` };
+  }).filter(s => s.date % 10_000 > 100);
+  if (starts.length < 2) return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
+  const meetings = starts.map((s, i) => ({ ...s, text: text.slice(s.at, starts[i + 1]?.at ?? text.length).trim() })).sort((a, b) => b.date - a.date);
+  const kept: string[] = [], left: string[] = [];
+  let used = 0;
+  for (const meeting of meetings) {
+    if (used + meeting.text.length <= max) { kept.push(meeting.text); used += meeting.text.length + 2; }
+    else if (!kept.length) { kept.push(`${meeting.text.slice(0, max)}\n[…]`); used = max; }
+    else left.push(meeting.label);
+  }
+  return kept.join("\n\n") + (left.length ? `\n\n[Ældre møder ikke medtaget: ${left.join(", ")}]` : "");
 }

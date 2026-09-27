@@ -59,11 +59,21 @@ export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til 
   + "\"temperature\": {\"level\": ét ord (fx god, rolig, travl, presset, anspændt), \"why\": én kort sætning},\n"
   + "\"topics\": emnerne i Telegram-gruppen de seneste to uger, vigtigste først, højst 8: [{\"title\": kort emne, \"status\": \"besluttet\" | \"drøftes\" | \"afventer\" | \"på vej\", "
   + "\"who\": [fornavne på dem der er involveret], \"waitsOnJacob\": true kun når nogen venter på Jacob eller formanden, \"note\": én kort sætning om hvor det står}],\n"
-  + "\"document\": referatdokumentet, nyeste først: {\"decisions\": [{\"text\", \"date\"}] de vigtigste beslutninger, højst 10; "
-  + "\"proposals\": [{\"text\", \"by\"}] forslag og idéer der er rejst men ikke besluttet, højst 8; "
-  + "\"tasks\": [{\"who\", \"what\", \"due\"}] opgaver der ikke er meldt færdige, højst 12},\n"
+  // Requested, after the board's own minutes were read through: "Kig også gerne i dokumentet og vurder hvad vil være mest
+  // hjælpsomt at vise mig". The document holds one meeting after another (newest at the top): an agenda, then "Referat",
+  // with "Beslutning:", "Opfølgning:", "Ansvar:", "Aftalt:" and "Næste skridt:" and often a closing "Beslutninger og opfølgning".
+  + "\"document\": referatdokumentet, set fra formandens stol: {"
+  + "\"latestMeeting\": datoen for det seneste møde med referat; "
+  + "\"missingMinutes\": [datoer på møder, der kun har en dagsorden og intet referat]; "
+  + "\"dates\": [{\"date\": ÅÅÅÅ-MM-DD, \"what\"}] kommende datoer og frister fra i dag og frem (møder, generalforsamling, arrangementer, frister for invitationer og forslag), tidligste først, højst 8; "
+  + "\"figures\": [{\"label\", \"value\", \"date\", \"previous\"}] de nyeste nøgletal (fx penge på kontoen, månedlige udgifter, medlemstal, indtægt fra et arrangement) med mødedatoen og det tidligere tal og dets dato i previous, når det findes, højst 6; "
+  + "\"decisions\": [{\"topic\", \"text\", \"date\", \"replaces\"}] de gældende beslutninger, nyeste først, højst 12: er en beslutning senere ændret (fx en dato eller en pris), vises kun den nye, og den gamle står kort i replaces; "
+  + "\"openThreads\": [{\"text\", \"since\", \"status\": \"udsat\" | \"afventer\" | \"ingen opfølgning\"}] punkter, der er udsat, venter på noget, eller hvor en aftalt opfølgning aldrig er nævnt igen på et senere møde, ældste først, højst 10; "
+  + "\"proposals\": [{\"text\", \"by\"}] forslag og idéer, der er rejst men ikke besluttet, højst 8; "
+  + "\"tasks\": [{\"who\", \"what\", \"due\", \"since\"}] åbne opgaver for alle (ikke meldt færdige på et senere møde), med mødedatoen i since, højst 20; "
+  + "\"nextAgenda\": [forslag til punkter på næste dagsorden: udsatte punkter og opfølgninger, der mangler], højst 6},\n"
   + "\"forJacob\": samlet liste over spørgsmål og opgaver til Jacob selv (han er formand) fra gruppen, dokumentet og mailen, vigtigste først, højst 10: "
-  + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom}]}\n"
+  + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom, \"since\": datoen det blev rejst (mødedatoen, når det kommer fra dokumentet)}]. Jacobs egne åbne opgaver fra referaterne hører med her.}\n"
   + "Kun det, der faktisk står i materialet; et felt uden indhold er en tom liste. Datoer og navne præcist som i materialet. "
   + "Tag ikke noget med i forJacob, som Jacob allerede har markeret som klaret (listen nedenfor), medmindre der er kommet noget nyt i sagen.";
 

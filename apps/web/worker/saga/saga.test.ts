@@ -5,6 +5,7 @@ import { runSagaJobs } from "./saga.js";
 import { getMinutes, getPostDraft } from "./store.js";
 import { deps, fakeServices, OWNER, BOARD, sagaEnv, testDatabase } from "./test-support.js";
 import { speakerTranscript } from "./transcribe.js";
+import { trimMinutesDoc } from "./picture.js";
 import type { SagaEnv } from "./env.js";
 import { OVERVIEW_SYSTEM } from "./prompts.js";
 
@@ -514,9 +515,14 @@ describe("the board's picture: the group, the document and what waits on the cha
     temperature: { level: "god", why: "Folk er engagerede." },
     topics: [{ title: "Kagekasse", status: "besluttet", who: ["Mette"], waitsOnJacob: false, note: "Vedtaget." },
       { title: "Nyt lokale", status: "venter", who: ["Mette", "Ole"], waitsOnJacob: true, note: "Venter på formandens svar." }, { title: "" }],
-    document: { decisions: [{ text: "Ny kagekasse.", date: "1. september 2026" }], proposals: [{ text: "Sommerfest i juni", by: "Ole" }],
-      tasks: [{ who: "Mette", what: "Indkøbe kage", due: "fredag" }, { who: "x" }] },
-    forJacob: [{ kind: "spørgsmål", text: "Skal vi leje lokalet på Nørrebro?", source: "telegram", from: "Mette" },
+    document: { latestMeeting: "17/9 2026", missingMinutes: ["10/9 2026"],
+      dates: [{ date: "2026-10-14", what: "Generalforsamling" }, { date: "14. oktober", what: "Ikke en dag" }],
+      figures: [{ label: "Medlemmer", value: "ca. 168", date: "17/9 2026", previous: "ca. 137 (20/8 2026)" }, { label: "Kasse" }],
+      decisions: [{ topic: "Generalforsamling", text: "Afholdes 14. oktober 2026.", date: "17/9 2026", replaces: "30. september (3/9)" }],
+      openThreads: [{ text: "Lavere husleje hos udlejer", since: "23/7 2026", status: "ingen opfølgning" }, { text: "Medlemskab for bestyrelsen", since: "17/9 2026", status: "parkeret" }],
+      proposals: [{ text: "Sommerfest i juni", by: "Ole" }],
+      tasks: [{ who: "Mette", what: "Indkøbe kage", due: "fredag", since: "17/9 2026" }, { who: "x" }], nextAgenda: ["Medlemskab for bestyrelsen", ""] },
+    forJacob: [{ kind: "spørgsmål", text: "Skal vi leje lokalet på Nørrebro?", source: "telegram", from: "Mette", since: "" },
       { kind: "opgave", text: "Underskriv lejekontrakten", source: "dokument", from: "" },
       { kind: "opgave", text: "Svar kommunen om tilskud", source: "mail", from: "Kommunen" },
       { kind: "opgave", text: "Underskriv  lejekontrakten!", source: "dokument", from: "" }]
@@ -535,12 +541,18 @@ describe("the board's picture: the group, the document and what waits on the cha
     await webhook(env, services.fetcher, boardMessage(1, "Skal vi leje lokalet på Nørrebro, Jacob?"));
     await runSagaJobs(env, deps(services.fetcher, NOW));
     expect(contexts).toHaveLength(1);
+    // The AI knows what day it is, so "kommende datoer" and "ingen opfølgning" mean something.
+    expect(contexts[0]).toMatch(/^I DAG: 23\. september 2026\n/);
     const first = await overviewOf(env, services.fetcher);
     expect(first.overview.text).toBe(PICTURE.summary);
     expect(first.picture.temperature).toEqual({ level: "god", why: "Folk er engagerede." });
     // An unknown status becomes "drøftes"; an item without a title or text is dropped; the same item twice is shown once.
     expect(first.picture.topics).toEqual([PICTURE.topics[0], { ...PICTURE.topics[1], status: "drøftes" }]);
-    expect(first.picture.document).toEqual({ decisions: PICTURE.document.decisions, proposals: PICTURE.document.proposals, tasks: [PICTURE.document.tasks[0]] });
+    // A date that is not a real day, a figure without a value and an empty agenda point are dropped; an unknown status becomes "afventer".
+    expect(first.picture.document).toEqual({ latestMeeting: "17/9 2026", missingMinutes: ["10/9 2026"], dates: [PICTURE.document.dates[0]],
+      figures: [PICTURE.document.figures[0]], decisions: PICTURE.document.decisions,
+      openThreads: [PICTURE.document.openThreads[0], { ...PICTURE.document.openThreads[1], status: "afventer" }],
+      proposals: PICTURE.document.proposals, tasks: [PICTURE.document.tasks[0]], nextAgenda: ["Medlemskab for bestyrelsen"] });
     expect(first.picture.forJacob.map(f => [f.text, f.source])).toEqual([["Skal vi leje lokalet på Nørrebro?", "telegram"], ["Underskriv lejekontrakten", "dokument"], ["Svar kommunen om tilskud", "mail"]]);
 
     const sign = first.picture.forJacob[1]!;
@@ -585,5 +597,30 @@ describe("the board's picture: the group, the document and what waits on the cha
     await runSagaJobs(env, deps(services.fetcher, NOW + 3_600_000));
     await runSagaJobs(env, deps(services.fetcher, NOW + 7 * 3_600_000));
     expect(calls).toBe(1);
+  });
+});
+
+// The board writes its newest meeting at the top of the document and Saga appends hers at the end,
+// so what the AI reads is cut by meeting date, not by position.
+describe("the minutes document for the AI", () => {
+  const meeting = (date: string, body: string) => `Dato for møde: ${date}  kl.13:30-15:30\n\nDeltagere: Douglas, Jacob\n\nReferat\n${body}\n`;
+  const doc = "Dagsordener & referater\n" + meeting("17/9/ 2026", "Nyeste møde. " + "a".repeat(300)) + meeting("10/9 2026", "Kun dagsorden.")
+    + meeting("27/8/2026", "Ældre møde. " + "b".repeat(300)) + meeting("23/7 2026", "Ældste møde. " + "c".repeat(300))
+    + "Referat - bestyrelsesmøde 1. oktober 2026\nSagas eget referat, tilføjet sidst.";
+
+  it("keeps the newest meetings first, wherever they stand, and names the ones left out", () => {
+    const text = trimMinutesDoc(doc, 900);
+    expect(text.indexOf("Sagas eget referat")).toBe(text.indexOf("Referat - bestyrelsesmøde 1. oktober 2026") + "Referat - bestyrelsesmøde 1. oktober 2026\n".length);
+    expect(text.indexOf("1. oktober")).toBeLessThan(text.indexOf("Nyeste møde"));
+    expect(text.indexOf("Nyeste møde")).toBeLessThan(text.indexOf("Kun dagsorden"));
+    expect(text).not.toContain("Ældste møde");
+    expect(text).toMatch(/\[Ældre møder ikke medtaget: .*23\/7 2026\]$/);
+  });
+
+  it("keeps everything when it fits, and cuts a document without meeting dates at its start and end", () => {
+    expect(trimMinutesDoc(doc, 100_000)).toContain("Ældste møde");
+    expect(trimMinutesDoc(doc, 100_000)).not.toContain("ikke medtaget");
+    const plain = "start " + "x".repeat(2000) + " slut";
+    expect(trimMinutesDoc(plain, 400)).toMatch(/^start x+\n\[…\]\nx+ slut$/);
   });
 });
