@@ -3,9 +3,10 @@ import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, list
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
-import { OVERVIEW_SYSTEM, boardContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
+import { docHash, parsePicture } from "./picture.js";
+import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  saveOverview, latestOverview, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -20,22 +21,23 @@ const danishDate = (iso: string | null) => {
 const owner = (env: SagaEnv) => { if (!env.SAGA_OWNER_TELEGRAM_ID) throw new Error("owner_not_configured"); return env.SAGA_OWNER_TELEGRAM_ID; };
 const board = (env: SagaEnv) => { if (!env.SAGA_BOARD_CHAT_ID) throw new Error("board_not_configured"); return env.SAGA_BOARD_CHAT_ID; };
 
-/** The board's minutes document, trimmed to what fits (its start and its newest end). Never
- * stops Saga: without it she answers from the chat and her own minutes. */
-async function archive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<string> {
-  if (!env.GOOGLE_MINUTES_DOC_ID) return "";
+/** The board's minutes document, trimmed to what fits (its start and its newest end), and a
+ * fingerprint of all of it. Never stops Saga: without it she answers from the chat and her own minutes. */
+async function readArchive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<{ text: string; hash: string }> {
+  if (!env.GOOGLE_MINUTES_DOC_ID) return { text: "", hash: "none" };
   try {
     const text = (await minutesDocText(env, deps)).trim();
-    return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
+    return { text: text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`, hash: await docHash(text) };
   } catch (error) {
     console.warn("saga_doc_read_failed", error instanceof Error ? error.message : error);
-    return "";
+    return { text: "", hash: "unread" };
   }
 }
+const archive = async (env: SagaEnv, deps: SagaDeps, max?: number) => (await readArchive(env, deps, max)).text;
 
-async function context(env: SagaEnv, deps: SagaDeps, days = 30) {
+async function context(env: SagaEnv, deps: SagaDeps, days = 30, doc?: string) {
   const db = requireDb(env);
-  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3), await archive(env, deps),
+  return boardContext(await recentBoardMessages(db, board(env), deps.now() - days * DAY), await recentMinutes(db, 3), doc ?? await archive(env, deps),
     mailContext(await recentMail(db, deps.now() - Math.min(days, 14) * DAY, 60)));
 }
 
@@ -125,13 +127,29 @@ export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<
 }
 
 /** Requested: "Jeg skal ikke se mails. Jeg skal have overordnet resume" - the board as a whole,
- * from its group, the minutes, the minutes document and team@, for the chair's Hjerterum page. */
-export async function draftOverview(env: SagaEnv, deps: SagaDeps): Promise<void> {
+ * from its group, the minutes, the minutes document and team@, for the chair's Hjerterum page.
+ * The same one AI call also gives the picture as data: the group's topics, the document's
+ * decisions, proposals and tasks, and one list of what waits on Jacob ("Ja!" - "Men vi skal også
+ * have lavet en lignende analyse af dokumentet"). A plain-text answer is kept as it is. */
+export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: string; hash: string }): Promise<void> {
   const db = requireDb(env), since = deps.now() - 14 * DAY;
   // Nothing written, mailed or recorded: nothing to sum up (and no AI call).
   if (!(await recentBoardMessages(db, board(env), since, 1)).length && !(await recentMail(db, since, 1)).length && !(await recentMinutes(db, 1)).length) return;
-  const text = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: await context(env, deps, 14) }]);
-  await saveOverview(requireDb(env), text, deps.now());
+  const read = doc ?? await readArchive(env, deps);
+  const done = await ownerDone(db, deps.now() - 60 * DAY);
+  const answer = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: `${await context(env, deps, 14, read.text)}${doneContext(done)}` }]);
+  const picture = parsePicture(answer);
+  await saveOverview(db, picture ? picture.summary : answer, deps.now(), { data: picture ? JSON.stringify(picture) : null, docHash: read.hash });
+}
+
+/** Whether the overview is out of date: something new in the group, the mail or the minutes, the
+ * minutes document changed since it was read (read without AI), or it predates the picture. */
+async function overviewStale(env: SagaEnv, deps: SagaDeps, db: NonNullable<SagaEnv["DB"]>): Promise<{ stale: boolean; doc?: { text: string; hash: string } }> {
+  const last = await latestOverview(db);
+  if (!last || last.doc_hash === null || await boardActivitySince(db, board(env), last.created_at_ms)) return { stale: true };
+  if (!env.GOOGLE_MINUTES_DOC_ID) return { stale: false };
+  const doc = await readArchive(env, deps);
+  return { stale: doc.hash !== "unread" && doc.hash !== last.doc_hash, doc };
 }
 
 // ---- Minutes ----
@@ -255,9 +273,8 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // something happened since the last one. Requested: "Undersøg igen unødvendig og kontinuerlig
   // brug af AI" - it was rewritten every six hours whether or not anything was new.
   if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / (6 * 3_600_000)), deps.now())) {
-    const last = await latestOverview(env.DB);
-    if (!last || await boardActivitySince(env.DB, env.SAGA_BOARD_CHAT_ID, last.created_at_ms))
-      await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
+    const { stale, doc } = await overviewStale(env, deps, env.DB);
+    if (stale) await draftOverview(env, deps, doc).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   }
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));

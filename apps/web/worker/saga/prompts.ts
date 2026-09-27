@@ -42,17 +42,30 @@ export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til besty
 // bookinger. Men jeg vil gerne vide besked om overordnet ting som f.eks medlemmer, gode nyheder, god
 // energi, vigtigere admin ting" - "Og så vigtigst: Om telegram gruppen og hvad er rører sig, da det er
 // bestyrelsesarbejde som jeg er en del af".
-export const OVERVIEW_SYSTEM = IDENTITY + " Skriv et overordnet overblik til Jacob, bestyrelsesformand, over hvad der rører sig i Hjerterum lige nu, "
+export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til Jacob, bestyrelsesformand, over hvad der rører sig i Hjerterum lige nu, "
   + "ud fra bestyrelsens chat, referaterne, referatdokumentet og mailen til team@ nedenfor. "
-  + "Vigtigst er bestyrelsens Telegram-gruppe - det er bestyrelsesarbejdet, han selv er en del af: start med hvad der rører sig dér, "
-  + "hvad der drøftes, hvad der er besluttet, hvad der mangler en afklaring eller venter på ham, og hvem der har hvad. "
+  + "Vigtigst er bestyrelsens Telegram-gruppe - det er bestyrelsesarbejdet, han selv er en del af: hvad der drøftes, hvad der er besluttet, "
+  + "hvad der mangler en afklaring eller venter på ham, og hvem der har hvad. "
   + "Derefter, i få emner: medlemmerne (nye, stoppede, hvordan det går), gode nyheder, god energi og det, der lykkes, "
   + "vigtigere administrative ting (økonomi, lokaler, myndigheder, aftaler) og hvad der er på vej (datoer). "
   + "Bookinger, aflysninger og den daglige drift nævnes ikke. "
-  + "Jacob står ikke for team@ og skal ikke hjælpe med de daglige mails: nævn aldrig en enkelt mail, en afsender eller et emne fra en mail - "
-  + "mailen bruges kun til at se de overordnede temaer og mærke stemningen. "
-  + "Slut med en linje, der begynder med \"Temperatur:\", og som i én sætning siger, hvordan stemningen er i bestyrelsen og omkring Hjerterum (fx god, rolig, travl, presset, anspændt) og hvorfor. "
-  + "Højst 10 korte punkter under få overskrifter plus temperaturen. Er der intet væsentligt, så skriv det på én linje og giv temperaturen.";
+  + "Jacob står ikke for team@ og skal ikke hjælpe med de daglige mails: mailen bruges kun til at se de overordnede temaer og mærke stemningen, "
+  + "og en mail nævnes kun, når den direkte beder formanden eller bestyrelsen om et svar eller en beslutning (så kun i forJacob). "
+  // Requested: "Men vi skal også have lavet en lignende analyse af dokumentet - f.eks. beslutninger, foreslag, opgaver.
+  // Måske skal vi samle ét sted med spørgsmål og todos til mig drager ud af både telegram og doc og mail".
+  + "Svar KUN med ét JSON-objekt (ingen tekst uden om) med præcis disse felter:\n"
+  + "{\"summary\": Markdown, højst 8 korte punkter under få overskrifter: gruppen i én til to linjer, derefter medlemmer, gode nyheder og energi, admin og det der er på vej. "
+  + "Sidste linje begynder med \"Temperatur:\" og siger i én sætning, hvordan stemningen er i bestyrelsen og omkring Hjerterum og hvorfor. Er der intet væsentligt, så én linje plus temperaturen.,\n"
+  + "\"temperature\": {\"level\": ét ord (fx god, rolig, travl, presset, anspændt), \"why\": én kort sætning},\n"
+  + "\"topics\": emnerne i Telegram-gruppen de seneste to uger, vigtigste først, højst 8: [{\"title\": kort emne, \"status\": \"besluttet\" | \"drøftes\" | \"afventer\" | \"på vej\", "
+  + "\"who\": [fornavne på dem der er involveret], \"waitsOnJacob\": true kun når nogen venter på Jacob eller formanden, \"note\": én kort sætning om hvor det står}],\n"
+  + "\"document\": referatdokumentet, nyeste først: {\"decisions\": [{\"text\", \"date\"}] de vigtigste beslutninger, højst 10; "
+  + "\"proposals\": [{\"text\", \"by\"}] forslag og idéer der er rejst men ikke besluttet, højst 8; "
+  + "\"tasks\": [{\"who\", \"what\", \"due\"}] opgaver der ikke er meldt færdige, højst 12},\n"
+  + "\"forJacob\": samlet liste over spørgsmål og opgaver til Jacob selv (han er formand) fra gruppen, dokumentet og mailen, vigtigste først, højst 10: "
+  + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom}]}\n"
+  + "Kun det, der faktisk står i materialet; et felt uden indhold er en tom liste. Datoer og navne præcist som i materialet. "
+  + "Tag ikke noget med i forJacob, som Jacob allerede har markeret som klaret (listen nedenfor), medmindre der er kommet noget nyt i sagen.";
 
 export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne, referatdokumentet og Hjerterums mail nedenfor. Sig det, hvis svaret ikke står der.";
 
@@ -64,6 +77,11 @@ export function boardContext(messages: BoardMessage[], minutes: Minutes[], archi
   return `BESTYRELSENS CHAT:\n${chat || "(ingen beskeder)"}\n\nREFERATER:\n${notes || "(ingen)"}`
     + (archive ? `\n\nBESTYRELSENS REFERATDOKUMENT (tidligere referater og beslutninger):\n${archive}` : "")
     + (mail ? `\n\n${mail}` : "");
+}
+
+/** What the chair has already marked as done, so it is not raised again. */
+export function doneContext(done: Array<{ text: string }>): string {
+  return done.length ? "\n\nJACOB HAR MARKERET SOM KLARET:\n" + done.map(d => `- ${d.text}`).join("\n") : "";
 }
 
 export function mailContext(mails: Array<{ sender: string; subject: string; received_at_ms: number }>): string {
