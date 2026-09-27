@@ -365,12 +365,15 @@ describe("Saga's weekly summary and Liva's overview", () => {
       mail: { week: { total: 0, attention: 0, ignored: 0 }, attention: [] },
       overview: null,
       connections: {
-        telegram: { ok: false, detail: expect.stringContaining("ingen webhook") },
+        telegram: { ok: true, detail: expect.stringContaining("Forbundet") },
         googleDoc: { ok: false, detail: expect.stringContaining("ingen Google-adgang") },
         mail: { ok: null, detail: expect.any(String) },
         ai: { ok: true, detail: expect.stringContaining("Virker") }
-      }
+      },
+      minutesDoc: { url: null, writable: false }
     });
+    // Requested: "Telegram-gruppen bør også være sat op" - a bot with no webhook is connected to Saga.
+    expect(services.telegram("setWebhook").at(-1)?.body).toEqual({ url: "https://hjerterum.test/api/saga/telegram", secret_token: "hook-secret", allowed_updates: ["message", "callback_query"] });
   });
 
   it("lets the chair decide and revise from Matrix exactly as in Telegram, once", async () => {
@@ -442,8 +445,12 @@ describe("Saga's overview and connection check for the chair", () => {
     const db = testDatabase(), services = fakeServices();
     const env = sagaEnv(db, await google());
     expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://matrix.example/telegram" }))).connections.telegram.detail).toContain("matrix.example");
-    expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram", last_error_message: "Wrong response from the webhook: 401 Unauthorized" })))
-      .connections.telegram.detail).toContain("401");
+    expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram", last_error_message: "Connection timed out" })))
+      .connections.telegram.detail).toContain("Connection timed out");
+    expect(services.telegram("setWebhook")).toHaveLength(0);
+    // A bot pointed elsewhere is never taken over; one refused with an old secret is reconnected.
+    await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram", last_error_message: "Wrong response from the webhook: 401 Unauthorized" }));
+    expect(services.telegram("setWebhook")).toHaveLength(1);
     await webhook(env, services.fetcher, { ...boardMessage(2, "Hej"), message: { ...boardMessage(2, "Hej").message, chat: { id: -100999, type: "supergroup" } } });
     expect((await overviewOf(env, withWebhook(services.fetcher, { url: "https://hjerterum.test/api/saga/telegram" }))).connections.telegram.detail).toContain("-100999");
 
@@ -457,5 +464,42 @@ describe("Saga's overview and connection check for the chair", () => {
     expect((await overviewOf(env, failing)).connections.ai).toMatchObject({ ok: false, detail: expect.stringContaining("Invalid API key") });
     const { AI_API_KEY: _key, ...keyless } = env;
     expect((await overviewOf(keyless, failing)).connections.ai).toMatchObject({ ok: false, detail: expect.stringContaining("AI_API_KEY") });
+  });
+});
+
+// Requested: "Du har allerede fået link til det åbne referatdokument" - no Google account needed to read it.
+describe("Saga reads the open minutes document through its link", () => {
+  const overviewOf = async (env: SagaEnv, fetcher: typeof fetch) => (await (await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/overview", {
+    headers: { authorization: "Bearer liva-secret" } }), env, deps(fetcher))).json()) as { connections: { googleDoc: { ok: boolean | null; detail: string } }; minutesDoc: { url: string | null; writable: boolean } };
+
+  it("reads a document shared with everyone with the link, and says it cannot write in it", async () => {
+    const db = testDatabase(), services = fakeServices();
+    const env = sagaEnv(db, { GOOGLE_MINUTES_DOC_ID: "open-doc" });
+    const result = await overviewOf(env, services.fetcher);
+    expect(result.connections.googleDoc).toMatchObject({ ok: true, detail: expect.stringContaining("åbne link") });
+    expect(result.minutesDoc).toEqual({ url: "https://docs.google.com/document/d/open-doc/edit", writable: false });
+    expect(services.calls.some(c => c.url === "https://docs.google.com/document/d/open-doc/export?format=txt" && !c.url.includes("googleapis"))).toBe(true);
+  });
+
+  it("says so when the link is not open (Google answers with its login page)", async () => {
+    const db = testDatabase(), services = fakeServices();
+    const login: typeof fetch = async (input, init) => String(input).startsWith("https://docs.google.com/")
+      ? new Response("<html>Log ind</html>", { headers: { "content-type": "text/html; charset=utf-8" } }) : services.fetcher(input, init);
+    const result = await overviewOf(sagaEnv(db, { GOOGLE_MINUTES_DOC_ID: "closed-doc" }), login);
+    expect(result.connections.googleDoc).toMatchObject({ ok: false, detail: expect.stringContaining("Alle med linket") });
+  });
+
+  it("uses the open document for answers, and on approval points to it instead of writing", async () => {
+    const db = testDatabase();
+    const prompts: string[] = [];
+    const services = fakeServices({ ai: (_system, user) => { prompts.push(user); return user.includes("JACOB SPØRGER") ? "Kagekassen blev vedtaget." : MINUTES; } });
+    const { SAGA_BOARD_POSTING: _on, ...env } = sagaEnv(db, { GOOGLE_MINUTES_DOC_ID: "open-doc" });
+    await webhook(env as SagaEnv, services.fetcher, privateMessage(4, { text: "Hvad besluttede vi om kage?" }));
+    expect(prompts[0]).toContain("Beslutning: Ny kagekasse.");
+    await webhook(env as SagaEnv, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
+    await webhook(env as SagaEnv, services.fetcher, callback("approve:minutes:1"));
+    expect(services.calls.some(c => c.url.includes("googleapis.com"))).toBe(false);
+    expect(await getMinutes(db, 1)).toMatchObject({ status: "approved" });
+    expect(services.telegram("answerCallbackQuery").at(-1)?.body).toMatchObject({ text: expect.stringContaining("https://docs.google.com/document/d/open-doc/edit") });
   });
 });

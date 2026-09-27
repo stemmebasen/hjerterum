@@ -1,5 +1,5 @@
 import { complete } from "./ai.js";
-import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, plainMinutes, readDocText } from "./drive.js";
+import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
@@ -23,9 +23,9 @@ const board = (env: SagaEnv) => { if (!env.SAGA_BOARD_CHAT_ID) throw new Error("
 /** The board's minutes document, trimmed to what fits (its start and its newest end). Never
  * stops Saga: without it she answers from the chat and her own minutes. */
 async function archive(env: SagaEnv, deps: SagaDeps, max = 30_000): Promise<string> {
-  if (!env.GOOGLE_SERVICE_ACCOUNT_JSON || !env.GOOGLE_MINUTES_DOC_ID) return "";
+  if (!env.GOOGLE_MINUTES_DOC_ID) return "";
   try {
-    const text = (await readDocText(deps, await driveAccessToken(env, deps), env.GOOGLE_MINUTES_DOC_ID)).trim();
+    const text = (await minutesDocText(env, deps)).trim();
     return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
   } catch (error) {
     console.warn("saga_doc_read_failed", error instanceof Error ? error.message : error);
@@ -249,8 +249,11 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
       await updateMinutes(db, id, { error: error instanceof Error ? error.message : "drive_failed" }, deps.now());
     }
   }
+  // An open document Saga can only read: the approved minutes are kept here, and the chair pastes them in.
+  const readOnly = !link && !failed && !env.GOOGLE_SERVICE_ACCOUNT_JSON && minutesDocUrl(env);
   if (!postsToBoard(env)) return link ? `Skrevet ind i referatdokumentet: ${link}`
     : failed ? `Godkendt, men det kunne ikke skrives i referatdokumentet (${failed}). Referatet er filen ovenfor.`
+    : readOnly ? `Godkendt og gemt hos Saga. Hun kan læse referatdokumentet, men ikke skrive i det, så sæt referatet ind her: ${readOnly}`
     : "Godkendt. Referatet er filen ovenfor (referatdokumentet er ikke koblet på endnu).";
   const decisions = section(item.draft_markdown, /beslutninger/i), tasks = section(item.draft_markdown, /opgaver/i);
   const text = [`${title}`, decisions && `Beslutninger:\n${decisions}`, tasks && `Opgaver:\n${tasks}`, link ? `Hele referatet: ${link}` : ""].filter(Boolean).join("\n\n");
