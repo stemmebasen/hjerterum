@@ -58,7 +58,7 @@ export const pendingPostCount = async (db: D1Database) =>
 const MINUTES_COLUMNS = "id, source, source_file_id, file_name, mime_type, status, meeting_date, transcript, draft_markdown, approval_message_id, drive_document_url, attempts, created_at_ms";
 
 /** Queues a recording once; a file already queued (by id) is never processed twice. */
-export async function queueMinutes(db: D1Database, file: { source: "telegram" | "drive"; fileId: string; fileName: string;
+export async function queueMinutes(db: D1Database, file: { source: "telegram" | "drive" | "upload"; fileId: string; fileName: string;
   mimeType: string | null; meetingDate: string | null; nowMs: number }): Promise<number | null> {
   const result = await db.prepare(`INSERT OR IGNORE INTO board_minutes (source, source_file_id, file_name, mime_type, meeting_date, created_at_ms, updated_at_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(file.source, file.fileId, file.fileName, file.mimeType, file.meetingDate, file.nowMs, file.nowMs).run();

@@ -108,17 +108,23 @@ const MONTHS: Record<string, number> = { januar: 1, februar: 2, marts: 3, april:
  * the heading of minutes Saga added ("Referat - bestyrelsesmøde 1. oktober 2026"). */
 const MEETING = /Dato for møde:\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/?\s*(\d{4})|Referat - bestyrelsesmøde\s+(\d{1,2})\.\s*([a-zæøå]+)\s+(\d{4})/giu;
 
+/** The minutes document cut into its meetings, newest first: each with its day (YYYY-MM-DD), a short
+ * label and its own text. The board cockpit's archive shows the historical minutes this way. */
+export function splitMinutesDoc(text: string): Array<{ date: number; day: string; label: string; text: string }> {
+  const starts = [...text.matchAll(MEETING)].map(m => {
+    const [day, month, year] = m[1] ? [Number(m[1]), Number(m[2]), Number(m[3])] : [Number(m[4]), MONTHS[m[5]!.toLowerCase()] ?? 0, Number(m[6])];
+    return { at: m.index ?? 0, date: year * 10_000 + month * 100 + day, day: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`, label: `${day}/${month} ${year}` };
+  }).filter(s => s.date % 10_000 > 100 && s.date % 100 >= 1 && s.date % 100 <= 31);
+  return starts.map((s, i) => ({ date: s.date, day: s.day, label: s.label, text: text.slice(s.at, starts[i + 1]?.at ?? text.length).trim() })).sort((a, b) => b.date - a.date);
+}
+
 /** The minutes document for the AI, newest meetings first, as many whole meetings as fit. The
  * board writes its newest meeting at the top and Saga adds hers at the end, so the document is cut
  * into meetings by their dates rather than by where they stand. Without dates: its start and its
  * newest end, as before. */
 export function trimMinutesDoc(text: string, max: number): string {
-  const starts = [...text.matchAll(MEETING)].map(m => {
-    const [day, month, year] = m[1] ? [Number(m[1]), Number(m[2]), Number(m[3])] : [Number(m[4]), MONTHS[m[5]!.toLowerCase()] ?? 0, Number(m[6])];
-    return { at: m.index ?? 0, date: year * 10_000 + month * 100 + day, label: `${day}/${month} ${year}` };
-  }).filter(s => s.date % 10_000 > 100);
-  if (starts.length < 2) return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
-  const meetings = starts.map((s, i) => ({ ...s, text: text.slice(s.at, starts[i + 1]?.at ?? text.length).trim() })).sort((a, b) => b.date - a.date);
+  const meetings = splitMinutesDoc(text);
+  if (meetings.length < 2) return text.length <= max ? text : `${text.slice(0, Math.floor(max * 0.25))}\n[…]\n${text.slice(-Math.floor(max * 0.75))}`;
   const kept: string[] = [], left: string[] = [];
   let used = 0;
   for (const meeting of meetings) {

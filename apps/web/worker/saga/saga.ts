@@ -187,6 +187,12 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
   try {
     let audio: ArrayBuffer;
     if (item.source === "drive") audio = await downloadDriveFile(deps, await driveAccessToken(env, deps), item.source_file_id);
+    else if (item.source === "upload") {
+      // Uploaded in the board cockpit (cockpit/handler.ts) and kept in R2 until now.
+      const stored = await env.BOARD_RECORDINGS?.get(item.source_file_id);
+      if (!stored) throw new Error("recording_not_found");
+      audio = await stored.arrayBuffer();
+    }
     else audio = await telegramClient(env, deps).downloadFile(item.source_file_id);
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
@@ -197,7 +203,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     await sendMinutesForApproval(env, deps, item.id, draft, item.meeting_date, `Referatudkast fra ${item.file_name}.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "minutes_failed";
-    const final = message === "recording_too_large" || item.attempts >= 3;
+    const final = message === "recording_too_large" || message === "recording_not_found" || item.attempts >= 3;
     await updateMinutes(db, item.id, { status: final ? "failed" : "queued", error: message }, deps.now());
     if (final) await telegramClient(env, deps).sendMessage(owner(env), message === "recording_too_large"
       ? `Optagelsen ${item.file_name} er for stor til at behandle (over 60 MB). Gem den gerne i lavere kvalitet (fx m4a/mp3) og læg den ind igen.`
