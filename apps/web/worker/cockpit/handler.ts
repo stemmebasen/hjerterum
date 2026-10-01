@@ -13,7 +13,7 @@ import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
-import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
+import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -83,14 +83,14 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med" -
   // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
-  if (path === "/" && request.method === "GET") {
+  if ((path === "/" || path === "/status") && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, group, weekly] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       groupNow(env, db, now), weeklySummary(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const everyone = allTasks(minutes, picture);
     const toSign = who ? await unsignedFor(db, who, now) : [];
-    return html(overviewPage(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+    return html((path === "/status" ? statusPage : overviewPage)(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
       recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
