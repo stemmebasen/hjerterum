@@ -26,7 +26,13 @@
       },
       "triggers": {
         "crons": ["*/5 * * * *"]
-      }
+      },
+      "r2_buckets": [
+        {
+          "binding": "BOARD_RECORDINGS",
+          "bucket_name": "hjerterum-board-recordings-eu"
+        }
+      ]
     },
     "production": {
       "name": "hjerterum-platform-production",
