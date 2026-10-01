@@ -54,7 +54,7 @@ async function memberNumbers(db: D1Database): Promise<string> {
 /** The house's events: the public MembershipWorks calendar and the rooms booked by teachers, the next 60 days. */
 async function events(db: D1Database, deps: SagaDeps, nowMs: number): Promise<string> {
   const [feed, rooms] = await Promise.all([
-    deps.fetcher("https://api.membershipworks.com/v2/events?_op=rss&org=22308", { headers: { accept: "application/rss+xml, application/xml" } })
+    deps.fetcher("https://api.membershipworks.com/v2/events?_op=rss&org=22308", { headers: { accept: "application/rss+xml, application/xml" }, signal: AbortSignal.timeout(5000) })
       .then(async response => response.ok ? parseMembershipWorksRss(await response.text()) : []).catch(() => []),
     db.prepare("SELECT title, teacher_name, starts_at_ms FROM room_bookings WHERE starts_at_ms >= ? AND starts_at_ms < ? ORDER BY starts_at_ms LIMIT 60")
       .bind(nowMs - DAY, nowMs + 60 * DAY).all<{ title: string; teacher_name: string; starts_at_ms: number }>().then(r => r.results ?? []).catch(() => [])
