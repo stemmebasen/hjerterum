@@ -48,7 +48,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 `;
 
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
-  const nav = [["", "Overblik"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arkiv", "Arkiv"]]
+  const nav = [["", "Overblik"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
