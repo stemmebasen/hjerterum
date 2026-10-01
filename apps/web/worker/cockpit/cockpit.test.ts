@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import config from "../config-entry.js";
 import { handleCockpitRequest } from "./handler.js";
 import { processNextMinutes } from "../saga/saga.js";
-import { decideMinutes, queueMinutes, saveBoardMessage, saveOverview, updateMinutes } from "../saga/store.js";
+import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPosted, queueMinutes, saveBoardMessage, saveOverview, updateMinutes } from "../saga/store.js";
+import { itemKey } from "../saga/picture.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
 
@@ -88,10 +89,13 @@ describe("the board cockpit", () => {
     await decideMinutes(db, minutesId, "approved", NOW);
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(lisbeth).toContain("Hej Lisbeth");
-    expect(lisbeth).toContain("Skriv forslag om reduceret medlemskab");
-    expect(lisbeth.match(/Skriv forslag om reduceret medlemskab/g)).toHaveLength(1);
-    expect(lisbeth).toContain("Del opslaget");
-    expect(lisbeth).not.toContain("Lav event-mail");
+    const mine = lisbeth.slice(lisbeth.indexOf("<h2>Til dig"), lisbeth.indexOf("<h2>Næste møde"));
+    expect(mine).toContain("Skriv forslag om reduceret medlemskab");
+    expect(mine.match(/Skriv forslag om reduceret medlemskab/g)).toHaveLength(1);
+    expect(mine).toContain("Del opslaget");
+    expect(mine).not.toContain("Lav event-mail");
+    // Everyone's tasks stand under "Hvem har hvad", as in Matrix.
+    expect(lisbeth.slice(lisbeth.indexOf("Hvem har hvad"))).toContain("Lav event-mail");
     expect(lisbeth).not.toContain("Thomas Emil");
     expect(lisbeth).toContain("God energi efter weekenden.");
     const chair = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
@@ -141,6 +145,62 @@ describe("the board cockpit", () => {
     const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: session })).text();
     expect(minutes).toContain("<li>Budgettet er vedtaget</li>");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
+  });
+
+  // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med".
+  it("shows the board the same overview as the chair's Hjerterum page in Matrix", async () => {
+    const { db, call, login } = await setup();
+    const session = await login();
+    const picture = { summary: "## Gruppen\n- **Generalforsamlingen** fylder\nTemperatur: god", temperature: { level: "travl", why: "GF nærmer sig" },
+      topics: [{ title: "Lokaleleje", status: "afventer", who: ["Gitta"], waitsOnJacob: true, note: "Venter på svar fra udlejer" }],
+      document: { latestMeeting: "2026-09-17", missingMinutes: ["2026-09-03"], dates: [{ date: "2026-10-08", what: "Bestyrelsesmøde" }, { date: "2026-10-14", what: "Generalforsamling" }],
+        figures: [{ label: "Medlemmer", value: "112", date: "2026-09-17", previous: "104 (3/9)" }],
+        decisions: [{ topic: "Prøveperiode", text: "Gratis til 15. oktober", date: "2026-09-17", replaces: "Gratis til 1. oktober" }],
+        openThreads: [{ text: "Nyt skilt ved døren", since: "2026-08-20", status: "udsat" }], proposals: [{ text: "Sommerfest i juni", by: "Lisbeth" }],
+        tasks: [{ who: "Gitta", what: "Ring til udlejer", due: "10/10", since: "2026-09-17" }], nextAgenda: ["Opfølgning på skiltet", "Lokaleleje"] },
+      forJacob: [{ key: "", kind: "opgave", text: "Underskriv lejekontrakten", source: "dokument", from: "", since: "" }, { key: "", kind: "spørgsmål", text: "Godkend budgettet", source: "telegram", from: "Gitta", since: "" }] };
+    await saveOverview(db, "x", NOW, { data: JSON.stringify(picture), docHash: "x" });
+    await markOwnerDone(db, itemKey("Godkend budgettet"), "Godkend budgettet", NOW);
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 99, author: "Gitta", authorId: "202", text: "Jeg ringer til udlejer i morgen", sentAtMs: NOW - 3_600_000, fromAssistant: false });
+    const weekly = await createPostDraft(db, { kind: "weekly_summary", text: "- Lokaleleje er på vej", nowMs: NOW });
+    await decidePostDraft(db, weekly, "approved", NOW);
+    await markPosted(db, weekly, 5);
+    const page = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    for (const text of ["Gruppen lige nu", "beskeder denne uge", "Jeg ringer til udlejer i morgen", "venter på dig", "Referatdokumentet", "Referat mangler: 3. sep. 2026",
+      "Medlemmer: <strong>112</strong>", "før: 104 (3/9)", "Afløser: Gratis til 1. oktober", "Nyt skilt ved døren", "Hvem har hvad", "Ring til udlejer", "Sommerfest i juni",
+      "Forslag til næste dagsorden", "<strong>Generalforsamlingen</strong>", "Ugeopsummering", "Lokaleleje er på vej", "om 13 dage", "Underskriv lejekontrakten"]) expect(page).toContain(text);
+    expect(page).not.toContain("Godkend budgettet");
+    // Saga found a board meeting that is not in the calendar yet; the others see "venter på formanden".
+    expect(page).toContain("/cockpit/moder?dato=2026-10-08&amp;forslag=1#nyt");
+    expect(page).not.toContain("Godkend</button>");
+    const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    expect(lisbeth).toContain("venter på formanden");
+    expect(lisbeth).not.toContain("Underskriv lejekontrakten");
+    const plan = await (await call("/cockpit/moder?dato=2026-10-08&forslag=1", { cookie: session })).text();
+    expect(plan).toContain('value="2026-10-08"');
+    expect(plan).toContain("Opfølgning på skiltet\nLokaleleje</textarea>");
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain("Indsæt Sagas forslag (2 punkter)");
+  });
+
+  it("uploads a recording to the meeting it belongs to", async () => {
+    const { db, call, form, login } = await setup();
+    const session = await login();
+    for (const date of ["2026-09-03", "2026-09-17"]) await call("/cockpit/moder", { method: "POST", cookie: session, body: form({ meeting_date: "2026-10-20", agenda: "x" }) })
+      .then(() => db.prepare("UPDATE board_meetings SET meeting_date = ? WHERE meeting_date = '2026-10-20'").bind(date).run());
+    const held = await db.prepare("SELECT id FROM board_meetings WHERE meeting_date = '2026-09-17'").first<{ id: number }>();
+    const list = await (await call("/cockpit/moder", { cookie: session })).text();
+    expect(list).toMatch(/<option value="2026-09-17" selected>torsdag den 17\. september 2026<\/option>/);
+    const meetingPage = await (await call(`/cockpit/moder/${held!.id}`, { cookie: session })).text();
+    expect(meetingPage).toContain("Optagelse af dette møde");
+    const uploaded = await call("/cockpit/upload", { method: "POST", cookie: session,
+      body: form({ recording: new File([new Uint8Array([1])], "optagelse.m4a", { type: "audio/mp4" }), meeting_choice: "2026-09-17", meeting_id: String(held!.id) }) });
+    expect(uploaded.headers.get("location")).toBe(`/cockpit/moder/${held!.id}?upload=1`);
+    expect(await db.prepare("SELECT meeting_date FROM board_minutes").first<{ meeting_date: string }>()).toEqual({ meeting_date: "2026-09-17" });
+    const after = await (await call(`/cockpit/moder/${held!.id}?upload=1`, { cookie: session })).text();
+    expect(after).toContain("Saga skriver referatet");
+    expect(after).not.toContain("Optagelse af dette møde");
+    // The next upload suggests the meeting that still has no minutes.
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toMatch(/<option value="2026-09-03" selected>/);
   });
 
   it("shows the historical minutes from the board's document, one meeting at a time", async () => {

@@ -6,8 +6,9 @@ import { splitMinutesDoc } from "../saga/picture.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
-import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, meeting, meetingInput, meetings, minutesInProgress, saveMeeting, tasksFor } from "./data.js";
-import { archivePage, decisionsPage, loginPage, meetingPage, meetingsPage, minutesPage, overviewPage, whoPage } from "./page.js";
+import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetings, minutesDecisions, minutesInProgress,
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, tasksFor, weeklySummary } from "./data.js";
+import { archivePage, decisionsPage, loginPage, meetingPage, meetingsPage, minutesPage, overviewPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -73,12 +74,18 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     return html(whoPage(base, members.names, who));
   }
 
+  // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med" -
+  // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
+  // Telegram and Matrix: with one shared login, anyone could say they are the chair.
   if (path === "/" && request.method === "GET") {
-    const [{ picture, summary, at }, minutes, list, progress] = await Promise.all([boardPicture(db), approvedMinutes(db), meetings(db), minutesInProgress(db)]);
+    const [{ picture, summary, at }, minutes, list, progress, group, weekly] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
+      groupNow(env, db, now), weeklySummary(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
-    return html(overviewPage(base, { who, isChair, mine: who ? tasksFor(who, allTasks(minutes, picture)) : [], forChair: isChair ? picture?.forJacob ?? [] : [],
-      next, picture, summary, at, progress, today }));
+    const everyone = allTasks(minutes, picture);
+    return html(overviewPage(base, { who, isChair, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
+      recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
 
   if (path === "/moder") {
@@ -88,12 +95,18 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       const id = await saveMeeting(db, input, who ?? "", now);
       return redirect(`${base}/moder/${id}?gemt=1`);
     }
-    const [list, minutes] = await Promise.all([meetings(db), approvedMinutes(db)]);
+    const [list, minutes, { picture }, states, documentDays] = await Promise.all([meetings(db), approvedMinutes(db), boardPicture(db, now), minutesStatusByDate(db), meetingsInDocument(env, deps)]);
     const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
-    const dates = [...new Set([...list.filter(m => m.meeting_date < today).map(m => m.meeting_date), ...minutes.map(m => m.meeting_date ?? "").filter(Boolean)])].sort().reverse();
-    const past = dates.map(date => ({ date, meeting: list.find(m => m.meeting_date === date) ?? null, minutes: minutes.find(m => m.meeting_date === date) ?? null }));
+    // Held meetings: the ones in the calendar, the ones with minutes or a recording, and the ones in the board's own minutes document.
+    const dates = [...new Set([...list.filter(m => m.meeting_date <= today).map(m => m.meeting_date), ...minutes.map(m => m.meeting_date ?? ""), ...states.keys(), ...documentDays]
+      .filter(date => date && date <= today))].sort().reverse().slice(0, 40);
+    const past: PastMeeting[] = dates.map(date => ({ date, meeting: list.find(m => m.meeting_date === date) ?? null, minutes: minutes.find(m => m.meeting_date === date) ?? null,
+      state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
+    const asked = url.searchParams.get("dato") ?? "";
     const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : "";
-    return html(meetingsPage(base, { upcoming, past, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
+    return html(meetingsPage(base, { upcoming, past,
+      found: sagaMeetings(picture, list, today), suggestion: picture?.document.nextAgenda ?? [],
+      prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", agenda: url.searchParams.get("forslag") === "1" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
 
   const meetingPath = /^\/moder\/(\d+)(\/slet)?$/.exec(path);
@@ -107,8 +120,10 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       if (input) await saveMeeting(db, input, who ?? "", now, id);
       return redirect(`${base}/moder/${id}?gemt=1`);
     }
-    const minutes = (await approvedMinutes(db)).find(m => m.meeting_date === found.meeting_date) ?? null;
-    return html(meetingPage(base, found, minutes, who, url.searchParams.get("gemt") ? "Gemt." : ""));
+    const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
+    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : url.searchParams.get("gemt") ? "Gemt." : "";
+    return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
+      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS) }, who, notice));
   }
 
   const minutesPath = /^\/referat\/(\d+)$/.exec(path);
@@ -139,7 +154,10 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     if (!env.BOARD_RECORDINGS) return html(notFound(base, who), 503);
     const form = await request.formData().catch(() => null);
     const file = form?.get("recording");
-    const date = String(form?.get("meeting_date") ?? "");
+    // A meeting chosen in the list (or the meeting's own page), else the date written by hand.
+    const choice = String(form?.get("meeting_choice") ?? "");
+    const date = choice && choice !== "anden" ? choice : String(form?.get("meeting_date") ?? "");
+    const meetingId = Number(form?.get("meeting_id") ?? 0);
     if (!(file instanceof File) || !file.size) return redirect(`${base}/moder`);
     if (!AUDIO.test(file.name) && !file.type.startsWith("audio/")) return html(problem(base, who, "Filen er ikke en lydfil. Upload en mp3, m4a, wav eller ogg."), 400);
     if (file.size > MAX_RECORDING_BYTES) return html(problem(base, who, "Optagelsen er over 60 MB. Gem den i lavere kvalitet (fx m4a eller mp3), og prøv igen."), 413);
@@ -150,10 +168,17 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     await queueMinutes(db, { source: "upload", fileId: key, fileName: file.name.slice(0, 200) || `optagelse.${extension}`, mimeType: file.type || null, meetingDate, nowMs: now });
     // Saga starts at once instead of at her next five-minute round.
     if (deps.waitUntil && env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) deps.waitUntil(processNextMinutes(env, deps).catch(error => console.warn("cockpit_minutes_failed", error instanceof Error ? error.message : error)));
-    return redirect(`${base}/moder?upload=1`);
+    return redirect(Number.isSafeInteger(meetingId) && meetingId > 0 && await meeting(db, meetingId) ? `${base}/moder/${meetingId}?upload=1` : `${base}/moder?upload=1`);
   }
 
   return html(notFound(base, who), 404);
+}
+
+/** The days of the meetings in the board's minutes document; empty when it cannot be read. */
+async function meetingsInDocument(env: SagaEnv, deps: SagaDeps): Promise<Set<string>> {
+  if (!env.GOOGLE_MINUTES_DOC_ID) return new Set();
+  try { return new Set(splitMinutesDoc(await minutesDocText(env, deps)).map(m => m.day)); }
+  catch { return new Set(); }
 }
 
 const notFound = (base: string, who: string | null) => problem(base, who, "Siden findes ikke.");

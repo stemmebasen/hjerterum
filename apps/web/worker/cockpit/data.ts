@@ -1,8 +1,8 @@
 import type { D1Database } from "../db.js";
 import type { SagaEnv } from "../saga/env.js";
 import { section } from "../saga/markdown.js";
-import { parsePicture, type BoardPicture } from "../saga/picture.js";
-import { latestOverview, type Minutes } from "../saga/store.js";
+import { groupActivity, parsePicture, telegramLink, type BoardPicture } from "../saga/picture.js";
+import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, type Minutes } from "../saga/store.js";
 
 /** What the board cockpit shows, read from Saga's own tables: her picture of the board, the minutes
  * the chair has approved, the meetings and agendas written in the cockpit, and the decisions and
@@ -30,6 +30,15 @@ export async function minutesInProgress(db: D1Database): Promise<{ working: numb
   const row = await db.prepare(`SELECT SUM(CASE WHEN status IN ('queued', 'transcribing') THEN 1 ELSE 0 END) AS working,
     SUM(CASE WHEN status = 'drafted' THEN 1 ELSE 0 END) AS waiting FROM board_minutes`).first<{ working: number | null; waiting: number | null }>();
   return { working: Number(row?.working ?? 0), waiting: Number(row?.waiting ?? 0) };
+}
+
+/** Where each meeting's minutes are when they are not approved yet: the newest upload per date. */
+export async function minutesStatusByDate(db: D1Database): Promise<Map<string, "working" | "waiting" | "failed">> {
+  const rows = await db.prepare(`SELECT meeting_date, status FROM board_minutes WHERE meeting_date IS NOT NULL AND status IN ('queued', 'transcribing', 'drafted', 'failed')
+    ORDER BY created_at_ms`).all<{ meeting_date: string; status: string }>();
+  const out = new Map<string, "working" | "waiting" | "failed">();
+  for (const row of rows.results ?? []) out.set(row.meeting_date, row.status === "drafted" ? "waiting" : row.status === "failed" ? "failed" : "working");
+  return out;
 }
 
 export async function meetings(db: D1Database): Promise<Meeting[]> {
@@ -78,14 +87,40 @@ export async function boardMembers(env: SagaEnv, db: D1Database): Promise<{ name
   return { names: list.map(row => row.author_name), chair };
 }
 
-export async function boardPicture(db: D1Database): Promise<{ picture: BoardPicture | null; summary: string | null; at: number | null }> {
+/** Saga's latest picture of the board, without what the chair has already marked as done in Matrix. */
+export async function boardPicture(db: D1Database, nowMs = Date.now()): Promise<{ picture: BoardPicture | null; summary: string | null; at: number | null }> {
   const overview = await latestOverview(db);
   if (!overview) return { picture: null, summary: null, at: null };
   let picture: BoardPicture | null = null;
   if (overview.data) {
     try { picture = parsePicture(overview.data); } catch { picture = null; }
   }
-  return { picture, summary: overview.text, at: overview.created_at_ms };
+  if (picture?.forJacob.length) {
+    const done = new Set((await ownerDone(db, nowMs - 60 * 86_400_000)).map(d => d.item_key));
+    picture = { ...picture, forJacob: picture.forJacob.filter(f => !done.has(f.key)) };
+  }
+  return { picture, summary: picture?.summary ?? overview.text, at: overview.created_at_ms };
+}
+
+export type GroupNow = { activity: ReturnType<typeof groupActivity>; recent: Array<{ author: string; text: string; at: number; link: string | null }>; link: string | null };
+
+/** The board's Telegram group the last two weeks, counted without AI - as on the chair's page in Matrix. */
+export async function groupNow(env: SagaEnv, db: D1Database, nowMs: number): Promise<GroupNow | null> {
+  const chat = env.SAGA_BOARD_CHAT_ID;
+  if (!chat) return null;
+  const fortnight = await recentBoardMessages(db, chat, nowMs - 14 * 86_400_000, 1000);
+  return { activity: groupActivity(fortnight, nowMs),
+    recent: fortnight.filter(m => !m.from_assistant).slice(-12).reverse().map(m => ({ author: m.author_name, text: m.text.slice(0, 600), at: m.sent_at_ms, link: telegramLink(chat, m.telegram_message_id) })),
+    link: telegramLink(chat, fortnight.at(-1)?.telegram_message_id) };
+}
+
+export const weeklySummary = (db: D1Database) => latestWeeklySummary(db);
+
+/** Board meetings Saga has found in the minutes document and the chat that are not in the calendar yet. */
+export function sagaMeetings(picture: BoardPicture | null, list: Meeting[], today: string): Array<{ date: string; what: string }> {
+  const planned = new Set(list.map(m => m.meeting_date));
+  return (picture?.document.dates ?? []).filter(d => d.date >= today && !planned.has(d.date) && /møde|generalforsamling/i.test(d.what))
+    .sort((a, b) => a.date.localeCompare(b.date)).filter((d, i, all) => all.findIndex(x => x.date === d.date) === i).slice(0, 4);
 }
 
 const bullets = (text: string) => text.split(/\r?\n/).map(line => /^\s*[-*]\s+(.*)$/.exec(line)?.[1]?.trim() ?? "").filter(Boolean);
@@ -127,6 +162,13 @@ export function allDecisions(minutes: ApprovedMinutes[], picture: BoardPicture |
   for (const m of minutes) for (const decision of minutesDecisions(m)) add(decision);
   for (const d of picture?.document.decisions ?? []) add({ text: d.text, date: d.date, topic: d.topic, source: "dokument", minutesId: null });
   return out;
+}
+
+/** Every task by person, as "Hvem har hvad" in Matrix. */
+export function tasksByPerson(tasks: Task[]): Array<{ who: string; tasks: Task[] }> {
+  const groups = new Map<string, Task[]>();
+  for (const task of tasks) { const who = task.who.trim() || "Uden navn"; groups.set(who, [...(groups.get(who) ?? []), task]); }
+  return [...groups].map(([who, list]) => ({ who, tasks: list })).sort((a, b) => b.tasks.length - a.tasks.length || a.who.localeCompare(b.who, "da"));
 }
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0]?.toLocaleLowerCase("da-DK") ?? "";
