@@ -1,5 +1,5 @@
 import { section } from "../saga/markdown.js";
-import { minutesTasks, type ApprovedMinutes, type Meeting } from "./data.js";
+import { minutesTasks, type ApprovedMinutes, type Meeting, type Signoff } from "./data.js";
 import { esc, longDay } from "./page.js";
 
 /** Requested: "Og så laves der et dokument pr referat - ok? Her skal vi lave et pænt layout og alt med
@@ -37,6 +37,24 @@ export function parseMinutes(markdown: string): ParsedMinutes | null {
 
 const DECIDED = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Copenhagen" });
 
+/** Who has approved the minutes, who asked for a correction, who is missing - and the buttons for the one looking. */
+export function signoffPanel(base: string, minutes: ApprovedMinutes, data: { members: string[]; signoffs: Signoff[]; who: string | null; notice: string }): string {
+  if (minutes.source === "document") return "";
+  const by = new Map(data.signoffs.map(s => [s.member, s]));
+  const approved = data.signoffs.filter(s => s.status === "approved").map(s => s.member);
+  const corrections = data.signoffs.filter(s => s.status === "correction");
+  const missing = data.members.filter(m => !by.has(m));
+  const mine = data.who ? by.get(data.who) : undefined;
+  const action = `${base}/referat/${minutes.id}`;
+  return `<section class="card m-sign"><h2>Bestyrelsens godkendelse</h2>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
+<p>${approved.length ? `<strong>Godkendt af:</strong> ${esc(approved.join(", "))}` : "Ingen har godkendt endnu."}${missing.length ? ` <span class="muted">· Mangler: ${esc(missing.join(", "))}</span>` : ""}</p>
+${corrections.length ? `<ul class="plain">${corrections.map(c => `<li><strong>${esc(c.member)}</strong> har en rettelse: ${esc(c.comment ?? "")}</li>`).join("")}</ul>` : ""}
+${!data.who ? `<p><a href="${base}/hvem">Vælg hvem du er</a> for at godkende.</p>` : mine?.status === "approved" ? `<p class="muted small">Du har godkendt referatet.</p>`
+    : `<div class="m-sign-actions"><form method="post" action="${action}/godkend"><button>Jeg godkender referatet</button></form>
+<details${mine?.status === "correction" ? " open" : ""}><summary>Jeg har en rettelse</summary><form class="stack" method="post" action="${action}/rettelse">
+<textarea name="comment" required maxlength="2000" placeholder="Hvad skal rettes?">${esc(mine?.comment ?? "")}</textarea><button>Send rettelsen til formanden</button></form></details></div>`}</section>`;
+}
+
 export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting: Meeting | null, fallbackHtml: string): string {
   const parsed = parseMinutes(minutes.draft_markdown ?? "");
   const agenda = meeting?.agenda.split("\n").map(line => line.trim()).filter(Boolean) ?? [];
@@ -59,7 +77,7 @@ ${facts.length ? `<dl class="m-facts">${facts.map(([label, value]) => `<div><dt>
 ${body}
 ${minutes.source === "document" ? `${minutes.transcript ? `<details class="m-original"><summary>Originalteksten fra referatdokumentet</summary><div>${esc(minutes.transcript)}</div></details>` : ""}
 <footer class="m-foot">Bestyrelsens referat, overført fra referatdokumentet og stillet op af Saga${minutes.drive_document_url ? ` · <a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn dokumentet</a>` : ""}</footer>`
-    : `<footer class="m-foot">Godkendt af formanden ${esc(DECIDED.format(minutes.updated_at_ms))} · Skrevet af Saga ud fra mødeoptagelsen</footer>`}</article>`;
+    : `<footer class="m-foot">Lagt op ${esc(DECIDED.format(minutes.created_at_ms))} · Skrevet af Saga ud fra mødeoptagelsen</footer>`}</article>`;
 }
 
 export const MINUTES_STYLE = `
@@ -76,6 +94,7 @@ export const MINUTES_STYLE = `
 .m-box{border:1px solid var(--good);border-radius:12px;padding:2px 20px 10px;margin-top:24px}.m-box h2{color:var(--good)}.m-box ul{margin:0;padding-left:20px}
 .m-tasks td:first-child{font-weight:600;white-space:nowrap}.m-tasks td:last-child{white-space:nowrap}
 .m-original{margin-top:24px}.m-original div{white-space:pre-wrap;font-size:13.5px;color:var(--muted);margin-top:8px}@media print{.m-original{display:none}}
+.m-sign{max-width:820px;width:100%;margin:0 auto}.m-sign-actions{display:grid;gap:8px}.m-sign-actions details{border-top:0;padding:0}@media print{.m-sign{display:none}}
 .m-foot{margin-top:32px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 @media (max-width:640px){.minutes{padding:22px 18px;border-radius:12px}.minutes h1{font-size:23px}.m-point p{margin-left:0}}
 @media print{header,.m-tools{display:none!important}body{background:#fff;color:#000}main{padding:0;max-width:none}.minutes{border:0;padding:0;max-width:none;font-size:11pt}

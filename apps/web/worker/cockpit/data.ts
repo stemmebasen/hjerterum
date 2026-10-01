@@ -186,3 +186,24 @@ export function tasksFor(person: string, tasks: Task[]): Task[] {
     return new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\p{L}])`, "u").test(who) || /\b(alle|bestyrelsen|hele bestyrelsen)\b/u.test(who);
   });
 }
+
+// ---- Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet" ----
+
+export type Signoff = { member: string; status: "approved" | "correction"; comment: string | null; at_ms: number };
+
+export async function signoffs(db: D1Database, minutesId: number): Promise<Signoff[]> {
+  const rows = await db.prepare("SELECT member, status, comment, at_ms FROM board_minutes_signoffs WHERE minutes_id = ? ORDER BY at_ms").bind(minutesId).all<Signoff>();
+  return rows.results ?? [];
+}
+
+export async function signOff(db: D1Database, minutesId: number, member: string, status: Signoff["status"], comment: string | null, nowMs: number): Promise<void> {
+  await db.prepare(`INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(minutes_id, member) DO UPDATE SET status = excluded.status, comment = excluded.comment, at_ms = excluded.at_ms`).bind(minutesId, member, status, comment, nowMs).run();
+}
+
+/** Saga's minutes from the last 90 days that this member has not yet approved (or asked to correct). */
+export async function unsignedFor(db: D1Database, member: string, nowMs: number): Promise<ApprovedMinutes[]> {
+  const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes m WHERE status = 'approved' AND source != 'document' AND draft_markdown IS NOT NULL AND created_at_ms >= ?
+    AND NOT EXISTS (SELECT 1 FROM board_minutes_signoffs s WHERE s.minutes_id = m.id AND s.member = ?) ORDER BY COALESCE(meeting_date, '') DESC LIMIT 10`).bind(nowMs - 90 * 86_400_000, member).all<ApprovedMinutes>();
+  return rows.results ?? [];
+}

@@ -149,9 +149,9 @@ const agendaFill = (items: string[]) => items.length
 const FILL_SCRIPT = `<script>document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>{const t=b.form.querySelector("textarea");const add=JSON.parse(b.dataset.fill).filter(x=>!t.value.includes(x));t.value=(t.value.trim()?t.value.trim()+"\\n":"")+add.join("\\n");t.focus()}))</script>`;
 
 export type MinutesState = "working" | "waiting" | "failed";
-const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Venter på formandens godkendelse", failed: "Referatet kunne ikke laves - upload igen" };
+const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Lægges op om lidt", failed: "Referatet kunne ikke laves - upload igen" };
 
-export type OverviewData = { who: string | null; isChair: boolean; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
+export type OverviewData = { who: string | null; isChair: boolean; toSign: ApprovedMinutes[]; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
   found: Array<{ date: string; what: string }>; picture: BoardPicture | null; summary: string | null; at: number | null; progress: { working: number; waiting: number }; today: string;
   group: GroupNow | null; weekly: { text: string; created_at_ms: number } | null; recent: Array<{ id: number; date: string; decisions: string[]; tasks: number }>; docUrl: string | null };
 
@@ -196,7 +196,8 @@ ${docUrl ? `<p class="small"><a href="${esc(docUrl)}" target="_blank" rel="noope
 
 export function overviewPage(base: string, data: OverviewData): string {
   const p = data.picture;
-  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>
+  const sign = data.toSign.length ? `<h3>Referater du mangler at godkende</h3><ul class="plain">${data.toSign.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : "";
+  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>${sign}
 ${data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
 <p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p><h3>Fra referaterne</h3>` : ""}
 ${data.mine.length ? `<ul class="plain">${data.mine.map(taskLine).join("")}</ul>` : `<p class="muted">${data.who ? "Ingen opgaver står på dig i referaterne lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;

@@ -70,7 +70,7 @@ export const getMinutes = (db: D1Database, id: number) =>
   db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE id = ?`).bind(id).first<Minutes>();
 
 export const minutesByApprovalMessage = (db: D1Database, messageId: number) =>
-  db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE approval_message_id = ? AND status = 'drafted'`).bind(messageId).first<Minutes>();
+  db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE approval_message_id = ? AND status IN ('drafted', 'approved')`).bind(messageId).first<Minutes>();
 
 /** A recording whose work stopped halfway (the Worker was ended) is taken up again after this long. */
 export const STALE_TRANSCRIBING_MS = 20 * 60_000;
