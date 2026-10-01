@@ -8,6 +8,7 @@ import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, tasksFor, weeklySummary } from "./data.js";
+import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { minutesDocument, MINUTES_STYLE } from "./minutesDoc.js";
 import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
 
@@ -22,8 +23,9 @@ const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZon
 
 const HEADERS = {
   "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "same-origin", "x-robots-tag": "noindex, nofollow",
-  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 };
+const answer = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
 const html = (body: string, status = 200, extra: Record<string, string> = {}) => new Response(body, { status, headers: { ...HEADERS, ...extra } });
 const redirect = (location: string, cookies: string[] = []) => {
   const headers = new Headers({ location, "cache-control": "no-store" });
@@ -151,6 +153,19 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       catch { docError = "Referatdokumentet kunne ikke læses lige nu. Prøv igen om lidt."; }
     }
     return html(archivePage(base, { minutes, history, docUrl: minutesDocUrl(env), docError, who }));
+  }
+
+  // Saga in the corner of every page: the answer goes only to the one asking.
+  if (path === "/saga" && request.method === "POST") {
+    const input = askInput(await request.json().catch(() => null));
+    if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);
+    if (!env.AI_API_KEY || !env.AI_MODEL) return answer({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
+    if (await questionsToday(db, now) >= DAILY_QUESTIONS) return answer({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
+    try { return answer({ html: await askSaga(env, deps, db, who, input) }); }
+    catch (error) {
+      console.warn("cockpit_ask_failed", error instanceof Error ? error.message : error);
+      return answer({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);
+    }
   }
 
   if (path === "/upload" && request.method === "POST") {

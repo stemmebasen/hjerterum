@@ -54,7 +54,52 @@ export function layout(base: string, title: string, body: string, options: { sec
 <meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>bestyrelse</span></a><nav>${nav}</nav>
 <div class="who">${options.who ? `${esc(options.who)} · <a href="${base}/hvem">skift</a> · ` : ""}<form method="post" action="${base}/logout" style="display:inline"><button class="ghost" style="padding:2px 8px;font-size:12px">Log ud</button></form></div></div></header>`}
-${body}</body></html>`;
+${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
+}
+
+const SAGA_STYLE = `
+.saga-fab{position:fixed;right:18px;bottom:18px;z-index:20;border-radius:999px;padding:12px 18px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;gap:8px;align-items:center}
+.saga-fab::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent-ink);opacity:.85}
+.saga{position:fixed;right:18px;bottom:18px;z-index:21;width:min(400px,calc(100vw - 24px));height:min(600px,calc(100vh - 36px));background:var(--card);border:1px solid var(--line);
+border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
+.saga[hidden]{display:none!important}.saga-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.saga-top div{flex:1;line-height:1.25}
+.saga-top button{padding:4px 10px}.saga-log{flex:1;overflow-y:auto;padding:14px;display:grid;gap:10px;align-content:start}
+.saga-msg{padding:9px 12px;border-radius:12px;max-width:92%;word-break:break-word}.saga-msg p{margin:0 0 6px}.saga-msg p:last-child{margin:0}.saga-msg ul{margin:4px 0;padding-left:18px}
+.saga-msg h1,.saga-msg h2,.saga-msg h3{font-size:14px;margin:6px 0 4px}.saga-a{background:var(--soft)}.saga-u{background:var(--accent);color:var(--accent-ink);justify-self:end;white-space:pre-wrap}
+.saga-wait{color:var(--muted);font-style:italic}.saga-err{color:var(--warn)}.saga-ideas{display:flex;flex-wrap:wrap;gap:6px}
+.saga-ideas button{background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:500;font-size:13px;padding:6px 10px;text-align:left}
+.saga form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}.saga textarea{min-height:44px;max-height:140px;resize:none;flex:1}
+@media (max-width:520px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}.saga-fab{right:12px;bottom:12px}}
+@media print{.saga,.saga-fab{display:none!important}}`;
+
+const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?", "Hvor mange medlemmer har vi?"];
+
+/** Saga in the bottom-right corner of every page. The conversation lives in this tab only. */
+function sagaChat(base: string): string {
+  return `<style>${SAGA_STYLE}</style><button type="button" class="saga-fab" id="saga-open" aria-expanded="false" aria-controls="saga">Spørg Saga</button>
+<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · svaret ses kun af dig</span></div>
+<button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
+<div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej, jeg er Saga. Spørg mig om vedtægterne, beslutninger, sager, møder, arrangementer og medlemstal.</div>
+<div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>
+<form id="saga-form"><textarea id="saga-q" rows="1" maxlength="1500" placeholder="Skriv dit spørgsmål" aria-label="Dit spørgsmål"></textarea><button>Send</button></form></section>
+<script>(()=>{const url=${JSON.stringify(`${base}/saga`)},box=document.getElementById("saga"),fab=document.getElementById("saga-open"),log=document.getElementById("saga-log"),form=document.getElementById("saga-form"),q=document.getElementById("saga-q");
+let history=[];try{history=JSON.parse(sessionStorage.getItem("saga-chat")||"[]")}catch(e){}
+const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify(history.slice(-12)))}catch(e){}};
+const add=(cls,content,isHtml)=>{const d=document.createElement("div");d.className="saga-msg "+cls;if(isHtml)d.innerHTML=content;else d.textContent=content;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
+for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.content:t.html||t.content,t.role!=="user");
+const open=v=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v)q.focus()};
+fab.onclick=()=>open(true);document.getElementById("saga-close").onclick=()=>open(false);
+let busy=false;
+async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga læser med …");
+const sent=history.slice(-6).map(t=>({role:t.role,content:t.content}));
+try{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:text,history:sent})});const data=await r.json().catch(()=>({}));
+if(r.ok&&data.html){wait.className="saga-msg saga-a";wait.innerHTML=data.html;history.push({role:"user",content:text},{role:"assistant",content:wait.textContent,html:data.html});save()}
+else{wait.className="saga-msg saga-a saga-err";wait.textContent=data.error||(r.status===401?"Du er logget ud. Genindlæs siden.":"Saga kunne ikke svare lige nu.")}}
+catch(e){wait.className="saga-msg saga-a saga-err";wait.textContent="Ingen forbindelse. Prøv igen."}
+busy=false;log.scrollTop=log.scrollHeight}
+form.onsubmit=e=>{e.preventDefault();ask(q.value)};q.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask(q.value)}};
+log.querySelectorAll(".saga-ideas button").forEach(b=>b.onclick=()=>{ask(b.textContent)});
+if(history.length)log.querySelector(".saga-ideas")?.remove();})()</script>`;
 }
 
 export function loginPage(base: string, message: string, configured: boolean): string {
