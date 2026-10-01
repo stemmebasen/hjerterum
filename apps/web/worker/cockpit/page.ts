@@ -47,11 +47,11 @@ table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:7px 6px;
 details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;margin:4px 0}
 `;
 
-export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null } = {}): string {
+export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
   const nav = [["", "Overblik"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}</style></head><body>
+<meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>bestyrelse</span></a><nav>${nav}</nav>
 <div class="who">${options.who ? `${esc(options.who)} · <a href="${base}/hvem">skift</a> · ` : ""}<form method="post" action="${base}/logout" style="display:inline"><button class="ghost" style="padding:2px 8px;font-size:12px">Log ud</button></form></div></div></header>`}
 ${body}</body></html>`;
@@ -215,11 +215,6 @@ ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><d
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
 <div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });
-}
-
-export function minutesPage(base: string, minutes: ApprovedMinutes, html: string, who: string | null): string {
-  return layout(base, `Referat ${minutes.meeting_date ?? ""}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p>
-<div class="card doc">${html}${minutes.drive_document_url ? `<p class="small"><a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn i referatdokumentet</a></p>` : ""}</div></main>`, { section: "/moder", who });
 }
 
 export function decisionsPage(base: string, decisions: Decision[], who: string | null): string {

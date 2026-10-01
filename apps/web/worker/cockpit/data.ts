@@ -11,9 +11,9 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
 export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument"; minutesId: number | null };
-export type ApprovedMinutes = Pick<Minutes, "id" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms">;
+export type ApprovedMinutes = Pick<Minutes, "id" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number };
 
-const MINUTES = "id, meeting_date, draft_markdown, drive_document_url, created_at_ms";
+const MINUTES = "id, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
 
 export async function approvedMinutes(db: D1Database, limit = 200): Promise<ApprovedMinutes[]> {
   const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE status = 'approved' AND draft_markdown IS NOT NULL
@@ -46,6 +46,9 @@ export async function meetings(db: D1Database): Promise<Meeting[]> {
   return rows.results ?? [];
 }
 
+export const meetingOn = (db: D1Database, day: string) =>
+  db.prepare("SELECT id, meeting_date, start_time, place, agenda, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1").bind(day).first<Meeting>();
+
 export const meeting = (db: D1Database, id: number) =>
   db.prepare("SELECT id, meeting_date, start_time, place, agenda, updated_at_ms, updated_by FROM board_meetings WHERE id = ?").bind(id).first<Meeting>();
 
@@ -58,7 +61,7 @@ export function meetingInput(form: FormData): MeetingInput | null {
   const time = String(form.get("start_time") ?? "").trim();
   if (!ISO_DAY.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return null;
   return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
-    agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(line => line.trim()).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) };
+    agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(line => line.trim().replace(/^(\d+[.)]|[-*•])\s+/, "")).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) };
 }
 
 export async function saveMeeting(db: D1Database, input: MeetingInput, who: string, nowMs: number, id?: number): Promise<number> {

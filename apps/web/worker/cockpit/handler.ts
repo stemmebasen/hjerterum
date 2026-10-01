@@ -6,9 +6,10 @@ import { splitMinutesDoc } from "../saga/picture.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
-import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetings, minutesDecisions, minutesInProgress,
+import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, tasksFor, weeklySummary } from "./data.js";
-import { archivePage, decisionsPage, loginPage, meetingPage, meetingsPage, minutesPage, overviewPage, whoPage, type PastMeeting } from "./page.js";
+import { minutesDocument, MINUTES_STYLE } from "./minutesDoc.js";
+import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -131,7 +132,9 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
     if (!minutes) return html(notFound(base, who), 404);
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
-    return html(minutesPage(base, minutes, body, who));
+    const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;
+    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${minutesDocument(base, minutes, planned, body)}</main>`,
+      { section: "/moder", who, style: MINUTES_STYLE }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {

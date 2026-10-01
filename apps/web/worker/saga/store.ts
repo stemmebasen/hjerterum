@@ -95,6 +95,11 @@ export async function updateMinutes(db: D1Database, id: number, fields: { status
   await db.prepare(`UPDATE board_minutes SET ${sets.join(", ")} WHERE id = ?`).bind(...values, id).run();
 }
 
+/** The meeting the board planned in its cockpit for a day: Saga follows its agenda in the minutes. */
+export const plannedMeeting = (db: D1Database, day: string) =>
+  db.prepare("SELECT start_time, place, agenda FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1").bind(day)
+    .first<{ start_time: string | null; place: string | null; agenda: string }>();
+
 /** Decides a drafted minutes exactly once. */
 export async function decideMinutes(db: D1Database, id: number, status: "approved" | "rejected", nowMs: number): Promise<boolean> {
   const result = await db.prepare("UPDATE board_minutes SET status = ?, updated_at_ms = ? WHERE id = ? AND status = 'drafted'").bind(status, nowMs, id).run();
