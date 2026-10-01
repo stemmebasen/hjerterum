@@ -14,7 +14,7 @@ import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
-import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
+import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -27,7 +27,7 @@ const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZon
 
 const HEADERS = {
   "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "same-origin", "x-robots-tag": "noindex, nofollow",
-  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://d1tif55lvfk8gc.cloudfront.net; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://d1tif55lvfk8gc.cloudfront.net; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 };
 const answer = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
 const html = (body: string, status = 200, extra: Record<string, string> = {}) => new Response(body, { status, headers: { ...HEADERS, ...extra } });
@@ -186,6 +186,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id) })}</main>`,
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
+
+  if (path === "/mere" && request.method === "GET") return html(morePage(base, who));
 
   if (path === "/beslutninger" && request.method === "GET") {
     const [{ picture }, minutes] = await Promise.all([boardPicture(db), approvedMinutes(db)]);

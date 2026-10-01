@@ -14,52 +14,104 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 const STYLE = `
-:root{--bg:#f4f4f1;--card:#fff;--ink:#1b1d1c;--muted:#62676a;--line:#e2e3df;--accent:#2f5d50;--accent-ink:#fff;--soft:#edf1ee;--good:#2f6f4f;--warn:#a4561a;--shadow:0 1px 2px rgba(20,30,25,.05),0 4px 16px rgba(20,30,25,.04)}
-@media (prefers-color-scheme:dark){:root{--bg:#121413;--card:#1a1d1c;--ink:#e9ecea;--muted:#9ca39f;--line:#2b302e;--accent:#8cc5b2;--accent-ink:#0f1513;--soft:#222826;--good:#8fd0a6;--warn:#e7a56d;--shadow:none}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
-a{color:var(--accent);text-underline-offset:2px}header{background:color-mix(in srgb,var(--card) 92%,transparent);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
-.top{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-.brand{font-weight:650;letter-spacing:-.01em;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:9px;font-size:16px}
-.brand::before{content:"";width:22px;height:22px;border-radius:7px;background:var(--accent);box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--accent) 70%,#fff)}.brand span{color:var(--muted);font-weight:500}
-nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}nav a{padding:7px 12px;border-radius:9px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px}
-nav a:hover{color:var(--ink);background:var(--soft)}nav a.on{background:var(--soft);color:var(--ink)}.who{font-size:13px;color:var(--muted)}.who a{color:var(--muted)}
-main{max-width:1120px;margin:0 auto;padding:28px 20px 64px;display:grid;gap:18px}
-h1{font-size:28px;line-height:1.2;margin:0;letter-spacing:-.02em;font-weight:680}h2{font-size:15px;margin:0 0 12px;font-weight:650;letter-spacing:-.005em}
-h3{font-size:12px;margin:16px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:650}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0;box-shadow:var(--shadow)}
-.muted{color:var(--muted)}.small{font-size:13px}.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
-ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:10px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
-ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:3px 0}ol.agenda li::marker{color:var(--muted)}
-.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:12px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
-form.stack{display:grid;gap:12px}label{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
-input,textarea,select{font:inherit;font-weight:400;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
-input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);border-color:var(--accent)}
-textarea{min-height:150px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 160px}
-button,.button{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:10px;padding:10px 16px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-block}
-button:hover,.button:hover{filter:brightness(1.08)}button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.ghost:hover{background:var(--soft);filter:none}
-.notice{padding:11px 15px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}.notice.good{color:var(--good)}.notice.warn{color:var(--warn)}
-details{border-top:1px solid var(--line);padding:9px 0}details>summary{cursor:pointer;font-weight:600}
-.center{max-width:420px;margin:12vh auto;padding:0 16px}
-table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+:root{--bg:#f3f4f1;--card:#fff;--ink:#16191a;--muted:#5f6669;--faint:#8b9295;--line:#e4e6e2;--accent:#24594c;--accent-2:#3f8c77;--accent-ink:#fff;--soft:#eef2ef;--tint:#e3eee9;
+--good:#2c6e50;--warn:#a5531a;--warn-soft:#fbefe4;--shadow:0 1px 2px rgba(16,24,20,.04),0 8px 24px rgba(16,24,20,.06);--radius:20px;--nav-h:66px}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1211;--card:#181c1b;--ink:#eceeed;--muted:#a1a9a6;--faint:#7d8582;--line:#262c2a;--accent:#8fcab6;--accent-2:#6fb39d;--accent-ink:#0d1412;--soft:#1f2523;--tint:#1c2a25;
+--good:#91d3ab;--warn:#eaa46b;--warn-soft:#2d221a;--shadow:none}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px}
+header.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.top{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:700;letter-spacing:-.02em;font-size:16px;white-space:nowrap}
+.brand i{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:var(--accent-ink);font-style:normal;font-size:15px}
+.brand span{color:var(--muted);font-weight:500}
+nav.desk{display:flex;gap:2px;flex:1}nav.desk a{padding:8px 13px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px}
+nav.desk a:hover{color:var(--ink);background:var(--soft)}nav.desk a.on{background:var(--ink);color:var(--bg)}
+.me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto}.me a{color:var(--muted);text-decoration:none}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--tint);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px;text-decoration:none}
+nav.tabs{display:none}
+main{max-width:1120px;margin:0 auto;padding:28px 20px 72px;display:grid;gap:18px}
+h1{font-size:32px;line-height:1.15;margin:0;letter-spacing:-.03em;font-weight:750}h2{font-size:16px;margin:0 0 14px;font-weight:680;letter-spacing:-.01em}
+h3{font-size:11.5px;margin:18px 0 8px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-weight:650}h3:first-child{margin-top:0}
+.hero{display:grid;gap:10px;margin-bottom:4px}.hero p{margin:0;color:var(--muted)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chips a,.chips span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:550;color:var(--ink);text-decoration:none}
+.chips .hot{background:var(--warn-soft);color:var(--warn);box-shadow:none}.chips b{font-weight:750}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;align-items:start}
+.card{background:var(--card);border-radius:var(--radius);padding:22px 24px;min-width:0;box-shadow:var(--shadow);border:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.muted{color:var(--muted)}.small{font-size:13.5px}.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
+ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px}
+ul.plain li>a:only-child::after{content:"›";color:var(--faint);font-size:22px;line-height:1;font-weight:400}
+ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::marker{color:var(--faint);font-weight:600}
+.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:11.5px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
+form.stack{display:grid;gap:12px}label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+input,textarea,select{font:inherit;font-size:16px;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 13px;width:100%;min-height:46px}
+input:focus,textarea:focus,select:focus{outline:3px solid color-mix(in srgb,var(--accent) 25%,transparent);border-color:var(--accent);background:var(--card)}
+textarea{min-height:130px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 160px}
+button,.button{font:inherit;font-weight:650;font-size:14.5px;border:0;border-radius:12px;padding:12px 18px;min-height:46px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover,.button:hover{filter:brightness(1.07)}button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.ghost:hover{background:var(--soft);filter:none}
+.notice{padding:13px 16px;border-radius:14px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--good)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
+details{border-top:1px solid var(--line);padding:10px 0}details>summary{cursor:pointer;font-weight:600;list-style:none}details>summary::-webkit-details-marker{display:none}details>summary::before{content:"+";display:inline-block;width:18px;color:var(--faint)}details[open]>summary::before{content:"–"}
+.center{max-width:420px;margin:14vh auto;padding:0 16px}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14.5px}th{font-size:11.5px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 tr:last-child td{border-bottom:0}
-[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 28px;align-items:start}.block{min-width:0}
-.chip{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:6px;background:var(--soft);color:var(--muted);margin-right:4px}
-.chip.good{color:var(--good)}.chip.wait{color:var(--warn)}.waits,.warn{color:var(--warn);font-weight:600}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}.stats div{background:var(--soft);border-radius:12px;padding:10px 12px}
-.stats b{display:block;font-size:22px;letter-spacing:-.01em}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
+[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 30px;align-items:start}.block{min-width:0}
+.chip{display:inline-block;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);margin-right:4px}
+.chip.good{color:var(--good);background:var(--tint)}.chip.wait{color:var(--warn);background:var(--warn-soft)}.waits,.warn{color:var(--warn);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}.stats div{background:var(--soft);border-radius:14px;padding:12px 14px}
+.stats b{display:block;font-size:24px;letter-spacing:-.02em}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
 details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;margin:4px 0}
-@media (max-width:640px){main{padding:20px 14px 80px}h1{font-size:24px}.card{padding:16px}.top{padding:10px 14px;gap:10px}}
+.menu{display:grid}.menu a,.menu button{display:flex;justify-content:space-between;align-items:center;padding:16px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-weight:600;font-size:16px;background:none;border-radius:0;min-height:56px;width:100%}
+.menu a::after,.menu button::after{content:"›";color:var(--faint);font-size:22px;font-weight:400}
+@media (max-width:760px){
+  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}
+  nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
+    background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
+  nav.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--faint);font-size:11px;font-weight:600;border-radius:12px}
+  nav.tabs a svg{width:22px;height:22px}nav.tabs a.on{color:var(--accent)}
+  main{padding:18px 14px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom));gap:14px}h1{font-size:27px}
+  .grid{grid-template-columns:1fr;gap:14px}.card{padding:18px;border-radius:18px}.cols{grid-template-columns:1fr}
+  table.rows tr:first-child{display:none}table.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--line)}table.rows tr:last-child{border-bottom:0}
+  table.rows td{display:block;border:0;padding:2px 0}table.rows td[data-label]::before{content:attr(data-label);display:block;font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .actions{justify-content:stretch}.actions>*{flex:1}
+}
 `;
 
+const ICONS: Record<string, string> = {
+  "/": '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  "/moder": '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
+  "/status": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  "/arrangementer": '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
+  "/mere": '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
+};
+const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[key] ?? ""}</svg>`;
+
+/** Requested: "Lav et mere moderne layout og som er mobilvenligt". A top bar on a computer; on a phone
+ * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
+ * and tables that become stacked rows. */
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
-  const nav = [["", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
+  const desk = [["", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
-  return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>Bestyrelsen</span></a><nav>${nav}</nav>
-<div class="who">${options.who ? `${esc(options.who)} · <a href="${base}/hvem">skift</a> · ` : ""}<form method="post" action="${base}/logout" style="display:inline"><button class="ghost" style="padding:2px 8px;font-size:12px">Log ud</button></form></div></div></header>`}
+  const inMore = ["/beslutninger", "/arkiv", "/mere", "/hvem"].includes(options.section ?? "");
+  const tabs = [["/", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/arrangementer", "Arrangementer"], ["/mere", "Mere"]]
+    .map(([path, label]) => `<a href="${base}${path}"${options.section === path || (path === "/mere" && inMore) ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${label}</span></a>`).join("");
+  const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
+  return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f3f4f1" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1211" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap">
+<title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><i>H</i>Hjerterum <span>Bestyrelsen</span></a><nav class="desk">${desk}</nav>
+<div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/mere" title="${esc(options.who ?? "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
+<nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
+}
+
+/** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
+export function morePage(base: string, who: string | null): string {
+  return layout(base, "Mere", `<main><h1>Mere</h1><div class="card"><div class="menu">
+<a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a><a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div></main>`, { section: "/mere", who });
 }
 
 const SAGA_STYLE = `
@@ -74,7 +126,7 @@ border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-dire
 .saga-wait{color:var(--muted);font-style:italic}.saga-err{color:var(--warn)}.saga-ideas{display:flex;flex-wrap:wrap;gap:6px}
 .saga-ideas button{background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:500;font-size:13px;padding:6px 10px;text-align:left}
 .saga form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}.saga textarea{min-height:44px;max-height:140px;resize:none;flex:1}
-@media (max-width:520px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}.saga-fab{right:12px;bottom:12px}}
+@media (max-width:760px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;z-index:30}.saga-fab{right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));padding:11px 16px}}
 @media print{.saga,.saga-fab{display:none!important}}`;
 
 const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?", "Hvor mange medlemmer har vi?"];
@@ -230,7 +282,12 @@ ${dates.length ? `<div class="block"><h3>Kommende datoer</h3><ul class="plain">$
   const latestCard = latest ? `<div class="card"><h2>Seneste referat</h2><p><a href="${base}/referat/${latest.id}"><strong>${esc(longDay(latest.date))}</strong></a></p>
 ${latest.decisions.length ? `<h3>Beslutninger</h3><ul class="plain">${latest.decisions.slice(0, 4).map(x => `<li>${esc(x)}</li>`).join("")}</ul>${latest.decisions.length > 4 ? `<p class="small muted">og ${latest.decisions.length - 4} mere</p>` : ""}` : `<p class="small muted">Ingen beslutninger i referatet.</p>`}
 <p style="margin:14px 0 0"><a class="button" href="${base}/referat/${latest.id}">${data.toSign.some(m => m.id === latest.id) ? "Læs og godkend" : "Læs referatet"}</a></p></div>` : "";
-  return layout(base, "Overblik", `<main><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>${minutesNote}
+  const chips = [data.toSign.length ? `<a class="hot" href="${base}/referat/${data.toSign[0]!.id}"><b>${data.toSign.length}</b> referat${data.toSign.length === 1 ? "" : "er"} at godkende</a>` : "",
+    data.next ? `<a href="${base}/moder/${data.next.id}">Møde ${inDays(daysUntil(data.next.meeting_date, data.today))}</a>` : "",
+    data.mine.length ? `<span><b>${data.mine.length}</b> opgave${data.mine.length === 1 ? "" : "r"} til dig</span>` : "",
+    p?.temperature ? `<span>Stemning: ${esc(p.temperature.level)}</span>` : ""].filter(Boolean).join("");
+  return layout(base, "Overblik", `<main><div class="hero"><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>
+<p>${esc(longDay(data.today).replace(/^./, c => c.toUpperCase()))}</p>${chips ? `<div class="chips">${chips}</div>` : ""}</div>${minutesNote}
 <div class="grid">${mine}${next}</div><div class="grid">${latestCard}${now}</div></main>`, { section: "/", who: data.who });
 }
 
@@ -254,17 +311,17 @@ ${documentCard(base, p, data.everyone, data.docUrl, data.today)}${weekly || rece
 
 export type PastMeeting = { date: string; meeting: Meeting | null; minutes: ApprovedMinutes | null; state: MinutesState | null; inDocument: boolean };
 
-/** The meeting an upload most likely belongs to: the newest held meeting without minutes. */
-export const likelyMeeting = (past: PastMeeting[]) => past.find(row => !row.minutes && !row.state && !row.inDocument)?.date ?? past.find(row => !row.minutes && !row.state)?.date ?? "";
 
+// Reported: a recording of the meeting 1 October went up as 17 September - the form had chosen that
+// meeting itself. Now nothing is chosen until the member picks the meeting.
 function uploadForm(base: string, past: PastMeeting[], today: string): string {
-  const choices = past.slice(0, 15), chosen = likelyMeeting(past);
-  const pick = choices.length ? `<label>Hvilket møde?<select name="meeting_choice" data-other>${choices.map(row => `<option value="${esc(row.date)}"${row.date === chosen ? " selected" : ""}>${esc(longDay(row.date))}${row.minutes ? " · har referat" : row.state ? ` · ${STATE_TEXT[row.state].toLowerCase()}` : ""}</option>`).join("")}
-<option value="anden"${chosen ? "" : " selected"}>Et andet møde …</option></select></label>` : "";
+  const choices = past.slice(0, 15);
+  const pick = choices.length ? `<label>Hvilket møde er optagelsen fra?<select name="meeting_choice" data-other required><option value="" disabled selected>Vælg mødet …</option>${choices.map(row => `<option value="${esc(row.date)}">${esc(longDay(row.date))}${row.minutes ? " · har referat" : row.state ? ` · ${STATE_TEXT[row.state].toLowerCase()}` : ""}</option>`).join("")}
+<option value="anden">Et andet møde …</option></select></label>` : "";
   return `<form class="stack" method="post" action="${base}/upload" enctype="multipart/form-data">
 <label>Optagelse (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
-${pick}<label data-other-date${pick && chosen ? " hidden" : ""}>Mødedato<input type="date" name="meeting_date" max="${esc(today)}" value="${esc(today)}"></label>
-<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen. Formanden godkender det, og så står det her under mødet.</p></form>
+${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date" name="meeting_date" max="${esc(today)}" value="${esc(today)}"></label>
+<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og lægger det op her. Bestyrelsen godkender det, og hvert medlem kan rette de enkelte punkter.</p></form>
 <script>document.querySelectorAll("[data-other]").forEach(s=>s.addEventListener("change",()=>{s.form.querySelector("[data-other-date]").hidden=s.value!=="anden"}))</script>`;
 }
 
@@ -280,9 +337,9 @@ export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: Pa
 <div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
 ${foundMeetings(base, data.found, data.today)}</div>
 <div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div></div>
-<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td>${esc(shortDay(row.date))}</td>
-<td>${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
-<td>${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
+<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
+<td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
+<td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
 <div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? uploadForm(base, data.past, data.today) : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
 }
 
@@ -293,7 +350,7 @@ export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedM
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
-<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen. Formanden godkender det.</p></form>` : ""}`;
+<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p></form>` : ""}`;
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card"><h2>Dagsorden</h2>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
@@ -306,8 +363,8 @@ ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</
 
 export function decisionsPage(base: string, decisions: Decision[], who: string | null): string {
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1><div class="card"><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
-${decisions.length ? `<table id="list"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td>${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td>${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</td><td>${d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
+${decisions.length ? `<table id="list" class="rows"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
+<td data-label="Beslutning">${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</td><td data-label="Kilde">${d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div></main>
 <script>document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who });
 }
