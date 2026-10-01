@@ -12,6 +12,7 @@ import {
 import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
+import { handlePendingCorrections } from "../cockpit/corrections.js";
 
 const DAY = 86_400_000;
 const copenhagenDate = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
@@ -242,6 +243,9 @@ export async function publishMinutes(env: SagaEnv, deps: SagaDeps, id: number, n
   const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), item.draft_markdown,
     `${note} Det er lagt op${link ? `: ${link}` : " i cockpittet"}, og bestyrelsen godkender det dér. ${stored} Svar på denne besked for at rette referatet.`);
   await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
+  // Requested: "Referatet er ikke endnu gengivet/inkluderet på forsiden" - Saga's picture of the board
+  // (the front page's "Lige nu") is written again at once from the new minutes.
+  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL".
   await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} klar til godkendelse:\n${link || "Se det i cockpittet."}`);
 }
@@ -345,6 +349,7 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
+  await handlePendingCorrections(env, deps).catch(error => console.warn("saga_corrections_failed", error instanceof Error ? error.message : error));
   await publishDraftedMinutes(env, deps).catch(error => console.warn("saga_minutes_publish_failed", error instanceof Error ? error.message : error));
   // The document's meetings first: a recording of one of them then has its agenda to follow.
   await importDocMinutes(env, deps).catch(error => console.warn("saga_minutes_import_failed", error instanceof Error ? error.message : error));

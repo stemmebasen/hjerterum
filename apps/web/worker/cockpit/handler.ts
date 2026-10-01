@@ -11,9 +11,10 @@ import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
+import { addCorrection, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
-import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
+import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -83,14 +84,14 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med" -
   // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
-  if (path === "/" && request.method === "GET") {
+  if ((path === "/" || path === "/status") && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, group, weekly] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       groupNow(env, db, now), weeklySummary(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const everyone = allTasks(minutes, picture);
     const toSign = who ? await unsignedFor(db, who, now) : [];
-    return html(overviewPage(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+    return html((path === "/status" ? statusPage : overviewPage)(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
       recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
@@ -148,6 +149,32 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     return redirect(`${base}/referat/${id}?rettelse=1`);
   }
 
+  // A member corrects one point, or answers Saga's question about a correction; Saga rewrites the point at once.
+  const fixPath = /^\/referat\/(\d+)\/(?:punkt\/(\d+)|rettelse\/(\d+)\/svar)$/.exec(path);
+  if (fixPath && request.method === "POST") {
+    const id = Number(fixPath[1]);
+    const minutes = await approvedMinutesById(db, id);
+    if (!minutes) return html(notFound(base, who), 404);
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    let correctionId = 0, point = 0;
+    if (fixPath[2]) {
+      point = Number(fixPath[2]);
+      const text = String(form?.get("correction") ?? "").trim().slice(0, 2000);
+      if (!text || point < 1 || point > 60) return redirect(`${base}/referat/${id}`);
+      correctionId = await addCorrection(db, id, point, who, text, now);
+    } else {
+      correctionId = Number(fixPath[3]);
+      const answer = String(form?.get("answer") ?? "").trim().slice(0, 2000);
+      const row = (await corrections(db, id)).find(c => c.id === correctionId);
+      if (!row || !answer || !(await answerQuestion(db, correctionId, who, answer, now))) return redirect(`${base}/referat/${id}`);
+      point = row.point;
+    }
+    // Saga answers while the member waits; if she cannot now, the five-minute round tries again.
+    if (env.AI_API_KEY && env.AI_MODEL) await handleCorrection(env, deps, correctionId).catch(error => console.warn("cockpit_correction_failed", error instanceof Error ? error.message : error));
+    return redirect(`${base}/referat/${id}#punkt-${point}`);
+  }
+
   const minutesPath = /^\/referat\/(\d+)$/.exec(path);
   if (minutesPath && request.method === "GET") {
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
@@ -156,7 +183,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
     const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;
-    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${minutesDocument(base, minutes, planned, body)}</main>`,
+    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id) })}</main>`,
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
 

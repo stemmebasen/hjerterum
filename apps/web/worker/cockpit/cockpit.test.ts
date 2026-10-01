@@ -97,7 +97,8 @@ describe("the board cockpit", () => {
     expect(mine).toContain("Del opslaget");
     expect(mine).not.toContain("Lav event-mail");
     // Everyone's tasks stand under "Hvem har hvad", as in Matrix.
-    expect(lisbeth.slice(lisbeth.indexOf("Hvem har hvad"))).toContain("Lav event-mail");
+    const status = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    expect(status.slice(status.indexOf("Hvem har hvad"))).toContain("Lav event-mail");
     expect(lisbeth).not.toContain("Thomas Emil");
     expect(lisbeth).toContain("God energi efter weekenden.");
     const chair = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
@@ -178,13 +179,17 @@ describe("the board cockpit", () => {
     const weekly = await createPostDraft(db, { kind: "weekly_summary", text: "- Lokaleleje er på vej", nowMs: NOW });
     await decidePostDraft(db, weekly, "approved", NOW);
     await markPosted(db, weekly, 5);
-    const page = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
+    const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    for (const text of ["Lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "venter på dig", "om 13 dage", "Underskriv lejekontrakten", "Se hele status"]) expect(front).toContain(text);
+    for (const heavy of ["Nøgletal", "Hvem har hvad", "Hængepartier", "Ugeopsummering", "beskeder denne uge"]) expect(front).not.toContain(heavy);
+    const page = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
     for (const text of ["Gruppen lige nu", "beskeder denne uge", "Jeg ringer til udlejer i morgen", "venter på dig", "Referatdokumentet", "Referat mangler: 3. sep. 2026",
       "Medlemmer: <strong>112</strong>", "før: 104 (3/9)", "Afløser: Gratis til 1. oktober", "Nyt skilt ved døren", "Hvem har hvad", "Ring til udlejer", "Sommerfest i juni",
       "Forslag til næste dagsorden", "<strong>Generalforsamlingen</strong>", "Ugeopsummering", "Lokaleleje er på vej", "om 13 dage", "Underskriv lejekontrakten"]) expect(page).toContain(text);
     expect(page).not.toContain("Godkend budgettet");
     // Saga found a board meeting that is not in the calendar yet; the others see "venter på formanden".
-    expect(page).toContain("/cockpit/moder?dato=2026-10-08&amp;forslag=1#nyt");
+    expect(front).toContain("/cockpit/moder?dato=2026-10-08&amp;forslag=1#nyt");
     expect(page).not.toContain("Godkend</button>");
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(lisbeth).toContain("venter på formanden");
@@ -226,7 +231,7 @@ describe("the board cockpit", () => {
     let prompt = "";
     services.calls.length = 0;
     const { fakeServices: fake } = await import("../saga/test-support.js");
-    const ai = fake({ ai: (system, user) => { prompt = user; return ["# Referat - bestyrelsesmøde 30. september 2026", "**Til stede:** Jacob, Lisbeth, Gitta", "**Fraværende:** Blanka", "",
+    const ai = fake({ ai: (system, user) => { if (user.includes("TRANSSKRIPTION")) prompt = user; return ["# Referat - bestyrelsesmøde 30. september 2026", "**Til stede:** Jacob, Lisbeth, Gitta", "**Fraværende:** Blanka", "",
       "## Punkter", "### 1. Godkendelse af referat", "- Drøftelse: Referatet fra 17/9 blev gennemgået", "- Beslutning: Godkendt", "### 2. Økonomi", "- Drøftelse: Kassen er 41.200 kr.",
       "- Beslutning: Budget 2027 vedtaget", "### 3. Eventuelt", "- Drøftelse: Ikke drøftet", "- Beslutning: Ingen beslutning", "", "## Beslutninger", "- Referatet er godkendt", "- Budget 2027 vedtaget", "",
       "## Opgaver", "- Gitta - Send budgettet ud - 5. oktober", "", "## Næste møde", "28. oktober kl. 17 i Hjerterum"].join("\n"); } });

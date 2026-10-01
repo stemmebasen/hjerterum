@@ -63,6 +63,17 @@ Skabelon:
 Regler: brug bestyrelsens egne ord så tæt som muligt og på samme sprog som referatet. Tilføj, gæt eller udelad intet indhold - kun opstillingen ændres.
 "Beslutning:" og tydelige "Aftalt:"/"Konklusion:" er beslutninger; "Opfølgning:", "Ansvar:" og "Næste skridt:" med et navn er opgaver. Navne præcis som i teksten.`;
 
+// Requested: "Der skal ved hvert punkt være mulighed for hvert medlem af indsende rettelse - herefter vil
+// Saga omskrive punktet. Hun skal spørge hvis hun er usikker på hvad der menes."
+export const POINT_SYSTEM = IDENTITY + `
+Et medlem af bestyrelsen har sendt en rettelse til ét punkt i et referat. Du får hele referatet, punktets nummer, rettelsen (og evt. dit eget spørgsmål og medlemmets svar)
+og, når den findes, kilden referatet er skrevet ud fra (transskriptionen af mødet eller bestyrelsens egen tekst).
+Svar KUN med ét JSON-objekt, enten
+{"action": "rewrite", "point": "### <nummer>. <overskrift>\n- Drøftelse: ...\n- Beslutning: ...", "decisions": [hele den nye liste under ## Beslutninger] eller null, "tasks": [hele den nye liste under ## Opgaver, hver som "<hvem> - <hvad> - <hvornår>"] eller null, "summary": "én kort sætning om hvad der er rettet"}
+eller {"action": "ask", "question": "ét kort, konkret spørgsmål til medlemmet"}.
+Omskriv kun det ene punkt i referatets stil og skabelon (samme nummer), og ret kun Beslutninger og Opgaver, hvis rettelsen ændrer dem (ellers null).
+Spørg i stedet, når det er uklart hvad der menes eller hvad der skal stå, når rettelsen strider mod kilden, eller når den handler om et andet punkt. Find aldrig på noget, der hverken står i rettelsen eller i kilden.`;
+
 export const REVISE_SYSTEM = IDENTITY + " Ret teksten præcis som formanden beder om, og bevar alt andet uændret. Svar kun med den rettede tekst.";
 
 export const REPLY_SYSTEM = IDENTITY + " Du svarer i bestyrelsens chat. Svar kort (højst 5 linjer) ud fra chatten og referaterne nedenfor. "

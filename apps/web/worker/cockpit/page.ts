@@ -53,7 +53,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 `;
 
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
-  const nav = [["", "Overblik"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
+  const nav = [["", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
@@ -194,26 +194,62 @@ function documentCard(base: string, p: BoardPicture | null, everyone: Task[], do
 ${docUrl ? `<p class="small"><a href="${esc(docUrl)}" target="_blank" rel="noopener">Åbn referatdokumentet</a></p>` : ""}</div>`;
 }
 
+/** The few most important lines of Saga's summary: its bullet points, else its first sentences. */
+function keyPoints(summary: string | null, max = 3): string[] {
+  const lines = (summary ?? "").split(/\r?\n/).map(line => line.trim()).filter(line => line && !/^#/.test(line) && !/^temperatur:/i.test(line));
+  const bullets = lines.filter(line => /^[-*]\s+/.test(line)).map(line => line.replace(/^[-*]\s+/, ""));
+  return (bullets.length ? bullets : lines).slice(0, max);
+}
+const inline = (text: string) => esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+/** Requested: "Der er rigtig mange informationer på forsiden ... Er det muligt at vise det der er vigtigst
+ * og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu". The front page holds what is
+ * yours and what matters now; the full picture is under Status. */
 export function overviewPage(base: string, data: OverviewData): string {
   const p = data.picture;
   const sign = data.toSign.length ? `<h3>Referater du mangler at godkende</h3><ul class="plain">${data.toSign.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : "";
-  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>${sign}
-${data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
-<p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p><h3>Fra referaterne</h3>` : ""}
-${data.mine.length ? `<ul class="plain">${data.mine.map(taskLine).join("")}</ul>` : `<p class="muted">${data.who ? "Ingen opgaver står på dig i referaterne lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
+  const forChair = data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.slice(0, 5).map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}</div></li>`).join("")}</ul>
+${data.forChair.length > 5 ? `<p class="small"><a href="${base}/status#formand">${data.forChair.length - 5} mere</a></p>` : ""}` : "";
+  const tasks = data.mine.length ? `<h3>Dine opgaver</h3><ul class="plain">${data.mine.slice(0, 5).map(taskLine).join("")}</ul>${data.mine.length > 5 ? `<p class="small"><a href="${base}/status#opgaver">Alle ${data.mine.length}</a></p>` : ""}` : "";
+  const mine = `<div class="card"><h2>Til dig</h2>${sign}${forChair}${tasks}
+${sign || forChair || tasks ? "" : `<p class="muted">${data.who ? "Intet venter på dig lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
   const next = `<div class="card"><h2>Næste møde</h2>${data.next ? `${meetingSummary(base, data.next)}<p class="small muted">${inDays(daysUntil(data.next.meeting_date, data.today))}</p>`
     : `<p class="muted">Intet møde er sat i kalenderen.</p>${data.found.length ? "" : `<p><a class="button" href="${base}/moder#nyt">Planlæg et møde</a></p>`}`}${foundMeetings(base, data.found, data.today)}</div>`;
-  const saga = `<div class="card"><h2>Bestyrelsen lige nu</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
+  const points = keyPoints(data.summary);
+  const waiting = (p?.topics ?? []).filter(t => t.waitsOnJacob || t.status === "afventer").slice(0, 3);
+  const dates = (p?.document.dates ?? []).filter(d => d.date >= data.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
+  const now = `<div class="card${data.recent.length ? "" : " wide"}"><h2>Lige nu</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
+<div class="cols">${points.length ? `<div class="block"><h3>Det vigtigste</h3><ul class="plain">${points.map(x => `<li>${inline(x)}</li>`).join("")}</ul></div>` : `<div class="block"><p class="muted">Saga har ikke lavet et overblik endnu.</p></div>`}
+${waiting.length ? `<div class="block"><h3>Venter på svar</h3><ul class="plain">${waiting.map(t => `<li><strong>${esc(t.title)}</strong>${t.waitsOnJacob ? ` <span class="waits">· ${data.isChair ? "venter på dig" : "venter på formanden"}</span>` : ""}${t.note ? `<div class="small muted">${esc(t.note)}</div>` : ""}</li>`).join("")}</ul></div>` : ""}
+${dates.length ? `<div class="block"><h3>Kommende datoer</h3><ul class="plain">${dates.map(d => `<li><strong>${esc(shortDay(d.date))}</strong> <span class="pill">${inDays(daysUntil(d.date, data.today))}</span><div class="small">${esc(d.what)}</div></li>`).join("")}</ul></div>` : ""}</div>
+<p class="small" style="margin:14px 0 0"><a href="${base}/status">Se hele status →</a>${data.at ? ` <span class="muted">· Sagas overblik fra ${esc(clock(data.at))}</span>` : ""}</p></div>`;
+  const minutesNote = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${data.progress.working} optagelse${data.progress.working === 1 ? "" : "r"} bliver til referat` : "",
+    data.progress.waiting ? `${data.progress.waiting} referat${data.progress.waiting === 1 ? "" : "er"} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
+  // Requested: "Referatet er ikke endnu gengivet/inkluderet på forsiden".
+  const latest = data.recent[0];
+  const latestCard = latest ? `<div class="card"><h2>Seneste referat</h2><p><a href="${base}/referat/${latest.id}"><strong>${esc(longDay(latest.date))}</strong></a></p>
+${latest.decisions.length ? `<h3>Beslutninger</h3><ul class="plain">${latest.decisions.slice(0, 4).map(x => `<li>${esc(x)}</li>`).join("")}</ul>${latest.decisions.length > 4 ? `<p class="small muted">og ${latest.decisions.length - 4} mere</p>` : ""}` : `<p class="small muted">Ingen beslutninger i referatet.</p>`}
+<p style="margin:14px 0 0"><a class="button" href="${base}/referat/${latest.id}">${data.toSign.some(m => m.id === latest.id) ? "Læs og godkend" : "Læs referatet"}</a></p></div>` : "";
+  return layout(base, "Overblik", `<main><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>${minutesNote}
+<div class="grid">${mine}${next}</div><div class="grid">${latestCard}${now}</div></main>`, { section: "/", who: data.who });
+}
+
+/** Everything else, for when you want the whole picture: Saga's overview, the group, the minutes
+ * document's figures, decisions, open threads, who has what and proposals, and the latest minutes. */
+export function statusPage(base: string, data: OverviewData): string {
+  const p = data.picture;
+  const saga = `<div class="card"><h2>Sagas overblik</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
 ${data.summary ? `<div class="doc">${md(data.summary)}</div>` : `<p class="muted">Saga har ikke lavet et overblik endnu.</p>`}
-${data.at ? `<p class="small muted">Sagas overblik fra ${esc(clock(data.at))}</p>` : ""}</div>`;
+${data.at ? `<p class="small muted">Fra ${esc(clock(data.at))}</p>` : ""}</div>`;
+  const forChair = data.isChair && data.forChair.length ? `<div class="card" id="formand"><h2>Til dig som formand</h2><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
+<p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p></div>` : "";
+  const mine = data.mine.length ? `<div class="card" id="opgaver"><h2>Dine opgaver</h2><ul class="plain">${data.mine.map(taskLine).join("")}</ul></div>` : "";
   const weekly = data.weekly ? `<div class="card"><h2>Ugeopsummering</h2><div class="doc">${md(data.weekly.text)}</div><p class="small muted">${esc(clock(data.weekly.created_at_ms))}</p></div>` : "";
   const recent = data.recent.length ? `<div class="card"><h2>Seneste referater</h2>${data.recent.map(r => `<h3><a href="${base}/referat/${r.id}">${esc(longDay(r.date))}</a></h3>
 ${r.decisions.length ? `<ul>${r.decisions.slice(0, 5).map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="small muted">Ingen beslutninger.</p>`}${r.tasks ? `<p class="small muted">${r.tasks} opgave${r.tasks === 1 ? "" : "r"}</p>` : ""}`).join("")}</div>` : "";
-  const minutesNote = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${data.progress.working} optagelse${data.progress.working === 1 ? "" : "r"} bliver til referat` : "",
-    data.progress.waiting ? `${data.progress.waiting} referat${data.progress.waiting === 1 ? "" : "er"} venter på formandens godkendelse` : ""].filter(Boolean).join(" · ")}.</p>` : "";
-  return layout(base, "Overblik", `<main><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>${minutesNote}
-<div class="grid">${mine}${next}</div><div class="grid">${saga}${groupCard(data.group, p, data.isChair)}</div>
-${documentCard(base, p, data.everyone, data.docUrl, data.today)}${weekly || recent ? `<div class="grid">${weekly}${recent}</div>` : ""}</main>`, { section: "/", who: data.who });
+  return layout(base, "Status", `<main><h1>Status</h1><p class="muted" style="margin:-6px 0 0">Hele billedet af bestyrelsens arbejde: gruppen, referatdokumentet og de seneste referater.</p>
+<div class="grid">${saga}${groupCard(data.group, p, data.isChair)}</div>${forChair || mine ? `<div class="grid">${forChair}${mine}</div>` : ""}
+${documentCard(base, p, data.everyone, data.docUrl, data.today)}${weekly || recent ? `<div class="grid">${weekly}${recent}</div>` : ""}</main>`, { section: "/status", who: data.who });
 }
 
 export type PastMeeting = { date: string; meeting: Meeting | null; minutes: ApprovedMinutes | null; state: MinutesState | null; inDocument: boolean };

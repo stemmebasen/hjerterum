@@ -1,6 +1,7 @@
 import { section } from "../saga/markdown.js";
 import { minutesTasks, type ApprovedMinutes, type Meeting, type Signoff } from "./data.js";
 import { esc, longDay } from "./page.js";
+import type { Correction } from "./corrections.js";
 
 /** Requested: "Og så laves der et dokument pr referat - ok? Her skal vi lave et pænt layout og alt med
  * dagsorden i toppen." One page per approved minutes, laid out as a document the board can print or
@@ -55,7 +56,26 @@ ${!data.who ? `<p><a href="${base}/hvem">Vælg hvem du er</a> for at godkende.</
 <textarea name="comment" required maxlength="2000" placeholder="Hvad skal rettes?">${esc(mine?.comment ?? "")}</textarea><button>Send rettelsen til formanden</button></form></details></div>`}</section>`;
 }
 
-export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting: Meeting | null, fallbackHtml: string): string {
+/** Requested: "Der skal ved hvert punkt være mulighed for hvert medlem af indsende rettelse - herefter vil
+ * Saga omskrive punktet. Hun skal spørge hvis hun er usikker på hvad der menes." Under each point: the
+ * corrections sent to it, Saga's question to the one who sent it, and the form to correct it. */
+function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: { who: string | null; corrections: Correction[] } | undefined): string {
+  if (!fix) return "";
+  const action = `${base}/referat/${minutes.id}`;
+  const own = (fix.corrections ?? []).filter(c => c.point === point).map(c => {
+    if (c.status === "applied") return `<p class="m-fixnote">Rettet efter ${esc(c.member)}s rettelse${c.note ? `: ${esc(c.note)}` : ""}</p>`;
+    if (c.status === "pending") return `<p class="m-fixnote">Saga er ved at rette punktet efter ${esc(c.member)}s rettelse …</p>`;
+    if (c.status === "failed") return `<p class="m-fixnote warn">Saga kunne ikke rette punktet efter ${esc(c.member)}s rettelse. Skriv den gerne lidt mere præcist.</p>`;
+    return c.member === fix.who ? `<div class="m-ask"><p><strong>Saga spørger dig:</strong> ${esc(c.question ?? "")}</p>
+<form class="stack" method="post" action="${action}/rettelse/${c.id}/svar"><textarea name="answer" required maxlength="2000" rows="2" placeholder="Dit svar til Saga"></textarea><button>Svar Saga</button></form></div>`
+      : `<p class="m-fixnote">Saga har spurgt ${esc(c.member)} om rettelsen.</p>`;
+  }).join("");
+  const form = fix.who ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" method="post" action="${action}/punkt/${point}">
+<textarea name="correction" required maxlength="2000" rows="3" placeholder="Hvad skal rettes i punktet? Saga omskriver det - eller spørger dig, hvis hun er i tvivl."></textarea><button>Send rettelsen til Saga</button></form></details>` : "";
+  return own || form ? `<div class="m-fix">${own}${form}</div>` : "";
+}
+
+export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting: Meeting | null, fallbackHtml: string, fix?: { who: string | null; corrections: Correction[] }): string {
   const parsed = parseMinutes(minutes.draft_markdown ?? "");
   const agenda = meeting?.agenda.split("\n").map(line => line.trim()).filter(Boolean) ?? [];
   const agendaItems = agenda.length ? agenda : parsed?.points.map(p => p.title) ?? [];
@@ -64,9 +84,9 @@ export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting:
   const tasks = minutesTasks(minutes);
   const body = parsed ? `
 ${agendaItems.length ? `<section class="m-agenda"><h2>Dagsorden</h2><ol>${agendaItems.map(item => `<li>${esc(item)}</li>`).join("")}</ol></section>` : ""}
-<section><h2>Referat</h2>${parsed.points.map((point, i) => `<div class="m-point"><h3><span class="m-num">${i + 1}</span>${esc(point.title)}</h3>
+<section><h2>Referat</h2>${parsed.points.map((point, i) => `<div class="m-point" id="punkt-${i + 1}"><h3><span class="m-num">${i + 1}</span>${esc(point.title)}</h3>
 ${point.lines.map(line => /^beslutning/i.test(line.label) ? `<p class="m-decision${/^ingen beslutning/i.test(line.text) ? " m-none" : ""}"><span class="m-label">Beslutning</span>${esc(line.text)}</p>`
-    : `<p>${line.label ? `<span class="m-label">${esc(line.label)}</span>` : ""}${esc(line.text)}</p>`).join("")}</div>`).join("")}</section>
+    : `<p>${line.label ? `<span class="m-label">${esc(line.label)}</span>` : ""}${esc(line.text)}</p>`).join("")}${pointFixes(base, minutes, i + 1, fix)}</div>`).join("")}</section>
 ${parsed.decisions.length ? `<section class="m-box"><h2>Beslutninger</h2><ul>${parsed.decisions.map(d => `<li>${esc(d)}</li>`).join("")}</ul></section>` : ""}
 ${tasks.length ? `<section><h2>Opgaver</h2><table class="m-tasks"><tr><th>Hvem</th><th>Hvad</th><th>Frist</th></tr>${tasks.map(t => `<tr><td>${esc(t.who || "-")}</td><td>${esc(t.what)}</td><td>${esc(t.due || "-")}</td></tr>`).join("")}</table></section>` : ""}
 ${parsed.next ? `<section><h2>Næste møde</h2><p>${esc(parsed.next)}</p></section>` : ""}`
@@ -95,6 +115,8 @@ export const MINUTES_STYLE = `
 .m-tasks td:first-child{font-weight:600;white-space:nowrap}.m-tasks td:last-child{white-space:nowrap}
 .m-original{margin-top:24px}.m-original div{white-space:pre-wrap;font-size:13.5px;color:var(--muted);margin-top:8px}@media print{.m-original{display:none}}
 .m-sign{max-width:820px;width:100%;margin:0 auto}.m-sign-actions{display:grid;gap:8px}.m-sign-actions details{border-top:0;padding:0}@media print{.m-sign{display:none}}
+.m-fix{margin:8px 0 0 34px;display:grid;gap:6px}.m-fixnote{font-size:13px;color:var(--muted);margin:0}.m-fixform{border-top:0;padding:0}.m-fixform summary{font-size:13px;font-weight:600;color:var(--accent)}
+.m-fixform form{margin-top:8px}.m-ask{background:var(--soft);border-radius:10px;padding:10px 12px}.m-ask p{margin:0 0 8px}@media (max-width:640px){.m-fix{margin-left:0}}@media print{.m-fix{display:none}}
 .m-foot{margin-top:32px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 @media (max-width:640px){.minutes{padding:22px 18px;border-radius:12px}.minutes h1{font-size:23px}.m-point p{margin-left:0}}
 @media print{header,.m-tools{display:none!important}body{background:#fff;color:#000}main{padding:0;max-width:none}.minutes{border:0;padding:0;max-width:none;font-size:11pt}
