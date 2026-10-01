@@ -252,6 +252,9 @@ describe("the board cockpit", () => {
       '<span class="m-label">Beslutning</span>Budget 2027 vedtaget', "m-decision m-none", "<td data-label=\"Hvem\">Gitta</td><td data-label=\"Hvad\">Send budgettet ud</td><td data-label=\"Frist\">5. oktober</td>", "28. oktober kl. 17 i Hjerterum",
       "Lagt op 1. oktober 2026", "Bestyrelsens godkendelse", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
     expect(page.indexOf('class="m-agenda"')).toBeLessThan(page.indexOf('class="m-point"'));
+    // Reported (screenshot): "Der er to lag" - the minutes' own heading stuck to the top like the page bar.
+    expect(page).toContain('<div class="m-head">');
+    expect(page).not.toMatch(/(^|[}\s])header\{/);
   });
 
   // Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra

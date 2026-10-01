@@ -92,8 +92,8 @@ ${tasks.length ? `<section><h2>Opgaver</h2><table class="m-tasks rows"><tr><th>H
 ${parsed.next ? `<section><h2>Næste møde</h2><p>${esc(parsed.next)}</p></section>` : ""}`
     : `${agenda.length ? `<section class="m-agenda"><h2>Dagsorden</h2><ol>${agenda.map(item => `<li>${esc(item)}</li>`).join("")}</ol></section>` : ""}<section class="doc">${fallbackHtml.replace(/<h1>[\s\S]*?<\/h1>/, "")}</section>`;
   return `<div class="m-tools"><a href="${base}/moder">← Møder</a><span>${minutes.drive_document_url && minutes.source !== "document" ? `<a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn i Google Docs</a> · ` : ""}<button type="button" class="ghost" onclick="print()">Print / gem som PDF</button></span></div>
-<article class="minutes"><header class="m-head"><div class="m-org">Hjerterum · Bestyrelsen</div><h1>Referat af bestyrelsesmøde</h1>
-${facts.length ? `<dl class="m-facts">${facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>` : ""}</header>
+<article class="minutes"><div class="m-head"><div class="m-org">Hjerterum · Bestyrelsen</div><h1>Referat af bestyrelsesmøde</h1>
+${facts.length ? `<dl class="m-facts">${facts.map(([label, value]) => `<div><dt>${label}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>` : ""}</div>
 ${body}
 ${minutes.source === "document" ? `${minutes.transcript ? `<details class="m-original"><summary>Originalteksten fra referatdokumentet</summary><div>${esc(minutes.transcript)}</div></details>` : ""}
 <footer class="m-foot">Bestyrelsens referat, overført fra referatdokumentet og stillet op af Saga${minutes.drive_document_url ? ` · <a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn dokumentet</a>` : ""}</footer>`
@@ -107,7 +107,7 @@ export const MINUTES_STYLE = `
 .minutes h1{font-size:28px;margin:6px 0 14px;letter-spacing:-.015em}.minutes h2{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 10px}
 .m-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px 24px;margin:0}.m-facts div{min-width:0}.m-facts dt{font-size:12px;color:var(--muted);font-weight:600}.m-facts dd{margin:0}
 .m-agenda{background:var(--soft);border-radius:12px;padding:4px 20px 12px;margin-top:22px}.m-agenda h2{margin-top:14px}.m-agenda ol{margin:0;padding-left:22px}.m-agenda li{margin:3px 0;font-weight:600}
-.m-point{padding:14px 0;border-bottom:1px solid var(--line);break-inside:avoid}.m-point:last-child{border-bottom:0}.m-point h3{font-size:17px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline}
+.m-point{padding:14px 0;border-bottom:1px solid var(--line);break-inside:avoid}.m-point:last-child{border-bottom:0}.m-point h3{font-size:17px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;text-transform:none;letter-spacing:-.01em;color:var(--ink);font-weight:680}
 .m-num{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px}
 .m-point p{margin:4px 0 4px 34px}.m-label{font-size:12px;font-weight:700;color:var(--muted);margin-right:8px;text-transform:uppercase;letter-spacing:.05em}
 .m-decision{border-left:3px solid var(--good);padding:4px 0 4px 10px}.m-decision.m-none{border-left-color:var(--line);color:var(--muted)}
@@ -119,6 +119,6 @@ export const MINUTES_STYLE = `
 .m-fixform form{margin-top:8px}.m-ask{background:var(--soft);border-radius:10px;padding:10px 12px}.m-ask p{margin:0 0 8px}@media (max-width:640px){.m-fix{margin-left:0}}@media print{.m-fix{display:none}}
 .m-foot{margin-top:32px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 @media (max-width:640px){.minutes{padding:22px 18px;border-radius:12px}.minutes h1{font-size:23px}.m-point p{margin-left:0}}
-@media print{header,nav,.m-tools{display:none!important}body{background:#fff;color:#000}main{padding:0;max-width:none}.minutes{border:0;padding:0;max-width:none;font-size:11pt}
+@media print{header.bar,nav.tabs,.m-tools,.m-sign,.saga-fab{display:none!important}body{background:#fff;color:#000}main{padding:0;max-width:none}.minutes{border:0;padding:0;max-width:none;font-size:11pt}
 :root{--muted:#555;--line:#ccc;--soft:#edf1ee;--accent:#2f5d50;--good:#2f6f4f;--card:#fff;--ink:#000}a{color:inherit;text-decoration:none}}
 `;
