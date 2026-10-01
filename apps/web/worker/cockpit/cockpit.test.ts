@@ -191,6 +191,11 @@ describe("the board cockpit", () => {
     // Saga found a board meeting that is not in the calendar yet; the others see "venter på formanden".
     expect(front).toContain("/cockpit/moder?dato=2026-10-08&amp;forslag=1#nyt");
     expect(page).not.toContain("Godkend</button>");
+    // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
+    expect(front).toContain('<nav class="tabs" aria-label="Menu">');
+    expect(front).toContain('<span>Arrangementer</span>');
+    const more = await (await call("/cockpit/mere", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    for (const text of ["/cockpit/beslutninger", "/cockpit/arkiv", "Du er Jacob Hauge · skift", 'action="/cockpit/logout"']) expect(more).toContain(text);
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(lisbeth).toContain("venter på formanden");
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
@@ -207,7 +212,9 @@ describe("the board cockpit", () => {
       .then(() => db.prepare("UPDATE board_meetings SET meeting_date = ? WHERE meeting_date = '2026-10-20'").bind(date).run());
     const held = await db.prepare("SELECT id FROM board_meetings WHERE meeting_date = '2026-09-17'").first<{ id: number }>();
     const list = await (await call("/cockpit/moder", { cookie: session })).text();
-    expect(list).toMatch(/<option value="2026-09-17" selected>torsdag den 17\. september 2026<\/option>/);
+    // Reported: a recording went up under the wrong meeting - nothing is chosen until the member picks.
+    expect(list).toContain('<option value="" disabled selected>Vælg mødet …</option>');
+    expect(list).toContain('<option value="2026-09-17">torsdag den 17. september 2026</option>');
     const meetingPage = await (await call(`/cockpit/moder/${held!.id}`, { cookie: session })).text();
     expect(meetingPage).toContain("Optagelse af dette møde");
     const uploaded = await call("/cockpit/upload", { method: "POST", cookie: session,
@@ -217,8 +224,7 @@ describe("the board cockpit", () => {
     const after = await (await call(`/cockpit/moder/${held!.id}?upload=1`, { cookie: session })).text();
     expect(after).toContain("Saga skriver referatet");
     expect(after).not.toContain("Optagelse af dette møde");
-    // The next upload suggests the meeting that still has no minutes.
-    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toMatch(/<option value="2026-09-03" selected>/);
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<option value="2026-09-17">torsdag den 17. september 2026 · saga skriver referatet</option>');
   });
 
   // Requested: "Og så laves der et dokument pr referat - ok? Her skal vi lave et pænt layout og alt med dagsorden i toppen."
@@ -243,9 +249,12 @@ describe("the board cockpit", () => {
     await decideMinutes(db, id, "approved", NOW);
     const page = await (await call(`/cockpit/referat/${id}`, { cookie: session })).text();
     for (const text of ["Referat af bestyrelsesmøde", "<dd>onsdag den 30. september 2026</dd>", "<dd>kl. 17:00</dd>", "<dd>Hjerterum, Valby</dd>", "<dd>Jacob, Lisbeth, Gitta</dd>", "<dd>Blanka</dd>",
-      '<span class="m-label">Beslutning</span>Budget 2027 vedtaget', "m-decision m-none", "<td>Gitta</td><td>Send budgettet ud</td><td>5. oktober</td>", "28. oktober kl. 17 i Hjerterum",
+      '<span class="m-label">Beslutning</span>Budget 2027 vedtaget', "m-decision m-none", "<td data-label=\"Hvem\">Gitta</td><td data-label=\"Hvad\">Send budgettet ud</td><td data-label=\"Frist\">5. oktober</td>", "28. oktober kl. 17 i Hjerterum",
       "Lagt op 1. oktober 2026", "Bestyrelsens godkendelse", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
     expect(page.indexOf('class="m-agenda"')).toBeLessThan(page.indexOf('class="m-point"'));
+    // Reported (screenshot): "Der er to lag" - the minutes' own heading stuck to the top like the page bar.
+    expect(page).toContain('<div class="m-head">');
+    expect(page).not.toMatch(/(^|[}\s])header\{/);
   });
 
   // Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
