@@ -22,7 +22,9 @@
         "SAGA_OWNER_TELEGRAM_ID": "8490500029",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "deepseek-v4-flash",
-        "GOOGLE_MINUTES_DOC_ID": "1fqEys6iYSXu5XG81EyT45YVfbhRjVlq86ERVbHn1Mzs"
+        "GOOGLE_MINUTES_DOC_ID": "1fqEys6iYSXu5XG81EyT45YVfbhRjVlq86ERVbHn1Mzs",
+        "COCKPIT_URL": "https://hjerterum-platform-staging.speak-e18.workers.dev/cockpit",
+        "SAGA_MINUTES_PING": "on"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]

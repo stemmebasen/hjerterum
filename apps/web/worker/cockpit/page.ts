@@ -14,37 +14,42 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 const STYLE = `
-:root{--bg:#f6f4f1;--card:#fff;--ink:#1f1d1a;--muted:#6b665f;--line:#e4dfd8;--accent:#8a3b5c;--accent-ink:#fff;--soft:#f1ebe6;--good:#2f7a4a;--warn:#a8551b}
-@media (prefers-color-scheme:dark){:root{--bg:#161514;--card:#201f1d;--ink:#eeebe6;--muted:#a49e95;--line:#34312d;--accent:#d68aab;--accent-ink:#1b1214;--soft:#2a2724;--good:#7cc796;--warn:#e6a06a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-a{color:var(--accent)}header{background:var(--card);border-bottom:1px solid var(--line)}
-.top{max-width:1040px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
-.brand{font-weight:700;letter-spacing:.01em;text-decoration:none;color:var(--ink)}.brand span{color:var(--accent)}
-nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}nav a{padding:6px 10px;border-radius:8px;text-decoration:none;color:var(--muted);font-weight:600;font-size:14px}
-nav a.on{background:var(--soft);color:var(--ink)}.who{font-size:13px;color:var(--muted)}.who a{color:var(--muted)}
-main{max-width:1040px;margin:0 auto;padding:20px 16px 48px;display:grid;gap:16px}
-h1{font-size:24px;margin:4px 0 0;letter-spacing:-.01em}h2{font-size:16px;margin:0 0 10px}h3{font-size:15px;margin:14px 0 6px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start}
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;min-width:0}
-.muted{color:var(--muted)}.small{font-size:13px}.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;background:var(--soft);color:var(--muted)}
-ul.plain{list-style:none;margin:0;padding:0;display:grid;gap:8px}ul.plain li{padding:8px 10px;border-radius:10px;background:var(--soft)}
-ol.agenda{margin:0;padding-left:20px}ol.agenda li{margin:2px 0}
-.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:15px}.doc ul{padding-left:20px}
-form.stack{display:grid;gap:10px}label{display:grid;gap:4px;font-size:13px;font-weight:600}
-input,textarea,select{font:inherit;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+:root{--bg:#f4f4f1;--card:#fff;--ink:#1b1d1c;--muted:#62676a;--line:#e2e3df;--accent:#2f5d50;--accent-ink:#fff;--soft:#edf1ee;--good:#2f6f4f;--warn:#a4561a;--shadow:0 1px 2px rgba(20,30,25,.05),0 4px 16px rgba(20,30,25,.04)}
+@media (prefers-color-scheme:dark){:root{--bg:#121413;--card:#1a1d1c;--ink:#e9ecea;--muted:#9ca39f;--line:#2b302e;--accent:#8cc5b2;--accent-ink:#0f1513;--soft:#222826;--good:#8fd0a6;--warn:#e7a56d;--shadow:none}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-underline-offset:2px}header{background:color-mix(in srgb,var(--card) 92%,transparent);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;backdrop-filter:blur(8px)}
+.top{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brand{font-weight:650;letter-spacing:-.01em;text-decoration:none;color:var(--ink);display:flex;align-items:center;gap:9px;font-size:16px}
+.brand::before{content:"";width:22px;height:22px;border-radius:7px;background:var(--accent);box-shadow:inset 0 0 0 5px color-mix(in srgb,var(--accent) 70%,#fff)}.brand span{color:var(--muted);font-weight:500}
+nav{display:flex;gap:2px;flex-wrap:wrap;flex:1}nav a{padding:7px 12px;border-radius:9px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px}
+nav a:hover{color:var(--ink);background:var(--soft)}nav a.on{background:var(--soft);color:var(--ink)}.who{font-size:13px;color:var(--muted)}.who a{color:var(--muted)}
+main{max-width:1120px;margin:0 auto;padding:28px 20px 64px;display:grid;gap:18px}
+h1{font-size:28px;line-height:1.2;margin:0;letter-spacing:-.02em;font-weight:680}h2{font-size:15px;margin:0 0 12px;font-weight:650;letter-spacing:-.005em}
+h3{font-size:12px;margin:16px 0 8px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:650}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0;box-shadow:var(--shadow)}
+.muted{color:var(--muted)}.small{font-size:13px}.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:10px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
+ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:3px 0}ol.agenda li::marker{color:var(--muted)}
+.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:12px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
+form.stack{display:grid;gap:12px}label{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
+input,textarea,select{font:inherit;font-weight:400;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;width:100%}
+input:focus,textarea:focus,select:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);border-color:var(--accent)}
 textarea{min-height:150px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 160px}
-button,.button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-block}
-button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
-.notice{padding:10px 14px;border-radius:10px;background:var(--soft)}.notice.good{color:var(--good)}.notice.warn{color:var(--warn)}
-details{border-top:1px solid var(--line);padding:8px 0}details>summary{cursor:pointer;font-weight:600}
+button,.button{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:10px;padding:10px 16px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-block}
+button:hover,.button:hover{filter:brightness(1.08)}button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.ghost:hover{background:var(--soft);filter:none}
+.notice{padding:11px 15px;border-radius:12px;background:var(--soft);border:1px solid var(--line)}.notice.good{color:var(--good)}.notice.warn{color:var(--warn)}
+details{border-top:1px solid var(--line);padding:9px 0}details>summary{cursor:pointer;font-weight:600}
 .center{max-width:420px;margin:12vh auto;padding:0 16px}
-table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{font-size:12px;color:var(--muted)}
-[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 22px;align-items:start}.block{min-width:0}
-.chip{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:1px 7px;border-radius:6px;background:var(--soft);color:var(--muted)}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+tr:last-child td{border-bottom:0}
+[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:6px 28px;align-items:start}.block{min-width:0}
+.chip{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:1px 7px;border-radius:6px;background:var(--soft);color:var(--muted);margin-right:4px}
 .chip.good{color:var(--good)}.chip.wait{color:var(--warn)}.waits,.warn{color:var(--warn);font-weight:600}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.stats div{background:var(--soft);border-radius:10px;padding:8px 10px}
-.stats b{display:block;font-size:20px}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}.stats div{background:var(--soft);border-radius:12px;padding:10px 12px}
+.stats b{display:block;font-size:22px;letter-spacing:-.01em}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
 details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;margin:4px 0}
+@media (max-width:640px){main{padding:20px 14px 80px}h1{font-size:24px}.card{padding:16px}.top{padding:10px 14px;gap:10px}}
 `;
 
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
@@ -52,7 +57,7 @@ export function layout(base: string, title: string, body: string, options: { sec
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>bestyrelse</span></a><nav>${nav}</nav>
+${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>Bestyrelsen</span></a><nav>${nav}</nav>
 <div class="who">${options.who ? `${esc(options.who)} · <a href="${base}/hvem">skift</a> · ` : ""}<form method="post" action="${base}/logout" style="display:inline"><button class="ghost" style="padding:2px 8px;font-size:12px">Log ud</button></form></div></div></header>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
 }
@@ -144,9 +149,9 @@ const agendaFill = (items: string[]) => items.length
 const FILL_SCRIPT = `<script>document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>{const t=b.form.querySelector("textarea");const add=JSON.parse(b.dataset.fill).filter(x=>!t.value.includes(x));t.value=(t.value.trim()?t.value.trim()+"\\n":"")+add.join("\\n");t.focus()}))</script>`;
 
 export type MinutesState = "working" | "waiting" | "failed";
-const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Venter på formandens godkendelse", failed: "Referatet kunne ikke laves - upload igen" };
+const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Lægges op om lidt", failed: "Referatet kunne ikke laves - upload igen" };
 
-export type OverviewData = { who: string | null; isChair: boolean; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
+export type OverviewData = { who: string | null; isChair: boolean; toSign: ApprovedMinutes[]; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
   found: Array<{ date: string; what: string }>; picture: BoardPicture | null; summary: string | null; at: number | null; progress: { working: number; waiting: number }; today: string;
   group: GroupNow | null; weekly: { text: string; created_at_ms: number } | null; recent: Array<{ id: number; date: string; decisions: string[]; tasks: number }>; docUrl: string | null };
 
@@ -191,7 +196,8 @@ ${docUrl ? `<p class="small"><a href="${esc(docUrl)}" target="_blank" rel="noope
 
 export function overviewPage(base: string, data: OverviewData): string {
   const p = data.picture;
-  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>
+  const sign = data.toSign.length ? `<h3>Referater du mangler at godkende</h3><ul class="plain">${data.toSign.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : "";
+  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>${sign}
 ${data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
 <p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p><h3>Fra referaterne</h3>` : ""}
 ${data.mine.length ? `<ul class="plain">${data.mine.map(taskLine).join("")}</ul>` : `<p class="muted">${data.who ? "Ingen opgaver står på dig i referaterne lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;

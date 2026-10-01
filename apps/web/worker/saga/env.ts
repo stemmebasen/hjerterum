@@ -33,6 +33,11 @@ export interface SagaEnv {
   /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). Set by
    * the chair as a secret; without it the cockpit says it is not set up and lets no one in. */
   COCKPIT_PASSWORD?: string;
+  /** The cockpit's address, for links in Telegram (e.g. https://cockpit.hjerterum.info). */
+  COCKPIT_URL?: string;
+  /** "on": Saga writes one short message in the board's group when new minutes are up, asking
+   * everyone to read and approve them. Otherwise she stays silent there. */
+  SAGA_MINUTES_PING?: string;
 }
 
 /** The part of an R2 bucket the cockpit and Saga use. */

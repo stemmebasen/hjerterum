@@ -11,9 +11,9 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
 export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument"; minutesId: number | null };
-export type ApprovedMinutes = Pick<Minutes, "id" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number };
+export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
 
-const MINUTES = "id, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
+const MINUTES = "id, source, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
 
 export async function approvedMinutes(db: D1Database, limit = 200): Promise<ApprovedMinutes[]> {
   const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE status = 'approved' AND draft_markdown IS NOT NULL
@@ -22,7 +22,7 @@ export async function approvedMinutes(db: D1Database, limit = 200): Promise<Appr
 }
 
 export async function approvedMinutesById(db: D1Database, id: number): Promise<ApprovedMinutes | null> {
-  return db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE id = ? AND status = 'approved' AND draft_markdown IS NOT NULL`).bind(id).first<ApprovedMinutes>();
+  return db.prepare(`SELECT ${MINUTES}, CASE WHEN source = 'document' THEN transcript END AS transcript FROM board_minutes WHERE id = ? AND status = 'approved' AND draft_markdown IS NOT NULL`).bind(id).first<ApprovedMinutes>();
 }
 
 /** Recordings being turned into minutes, and drafts waiting for the chair - counted only. */
@@ -185,4 +185,25 @@ export function tasksFor(person: string, tasks: Task[]): Task[] {
     const who = task.who.toLocaleLowerCase("da-DK");
     return new RegExp(`(^|[^\\p{L}])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^\\p{L}])`, "u").test(who) || /\b(alle|bestyrelsen|hele bestyrelsen)\b/u.test(who);
   });
+}
+
+// ---- Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet" ----
+
+export type Signoff = { member: string; status: "approved" | "correction"; comment: string | null; at_ms: number };
+
+export async function signoffs(db: D1Database, minutesId: number): Promise<Signoff[]> {
+  const rows = await db.prepare("SELECT member, status, comment, at_ms FROM board_minutes_signoffs WHERE minutes_id = ? ORDER BY at_ms").bind(minutesId).all<Signoff>();
+  return rows.results ?? [];
+}
+
+export async function signOff(db: D1Database, minutesId: number, member: string, status: Signoff["status"], comment: string | null, nowMs: number): Promise<void> {
+  await db.prepare(`INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(minutes_id, member) DO UPDATE SET status = excluded.status, comment = excluded.comment, at_ms = excluded.at_ms`).bind(minutesId, member, status, comment, nowMs).run();
+}
+
+/** Saga's minutes from the last 90 days that this member has not yet approved (or asked to correct). */
+export async function unsignedFor(db: D1Database, member: string, nowMs: number): Promise<ApprovedMinutes[]> {
+  const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes m WHERE status = 'approved' AND source != 'document' AND draft_markdown IS NOT NULL AND created_at_ms >= ?
+    AND NOT EXISTS (SELECT 1 FROM board_minutes_signoffs s WHERE s.minutes_id = m.id AND s.member = ?) ORDER BY COALESCE(meeting_date, '') DESC LIMIT 10`).bind(nowMs - 90 * 86_400_000, member).all<ApprovedMinutes>();
+  return rows.results ?? [];
 }

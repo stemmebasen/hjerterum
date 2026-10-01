@@ -10,6 +10,8 @@ import {
   plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
+import { importDocMinutes } from "./importDoc.js";
+import { boardKnowledge } from "../cockpit/ask.js";
 
 const DAY = 86_400_000;
 const copenhagenDate = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
@@ -108,8 +110,12 @@ export async function draftBoardReply(env: SagaEnv, deps: SagaDeps, question: st
 }
 
 export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, question: string): Promise<void> {
+  // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, minutes, the
+  // group), and for the chair also team@'s subjects.
+  const db = requireDb(env);
+  const mail = mailContext(await recentMail(db, deps.now() - 14 * DAY, 60));
   const answer = await complete(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
-    { role: "user", content: `${await context(env, deps, 60)}\n\nJACOB SPØRGER:\n${question}` }]);
+    { role: "user", content: `${await boardKnowledge(env, deps, db, question)}${mail ? `\n\n${mail}` : ""}\n\nJACOB SPØRGER:\n${question}` }]);
   await telegramClient(env, deps).sendMessage(owner(env), answer);
 }
 
@@ -200,7 +206,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
         + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
-    await sendMinutesForApproval(env, deps, item.id, draft, item.meeting_date, `Referatudkast fra ${item.file_name}.`);
+    await publishMinutes(env, deps, item.id, `Referat fra ${item.file_name}.`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "minutes_failed";
     const final = message === "recording_too_large" || message === "recording_not_found" || item.attempts >= 3;
@@ -223,10 +229,64 @@ async function agendaFor(db: ReturnType<typeof requireDb>, day: string | null): 
     + "drøftes noget uden for dagsordenen, så tag det med til sidst som et ekstra punkt):\n" + points.map((point, i) => `${i + 1}. ${point}`).join("\n");
 }
 
+/** Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende
+ * referatet". New minutes are put up in the cockpit at once (and in the minutes document when Saga
+ * may write there); the chair gets them in Telegram and can still correct them by replying; the board
+ * is asked to read and approve them, each member in the cockpit. */
+export async function publishMinutes(env: SagaEnv, deps: SagaDeps, id: number, note: string): Promise<void> {
+  const db = requireDb(env);
+  const item = await getMinutes(db, id);
+  if (!item?.draft_markdown || item.status !== "drafted") return;
+  const stored = await approveMinutes(env, deps, id, true, { quiet: true });
+  const link = cockpitLink(env, `/referat/${id}`);
+  const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), item.draft_markdown,
+    `${note} Det er lagt op${link ? `: ${link}` : " i cockpittet"}, og bestyrelsen godkender det dér. ${stored} Svar på denne besked for at rette referatet.`);
+  await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
+  // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL".
+  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} klar til godkendelse:\n${link || "Se det i cockpittet."}`);
+}
+
+/** Minutes drafted before they went up on their own (they waited for the chair) are put up now. */
+export async function publishDraftedMinutes(env: SagaEnv, deps: SagaDeps): Promise<void> {
+  const rows = await requireDb(env).prepare("SELECT id FROM board_minutes WHERE status = 'drafted' ORDER BY created_at_ms LIMIT 3").all<{ id: number }>();
+  for (const row of rows.results ?? []) await publishMinutes(env, deps, row.id, "Referatet ventede på din godkendelse.");
+}
+
+const cockpitLink = (env: SagaEnv, path: string) => env.COCKPIT_URL ? `${env.COCKPIT_URL.replace(/\/+$/, "")}${path}` : "";
+
+/** One short message in the board's group - only when the chair has turned it on (SAGA_MINUTES_PING). */
+async function pingBoard(env: SagaEnv, deps: SagaDeps, text: string): Promise<void> {
+  if (env.SAGA_MINUTES_PING !== "on" || !env.SAGA_BOARD_CHAT_ID) return;
+  const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text).catch(() => null);
+  if (sent) await saveBoardMessage(requireDb(env), { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: deps.now(), fromAssistant: true });
+}
+
+/** A board member asked for a correction in the cockpit: the chair hears it and can reply to correct. */
+export async function tellChairAboutCorrection(env: SagaEnv, deps: SagaDeps, id: number, member: string, comment: string): Promise<void> {
+  const db = requireDb(env);
+  const item = await getMinutes(db, id);
+  if (!item || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
+  const sent = await telegramClient(env, deps).sendMessage(owner(env), `${member} har en rettelse til referatet fra ${danishDate(item.meeting_date)}:\n\n${comment}\n\nSvar på denne besked med rettelsen, så retter jeg referatet.`);
+  await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
+}
+
 export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, instruction: string): Promise<void> {
   const db = requireDb(env);
   const item = await getMinutes(db, id);
-  if (!item || item.status !== "drafted" || !item.draft_markdown) return;
+  if (!item || (item.status !== "drafted" && item.status !== "approved") || !item.draft_markdown) return;
+  if (item.status === "approved") {
+    // Already up: corrected in place, and the board's sign-offs start over.
+    const draft = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+      { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
+    await updateMinutes(db, id, { draft }, deps.now());
+    await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(id).run();
+    const link = cockpitLink(env, `/referat/${id}`);
+    const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), draft,
+      `Rettet og lagt op${link ? `: ${link}` : ""}. Bestyrelsen godkender den rettede udgave. Svar på denne besked for at rette igen.`);
+    await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
+    await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i cockpittet."}`);
+    return;
+  }
   const draft = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM },
     { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
   await updateMinutes(db, id, { draft }, deps.now());
@@ -235,7 +295,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
 }
 
 /** Approved: a Google Doc in the minutes folder, and decisions, tasks and the link in the board chat. */
-export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, approve: boolean): Promise<string> {
+export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, approve: boolean, options: { quiet?: boolean } = {}): Promise<string> {
   const db = requireDb(env);
   const item = await getMinutes(db, id);
   if (!item || !item.draft_markdown || !(await decideMinutes(db, id, approve ? "approved" : "rejected", deps.now()))) return "Allerede afgjort.";
@@ -264,6 +324,8 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
   }
   // An open document Saga can only read: the approved minutes are kept here, and the chair pastes them in.
   const readOnly = !link && !failed && !env.GOOGLE_SERVICE_ACCOUNT_JSON && minutesDocUrl(env);
+  if (options.quiet) return link ? "Det er også skrevet ind i referatdokumentet." : failed ? `Det kunne ikke skrives i referatdokumentet (${failed}).`
+    : readOnly ? "Saga kan ikke skrive i referatdokumentet, så sæt det ind dér, hvis det også skal stå i dokumentet." : "";
   if (!postsToBoard(env)) return link ? `Skrevet ind i referatdokumentet: ${link}`
     : failed ? `Godkendt, men det kunne ikke skrives i referatdokumentet (${failed}). Referatet er filen ovenfor.`
     : readOnly ? `Godkendt og gemt hos Saga. Hun kan læse referatdokumentet, men ikke skrive i det, så sæt referatet ind her: ${readOnly}`
@@ -283,6 +345,9 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
+  await publishDraftedMinutes(env, deps).catch(error => console.warn("saga_minutes_publish_failed", error instanceof Error ? error.message : error));
+  // The document's meetings first: a recording of one of them then has its agenda to follow.
+  await importDocMinutes(env, deps).catch(error => console.warn("saga_minutes_import_failed", error instanceof Error ? error.message : error));
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));

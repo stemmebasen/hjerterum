@@ -141,12 +141,23 @@ describe("the board cockpit", () => {
     expect(await processNextMinutes(env, deps(services.fetcher, NOW))).toBe(true);
     expect(services.calls.some(c => c.url === "https://api.elevenlabs.io/v1/speech-to-text")).toBe(true);
     expect(services.telegram("sendDocument")).toHaveLength(1);
-    expect((await call(`/cockpit/referat/${queued!.id}`, { cookie: session })).status).toBe(404);
-    expect(await (await call("/cockpit/", { cookie: session })).text()).toContain("1 referat venter på formandens godkendelse");
-    await decideMinutes(db, queued!.id, "approved", NOW);
-    const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: session })).text();
+    // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet".
+    const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(minutes).toContain("<li>Budgettet er vedtaget</li>");
+    expect(minutes).toContain("Ingen har godkendt endnu.");
+    expect(minutes).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
+    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text()).toContain("Referater du mangler at godkende");
+    const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Lisbeth` });
+    expect(signed.headers.get("location")).toBe(`/cockpit/referat/${queued!.id}?godkendt=1`);
+    const correction = await call(`/cockpit/referat/${queued!.id}/rettelse`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Gitta`, body: form({ comment: "Fristen er 20. oktober" }) });
+    expect(correction.status).toBe(303);
+    const after = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    expect(after).toContain("<strong>Godkendt af:</strong> Lisbeth");
+    expect(after).toContain("<strong>Gitta</strong> har en rettelse: Fristen er 20. oktober");
+    expect(after).toContain("Mangler: Jacob Hauge");
+    expect(after).toContain("Du har godkendt referatet.");
+    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).not.toContain("Referater du mangler at godkende");
   });
 
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med".
@@ -228,7 +239,7 @@ describe("the board cockpit", () => {
     const page = await (await call(`/cockpit/referat/${id}`, { cookie: session })).text();
     for (const text of ["Referat af bestyrelsesmøde", "<dd>onsdag den 30. september 2026</dd>", "<dd>kl. 17:00</dd>", "<dd>Hjerterum, Valby</dd>", "<dd>Jacob, Lisbeth, Gitta</dd>", "<dd>Blanka</dd>",
       '<span class="m-label">Beslutning</span>Budget 2027 vedtaget', "m-decision m-none", "<td>Gitta</td><td>Send budgettet ud</td><td>5. oktober</td>", "28. oktober kl. 17 i Hjerterum",
-      "Godkendt af formanden 1. oktober 2026", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
+      "Lagt op 1. oktober 2026", "Bestyrelsens godkendelse", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
     expect(page.indexOf('class="m-agenda"')).toBeLessThan(page.indexOf('class="m-point"'));
   });
 

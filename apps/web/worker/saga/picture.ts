@@ -106,7 +106,7 @@ export async function docHash(text: string): Promise<string> {
 const MONTHS: Record<string, number> = { januar: 1, februar: 2, marts: 3, april: 4, maj: 5, juni: 6, juli: 7, august: 8, september: 9, oktober: 10, november: 11, december: 12 };
 /** Where a meeting starts in the minutes document: the board's own "Dato for møde: 17/9/ 2026", or
  * the heading of minutes Saga added ("Referat - bestyrelsesmøde 1. oktober 2026"). */
-const MEETING = /Dato for møde:\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/?\s*(\d{4})|Referat - bestyrelsesmøde\s+(\d{1,2})\.\s*([a-zæøå]+)\s+(\d{4})/giu;
+const MEETING = /Dato for møde(?::|\s+d\.)\s*(\d{1,2})\s*\/\s*(\d{1,2})\s*\/?\s*(\d{4})|Referat - bestyrelsesmøde\s+(\d{1,2})\.\s*([a-zæøå]+)\s+(\d{4})/giu;
 
 /** The minutes document cut into its meetings, newest first: each with its day (YYYY-MM-DD), a short
  * label and its own text. The board cockpit's archive shows the historical minutes this way. */

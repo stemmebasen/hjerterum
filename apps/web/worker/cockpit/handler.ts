@@ -3,15 +3,15 @@ import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/driv
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
-import { processNextMinutes } from "../saga/saga.js";
 import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, tasksFor, weeklySummary } from "./data.js";
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary } from "./data.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
-import { minutesDocument, MINUTES_STYLE } from "./minutesDoc.js";
+import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
+import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
 import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
 
@@ -89,7 +89,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const everyone = allTasks(minutes, picture);
-    return html(overviewPage(base, { who, isChair, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+    const toSign = who ? await unsignedFor(db, who, now) : [];
+    return html(overviewPage(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
       recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
@@ -109,7 +110,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const past: PastMeeting[] = dates.map(date => ({ date, meeting: list.find(m => m.meeting_date === date) ?? null, minutes: minutes.find(m => m.meeting_date === date) ?? null,
       state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
     const asked = url.searchParams.get("dato") ?? "";
-    const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : "";
+    const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : "";
     return html(meetingsPage(base, { upcoming, past,
       found: sagaMeetings(picture, list, today), suggestion: picture?.document.nextAgenda ?? [],
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", agenda: url.searchParams.get("forslag") === "1" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
@@ -127,18 +128,35 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       return redirect(`${base}/moder/${id}?gemt=1`);
     }
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
-    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : url.searchParams.get("gemt") ? "Gemt." : "";
+    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt." : "";
     return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS) }, who, notice));
+  }
+
+  // Each board member approves the minutes, or asks the chair for a correction.
+  const signPath = /^\/referat\/(\d+)\/(godkend|rettelse)$/.exec(path);
+  if (signPath && request.method === "POST") {
+    const id = Number(signPath[1]);
+    const minutes = await approvedMinutesById(db, id);
+    if (!minutes || minutes.source === "document") return html(notFound(base, who), 404);
+    if (!who) return redirect(`${base}/hvem`);
+    if (signPath[2] === "godkend") { await signOff(db, id, who, "approved", null, now); return redirect(`${base}/referat/${id}?godkendt=1`); }
+    const comment = String((await request.formData().catch(() => null))?.get("comment") ?? "").trim().slice(0, 2000);
+    if (!comment) return redirect(`${base}/referat/${id}`);
+    await signOff(db, id, who, "correction", comment, now);
+    if (deps.waitUntil) deps.waitUntil(tellChairAboutCorrection(env, deps, id, who, comment).catch(error => console.warn("cockpit_correction_failed", error instanceof Error ? error.message : error)));
+    return redirect(`${base}/referat/${id}?rettelse=1`);
   }
 
   const minutesPath = /^\/referat\/(\d+)$/.exec(path);
   if (minutesPath && request.method === "GET") {
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
     if (!minutes) return html(notFound(base, who), 404);
+    const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse." : "";
+    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
     const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;
-    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${minutesDocument(base, minutes, planned, body)}</main>`,
+    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${minutesDocument(base, minutes, planned, body)}</main>`,
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
 
@@ -197,8 +215,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const key = `cockpit/${meetingDate}/${crypto.randomUUID()}.${extension}`;
     await env.BOARD_RECORDINGS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "audio/mp4" } });
     await queueMinutes(db, { source: "upload", fileId: key, fileName: file.name.slice(0, 200) || `optagelse.${extension}`, mimeType: file.type || null, meetingDate, nowMs: now });
-    // Saga starts at once instead of at her next five-minute round.
-    if (deps.waitUntil && env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) deps.waitUntil(processNextMinutes(env, deps).catch(error => console.warn("cockpit_minutes_failed", error instanceof Error ? error.message : error)));
+    // Saga takes it at her next five-minute round: a long recording needs minutes, and work left
+    // running after a page's answer is stopped by Cloudflare after about 30 seconds.
     return redirect(Number.isSafeInteger(meetingId) && meetingId > 0 && await meeting(db, meetingId) ? `${base}/moder/${meetingId}?upload=1` : `${base}/moder?upload=1`);
   }
 
