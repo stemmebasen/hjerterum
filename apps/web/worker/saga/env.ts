@@ -27,6 +27,18 @@ export interface SagaEnv {
   /** Requested: "the doc we use for all referater and decisions" - Saga reads it for context and
    * appends approved minutes to it (shared with the service account as editor). */
   GOOGLE_MINUTES_DOC_ID?: string;
+  /** Requested: "upload referat (mp3/m4a) knap" - recordings uploaded in the board cockpit wait
+   * here (R2) until Saga has transcribed them. */
+  BOARD_RECORDINGS?: RecordingBucket;
+  /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). Set by
+   * the chair as a secret; without it the cockpit says it is not set up and lets no one in. */
+  COCKPIT_PASSWORD?: string;
+}
+
+/** The part of an R2 bucket the cockpit and Saga use. */
+export interface RecordingBucket {
+  put(key: string, value: ArrayBuffer | ReadableStream, options?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  get(key: string): Promise<{ arrayBuffer(): Promise<ArrayBuffer> } | null>;
 }
 
 export interface SagaDeps {

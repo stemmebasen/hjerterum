@@ -2,6 +2,7 @@ import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
+import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
 
 interface Env {
@@ -27,6 +28,15 @@ const app = appWorker as unknown as {
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
+
+    // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
+    if (isCockpitRequest(url)) {
+      return handleCockpitRequest(request, env as SagaEnv, {
+        fetcher: (input, init) => fetch(input, init),
+        now: () => Date.now(),
+        ...(ctx ? { waitUntil: (work: Promise<unknown>) => ctx.waitUntil(work) } : {})
+      });
+    }
 
     // Saga, the board assistant (docs/decisions/0005-saga-board-assistant.md).
     if (url.pathname.startsWith("/api/saga/")) {
