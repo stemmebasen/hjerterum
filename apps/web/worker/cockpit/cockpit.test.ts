@@ -231,7 +231,7 @@ describe("the board cockpit", () => {
     let prompt = "";
     services.calls.length = 0;
     const { fakeServices: fake } = await import("../saga/test-support.js");
-    const ai = fake({ ai: (system, user) => { prompt = user; return ["# Referat - bestyrelsesmøde 30. september 2026", "**Til stede:** Jacob, Lisbeth, Gitta", "**Fraværende:** Blanka", "",
+    const ai = fake({ ai: (system, user) => { if (user.includes("TRANSSKRIPTION")) prompt = user; return ["# Referat - bestyrelsesmøde 30. september 2026", "**Til stede:** Jacob, Lisbeth, Gitta", "**Fraværende:** Blanka", "",
       "## Punkter", "### 1. Godkendelse af referat", "- Drøftelse: Referatet fra 17/9 blev gennemgået", "- Beslutning: Godkendt", "### 2. Økonomi", "- Drøftelse: Kassen er 41.200 kr.",
       "- Beslutning: Budget 2027 vedtaget", "### 3. Eventuelt", "- Drøftelse: Ikke drøftet", "- Beslutning: Ingen beslutning", "", "## Beslutninger", "- Referatet er godkendt", "- Budget 2027 vedtaget", "",
       "## Opgaver", "- Gitta - Send budgettet ud - 5. oktober", "", "## Næste møde", "28. oktober kl. 17 i Hjerterum"].join("\n"); } });

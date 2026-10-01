@@ -218,15 +218,20 @@ ${sign || forChair || tasks ? "" : `<p class="muted">${data.who ? "Intet venter 
   const points = keyPoints(data.summary);
   const waiting = (p?.topics ?? []).filter(t => t.waitsOnJacob || t.status === "afventer").slice(0, 3);
   const dates = (p?.document.dates ?? []).filter(d => d.date >= data.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 3);
-  const now = `<div class="card wide"><h2>Lige nu</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
+  const now = `<div class="card${data.recent.length ? "" : " wide"}"><h2>Lige nu</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
 <div class="cols">${points.length ? `<div class="block"><h3>Det vigtigste</h3><ul class="plain">${points.map(x => `<li>${inline(x)}</li>`).join("")}</ul></div>` : `<div class="block"><p class="muted">Saga har ikke lavet et overblik endnu.</p></div>`}
 ${waiting.length ? `<div class="block"><h3>Venter på svar</h3><ul class="plain">${waiting.map(t => `<li><strong>${esc(t.title)}</strong>${t.waitsOnJacob ? ` <span class="waits">· ${data.isChair ? "venter på dig" : "venter på formanden"}</span>` : ""}${t.note ? `<div class="small muted">${esc(t.note)}</div>` : ""}</li>`).join("")}</ul></div>` : ""}
 ${dates.length ? `<div class="block"><h3>Kommende datoer</h3><ul class="plain">${dates.map(d => `<li><strong>${esc(shortDay(d.date))}</strong> <span class="pill">${inDays(daysUntil(d.date, data.today))}</span><div class="small">${esc(d.what)}</div></li>`).join("")}</ul></div>` : ""}</div>
 <p class="small" style="margin:14px 0 0"><a href="${base}/status">Se hele status →</a>${data.at ? ` <span class="muted">· Sagas overblik fra ${esc(clock(data.at))}</span>` : ""}</p></div>`;
   const minutesNote = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${data.progress.working} optagelse${data.progress.working === 1 ? "" : "r"} bliver til referat` : "",
     data.progress.waiting ? `${data.progress.waiting} referat${data.progress.waiting === 1 ? "" : "er"} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
+  // Requested: "Referatet er ikke endnu gengivet/inkluderet på forsiden".
+  const latest = data.recent[0];
+  const latestCard = latest ? `<div class="card"><h2>Seneste referat</h2><p><a href="${base}/referat/${latest.id}"><strong>${esc(longDay(latest.date))}</strong></a></p>
+${latest.decisions.length ? `<h3>Beslutninger</h3><ul class="plain">${latest.decisions.slice(0, 4).map(x => `<li>${esc(x)}</li>`).join("")}</ul>${latest.decisions.length > 4 ? `<p class="small muted">og ${latest.decisions.length - 4} mere</p>` : ""}` : `<p class="small muted">Ingen beslutninger i referatet.</p>`}
+<p style="margin:14px 0 0"><a class="button" href="${base}/referat/${latest.id}">${data.toSign.some(m => m.id === latest.id) ? "Læs og godkend" : "Læs referatet"}</a></p></div>` : "";
   return layout(base, "Overblik", `<main><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>${minutesNote}
-<div class="grid">${mine}${next}</div><div class="grid">${now}</div></main>`, { section: "/", who: data.who });
+<div class="grid">${mine}${next}</div><div class="grid">${latestCard}${now}</div></main>`, { section: "/", who: data.who });
 }
 
 /** Everything else, for when you want the whole picture: Saga's overview, the group, the minutes

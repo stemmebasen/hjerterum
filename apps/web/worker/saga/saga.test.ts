@@ -248,7 +248,7 @@ describe("Saga's minutes", () => {
     let transcript = "";
     const services = fakeServices({ ai: (system, user) => {
       if (user.includes("RETTELSE")) return MINUTES.replace("1. oktober", "8. oktober");
-      transcript = user; return MINUTES;
+      if (user.includes("TRANSSKRIPTION")) transcript = user; return MINUTES;
     } });
     const env = sagaEnv(db, { SAGA_MINUTES_PING: "on", COCKPIT_URL: "https://cockpit.hjerterum.info" });
     await webhook(env, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", mime_type: "audio/ogg", file_size: 5000 } }));
@@ -364,7 +364,8 @@ describe("Saga's weekly summary and Liva's overview", () => {
       pending: [],
       pendingApprovals: 0, weeklySummary: null,
       mail: { week: { total: 0 } },
-      overview: null,
+      // New minutes have Saga write her overview again at once.
+      overview: { text: MINUTES, at: new Date(NOW).toISOString() },
       picture: null,
       group: { activity: { thisWeek: 1, lastWeek: 0, members: [{ name: "Mette", count: 1 }] }, link: "https://t.me/c/222/1",
         recent: [{ author: "Mette", text: "Husk kage til mødet", sentAt: new Date(NOW - 60_000).toISOString(), link: "https://t.me/c/222/1" }] },
