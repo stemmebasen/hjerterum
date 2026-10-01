@@ -7,7 +7,7 @@ import { docHash, parsePicture, trimMinutesDoc } from "./picture.js";
 import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
   saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
-  queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
+  plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
 
@@ -197,7 +197,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
     const draft = await complete(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
-      { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}\n\nTRANSSKRIPTION:\n${transcript}`
+      { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
         + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
     await sendMinutesForApproval(env, deps, item.id, draft, item.meeting_date, `Referatudkast fra ${item.file_name}.`);
@@ -210,6 +210,17 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
       : `Jeg kunne ikke lave referat af ${item.file_name} (${message}).`).catch(() => undefined);
   }
   return true;
+}
+
+/** Requested: "Her skal vi lave et pænt layout og alt med dagsorden i toppen" - the agenda the board
+ * wrote in the cockpit for the meeting, so the minutes follow its points in order. */
+async function agendaFor(db: ReturnType<typeof requireDb>, day: string | null): Promise<string> {
+  const planned = day ? await plannedMeeting(db, day).catch(() => null) : null;
+  const points = (planned?.agenda ?? "").split("\n").map(line => line.trim().replace(/^(\d+[.)]|[-*•])\s+/, "")).filter(Boolean);
+  if (!points.length) return "";
+  return `${planned?.start_time ? `\nTidspunkt: kl. ${planned.start_time}` : ""}${planned?.place ? `\nSted: ${planned.place}` : ""}`
+    + "\n\nDAGSORDEN (skriv \"## Punkter\" i denne rækkefølge med disse numre og overskrifter; et punkt, der ikke blev drøftet, får \"- Drøftelse: Ikke drøftet\"; "
+    + "drøftes noget uden for dagsordenen, så tag det med til sidst som et ekstra punkt):\n" + points.map((point, i) => `${i + 1}. ${point}`).join("\n");
 }
 
 export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, instruction: string): Promise<void> {

@@ -1,5 +1,6 @@
+import { markdownToHtml } from "../saga/markdown.js";
 import type { BoardPicture } from "../saga/picture.js";
-import type { ApprovedMinutes, Decision, Meeting, Task } from "./data.js";
+import { tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 
 /** The board cockpit's pages, written on the server as plain HTML: quick on a phone, nothing to
  * install, and nothing of the board's in a script. Every value from the database is escaped. */
@@ -38,16 +39,67 @@ button.ghost{background:transparent;color:var(--muted);border:1px solid var(--li
 details{border-top:1px solid var(--line);padding:8px 0}details>summary{cursor:pointer;font-weight:600}
 .center{max-width:420px;margin:12vh auto;padding:0 16px}
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{font-size:12px;color:var(--muted)}
+[hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:4px 22px;align-items:start}.block{min-width:0}
+.chip{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:1px 7px;border-radius:6px;background:var(--soft);color:var(--muted)}
+.chip.good{color:var(--good)}.chip.wait{color:var(--warn)}.waits,.warn{color:var(--warn);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.stats div{background:var(--soft);border-radius:10px;padding:8px 10px}
+.stats b{display:block;font-size:20px}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
+details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;margin:4px 0}
 `;
 
-export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null } = {}): string {
+export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
   const nav = [["", "Overblik"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}</style></head><body>
+<meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header><div class="top"><a class="brand" href="${base}/">Hjerterum <span>bestyrelse</span></a><nav>${nav}</nav>
 <div class="who">${options.who ? `${esc(options.who)} · <a href="${base}/hvem">skift</a> · ` : ""}<form method="post" action="${base}/logout" style="display:inline"><button class="ghost" style="padding:2px 8px;font-size:12px">Log ud</button></form></div></div></header>`}
-${body}</body></html>`;
+${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
+}
+
+const SAGA_STYLE = `
+.saga-fab{position:fixed;right:18px;bottom:18px;z-index:20;border-radius:999px;padding:12px 18px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;gap:8px;align-items:center}
+.saga-fab::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent-ink);opacity:.85}
+.saga{position:fixed;right:18px;bottom:18px;z-index:21;width:min(400px,calc(100vw - 24px));height:min(600px,calc(100vh - 36px));background:var(--card);border:1px solid var(--line);
+border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
+.saga[hidden]{display:none!important}.saga-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.saga-top div{flex:1;line-height:1.25}
+.saga-top button{padding:4px 10px}.saga-log{flex:1;overflow-y:auto;padding:14px;display:grid;gap:10px;align-content:start}
+.saga-msg{padding:9px 12px;border-radius:12px;max-width:92%;word-break:break-word}.saga-msg p{margin:0 0 6px}.saga-msg p:last-child{margin:0}.saga-msg ul{margin:4px 0;padding-left:18px}
+.saga-msg h1,.saga-msg h2,.saga-msg h3{font-size:14px;margin:6px 0 4px}.saga-a{background:var(--soft)}.saga-u{background:var(--accent);color:var(--accent-ink);justify-self:end;white-space:pre-wrap}
+.saga-wait{color:var(--muted);font-style:italic}.saga-err{color:var(--warn)}.saga-ideas{display:flex;flex-wrap:wrap;gap:6px}
+.saga-ideas button{background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:500;font-size:13px;padding:6px 10px;text-align:left}
+.saga form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}.saga textarea{min-height:44px;max-height:140px;resize:none;flex:1}
+@media (max-width:520px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0}.saga-fab{right:12px;bottom:12px}}
+@media print{.saga,.saga-fab{display:none!important}}`;
+
+const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?", "Hvor mange medlemmer har vi?"];
+
+/** Saga in the bottom-right corner of every page. The conversation lives in this tab only. */
+function sagaChat(base: string): string {
+  return `<style>${SAGA_STYLE}</style><button type="button" class="saga-fab" id="saga-open" aria-expanded="false" aria-controls="saga">Spørg Saga</button>
+<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · svaret ses kun af dig</span></div>
+<button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
+<div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej, jeg er Saga. Spørg mig om vedtægterne, beslutninger, sager, møder, arrangementer og medlemstal.</div>
+<div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>
+<form id="saga-form"><textarea id="saga-q" rows="1" maxlength="1500" placeholder="Skriv dit spørgsmål" aria-label="Dit spørgsmål"></textarea><button>Send</button></form></section>
+<script>(()=>{const url=${JSON.stringify(`${base}/saga`)},box=document.getElementById("saga"),fab=document.getElementById("saga-open"),log=document.getElementById("saga-log"),form=document.getElementById("saga-form"),q=document.getElementById("saga-q");
+let history=[];try{history=JSON.parse(sessionStorage.getItem("saga-chat")||"[]")}catch(e){}
+const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify(history.slice(-12)))}catch(e){}};
+const add=(cls,content,isHtml)=>{const d=document.createElement("div");d.className="saga-msg "+cls;if(isHtml)d.innerHTML=content;else d.textContent=content;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
+for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.content:t.html||t.content,t.role!=="user");
+const open=v=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v)q.focus()};
+fab.onclick=()=>open(true);document.getElementById("saga-close").onclick=()=>open(false);
+let busy=false;
+async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga læser med …");
+const sent=history.slice(-6).map(t=>({role:t.role,content:t.content}));
+try{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:text,history:sent})});const data=await r.json().catch(()=>({}));
+if(r.ok&&data.html){wait.className="saga-msg saga-a";wait.innerHTML=data.html;history.push({role:"user",content:text},{role:"assistant",content:wait.textContent,html:data.html});save()}
+else{wait.className="saga-msg saga-a saga-err";wait.textContent=data.error||(r.status===401?"Du er logget ud. Genindlæs siden.":"Saga kunne ikke svare lige nu.")}}
+catch(e){wait.className="saga-msg saga-a saga-err";wait.textContent="Ingen forbindelse. Prøv igen."}
+busy=false;log.scrollTop=log.scrollHeight}
+form.onsubmit=e=>{e.preventDefault();ask(q.value)};q.onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask(q.value)}};
+log.querySelectorAll(".saga-ideas button").forEach(b=>b.onclick=()=>{ask(b.textContent)});
+if(history.length)log.querySelector(".saga-ideas")?.remove();})()</script>`;
 }
 
 export function loginPage(base: string, message: string, configured: boolean): string {
@@ -77,57 +129,137 @@ ${items.length ? `<ol class="agenda">${items.map(item => `<li>${esc(item)}</li>`
 <p class="small"><a href="${base}/moder/${m.id}">Ret dagsorden</a></p>`;
 }
 
-export function overviewPage(base: string, data: { who: string | null; isChair: boolean; mine: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
-  picture: BoardPicture | null; summary: string | null; at: number | null; progress: { working: number; waiting: number }; today: string }): string {
+const md = (text: string) => /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(text))?.[1] ?? "";
+const day = (text: string) => /^\d{4}-\d{2}-\d{2}$/.test(text) ? shortDay(text) : text;
+const daysUntil = (iso: string, today: string) => Math.round((Date.parse(`${iso}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`)) / 86_400_000);
+const inDays = (n: number) => n <= 0 ? "i dag" : n === 1 ? "i morgen" : `om ${n} dage`;
+const clock = (ms: number) => new Date(ms).toLocaleString("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const SOURCE: Record<string, string> = { telegram: "gruppen", dokument: "referatdokumentet", mail: "team@" };
+const STATUS_CLASS: Record<string, string> = { besluttet: "good", "på vej": "good", afventer: "wait", udsat: "wait", "ingen opfølgning": "wait" };
+const chip = (status: string) => `<span class="chip ${STATUS_CLASS[status] ?? ""}">${esc(status)}</span>`;
+const block = <T>(title: string, items: T[], line: (item: T) => string, empty = "") => items.length || empty
+  ? `<div class="block"><h3>${title}</h3>${items.length ? `<ul class="plain">${items.map(item => `<li>${line(item)}</li>`).join("")}</ul>` : `<p class="muted small">${empty}</p>`}</div>` : "";
+const agendaFill = (items: string[]) => items.length
+  ? `<button type="button" class="ghost" data-fill="${esc(JSON.stringify(items))}">Indsæt Sagas forslag (${items.length} punkt${items.length === 1 ? "" : "er"})</button>` : "";
+const FILL_SCRIPT = `<script>document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>{const t=b.form.querySelector("textarea");const add=JSON.parse(b.dataset.fill).filter(x=>!t.value.includes(x));t.value=(t.value.trim()?t.value.trim()+"\\n":"")+add.join("\\n");t.focus()}))</script>`;
+
+export type MinutesState = "working" | "waiting" | "failed";
+const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Venter på formandens godkendelse", failed: "Referatet kunne ikke laves - upload igen" };
+
+export type OverviewData = { who: string | null; isChair: boolean; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
+  found: Array<{ date: string; what: string }>; picture: BoardPicture | null; summary: string | null; at: number | null; progress: { working: number; waiting: number }; today: string;
+  group: GroupNow | null; weekly: { text: string; created_at_ms: number } | null; recent: Array<{ id: number; date: string; decisions: string[]; tasks: number }>; docUrl: string | null };
+
+function foundMeetings(base: string, found: OverviewData["found"], today: string): string {
+  return found.length ? `<h3>Fundet af Saga</h3><ul class="plain">${found.map(f => `<li><strong>${esc(longDay(f.date))}</strong> <span class="pill">${inDays(daysUntil(f.date, today))}</span>
+<div class="small muted">${esc(f.what)}</div><a class="small" href="${base}/moder?dato=${esc(f.date)}&amp;forslag=1#nyt">Sæt i kalenderen</a></li>`).join("")}</ul>` : "";
+}
+
+function groupCard(g: GroupNow | null, p: BoardPicture | null, isChair: boolean): string {
+  if (!g && !p) return "";
+  const a = g?.activity;
+  const stats = a ? `<div class="stats"><div><b>${a.thisWeek}</b><span>beskeder denne uge</span></div><div><b>${a.lastWeek}</b><span>ugen før</span></div><div><b>${a.members.length}</b><span>har skrevet i ugen</span></div></div>
+${a.members.length ? `<p class="small muted">Aktive: ${a.members.map(m => `${esc(m.name.split(/\s+/)[0])} (${m.count})`).join(", ")}</p>` : ""}` : "";
+  const topics = p?.topics.length ? `<ul class="plain">${p.topics.map(t => `<li>${chip(t.status)} <strong>${esc(t.title)}</strong>${t.waitsOnJacob ? ` <span class="waits">· venter på ${isChair ? "dig" : "formanden"}</span>` : ""}
+${t.note || t.who.length ? `<div class="small muted">${esc(t.note)}${t.note && t.who.length ? " · " : ""}${esc(t.who.join(", "))}</div>` : ""}</li>`).join("")}</ul>`
+    : `<p class="muted small">Ingen emner i gruppen de seneste to uger.</p>`;
+  const recent = g?.recent.length ? `<details><summary>Seneste beskeder (${g.recent.length})</summary><ul class="plain msgs">${g.recent.map(m => `<li><div class="small muted">${esc(m.author)} · ${esc(clock(m.at))}${m.link ? ` · <a href="${esc(m.link)}" target="_blank" rel="noopener">åbn</a>` : ""}</div>${esc(m.text)}</li>`).join("")}</ul></details>` : "";
+  return `<div class="card"><h2>Gruppen lige nu</h2>${stats}${topics}${recent}
+${g?.link ? `<p class="small"><a href="${esc(g.link)}" target="_blank" rel="noopener">Åbn gruppen i Telegram</a></p>` : ""}</div>`;
+}
+
+function documentCard(base: string, p: BoardPicture | null, everyone: Task[], docUrl: string | null, today: string): string {
+  if (!p) return "";
+  const d = p.document;
+  const head = [d.latestMeeting ? `Seneste referat: <strong>${esc(day(d.latestMeeting))}</strong>` : "", d.missingMinutes.length ? `<span class="warn">Referat mangler: ${esc(d.missingMinutes.map(day).join(", "))}</span>` : ""].filter(Boolean).join(" · ");
+  const dates = d.dates.filter(x => x.date >= today).sort((a, b) => a.date.localeCompare(b.date));
+  const people = tasksByPerson(everyone);
+  const blocks = [
+    block("Kommende datoer", dates, x => `<strong>${esc(shortDay(x.date))}</strong> <span class="pill">${inDays(daysUntil(x.date, today))}</span><div class="small">${esc(x.what)}</div>`),
+    block("Nøgletal", d.figures, x => `${esc(x.label)}: <strong>${esc(x.value)}</strong><div class="small muted">${esc([x.date ? day(x.date) : "", x.previous ? `før: ${x.previous}` : ""].filter(Boolean).join(" · "))}</div>`),
+    block("Gældende beslutninger", d.decisions, x => `${x.topic ? `<strong>${esc(x.topic)}:</strong> ` : ""}${esc(x.text)}${x.date ? ` <span class="small muted">${esc(day(x.date))}</span>` : ""}${x.replaces ? `<div class="small muted">Afløser: ${esc(x.replaces)}</div>` : ""}`),
+    block("Hængepartier", d.openThreads, x => `${chip(x.status)} ${esc(x.text)}${x.since ? `<div class="small muted">Siden ${esc(day(x.since))}</div>` : ""}`),
+    people.length ? `<div class="block"><h3>Hvem har hvad</h3>${people.map(g => `<details${people.length <= 4 ? " open" : ""}><summary>${esc(g.who)} <span class="pill">${g.tasks.length}</span></summary>
+<ul class="plain">${g.tasks.map(t => `<li>${esc(t.what)}${t.due ? ` <span class="pill">${esc(t.due)}</span>` : ""}${t.meeting ? `<div class="small muted">${t.source === "referat" ? "Referat" : "Dokumentet"} ${esc(day(t.meeting))}</div>` : ""}</li>`).join("")}</ul></details>`).join("")}</div>` : "",
+    block("Forslag på bordet", d.proposals, x => `${esc(x.text)}${x.by ? `<div class="small muted">${esc(x.by)}</div>` : ""}`),
+    d.nextAgenda.length ? `<div class="block"><h3>Forslag til næste dagsorden</h3><ol class="agenda">${d.nextAgenda.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
+<p><a class="button" href="${base}/moder?forslag=1#nyt">Lav et møde med denne dagsorden</a></p></div>` : ""
+  ].filter(Boolean);
+  return `<div class="card wide"><h2>Referatdokumentet</h2>${head ? `<p>${head}</p>` : ""}<div class="cols">${blocks.join("")}</div>
+${docUrl ? `<p class="small"><a href="${esc(docUrl)}" target="_blank" rel="noopener">Åbn referatdokumentet</a></p>` : ""}</div>`;
+}
+
+export function overviewPage(base: string, data: OverviewData): string {
   const p = data.picture;
-  const dates = (p?.document.dates ?? []).filter(d => d.date >= data.today).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6);
-  const mine = `<div class="card"><h2>${data.who ? `Mine opgaver` : "Opgaver"}</h2>
-${data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(f.from || f.source)}</div></li>`).join("")}</ul><h3>Fra referaterne</h3>` : ""}
+  const mine = `<div class="card"><h2>${data.who ? "Til dig" : "Opgaver"}</h2>
+${data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
+<p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p><h3>Fra referaterne</h3>` : ""}
 ${data.mine.length ? `<ul class="plain">${data.mine.map(taskLine).join("")}</ul>` : `<p class="muted">${data.who ? "Ingen opgaver står på dig i referaterne lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
-  const next = `<div class="card"><h2>Næste møde</h2>${data.next ? meetingSummary(base, data.next) : `<p class="muted">Intet møde er sat i kalenderen.</p><p><a class="button" href="${base}/moder#nyt">Planlæg et møde</a></p>`}</div>`;
+  const next = `<div class="card"><h2>Næste møde</h2>${data.next ? `${meetingSummary(base, data.next)}<p class="small muted">${inDays(daysUntil(data.next.meeting_date, data.today))}</p>`
+    : `<p class="muted">Intet møde er sat i kalenderen.</p>${data.found.length ? "" : `<p><a class="button" href="${base}/moder#nyt">Planlæg et møde</a></p>`}`}${foundMeetings(base, data.found, data.today)}</div>`;
   const saga = `<div class="card"><h2>Bestyrelsen lige nu</h2>${p?.temperature ? `<p><span class="pill">${esc(p.temperature.level)}</span> ${esc(p.temperature.why)}</p>` : ""}
-${data.summary ? `<p>${esc(data.summary)}</p>` : `<p class="muted">Saga har ikke lavet et overblik endnu.</p>`}
-${data.at ? `<p class="small muted">Sagas overblik fra ${esc(new Date(data.at).toLocaleString("da-DK", { timeZone: "Europe/Copenhagen", dateStyle: "medium", timeStyle: "short" }))}</p>` : ""}</div>`;
-  const topics = p?.topics.length ? `<div class="card"><h2>Emner</h2><ul class="plain">${p.topics.map(t => `<li><strong>${esc(t.title)}</strong> <span class="pill">${esc(t.status)}</span>${t.note ? `<div class="small muted">${esc(t.note)}</div>` : ""}</li>`).join("")}</ul></div>` : "";
-  const when = dates.length ? `<div class="card"><h2>Datoer</h2><ul class="plain">${dates.map(d => `<li><strong>${esc(shortDay(d.date))}</strong> · ${esc(d.what)}</li>`).join("")}</ul></div>` : "";
+${data.summary ? `<div class="doc">${md(data.summary)}</div>` : `<p class="muted">Saga har ikke lavet et overblik endnu.</p>`}
+${data.at ? `<p class="small muted">Sagas overblik fra ${esc(clock(data.at))}</p>` : ""}</div>`;
+  const weekly = data.weekly ? `<div class="card"><h2>Ugeopsummering</h2><div class="doc">${md(data.weekly.text)}</div><p class="small muted">${esc(clock(data.weekly.created_at_ms))}</p></div>` : "";
+  const recent = data.recent.length ? `<div class="card"><h2>Seneste referater</h2>${data.recent.map(r => `<h3><a href="${base}/referat/${r.id}">${esc(longDay(r.date))}</a></h3>
+${r.decisions.length ? `<ul>${r.decisions.slice(0, 5).map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : `<p class="small muted">Ingen beslutninger.</p>`}${r.tasks ? `<p class="small muted">${r.tasks} opgave${r.tasks === 1 ? "" : "r"}</p>` : ""}`).join("")}</div>` : "";
   const minutesNote = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${data.progress.working} optagelse${data.progress.working === 1 ? "" : "r"} bliver til referat` : "",
     data.progress.waiting ? `${data.progress.waiting} referat${data.progress.waiting === 1 ? "" : "er"} venter på formandens godkendelse` : ""].filter(Boolean).join(" · ")}.</p>` : "";
   return layout(base, "Overblik", `<main><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>${minutesNote}
-<div class="grid">${mine}${next}</div><div class="grid">${saga}${topics}${when}</div></main>`, { section: "/", who: data.who });
+<div class="grid">${mine}${next}</div><div class="grid">${saga}${groupCard(data.group, p, data.isChair)}</div>
+${documentCard(base, p, data.everyone, data.docUrl, data.today)}${weekly || recent ? `<div class="grid">${weekly}${recent}</div>` : ""}</main>`, { section: "/", who: data.who });
 }
 
-export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: Array<{ meeting: Meeting | null; minutes: ApprovedMinutes | null; date: string }>; today: string;
-  who: string | null; notice: string; uploads: boolean }): string {
-  const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}"></label>
-<label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" placeholder="Fx Hjerterum, Valby"></label></div>
-<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda" placeholder="Godkendelse af referat&#10;Økonomi&#10;Eventuelt"></textarea></label><button>Gem møde</button></form>`;
-  const upload = `<form class="stack" method="post" action="${base}/upload" enctype="multipart/form-data">
+export type PastMeeting = { date: string; meeting: Meeting | null; minutes: ApprovedMinutes | null; state: MinutesState | null; inDocument: boolean };
+
+/** The meeting an upload most likely belongs to: the newest held meeting without minutes. */
+export const likelyMeeting = (past: PastMeeting[]) => past.find(row => !row.minutes && !row.state && !row.inDocument)?.date ?? past.find(row => !row.minutes && !row.state)?.date ?? "";
+
+function uploadForm(base: string, past: PastMeeting[], today: string): string {
+  const choices = past.slice(0, 15), chosen = likelyMeeting(past);
+  const pick = choices.length ? `<label>Hvilket møde?<select name="meeting_choice" data-other>${choices.map(row => `<option value="${esc(row.date)}"${row.date === chosen ? " selected" : ""}>${esc(longDay(row.date))}${row.minutes ? " · har referat" : row.state ? ` · ${STATE_TEXT[row.state].toLowerCase()}` : ""}</option>`).join("")}
+<option value="anden"${chosen ? "" : " selected"}>Et andet møde …</option></select></label>` : "";
+  return `<form class="stack" method="post" action="${base}/upload" enctype="multipart/form-data">
 <label>Optagelse (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
-<label>Mødedato<input type="date" name="meeting_date" required max="${esc(data.today)}" value="${esc(data.today)}"></label>
-<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen. Formanden godkender det, og så står det her under mødet.</p></form>`;
+${pick}<label data-other-date${pick && chosen ? " hidden" : ""}>Mødedato<input type="date" name="meeting_date" max="${esc(today)}" value="${esc(today)}"></label>
+<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen. Formanden godkender det, og så står det her under mødet.</p></form>
+<script>document.querySelectorAll("[data-other]").forEach(s=>s.addEventListener("change",()=>{s.form.querySelector("[data-other-date]").hidden=s.value!=="anden"}))</script>`;
+}
+
+export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
+  prefill: { date: string; agenda: boolean }; today: string; who: string | null; notice: string; uploads: boolean }): string {
+  const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
+<label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" placeholder="Fx Hjerterum, Valby"></label></div>
+<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda" placeholder="Godkendelse af referat&#10;Økonomi&#10;Eventuelt">${data.prefill.agenda ? esc(data.suggestion.join("\n")) : ""}</textarea></label>
+<div class="actions">${data.prefill.agenda ? "" : agendaFill(data.suggestion)}<button>Gem møde</button></div></form>`;
+  const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
+    : row.inDocument ? `<a href="${base}/arkiv#${esc(row.date)}">I referatdokumentet</a>` : row.meeting ? `<a href="${base}/moder/${row.meeting.id}#upload">Upload optagelse</a>` : `<span class="muted">Mangler</span>`;
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
-<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m)}</div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}</div>
+<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
+${foundMeetings(base, data.found, data.today)}</div>
 <div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div></div>
 <div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td>${esc(shortDay(row.date))}</td>
 <td>${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
-<td>${row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : `<span class="muted">Mangler</span>`}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
-<div class="card"><h2>Upload mødeoptagelse</h2>${data.uploads ? upload : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who });
+<td>${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
+<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? uploadForm(base, data.past, data.today) : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
 }
 
-export function meetingPage(base: string, m: Meeting, minutes: ApprovedMinutes | null, who: string | null, notice: string): string {
+export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean },
+  who: string | null, notice: string): string {
+  const held = m.meeting_date <= data.today;
+  const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
+    : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
+${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
+<label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
+<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen. Formanden godkender det.</p></form>` : ""}`;
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card"><h2>Dagsorden</h2>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place ?? "")}"></label></div>
-<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda">${esc(m.agenda)}</textarea></label><button>Gem</button></form>
+<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda">${esc(m.agenda)}</textarea></label><div class="actions">${held ? "" : agendaFill(data.suggestion)}<button>Gem</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
-<div class="card"><h2>Referat</h2>${minutes ? `<p><a class="button" href="${base}/referat/${minutes.id}">Læs referatet</a></p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}</div></div></main>`, { section: "/moder", who });
-}
-
-export function minutesPage(base: string, minutes: ApprovedMinutes, html: string, who: string | null): string {
-  return layout(base, `Referat ${minutes.meeting_date ?? ""}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p>
-<div class="card doc">${html}${minutes.drive_document_url ? `<p class="small"><a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn i referatdokumentet</a></p>` : ""}</div></main>`, { section: "/moder", who });
+<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });
 }
 
 export function decisionsPage(base: string, decisions: Decision[], who: string | null): string {
@@ -142,6 +274,7 @@ export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; hi
   return layout(base, "Arkiv", `<main><h1>Arkiv</h1><div class="grid"><div class="card"><h2>Referater fra Saga</h2>
 ${data.minutes.length ? `<ul class="plain">${data.minutes.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : `<p class="muted">Ingen endnu.</p>`}</div>
 <div class="card"><h2>Tidligere referater</h2>${data.docUrl ? `<p class="small"><a href="${esc(data.docUrl)}" target="_blank" rel="noopener">Åbn referatdokumentet</a></p>` : ""}
-${data.docError ? `<p class="muted">${esc(data.docError)}</p>` : data.history.length ? data.history.map(h => `<details><summary>${esc(longDay(h.day))}</summary><div style="white-space:pre-wrap" class="small">${esc(h.text)}</div></details>`).join("")
-    : `<p class="muted">Ingen referater fundet i dokumentet.</p>`}</div></div></main>`, { section: "/arkiv", who: data.who });
+${data.docError ? `<p class="muted">${esc(data.docError)}</p>` : data.history.length ? data.history.map(h => `<details id="${esc(h.day)}"><summary>${esc(longDay(h.day))}</summary><div style="white-space:pre-wrap" class="small">${esc(h.text)}</div></details>`).join("")
+    : `<p class="muted">Ingen referater fundet i dokumentet.</p>`}</div></div></main>
+<script>const d=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(d&&d.tagName==="DETAILS"){d.open=true;d.scrollIntoView()}</script>`, { section: "/arkiv", who: data.who });
 }

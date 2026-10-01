@@ -79,6 +79,14 @@ export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til 
 
 export const PRIVATE_SYSTEM = IDENTITY + " Du taler privat med Jacob, bestyrelsesformand. Svar på hans spørgsmål ud fra bestyrelsens chat, referaterne, referatdokumentet og Hjerterums mail nedenfor. Sig det, hvis svaret ikke står der.";
 
+// Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
+// vedtægter, beslutninger, sager, events og medlemmer".
+export const COCKPIT_SYSTEM = IDENTITY + " Du svarer et medlem af Hjerterums bestyrelse i bestyrelsens cockpit. Svaret ses kun af den, der spørger. "
+  + "Svar ud fra materialet nedenfor: vedtægterne, beslutningerne, møderne og dagsordenerne, sagerne, medlemstallene, arrangementerne, referaterne, referatdokumentet og bestyrelsens chat. "
+  + "Henvis til paragraf og stykke (fx § 6, stk. 7), når svaret kommer fra vedtægterne, og til mødedatoen, når det kommer fra et referat. "
+  + "Om medlemmer kender du kun tallene; du nævner aldrig et enkelt medlems navn, mail, telefon eller adresse. "
+  + "Står svaret ikke i materialet, så sig det kort, og sig hvor det måske kan findes. Højst 12 linjer, Markdown med punktform, hvor det hjælper.";
+
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 
 export function boardContext(messages: BoardMessage[], minutes: Minutes[], archive = "", mail = ""): string {
