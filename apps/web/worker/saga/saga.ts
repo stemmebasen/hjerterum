@@ -10,6 +10,8 @@ import {
   plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
+import { importDocMinutes } from "./importDoc.js";
+import { boardKnowledge } from "../cockpit/ask.js";
 
 const DAY = 86_400_000;
 const copenhagenDate = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
@@ -108,8 +110,12 @@ export async function draftBoardReply(env: SagaEnv, deps: SagaDeps, question: st
 }
 
 export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, question: string): Promise<void> {
+  // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, minutes, the
+  // group), and for the chair also team@'s subjects.
+  const db = requireDb(env);
+  const mail = mailContext(await recentMail(db, deps.now() - 14 * DAY, 60));
   const answer = await complete(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
-    { role: "user", content: `${await context(env, deps, 60)}\n\nJACOB SPØRGER:\n${question}` }]);
+    { role: "user", content: `${await boardKnowledge(env, deps, db, question)}${mail ? `\n\n${mail}` : ""}\n\nJACOB SPØRGER:\n${question}` }]);
   await telegramClient(env, deps).sendMessage(owner(env), answer);
 }
 
@@ -283,6 +289,8 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
+  // The document's meetings first: a recording of one of them then has its agenda to follow.
+  await importDocMinutes(env, deps).catch(error => console.warn("saga_minutes_import_failed", error instanceof Error ? error.message : error));
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));

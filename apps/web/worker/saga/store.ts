@@ -9,10 +9,11 @@ export type Minutes = { id: number; source: string; source_file_id: string; file
 
 export async function saveBoardMessage(db: D1Database, message: { chatId: string; messageId: number; author: string;
   authorId: string | null; text: string; sentAtMs: number; fromAssistant?: boolean }): Promise<void> {
+  // A member who writes from someone else's account is kept under their own name (board_people).
   await db.prepare(`INSERT OR IGNORE INTO board_messages
     (chat_id, telegram_message_id, author_name, author_telegram_id, text, sent_at_ms, from_assistant)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .bind(message.chatId, message.messageId, message.author, message.authorId, message.text, message.sentAtMs, message.fromAssistant ? 1 : 0).run();
+    VALUES (?, ?, COALESCE((SELECT name FROM board_people WHERE telegram_id = ?), ?), ?, ?, ?, ?)`)
+    .bind(message.chatId, message.messageId, message.authorId, message.author, message.authorId, message.text, message.sentAtMs, message.fromAssistant ? 1 : 0).run();
 }
 
 export async function recentBoardMessages(db: D1Database, chatId: string, sinceMs: number, limit = 300): Promise<BoardMessage[]> {
@@ -58,7 +59,7 @@ export const pendingPostCount = async (db: D1Database) =>
 const MINUTES_COLUMNS = "id, source, source_file_id, file_name, mime_type, status, meeting_date, transcript, draft_markdown, approval_message_id, drive_document_url, attempts, created_at_ms";
 
 /** Queues a recording once; a file already queued (by id) is never processed twice. */
-export async function queueMinutes(db: D1Database, file: { source: "telegram" | "drive" | "upload"; fileId: string; fileName: string;
+export async function queueMinutes(db: D1Database, file: { source: "telegram" | "drive" | "upload" | "document"; fileId: string; fileName: string;
   mimeType: string | null; meetingDate: string | null; nowMs: number }): Promise<number | null> {
   const result = await db.prepare(`INSERT OR IGNORE INTO board_minutes (source, source_file_id, file_name, mime_type, meeting_date, created_at_ms, updated_at_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(file.source, file.fileId, file.fileName, file.mimeType, file.meetingDate, file.nowMs, file.nowMs).run();
@@ -71,12 +72,16 @@ export const getMinutes = (db: D1Database, id: number) =>
 export const minutesByApprovalMessage = (db: D1Database, messageId: number) =>
   db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE approval_message_id = ? AND status = 'drafted'`).bind(messageId).first<Minutes>();
 
-/** Claims the oldest queued recording (at most three attempts each). */
+/** A recording whose work stopped halfway (the Worker was ended) is taken up again after this long. */
+export const STALE_TRANSCRIBING_MS = 20 * 60_000;
+
+/** Claims the oldest queued recording, or one stuck halfway (at most three attempts each). */
 export async function claimNextMinutes(db: D1Database, nowMs: number): Promise<Minutes | null> {
-  const next = await db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE status = 'queued' AND attempts < 3 ORDER BY created_at_ms LIMIT 1`).first<Minutes>();
+  const next = await db.prepare(`SELECT ${MINUTES_COLUMNS}, updated_at_ms FROM board_minutes WHERE attempts < 3 AND (status = 'queued' OR (status = 'transcribing' AND updated_at_ms < ?))
+    ORDER BY created_at_ms LIMIT 1`).bind(nowMs - STALE_TRANSCRIBING_MS).first<Minutes & { updated_at_ms: number }>();
   if (!next) return null;
-  const claimed = await db.prepare("UPDATE board_minutes SET status = 'transcribing', attempts = attempts + 1, updated_at_ms = ? WHERE id = ? AND status = 'queued'")
-    .bind(nowMs, next.id).run();
+  const claimed = await db.prepare("UPDATE board_minutes SET status = 'transcribing', attempts = attempts + 1, updated_at_ms = ? WHERE id = ? AND status = ? AND updated_at_ms = ?")
+    .bind(nowMs, next.id, next.status, next.updated_at_ms).run();
   return Number(claimed.meta?.changes ?? 0) === 1 ? { ...next, status: "transcribing", attempts: next.attempts + 1 } : null;
 }
 

@@ -3,7 +3,6 @@ import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/driv
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
-import { processNextMinutes } from "../saga/saga.js";
 import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
@@ -109,7 +108,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const past: PastMeeting[] = dates.map(date => ({ date, meeting: list.find(m => m.meeting_date === date) ?? null, minutes: minutes.find(m => m.meeting_date === date) ?? null,
       state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
     const asked = url.searchParams.get("dato") ?? "";
-    const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : "";
+    const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : "";
     return html(meetingsPage(base, { upcoming, past,
       found: sagaMeetings(picture, list, today), suggestion: picture?.document.nextAgenda ?? [],
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", agenda: url.searchParams.get("forslag") === "1" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
@@ -127,7 +126,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       return redirect(`${base}/moder/${id}?gemt=1`);
     }
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
-    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga skriver referatet, og formanden får det til godkendelse." : url.searchParams.get("gemt") ? "Gemt." : "";
+    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt." : "";
     return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS) }, who, notice));
   }
@@ -197,8 +196,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const key = `cockpit/${meetingDate}/${crypto.randomUUID()}.${extension}`;
     await env.BOARD_RECORDINGS.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type || "audio/mp4" } });
     await queueMinutes(db, { source: "upload", fileId: key, fileName: file.name.slice(0, 200) || `optagelse.${extension}`, mimeType: file.type || null, meetingDate, nowMs: now });
-    // Saga starts at once instead of at her next five-minute round.
-    if (deps.waitUntil && env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) deps.waitUntil(processNextMinutes(env, deps).catch(error => console.warn("cockpit_minutes_failed", error instanceof Error ? error.message : error)));
+    // Saga takes it at her next five-minute round: a long recording needs minutes, and work left
+    // running after a page's answer is stopped by Cloudflare after about 30 seconds.
     return redirect(Number.isSafeInteger(meetingId) && meetingId > 0 && await meeting(db, meetingId) ? `${base}/moder/${meetingId}?upload=1` : `${base}/moder?upload=1`);
   }
 

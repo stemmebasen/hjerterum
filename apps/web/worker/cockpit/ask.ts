@@ -83,7 +83,9 @@ async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: s
   return parts.filter(Boolean).join("\n\n");
 }
 
-async function context(env: SagaEnv, deps: SagaDeps, db: D1Database, question: string): Promise<string> {
+/** Requested: "Sørg for at Saga har indsigt i al materiale tilgængeligt". Everything Saga knows about
+ * the board, for the question asked - in the cockpit and when the chair asks her in Telegram. */
+export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Database, question: string): Promise<string> {
   const now = deps.now();
   const [minutes, { picture }, list, chat, members, house, doc] = await Promise.all([approvedMinutes(db, 40), boardPicture(db, now), meetings(db),
     env.SAGA_BOARD_CHAT_ID ? recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 60 * DAY, 400) : Promise.resolve([]), memberNumbers(db), events(db, deps, now, question),
@@ -99,7 +101,7 @@ async function context(env: SagaEnv, deps: SagaDeps, db: D1Database, question: s
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
     `ARRANGEMENTER I HUSET (Hjerterums kalender på holistisk.org):\n${house}`,
-    `GODKENDTE REFERATER:\n${minutes.slice(0, 5).map(m => `--- Referat ${m.meeting_date ?? ""} ---\n${m.draft_markdown ?? ""}`).join("\n\n") || "(ingen)"}`,
+    `GODKENDTE REFERATER, nyeste først - det første er den gældende sandhed:\n${minutes.slice(0, 8).map((m, i) => `--- ${i === 0 ? "NYESTE REFERAT (gældende)" : "Referat"} ${m.meeting_date ?? ""} ---\n${m.draft_markdown ?? ""}`).join("\n\n") || "(ingen)"}`,
     doc ? `BESTYRELSENS REFERATDOKUMENT:\n${doc}` : "",
     `BESTYRELSENS CHAT (seneste 60 dage):\n${chat.map(m => `[${time(m.sent_at_ms)}] ${m.author_name}: ${m.text}`).join("\n") || "(ingen beskeder)"}`
   ];
@@ -108,7 +110,7 @@ async function context(env: SagaEnv, deps: SagaDeps, db: D1Database, question: s
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
 export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }): Promise<string> {
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await context(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
   const answer = await complete(env, deps, messages);
   const now = deps.now();
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();

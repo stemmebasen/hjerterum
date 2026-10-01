@@ -11,9 +11,9 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
 export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument"; minutesId: number | null };
-export type ApprovedMinutes = Pick<Minutes, "id" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number };
+export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
 
-const MINUTES = "id, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
+const MINUTES = "id, source, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
 
 export async function approvedMinutes(db: D1Database, limit = 200): Promise<ApprovedMinutes[]> {
   const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE status = 'approved' AND draft_markdown IS NOT NULL
@@ -22,7 +22,7 @@ export async function approvedMinutes(db: D1Database, limit = 200): Promise<Appr
 }
 
 export async function approvedMinutesById(db: D1Database, id: number): Promise<ApprovedMinutes | null> {
-  return db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE id = ? AND status = 'approved' AND draft_markdown IS NOT NULL`).bind(id).first<ApprovedMinutes>();
+  return db.prepare(`SELECT ${MINUTES}, CASE WHEN source = 'document' THEN transcript END AS transcript FROM board_minutes WHERE id = ? AND status = 'approved' AND draft_markdown IS NOT NULL`).bind(id).first<ApprovedMinutes>();
 }
 
 /** Recordings being turned into minutes, and drafts waiting for the chair - counted only. */
