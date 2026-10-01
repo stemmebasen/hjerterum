@@ -74,17 +74,6 @@ jobs:
           echo "database_id=$D1_ID" >> "$GITHUB_OUTPUT"
           node .github/scripts/configure-staging-d1.mjs "$D1_ID"
 
-      - name: Resolve or create the board recordings bucket (EU)
-        if: steps.credentials.outputs.cloudflare == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Meeting recordings are personal data: the bucket lives in Western Europe.
-          BUCKET="hjerterum-board-recordings-eu"
-          if ! pnpm --dir apps/web exec wrangler r2 bucket info "$BUCKET" >/dev/null 2>&1; then
-            pnpm --dir apps/web exec wrangler r2 bucket create "$BUCKET" --location weur
-          fi
-
       - name: Apply staging D1 migrations
         if: steps.credentials.outputs.cloudflare == 'true'
         shell: bash
