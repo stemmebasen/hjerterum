@@ -7,6 +7,7 @@ import { trimMinutesDoc } from "../saga/picture.js";
 import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
+import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { allDecisions, approvedMinutes, boardPicture, meetings } from "./data.js";
 import { STATUTES } from "./statutes.js";
 
@@ -51,23 +52,41 @@ async function memberNumbers(db: D1Database): Promise<string> {
   return lines.length ? lines.join("\n") : "(ingen medlemstal)";
 }
 
-/** The house's events: the public MembershipWorks calendar and the rooms booked by teachers, the next 60 days. */
-async function events(db: D1Database, deps: SagaDeps, nowMs: number): Promise<string> {
-  const [feed, rooms] = await Promise.all([
-    deps.fetcher("https://api.membershipworks.com/v2/events?_op=rss&org=22308", { headers: { accept: "application/rss+xml, application/xml" }, signal: AbortSignal.timeout(5000) })
-      .then(async response => response.ok ? parseMembershipWorksRss(await response.text()) : []).catch(() => []),
+const STOP = new Set(["hvad", "hvem", "hvor", "hvornår", "hvilke", "hvilken", "hvilket", "hvordan", "hvorfor", "mange", "nogle", "noget", "nogen", "havde", "haft", "have", "har", "været",
+  "være", "sidst", "sidste", "næste", "kommende", "arrangement", "arrangementer", "event", "events", "begivenhed", "begivenheder", "afholdt", "holdt", "huset", "hjerterum", "eller",
+  "også", "med", "fra", "efter", "inden", "før", "over", "under", "mellem", "omkring", "gang", "gange", "første", "ofte", "kan", "skal", "vil", "der", "det", "den", "dem", "deres",
+  "jeg", "vi", "vores", "dig", "din", "saga", "undervist", "underviste", "underviser", "undervisere", "uger", "uge", "måned", "måneder", "året", "år", "dage", "dag"]);
+const DATE = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", year: "numeric" });
+const eventLine = (e: HouseEvent) => `- ${DATE.format(e.starts_at_ms)}: ${e.title}${e.host ? ` (${e.host})` : ""}${e.category ? ` [${e.category}]` : ""}${e.removed_at_ms ? " - fjernet fra kalenderen" : ""}`;
+
+/** The house's events for Saga: what is coming, the numbers since 2019, and the archive's events that
+ * match the question's words (and year) - the whole history is too long to send every time. */
+async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: string): Promise<string> {
+  const year = Number(/\b(20[12]\d)\b/.exec(question)?.[1] ?? 0) || null;
+  const words = (question.toLocaleLowerCase("da-DK").match(/[\p{L}\p{N}]{4,}/gu) ?? []).filter(w => !STOP.has(w) && !/^20[12]\d$/.test(w)).slice(0, 5);
+  const [coming, stats, rooms] = await Promise.all([comingEvents(db, nowMs, 60, 60).catch(() => []), eventStats(db, nowMs).catch(() => null),
     db.prepare("SELECT title, teacher_name, starts_at_ms FROM room_bookings WHERE starts_at_ms >= ? AND starts_at_ms < ? ORDER BY starts_at_ms LIMIT 60")
-      .bind(nowMs - DAY, nowMs + 60 * DAY).all<{ title: string; teacher_name: string; starts_at_ms: number }>().then(r => r.results ?? []).catch(() => [])
-  ]);
-  const upcoming = feed.filter(e => { const at = Date.parse(e.startsAt); return at >= nowMs - DAY && at < nowMs + 60 * DAY; }).slice(0, 60);
-  return [...upcoming.map(e => `- ${time(Date.parse(e.startsAt))}: ${e.title}${e.host ? ` (${e.host})` : ""}${e.location ? `, ${e.location}` : ""}`),
-    ...rooms.map(r => `- ${time(r.starts_at_ms)}: ${r.title} (lokale booket af ${r.teacher_name})`)].join("\n") || "(ingen kommende arrangementer fundet)";
+      .bind(nowMs - DAY, nowMs + 60 * DAY).all<{ title: string; teacher_name: string; starts_at_ms: number }>().then(r => r.results ?? []).catch(() => [])]);
+  const found = new Map<string, HouseEvent>();
+  for (const word of words) for (const e of await searchEvents(db, word, { year, limit: 30 }).catch(() => [])) found.set(e.id, e);
+  if (year && !words.length) for (const e of await searchEvents(db, "", { year, limit: 80 }).catch(() => [])) found.set(e.id, e);
+  // Before the archive is filled, the coming events come straight from the calendar.
+  const live = coming.length ? [] : await deps.fetcher(EVENTS_FEED, { headers: { accept: "application/rss+xml, application/xml" }, signal: AbortSignal.timeout(5000) })
+    .then(async response => response.ok ? parseMembershipWorksRss(await response.text()) : []).catch(() => []);
+  const parts = [
+    stats?.total ? `Antal i alt siden ${stats.first ? new Date(stats.first).getUTCFullYear() : "2019"}: ${stats.total}. Pr. år: ${stats.byYear.map(b => `${b.year}: ${b.n}`).join(", ")}.`
+      + `${stats.hosts.length ? ` Mest aktive det seneste år: ${stats.hosts.map(h => `${h.host} (${h.n})`).join(", ")}.` : ""} Kategorier: ${stats.categories.map(c => `${c.category} (${c.n})`).join(", ")}.` : "",
+    `KOMMENDE (60 dage):\n${[...coming.map(eventLine), ...live.filter(e => Date.parse(e.startsAt) < nowMs + 60 * DAY).slice(0, 60).map(e => `- ${DATE.format(Date.parse(e.startsAt))}: ${e.title}`),
+      ...rooms.map(r => `- ${DATE.format(r.starts_at_ms)}: ${r.title} (lokale booket af ${r.teacher_name})`)].join("\n") || "(ingen)"}`,
+    found.size ? `FUNDET I ARKIVET (${words.join(", ")}${year ? `, ${year}` : ""}; højst 30 pr. ord, nyeste først):\n${[...found.values()].sort((a, b) => b.starts_at_ms - a.starts_at_ms).slice(0, 120).map(eventLine).join("\n")}` : ""
+  ];
+  return parts.filter(Boolean).join("\n\n");
 }
 
-async function context(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<string> {
+async function context(env: SagaEnv, deps: SagaDeps, db: D1Database, question: string): Promise<string> {
   const now = deps.now();
   const [minutes, { picture }, list, chat, members, house, doc] = await Promise.all([approvedMinutes(db, 40), boardPicture(db, now), meetings(db),
-    env.SAGA_BOARD_CHAT_ID ? recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 60 * DAY, 400) : Promise.resolve([]), memberNumbers(db), events(db, deps, now),
+    env.SAGA_BOARD_CHAT_ID ? recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 60 * DAY, 400) : Promise.resolve([]), memberNumbers(db), events(db, deps, now, question),
     env.GOOGLE_MINUTES_DOC_ID ? minutesDocText(env, deps).then(text => trimMinutesDoc(text.trim(), 25_000)).catch(() => "") : Promise.resolve("")]);
   const d = picture?.document;
   const parts = [
@@ -79,7 +98,7 @@ async function context(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<st
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
-    `ARRANGEMENTER I HUSET:\n${house}`,
+    `ARRANGEMENTER I HUSET (Hjerterums kalender på holistisk.org):\n${house}`,
     `GODKENDTE REFERATER:\n${minutes.slice(0, 5).map(m => `--- Referat ${m.meeting_date ?? ""} ---\n${m.draft_markdown ?? ""}`).join("\n\n") || "(ingen)"}`,
     doc ? `BESTYRELSENS REFERATDOKUMENT:\n${doc}` : "",
     `BESTYRELSENS CHAT (seneste 60 dage):\n${chat.map(m => `[${time(m.sent_at_ms)}] ${m.author_name}: ${m.text}`).join("\n") || "(ingen beskeder)"}`
@@ -89,7 +108,7 @@ async function context(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<st
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
 export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }): Promise<string> {
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await context(env, deps, db)}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await context(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
   const answer = await complete(env, deps, messages);
   const now = deps.now();
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();

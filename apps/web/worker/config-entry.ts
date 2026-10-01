@@ -4,6 +4,7 @@ import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
+import { runEventSync } from "./cockpit/events.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -74,5 +75,7 @@ export default {
     await app.scheduled(controller, env);
     await runSagaJobs(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
+    await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
+      .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
   }
 };

@@ -9,7 +9,10 @@ import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, 
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, tasksFor, weeklySummary } from "./data.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
+import { comingEvents, eventStats, searchEvents } from "./events.js";
+import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE } from "./minutesDoc.js";
+import { serviceStatus } from "../saga/store.js";
 import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, overviewPage, shortDay, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -23,7 +26,7 @@ const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZon
 
 const HEADERS = {
   "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "same-origin", "x-robots-tag": "noindex, nofollow",
-  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data: https://d1tif55lvfk8gc.cloudfront.net; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 };
 const answer = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow" } });
 const html = (body: string, status = 200, extra: Record<string, string> = {}) => new Response(body, { status, headers: { ...HEADERS, ...extra } });
@@ -142,6 +145,16 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (path === "/beslutninger" && request.method === "GET") {
     const [{ picture }, minutes] = await Promise.all([boardPicture(db), approvedMinutes(db)]);
     return html(decisionsPage(base, allDecisions(minutes, picture), who));
+  }
+
+  if (path === "/arrangementer" && request.method === "GET") {
+    const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
+    const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;
+    const [stats, coming, recent, results, backfill] = await Promise.all([eventStats(db, now), comingEvents(db, now, 60, 16),
+      db.prepare("SELECT id, title, starts_at_ms, ends_at_ms, location, host, category, link, image_url, description, removed_at_ms FROM house_events WHERE starts_at_ms < ? AND removed_at_ms IS NULL ORDER BY starts_at_ms DESC LIMIT 20")
+        .bind(now).all<Parameters<typeof eventsPage>[1]["recent"][number]>().then(r => r.results ?? []),
+      query || year ? searchEvents(db, query, { year, limit: 100 }) : Promise.resolve(null), serviceStatus(db, "house_events_full")]);
+    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who }));
   }
 
   if (path === "/arkiv" && request.method === "GET") {
