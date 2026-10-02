@@ -18,6 +18,7 @@ import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
+import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
@@ -123,6 +124,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
+    const eventsToReview = await reviewCount(db, now);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -130,7 +132,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
@@ -356,11 +358,60 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (path === "/arrangementer" && request.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
     const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;
-    const [stats, coming, recent, results, backfill] = await Promise.all([eventStats(db, now), comingEvents(db, now, 60, 16),
+    const [stats, coming, recent, results, backfill, review, drafts, teachers] = await Promise.all([eventStats(db, now), comingEvents(db, now, 60, 16),
       db.prepare("SELECT id, title, starts_at_ms, ends_at_ms, location, host, category, link, image_url, description, removed_at_ms FROM house_events WHERE starts_at_ms < ? AND removed_at_ms IS NULL ORDER BY starts_at_ms DESC LIMIT 20")
         .bind(now).all<Parameters<typeof eventsPage>[1]["recent"][number]>().then(r => r.results ?? []),
-      query || year ? searchEvents(db, query, { year, limit: 100 }) : Promise.resolve(null), serviceStatus(db, "house_events_full")]);
-    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who }));
+      query || year ? searchEvents(db, query, { year, limit: 100 }) : Promise.resolve(null), serviceStatus(db, "house_events_full"),
+      eventsForReview(db, now), openDrafts(db), fixedTeachers(db)]);
+    const NOTICES: Record<string, string> = { godkendt: "Eventet er godkendt og vises nu offentligt.", afvist: "Eventet er afvist og vises ikke.", fast: "Listen over faste undervisere er opdateret.",
+      fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
+    const desk = deskSection(base, { review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
+    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
+  }
+
+  // Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op" (cockpit/eventDesk.ts).
+  if (path === "/arrangementer/nyt" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const wanted = String((await request.formData().catch(() => null))?.get("request") ?? "").trim().slice(0, 4000);
+    if (!wanted || !env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/arrangementer`);
+    try { return redirect(`${base}/arrangementer/udkast/${await draftEvent(env, deps, db, wanted, who)}`); }
+    catch (error) {
+      console.warn("cockpit_event_draft_failed", error instanceof Error ? error.message : error);
+      return redirect(`${base}/arrangementer?besked=fejl`);
+    }
+  }
+  const draftPath = /^\/arrangementer\/udkast\/(\d+)$/.exec(path);
+  if (draftPath) {
+    const row = await eventDraft(db, Number(draftPath[1]));
+    if (!row || row.status === "discarded") return html(notFound(base, who), 404);
+    if (request.method === "GET") return html(layoutDraft(base, who, draftPage(base, row, url.searchParams.get("besked") ?? "")));
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      const action = String(form?.get("action") ?? "save");
+      if (action === "discard") { await discardDraft(db, row.id, now); return redirect(`${base}/arrangementer?besked=kasseret`); }
+      if (row.status === "draft" && form) await saveDraft(db, row.id, draftFrom({ ...parseDraft(row), ...Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string")) }), now);
+      if (action === "create") {
+        const created = await createFromDraft(db, row.id, who, now);
+        return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent(created.ok ? "Eventet er oprettet i Hjerterums nye system. Husk MembershipWorks-teksten herunder, så længe vi kører begge systemer." : created.reason)}`);
+      }
+      return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent("Gemt.")}`);
+    }
+  }
+  if (path === "/arrangementer/godkend" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id")), approve = form?.get("decision") === "approve";
+    if (Number.isSafeInteger(id) && id > 0) await decideEvent(db, id, approve, who, String(form?.get("note") ?? "").trim(), now);
+    return redirect(`${base}/arrangementer?besked=${approve ? "godkendt" : "afvist"}`);
+  }
+  if (path === "/arrangementer/faste" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const email = String(form?.get("email") ?? "");
+    if (form?.get("remove") === "1") await removeFixedTeacher(db, email);
+    else await addFixedTeacher(db, email, String(form?.get("name") ?? ""), who, now);
+    return redirect(`${base}/arrangementer?besked=fast`);
   }
 
   if (path === "/arkiv" && request.method === "GET") {
@@ -418,6 +469,7 @@ async function meetingsInDocument(env: SagaEnv, deps: SagaDeps): Promise<Set<str
   catch { return new Set(); }
 }
 
+const layoutDraft = (base: string, who: string | null, body: string) => layout(base, "Udkast til arrangement", body, { section: "/arrangementer", who, style: DESK_STYLE });
 const notFound = (base: string, who: string | null) => problem(base, who, "Siden findes ikke.");
 function problem(base: string, who: string | null, text: string): string {
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hjerterum bestyrelse</title></head>

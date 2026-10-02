@@ -46,7 +46,7 @@ export async function listUpcomingPublicRoomBookings(
       `SELECT id, teacher_name, teacher_email, title, description,
               starts_at_ms, ends_at_ms, max_attendees, ticket_price_minor
        FROM room_bookings
-       WHERE status = 'scheduled' AND ends_at_ms >= ?
+       WHERE status = 'scheduled' AND review_status = 'approved' AND ends_at_ms >= ?
        ORDER BY starts_at_ms ASC`
     )
     .bind(fromMs)

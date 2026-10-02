@@ -39,6 +39,8 @@ type Booking = {
   feeKr: number;
   ticketPriceKr: number;
   bookingType?: "standard" | "reduced" | "free";
+  reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
+  reviewNote?: string | null;
   handlingFeeKr?: number;
   registrationStatus?: "pending" | "confirmed" | "cancelled" | null;
   status?: string;
@@ -292,7 +294,7 @@ function MemberEvents({
       }
       formElement.reset();
       setEditing(null);
-      setMessage(editing ? "Ændringerne er gemt." : "Eventet er oprettet og salen reserveret.");
+      setMessage(editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.");
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
@@ -385,6 +387,7 @@ function MemberEvents({
                 <article key={booking.id}>
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
+                  <span className="member-event-review">{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
                   <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => setEditing(booking)}>Redigér</button>
