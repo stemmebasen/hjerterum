@@ -587,3 +587,13 @@ describe("the front page's fun fact", () => {
     expect(heldFact(5)).toBe("");
   });
 });
+
+describe("the front page's lead", () => {
+  // Reported: under "Hej Jacob" the front page said "Bestyrelsen Medlemmer" - Saga's bold section headings taken for text.
+  it("skips bold section headings and bullet points", async () => {
+    const { lead } = await import("./home.js");
+    expect(lead("**Bestyrelsen**\n- Referatet er godkendt.\n\n**Medlemmer**\n- Ca. 165 medlemmer.")).toBe("");
+    expect(lead("**Bestyrelsen:**\nEn rolig uge med god energi.\n- Punkt")).toBe("En rolig uge med god energi.");
+    expect(lead("Det **vigtigste** er budgettet.")).toBe("Det **vigtigste** er budgettet.");
+  });
+});

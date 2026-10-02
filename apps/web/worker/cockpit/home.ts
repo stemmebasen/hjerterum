@@ -87,8 +87,11 @@ const NOW_TIME = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen
 
 /** Saga's summary in a sentence or two: its first lines, without headings. */
 export function lead(summary: string | null): string {
-  // Only the running text: the bullet points are shown under "Bestyrelsen lige nu".
-  const lines = (summary ?? "").split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#/.test(l) && !/^temperatur:/i.test(l) && !/^[-*]\s+/.test(l));
+  // Only the running text: the bullet points are shown under "Bestyrelsen lige nu". Reported: the front page said
+  // "Bestyrelsen Medlemmer" - Saga's overview writes its section headings in bold ("**Bestyrelsen**"), and those were
+  // taken for text. A line that is only a bold heading is a heading.
+  const lines = (summary ?? "").split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#/.test(l) && !/^temperatur:/i.test(l) && !/^[-*]\s+/.test(l)
+    && !/^(\*\*|__)[^*_]+(\*\*|__):?$/.test(l));
   const text = lines.slice(0, 2).join(" ");
   return text.length > 280 ? `${text.slice(0, 277).replace(/\s+\S*$/, "")} …` : text;
 }
