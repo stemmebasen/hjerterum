@@ -8,7 +8,7 @@ import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
-import { allDecisions, approvedMinutes, boardPicture, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
+import { allDecisions, allTasks, approvedMinutes, boardPicture, openFor, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { STATUTES } from "./statutes.js";
@@ -180,12 +180,23 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
 export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = ""): Promise<string> {
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
+  const mine = who ? await ownTasks(db, who, deps.now()) : "";
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
   const now = deps.now();
   const answer = await applyMeeting(db, await complete(env, deps, messages), who, now, base);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(answer))?.[1] ?? "";
+}
+
+/** Requested: "Presets" - "Hvad er mine to-do's?": the asker's own open tasks (from the minutes and the
+ * cockpit's to-do list), so Saga can answer for the one asking. */
+async function ownTasks(db: D1Database, who: string, nowMs: number): Promise<string> {
+  const [minutes, { picture }] = await Promise.all([approvedMinutes(db), boardPicture(db, nowMs)]);
+  const open = await openFor(db, who, allTasks(minutes, picture)).catch(() => ({ tasks: [], todos: [] }));
+  const lines = [...open.tasks.map(t => `- ${t.what}${t.due ? ` (frist: ${t.due})` : ""} - fra referatet ${t.meeting}`),
+    ...open.todos.map(t => `- ${t.text}${t.due ? ` (frist: ${t.due})` : ""} - på to-do-listen${t.created_by && t.created_by !== who ? `, skrevet af ${t.created_by}` : ""}`)];
+  return `\n\n${who.toUpperCase()}S ÅBNE OPGAVER (den der spørger):\n${lines.join("\n") || "(ingen åbne opgaver)"}`;
 }
 
 /** Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."

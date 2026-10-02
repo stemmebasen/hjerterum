@@ -170,7 +170,8 @@ border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-dire
 @media (max-width:760px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;z-index:30}.saga-fab{right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));padding:11px 16px}}
 @media print{.saga,.saga-fab{display:none!important}}`;
 
-const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?", "Hvor mange medlemmer har vi?"];
+// Requested: "Presets" - Jacob's five.
+const IDEAS = ["Hjælp mig med at opsætte event", "Hvad er mine to-do's?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?"];
 
 /** Saga in the bottom-right corner of every page. The conversation lives in this tab only. */
 function sagaChat(base: string): string {
