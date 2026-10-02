@@ -9,6 +9,7 @@ import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { allDecisions, approvedMinutes, boardPicture, meetingOn, meetings, saveMeeting } from "./data.js";
+import { LAW } from "./law.js";
 import { STATUTES } from "./statutes.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
@@ -94,6 +95,7 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
   const parts = [
     `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}`,
     `VEDTÆGTER:\n${STATUTES}`,
+    `FORENINGSRET (lovgrundlaget for foreninger med begrænset ansvar):\n${LAW}`,
     `BESLUTNINGER (nyeste først):\n${allDecisions(minutes, picture).slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
     `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}` : ""}${m.place ? `, ${m.place}` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i cockpittet)"}`,
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
