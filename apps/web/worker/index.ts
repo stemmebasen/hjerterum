@@ -32,6 +32,7 @@ import {
   normalizeCreateRoomBookingInput,
   unattendRoomBooking,
   updateOwnedRoomBooking,
+  isFixedTeacher,
   type RoomBookingRow
 } from "./room-bookings.js";
 import { verifyStripeWebhook } from "./stripe.js";
@@ -114,7 +115,9 @@ function roomBookingView(row: RoomBookingRow) {
     maxAttendees: row.max_attendees,
     feeKr: row.fee_minor / 100,
     ticketPriceKr: row.ticket_price_minor / 100,
-    bookingType: row.booking_type ?? "standard"
+    bookingType: row.booking_type ?? "standard",
+    reviewStatus: row.review_status ?? "approved",
+    reviewNote: row.review_note ?? null
   };
 }
 
@@ -215,6 +218,7 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
     }
     const result = await createRoomBooking(env.DB, user.userId, {
       ...input,
+      preApproved: await isFixedTeacher(env.DB, membership.email),
       teacherName: membership.fullName,
       teacherEmail: membership.email,
       memberName: membership.fullName,
@@ -261,7 +265,7 @@ async function putRoomBooking(
       env.DB,
       user.userId,
       bookingId,
-      input
+      { ...input, preApproved: await isFixedTeacher(env.DB, membership.email) }
     );
     return json({ status: "updated", ...result });
   } catch (error) {

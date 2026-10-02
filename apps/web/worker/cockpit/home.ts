@@ -23,6 +23,7 @@ export type HomeData = {
   progress: { working: number; waiting: number };
   memberStats?: MemberStats[];
   newEnquiries?: number;
+  eventsToReview?: number;
 };
 
 export const HOME_STYLE = `
@@ -135,6 +136,7 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
     data.progress.waiting ? `${plural(data.progress.waiting, "referat", "referater")} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
 
   const enquiryNote = data.newEnquiries ? `<p class="notice"><a href="${base}/foresporgsler"><strong>${plural(data.newEnquiries, "åben forespørgsel", "åbne forespørgsler")}</strong> i team@ →</a></p>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${enquiryNote}${working}
+  const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
+  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });
 }

@@ -1,5 +1,6 @@
 import type { EventStats, HouseEvent } from "./events.js";
 import { esc, layout } from "./page.js";
+import { DESK_STYLE } from "./eventDesk.js";
 
 /** Hjerterum's events in the cockpit: what is coming, the history since 2019, and a search. */
 
@@ -26,7 +27,7 @@ const line = (e: HouseEvent) => `<li><span class="small muted">${esc(when(e))}${
 ${e.removed_at_ms ? `<span class="small muted">Fjernet fra kalenderen</span>` : ""}</li>`;
 
 export function eventsPage(base: string, data: { stats: EventStats; coming: HouseEvent[]; recent: HouseEvent[]; results: HouseEvent[] | null; query: string; year: number | null;
-  thisYear: number; syncing: boolean; who: string | null }): string {
+  thisYear: number; syncing: boolean; who: string | null; desk?: string }): string {
   const s = data.stats, count = (y: number) => s.byYear.find(b => b.year === String(y))?.n ?? 0, max = Math.max(1, ...s.byYear.map(b => b.n));
   const years = s.byYear.map(b => Number(b.year)).filter(Boolean).sort((a, b) => b - a);
   const search = `<form class="search" method="get" action="${base}/arrangementer"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg fx yoga, lydhealing, et navn" aria-label="Søg i arrangementer">
@@ -42,5 +43,5 @@ ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join
   return layout(base, "Arrangementer", `<main><h1>Arrangementer</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>
-${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE });
+${data.desk ?? ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE });
 }

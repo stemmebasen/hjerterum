@@ -219,7 +219,7 @@ export async function createEventCheckout(
             pa.stripe_account_id
      FROM room_bookings rb
      JOIN member_payout_accounts pa ON pa.clerk_user_id = rb.payout_clerk_user_id
-     WHERE rb.id = ? AND rb.status = 'scheduled' AND rb.starts_at_ms > ?
+     WHERE rb.id = ? AND rb.status = 'scheduled' AND rb.review_status = 'approved' AND rb.starts_at_ms > ?
        AND pa.status = 'active'`
   ).bind(bookingId, Date.now()).first<{
     id: number;
@@ -286,7 +286,7 @@ export async function createEventCheckout(
         platform_fee_minor, expires_at_ms)
        SELECT id, ?, ?, ?, ?, 'pending', ?, ?, ?, ?
        FROM room_bookings
-       WHERE id = ? AND status = 'scheduled' AND starts_at_ms > ?
+       WHERE id = ? AND status = 'scheduled' AND review_status = 'approved' AND starts_at_ms > ?
          AND (
            max_attendees IS NULL OR
            (SELECT COUNT(*) FROM room_booking_attendees
