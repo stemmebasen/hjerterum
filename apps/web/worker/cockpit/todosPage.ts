@@ -22,10 +22,12 @@ ul.moves li:first-child{border-top:0}ul.moves .who{cursor:default}ul.moves .when
 `;
 
 export type TodosData = { who: string; members: string[]; tasks: Task[]; checked: Map<string, number>; todos: Todo[]; notice: string;
+  /** The chair's questions and tasks from Saga - the same as in Matrix, checked off in either place. */
+  saga?: Array<{ key: string; kind: string; text: string; source: string; from?: string | null }>;
   /** Requested ("gennemtænkt"): "Hvem har hvad" moves here from Status - everyone's open tasks from the minutes, newest first. */
   everyone?: Task[] };
 
-const box = (base: string, kind: "opgave" | "punkt", id: string, done: boolean) =>
+const box = (base: string, kind: "opgave" | "punkt" | "saga", id: string, done: boolean) =>
   `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">
 <button class="check${done ? " done" : ""}" aria-label="${done ? "Markér som ikke klaret" : "Markér som klaret"}" title="${done ? "Fortryd" : "Klaret"}">${done ? "✓" : ""}</button></form>`;
 
@@ -54,7 +56,10 @@ function todoItem(base: string, todo: Todo, who: string): string {
 export function todosPage(base: string, data: TodosData): string {
   const openTasks = data.tasks.filter(t => !data.checked.has(taskKey(t))), doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null);
-  const open = [...openTodos.map(t => todoItem(base, t, data.who)), ...openTasks.map(t => taskItem(base, t, false))];
+  const SOURCES: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
+  const sagaItems = (data.saga ?? []).map(f => `<li class="todo">${box(base, "saga", f.key, false)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
+<div class="small muted">${esc(SOURCES[f.source] ?? "Fra Saga")}${f.from ? ` · ${esc(f.from)}` : ""}</div></div></li>`);
+  const open = [...sagaItems, ...openTodos.map(t => todoItem(base, t, data.who)), ...openTasks.map(t => taskItem(base, t, false))];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">
