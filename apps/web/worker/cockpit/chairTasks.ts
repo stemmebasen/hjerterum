@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import type { SagaEnv } from "../saga/env.js";
 import { markOwnerDone } from "../saga/store.js";
-import { allTasks, approvedMinutes, boardMembers, boardPicture, openFor, setTaskChecked, setTodoDone, taskKey } from "./data.js";
+import { allTasks, approvedMinutes, imperative, boardMembers, boardPicture, openFor, setTaskChecked, setTodoDone, taskKey } from "./data.js";
 import { currentForChair } from "./home.js";
 
 /** Requested: "Det er vigtigt, at min adgang til cockpittet synkroniseres med Matrix, for det er basalt set de
@@ -28,7 +28,7 @@ async function chairList(env: SagaEnv, db: D1Database, nowMs: number) {
   const items: Array<ChairItem & { done: () => Promise<void> }> = [
     ...currentForChair(picture?.forJacob ?? []).map(f => ({ key: f.key, kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: f.text,
       source: f.source, from: f.from ?? null, since: f.since, done: () => markOwnerDone(db, f.key, f.text, nowMs) })),
-    ...open.tasks.map(t => ({ key: shortKey("t", taskKey(t)), kind: "opgave" as const, text: t.what, source: "referat", from: null, since: t.meeting,
+    ...open.tasks.map(t => ({ key: shortKey("t", taskKey(t)), kind: "opgave" as const, text: imperative(t.what), source: "referat", from: null, since: t.meeting,
       done: () => setTaskChecked(db, chair, taskKey(t), true, nowMs) })),
     ...open.todos.map(t => ({ key: `p${t.id}`, kind: "opgave" as const, text: t.text, source: "cockpit", from: t.created_by === chair ? null : t.created_by,
       since: new Date(t.created_at_ms).toISOString().slice(0, 10), done: () => setTodoDone(db, t.id, chair, true, nowMs) }))

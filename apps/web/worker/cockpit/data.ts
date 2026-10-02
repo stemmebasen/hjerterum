@@ -218,6 +218,31 @@ export async function unsignedFor(db: D1Database, member: string, nowMs: number)
 export type Todo = { id: number; owner: string; text: string; due: string | null; created_by: string; created_at_ms: number; done_at_ms: number | null };
 
 /** A minutes task's lasting name: the meeting, who and what - the same task in the same minutes. */
+/** Requested: "Til mig bør ordlyden ikke være: Ser på automatisk opsætning af nyhedsbrev ... Sender preview-link ... Men:
+ * Se på ... Send preview-link". A task reads as an instruction: the verb it starts with in the present tense ("ser",
+ * "sender") is shown in the imperative ("se", "send"). Only known verbs - a noun like "Billeder" is left alone. Shown
+ * only: the task's key stays its original text, so what was checked off stays checked off. */
+const IMPERATIVE: Record<string, string> = Object.fromEntries(Object.entries({
+  ser: "se", går: "gå", får: "få", står: "stå", tager: "tag", giver: "giv", siger: "sig", beder: "bed", overtager: "overtag", gennemgår: "gennemgå", foreslår: "foreslå",
+  sender: "send", laver: "lav", kontakter: "kontakt", undersøger: "undersøg", skriver: "skriv", booker: "book", ringer: "ring", tjekker: "tjek", opdaterer: "opdater",
+  bestiller: "bestil", holder: "hold", finder: "find", spørger: "spørg", følger: "følg", forbereder: "forbered", sørger: "sørg", inviterer: "inviter", planlægger: "planlæg",
+  deler: "del", lægger: "læg", mailer: "mail", svarer: "svar", afklarer: "afklar", arrangerer: "arranger", opretter: "opret", retter: "ret", køber: "køb", betaler: "betal",
+  fakturerer: "fakturer", sætter: "sæt", henter: "hent", afleverer: "aflever", aftaler: "aftal", beregner: "beregn", udarbejder: "udarbejd", koordinerer: "koordiner",
+  rydder: "ryd", printer: "print", uploader: "upload", beslutter: "beslut", informerer: "informer", påminder: "påmind", minder: "mind", bruger: "brug",
+  præsenterer: "præsenter", fremlægger: "fremlæg", udsender: "udsend", opsætter: "opsæt", tilmelder: "tilmeld", afmelder: "afmeld", kigger: "kig", taler: "tal",
+  hjælper: "hjælp", samler: "saml", organiserer: "organiser", åbner: "åbn", lukker: "luk", flytter: "flyt", kører: "kør", vender: "vend", melder: "meld", tester: "test",
+  skaffer: "skaf", afholder: "afhold", indkalder: "indkald", udfylder: "udfyld", opfordrer: "opfordr", tænker: "tænk", overvejer: "overvej", vurderer: "vurder",
+  forhører: "forhør", søger: "søg", sletter: "slet", tilføjer: "tilføj", fjerner: "fjern", afslutter: "afslut", starter: "start", udskifter: "udskift", reparerer: "reparer"
+}));
+export function imperative(text: string): string {
+  const match = /^(\s*)([\p{L}]+)/u.exec(text);
+  if (!match) return text;
+  const word = match[2]!, form = IMPERATIVE[word.toLocaleLowerCase("da-DK")];
+  if (!form) return text;
+  const shown = word.charAt(0) === word.charAt(0).toLocaleUpperCase("da-DK") ? form.charAt(0).toLocaleUpperCase("da-DK") + form.slice(1) : form;
+  return match[1] + shown + text.slice(match[0].length);
+}
+
 export const taskKey = (task: Task) => `${task.meeting}|${task.who}|${task.what}`.toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim().slice(0, 400);
 
 /** Requested: "Man skal kunne skrive en opgave til alle også". An item written to "Alle" is on every

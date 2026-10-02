@@ -26,7 +26,7 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 - <hver beslutning i én linje>
 
 ## Opgaver
-- <hvem> - <hvad> - <hvornår, eller "ingen frist aftalt">
+- <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
 
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
@@ -55,7 +55,7 @@ Skabelon:
 - <hver beslutning i én linje>
 
 ## Opgaver
-- <hvem> - <hvad> - <hvornår, eller "ingen frist aftalt">
+- <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
 
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
@@ -69,7 +69,7 @@ export const POINT_SYSTEM = IDENTITY + `
 Et medlem af bestyrelsen har sendt en rettelse til ét punkt i et referat. Du får hele referatet, punktets nummer, rettelsen (og evt. dit eget spørgsmål og medlemmets svar)
 og, når den findes, kilden referatet er skrevet ud fra (transskriptionen af mødet eller bestyrelsens egen tekst).
 Svar KUN med ét JSON-objekt, enten
-{"action": "rewrite", "point": "### <nummer>. <overskrift>\n- Drøftelse: ...\n- Beslutning: ...", "decisions": [hele den nye liste under ## Beslutninger] eller null, "tasks": [hele den nye liste under ## Opgaver, hver som "<hvem> - <hvad> - <hvornår>"] eller null, "summary": "én kort sætning om hvad der er rettet"}
+{"action": "rewrite", "point": "### <nummer>. <overskrift>\n- Drøftelse: ...\n- Beslutning: ...", "decisions": [hele den nye liste under ## Beslutninger] eller null, "tasks": [hele den nye liste under ## Opgaver, hver som "<hvem> - <hvad i bydeform> - <hvornår>"] eller null, "summary": "én kort sætning om hvad der er rettet"}
 eller {"action": "ask", "question": "ét kort, konkret spørgsmål til medlemmet"}.
 Omskriv kun det ene punkt i referatets stil og skabelon (samme nummer), og ret kun Beslutninger og Opgaver, hvis rettelsen ændrer dem (ellers null).
 Medlemmets rettelse gælder, også når den strider mod kilden: de var med til mødet og ved bedst, og ting kan være aftalt bagefter. Brug kilden til at forstå punktet, ikke til at betvivle rettelsen.
