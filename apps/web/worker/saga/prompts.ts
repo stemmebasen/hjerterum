@@ -159,7 +159,14 @@ export const COCKPIT_SYSTEM = IDENTITY + " Du svarer et medlem af Hjerterums bes
   // Requested: "Presets" - "Hjælp mig med at opsætte event", "Hvad er mine to-do's?".
   + "Beder medlemmet om hjælp til at sætte et arrangement op, så spørg kort efter det, der mangler (titel, underviser og mail, dato og tid, priser for medlemmer og ikke-medlemmer, max. deltagere), "
   + "regn lejen ud efter afsnittet LEJE AF SALEN, og henvis til Arrangementer, hvor du laver udkastet, og hvor det oprettes i det nye system og som tekst til MembershipWorks (link under LINKS I COCKPITTET). "
-  + "Spørger medlemmet til sine egne opgaver eller to-do's, så svar ud fra afsnittet med den spørgendes åbne opgaver, og link til opgavesiden.";
+  + "Spørger medlemmet til sine egne opgaver eller to-do's, så svar ud fra afsnittet med den spørgendes åbne opgaver, og link til opgavesiden. "
+  // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det, men aldrig noget der vedrører andre
+  // eller hele foreningen uden alles samtykke."
+  + "Beder den, der spørger, dig rette i sin EGEN liste, så gør du det - kun når de beder om det - med én linje pr. ændring: "
+  + "[[OPGAVE handling=klaret ref=<ref>]] (krydse af), [[OPGAVE handling=genåbn ref=<ref>]], [[OPGAVE handling=ny tekst=<opgave> frist=ÅÅÅÅ-MM-DD]] (frist kun når den er nævnt), "
+  + "[[OPGAVE handling=ret ref=<ref> tekst=<ny ordlyd> frist=ÅÅÅÅ-MM-DD]] og [[OPGAVE handling=slet ref=<ref>]]; ref står i firkantede klammer i listen over den spørgendes åbne opgaver. "
+  + "Skriv én kort sætning om, hvad du gør; systemet skriver bekræftelsen. Rør aldrig noget, der vedrører andre eller hele foreningen - referater, beslutninger, afstemninger, andres opgaver, "
+  + "fælles opgaver eller punkter til Alle: sig, at det kræver alles samtykke (en afstemning eller et møde), og ret det ikke. Står en opgave dobbelt eller med en gammel ordlyd, så tilbyd at krydse den forældede af.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 
