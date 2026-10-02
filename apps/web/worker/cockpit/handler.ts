@@ -15,6 +15,7 @@ import { currentForChair, homePage } from "./home.js";
 import { enquiries, enquiriesPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
+import { suggestAgenda } from "./agenda.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -167,11 +168,25 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", agenda: url.searchParams.get("forslag") === "1" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
 
-  const meetingPath = /^\/moder\/(\d+)(\/slet)?$/.exec(path);
+  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag)?$/.exec(path);
   if (meetingPath) {
     const id = Number(meetingPath[1]);
     const found = await meeting(db, id);
     if (!found) return html(notFound(base, who), 404);
+    if (request.method === "POST" && meetingPath[2] === "/forslag") {
+      // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges."
+      const [all, states] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db)]);
+      const page = (suggestion: string[], notice: string) => html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
+        suggestion, today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
+      if (!env.AI_API_KEY || !env.AI_MODEL) return page([], "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op).");
+      try {
+        const items = await suggestAgenda(env, deps, db, found);
+        return page(items, items.length ? "Sagas forslag er klar: tryk »Indsæt Sagas forslag«, ret til og tryk Gem." : "Saga fandt ikke noget at foreslå ud fra materialet.");
+      } catch (error) {
+        console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
+        return page([], "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt.");
+      }
+    }
     if (request.method === "POST" && meetingPath[2]) { await deleteMeeting(db, id); return redirect(`${base}/moder`); }
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
@@ -181,7 +196,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt." : "";
     return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
-      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS) }, who, notice));
+      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
   }
 
   // Each board member approves the minutes, or asks the chair for a correction.

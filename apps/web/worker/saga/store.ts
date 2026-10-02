@@ -172,7 +172,11 @@ export async function saveOverview(db: D1Database, text: string, nowMs: number, 
 }
 
 export async function latestOverview(db: D1Database): Promise<Overview | null> {
-  return db.prepare("SELECT text, data, doc_hash, created_at_ms FROM board_overviews ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<Overview>();
+  // Reported: the cockpit greeted with "```json {" - an answer cut off mid-JSON was kept as the overview's
+  // text. Such an answer is never the overview: the last good one stands until a new one is read.
+  return db.prepare(`SELECT text, data, doc_hash, created_at_ms FROM board_overviews
+    WHERE data IS NOT NULL OR (LTRIM(text) NOT LIKE '\`\`\`%' AND LTRIM(text) NOT LIKE '{%')
+    ORDER BY created_at_ms DESC, id DESC LIMIT 1`).first<Overview>();
 }
 
 /** Requested: "samle ét sted med spørgsmål og todos til mig" - an item the chair marked as done is

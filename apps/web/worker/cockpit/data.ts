@@ -41,16 +41,20 @@ export async function minutesStatusByDate(db: D1Database): Promise<Map<string, "
   return out;
 }
 
+/** Requested: "Default lokation: Hjerterum, Guldsmedgade 26B, 8000 Aarhus". */
+export const DEFAULT_PLACE = "Hjerterum, Guldsmedgade 26B, 8000 Aarhus";
+const PLACE = `COALESCE(NULLIF(TRIM(place), ''), '${DEFAULT_PLACE}') AS place`;
+
 export async function meetings(db: D1Database): Promise<Meeting[]> {
-  const rows = await db.prepare("SELECT id, meeting_date, start_time, place, agenda, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200").all<Meeting>();
+  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
   return rows.results ?? [];
 }
 
 export const meetingOn = (db: D1Database, day: string) =>
-  db.prepare("SELECT id, meeting_date, start_time, place, agenda, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1").bind(day).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
 
 export const meeting = (db: D1Database, id: number) =>
-  db.prepare("SELECT id, meeting_date, start_time, place, agenda, updated_at_ms, updated_by FROM board_meetings WHERE id = ?").bind(id).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^\d{2}:\d{2}$/;
 export type MeetingInput = { date: string; time: string; place: string; agenda: string };
@@ -67,11 +71,11 @@ export function meetingInput(form: FormData): MeetingInput | null {
 export async function saveMeeting(db: D1Database, input: MeetingInput, who: string, nowMs: number, id?: number): Promise<number> {
   if (id) {
     await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-      .bind(input.date, input.time || null, input.place || null, input.agenda, nowMs, who || null, id).run();
+      .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, who || null, id).run();
     return id;
   }
   const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, created_at_ms, updated_at_ms, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || null, input.agenda, nowMs, nowMs, who || null).run();
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
 }
 
