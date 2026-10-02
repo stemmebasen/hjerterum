@@ -21,7 +21,19 @@ export async function corrections(db: D1Database, minutesId: number): Promise<Co
   return rows.results ?? [];
 }
 
+/** Reported: the same correction sent four times gave four questions - "Der skal ikke være to spørgsmål
+ * åbne på samme tid." A member has at most one open correction per point: a new one joins it (the same
+ * text twice is one), and Saga reads them together. */
 export async function addCorrection(db: D1Database, minutesId: number, point: number, member: string, text: string, nowMs: number): Promise<number> {
+  const open = await db.prepare(`SELECT id, correction FROM board_minutes_corrections WHERE minutes_id = ? AND point = ? AND member = ? AND status IN ('pending', 'question')
+    ORDER BY id DESC LIMIT 1`).bind(minutesId, point, member).first<{ id: number; correction: string }>();
+  if (open) {
+    const same = open.correction.split(/\n+/).some(part => part.trim().toLocaleLowerCase("da-DK") === text.trim().toLocaleLowerCase("da-DK"));
+    if (!same) await db.prepare(`UPDATE board_minutes_corrections SET correction = substr(correction || char(10) || ?, 1, 4000), status = 'pending', question = NULL, attempts = 0, updated_at_ms = ? WHERE id = ?`)
+      .bind(text, nowMs, open.id).run();
+    await closeDuplicates(db, open.id);
+    return open.id;
+  }
   const result = await db.prepare(`INSERT INTO board_minutes_corrections (minutes_id, point, member, correction, status, created_at_ms, updated_at_ms) VALUES (?, ?, ?, ?, 'pending', ?, ?)`)
     .bind(minutesId, point, member, text, nowMs, nowMs).run();
   return Number(result.meta?.last_row_id);
@@ -30,7 +42,23 @@ export async function addCorrection(db: D1Database, minutesId: number, point: nu
 export async function answerQuestion(db: D1Database, id: number, member: string, answer: string, nowMs: number): Promise<boolean> {
   const result = await db.prepare("UPDATE board_minutes_corrections SET answer = ?, status = 'pending', attempts = 0, updated_at_ms = ? WHERE id = ? AND member = ? AND status = 'question'")
     .bind(answer, nowMs, id, member).run();
-  return Number(result.meta?.changes ?? 0) === 1;
+  const answered = Number(result.meta?.changes ?? 0) === 1;
+  if (answered) await closeDuplicates(db, id);
+  return answered;
+}
+
+/** Open questions left from before a point was corrected (the same correction sent several times) are
+ * closed: once a member's correction of a point is made, nothing older of theirs on it stays open. */
+export async function closeSettled(db: D1Database, minutesId: number): Promise<void> {
+  await db.prepare(`DELETE FROM board_minutes_corrections WHERE minutes_id = ? AND status IN ('pending', 'question')
+    AND EXISTS (SELECT 1 FROM board_minutes_corrections done WHERE done.minutes_id = board_minutes_corrections.minutes_id AND done.point = board_minutes_corrections.point
+      AND done.member = board_minutes_corrections.member AND done.status = 'applied' AND done.updated_at_ms >= board_minutes_corrections.created_at_ms)`).bind(minutesId).run();
+}
+
+/** The member's other open corrections on the same point are the same errand: only this one stays. */
+async function closeDuplicates(db: D1Database, keepId: number): Promise<void> {
+  await db.prepare(`DELETE FROM board_minutes_corrections WHERE id != ? AND status IN ('pending', 'question')
+    AND (minutes_id, point, member) = (SELECT minutes_id, point, member FROM board_minutes_corrections WHERE id = ?)`).bind(keepId, keepId).run();
 }
 
 const lines = (text: string) => text.split(/\r?\n/);
@@ -97,6 +125,12 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
     await db.prepare("UPDATE board_minutes_corrections SET status = ?, updated_at_ms = ? WHERE id = ?").bind(final ? "failed" : "pending", now, id).run();
     return final ? "failed" : "pending";
   }
+  // Requested: "Undgår vi at det gøres så kompliceret fremover?" - one question at most: once the member
+  // has answered, Saga rewrites; a second question becomes a note that she could not.
+  if (answer.action === "ask" && row.answer) {
+    await db.prepare("UPDATE board_minutes_corrections SET status = 'failed', updated_at_ms = ? WHERE id = ?").bind(now, id).run();
+    return "failed";
+  }
   if (answer.action === "ask") {
     await db.prepare("UPDATE board_minutes_corrections SET status = 'question', question = ?, answer = NULL, updated_at_ms = ? WHERE id = ?").bind(answer.question, now, id).run();
     return "question";
@@ -107,6 +141,8 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
   if (answer.tasks) text = replaceList(text, /opgaver/i, answer.tasks);
   await updateMinutes(db, row.minutes_id, { draft: text }, now);
   await db.prepare("UPDATE board_minutes_corrections SET status = 'applied', note = ?, updated_at_ms = ? WHERE id = ?").bind(answer.summary || null, now, id).run();
+  // Requested: "spørgsmålene skal lukke helt når rettelsen er lavet" - nothing about this point stays open for them.
+  await closeDuplicates(db, id);
   await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(row.minutes_id).run();
   if (env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) {
     const link = env.COCKPIT_URL ? `\n${env.COCKPIT_URL.replace(/\/+$/, "")}/referat/${row.minutes_id}` : "";

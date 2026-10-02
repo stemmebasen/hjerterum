@@ -69,4 +69,58 @@ describe("corrections to one point of the minutes", () => {
     // Only the one who was asked can answer.
     expect((await call(`/cockpit/referat/${id}/rettelse/${correctionId}/svar`, { method: "POST", headers: as("Lisbeth"), body: form({ answer: "x" }) })).status).toBe(303);
   });
+
+  // Reported: the same correction sent four times while Saga worked gave four questions - "Der skal ikke være
+  // to spørgsmål åbne på samme tid" and "spørgsmålene skal lukke helt når rettelsen er lavet".
+  it("keeps one open question per member and point, and closes it all when the point is corrected", async () => {
+    const db = testDatabase();
+    let reply = JSON.stringify({ action: "ask", question: "Hvem skal stå for opsætningen?" });
+    const services = fakeServices({ ai: () => reply });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 10, author: "Jacob Hauge", authorId: OWNER, text: "Hej", sentAtMs: NOW - 86_400_000 });
+    const id = (await queueMinutes(db, { source: "upload", fileId: "x", fileName: "x.m4a", mimeType: null, meetingDate: "2026-09-30", nowMs: NOW }))!;
+    await updateMinutes(db, id, { status: "approved", draft: MINUTES }, NOW);
+    const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.headers ?? {}) } }), env, deps(services.fetcher, NOW));
+    const login = new FormData(); login.append("password", "hjerte-2026");
+    const session = ((await call("/cockpit/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const headers = { cookie: `${session}; hjerterum_cockpit_who=${encodeURIComponent("Jacob Hauge")}` };
+    const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
+    const open = async () => (await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_corrections WHERE status IN ('pending', 'question')").first<{ n: number }>())!.n;
+
+    // Sent four times: one correction, one question.
+    for (let i = 0; i < 4; i++) await call(`/cockpit/referat/${id}/punkt/2`, { method: "POST", headers, body: form({ correction: "Jacob ser på opsætningen" }) });
+    expect(await open()).toBe(1);
+    let page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
+    expect(page.match(/Saga spørger dig:/g)).toHaveLength(1);
+    expect(page).toContain("data-saga");
+    expect(page).toContain("Saga tænker …");
+    // A different correction to the same point joins the open one.
+    await call(`/cockpit/referat/${id}/punkt/2`, { method: "POST", headers, body: form({ correction: "Og Frederik er kasserer" }) });
+    expect(await open()).toBe(1);
+    const row = (await db.prepare("SELECT id, correction FROM board_minutes_corrections WHERE status IN ('pending', 'question')").first<{ id: number; correction: string }>())!;
+    expect(row.correction).toBe("Jacob ser på opsætningen\nOg Frederik er kasserer");
+    // Answered and corrected: nothing about the point is left open.
+    reply = JSON.stringify({ action: "rewrite", point: "### 2. Økonomi\n- Drøftelse: Jacob ser på opsætningen.\n- Beslutning: Budget vedtaget", decisions: null, tasks: null, summary: "Jacob står for opsætningen." });
+    await call(`/cockpit/referat/${id}/rettelse/${row.id}/svar`, { method: "POST", headers, body: form({ answer: "Jacob" }) });
+    expect(await open()).toBe(0);
+    page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
+    expect(page).not.toContain("Saga spørger dig:");
+    expect(page).toContain("Rettet efter Jacob Hauges rettelse: Jacob står for opsætningen.");
+
+    // Saga asks once: after an answer, a second question is not shown - the correction is marked as not made.
+    reply = JSON.stringify({ action: "ask", question: "Første spørgsmål?" });
+    await call(`/cockpit/referat/${id}/punkt/1`, { method: "POST", headers, body: form({ correction: "Det er forkert" }) });
+    const asked = (await db.prepare("SELECT id FROM board_minutes_corrections WHERE status = 'question'").first<{ id: number }>())!;
+    reply = JSON.stringify({ action: "ask", question: "Andet spørgsmål?" });
+    await call(`/cockpit/referat/${id}/rettelse/${asked.id}/svar`, { method: "POST", headers, body: form({ answer: "Check-in var kort" }) });
+    page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
+    expect(page).not.toContain("Andet spørgsmål?");
+    expect(page).toContain("Saga kunne ikke rette punktet efter Jacob Hauges rettelse");
+
+    // Questions left over from before the fix (as on staging) close when the page is opened.
+    await db.prepare("INSERT INTO board_minutes_corrections (minutes_id, point, member, correction, status, question, created_at_ms, updated_at_ms) VALUES (?, 2, 'Jacob Hauge', 'gammel', 'question', 'Gammelt spørgsmål?', ?, ?)").bind(id, NOW - 60_000, NOW - 60_000).run();
+    page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
+    expect(page).not.toContain("Gammelt spørgsmål?");
+    expect(await open()).toBe(0);
+  });
 });

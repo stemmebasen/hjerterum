@@ -82,6 +82,7 @@ const ICONS: Record<string, string> = {
   "/": '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
   "/moder": '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
   "/status": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  "/opgaver": '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
   "/arrangementer": '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   "/mere": '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
 };
@@ -91,10 +92,11 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
-  const desk = [["", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
+  const desk = [["", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
     .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
-  const inMore = ["/beslutninger", "/arkiv", "/mere", "/hvem"].includes(options.section ?? "");
-  const tabs = [["/", "Overblik"], ["/moder", "Møder"], ["/status", "Status"], ["/arrangementer", "Arrangementer"], ["/mere", "Mere"]]
+  // On a phone "Opgaver" takes Status' place in the tab bar; Status is under Mere.
+  const inMore = ["/status", "/beslutninger", "/arkiv", "/mere", "/hvem"].includes(options.section ?? "");
+  const tabs = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/arrangementer", "Arrangementer"], ["/mere", "Mere"]]
     .map(([path, label]) => `<a href="${base}${path}"${options.section === path || (path === "/mere" && inMore) ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -110,7 +112,7 @@ ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
 export function morePage(base: string, who: string | null): string {
   return layout(base, "Mere", `<main><h1>Mere</h1><div class="card"><div class="menu">
-<a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a><a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>
+<a href="${base}/status">Status</a><a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a><a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>
 <form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div></main>`, { section: "/mere", who });
 }
 
@@ -147,7 +149,7 @@ for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.c
 const open=v=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v)q.focus()};
 fab.onclick=()=>open(true);document.getElementById("saga-close").onclick=()=>open(false);
 let busy=false;
-async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga læser med …");
+async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga tænker …");
 const sent=history.slice(-6).map(t=>({role:t.role,content:t.content}));
 try{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:text,history:sent})});const data=await r.json().catch(()=>({}));
 if(r.ok&&data.html){wait.className="saga-msg saga-a";wait.innerHTML=data.html;history.push({role:"user",content:text},{role:"assistant",content:wait.textContent,html:data.html});save()}
@@ -203,7 +205,7 @@ const FILL_SCRIPT = `<script>document.querySelectorAll("[data-fill]").forEach(b=
 export type MinutesState = "working" | "waiting" | "failed";
 const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Lægges op om lidt", failed: "Referatet kunne ikke laves - upload igen" };
 
-export type OverviewData = { who: string | null; isChair: boolean; toSign: ApprovedMinutes[]; mine: Task[]; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
+export type OverviewData = { who: string | null; isChair: boolean; toSign: ApprovedMinutes[]; mine: Task[]; ownTodos?: Array<{ text: string; due: string | null; created_by: string }>; everyone: Task[]; forChair: BoardPicture["forJacob"]; next: Meeting | null;
   found: Array<{ date: string; what: string }>; picture: BoardPicture | null; summary: string | null; at: number | null; progress: { working: number; waiting: number }; today: string;
   group: GroupNow | null; weekly: { text: string; created_at_ms: number } | null; recent: Array<{ id: number; date: string; decisions: string[]; tasks: number }>; docUrl: string | null };
 
@@ -262,9 +264,12 @@ export function overviewPage(base: string, data: OverviewData): string {
   const sign = data.toSign.length ? `<h3>Referater du mangler at godkende</h3><ul class="plain">${data.toSign.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : "";
   const forChair = data.isChair && data.forChair.length ? `<h3>Til dig som formand</h3><ul class="plain">${data.forChair.slice(0, 5).map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}</div></li>`).join("")}</ul>
 ${data.forChair.length > 5 ? `<p class="small"><a href="${base}/status#formand">${data.forChair.length - 5} mere</a></p>` : ""}` : "";
-  const tasks = data.mine.length ? `<h3>Dine opgaver</h3><ul class="plain">${data.mine.slice(0, 5).map(taskLine).join("")}</ul>${data.mine.length > 5 ? `<p class="small"><a href="${base}/status#opgaver">Alle ${data.mine.length}</a></p>` : ""}` : "";
+  // Your open items first (your own, or written to you), then the minutes' tasks not yet checked off.
+  const own = data.ownTodos ?? [], open = own.length + data.mine.length;
+  const lines = [...own.map(t => `<li>${esc(t.text)}${t.due ? ` <span class="pill">${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}${t.created_by !== data.who ? `<div class="small muted">Fra ${esc(t.created_by)}</div>` : ""}</li>`), ...data.mine.map(taskLine)];
+  const tasks = open ? `<h3>Dine opgaver</h3><ul class="plain">${lines.slice(0, 5).join("")}</ul><p class="small"><a href="${base}/opgaver">${open > 5 ? `Alle ${open} opgaver` : "Kryds af eller skriv en opgave"} →</a></p>` : "";
   const mine = `<div class="card"><h2>Til dig</h2>${sign}${forChair}${tasks}
-${sign || forChair || tasks ? "" : `<p class="muted">${data.who ? "Intet venter på dig lige nu." : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
+${sign || forChair || tasks ? "" : `<p class="muted">${data.who ? `Intet venter på dig lige nu. <a href="${base}/opgaver">Skriv en opgave</a>` : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
   const next = `<div class="card"><h2>Næste møde</h2>${data.next ? `${meetingSummary(base, data.next)}<p class="small muted">${inDays(daysUntil(data.next.meeting_date, data.today))}</p>`
     : `<p class="muted">Intet møde er sat i kalenderen.</p>${data.found.length ? "" : `<p><a class="button" href="${base}/moder#nyt">Planlæg et møde</a></p>`}`}${foundMeetings(base, data.found, data.today)}</div>`;
   const points = keyPoints(data.summary);
@@ -284,7 +289,7 @@ ${latest.decisions.length ? `<h3>Beslutninger</h3><ul class="plain">${latest.dec
 <p style="margin:14px 0 0"><a class="button" href="${base}/referat/${latest.id}">${data.toSign.some(m => m.id === latest.id) ? "Læs og godkend" : "Læs referatet"}</a></p></div>` : "";
   const chips = [data.toSign.length ? `<a class="hot" href="${base}/referat/${data.toSign[0]!.id}"><b>${data.toSign.length}</b> referat${data.toSign.length === 1 ? "" : "er"} at godkende</a>` : "",
     data.next ? `<a href="${base}/moder/${data.next.id}">Møde ${inDays(daysUntil(data.next.meeting_date, data.today))}</a>` : "",
-    data.mine.length ? `<span><b>${data.mine.length}</b> opgave${data.mine.length === 1 ? "" : "r"} til dig</span>` : "",
+    data.mine.length + (data.ownTodos?.length ?? 0) ? `<a href="${base}/opgaver"><b>${data.mine.length + (data.ownTodos?.length ?? 0)}</b> opgave${data.mine.length + (data.ownTodos?.length ?? 0) === 1 ? "" : "r"} til dig</a>` : "",
     p?.temperature ? `<span>Stemning: ${esc(p.temperature.level)}</span>` : ""].filter(Boolean).join("");
   return layout(base, "Overblik", `<main><div class="hero"><h1>${data.who ? `Hej ${esc(data.who.split(/\s+/)[0])}` : "Overblik"}</h1>
 <p>${esc(longDay(data.today).replace(/^./, c => c.toUpperCase()))}</p>${chips ? `<div class="chips">${chips}</div>` : ""}</div>${minutesNote}

@@ -207,3 +207,45 @@ export async function unsignedFor(db: D1Database, member: string, nowMs: number)
     AND NOT EXISTS (SELECT 1 FROM board_minutes_signoffs s WHERE s.minutes_id = m.id AND s.member = ?) ORDER BY COALESCE(meeting_date, '') DESC LIMIT 10`).bind(nowMs - 90 * 86_400_000, member).all<ApprovedMinutes>();
   return rows.results ?? [];
 }
+
+// ---- Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en. Man kan også selv skrive ind." ----
+
+export type Todo = { id: number; owner: string; text: string; due: string | null; created_by: string; created_at_ms: number; done_at_ms: number | null };
+
+/** A minutes task's lasting name: the meeting, who and what - the same task in the same minutes. */
+export const taskKey = (task: Task) => `${task.meeting}|${task.who}|${task.what}`.toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim().slice(0, 400);
+
+export async function todosFor(db: D1Database, owner: string): Promise<Todo[]> {
+  const rows = await db.prepare("SELECT id, owner, text, due, created_by, created_at_ms, done_at_ms FROM cockpit_todos WHERE owner = ? ORDER BY done_at_ms IS NOT NULL, COALESCE(due, '9999') , created_at_ms DESC LIMIT 300")
+    .bind(owner).all<Todo>();
+  return rows.results ?? [];
+}
+
+export async function addTodo(db: D1Database, input: { owner: string; text: string; due: string | null; createdBy: string }, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms) VALUES (?, ?, ?, ?, ?)")
+    .bind(input.owner, input.text, input.due, input.createdBy, nowMs).run();
+}
+
+/** Only the owner checks an item off (or back on), and only the one who wrote it removes it. */
+export async function setTodoDone(db: D1Database, id: number, owner: string, done: boolean, nowMs: number): Promise<void> {
+  await db.prepare("UPDATE cockpit_todos SET done_at_ms = ? WHERE id = ? AND owner = ?").bind(done ? nowMs : null, id, owner).run();
+}
+export async function removeTodo(db: D1Database, id: number, who: string): Promise<void> {
+  await db.prepare("DELETE FROM cockpit_todos WHERE id = ? AND (created_by = ? OR owner = ?)").bind(id, who, who).run();
+}
+
+export async function checkedTasks(db: D1Database, owner: string): Promise<Map<string, number>> {
+  const rows = await db.prepare("SELECT task_key, done_at_ms FROM cockpit_task_checks WHERE owner = ?").bind(owner).all<{ task_key: string; done_at_ms: number }>();
+  return new Map((rows.results ?? []).map(r => [r.task_key, r.done_at_ms]));
+}
+
+export async function setTaskChecked(db: D1Database, owner: string, key: string, done: boolean, nowMs: number): Promise<void> {
+  if (done) await db.prepare("INSERT INTO cockpit_task_checks (owner, task_key, done_at_ms) VALUES (?, ?, ?) ON CONFLICT(owner, task_key) DO UPDATE SET done_at_ms = excluded.done_at_ms").bind(owner, key, nowMs).run();
+  else await db.prepare("DELETE FROM cockpit_task_checks WHERE owner = ? AND task_key = ?").bind(owner, key).run();
+}
+
+/** What is still open for this person: their minutes tasks not checked off, and their own items. */
+export async function openFor(db: D1Database, owner: string, tasks: Task[]): Promise<{ tasks: Task[]; todos: Todo[] }> {
+  const [checked, todos] = await Promise.all([checkedTasks(db, owner), todosFor(db, owner)]);
+  return { tasks: tasksFor(owner, tasks).filter(task => !checked.has(taskKey(task))), todos: todos.filter(t => t.done_at_ms === null) };
+}
