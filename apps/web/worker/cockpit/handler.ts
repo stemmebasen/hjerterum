@@ -8,7 +8,7 @@ import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, pers
 import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, checkedTasks, currentTasks, tasksByPerson, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addTodo, checkedTasks, currentTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
@@ -330,7 +330,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
     const saga = who === members.chair ? currentForChair(picture?.forJacob ?? []) : [];
-    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: all }));
+    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: all, boardChecks: await taskChecksByKey(db), now }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {

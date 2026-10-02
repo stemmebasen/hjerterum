@@ -112,7 +112,9 @@ export async function decideMinutes(db: D1Database, id: number, status: "approve
 }
 
 export async function recentMinutes(db: D1Database, limit = 5): Promise<Minutes[]> {
-  const rows = await db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE status IN ('drafted', 'approved') ORDER BY created_at_ms DESC LIMIT ?`).bind(limit).all<Minutes>();
+  // Reported: "Hjerterum i Matrix er helt outdated ... slet ikke noget om ... det nyeste referat". The meetings imported
+  // from the minutes document were created after 1 October's minutes and pushed them out; newest meeting first.
+  const rows = await db.prepare(`SELECT ${MINUTES_COLUMNS} FROM board_minutes WHERE status IN ('drafted', 'approved') ORDER BY COALESCE(meeting_date, '') DESC, created_at_ms DESC LIMIT ?`).bind(limit).all<Minutes>();
   return rows.results ?? [];
 }
 
