@@ -43,5 +43,5 @@ ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join
   return layout(base, "Arrangementer", `<main><h1>Arrangementer</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>
-<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a></p>${data.desk ?? ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE });
+<p style="display:flex;gap:8px;flex-wrap:wrap"><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a><a class="button" href="${base}/arrangementer/partnere">Partnere →</a></p>${data.desk ?? ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE });
 }

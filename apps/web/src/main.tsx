@@ -1,4 +1,4 @@
-import { EventCard, calendarMonth } from "./event-card";
+import { EventCard, PartnerBenefit, calendarMonth, type PartnerEvent } from "./event-card";
 import { LegacyPage, LegacyBody, legacyPage, PublicNavigation } from "./legacy-pages";
 import { PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
@@ -44,8 +44,10 @@ type CalendarEvent = {
   location: string | null;
   imageUrl: string | null;
   link: string | null;
-  source: "hjerterum" | "membershipworks";
+  source: "hjerterum" | "membershipworks" | "partner";
   category?: string | null;
+  allDay?: boolean;
+  partner?: PartnerEvent;
 };
 
 function useClerk() {
@@ -171,8 +173,9 @@ function EventSection({ events, reachable, full = false }: { events: CalendarEve
         {visible.map(event => calendarMonth(event.startsAt) !== month ? null : <EventCard key={event.key}
           title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
           host={event.host} location={event.location} imageUrl={event.imageUrl} category={event.category}
-          expandDescription={event.source === "hjerterum"}>
-          {event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
+          expandDescription={event.source !== "membershipworks"} allDay={event.allDay} partner={event.partner?.partnerName}>
+          {event.partner ? <PartnerBenefit event={event.partner} member={false} />
+            : event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
             : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
         </EventCard>)}
       </div></section>) : <div className="calendar-empty"><p>{reachable ? "Der er ingen kommende events i kalenderen endnu." : "Kalenderen indlæses."}</p></div>}
@@ -243,8 +246,12 @@ function usePublicEvents() {
       fetch("/api/events/external").then(async (response) => {
         if (!response.ok) throw new Error("external_events_unavailable");
         return (await response.json()) as ExternalEvent[];
+      }),
+      fetch("/api/events/partners").then(async (response) => {
+        if (!response.ok) throw new Error("partner_events_unavailable");
+        return (await response.json()) as PartnerEvent[];
       })
-    ]).then(([roomResult, externalResult]) => {
+    ]).then(([roomResult, externalResult, partnerResult]) => {
       if (!active) return;
 
       const roomEvents: CalendarEvent[] = roomResult.status === "fulfilled"
@@ -278,8 +285,26 @@ function usePublicEvents() {
           }))
         : [];
 
-      setEvents([...roomEvents, ...externalEvents].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)));
-      setEventsReachable(roomResult.status === "fulfilled" || externalResult.status === "fulfilled");
+      const partnerEvents: CalendarEvent[] = partnerResult.status === "fulfilled"
+        ? partnerResult.value.map((event) => ({
+            key: `partner-${event.id}`,
+            title: event.title,
+            description: event.description,
+            startsAt: event.startsAt,
+            endsAt: event.endsAt,
+            host: event.partnerName,
+            location: event.location,
+            imageUrl: event.imageUrl,
+            category: event.category,
+            link: event.link,
+            source: "partner" as const,
+            allDay: event.allDay,
+            partner: event
+          }))
+        : [];
+
+      setEvents([...roomEvents, ...externalEvents, ...partnerEvents].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)));
+      setEventsReachable(roomResult.status === "fulfilled" || externalResult.status === "fulfilled" || partnerResult.status === "fulfilled");
     });
 
     return () => { active = false; };

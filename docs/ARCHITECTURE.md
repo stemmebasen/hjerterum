@@ -31,6 +31,7 @@ Concrete providers are isolated behind adapters. Required adapter families inclu
 - Resend/SMTP email
 - Google Sheets feed
 - MembershipWorks RSS events
+- partner calendar feeds (iCal/ICS and RSS, read-only; `worker/partners`)
 - DAWA
 - AI provider
 - object storage when/if persistent uploads are introduced

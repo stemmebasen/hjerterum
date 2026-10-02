@@ -165,7 +165,20 @@ export const EN: Record<string, string> = {
   "Bed Saga om et resumé af samarbejdet": "Ask Saga for a summary of the collaboration", "Betalende medlemmer": "Paying members", "Til stede": "Present", "Fraværende": "Absent",
   "Tak - din godkendelse er noteret.": "Thank you - your approval is noted.", "Tak - formanden har fået din rettelse.": "Thank you - the chair has received your correction.",
   "Gratis medlemskab": "Free membership", "Konti i alt": "Accounts in total", "Konti med medlemskab": "Accounts with membership", "Venter på opsigelse": "Awaiting cancellation",
-    "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt.": "Saga could not translate the minutes right now. Try again shortly."
+    "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt.": "Saga could not translate the minutes right now. Try again shortly.",
+  // Partnerplanen, fase 1 (cockpit/partnersPage.ts)
+  "Partnere": "Partners", "Partnere →": "Partners →", "← Partnere": "← Partners", "Ny partner": "New partner", "Aftalen": "The agreement", "Kommende events": "Coming events",
+  "Målinger, seneste 30 dage": "Measurements, last 30 days", "aktive partnere": "active partners", "kommende partner-events": "coming partner events",
+  "klik videre, 30 dage": "clicks to partners, 30 days", "medlemsvisninger, 30 dage": "member views, 30 days", "Aktiv": "Active", "Sat på pause": "Paused", "Afsluttet": "Ended",
+  "Hent events nu": "Fetch events now", "Sæt på pause": "Pause", "Gør aktiv igen": "Make active again", "Afslut samarbejdet": "End the partnership", "Skjul": "Hide", "Vis igen": "Show again",
+  "Gem aftalen": "Save the agreement", "Opret partner og hent events": "Create partner and fetch events", "Partnerens navn": "Partner's name", "Hjemmeside": "Website",
+  "Rabat til Hjerterums medlemmer": "Discount for Hjerterum's members", "Rabatten (fx 10)": "The discount (e.g. 10)", "Procent": "Percent", "Kroner pr. billet": "Kroner per ticket",
+  "Sådan får et medlem rabatten (vises kun for medlemmer)": "How a member gets the discount (shown to members only)",
+  "Partnerens kalenderadresse (iCal/.ics eller RSS)": "The partner's calendar address (iCal/.ics or RSS)", "Kontaktperson": "Contact person",
+  "Kontaktpersonens e-mail": "Contact person's e-mail", "Aftalt den": "Agreed on",
+  "Partneren er oprettet. Tilføj partnerens kalenderadresse, så henter Saga events.": "The partner is created. Add the partner's calendar address, and Saga will fetch the events.",
+  "Saga har hentet partnerens kalender.": "Saga has fetched the partner's calendar.", "Aftalen er gemt.": "The agreement is saved.",
+  "Eventet er skjult i Hjerterums kalender.": "The event is hidden in Hjerterum's calendar.", "Eventet vises igen i Hjerterums kalender.": "The event is shown in Hjerterum's calendar again.",
 };
 
 const MONTHS_DA = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];

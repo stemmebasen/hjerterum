@@ -1,4 +1,4 @@
-import { EventCard, calendarMonth } from "./event-card";
+import { EventCard, PartnerBenefit, calendarMonth, type PartnerEvent } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -407,11 +407,13 @@ function MemberCalendar({
   clerk,
   bookings,
   externalEvents,
+  partnerEvents,
   reload
 }: {
   clerk: ClerkBrowser;
   bookings: Booking[];
   externalEvents: ExternalEvent[];
+  partnerEvents: PartnerEvent[];
   reload: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -443,8 +445,9 @@ function MemberCalendar({
   }
 
   const entries = [
-    ...bookings.map(booking => ({ key: "native-" + booking.id, startsAt: booking.startsAt, booking, external: null })),
-    ...externalEvents.map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external }))
+    ...bookings.map(booking => ({ key: "native-" + booking.id, startsAt: booking.startsAt, booking, external: null, partner: null })),
+    ...externalEvents.map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external, partner: null })),
+    ...partnerEvents.map(partner => ({ key: "partner-" + partner.id, startsAt: partner.startsAt, booking: null, external: null, partner }))
   ].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const months = [...new Set(entries.map(event => calendarMonth(event.startsAt)))];
 
@@ -459,7 +462,10 @@ function MemberCalendar({
       {months.map(month => <section className="calendar-month" key={month} aria-label={month}>
         <h2>{month}</h2>
         <div className="member-event-grid">
-          {entries.filter(entry => calendarMonth(entry.startsAt) === month).map(({ key, booking, external }) => {
+          {entries.filter(entry => calendarMonth(entry.startsAt) === month).map(({ key, booking, external, partner }) => {
+            if (partner) return <EventCard key={key} title={partner.title} description={partner.description} startsAt={partner.startsAt} endsAt={partner.endsAt}
+              host={partner.partnerName} location={partner.location} imageUrl={partner.imageUrl} category={partner.category} expandDescription
+              allDay={partner.allDay} partner={partner.partnerName}><PartnerBenefit event={partner} member /></EventCard>;
             const event = booking ?? external!;
             const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
             return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
@@ -689,6 +695,7 @@ export function MemberWorkspace({
   const [member, setMember] = useState<Member | null>(null);
   const [calendar, setCalendar] = useState<Booking[]>([]);
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
+  const [partnerEvents, setPartnerEvents] = useState<PartnerEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState("");
 
@@ -705,12 +712,14 @@ export function MemberWorkspace({
         const loadedMember = await memberResponse.json() as Member;
         setMember(loadedMember);
         if (!includesMemberBenefits(loadedMember.tier)) return;
-        const [calendarResponse, externalResponse] = await Promise.all([
+        const [calendarResponse, externalResponse, partnerResponse] = await Promise.all([
           apiFetch(clerk, "/api/room-bookings/calendar"),
-          fetch("/api/events/external")
+          fetch("/api/events/external"),
+          apiFetch(clerk, "/api/members/partner-events").catch(() => null)
         ]);
         if (active && calendarResponse.ok) setCalendar(await calendarResponse.json() as Booking[]);
         if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
+        if (active && partnerResponse?.ok) setPartnerEvents(await partnerResponse.json() as PartnerEvent[]);
       } else if (memberResponse.status === 403) {
         setAccessError("Der er ikke knyttet et aktivt medlemskab til din verificerede e-mail.");
       } else {
@@ -741,7 +750,7 @@ export function MemberWorkspace({
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
-          <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
+          <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} partnerEvents={partnerEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} />}
     </main>
   );

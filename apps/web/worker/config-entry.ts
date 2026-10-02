@@ -5,6 +5,9 @@ import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
+import { handlePartnerEventsRequest } from "./partners/api.js";
+import { runPartnerSync } from "./partners/partners.js";
+import type { D1Database } from "./db.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -59,6 +62,10 @@ export default {
       }
     }
 
+    // Partnerplanen, fase 1: partners' events in the calendar (worker/partners).
+    const partnerResponse = await handlePartnerEventsRequest(request, env.DB as D1Database | undefined, Date.now());
+    if (partnerResponse) return partnerResponse;
+
     if (request.method === "GET" && url.pathname === "/api/client-config") {
       return Response.json(
         {
@@ -77,5 +84,7 @@ export default {
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
     await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
       .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
+    await runPartnerSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
+      .catch(error => console.warn("partner_events_failed", error instanceof Error ? error.message : error));
   }
 };

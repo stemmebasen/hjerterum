@@ -56,6 +56,11 @@ This document is the primary product and migration specification for the new Hje
 - The billing view distinguishes loading, unavailable payments, request errors and a genuinely empty invoice list. Payment-management actions are not offered while payment availability is unconfirmed or payments are unconfigured.
 - Participant signup/unregistration using a second identity, imported MembershipWorks identity linking, concurrency, payment acceptance, notifications and public profile publication are not yet accepted end-to-end. The browser checks above must not be treated as production-cutover approval.
 
+### Partnerplanen checkpoint (2026-10-02)
+
+- Phase 1 of the Partnerplan (`docs/PARTNERPLAN.md`) is implemented: partner events with a member discount in Hjerterum's calendar. Decisions and measurement points are in `docs/decisions/0006-partner-events.md`.
+- Verified by automated tests through the real entry points: the cockpit handler and `config-entry.ts`, with every migration applied. The flow covered is partner → event → member → discount → external signup. The public calendar and the cockpit pages were also checked in a browser against a local Worker with D1. Acceptance with a real partner calendar on staging is still open.
+
 ## 2. Product scope
 
 ### Public site
@@ -97,6 +102,27 @@ This document is the primary product and migration specification for the new Hje
 - Calendar occupancy must be distinguished from public visibility and access to circle/member details. Do not infer permission to publish circle participant data from this integration requirement.
 - The concrete prior agreement on AI event approval is being recovered. The current Worker booking path does not yet apply AI moderation or the fixed-teacher approval exception. Do not describe these as implemented.
 - External calendar providers and their read/write capabilities, visibility of circle meetings, booking permissions, recurring-series behaviour, applicable approval exemptions and venue-payment policies must follow recovered/confirmed product rules; this checkpoint does not invent those decisions.
+
+### Partner events (Partnerplanen, phase 1) — confirmed 2026-10-02
+
+- Hjerterum is a network and distribution layer for partners, not a replacement for their systems. A partner keeps its own brand, members, tickets, payment, data and administration. Signup and payment for a partner event always happen at the partner.
+- A partner agreement is explicit data, kept by the board in the cockpit (*Arrangementer → Partnere*). It holds:
+  - the discount, chosen by the partner: a whole percentage from 1 to 90, or a fixed amount in DKK minor units;
+  - how a member redeems it;
+  - the partner's calendar address (iCal/ICS or RSS);
+  - a status: active, paused or ended.
+- Saga reads each active partner's calendar every hour, and at once when the partner is created or its address changes. She keeps the coming 180 days of events in step: new, changed, cancelled, removed and past. No AI is involved. A failing calendar never removes events that are already shown, and the error is shown to the board.
+- A normal price is shown only when the event text states it plainly next to a price label and a currency. The member price is derived from it. Otherwise only the discount is shown. A price is never guessed.
+- The public calendar shows partner events marked as partner events, with the normal price, the member price and the discount. How to redeem the discount is shown only to members with member benefits, decided by the same server-side rule as other member benefits. Support members do not get it.
+- Links to the partner go through a counting redirect that only targets the event's own feed address or the partner's website.
+- Measurements for phase 2 are recorded without personal data: clicks to the partner (public and member), member calendar views per partner, and active partners and events. The number of discounts used is reported by the partner.
+- Not in phase 1, by decision:
+  - repeating iCal series (counted and named, not shown);
+  - manual single-event entry;
+  - partner self-service;
+  - the reverse direction (partner members' discounts at Hjerterum, phase 3);
+  - any shared membership or identity exchange.
+  Private or confidential iCal events are never published.
 
 ### Payments
 
@@ -203,6 +229,7 @@ Legacy SoMe package fee: 390 kr.
 - Resend: primary mail provider, with SMTP fallback.
 - Google Sheets: CSV source for legacy teacher-booking data.
 - MembershipWorks: external event RSS feed (`org=22308`) plus admin-initiated read-only CSV member mirroring. No write-back or payment migration.
+- Partner calendars (Partnerplanen, phase 1): read-only iCal/ICS or RSS feeds per partner, read hourly by Saga. Nothing is written back to partners.
 - DAWA: address autocomplete.
 - OpenAI-compatible integration: moderation/review and retired Tribes-related AI flows.
 - CIRKLER: legacy system only links externally to `cirkler.net`; there is no legacy CIRKLER API/data sync to preserve.

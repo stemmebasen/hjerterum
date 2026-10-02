@@ -108,7 +108,10 @@ const expectedTables = [
   "board_messages",
   "board_post_drafts",
   "board_minutes",
-  "board_mail"
+  "board_mail",
+  "partners",
+  "partner_events",
+  "partner_metrics"
 ];
 const names = expectedTables.map((name) => `'${name}'`).join(",");
 
@@ -144,6 +147,9 @@ assertColumn("member_payout_accounts", "stripe_account_id");
 assertColumn("members", "access_blocked");
 assertColumn("external_memberships", "access_blocked");
 assertColumn("member_access_changes", "changed_by_email");
+assertColumn("partners", "redemption");
+assertColumn("partner_events", "price_minor");
+assertColumn("partner_events", "hidden");
 
 assertEqual(
   Number(firstRow(execute("SELECT setting_value AS value FROM platform_settings WHERE setting_key = 'event_transaction_fee_minor'")).value),
@@ -179,6 +185,17 @@ execute("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_
 
 execute("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES ('teacher-charge', 1000, 1000)");
 execute("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES ('teacher-charge', 1000, 1001)", { expectFailure: true });
+
+// Partnerplanen, fase 1: a partner's discount is sensible, an event exists once per partner and needs its partner.
+execute("INSERT INTO partners (id, name, discount_kind, discount_value, redemption, created_by, created_at_ms, updated_at_ms) VALUES (1, 'Synthetic Partner', 'percent', 20, 'Code', 'board', 1000, 1000)");
+execute("INSERT INTO partners (id, name, discount_kind, discount_value, redemption, created_by, created_at_ms, updated_at_ms) VALUES (2, 'Too Generous', 'percent', 95, 'Code', 'board', 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO partners (id, name, discount_kind, discount_value, redemption, created_by, created_at_ms, updated_at_ms) VALUES (3, 'Unknown Kind', 'gift', 5, 'Code', 'board', 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO partner_events (partner_id, source_uid, title, starts_at_ms, content_hash, first_seen_at_ms, updated_at_ms) VALUES (1, 'uid-1', 'Synthetic Partner Event', 5000, 'h', 1000, 1000)");
+execute("INSERT INTO partner_events (partner_id, source_uid, title, starts_at_ms, content_hash, first_seen_at_ms, updated_at_ms) VALUES (1, 'uid-1', 'Duplicate', 5000, 'h', 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO partner_events (partner_id, source_uid, title, starts_at_ms, content_hash, first_seen_at_ms, updated_at_ms) VALUES (999, 'uid-2', 'Orphan', 5000, 'h', 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO partner_events (partner_id, source_uid, title, starts_at_ms, price_minor, content_hash, first_seen_at_ms, updated_at_ms) VALUES (1, 'uid-3', 'Negative', 5000, -1, 'h', 1000, 1000)", { expectFailure: true });
+execute("INSERT INTO partner_metrics (day, partner_id, event_id, metric, n) VALUES ('2026-10-01', 1, 0, 'member_view', 1)");
+execute("INSERT INTO partner_metrics (day, partner_id, event_id, metric, n) VALUES ('2026-10-01', 1, 0, 'member_view', 1)", { expectFailure: true });
 
 const finalFkViolations = Number(
   firstRow(execute("SELECT COUNT(*) AS n FROM pragma_foreign_key_check")).n

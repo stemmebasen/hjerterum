@@ -713,6 +713,7 @@ p { line-height: 1.7; }
 .calendar-date strong { display: block; font: 27px/1 Georgia, serif; }
 .calendar-date span { display: block; font-size: 12px; margin-top: 5px; text-transform: uppercase; }
 .calendar-no-image { background: var(--profile-sage); }
+.calendar-no-image.calendar-partner-visual { background: var(--profile-clay); }
 .calendar-placeholder { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px 20px 65px; }
 .calendar-placeholder span { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; }
 .calendar-placeholder strong { font: 32px/1.05 Georgia, serif; font-weight: 400; }
@@ -728,6 +729,11 @@ p { line-height: 1.7; }
 .member-event-footer a { font-size: 13px; }
 .member-event-price { margin: 0; }
 .member-event-price small { display: block; color: var(--muted); font-size: 12px; }
+/* Partnerplanen, fase 1: a partner's event and the member discount. */
+.calendar-partner { color: var(--ink); background: var(--profile-clay); padding: 3px 7px; border-radius: 10px; font-weight: 600; }
+.partner-redemption { margin: 0; font-size: 13px; line-height: 1.45; }
+.partner-redemption strong { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
+.member-event-footer a.partner-join { font-size: 12px; color: var(--muted); }
 .member-calendar-page .pill-button.dark { background: var(--profile-button); color: var(--profile-button-ink); }
 .member-calendar-page .pill-button { min-height: 44px; }
 .calendar-description { font-size: 13px; margin-bottom: 20px; }

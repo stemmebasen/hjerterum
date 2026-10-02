@@ -31,6 +31,7 @@ import {
   updateTeacher
 } from "./teachers.js";
 import { verifyStripeWebhook } from "./stripe.js";
+import { memberPartnerEvents } from "./partners/partners.js";
 import baseWorker from "./index.js";
 
 interface Env {
@@ -127,6 +128,21 @@ async function memberMe(request: Request, env: Env): Promise<Response> {
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "membership_lookup_failed";
+    return json({ error: code }, { status: 503 });
+  }
+}
+
+/** Partner events with how a member gets the discount: only for a member with member benefits. */
+async function memberPartnerEventList(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (user instanceof Response) return user;
+  try {
+    const membership = await resolveActiveMembership(env.DB, user.userId, env.CLERK_SECRET_KEY, true);
+    if (!membership) return json({ error: "membership_benefits_required" }, { status: 403 });
+    return json(await memberPartnerEvents(env.DB, Date.now()));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "partner_events_unavailable";
     return json({ error: code }, { status: 503 });
   }
 }
@@ -400,6 +416,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/members/me") return memberMe(request, env);
     if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);
+    if (request.method === "GET" && url.pathname === "/api/members/partner-events") return memberPartnerEventList(request, env);
 
     const legacyPayments = url.pathname.match(/^\/api\/members\/(\d+)\/payments$/);
     if (request.method === "GET" && legacyPayments?.[1]) {

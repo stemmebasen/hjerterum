@@ -21,6 +21,9 @@ import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteD
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
+import { formValuesFrom, partnerPage, partnersPage } from "./partnersPage.js";
+import { copenhagenDay as partnerDay, createPartner, eventClicks, getPartner, listPartners, partnerEventRows, partnerInput, partnerMetrics, setEventHidden, setPartnerStatus,
+  syncPartner, updatePartner } from "../partners/partners.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
@@ -442,6 +445,69 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
     const desk = deskSection(base, { review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
+  }
+
+  // Partnerplanen, fase 1 (docs/PARTNERPLAN.md): the board records a partner's yes; Saga fetches the events.
+  if (path === "/arrangementer/partnere") {
+    const since = partnerDay(now - 29 * 86_400_000);
+    const NOTICES: Record<string, string> = { afsluttet: "Samarbejdet er afsluttet, og partnerens events er taget ud af kalenderen." };
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      const parsed = form ? partnerInput(form) : { ok: false as const, error: "Formularen kunne ikke læses. Prøv igen." };
+      if (!parsed.ok) return html(partnersPage(base, { partners: await listPartners(db, now), metrics: await partnerMetrics(db, since), notice: "", error: parsed.error,
+        values: formValuesFrom(form), who }), 400);
+      const id = await createPartner(db, parsed.value, who, now);
+      const synced = parsed.value.feedUrl ? await syncPartner(db, deps, { id, feed_url: parsed.value.feedUrl }) : null;
+      return redirect(`${base}/arrangementer/partnere/${id}?besked=${synced ? (synced.ok ? "hentet" : "fejl") : "oprettet"}`);
+    }
+    return html(partnersPage(base, { partners: await listPartners(db, now), metrics: await partnerMetrics(db, since), notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "",
+      error: "", values: {}, who }));
+  }
+  const partnerPath = /^\/arrangementer\/partnere\/(\d{1,9})$/.exec(path);
+  if (partnerPath) {
+    const id = Number(partnerPath[1]);
+    const partner = await getPartner(db, id);
+    if (!partner) return html(notFound(base, who), 404);
+    const here = `${base}/arrangementer/partnere/${id}`;
+    const show = async (notice: string, error = "", values: ReturnType<typeof formValuesFrom> | null = null, status = 200) => {
+      const since = partnerDay(now - 29 * 86_400_000);
+      const [current, events, metrics, clicks] = await Promise.all([getPartner(db, id), partnerEventRows(db, id, now), partnerMetrics(db, since), eventClicks(db, id, since)]);
+      return html(partnerPage(base, { partner: current ?? partner, events, metrics: metrics.get(id), clicks, notice, error, values, nowMs: now, who }), status);
+    };
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      const action = String(form?.get("action") ?? "save");
+      if (action === "sync") {
+        const result = await syncPartner(db, deps, partner);
+        return redirect(`${here}?besked=${result.ok ? "hentet" : "fejl"}`);
+      }
+      if (action === "pause" || action === "activate" || action === "end") {
+        await setPartnerStatus(db, id, action === "pause" ? "paused" : action === "end" ? "ended" : "active", now);
+        return redirect(action === "end" ? `${base}/arrangementer/partnere?besked=afsluttet` : `${here}?besked=${action}`);
+      }
+      if (action === "hide" || action === "show") {
+        const eventId = Number(form?.get("event"));
+        const ok = Number.isSafeInteger(eventId) && await setEventHidden(db, id, eventId, action === "hide", who);
+        return redirect(`${here}?besked=${ok ? (action === "hide" ? "skjult" : "vist") : "ukendt"}`);
+      }
+      const parsed = form ? partnerInput(form) : { ok: false as const, error: "Formularen kunne ikke læses. Prøv igen." };
+      if (!parsed.ok) return show("", parsed.error, formValuesFrom(form), 400);
+      const feedChanged = parsed.value.feedUrl !== partner.feed_url;
+      await updatePartner(db, id, parsed.value, now);
+      if (feedChanged && parsed.value.feedUrl && partner.status === "active") {
+        const result = await syncPartner(db, deps, { id, feed_url: parsed.value.feedUrl });
+        return redirect(`${here}?besked=${result.ok ? "gemt-hentet" : "gemt-fejl"}`);
+      }
+      return redirect(`${here}?besked=gemt`);
+    }
+    const NOTICES: Record<string, string> = { oprettet: "Partneren er oprettet. Tilføj partnerens kalenderadresse, så henter Saga events.",
+      hentet: "Saga har hentet partnerens kalender.", fejl: "Saga kunne ikke læse partnerens kalender - se fejlen nedenfor. De viste events er beholdt.",
+      gemt: "Aftalen er gemt.", "gemt-hentet": "Aftalen er gemt, og Saga har hentet den nye kalender.", "gemt-fejl": "Aftalen er gemt, men Saga kunne ikke læse den nye kalender - se fejlen nedenfor.",
+      pause: "Partneren er sat på pause. Events vises ikke, før partneren gøres aktiv igen.", activate: "Partneren er aktiv igen, og events vises i kalenderen.",
+      skjult: "Eventet er skjult i Hjerterums kalender.", vist: "Eventet vises igen i Hjerterums kalender.", ukendt: "Eventet blev ikke fundet." };
+    return show(NOTICES[url.searchParams.get("besked") ?? ""] ?? "");
   }
 
   // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).
