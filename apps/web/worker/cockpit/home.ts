@@ -45,13 +45,15 @@ export function heldOver(held: number): number {
 /** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then: "misplaced, and
  * it's not as celebratory as I wanted it to be". A band of its own under the key figures: the number large, the
  * sentence beside it, and when it began. */
+/** Corrected: "Det første i kalenderen var i januar 2016" - the calendar Saga has reaches back only to 2019, but Hjerterum began in January 2016. */
+const HJERTERUM_BEGAN_MS = Date.UTC(2016, 0, 15);
 export function heldFact(held: number, sinceMs: number | null = null, base = ""): string {
   if (held < 20) return "";
   const over = heldOver(held).toLocaleString("da-DK");
-  const since = sinceMs ? new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(sinceMs) : null;
+  const since = new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(Math.min(sinceMs ?? HJERTERUM_BEGAN_MS, HJERTERUM_BEGAN_MS));
   return `<section class="celebrate" aria-label="Vidste du?"><div class="big" aria-hidden="true">${over}<span>+</span></div>
-<div class="words"><p class="kicker">Vidste du?</p><p class="line">Hjerterum har afholdt over ${over} arrangementer, siden vi startede!</p>
-<p class="since">${since ? `Det første i kalenderen var i ${esc(since)} - og huset er fyldt med liv hver uge. ` : ""}<a href="${base}/arrangementer">Se arrangementerne →</a></p></div>
+<div class="words"><p class="kicker">Vidste du?</p><p class="line">Hjerterum har afholdt over ${over} arrangementer siden starten?</p>
+<p class="since">Det første i kalenderen var i ${esc(since)} - og huset er fyldt med liv hver uge. <a href="${base}/arrangementer">Se arrangementerne →</a></p></div>
 <span class="hearts" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
 }
 
