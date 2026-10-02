@@ -14,6 +14,8 @@ describe("the latest meeting on the front page", () => {
     expect(html).toContain("<h2>Vigtigste punkter fra sidste møde</h2>");
     expect(html).toContain("Torsdag den 1. oktober 2026");
     expect(html).toContain('<a href="/referat/7">Husk at godkende referatet</a>');
+    // Requested: "Jeg mangler bullet points, hjerter eller andet til hver linje".
+    expect(html).toContain('<ul class="items hearts">');
     expect(html).toContain("Lisbeth er dirigent for generalforsamlingen");
     expect(html).toContain("Der anbefales op til fire suppleanter");
     expect(html).not.toContain("Referatet godkendes med bemærkning");
