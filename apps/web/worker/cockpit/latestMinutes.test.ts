@@ -14,11 +14,33 @@ describe("the latest meeting on the front page", () => {
     expect(html).toContain("<h2>Vigtigste punkter fra sidste møde</h2>");
     expect(html).toContain("Torsdag den 1. oktober 2026");
     expect(html).toContain('<a href="/referat/7">Husk at godkende referatet</a>');
+    // Requested: "Jeg mangler bullet points, hjerter eller andet til hver linje".
+    expect(html).toContain('<ul class="items hearts">');
     expect(html).toContain("Lisbeth er dirigent for generalforsamlingen");
     expect(html).toContain("Der anbefales op til fire suppleanter");
     expect(html).not.toContain("Referatet godkendes med bemærkning");
     expect(html).not.toContain("Dagsordenen godkendt");
     expect(page(false)).not.toContain("Husk at godkende referatet");
+  });
+});
+
+// Requested: "Til mig bør ordlyden ikke være: Ser på automatisk opsætning af nyhedsbrev ... Sender preview-link ... Men: Se på ...
+// Send preview-link" - and "Hvor er det jeg stiller forslag?".
+describe("tasks as instructions", () => {
+  it("shows a task's leading verb in the imperative, leaves nouns alone, and links to the proposals", async () => {
+    const { imperative } = await import("./data.js");
+    expect(imperative("ser på automatisk opsætning af nyhedsbrev i nyt system")).toBe("se på automatisk opsætning af nyhedsbrev i nyt system");
+    expect(imperative("Sender preview-link til nyt system til Douglas")).toBe("Send preview-link til nyt system til Douglas");
+    expect(imperative("Tjekker nøgler")).toBe("Tjek nøgler");
+    expect(imperative("Billeder til GF")).toBe("Billeder til GF");
+    expect(imperative("Send mail")).toBe("Send mail");
+    const html = homePage("", { who: "Jacob", isChair: false, today: "2026-10-02", toSign: [], todos: [], forChair: [], next: null, found: [], picture: null, summary: null, at: null,
+      events: [], eventsMonth: 0, progress: { working: 0, waiting: 0 }, latest: null, boardNow: null,
+      tasks: [{ who: "Jacob", what: "ser på automatisk opsætning af nyhedsbrev i nyt system", due: "", meeting: "2026-10-01", source: "referat" },
+        { who: "Jacob", what: "sender preview-link til nyt system til Douglas", due: "", meeting: "2026-10-01", source: "referat" }] } as never);
+    expect(html).toContain("Se på automatisk opsætning af nyhedsbrev i nyt system");
+    expect(html).toContain("Send preview-link til nyt system til Douglas");
+    expect(html).toContain('href="/afstemninger">Stil et forslag til afstemning →');
   });
 });
 

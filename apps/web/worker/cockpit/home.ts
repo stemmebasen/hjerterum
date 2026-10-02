@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
+import { imperative, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { voteTodo, type Proposal } from "./votes.js";
@@ -32,6 +32,9 @@ export type HomeData = {
 
 export const HOME_STYLE = `
 .home{gap:26px}
+.items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
+-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
+mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat}
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:grid;gap:8px;padding:6px 0 2px}.welcome .eyebrow{font-size:13px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0}
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
@@ -102,12 +105,13 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
     ...data.todos.map(t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`),
-    ...data.tasks.map(t => `<li>${esc(sentence(t.what))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`),
+    ...data.tasks.map(t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`),
     ...(data.isChair ? data.forChair.map(f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(f.text)}<span class="ctx">${esc(SOURCE[f.source] ?? "")}${f.from ? ` · ${esc(f.from)}` : ""}</span></li>`) : [])
   ];
   const yours = `<article class="panel"><header><h2>Til dig</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="items">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
-<a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a></article>`;
+<a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
+<a class="more" href="${base}/afstemninger">Stil et forslag til afstemning →</a></article>`;
 
   const m = data.next;
   const agenda = m ? m.agenda.split("\n").filter(Boolean) : [];
@@ -127,7 +131,7 @@ ${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 
   const important = l ? l.decisions.filter(d => !FORMALITY.test(d)) : [];
   const unsigned = l ? data.toSign.some(m2 => m2.id === l.id) : false;
   const minutes = l ? `<article class="panel"><header><h2>Vigtigste punkter fra sidste møde</h2><p>${esc(capital(longDay(l.date)))}${unsigned ? ` · <a href="${base}/referat/${l.id}">Husk at godkende referatet</a>` : ""}</p></header>
-${important.length ? `<ul class="items">${important.slice(0, 3).map(d => `<li>${esc(sentence(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
+${important.length ? `<ul class="items hearts">${important.slice(0, 3).map(d => `<li>${esc(sentence(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
 <a class="more" href="${base}/referat/${l.id}">${unsigned ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
 

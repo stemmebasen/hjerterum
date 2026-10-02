@@ -426,7 +426,7 @@ describe("the board cockpit", () => {
     const laterBoard = later.slice(later.indexOf("Hvad bevæger sig"));
     expect(laterBoard).toContain("Arkiv (1)");
     expect(laterBoard.split("Arkiv (1)")[0]).not.toContain("Dirigent for generalforsamlingen");
-    expect(laterBoard.split("Arkiv (1)")[0]).toContain("Laver skabelon til nyhedsbrev");
+    expect(laterBoard.split("Arkiv (1)")[0]).toContain("Lav skabelon til nyhedsbrev");
   });
 
   it("keeps Saga's statutes the same as the website's", () => {

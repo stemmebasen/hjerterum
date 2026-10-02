@@ -1,4 +1,4 @@
-import { EVERYONE, taskKey, type Task, type Todo } from "./data.js";
+import { EVERYONE, imperative, taskKey, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 
@@ -39,7 +39,7 @@ const box = (base: string, kind: "opgave" | "punkt" | "saga", id: string, done: 
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
 /** Requested: "jeg tænker ikke, at vi behøver at bruge ord som drøftelser og beslutning ... hellere nogle skarpe
  * bullet points" - a task is one short line: no label in front, no full stop at the end. */
-const sharp = (text: string) => sentence(text.replace(/^\s*(?:drøftelse|beslutning|opgave|aftale)\s*:\s*/i, "").replace(/\s*\.\s*$/, "").trim());
+const sharp = (text: string) => sentence(imperative(text.replace(/^\s*(?:drøftelse|beslutning|opgave|aftale)\s*:\s*/i, "").replace(/\s*\.\s*$/, "").trim()));
 /** Requested: "et farvet felt med navn, så man hurtigt kan se, hvem der har hvilken opgave". Each person keeps one colour. */
 // Requested: "jeg synes ikke, at det giver mening med rød farve. Dog må hver af os gerne have forskellige farver, bare
 // ikke rød." No red or pink; each board member gets the next colour in the member list, so no two share one.
@@ -81,7 +81,8 @@ export function todosPage(base: string, data: TodosData): string {
 <label>Opgave<input name="text" required maxlength="300" placeholder="Fx ring til udlejer om nøgler"></label>
 <label>Frist (valgfri)<input type="date" name="due"></label>
 <label>Til<select name="owner"><option value="${esc(data.who)}">Mig selv</option><option value="${EVERYONE}">Alle</option>${others.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("")}</select></label>
-<button>Tilføj</button></form></div>`;
+<button>Tilføj</button></form>
+<p class="small" style="margin:12px 0 0"><a href="${base}/afstemninger">Stil et forslag til afstemning i bestyrelsen →</a></p></div>`;
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
