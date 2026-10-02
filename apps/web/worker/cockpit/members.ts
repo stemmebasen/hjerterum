@@ -125,7 +125,7 @@ export function membersPanel(base: string, rows: MemberStats[], link = true): st
   const max = Math.max(...top.map(p => p.share ?? 0), 1);
   return `<article class="panel">${head}<div class="figures">
 <div><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span>betalende medlemmer</span></div>
-<div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>årlig indtægt fra dem</span></div>
+<div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>medlemskontingent (årligt)</span></div>
 <div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
 ${top.length ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
