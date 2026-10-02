@@ -84,9 +84,9 @@ export async function recordMailWatch(db: D1Database, status: Record<string, unk
 export type MailWatch = { state: "ok" | "error" | "stale" | "unknown"; detail: string };
 export async function mailWatch(db: D1Database, nowMs: number): Promise<MailWatch> {
   const last = await serviceStatus(db, "team_mail").catch(() => null);
-  if (!last) return { state: "unknown", detail: "Matrix har ikke meldt om team@ endnu." };
+  if (!last) return { state: "unknown", detail: "team@ er ikke blevet tjekket endnu." };
   if (nowMs - last.at_ms > MAIL_WATCH_STALE_MS) return { state: "stale", detail: `team@ er ikke blevet tjekket siden ${time(last.at_ms)}.` };
-  if (!last.ok) return { state: "error", detail: last.detail === "not_connected" ? "team@ er ikke forbundet i Matrix (Hjerterum-siden)." : `Matrix kan ikke læse team@: ${last.detail}` };
+  if (!last.ok) return { state: "error", detail: last.detail === "not_connected" ? "team@ er ikke forbundet." : last.detail === "relay_timeout" ? "Seneste tjek af team@ blev ikke færdigt i tide." : `team@ kunne ikke læses ved seneste tjek (${last.detail}).` };
   return { state: "ok", detail: `Tjekket ${time(last.at_ms)} (${last.detail}).` };
 }
 

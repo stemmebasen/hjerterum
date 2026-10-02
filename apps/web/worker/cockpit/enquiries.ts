@@ -122,7 +122,7 @@ const STYLE = `
 function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
   const mail = address(e.sender);
   const days = (nowMs - e.received_at_ms) / DAY;
-  return `<li><div>${open ? `<span class="wait${days >= 2 ? " late" : ""}">Venter ${esc(waited(e.received_at_ms, nowMs))}</span>` : ""}<span class="kind">${esc(e.enquiry_kind)}</span><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
+  return `<li><div>${open ? `<span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>` : ""}<span class="kind">${esc(e.enquiry_kind)}</span><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
 <span class="meta">${esc(name(e.sender))}${mail ? ` · <a href="mailto:${esc(mail)}">${esc(mail)}</a>` : ""} · ${esc(WHEN.format(e.received_at_ms))}${!open && e.handled_by ? ` · klaret af ${esc(e.handled_by)}` : ""}</span>
 <details><summary>Se mailen: ${esc(e.subject)}</summary><p>${esc(e.preview)}</p></details>
 <form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="${open ? "" : "ghost"}">${open ? "Besvaret" : "Fortryd"}</button></form></li>`;

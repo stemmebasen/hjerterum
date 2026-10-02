@@ -26,9 +26,9 @@ describe("knowing that team@ is checked", () => {
     expect(await mailWatch(db, NOW + 31 * MIN)).toMatchObject({ state: "stale", detail: expect.stringContaining("ikke blevet tjekket siden") });
 
     await report(env, services.fetcher, NOW + 40 * MIN, { status: { connected: true, error: "imap_auth_failed" } });
-    expect(await mailWatch(db, NOW + 41 * MIN)).toEqual({ state: "error", detail: "Matrix kan ikke læse team@: imap_auth_failed" });
+    expect(await mailWatch(db, NOW + 41 * MIN)).toEqual({ state: "error", detail: "team@ kunne ikke læses ved seneste tjek (imap_auth_failed)." });
     await report(env, services.fetcher, NOW + 50 * MIN, { status: { connected: false } });
-    expect((await mailWatch(db, NOW + 51 * MIN)).detail).toBe("team@ er ikke forbundet i Matrix (Hjerterum-siden).");
+    expect((await mailWatch(db, NOW + 51 * MIN)).detail).toBe("team@ er ikke forbundet.");
   });
 
   it("tells Jacob privately once a day when team@ has not been checked for two hours", async () => {
