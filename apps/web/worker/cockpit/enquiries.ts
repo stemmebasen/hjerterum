@@ -135,6 +135,8 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
  * the members' own mail. */
 /** Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". The chair (logged in with a
  * personal link) connects team@ here; Saga reads it from then on. The password is never shown again. */
+/** Reported: "Forbindelse til team@ står der ikke" - it was at the very bottom, under the whole inbox. Until team@ is
+ * connected it is the first thing on Posthus; once connected it moves to the bottom. */
 function mailboxCard(base: string, box: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null }): string {
   const notice = box.notice ? `<p class="notice">${esc(box.notice)}</p>` : "";
   // Only the chair logged in with Saga's personal link may connect or disconnect team@ - with the shared password anyone
@@ -167,5 +169,5 @@ ${data.inbox.length ? `<ul class="inbox">${data.inbox.map(m => `<li><details><su
 <span class="subj">${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${important}${inbox}${data.mailbox ? mailboxCard(base, data.mailbox) : ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }

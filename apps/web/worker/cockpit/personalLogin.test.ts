@@ -43,7 +43,10 @@ describe("a personal login from Saga", () => {
     expect(await (await call("/posthus", { cookie: await memberCookie(shared, "Gitta") })).text()).not.toContain("Forbindelse til team@");
     const { path } = await linkFor(Number(OWNER));
     const jacob = cookiesOf(await call(path!, { method: "POST" }));
-    expect(await (await call("/posthus", { cookie: jacob })).text()).toContain('action="/posthus/forbind"');
+    const page = await (await call("/posthus", { cookie: jacob })).text();
+    expect(page).toContain('action="/posthus/forbind"');
+    // Until team@ is connected the card is the first thing on Posthus, not under the whole inbox.
+    expect(page.indexOf("Forbindelse til team@")).toBeLessThan(page.indexOf("Vigtige mails, der stadig er ubesvarede"));
   });
 
   it("is sent privately to a board member's own Telegram, and to no one else", async () => {
