@@ -14,35 +14,35 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 const STYLE = `
-:root{--bg:#f3f4f1;--card:#fff;--ink:#16191a;--muted:#5f6669;--faint:#8b9295;--line:#e4e6e2;--accent:#24594c;--accent-2:#3f8c77;--accent-ink:#fff;--soft:#eef2ef;--tint:#e3eee9;
---good:#2c6e50;--warn:#a5531a;--warn-soft:#fbefe4;--shadow:0 1px 2px rgba(16,24,20,.04),0 8px 24px rgba(16,24,20,.06);--radius:20px;--nav-h:66px}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1211;--card:#181c1b;--ink:#eceeed;--muted:#a1a9a6;--faint:#7d8582;--line:#262c2a;--accent:#8fcab6;--accent-2:#6fb39d;--accent-ink:#0d1412;--soft:#1f2523;--tint:#1c2a25;
---good:#91d3ab;--warn:#eaa46b;--warn-soft:#2d221a;--shadow:none}}
+:root{--bg:#f4f2ec;--card:#fffdf8;--ink:#1b1e1c;--muted:#5c635f;--faint:#8a908c;--line:#e6e1d6;--accent:#1f4d42;--accent-2:#2e6a5a;--accent-ink:#fff;--soft:#efebe2;--tint:#e4ece7;
+--good:#2c6e50;--warn:#9c4f17;--warn-soft:#f8ecdf;--shadow:0 1px 0 rgba(20,24,22,.03);--radius:18px;--nav-h:66px;--bar:#1d443a;--bar-ink:#f4f1e9;--serif:"Fraunces",Georgia,"Times New Roman",serif}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1110;--card:#151a18;--ink:#eceeec;--muted:#a3aba7;--faint:#7c8481;--line:#242b28;--accent:#93cdb8;--accent-2:#6fb39d;--accent-ink:#0c1311;--soft:#1c2220;--tint:#1a2924;
+--good:#91d3ab;--warn:#eaa46b;--warn-soft:#2d221a;--shadow:none;--bar:#142b25;--bar-ink:#eef0ec}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
 a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px}
-header.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(12px);-webkit-backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
-.top{max-width:1120px;margin:0 auto;padding:12px 20px;display:flex;align-items:center;gap:20px}
-.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:700;letter-spacing:-.02em;font-size:16px;white-space:nowrap}
-.brand i{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:var(--accent-ink);font-style:normal;font-size:15px}
-.brand span{color:var(--muted);font-weight:500}
-/* Reported: "Her tilter designet" - with Opgaver in the menu the bar ran out of room: the logo was squeezed and
-   the name broke over two lines. Nothing in the bar shrinks or wraps; the name gives way first (the avatar says who). */
-.brand,.brand i,.me{flex:none}.me .who-name{white-space:nowrap}
-nav.desk{display:flex;gap:2px;flex:1;min-width:0}nav.desk a{padding:8px 12px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px;white-space:nowrap}
-@media (max-width:1180px){.me .who-name{display:none}}@media (max-width:1000px){.brand span{display:none}nav.desk a{padding:8px 9px}}
-nav.desk a:hover{color:var(--ink);background:var(--soft)}nav.desk a.on{background:var(--ink);color:var(--bg)}
-.me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto}.me a{color:var(--muted);text-decoration:none}
-.avatar{width:32px;height:32px;border-radius:50%;background:var(--tint);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px;text-decoration:none}
+/* Requested: "Og brug gerne vores hvide logo" and a calmer, more considered design: a deep green bar with
+   Hjerterum's white logo, five fixed places, and nothing in the bar that shrinks or wraps. */
+header.bar{position:sticky;top:0;z-index:10;background:var(--bar);color:var(--bar-ink);box-shadow:0 1px 0 rgba(0,0,0,.08)}
+.top{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:22px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--bar-ink);white-space:nowrap;flex:none}
+.brand img{width:38px;height:38px;flex:none;display:block}
+.brand b{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em}.brand .names span{font-size:11px;opacity:.7;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.brand .names{display:grid;line-height:1.1}
+nav.desk{display:flex;gap:2px;flex:1;min-width:0}nav.desk a{padding:8px 13px;border-radius:999px;text-decoration:none;color:color-mix(in srgb,var(--bar-ink) 78%,transparent);font-weight:550;font-size:14px;white-space:nowrap}
+nav.desk a:hover{color:var(--bar-ink);background:rgba(255,255,255,.08)}nav.desk a.on{background:var(--bar-ink);color:var(--bar)}
+.me{display:flex;align-items:center;gap:10px;font-size:13px;margin-left:auto;flex:none}.me .who-name{white-space:nowrap;opacity:.8}
+.avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.14);color:var(--bar-ink);display:grid;place-items:center;font-weight:700;font-size:13px;text-decoration:none}
+@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:920px){.brand .names span{display:none}nav.desk a{padding:8px 10px}}
 nav.tabs{display:none}
 main{max-width:1120px;margin:0 auto;padding:28px 20px 72px;display:grid;gap:18px}
-h1{font-size:32px;line-height:1.15;margin:0;letter-spacing:-.03em;font-weight:750}h2{font-size:16px;margin:0 0 14px;font-weight:680;letter-spacing:-.01em}
+h1{font-family:var(--serif);font-size:36px;line-height:1.1;margin:0;letter-spacing:-.015em;font-weight:600}h2{font-family:var(--serif);font-size:21px;margin:0 0 14px;font-weight:600;letter-spacing:-.005em}
 h3{font-size:11.5px;margin:18px 0 8px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-weight:650}h3:first-child{margin-top:0}
 .hero{display:grid;gap:10px;margin-bottom:4px}.hero p{margin:0;color:var(--muted)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}.chips a,.chips span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:550;color:var(--ink);text-decoration:none}
 .chips .hot{background:var(--warn-soft);color:var(--warn);box-shadow:none}.chips b{font-weight:750}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;align-items:start}
-.card{background:var(--card);border-radius:var(--radius);padding:22px 24px;min-width:0;box-shadow:var(--shadow);border:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.card{background:var(--card);border-radius:var(--radius);padding:24px 26px;min-width:0;box-shadow:var(--shadow);border:1px solid var(--line)}
 .muted{color:var(--muted)}.small{font-size:13.5px}.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
 ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
 ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px}
@@ -57,7 +57,7 @@ button,.button{font:inherit;font-weight:650;font-size:14.5px;border:0;border-rad
 button:hover,.button:hover{filter:brightness(1.07)}button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.ghost:hover{background:var(--soft);filter:none}
 .notice{padding:13px 16px;border-radius:14px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--good)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
 details{border-top:1px solid var(--line);padding:10px 0}details>summary{cursor:pointer;font-weight:600;list-style:none}details>summary::-webkit-details-marker{display:none}details>summary::before{content:"+";display:inline-block;width:18px;color:var(--faint)}details[open]>summary::before{content:"–"}
-.center{max-width:420px;margin:14vh auto;padding:0 16px}
+.center{max-width:420px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;border-radius:50%;background:var(--bar);display:grid;place-items:center;margin:0 0 18px}.mark img{width:48px;height:48px}
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14.5px}th{font-size:11.5px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 tr:last-child td{border-bottom:0}
 [hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 30px;align-items:start}.block{min-width:0}
@@ -69,7 +69,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .menu{display:grid}.menu a,.menu button{display:flex;justify-content:space-between;align-items:center;padding:16px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-weight:600;font-size:16px;background:none;border-radius:0;min-height:56px;width:100%}
 .menu a::after,.menu button::after{content:"›";color:var(--faint);font-size:22px;font-weight:400}
 @media (max-width:760px){
-  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}
+  nav.desk,.me .who-name{display:none}.top{padding:9px 16px}.brand img{width:34px;height:34px}h1{font-size:30px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
     background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--faint);font-size:11px;font-weight:600;border-radius:12px}
@@ -86,6 +86,7 @@ const ICONS: Record<string, string> = {
   "/": '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
   "/moder": '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
   "/status": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  "/beslutninger": '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14l2 2 4-4"/>',
   "/opgaver": '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
   "/arrangementer": '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   "/mere": '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
@@ -96,19 +97,22 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
-  const desk = [["", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/status", "Status"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"], ["/arkiv", "Arkiv"]]
-    .map(([path, label]) => `<a href="${base}${path || "/"}"${options.section === (path || "/") ? ' class="on"' : ""}>${label}</a>`).join("");
-  // On a phone "Opgaver" takes Status' place in the tab bar; Status is under Mere.
-  const inMore = ["/status", "/beslutninger", "/arkiv", "/mere", "/hvem"].includes(options.section ?? "");
-  const tabs = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/arrangementer", "Arrangementer"], ["/mere", "Mere"]]
-    .map(([path, label]) => `<a href="${base}${path}"${options.section === path || (path === "/mere" && inMore) ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${label}</span></a>`).join("");
+  // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
+  // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
+  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"]];
+  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
+  const here = parent[options.section ?? ""] ?? options.section;
+  const desk = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
+  // On a phone the five labels must fit side by side.
+  const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Huset" };
+  const tabs = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f3f4f1" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1211" media="(prefers-color-scheme: dark)">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Fraunces:opsz,wght@9..144,500..700&display=swap">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><i>H</i>Hjerterum <span>Bestyrelsen</span></a><nav class="desk">${desk}</nav>
-<div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/mere" title="${esc(options.who ?? "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><img src="${base}/logo.png" alt="" width="38" height="38"><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
+<div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
 }
@@ -121,9 +125,9 @@ export function morePage(base: string, who: string | null, options: { locked?: b
   const access = options.members?.length ? `<div class="card"><h2>Adgang</h2><p class="small muted">Luk et medlems adgang: deres login på alle enheder ophører, og de skal bede Saga om et nyt link.</p>
 ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
-  return layout(base, "Mere", `<main><h1>Mere</h1><div class="card"><div class="menu">
-<a href="${base}/status">Status</a><a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a>${me}
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${access}</main>`, { section: "/mere", who });
+  return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
+<a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${access}</main>`, { section: "/profil", who });
 }
 
 const SAGA_STYLE = `
@@ -147,13 +151,16 @@ const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "H
 function sagaChat(base: string): string {
   return `<style>${SAGA_STYLE}</style><button type="button" class="saga-fab" id="saga-open" aria-expanded="false" aria-controls="saga">Spørg Saga</button>
 <section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · svaret ses kun af dig</span></div>
-<button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
+<button type="button" class="ghost" id="saga-new" title="Start en ny samtale">Ny samtale</button><button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
 <div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej, jeg er Saga. Spørg mig om vedtægterne, beslutninger, sager, møder, arrangementer og medlemstal.</div>
 <div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>
 <form id="saga-form"><textarea id="saga-q" rows="1" maxlength="1500" placeholder="Skriv dit spørgsmål" aria-label="Dit spørgsmål"></textarea><button>Send</button></form></section>
 <script>(()=>{const url=${JSON.stringify(`${base}/saga`)},box=document.getElementById("saga"),fab=document.getElementById("saga-open"),log=document.getElementById("saga-log"),form=document.getElementById("saga-form"),q=document.getElementById("saga-q");
-let history=[];try{history=JSON.parse(sessionStorage.getItem("saga-chat")||"[]")}catch(e){}
-const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify(history.slice(-12)))}catch(e){}};
+// Requested: "Sørg også for, at chatten med Saga nulstilles inden for normale standarder": after 30 minutes
+// without a question the conversation starts over, and "Ny samtale" starts one at once.
+const IDLE=30*60*1000;let history=[];try{const kept=JSON.parse(sessionStorage.getItem("saga-chat")||"null");if(kept&&Array.isArray(kept.h)&&Date.now()-Number(kept.t||0)<IDLE)history=kept.h}catch(e){}
+const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify({t:Date.now(),h:history.slice(-12)}))}catch(e){}};
+document.getElementById("saga-new").onclick=()=>{history=[];try{sessionStorage.removeItem("saga-chat")}catch(e){}log.querySelectorAll(".saga-msg:not(:first-child)").forEach(m=>m.remove());q.focus()};
 const add=(cls,content,isHtml)=>{const d=document.createElement("div");d.className="saga-msg "+cls;if(isHtml)d.innerHTML=content;else d.textContent=content;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
 for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.content:t.html||t.content,t.role!=="user");
 const open=v=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v)q.focus()};
@@ -177,7 +184,7 @@ export function loginPage(base: string, message: string, configured: boolean, te
 <p class="small muted">Saga sender dig et personligt link, der logger dig ind som dig. Det virker én gang inden for 15 minutter. Du kan også skrive /login til hende.</p>` : "";
   const password = configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required${personal ? "" : " autofocus"}></label>
 <button${personal ? ' class="ghost"' : ""}>Log ind</button></form>` : "";
-  return layout(base, "Log ind", `<div class="center"><div class="card"><h1>Hjerterum bestyrelse</h1>
+  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
 <p class="muted">Bestyrelsens cockpit med møder, referater og beslutninger.</p>
 ${message ? `<p class="notice warn">${esc(message)}</p>` : ""}${personal}${personal && password ? `<p class="small muted" style="margin:18px 0 6px">Eller med den fælles adgangskode</p>` : ""}${password}
 ${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
@@ -185,7 +192,7 @@ ${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op 
 
 /** Saga's personal link: one press logs in, so a link preview in Telegram never does. */
 export function linkPage(base: string, member: string | null, token: string): string {
-  return layout(base, "Log ind", `<div class="center"><div class="card"><h1>Hjerterum bestyrelse</h1>
+  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
 ${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form method="post" action="${base}/login/link/${esc(token)}"><button>Log ind</button></form>`
     : `<p class="notice warn">Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.</p><p><a href="${base}/">Til login</a></p>`}</div></div>`);
 }

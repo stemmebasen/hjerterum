@@ -15,22 +15,25 @@ export const TODOS_STYLE = `
 details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin-top:6px}
 `;
 
-export type TodosData = { who: string; members: string[]; tasks: Task[]; checked: Map<string, number>; todos: Todo[]; notice: string };
+export type TodosData = { who: string; members: string[]; tasks: Task[]; checked: Map<string, number>; todos: Todo[]; notice: string;
+  /** Requested ("gennemtænkt"): "Hvem har hvad" moves here from Status - everyone's open tasks from the minutes. */
+  everyone?: Array<{ who: string; tasks: Task[] }> };
 
 const box = (base: string, kind: "opgave" | "punkt", id: string, done: boolean) =>
   `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">
 <button class="check${done ? " done" : ""}" aria-label="${done ? "Markér som ikke klaret" : "Markér som klaret"}" title="${done ? "Fortryd" : "Klaret"}">${done ? "✓" : ""}</button></form>`;
 
+const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
 const dueLabel = (due: string | null | undefined) => due ? ` <span class="pill">${esc(/^\d{4}-\d{2}-\d{2}$/.test(due) ? shortDay(due) : due)}</span>` : "";
 
 function taskItem(base: string, task: Task, done: boolean): string {
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done)}<div class="what">${esc(task.what)}${dueLabel(task.due)}
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done)}<div class="what">${esc(sentence(task.what))}${dueLabel(task.due)}
 <div class="small muted">${task.source === "dokument" ? "Fra referatdokumentet" : "Fra referatet"}${task.meeting ? ` ${esc(shortDay(task.meeting))}` : ""}${task.who ? ` · ${esc(task.who)}` : ""}</div></div></li>`;
 }
 
 function todoItem(base: string, todo: Todo, who: string): string {
   const done = todo.done_at_ms !== null;
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done)}<div class="what">${esc(todo.text)}${dueLabel(todo.due)}
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
 <div class="small muted">${todo.created_by === who ? "Skrevet af dig" : `Fra ${esc(todo.created_by)}`}</div></div>
 <form method="post" action="${base}/opgaver/slet"><input type="hidden" name="id" value="${todo.id}"><button class="x" aria-label="Slet punktet" title="Slet">×</button></form></li>`;
 }
@@ -49,6 +52,9 @@ export function todosPage(base: string, data: TodosData): string {
   const list = `<div class="card"><h2>At gøre${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
 ${done.length ? `<details class="done-list"><summary>Klaret (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}</div>`;
+  const board = data.everyone?.length ? `<div class="card"><h2>Hele bestyrelsen</h2><p class="small muted" style="margin-top:-8px">Opgaverne fra referaterne siden 1. oktober, fordelt på personer.</p>
+${data.everyone.map(g => `<details${data.everyone!.length <= 4 ? " open" : ""}><summary>${esc(g.who)} <span class="pill">${g.tasks.length}</span></summary><ul class="plain">${g.tasks.map(t =>
+  `<li>${esc(sentence(t.what))}${dueLabel(t.due)}<div class="small muted">Fra referatet${t.meeting ? ` ${esc(shortDay(t.meeting))}` : ""}</div></li>`).join("")}</ul></details>`).join("")}</div>` : "";
   return layout(base, "Opgaver", `<main><h1>Dine opgaver</h1><p class="muted">Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${list}${add}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${list}${add}${board}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
 }

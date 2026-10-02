@@ -104,7 +104,7 @@ describe("the board cockpit", () => {
     expect(lisbeth).not.toContain("Thomas Emil");
     expect(lisbeth).toContain("God energi efter weekenden.");
     const chair = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    expect(chair).toContain("Til dig som formand");
+    expect(chair).toContain("Svar på: Skal vi svare Thomas Emil?");
     expect(chair).toContain("Skal vi svare Thomas Emil?");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
     expect(decisions).toContain("Budgettet er vedtaget");
@@ -150,7 +150,7 @@ describe("the board cockpit", () => {
     expect(minutes).toContain("Ingen har godkendt endnu.");
     expect(minutes).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
-    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text()).toContain("Referater du mangler at godkende");
+    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text()).toContain("Godkend referatet");
     const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Lisbeth` });
     expect(signed.headers.get("location")).toBe(`/cockpit/referat/${queued!.id}?godkendt=1`);
     const correction = await call(`/cockpit/referat/${queued!.id}/rettelse`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Gitta`, body: form({ comment: "Fristen er 20. oktober" }) });
@@ -160,7 +160,7 @@ describe("the board cockpit", () => {
     expect(after).toContain("<strong>Gitta</strong> har en rettelse: Fristen er 20. oktober");
     expect(after).toContain("Mangler: Jacob Hauge");
     expect(after).toContain("Du har godkendt referatet.");
-    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).not.toContain("Referater du mangler at godkende");
+    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).not.toContain("Godkend referatet");
   });
 
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med".
@@ -183,7 +183,9 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["Lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "venter på dig", "om 13 dage", "Underskriv lejekontrakten", "Se hele status"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "Sagas fulde overblik", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    // Requested: "Hav kontakt med tribes ... giver ikke rigtig mening i sig selv. Desuden er de også gamle" - an undated line from the minutes document stays out.
+    expect(front).not.toContain("Underskriv lejekontrakten");
     for (const heavy of ["Nøgletal", "Hvem har hvad", "Hængepartier", "Ugeopsummering", "beskeder denne uge"]) expect(front).not.toContain(heavy);
     const page = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
     for (const text of ["Gruppen lige nu", "beskeder denne uge", "Jeg ringer til udlejer i morgen", "venter på dig", "Referatdokumentet", "Referat mangler: 3. sep. 2026",
@@ -195,9 +197,9 @@ describe("the board cockpit", () => {
     expect(page).not.toContain("Godkend</button>");
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
-    expect(front).toContain('<span>Arrangementer</span>');
+    expect(front).toContain('<span>Huset</span>');
     const more = await (await call("/cockpit/mere", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["/cockpit/beslutninger", "/cockpit/arkiv", "Du er Jacob Hauge · skift", 'action="/cockpit/logout"']) expect(more).toContain(text);
+    for (const text of ["/cockpit/status", "/cockpit/arkiv", "Du er Jacob Hauge · skift", 'action="/cockpit/logout"']) expect(more).toContain(text);
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(lisbeth).toContain("venter på formanden");
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
@@ -362,7 +364,7 @@ describe("each member's task list", () => {
     expect((await call("/cockpit/opgaver", { cookie: session })).headers.get("location")).toBe("/cockpit/hvem");
     let page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
     expect(page).toContain("Lav event-mail");
-    expect(page).not.toContain("Book lokale");
+    expect(page.slice(0, page.indexOf("Hele bestyrelsen"))).not.toContain("Book lokale");
     expect(page).toContain('href="/cockpit/opgaver" class="on"');
 
     // Checked off: it folds into "Klaret" and leaves the front page.

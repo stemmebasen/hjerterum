@@ -8,8 +8,10 @@ import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, pers
 import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, checkedTasks, currentTasks, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addTodo, checkedTasks, currentTasks, tasksByPerson, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
+import { logoResponse } from "./logo.js";
+import { currentForChair, homePage } from "./home.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -57,6 +59,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   const shared = Boolean(env.COCKPIT_PASSWORD) && env.COCKPIT_SHARED_LOGIN !== "off";
   const botLink = env.SAGA_TELEGRAM_BOT_USERNAME && env.SAGA_TELEGRAM_BOT_TOKEN ? `https://t.me/${env.SAGA_TELEGRAM_BOT_USERNAME}?start=login` : null;
   const login = (message: string, status: number) => html(loginPage(base, message, shared, botLink), status);
+  if (path === "/logo.png" && request.method === "GET") return logoResponse();
   if (!env.DB) return login("", 503);
   const db: D1Database = env.DB;
 
@@ -114,7 +117,21 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med" -
   // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
-  if ((path === "/" || path === "/status") && request.method === "GET") {
+  if (path === "/" && request.method === "GET") {
+    const [{ picture, summary, at }, minutes, list, progress, events, month] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
+      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>()]);
+    const isChair = Boolean(who && members.chair && who === members.chair);
+    const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
+    const toSign = who ? await unsignedFor(db, who, now) : [];
+    const open = who ? await openFor(db, who, allTasks(minutes, picture)) : { tasks: [], todos: [] };
+    const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
+    const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
+    return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress,
+      latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
+  }
+
+  if (path === "/status" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, group, weekly] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       groupNow(env, db, now), weeklySummary(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
@@ -122,7 +139,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const everyone = allTasks(minutes, picture);
     const toSign = who ? await unsignedFor(db, who, now) : [];
     const open = who ? await openFor(db, who, everyone) : { tasks: [], todos: [] };
-    return html((path === "/status" ? statusPage : overviewPage)(base, { who, isChair, toSign, mine: open.tasks, ownTodos: open.todos, everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+    return html(statusPage(base, { who, isChair, toSign, mine: open.tasks, ownTodos: open.todos, everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
       recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
@@ -220,13 +237,13 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   }
 
   const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
-  if (path === "/mere" && request.method === "GET") return html(morePage(base, who, { locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket") }));
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket") }));
   // The chair (logged in with a personal link) closes a member's access on every device.
   if (path === "/adgang" && request.method === "POST") {
     const member = String((await request.formData().catch(() => null))?.get("member") ?? "");
     if (!chairSignedIn || !members.names.includes(member) || member === personal) return html(notFound(base, who), 403);
     await signOutMember(db, member, now);
-    return redirect(`${base}/mere?lukket=${encodeURIComponent(member)}`);
+    return redirect(`${base}/profil?lukket=${encodeURIComponent(member)}`);
   }
 
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
@@ -259,7 +276,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const [{ picture }, minutes, checked, todos] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who)]);
     const sentTo = url.searchParams.get("til");
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
-    return html(todosPage(base, { who, members: members.names, tasks: currentTasks(tasksFor(who, allTasks(minutes, picture))), checked, todos: currentTodos(todos), notice }));
+    const all = currentTasks(allTasks(minutes, picture));
+    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: tasksByPerson(all) }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {

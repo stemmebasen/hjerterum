@@ -70,7 +70,7 @@ describe("a personal login from Saga", () => {
     const more = await (await call("/mere", { cookie: chair })).text();
     expect(more).toContain("Luk adgang");
     const form = new FormData(); form.append("member", "Gitta");
-    expect((await call("/adgang", { method: "POST", cookie: chair, body: form }, NOW + 1)).headers.get("location")).toBe("/mere?lukket=Gitta");
+    expect((await call("/adgang", { method: "POST", cookie: chair, body: form }, NOW + 1)).headers.get("location")).toBe("/profil?lukket=Gitta");
     expect((await call("/", { cookie: gitta }, NOW + 2)).status).toBe(401);
   });
 
