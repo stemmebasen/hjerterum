@@ -144,8 +144,11 @@ export type BoardMail = { id: number; message_ref: string; sender: string; subje
 
 /** Stores a relayed mail once (by its mailbox reference); null when it was already seen. */
 export async function insertMail(db: D1Database, mail: { ref: string; sender: string; subject: string; receivedAtMs: number; preview: string; nowMs: number }): Promise<number | null> {
-  const result = await db.prepare(`INSERT OR IGNORE INTO board_mail (message_ref, sender, subject, received_at_ms, preview, created_at_ms) VALUES (?, ?, ?, ?, ?, ?)`)
-    .bind(mail.ref, mail.sender, mail.subject, mail.receivedAtMs, mail.preview, mail.nowMs).run();
+  // The year before the connection is relayed too (Matrix reads every folder then), so the same mail can come
+  // again under another reference: the same sender, subject and minute is the same mail.
+  const result = await db.prepare(`INSERT OR IGNORE INTO board_mail (message_ref, sender, subject, received_at_ms, preview, created_at_ms)
+    SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM board_mail WHERE sender = ? AND subject = ? AND received_at_ms / 60000 = ? / 60000)`)
+    .bind(mail.ref, mail.sender, mail.subject, mail.receivedAtMs, mail.preview, mail.nowMs, mail.sender, mail.subject, mail.receivedAtMs).run();
   return Number(result.meta?.changes ?? 0) === 1 ? Number(result.meta?.last_row_id) : null;
 }
 
