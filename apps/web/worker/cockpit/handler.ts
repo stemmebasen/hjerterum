@@ -6,7 +6,9 @@ import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
 import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary } from "./data.js";
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
+  addTodo, checkedTasks, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+import { todosPage } from "./todosPage.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -97,7 +99,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const everyone = allTasks(minutes, picture);
     const toSign = who ? await unsignedFor(db, who, now) : [];
-    return html((path === "/status" ? statusPage : overviewPage)(base, { who, isChair, toSign, mine: who ? tasksFor(who, everyone) : [], everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
+    const open = who ? await openFor(db, who, everyone) : { tasks: [], todos: [] };
+    return html((path === "/status" ? statusPage : overviewPage)(base, { who, isChair, toSign, mine: open.tasks, ownTodos: open.todos, everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
       recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
   }
@@ -194,6 +197,39 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   }
 
   if (path === "/mere" && request.method === "GET") return html(morePage(base, who));
+
+  // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
+  // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
+  if (path === "/opgaver" || path.startsWith("/opgaver/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const field = (name: string, max: number) => String(form?.get(name) ?? "").trim().slice(0, max);
+      if (path === "/opgaver/ny") {
+        const text = field("text", 300), due = field("due", 10), owner = field("owner", 60) || who;
+        if (!text || (members.names.length && !members.names.includes(owner) && owner !== who)) return redirect(`${base}/opgaver`);
+        await addTodo(db, { owner, text, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, createdBy: who }, now);
+        return redirect(`${base}/opgaver?${owner === who ? "tilfojet=1" : `til=${encodeURIComponent(owner)}`}`);
+      }
+      if (path === "/opgaver/afkryds") {
+        const done = field("done", 1) === "1", id = field("id", 400);
+        if (field("kind", 10) === "punkt") { if (/^\d+$/.test(id)) await setTodoDone(db, Number(id), who, done, now); }
+        else if (id) await setTaskChecked(db, who, id, done, now);
+        return redirect(`${base}/opgaver`);
+      }
+      if (path === "/opgaver/slet") {
+        const id = field("id", 12);
+        if (/^\d+$/.test(id)) await removeTodo(db, Number(id), who);
+        return redirect(`${base}/opgaver`);
+      }
+      return html(notFound(base, who), 404);
+    }
+    if (path !== "/opgaver") return html(notFound(base, who), 404);
+    const [{ picture }, minutes, checked, todos] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who)]);
+    const sentTo = url.searchParams.get("til");
+    const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
+    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, allTasks(minutes, picture)), checked, todos, notice }));
+  }
 
   if (path === "/beslutninger" && request.method === "GET") {
     const [{ picture }, minutes] = await Promise.all([boardPicture(db), approvedMinutes(db)]);

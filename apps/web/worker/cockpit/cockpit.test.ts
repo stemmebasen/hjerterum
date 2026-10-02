@@ -345,3 +345,59 @@ describe("the board cockpit", () => {
     expect(routed.status).toBe(401);
   });
 });
+
+// Requested: "vi skal have en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er
+// tildelt en. Man kan også selv skrive ind."
+describe("each member's task list", () => {
+  it("checks off the minutes' tasks, takes your own items and items written to another member", async () => {
+    const { db, call, form, login } = await setup();
+    const session = await login();
+    const as = (name: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(name)}`;
+    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-09-17", nowMs: NOW }))!;
+    await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Lisbeth - Book lokale - ingen frist aftalt" }, NOW);
+    await decideMinutes(db, minutesId, "approved", NOW);
+
+    expect((await call("/cockpit/opgaver", { cookie: session })).headers.get("location")).toBe("/cockpit/hvem");
+    let page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
+    expect(page).toContain("Lav event-mail");
+    expect(page).not.toContain("Book lokale");
+    expect(page).toContain('href="/cockpit/opgaver" class="on"');
+
+    // Checked off: it folds into "Klaret" and leaves the front page.
+    const key = /name="id" value="([^"]+)"/.exec(page)![1]!.replace(/&amp;/g, "&").replace(/&#39;/g, "'");
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Gitta"), body: form({ kind: "opgave", id: key, done: "1" }) });
+    page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
+    expect(page).toContain("Klaret (1)");
+    expect(page).toContain("Intet venter på dig");
+    expect(await (await call("/cockpit/", { cookie: as("Gitta") })).text()).not.toContain("Lav event-mail");
+
+    // Your own item, and one written to Lisbeth: only on her list, with who wrote it.
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie: as("Gitta"), body: form({ text: "Køb kaffe", due: "2026-10-05", owner: "Gitta" }) });
+    const sent = await call("/cockpit/opgaver/ny", { method: "POST", cookie: as("Gitta"), body: form({ text: "Send nøglen til Gitta", due: "", owner: "Lisbeth" }) });
+    expect(sent.headers.get("location")).toBe("/cockpit/opgaver?til=Lisbeth");
+    expect(await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text()).toContain("Køb kaffe");
+    const lisbeth = await (await call("/cockpit/opgaver", { cookie: as("Lisbeth") })).text();
+    expect(lisbeth).toContain("Send nøglen til Gitta");
+    expect(lisbeth).toContain("Fra Gitta");
+    expect(lisbeth).not.toContain("Køb kaffe");
+    expect(await (await call("/cockpit/", { cookie: as("Lisbeth") })).text()).toContain("Send nøglen til Gitta");
+
+    // Only the owner checks an item off; a name outside the board is refused.
+    const todo = await db.prepare("SELECT id FROM cockpit_todos WHERE owner = 'Lisbeth'").first<{ id: number }>();
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Jacob Hauge"), body: form({ kind: "punkt", id: String(todo!.id), done: "1" }) });
+    expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(todo!.id).first<{ done_at_ms: number | null }>())!.done_at_ms).toBeNull();
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Lisbeth"), body: form({ kind: "punkt", id: String(todo!.id), done: "1" }) });
+    expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(todo!.id).first<{ done_at_ms: number | null }>())!.done_at_ms).toBe(NOW);
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie: as("Gitta"), body: form({ text: "Hemmelig", owner: "Fremmed" }) });
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM cockpit_todos WHERE owner = 'Fremmed'").first<{ n: number }>()).toEqual({ n: 0 });
+    await call("/cockpit/opgaver/slet", { method: "POST", cookie: as("Gitta"), body: form({ id: String(todo!.id) }) });
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM cockpit_todos WHERE id = ?").bind(todo!.id).first<{ n: number }>()).toEqual({ n: 0 });
+  });
+
+  it("calls Saga's waiting text \"Saga tænker\"", async () => {
+    const { call, login } = await setup();
+    const page = await (await call("/cockpit/", { cookie: `${await login()}; hjerterum_cockpit_who=Gitta` })).text();
+    expect(page).toContain("Saga tænker …");
+    expect(page).not.toContain("Saga læser med");
+  });
+});
