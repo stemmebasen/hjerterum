@@ -39,7 +39,9 @@
     "production": {
       "name": "hjerterum-platform-production",
       "vars": {
-        "ENVIRONMENT": "production"
+        "ENVIRONMENT": "production",
+        "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
+        "AI_MODEL": "deepseek-v4-flash"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]
