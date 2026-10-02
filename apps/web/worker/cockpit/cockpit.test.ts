@@ -401,6 +401,30 @@ describe("the board cockpit", () => {
     expect(page).toContain(`Hjerterum cockpit v${COCKPIT_VERSION}`);
   });
 
+  // Requested: "når et bestyrelsesmedlem har løst en opgave og klikket flueben, så skal der være et flueben + dato ud for
+  // den fælles oversigt i fem dage, hvorefter hele linjen arkiveres" - and "bare ikke rød".
+  it("shows a checked task with a check and the date for five days on the shared list, then archives it", async () => {
+    const { db, env, services, call, form, login } = await setup();
+    await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms)
+      VALUES ('telegram', 'gf', 'm.m4a', 'approved', '2026-10-01', ?, 1, 1)`).bind("# Referat\n## Opgaver\n- Lisbeth - Dirigent for generalforsamlingen - 14. oktober\n- Gitta - Laver skabelon til nyhedsbrev").run();
+    const session = await login(), lisbeth = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const { taskKey, approvedMinutes, minutesTasks } = await import("./data.js");
+    const [minutes] = await approvedMinutes(db);
+    const key = taskKey(minutesTasks(minutes!).find(t => t.who === "Lisbeth")!);
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: lisbeth, body: form({ kind: "opgave", id: key, done: "1" }) });
+    const today = await (await call("/cockpit/opgaver", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text();
+    const board = today.slice(today.indexOf("Hvad bevæger sig"));
+    expect(board).toMatch(/class="is-done">[\s\S]*?✓<\/span> Dirigent for generalforsamlingen<span class="when">· klaret 1\. okt\.<\/span>/);
+    expect(board).not.toContain("Arkiv (");
+    for (const red of ["#c0265e", "#dc2626", "#e11d48"]) expect(today).not.toContain(red);
+    const { handleCockpitRequest } = await import("./handler.js");
+    const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: `${session}; hjerterum_cockpit_who=Gitta` } }), env, deps(services.fetcher, NOW + 6 * 86_400_000))).text();
+    const laterBoard = later.slice(later.indexOf("Hvad bevæger sig"));
+    expect(laterBoard).toContain("Arkiv (1)");
+    expect(laterBoard.split("Arkiv (1)")[0]).not.toContain("Dirigent for generalforsamlingen");
+    expect(laterBoard.split("Arkiv (1)")[0]).toContain("Laver skabelon til nyhedsbrev");
+  });
+
   it("keeps Saga's statutes the same as the website's", () => {
     const flat = (text: string) => text.replace(/<br\s*\/?>|<\/(p|h\d|li|ol|ul)>/g, " ").replace(/<li>/g, " - ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8211;|&ndash;/g, "–").replace(/\s+/g, " ").trim();

@@ -243,6 +243,13 @@ export async function checkedTasks(db: D1Database, owner: string): Promise<Map<s
   return new Map((rows.results ?? []).map(r => [r.task_key, r.done_at_ms]));
 }
 
+/** Requested: "når et bestyrelsesmedlem har løst en opgave og klikket flueben, så skal der være et flueben + dato ud
+ * for den fælles oversigt i fem dage, hvorefter hele linjen arkiveres". Who checked each minutes task off, and when. */
+export async function taskChecksByKey(db: D1Database): Promise<Map<string, { by: string; at: number }>> {
+  const rows = await db.prepare("SELECT task_key, owner, done_at_ms FROM cockpit_task_checks ORDER BY done_at_ms ASC").all<{ task_key: string; owner: string; done_at_ms: number }>();
+  return new Map((rows.results ?? []).map(r => [r.task_key, { by: r.owner, at: r.done_at_ms }]));
+}
+
 export async function setTaskChecked(db: D1Database, owner: string, key: string, done: boolean, nowMs: number): Promise<void> {
   if (done) await db.prepare("INSERT INTO cockpit_task_checks (owner, task_key, done_at_ms) VALUES (?, ?, ?) ON CONFLICT(owner, task_key) DO UPDATE SET done_at_ms = excluded.done_at_ms").bind(owner, key, nowMs).run();
   else await db.prepare("DELETE FROM cockpit_task_checks WHERE owner = ? AND task_key = ?").bind(owner, key).run();
@@ -263,6 +270,13 @@ export function taskDay(task: Task): string {
 }
 export function currentTasks(tasks: Task[]): Task[] {
   return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day >= TASKS_SINCE)
+    .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);
+}
+/** Requested: "Jeg synes godt, at det må være opgaver fra den sidste måned, der er samlet her" - the board's shared
+ * list holds the tasks from the minutes of the last 30 days, newest first. */
+export function lastMonthTasks(tasks: Task[], nowMs: number): Task[] {
+  const since = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(nowMs - 30 * 86_400_000);
+  return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day && t.day >= since)
     .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);
 }
 export const currentTodos = (todos: Todo[]) => todos.filter(t => t.created_at_ms >= SINCE_MS).sort((a, b) => b.created_at_ms - a.created_at_ms);
