@@ -64,7 +64,7 @@ export const EN: Record<string, string> = {
   "Alle arrangementer →": "All events →", "i team@ →": "in team@ →", "venter på godkendelse →": "awaiting approval →", "Kort fortalt": "In short", "Overblikket": "The overview",
   "Til overblikket": "To the overview",
   // Members
-  "Ingen medlemstal endnu.": "No member figures yet.", "Upload et skærmbillede →": "Upload a screenshot →", "betalende medlemmer": "paying members", "årlig indtægt fra dem": "yearly income from them",
+  "Ingen medlemstal endnu.": "No member figures yet.", "Upload et skærmbillede →": "Upload a screenshot →", "betalende medlemmer": "paying members", "medlemskontingent (årligt)": "membership fees (yearly)",
   "på gratis medlemskab": "on free membership", "Alle tal og opdatering →": "All figures and updating →", "Tjek tallene": "Check the figures", "Dato for tallene": "Date of the figures", "Fortryd": "Undo",
   "Gem tallene": "Save the figures", "Opdatér fra MembershipWorks": "Update from MembershipWorks",
   "Tag et skærmbillede af Dashboard › Current Stats i MembershipWorks og læg det her. Saga læser tallene, og du tjekker dem, før de gemmes.":
