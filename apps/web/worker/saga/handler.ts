@@ -1,3 +1,4 @@
+import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
   answerOwnerPrivately, approveMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
@@ -75,6 +76,12 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
     await saveBoardMessage(db, { chatId, messageId: message.message_id, author: name(message.from), authorId: message.from ? String(message.from.id) : null, text, sentAtMs: message.date * 1000 });
     // Listening only (the default), a question to her is just part of the chat she reads.
     if (postsToBoard(env) && addressesSaga(message, env.SAGA_TELEGRAM_BOT_USERNAME)) await draftBoardReply(env, deps, text, name(message.from), message.message_id);
+    return;
+  }
+
+  // Any board member may ask Saga privately for their personal cockpit login (cockpit/personalLogin.ts).
+  if (message.chat.type === "private" && message.from && !message.from.is_bot && isLoginRequest(message.text ?? "")) {
+    await answerLoginRequest(env, deps, requireDb(env), chatId, String(message.from.id));
     return;
   }
 

@@ -8,7 +8,7 @@ import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
-import { allDecisions, approvedMinutes, boardPicture, meetings } from "./data.js";
+import { allDecisions, approvedMinutes, boardPicture, meetingOn, meetings, saveMeeting } from "./data.js";
 import { STATUTES } from "./statutes.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
@@ -109,11 +109,30 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
 }
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
-export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }): Promise<string> {
+export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = ""): Promise<string> {
   const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
-  const answer = await complete(env, deps, messages);
   const now = deps.now();
+  const answer = await applyMeeting(db, await complete(env, deps, messages), who, now, base);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(answer))?.[1] ?? "";
+}
+
+/** Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."
+ * Saga's [[MØDE ...]] line becomes the meeting in the cockpit's calendar (a move takes the old date's
+ * meeting along, agenda and all), and the line becomes a confirmation with a link. */
+const DANISH_DATE = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+export async function applyMeeting(db: D1Database, answer: string, who: string | null, nowMs: number, base = ""): Promise<string> {
+  const line = /\[\[MØDE\s+([^\]]*)\]\]/i.exec(answer);
+  if (!line) return answer;
+  const field = (name: string) => new RegExp(`${name}=(.+?)(?=\\s+(?:dato|tid|sted|fra)=|$)`, "i").exec(line[1]!)?.[1]?.trim() ?? "";
+  const date = field("dato"), time = field("tid").replace(".", ":"), place = field("sted").slice(0, 200), from = field("fra");
+  const text = answer.replace(line[0], "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return text;
+  const existing = (/^\d{4}-\d{2}-\d{2}$/.test(from) ? await meetingOn(db, from) : null) ?? await meetingOn(db, date);
+  const id = await saveMeeting(db, { date, time: /^\d{1,2}:\d{2}$/.test(time) ? time.padStart(5, "0") : existing?.start_time ?? "",
+    place: place || existing?.place || "", agenda: existing?.agenda ?? "" }, who ?? "Saga", nowMs, existing?.id);
+  const day = DANISH_DATE.format(new Date(`${date}T12:00:00Z`));
+  const what = !existing ? "Sat i kalenderen:" : existing.meeting_date !== date ? "Mødet er flyttet til" : "Mødet er opdateret:";
+  return `${text}\n\n✓ ${what} ${day}${time ? ` kl. ${time}` : ""}${place ? `, ${place}` : ""} - [se mødet](${base}/moder/${id})`;
 }

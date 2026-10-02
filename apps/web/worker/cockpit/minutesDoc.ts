@@ -65,8 +65,11 @@ function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: 
   // One open question per member and point: the newest; while Saga works on a correction, none.
   const here = (fix.corrections ?? []).filter(c => c.point === point);
   const shown = here.filter(c => c.status !== "question" && c.status !== "pending" || here.filter(o => o.member === c.member && (o.status === "question" || o.status === "pending")).every(o => o.id <= c.id));
-  const own = shown.map(c => {
-    if (c.status === "applied") return `<p class="m-fixnote">Rettet efter ${esc(c.member)}s rettelse${c.note ? `: ${esc(c.note)}` : ""}</p>`;
+  // Requested: "Rettelser skal diskret gemmes bag fold-ud" - what has been corrected folds away under the point.
+  const made = shown.filter(c => c.status === "applied");
+  const history = made.length ? `<details class="m-made"><summary>${made.length === 1 ? "1 rettelse" : `${made.length} rettelser`}</summary>${made.map(c =>
+    `<p class="m-fixnote">${esc(c.member)}${c.note ? `: ${esc(c.note)}` : ""}</p>`).join("")}</details>` : "";
+  const own = history + shown.filter(c => c.status !== "applied").map(c => {
     if (c.status === "pending") return `<p class="m-fixnote">Saga er ved at rette punktet efter ${esc(c.member)}s rettelse …</p>`;
     if (c.status === "failed") return `<p class="m-fixnote warn">Saga kunne ikke rette punktet efter ${esc(c.member)}s rettelse. Skriv den gerne lidt mere præcist.</p>`;
     return c.member === fix.who ? `<div class="m-ask"><p><strong>Saga spørger dig:</strong> ${esc(c.question ?? "")}</p>
@@ -111,6 +114,8 @@ if(b){b.classList.add("m-thinking");b.setAttribute("aria-busy","true");setTimeou
 const n=document.createElement("p");n.className="m-fixnote";n.setAttribute("role","status");n.textContent="Saga læser det og retter punktet. Det tager typisk 10-30 sekunder - siden opdaterer sig selv.";f.append(n)});</script>`;
 
 export const MINUTES_STYLE = `
+.m-made summary{font-size:12.5px;color:var(--faint);cursor:pointer;list-style:none}.m-made summary::-webkit-details-marker{display:none}
+.m-made summary::before{content:"✓ ";color:var(--good)}.m-made[open] summary{margin-bottom:4px}.m-made .m-fixnote{margin:2px 0}
 .m-thinking{display:inline-flex;align-items:center;justify-content:center;gap:10px;opacity:.85;cursor:progress}
 .m-dots{display:inline-flex;gap:4px}.m-dots i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:m-dot 1.2s infinite ease-in-out}
 .m-dots i:nth-child(2){animation-delay:.15s}.m-dots i:nth-child(3){animation-delay:.3s}

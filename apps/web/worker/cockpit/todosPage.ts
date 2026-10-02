@@ -49,6 +49,6 @@ export function todosPage(base: string, data: TodosData): string {
   const list = `<div class="card"><h2>At gøre${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
 ${done.length ? `<details class="done-list"><summary>Klaret (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}</div>`;
-  return layout(base, "Opgaver", `<main><h1>Dine opgaver</h1><p class="muted">Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig. Tryk på firkanten, når en er klaret.</p>
+  return layout(base, "Opgaver", `<main><h1>Dine opgaver</h1><p class="muted">Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.</p>
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${list}${add}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
 }
