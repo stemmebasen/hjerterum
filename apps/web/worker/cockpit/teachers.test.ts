@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { listTeachers } from "./teachers.js";
 import { insertMail, saveBoardMessage } from "../saga/store.js";
-import { BOARD, deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { D1Database } from "../db.js";
 
 // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere, hvor vi samler alle underviserne.
@@ -43,7 +43,7 @@ describe("Undervisere", () => {
       ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const cookie = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const cookie = await memberCookie(session, "Lisbeth");
 
     expect(await (await call("/arrangementer", { cookie })).text()).toContain('href="/arrangementer/undervisere">Undervisere →');
     const page = await (await call("/arrangementer/undervisere", { cookie })).text();

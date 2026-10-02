@@ -156,8 +156,8 @@ function languageCard(base: string, lang: "da" | "en"): string {
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
 export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null } = {}): string {
   // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
-  const me = options.locked ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who ?? "")}</span>`
-    : `<a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>`;
+  // Requested: "Once you have logged in, you can't change to another person." No switching - log out to be someone else.
+  const me = who ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who)}</span>` : `<a href="${base}/hvem">Vælg hvem du er</a>`;
   const access = options.members?.length ? `<div class="card"><h2>Adgang</h2><p class="small muted">Luk et medlems adgang: deres login på alle enheder ophører, og de skal bede Saga om et nyt link.</p>
 ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
@@ -238,7 +238,7 @@ ${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form metho
 
 export function whoPage(base: string, names: string[], current: string | null): string {
   return layout(base, "Hvem er du?", `<main><div class="card" style="max-width:520px"><h1>Hvem er du?</h1>
-<p class="muted">Så viser overblikket dine egne opgaver. Valget huskes på denne enhed.</p>
+<p class="muted">Så viser overblikket dine egne opgaver. Du vælger én gang: valget gælder, til du logger ud.</p>
 <form class="stack" method="post" action="${base}/hvem">${names.length ? names.map(name => `<label style="flex-direction:row;display:flex;align-items:center;gap:8px;font-weight:500">
 <input type="radio" name="who" value="${esc(name)}" style="width:auto"${name === current ? " checked" : ""} required> ${esc(name)}</label>`).join("")
     : `<label>Dit navn<input name="who" required maxlength="60" value="${esc(current ?? "")}"></label>`}

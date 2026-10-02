@@ -108,3 +108,22 @@ export function newLinkToken(): string {
   crypto.getRandomValues(bytes);
   return base64url(bytes.buffer);
 }
+
+/** Requested: "Once you have logged in, you can't change to another person. This is very important." With the shared
+ * password the member says who they are once, and that choice is signed into this login: it is the member until they
+ * log out. The name is bound to the session's expiry, so a new login asks again - and nothing can change it in between. */
+export const MEMBER_COOKIE = "hjerterum_cockpit_member";
+
+export async function sessionMemberValue(password: string, session: string, member: string): Promise<string> {
+  const body = `${b64(member)}.${session.split(".")[0] ?? ""}`;
+  return `${body}.${await sign("session-member", password, body)}`;
+}
+
+export async function readSessionMember(password: string | undefined, session: string | undefined, value: string | undefined): Promise<string | null> {
+  if (!password || !session || !value) return null;
+  const parts = value.split(".");
+  if (parts.length !== 3 || parts[1] !== session.split(".")[0]) return null;
+  const body = `${parts[0]}.${parts[1]}`;
+  if (!sameText(parts[2]!, await sign("session-member", password, body))) return null;
+  try { return unb64(parts[0]!); } catch { return null; }
+}

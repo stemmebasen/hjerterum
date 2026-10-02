@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { replacePoint } from "./corrections.js";
 import { getMinutes, queueMinutes, saveBoardMessage, updateMinutes } from "../saga/store.js";
-import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
 // Requested: "Der skal ved hvert punkt være mulighed for hvert medlem af indsende rettelse - herefter vil
 // Saga omskrive punktet. Hun skal spørge hvis hun er usikker på hvad der menes."
@@ -36,7 +36,8 @@ describe("corrections to one point of the minutes", () => {
     const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.headers ?? {}) } }), env, deps(services.fetcher, NOW));
     const login = new FormData(); login.append("password", "hjerte-2026");
     const session = ((await call("/cockpit/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const as = (who: string) => ({ cookie: `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}` });
+    const cookieOf = await memberCookies(session);
+    const as = (who: string) => ({ cookie: cookieOf(who) });
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
 
     const page = await (await call(`/cockpit/referat/${id}`, { headers: as("Gitta") })).text();
@@ -83,7 +84,7 @@ describe("corrections to one point of the minutes", () => {
     const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.headers ?? {}) } }), env, deps(services.fetcher, NOW));
     const login = new FormData(); login.append("password", "hjerte-2026");
     const session = ((await call("/cockpit/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const headers = { cookie: `${session}; hjerterum_cockpit_who=${encodeURIComponent("Jacob Hauge")}` };
+    const headers = { cookie: await memberCookie(session, "Jacob Hauge") };
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const open = async () => (await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_corrections WHERE status IN ('pending', 'question')").first<{ n: number }>())!.n;
 

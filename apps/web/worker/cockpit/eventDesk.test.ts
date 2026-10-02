@@ -4,7 +4,7 @@ import { checkDraft, copenhagenMs, draftFrom, membershipWorksText, readVerdict, 
 import { createRoomBooking, normalizeCreateRoomBookingInput } from "../room-bookings.js";
 import { listUpcomingPublicRoomBookings } from "../db.js";
 import { claimJob } from "../saga/store.js";
-import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { D1Database } from "../db.js";
 
 // Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op" - "I det nye system" -
@@ -94,7 +94,7 @@ describe("Saga's event desk", () => {
       ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const cookie = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const cookie = await memberCookie(session, "Lisbeth");
 
     const page = await (await call("/arrangementer", { cookie })).text();
     expect(page).toContain("Nyt arrangement med Saga");

@@ -4,7 +4,7 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
-import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
@@ -95,10 +95,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       await recordFailedLogin(db, request, now);
       return login("Forkert adgangskode.", 401);
     }
-    const who = readCookies(request).get(WHO_COOKIE);
-    return redirect(`${base}${who ? "/" : "/hvem"}`, [cookie(SESSION_COOKIE, await sessionValue(env.COCKPIT_PASSWORD, now), SESSION_DAYS * 86_400, secure)]);
+    // A new login asks who you are (the name you had is preselected) - and then keeps it until you log out.
+    return redirect(`${base}/hvem`, [cookie(SESSION_COOKIE, await sessionValue(env.COCKPIT_PASSWORD, now), SESSION_DAYS * 86_400, secure), cookie(MEMBER_COOKIE, "", 0, secure)]);
   }
-  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure)]);
+  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure), cookie(MEMBER_COOKIE, "", 0, secure)]);
 
   // Saga's personal link: shown first (a link preview never logs anyone in), used with one press.
   const linkPath = /^\/login\/link\/([A-Za-z0-9_-]{20,64})$/.exec(path);
@@ -120,19 +120,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) return login("", shared || botLink ? 401 : 503);
   const members = await boardMembers(env, db);
   const saved = jar.get(WHO_COOKIE) ?? null;
-  // A personal login is that member, and stays so; with the shared password you say who you are.
-  const who = personal ?? (saved && (!members.names.length || members.names.includes(saved)) ? saved : null);
+  // A personal login is that member, and stays so; with the shared password you say who you are - once per login
+  // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
+  const bound = personal ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
+  const who = personal ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);
 
   if (path === "/hvem") {
-    if (personal) return redirect(`${base}/`);
+    // Requested: "Once you have logged in, you can't change to another person." Chosen once; only logging out undoes it.
+    if (personal || who) return redirect(`${base}/`);
     if (request.method === "POST") {
       const chosen = String((await request.formData().catch(() => null))?.get("who") ?? "").trim().slice(0, 60);
-      if (!chosen || (members.names.length && !members.names.includes(chosen))) return html(whoPage(base, members.names, who), 400);
-      return redirect(`${base}/`, [cookie(WHO_COOKIE, chosen, 365 * 86_400, secure)]);
+      if (!chosen || (members.names.length && !members.names.includes(chosen))) return html(whoPage(base, members.names, saved), 400);
+      return redirect(`${base}/`, [cookie(MEMBER_COOKIE, await sessionMemberValue(env.COCKPIT_PASSWORD!, jar.get(SESSION_COOKIE) ?? "", chosen), SESSION_DAYS * 86_400, secure),
+        cookie(WHO_COOKIE, chosen, 365 * 86_400, secure)]);
     }
-    return html(whoPage(base, members.names, who));
+    return html(whoPage(base, members.names, saved));
   }
 
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med" -

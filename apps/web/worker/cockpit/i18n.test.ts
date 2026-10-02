@@ -4,7 +4,7 @@ import { translateHtml } from "./i18n.js";
 import { scheduledTranslations } from "./translate.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
-import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
 // Requested: "Der bør vær en engelsk oversættelses knap - Douglas taler engelsk. Eller hvad forslår du?" - the suggestion:
 // a language chosen once per member; menus, buttons and Saga's short texts in English, Saga answering in English, the
@@ -46,7 +46,7 @@ describe("the cockpit in English", () => {
       headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.json ? { "content-type": "application/json" } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
     const form = (f: Record<string, string | Blob>) => { const d = new FormData(); for (const [k, v] of Object.entries(f)) d.append(k, v); return d; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const douglas = `${session}; hjerterum_cockpit_who=Douglas`, jacob = `${session}; hjerterum_cockpit_who=${encodeURIComponent("Jacob Hauge")}`;
+    const douglas = await memberCookie(session, "Douglas"), jacob = await memberCookie(session, "Jacob Hauge");
     await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind(NOW_TEXT, NOW - 1000, NOW - 1000).run();
 
     expect(await (await call("/profil", { cookie: douglas })).text()).toContain("Sprog / Language");

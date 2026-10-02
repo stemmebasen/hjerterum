@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { handleSagaRequest } from "../saga/handler.js";
 import { saveBoardMessage } from "../saga/store.js";
-import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
 
 // Requested: "Hvordan kan vi sikre os, at kontoen, når først den er identificeret, bliver låst fast til den
@@ -58,7 +58,7 @@ describe("a personal login from Saga", () => {
     expect(await (await call(path!)).text()).toContain("Linket er brugt eller udløbet");
 
     // Gitta is Gitta: a who-cookie saying otherwise is ignored, and "Hvem er du?" is closed.
-    const page = await (await call("/", { cookie: `${gitta}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const page = await (await call("/", { cookie: await memberCookie(gitta, "Lisbeth") })).text();
     expect(page).toContain("Hej Gitta");
     expect((await call("/hvem", { cookie: gitta })).headers.get("location")).toBe("/");
     expect(await (await call("/mere", { cookie: gitta })).text()).toContain("Logget ind som Gitta");

@@ -6,7 +6,7 @@ import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPos
 import { itemKey } from "../saga/picture.js";
 import { STATUTES } from "./statutes.js";
 import legacy from "../../src/legacy-content.json";
-import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
 
 // Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -60,7 +60,7 @@ describe("the board cockpit", () => {
     const ok = await call("/cockpit/login", { method: "POST", body: form({ password: "hjerte-2026" }) });
     expect(ok.status).toBe(303);
     expect(ok.headers.get("location")).toBe("/cockpit/hvem");
-    expect(ok.headers.get("set-cookie")).toMatch(/^hjerterum_cockpit=\d+\.[\w-]+; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/);
+    expect(ok.headers.get("set-cookie")).toMatch(/^hjerterum_cockpit=\d+\.[\w-]+; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure(, |$)/);
     const cross = await call("/cockpit/login", { method: "POST", body: form({ password: "hjerte-2026" }), headers: { origin: "https://evil.example" } });
     expect(cross.status).toBe(403);
     for (let i = 0; i < 10; i++) await call("/cockpit/login", { method: "POST", body: form({ password: "gæt" + i }) });
@@ -72,9 +72,25 @@ describe("the board cockpit", () => {
     const session = await login();
     const who = await (await call("/cockpit/hvem", { cookie: session })).text();
     for (const name of ["Gitta", "Jacob Hauge", "Lisbeth"]) expect(who).toContain(`value="${name}"`);
+    expect((await call("/cockpit/hvem", { method: "POST", cookie: session, body: form({ who: "Ukendt Person" }) })).status).toBe(400);
     const chosen = await call("/cockpit/hvem", { method: "POST", cookie: session, body: form({ who: "Lisbeth" }) });
     expect(chosen.headers.get("set-cookie")).toContain("hjerterum_cockpit_who=Lisbeth");
-    expect((await call("/cockpit/hvem", { method: "POST", cookie: session, body: form({ who: "Ukendt Person" }) })).status).toBe(400);
+    const member = /hjerterum_cockpit_member=([^;]+)/.exec(chosen.headers.get("set-cookie") ?? "")![1]!;
+    const lisbeth = `${session}; hjerterum_cockpit_member=${member}`;
+    expect(await (await call("/cockpit/", { cookie: lisbeth })).text()).toContain("Hej Lisbeth");
+
+    // Requested: "Once you have logged in, you can't change to another person. This is very important."
+    const again = await call("/cockpit/hvem", { method: "POST", cookie: lisbeth, body: form({ who: "Jacob Hauge" }) });
+    expect(again.headers.get("location")).toBe("/cockpit/");
+    expect(again.headers.get("set-cookie") ?? "").not.toContain("hjerterum_cockpit_member");
+    // The plain name cookie decides nothing, and a member cookie from another login does not count.
+    expect(await (await call("/cockpit/", { cookie: `${lisbeth}; hjerterum_cockpit_who=Jacob%20Hauge` })).text()).toContain("Hej Lisbeth");
+    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text()).not.toContain("Hej Jacob");
+    const forged = `${session}; hjerterum_cockpit_member=${member.replace(/^[^.]+/, "SmFjb2IgSGF1Z2U")}`;
+    expect(await (await call("/cockpit/", { cookie: forged })).text()).not.toContain("Hej Jacob");
+    const profile = await (await call("/cockpit/profil", { cookie: lisbeth })).text();
+    expect(profile).toContain("Logget ind som Lisbeth");
+    expect(profile).not.toContain("skift");
   });
 
   it("shows each person their own tasks, and the chair also what waits on him", async () => {
@@ -89,7 +105,7 @@ describe("the board cockpit", () => {
     const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Beslutninger\n- Budgettet er vedtaget\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Alle - Del opslaget - ingen frist aftalt" }, NOW);
     await decideMinutes(db, minutesId, "approved", NOW);
-    const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(lisbeth).toContain("Hej Lisbeth");
     const mine = lisbeth.slice(lisbeth.indexOf("<h2>Til dig"), lisbeth.indexOf("<h2>Næste møde"));
     expect(mine).toContain("Skriv forslag om reduceret medlemskab");
@@ -99,11 +115,11 @@ describe("the board cockpit", () => {
     // Requested: "alle påmindelser fra før i går ikke fremgår af listen, så vi starter friskt".
     expect(mine).not.toContain("Gammel opgave fra før");
     // Everyone's tasks stand under "Hvem har hvad", as in Matrix.
-    const status = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const status = await (await call("/cockpit/status", { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(status.slice(status.indexOf("Hvem har hvad"))).toContain("Lav event-mail");
     expect(lisbeth).not.toContain("Thomas Emil");
     expect(lisbeth).toContain("God energi efter weekenden.");
-    const chair = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    const chair = await (await call("/cockpit/", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     expect(chair).toContain("Svar på: Skal vi svare Thomas Emil?");
     expect(chair).toContain("Skal vi svare Thomas Emil?");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
@@ -115,7 +131,7 @@ describe("the board cockpit", () => {
   it("plans meetings with their agenda, the weekday taken from the date", async () => {
     const { db, call, form, login } = await setup();
     const session = await login();
-    const created = await call("/cockpit/moder", { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Gitta`,
+    const created = await call("/cockpit/moder", { method: "POST", cookie: await memberCookie(session, "Gitta"),
       body: form({ meeting_date: "2026-10-08", start_time: "13:30", place: "Hjerterum", agenda: "Godkendelse af referat\n\nReduceret medlemskab\n Eventuelt " }) });
     expect(created.status).toBe(303);
     const id = /\/moder\/(\d+)/.exec(created.headers.get("location")!)![1];
@@ -145,22 +161,22 @@ describe("the board cockpit", () => {
     expect(services.calls.some(c => c.url === "https://api.elevenlabs.io/v1/speech-to-text")).toBe(true);
     expect(services.telegram("sendDocument")).toHaveLength(1);
     // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet".
-    const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(minutes).toContain("<li>Budgettet er vedtaget</li>");
     expect(minutes).toContain("Ingen har godkendt endnu.");
     expect(minutes).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
-    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text()).toContain("Godkend referatet");
-    const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Lisbeth` });
+    expect(await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text()).toContain("Godkend referatet");
+    const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: await memberCookie(session, "Lisbeth") });
     expect(signed.headers.get("location")).toBe(`/cockpit/referat/${queued!.id}?godkendt=1`);
-    const correction = await call(`/cockpit/referat/${queued!.id}/rettelse`, { method: "POST", cookie: `${session}; hjerterum_cockpit_who=Gitta`, body: form({ comment: "Fristen er 20. oktober" }) });
+    const correction = await call(`/cockpit/referat/${queued!.id}/rettelse`, { method: "POST", cookie: await memberCookie(session, "Gitta"), body: form({ comment: "Fristen er 20. oktober" }) });
     expect(correction.status).toBe(303);
-    const after = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const after = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(after).toContain("<strong>Godkendt af:</strong> Lisbeth");
     expect(after).toContain("<strong>Gitta</strong> har en rettelse: Fristen er 20. oktober");
     expect(after).toContain("Mangler: Jacob Hauge");
     expect(after).toContain("Du har godkendt referatet.");
-    expect(await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).not.toContain("Godkend referatet");
+    expect(await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text()).not.toContain("Godkend referatet");
   });
 
   // Requested: "Jeg synes dit overblik i matrix er super og detaljeret. Vi skal have det samme med".
@@ -182,7 +198,7 @@ describe("the board cockpit", () => {
     await decidePostDraft(db, weekly, "approved", NOW);
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
-    const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    const front = await (await call("/cockpit/", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "Lige om lidt i Hjerterum"]) expect(front).toContain(text);
     // Requested: "Så det fulde resumé og statusoverblik kommer først, når man klikker ind på status." - the front panel
     // has only Saga's short hourly text; the six-hour picture's waiting topics are on Status.
@@ -190,7 +206,7 @@ describe("the board cockpit", () => {
     // Requested: "Hav kontakt med tribes ... giver ikke rigtig mening i sig selv. Desuden er de også gamle" - an undated line from the minutes document stays out.
     expect(front).not.toContain("Underskriv lejekontrakten");
     for (const heavy of ["Nøgletal", "Hvem har hvad", "Hængepartier", "Ugeopsummering", "beskeder denne uge"]) expect(front).not.toContain(heavy);
-    const page = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
+    const page = await (await call("/cockpit/status", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     for (const text of ["Gruppen lige nu", "beskeder denne uge", "Jeg ringer til udlejer i morgen", "venter på dig", "Referatdokumentet", "Referat mangler: 3. sep. 2026",
       "Medlemmer: <strong>112</strong>", "før: 104 (3/9)", "Afløser: Gratis til 1. oktober", "Nyt skilt ved døren", "Hvem har hvad", "Ring til udlejer", "Sommerfest i juni",
       "Forslag til næste dagsorden", "<strong>Generalforsamlingen</strong>", "Ugeopsummering", "Lokaleleje er på vej", "om 13 dage", "Underskriv lejekontrakten"]) expect(page).toContain(text);
@@ -201,11 +217,11 @@ describe("the board cockpit", () => {
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
     expect(front).toContain('<span>Huset</span>');
-    const more = await (await call("/cockpit/mere", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["/cockpit/status", "/cockpit/arkiv", "Du er Jacob Hauge · skift", 'action="/cockpit/logout"']) expect(more).toContain(text);
-    const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
+    const more = await (await call("/cockpit/mere", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
+    for (const text of ["/cockpit/status", "/cockpit/arkiv", "Logget ind som Jacob Hauge", 'action="/cockpit/logout"']) expect(more).toContain(text);
+    const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(lisbeth).not.toContain("venter på formanden");
-    expect(await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).toContain("venter på formanden");
+    expect(await (await call("/cockpit/status", { cookie: await memberCookie(session, "Lisbeth") })).text()).toContain("venter på formanden");
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
     const plan = await (await call("/cockpit/moder?dato=2026-10-08&forslag=1", { cookie: session })).text();
     expect(plan).toContain('value="2026-10-08"');
@@ -275,7 +291,8 @@ describe("the board cockpit", () => {
     const { handleCockpitRequest: handle } = await import("./handler.js");
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const session = await login();
-    const ask = (body: unknown, cookie = `${session}; hjerterum_cockpit_who=Lisbeth`) => handle(new Request(`${ORIGIN}/cockpit/saga`, { method: "POST",
+    const lisbethCookie = await memberCookie(session, "Lisbeth");
+    const ask = (body: unknown, cookie = lisbethCookie) => handle(new Request(`${ORIGIN}/cockpit/saga`, { method: "POST",
       headers: { origin: ORIGIN, cookie, "content-type": "application/json" }, body: JSON.stringify(body) }), env, deps(ai.fetcher, NOW));
     await db.prepare(`INSERT INTO members (clerk_user_id, stripe_customer_id, tier, interval, status, full_name, email, created_at_ms, updated_at_ms)
       VALUES ('u1', 'c1', 'standard', 'month', 'active', 'Hemmelig Hansen', 'hemmelig@example.com', 1, 1)`).run();
@@ -319,7 +336,7 @@ describe("the board cockpit", () => {
       ? '{"total_accounts":452,"with_membership":"390","paying":181,"free":186,"past_due":12,"pending_cancellation":0,"cancelled":6,"annual_revenue_kr":"361.200","plans":[{"name":"Standard","count":118,"share":30.3}]}' : "Svar."; } });
     const { handleCockpitRequest: handle } = await import("./handler.js");
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
-    const session = await login(), cookie = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const session = await login(), cookie = await memberCookie(session, "Lisbeth");
     const home = await (await call("/cockpit/", { cookie })).text();
     expect(home).toContain("<h2>Medlemmer</h2>");
     expect(home).toContain("169");
@@ -358,7 +375,7 @@ describe("the board cockpit", () => {
       ? JSON.stringify({ items: [{ id: rent, enquiry: true, kind: "Lokaleleje", summary: "Maria Hansen vil leje salen til yoga i november" }, { id: news, enquiry: false }] }) : "Svar."; } });
     const { handleCockpitRequest: handle } = await import("./handler.js");
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
-    const cookie = `${await login()}; hjerterum_cockpit_who=Lisbeth`;
+    const cookie = await memberCookie(await login(), "Lisbeth");
     const go = (path: string, init: RequestInit = {}) => handle(new Request(`${ORIGIN}/cockpit${path}`, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(ai.fetcher, NOW));
     // Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks" - the old address leads there.
     expect((await go("/foresporgsler")).headers.get("location")).toBe("/cockpit/posthus");
@@ -392,7 +409,7 @@ describe("the board cockpit", () => {
   it("gives Matrix the chair's open items and checks one off when Matrix says it is done", async () => {
     const { db, env, call, form, login } = await setup();
     const { handleSagaRequest } = await import("../saga/handler.js");
-    const cookie = `${await login()}; hjerterum_cockpit_who=Gitta`;
+    const cookie = await memberCookie(await login(), "Gitta");
     await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Ring til udlejeren", due: "", owner: "Jacob Hauge" }) });
     await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Ryd op i køkkenet", due: "", owner: "Alle" }) });
     await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Gittas egen", due: "", owner: "Gitta" }) });
@@ -408,7 +425,7 @@ describe("the board cockpit", () => {
     expect(await (await api("chair-tasks/done", { method: "POST", body: JSON.stringify({ key }) })).json()).toEqual({ done: false });
     expect((await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/chair-tasks"), env, deps(fakeServices().fetcher, NOW))).status).toBe(401);
     // In the cockpit it is now among the chair's done items.
-    const page = await (await call("/cockpit/opgaver", { cookie: `${await login()}; hjerterum_cockpit_who=Jacob Hauge` })).text();
+    const page = await (await call("/cockpit/opgaver", { cookie: await memberCookie(await login(), "Jacob Hauge") })).text();
     expect(page.split('class="done-list"')[0]).not.toContain("Ring til udlejeren");
     expect(page).toContain("Klaret (1)");
     // Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet".
@@ -422,18 +439,18 @@ describe("the board cockpit", () => {
     const { db, env, services, call, form, login } = await setup();
     await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms)
       VALUES ('telegram', 'gf', 'm.m4a', 'approved', '2026-10-01', ?, 1, 1)`).bind("# Referat\n## Opgaver\n- Lisbeth - Dirigent for generalforsamlingen - 14. oktober\n- Gitta - Laver skabelon til nyhedsbrev").run();
-    const session = await login(), lisbeth = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const session = await login(), lisbeth = await memberCookie(session, "Lisbeth");
     const { taskKey, approvedMinutes, minutesTasks } = await import("./data.js");
     const [minutes] = await approvedMinutes(db);
     const key = taskKey(minutesTasks(minutes!).find(t => t.who === "Lisbeth")!);
     await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: lisbeth, body: form({ kind: "opgave", id: key, done: "1" }) });
-    const today = await (await call("/cockpit/opgaver", { cookie: `${session}; hjerterum_cockpit_who=Gitta` })).text();
+    const today = await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Gitta") })).text();
     const board = today.slice(today.indexOf("Hvad bevæger sig"));
     expect(board).toMatch(/class="is-done">[\s\S]*?✓<\/span> Dirigent for generalforsamlingen<span class="when">· klaret 1\. okt\.<\/span>/);
     expect(board).not.toContain("Arkiv (");
     for (const red of ["#c0265e", "#dc2626", "#e11d48"]) expect(today).not.toContain(red);
     const { handleCockpitRequest } = await import("./handler.js");
-    const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: `${session}; hjerterum_cockpit_who=Gitta` } }), env, deps(services.fetcher, NOW + 6 * 86_400_000))).text();
+    const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: await memberCookie(session, "Gitta") } }), env, deps(services.fetcher, NOW + 6 * 86_400_000))).text();
     const laterBoard = later.slice(later.indexOf("Hvad bevæger sig"));
     expect(laterBoard).toContain("Arkiv (1)");
     expect(laterBoard.split("Arkiv (1)")[0]).not.toContain("Dirigent for generalforsamlingen");
@@ -495,7 +512,7 @@ describe("each member's task list", () => {
   it("checks off the minutes' tasks, takes your own items and items written to another member", async () => {
     const { db, call, form, login } = await setup();
     const session = await login();
-    const as = (name: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(name)}`;
+    const as = await memberCookies(session);
     const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Lisbeth - Book lokale - ingen frist aftalt" }, NOW);
     await decideMinutes(db, minutesId, "approved", NOW);
@@ -551,7 +568,7 @@ describe("each member's task list", () => {
 
   it("calls Saga's waiting text \"Saga tænker\"", async () => {
     const { call, login } = await setup();
-    const page = await (await call("/cockpit/", { cookie: `${await login()}; hjerterum_cockpit_who=Gitta` })).text();
+    const page = await (await call("/cockpit/", { cookie: await memberCookie(await login(), "Gitta") })).text();
     expect(page).toContain("Saga tænker …");
     expect(page).not.toContain("Saga læser med");
   });

@@ -3,7 +3,7 @@ import { handleCockpitRequest } from "./handler.js";
 import { outcome } from "./votes.js";
 import { saveMeeting } from "./data.js";
 import { saveBoardMessage } from "../saga/store.js";
-import { BOARD, deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
 // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\". Her er ideen: Man kan komme med et
 // forslag, og så kan bestyrelsesmedlemmerne digitalt stemme for det. Ved flertal er forslaget vedtaget. Når et forslag er
@@ -35,7 +35,7 @@ describe("digital votes in the board", () => {
       ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const as = (who: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}`;
+    const as = await memberCookies(session);
 
     // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.
     expect(await (await call("/", { cookie: as("Lisbeth") })).text()).not.toContain('href="/afstemninger">Afstemninger</a>');
@@ -82,7 +82,7 @@ describe("digital votes in the board", () => {
       ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const as = (who: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}`;
+    const as = await memberCookies(session);
 
     await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi holder åbent hus i november", text: "", days: "7" }) });
     expect(await (await call("/beslutninger", { cookie: as("Gitta") })).text()).toContain("Jeg ønsker at drøfte dette på et møde");
