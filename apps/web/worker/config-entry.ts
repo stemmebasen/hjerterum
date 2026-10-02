@@ -3,6 +3,7 @@ import { getExternalEvents } from "./external-events.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
+import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
 
@@ -29,6 +30,12 @@ const app = appWorker as unknown as {
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
+
+    // Requested: the price calculator "i systemet - den skal også bruges som iframe" (beregner/handler.ts): /beregner and
+    // /ny-beregner-2026 on every address (before the cockpit, which otherwise takes every path on its own address).
+    if (isCalculatorRequest(url)) {
+      return handleCalculatorRequest(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+    }
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {

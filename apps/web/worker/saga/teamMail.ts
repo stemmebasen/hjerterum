@@ -23,6 +23,8 @@ export type ImapSession = {
   open(): Promise<{ uidValidity: string; uidNext: number }>;
   search(query: { since?: Date; uid?: string }): Promise<number[]>;
   fetch(uids: number[]): Promise<FetchedMail[]>;
+  /** Lays a whole message in the inbox, unread (prisberegneren's booking requests) - nothing is sent. */
+  append?(raw: Uint8Array): Promise<void>;
   close(): Promise<void>;
 };
 export type ImapOpener = (login: { host: string; user: string; password: string }) => Promise<ImapSession>;
@@ -46,6 +48,10 @@ export const imapflowOpener: ImapOpener = async login => {
         mails.push({ uid: message.uid, ...(message.envelope ? { envelope: message.envelope as NonNullable<FetchedMail["envelope"]> } : {}), ...(message.source ? { source: message.source } : {}) });
       }
       return mails;
+    },
+    async append(raw) {
+      const bytes = (globalThis as unknown as { Buffer: { from(bytes: Uint8Array): unknown } }).Buffer.from(raw);
+      await (client as unknown as { append(path: string, content: unknown, flags?: string[]): Promise<unknown> }).append("INBOX", bytes, []);
     },
     async close() { await client.logout().catch(() => client.close()); },
   };
@@ -172,4 +178,19 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
   }
   await recordMailWatch(db, status, deps.now());
   return { read: status.relayed, ...(status.error ? { error: status.error } : {}) };
+}
+
+/** Requested: "her og nu skal der bare lande en e-mail med alle oplysningerne i vores fællesmail team@holistisk.org". A
+ * booking request from prisberegneren is laid straight into team@'s own inbox (IMAP APPEND), unread, with the sender's
+ * address as Reply-To - nothing leaves Hjerterum and nothing is sent from team@. Saga's next read sees it like any mail. */
+export async function deliverToTeamInbox(env: SagaEnv, db: D1Database, raw: Uint8Array, opener: ImapOpener = imapflowOpener): Promise<{ address: string }> {
+  const account = await teamMailAccount(db);
+  if (!account) throw new Error("team_mail_not_connected");
+  const password = await openPassword(env, account.password_sealed);
+  const session = await opener({ host: account.imap_host, user: account.address, password }).catch(error => { throw loginError(error); });
+  try {
+    if (!session.append) throw new Error("mail_append_unavailable");
+    await session.append(raw);
+  } finally { await session.close().catch(() => undefined); }
+  return { address: account.address };
 }
