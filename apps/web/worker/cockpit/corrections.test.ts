@@ -107,6 +107,16 @@ describe("corrections to one point of the minutes", () => {
     expect(page).not.toContain("Saga spørger dig:");
     expect(page).toContain("Rettet efter Jacob Hauges rettelse: Jacob står for opsætningen.");
 
+    // Saga asks once: after an answer, a second question is not shown - the correction is marked as not made.
+    reply = JSON.stringify({ action: "ask", question: "Første spørgsmål?" });
+    await call(`/cockpit/referat/${id}/punkt/1`, { method: "POST", headers, body: form({ correction: "Det er forkert" }) });
+    const asked = (await db.prepare("SELECT id FROM board_minutes_corrections WHERE status = 'question'").first<{ id: number }>())!;
+    reply = JSON.stringify({ action: "ask", question: "Andet spørgsmål?" });
+    await call(`/cockpit/referat/${id}/rettelse/${asked.id}/svar`, { method: "POST", headers, body: form({ answer: "Check-in var kort" }) });
+    page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
+    expect(page).not.toContain("Andet spørgsmål?");
+    expect(page).toContain("Saga kunne ikke rette punktet efter Jacob Hauges rettelse");
+
     // Questions left over from before the fix (as on staging) close when the page is opened.
     await db.prepare("INSERT INTO board_minutes_corrections (minutes_id, point, member, correction, status, question, created_at_ms, updated_at_ms) VALUES (?, 2, 'Jacob Hauge', 'gammel', 'question', 'Gammelt spørgsmål?', ?, ?)").bind(id, NOW - 60_000, NOW - 60_000).run();
     page = await (await call(`/cockpit/referat/${id}`, { headers })).text();

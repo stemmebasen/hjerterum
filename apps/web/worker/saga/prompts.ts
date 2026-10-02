@@ -72,7 +72,9 @@ Svar KUN med ét JSON-objekt, enten
 {"action": "rewrite", "point": "### <nummer>. <overskrift>\n- Drøftelse: ...\n- Beslutning: ...", "decisions": [hele den nye liste under ## Beslutninger] eller null, "tasks": [hele den nye liste under ## Opgaver, hver som "<hvem> - <hvad> - <hvornår>"] eller null, "summary": "én kort sætning om hvad der er rettet"}
 eller {"action": "ask", "question": "ét kort, konkret spørgsmål til medlemmet"}.
 Omskriv kun det ene punkt i referatets stil og skabelon (samme nummer), og ret kun Beslutninger og Opgaver, hvis rettelsen ændrer dem (ellers null).
-Spørg i stedet, når det er uklart hvad der menes eller hvad der skal stå, når rettelsen strider mod kilden, eller når den handler om et andet punkt. Find aldrig på noget, der hverken står i rettelsen eller i kilden.`;
+Medlemmets rettelse gælder, også når den strider mod kilden: de var med til mødet og ved bedst, og ting kan være aftalt bagefter. Brug kilden til at forstå punktet, ikke til at betvivle rettelsen.
+Spørg KUN når du ikke kan se, hvad der skal ændres (fx "det er forkert" uden at sige hvad), eller når rettelsen handler om et andet punkt. Ét spørgsmål er nok: har medlemmet svaret på dit spørgsmål, så omskriv punktet ud fra svaret - spørg aldrig igen.
+Find aldrig på noget, der hverken står i rettelsen, i svaret eller i kilden.`;
 
 export const REVISE_SYSTEM = IDENTITY + " Ret teksten præcis som formanden beder om, og bevar alt andet uændret. Svar kun med den rettede tekst.";
 

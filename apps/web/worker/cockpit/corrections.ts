@@ -125,6 +125,12 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
     await db.prepare("UPDATE board_minutes_corrections SET status = ?, updated_at_ms = ? WHERE id = ?").bind(final ? "failed" : "pending", now, id).run();
     return final ? "failed" : "pending";
   }
+  // Requested: "Undgår vi at det gøres så kompliceret fremover?" - one question at most: once the member
+  // has answered, Saga rewrites; a second question becomes a note that she could not.
+  if (answer.action === "ask" && row.answer) {
+    await db.prepare("UPDATE board_minutes_corrections SET status = 'failed', updated_at_ms = ? WHERE id = ?").bind(now, id).run();
+    return "failed";
+  }
   if (answer.action === "ask") {
     await db.prepare("UPDATE board_minutes_corrections SET status = 'question', question = ?, answer = NULL, updated_at_ms = ? WHERE id = ?").bind(answer.question, now, id).run();
     return "question";
