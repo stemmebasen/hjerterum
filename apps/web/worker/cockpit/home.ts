@@ -28,6 +28,8 @@ export type HomeData = {
   boardNow?: { text: string; at: number } | null;
   /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." */
   votes?: Proposal[];
+  /** Requested: "Douglas taler engelsk" - Saga's own texts in English when she has translated them (cockpit/translate.ts). */
+  tr?: ((danish: string) => string) | undefined;
 };
 
 export const HOME_STYLE = `
@@ -67,10 +69,13 @@ const SOURCE: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra
 const FORMALITY = /^(?:godkendelse af (?:dagsorden|referat)|(?:dagsorden(?:en)?|referat(?:et)?)(?: fra [^.]*)? (?:godkendes|godkendt|blev godkendt|er godkendt|vedtages|vedtaget))/i;
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
 
+/** The last meeting's points as the front page shows them: no formalities, at most three, each a sentence. */
+export const frontPagePoints = (decisions: string[]) => decisions.filter(d => !FORMALITY.test(d)).slice(0, 3).map(d => sentence(d));
+
 const NOW_TIME = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", minute: "2-digit" });
 
 /** Saga's summary in a sentence or two: its first lines, without headings. */
-function lead(summary: string | null): string {
+export function lead(summary: string | null): string {
   // Only the running text: the bullet points are shown under "Bestyrelsen lige nu".
   const lines = (summary ?? "").split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#/.test(l) && !/^temperatur:/i.test(l) && !/^[-*]\s+/.test(l));
   const text = lines.slice(0, 2).join(" ");
@@ -89,7 +94,8 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
   const open = data.todos.length + data.tasks.length + (data.isChair ? data.forChair.length : 0) + (data.votes?.length ?? 0);
-  const summary = lead(data.summary);
+  const tr = data.tr ?? ((text: string) => text);
+  const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</section>`;
 
@@ -131,7 +137,7 @@ ${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 
   const important = l ? l.decisions.filter(d => !FORMALITY.test(d)) : [];
   const unsigned = l ? data.toSign.some(m2 => m2.id === l.id) : false;
   const minutes = l ? `<article class="panel"><header><h2>Vigtigste punkter fra sidste møde</h2><p>${esc(capital(longDay(l.date)))}${unsigned ? ` · <a href="${base}/referat/${l.id}">Husk at godkende referatet</a>` : ""}</p></header>
-${important.length ? `<ul class="items hearts">${important.slice(0, 3).map(d => `<li>${esc(sentence(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
+${important.length ? `<ul class="items hearts">${frontPagePoints(important).map(d => `<li>${esc(tr(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
 <a class="more" href="${base}/referat/${l.id}">${unsigned ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
 
@@ -141,7 +147,7 @@ ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.appro
   // waiting topics from the six-hour picture (they went stale: a meeting "i dag" the day after, a case already done).
   const now = data.boardNow?.text ? data.boardNow : null;
   const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>${now ? `Saga · ${esc(NOW_TIME.format(now.at))}` : "Sagas korte resumé af, hvad der rører sig."}</p></header>
-${now ? `<p class="now">${esc(now.text)}</p>` : `<p class="empty">Saga skriver det første korte resumé inden for en time (på hverdage).</p>`}
+${now ? `<p class="now">${esc(tr(now.text))}</p>` : `<p class="empty">Saga skriver det første korte resumé inden for en time (på hverdage).</p>`}
 <a class="more" href="${base}/status">Mere i Status →</a></article>`;
 
   const events = `<article class="panel"><header><h2>I huset</h2><p>De næste arrangementer i Hjerterum.</p></header>

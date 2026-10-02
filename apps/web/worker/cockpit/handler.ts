@@ -22,10 +22,12 @@ import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEven
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
-import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
+import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { markOwnerDone, serviceStatus } from "../saga/store.js";
+import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
+import { frontPageTexts, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -52,7 +54,16 @@ const redirect = (location: string, cookies: string[] = []) => {
   return new Response(null, { status: 303, headers });
 };
 
+/** Requested: "Douglas taler engelsk" - "Ja byg det sådan". A member who reads in English gets every page translated
+ * (cockpit/i18n.ts); the route below says which language the member has chosen. */
 export async function handleCockpitRequest(request: Request, env: SagaEnv, deps: SagaDeps): Promise<Response> {
+  const state: { lang: Lang } = { lang: "da" };
+  const response = await route(request, env, deps, state);
+  if (state.lang !== "en" || !(response.headers.get("content-type") ?? "").startsWith("text/html")) return response;
+  return new Response(translateHtml(await response.text()), { status: response.status, headers: response.headers });
+}
+
+async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { lang: Lang }): Promise<Response> {
   const url = new URL(request.url);
   const base = isCockpitHost(url.hostname) ? "" : "/cockpit";
   // An old /cockpit/… link on the cockpit's own address goes to the same page without the prefix.
@@ -110,6 +121,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // A personal login is that member, and stays so; with the shared password you say who you are.
   const who = personal ?? (saved && (!members.names.length || members.names.includes(saved)) ? saved : null);
   const today = copenhagenDay(now);
+  state.lang = await memberLang(db, who);
 
   if (path === "/hvem") {
     if (personal) return redirect(`${base}/`);
@@ -134,7 +146,9 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const open = who ? await openFor(db, who, allTasks(minutes, picture)) : { tasks: [], todos: [] };
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
-    return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
+    // Saga's own texts in English, when she has translated them.
+    const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
+    return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -250,16 +264,39 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
     if (!minutes) return html(notFound(base, who), 404);
     await closeSettled(db, minutes.id);
-    const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse." : "";
+    const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse."
+      : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt." : "";
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
+    // Requested: "Douglas taler engelsk" - the minutes stay Danish as written; "Read in English" has Saga translate them once.
+    const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
+    if (english) return html(layout(base, `Minutes ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
+    const readEnglish = state.lang === "en" && minutes.draft_markdown ? `<form method="post" action="${base}/referat/${minutes.id}/engelsk" class="m-sign" style="margin-bottom:12px" onsubmit="const b=this.querySelector('button');b.disabled=true;b.textContent='Saga is translating … (up to a minute)'"><button>Read in English</button></form>` : "";
     const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;
-    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id) })}</main>`,
+    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${readEnglish}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id) })}</main>`,
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
 
+  const englishPath = /^\/referat\/(\d+)\/engelsk$/.exec(path);
+  if (englishPath && request.method === "POST") {
+    const minutes = await approvedMinutesById(db, Number(englishPath[1]));
+    if (!minutes?.draft_markdown) return html(notFound(base, who), 404);
+    const ok = await translateMinutes(env, deps, db, minutes.draft_markdown).then(() => true).catch(() => false);
+    return redirect(`${base}/referat/${minutes.id}${ok ? "" : "?oversat=fejl"}`);
+  }
+
+  // Requested: "Der bør vær en engelsk oversættelses knap - Douglas taler engelsk" - "Ja byg det sådan": chosen once, per member.
+  if (path === "/sprog" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const lang: Lang = String((await request.formData().catch(() => null))?.get("lang") ?? "") === "en" ? "en" : "da";
+    await setMemberLang(db, who, lang, now);
+    // Saga's front-page texts right away, when the member asks for English.
+    if (lang === "en") await translateTexts(env, deps, db, await frontPageTexts(db, now)).catch(error => console.warn("cockpit_translate_failed", error instanceof Error ? error.message : error));
+    return redirect(`${base}/profil`);
+  }
+
   const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket") }));
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket") }));
   // The chair (logged in with a personal link) closes a member's access on every device.
   if (path === "/adgang" && request.method === "POST") {
     const member = String((await request.formData().catch(() => null))?.get("member") ?? "");
@@ -499,7 +536,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);
     if (!env.AI_API_KEY || !env.AI_MODEL) return answer({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
     if (await questionsToday(db, now) >= DAILY_QUESTIONS) return answer({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
-    try { return answer({ html: await askSaga(env, deps, db, who, input, base) }); }
+    try { return answer({ html: await askSaga(env, deps, db, who, input, base, state.lang) }); }
     catch (error) {
       console.warn("cockpit_ask_failed", error instanceof Error ? error.message : error);
       return answer({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);

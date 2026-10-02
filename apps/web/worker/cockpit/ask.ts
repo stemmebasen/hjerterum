@@ -188,9 +188,9 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
 }
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
-export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = ""): Promise<string> {
+export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = "", lang: "da" | "en" = "da"): Promise<string> {
   const mine = who ? await ownTasks(db, who, deps.now()) : "";
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}: ${input.question}` }];
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser cockpittet på engelsk - svar på engelsk)" : ""}: ${input.question}` }];
   const now = deps.now();
   const answer = await applyMeeting(db, await complete(env, deps, messages), who, now, base);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
