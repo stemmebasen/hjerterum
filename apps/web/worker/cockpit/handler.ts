@@ -13,7 +13,7 @@ import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
-import { addCorrection, answerQuestion, corrections, handleCorrection } from "./corrections.js";
+import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
 import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
@@ -188,6 +188,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (minutesPath && request.method === "GET") {
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
     if (!minutes) return html(notFound(base, who), 404);
+    await closeSettled(db, minutes.id);
     const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse." : "";
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";

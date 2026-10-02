@@ -62,15 +62,18 @@ ${!data.who ? `<p><a href="${base}/hvem">Vælg hvem du er</a> for at godkende.</
 function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: { who: string | null; corrections: Correction[] } | undefined): string {
   if (!fix) return "";
   const action = `${base}/referat/${minutes.id}`;
-  const own = (fix.corrections ?? []).filter(c => c.point === point).map(c => {
+  // One open question per member and point: the newest; while Saga works on a correction, none.
+  const here = (fix.corrections ?? []).filter(c => c.point === point);
+  const shown = here.filter(c => c.status !== "question" && c.status !== "pending" || here.filter(o => o.member === c.member && (o.status === "question" || o.status === "pending")).every(o => o.id <= c.id));
+  const own = shown.map(c => {
     if (c.status === "applied") return `<p class="m-fixnote">Rettet efter ${esc(c.member)}s rettelse${c.note ? `: ${esc(c.note)}` : ""}</p>`;
     if (c.status === "pending") return `<p class="m-fixnote">Saga er ved at rette punktet efter ${esc(c.member)}s rettelse …</p>`;
     if (c.status === "failed") return `<p class="m-fixnote warn">Saga kunne ikke rette punktet efter ${esc(c.member)}s rettelse. Skriv den gerne lidt mere præcist.</p>`;
     return c.member === fix.who ? `<div class="m-ask"><p><strong>Saga spørger dig:</strong> ${esc(c.question ?? "")}</p>
-<form class="stack" method="post" action="${action}/rettelse/${c.id}/svar"><textarea name="answer" required maxlength="2000" rows="2" placeholder="Dit svar til Saga"></textarea><button>Svar Saga</button></form></div>`
+<form class="stack" data-saga method="post" action="${action}/rettelse/${c.id}/svar"><textarea name="answer" required maxlength="2000" rows="2" placeholder="Dit svar til Saga"></textarea><button>Svar Saga</button></form></div>`
       : `<p class="m-fixnote">Saga har spurgt ${esc(c.member)} om rettelsen.</p>`;
   }).join("");
-  const form = fix.who ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" method="post" action="${action}/punkt/${point}">
+  const form = fix.who ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" data-saga method="post" action="${action}/punkt/${point}">
 <textarea name="correction" required maxlength="2000" rows="3" placeholder="Hvad skal rettes i punktet? Saga omskriver det - eller spørger dig, hvis hun er i tvivl."></textarea><button>Send rettelsen til Saga</button></form></details>` : "";
   return own || form ? `<div class="m-fix">${own}${form}</div>` : "";
 }
@@ -97,10 +100,22 @@ ${facts.length ? `<dl class="m-facts">${facts.map(([label, value]) => `<div><dt>
 ${body}
 ${minutes.source === "document" ? `${minutes.transcript ? `<details class="m-original"><summary>Originalteksten fra referatdokumentet</summary><div>${esc(minutes.transcript)}</div></details>` : ""}
 <footer class="m-foot">Bestyrelsens referat, overført fra referatdokumentet og stillet op af Saga${minutes.drive_document_url ? ` · <a href="${esc(minutes.drive_document_url)}" target="_blank" rel="noopener">Åbn dokumentet</a>` : ""}</footer>`
-    : `<footer class="m-foot">Lagt op ${esc(DECIDED.format(minutes.created_at_ms))} · Skrevet af Saga ud fra mødeoptagelsen</footer>`}</article>`;
+    : `<footer class="m-foot">Lagt op ${esc(DECIDED.format(minutes.created_at_ms))} · Skrevet af Saga ud fra mødeoptagelsen</footer>`}</article>${SAGA_THINKING}`;
 }
 
+/** Reported: "Det er svært at vide, når Saga er i gang med at tænke" - and a correction sent four times
+ * while she worked. A correction or an answer is sent once; the button says that Saga is thinking. */
+const SAGA_THINKING = `<script>document.addEventListener("submit",e=>{const f=e.target;if(!(f instanceof HTMLFormElement)||!f.hasAttribute("data-saga"))return;
+if(f.dataset.sent){e.preventDefault();return}f.dataset.sent="1";const b=f.querySelector("button");
+if(b){b.classList.add("m-thinking");b.setAttribute("aria-busy","true");setTimeout(()=>{b.disabled=true},0);b.innerHTML='<span class="m-dots" aria-hidden="true"><i></i><i></i><i></i></span>Saga tænker …'}
+const n=document.createElement("p");n.className="m-fixnote";n.setAttribute("role","status");n.textContent="Saga læser det og retter punktet. Det tager typisk 10-30 sekunder - siden opdaterer sig selv.";f.append(n)});</script>`;
+
 export const MINUTES_STYLE = `
+.m-thinking{display:inline-flex;align-items:center;justify-content:center;gap:10px;opacity:.85;cursor:progress}
+.m-dots{display:inline-flex;gap:4px}.m-dots i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:m-dot 1.2s infinite ease-in-out}
+.m-dots i:nth-child(2){animation-delay:.15s}.m-dots i:nth-child(3){animation-delay:.3s}
+@keyframes m-dot{0%,80%,100%{opacity:.25;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.m-dots i{animation:none;opacity:.7}}
 .m-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px}.m-tools button{padding:6px 12px;font-size:13px}
 .minutes{background:var(--card);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);box-shadow:var(--shadow);border-radius:var(--radius);padding:40px 48px;max-width:820px;width:100%;margin:0 auto;font-size:15.5px;line-height:1.6}
 .m-head{border-bottom:2px solid var(--accent);padding-bottom:18px;margin-bottom:8px}.m-org{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
