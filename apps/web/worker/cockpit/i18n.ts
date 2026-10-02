@@ -99,7 +99,7 @@ export const EN: Record<string, string> = {
   "Referater du mangler at godkende": "Minutes you have yet to approve",
   // Status
   "Til dig som formand": "For you as chair", "Skriv en opgave": "Write a task", "Lige nu": "Right now", "Det vigtigste": "The most important", "Saga har ikke lavet et overblik endnu.": "Saga has not made an overview yet.",
-  "Venter på svar": "Awaiting answer", "Vidste du?": "Did you know?", "Se arrangementerne →": "See the events →", "team@ er ikke forbundet. Formanden forbinder den under Posthus.": "team@ is not connected. The chair connects it under Mail.",
+  "Venter på svar": "Awaiting answer", "Vidste du": "Did you know", "Se arrangementerne →": "See the events →", "team@ er ikke forbundet. Formanden forbinder den under Posthus.": "team@ is not connected. The chair connects it under Mail.",
   "team@ afviste adgangskoden. Formanden forbinder den igen under Posthus.": "team@ refused the password. The chair connects it again under Mail.", "team@ er ikke blevet tjekket endnu.": "team@ has not been checked yet.",
   "Seneste tjek af team@ blev ikke færdigt i tide.": "The last check of team@ did not finish in time.", "Mailserveren svarede ikke ved seneste tjek af team@.": "The mail server did not answer at the last check of team@.", "Marker dem som klaret under Opgaver.": "Mark them as done under Tasks.", "Kommende datoer": "Coming dates", "Se hele status →": "See the whole status →", "Seneste referat": "Latest minutes", "Sagas overblik": "Saga's overview",
   "Ugeopsummering": "Weekly summary", "Seneste referater": "Latest minutes",
