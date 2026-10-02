@@ -115,7 +115,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.7.4";
+export const COCKPIT_VERSION = "1.7.5";
 export const COCKPIT_RELEASED = "2026-10-02";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
@@ -144,8 +144,17 @@ ${options.section === undefined ? "" : `<header class="bar"><div class="top"><a 
 ${body}${options.section === undefined ? "" : sagaChat(base, options.who ?? null)}</body></html>`;
 }
 
+/** Requested: "Der bør vær en engelsk oversættelses knap - Douglas taler engelsk" - "Ja byg det sådan": the member's language, chosen once. */
+function languageCard(base: string, lang: "da" | "en"): string {
+  const choice = (value: "da" | "en", label: string) => `<button name="lang" value="${value}" class="${lang === value ? "" : "ghost"}" aria-pressed="${lang === value}" translate="no">${label}</button>`;
+  return `<div class="card"><h2>Sprog / Language</h2><p class="small muted" translate="no">${lang === "en"
+    ? "Menus, buttons and Saga's short texts are in English, and Saga answers you in English. Minutes and decisions stay in Danish as written - each minutes has a Read in English button."
+    : "Vælg English, så er menuer, knapper og Sagas korte tekster på engelsk, og Saga svarer på engelsk. Referater og beslutninger forbliver på dansk som originalen."}</p>
+<form method="post" action="${base}/sprog" style="display:flex;gap:8px;margin:0">${choice("da", "Dansk")}${choice("en", "English")}</form></div>`;
+}
+
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
-export function morePage(base: string, who: string | null, options: { locked?: boolean; members?: string[]; done?: string | null } = {}): string {
+export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null } = {}): string {
   // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
   const me = options.locked ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who ?? "")}</span>`
     : `<a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>`;
@@ -154,7 +163,7 @@ ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>`
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
 <a href="${base}/afstemninger">Afstemninger</a><a href="${base}/foresporgsler">Forespørgsler</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${access}</main>`, { section: "/profil", who });
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
 const SAGA_STYLE = `
