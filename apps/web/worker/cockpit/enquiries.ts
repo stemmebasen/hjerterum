@@ -143,9 +143,9 @@ function mailboxCard(base: string, box: { address: string | null; by: string | n
   // could say they are the chair. Then the card says how, instead of hiding.
   const personal = `<p class="small muted">${box.loginLink ? `Log ind med dit personlige link fra Saga for at ${box.address ? "ændre forbindelsen" : "forbinde team@"}: <a href="${esc(box.loginLink)}">åbn Saga i Telegram</a> og tryk på linket, hun sender.` : "Log ind med dit personlige link fra Saga for at ændre forbindelsen."}</p>`;
   if (box.canChange === false) return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
-${box.address ? `<p>${esc(box.address)} er forbundet. Saga læser indbakken hvert femte minut.</p>` : `<p>team@ er ikke forbundet endnu, så Saga kan ikke læse den.</p>`}${personal}</div>`;
+${box.address ? `<p>${esc(box.address)} er forbundet. Saga læser indbakken og undermapperne hvert femte minut (ikke Sendt, Kladder, Papirkurv og Spam).</p>` : `<p>team@ er ikke forbundet endnu, så Saga kan ikke læse den.</p>`}${personal}</div>`;
   if (box.address) return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
-<p>${esc(box.address)} er forbundet${box.by ? ` af ${esc(box.by)}` : ""}${box.at ? ` ${esc(new Date(box.at).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "Europe/Copenhagen" }))}` : ""}. Saga læser indbakken hvert femte minut. Hun læser kun: intet markeres, flyttes eller sendes.</p>
+<p>${esc(box.address)} er forbundet${box.by ? ` af ${esc(box.by)}` : ""}${box.at ? ` ${esc(new Date(box.at).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "Europe/Copenhagen" }))}` : ""}. Saga læser indbakken og undermapperne hvert femte minut (ikke Sendt, Kladder, Papirkurv og Spam). Hun læser kun: intet markeres, flyttes eller sendes.</p>
 <form method="post" action="${base}/posthus/afbryd" style="margin:0"><button class="ghost">Afbryd forbindelsen</button></form></div>`;
   return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
 <p class="small muted">Forbind Hjerterums fælles mail, så Saga kan læse den. Adgangskoden gemmes krypteret i Hjerterum og vises aldrig igen. Saga læser kun - hun sender aldrig noget fra team@.</p>
