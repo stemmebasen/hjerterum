@@ -112,12 +112,11 @@ export async function draftBoardReply(env: SagaEnv, deps: SagaDeps, question: st
 }
 
 export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, question: string): Promise<void> {
-  // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, minutes, the
-  // group), and for the chair also team@'s subjects.
+  // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, all the minutes,
+  // the group and team@'s mail).
   const db = requireDb(env);
-  const mail = mailContext(await recentMail(db, deps.now() - 14 * DAY, 60));
   const answer = await complete(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
-    { role: "user", content: `${await boardKnowledge(env, deps, db, question)}${mail ? `\n\n${mail}` : ""}\n\nJACOB SPØRGER:\n${question}` }]);
+    { role: "user", content: `${await boardKnowledge(env, deps, db, question)}\n\nJACOB SPØRGER:\n${question}` }]);
   await telegramClient(env, deps).sendMessage(owner(env), answer);
 }
 
