@@ -57,7 +57,7 @@ async function sources(env: SagaEnv, db: D1Database, nowMs: number): Promise<Sou
     `MAILS TIL TEAM@ (seneste 2 døgn):\n${mails.map(m => `[${when(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.enquiry_summary ? ` (forespørgsel: ${m.enquiry_summary})` : ""}\n  ${m.preview.replace(/\s+/g, " ").slice(0, 300)}`).join("\n") || "(ingen)"}`,
     minutes.length ? `MØDE INDEN FOR 48 TIMER - REFERAT:\n${minutes.map(m => `--- ${m.meeting_date} (${m.status === "approved" ? "godkendt" : "udkast"}) ---\n${m.draft_markdown.slice(0, 12_000)}`).join("\n\n")}`
       : meetings.length ? `MØDE INDEN FOR 48 TIMER (referatet er ikke klar endnu) - DAGSORDEN:\n${meetings.map(m => `--- ${m.meeting_date} ---\n${m.agenda || "(ingen dagsorden)"}`).join("\n")}` : "",
-    `KLARET (afkrydset i cockpittet eller Matrix de sidste 14 dage):\n${done.map(d => `- [${when(d.at)}] ${d.text.slice(0, 200)}`).join("\n") || "(intet)"}`
+    `KLARET (afkrydset de sidste 14 dage):\n${done.map(d => `- [${when(d.at)}] ${d.text.slice(0, 200)}`).join("\n") || "(intet)"}`
   ];
   const newest = Math.max(0, ...people.map(m => m.sent_at_ms), ...mails.map(m => m.received_at_ms), ...minutes.map(m => m.updated_at_ms), ...meetings.map(m => m.updated_at_ms), ...done.map(d => d.at));
   return { text: parts.filter(Boolean).join("\n\n"), newest };

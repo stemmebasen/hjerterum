@@ -115,7 +115,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.8.0";
+export const COCKPIT_VERSION = "1.8.1";
 export const COCKPIT_RELEASED = "2026-10-02";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
@@ -371,7 +371,7 @@ export function statusPage(base: string, data: OverviewData): string {
 ${data.summary ? `<div class="doc">${md(data.summary)}</div>` : `<p class="muted">Saga har ikke lavet et overblik endnu.</p>`}
 ${data.at ? `<p class="small muted">Fra ${esc(clock(data.at))}</p>` : ""}</div>`;
   const forChair = data.isChair && data.forChair.length ? `<div class="card" id="formand"><h2>Til dig som formand</h2><ul class="plain">${data.forChair.map(f => `<li>${esc(f.text)}<div class="small muted">${esc(f.kind)} · ${esc(SOURCE[f.source] ?? f.source)}${f.from ? ` · ${esc(f.from)}` : ""}${f.since ? ` · ${esc(day(f.since))}` : ""}</div></li>`).join("")}</ul>
-<p class="small muted">Marker dem som klaret på din Hjerterum-side i Matrix.</p></div>` : "";
+<p class="small muted">Marker dem som klaret under Opgaver.</p></div>` : "";
   const mine = data.mine.length ? `<div class="card" id="opgaver"><h2>Dine opgaver</h2><ul class="plain">${data.mine.map(taskLine).join("")}</ul></div>` : "";
   const weekly = data.weekly ? `<div class="card"><h2>Ugeopsummering</h2><div class="doc">${md(data.weekly.text)}</div><p class="small muted">${esc(clock(data.weekly.created_at_ms))}</p></div>` : "";
   const recent = data.recent.length ? `<div class="card"><h2>Seneste referater</h2>${data.recent.map(r => `<h3><a href="${base}/referat/${r.id}">${esc(longDay(r.date))}</a></h3>
