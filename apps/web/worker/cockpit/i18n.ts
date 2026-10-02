@@ -99,7 +99,7 @@ export const EN: Record<string, string> = {
   "Referater du mangler at godkende": "Minutes you have yet to approve",
   // Status
   "Til dig som formand": "For you as chair", "Skriv en opgave": "Write a task", "Lige nu": "Right now", "Det vigtigste": "The most important", "Saga har ikke lavet et overblik endnu.": "Saga has not made an overview yet.",
-  "Venter på svar": "Awaiting answer", "team@ er ikke forbundet. Formanden forbinder den under Posthus.": "team@ is not connected. The chair connects it under Mail.",
+  "Venter på svar": "Awaiting answer", "Vidste du?": "Did you know?", "Se arrangementerne →": "See the events →", "team@ er ikke forbundet. Formanden forbinder den under Posthus.": "team@ is not connected. The chair connects it under Mail.",
   "team@ afviste adgangskoden. Formanden forbinder den igen under Posthus.": "team@ refused the password. The chair connects it again under Mail.", "team@ er ikke blevet tjekket endnu.": "team@ has not been checked yet.",
   "Seneste tjek af team@ blev ikke færdigt i tide.": "The last check of team@ did not finish in time.", "Mailserveren svarede ikke ved seneste tjek af team@.": "The mail server did not answer at the last check of team@.", "Marker dem som klaret under Opgaver.": "Mark them as done under Tasks.", "Kommende datoer": "Coming dates", "Se hele status →": "See the whole status →", "Seneste referat": "Latest minutes", "Sagas overblik": "Saga's overview",
   "Ugeopsummering": "Weekly summary", "Seneste referater": "Latest minutes",
@@ -181,6 +181,8 @@ const SHORT_DAYS: Record<string, string> = { man: "Mon", tir: "Tue", ons: "Wed",
 const month = (m: string) => { const i = MONTHS_DA.findIndex(x => x === m.toLowerCase() || x.slice(0, 3) === m.toLowerCase().slice(0, 3)); return i; };
 
 /** Known phrases inside longer lines, and Danish dates. */
+const MONTH_NAMES_EN: Record<string, string> = { januar: "January", februar: "February", marts: "March", april: "April", maj: "May", juni: "June", juli: "July", august: "August", september: "September", oktober: "October", november: "November", december: "December" };
+
 const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Hej (.+?) 🙂 Jeg er Saga\. Spørg mig f\.eks\. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab\.$/, (_, name) => `Hi ${name} 🙂 I'm Saga. Ask me e.g. about the statutes, decisions, matters, meetings, events and membership.`],
   [/^Hej 🙂 Jeg er Saga\. /, "Hi 🙂 I'm Saga. "],
@@ -211,7 +213,8 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Faste undervisere \((\d+)\) - deres events kræver ikke godkendelse$/, "Regular teachers ($1) - their events need no approval"],
   [/^(\d+) referat(?:er)?$/, "$1 minutes"], [/^i restance · (\d+) opsagt$/, "in arrears · $1 cancelled"], [/^i restance$/, "in arrears"], [/^Betaling stoppet$/, "Payment stopped"],
   [/^Opsagt$/, "Cancelled"], [/^Aktiv$/, "Active"], [/^(\d+) medlemmer$/, "$1 members"],
-  [/^Vidste du, at Hjerterum har afholdt over ([\d.]+) arrangementer, siden vi startede\?$/, (_, n) => `Did you know that Hjerterum has held more than ${n.replace(/\./g, ",")} events since we started?`],
+  [/^Hjerterum har afholdt over ([\d.]+) arrangementer, siden vi startede!$/, (_, n) => `Hjerterum has held more than ${n.replace(/\./g, ",")} events since we started!`],
+  [/^Det første i kalenderen var i (\S+) (\d{4}) - og huset er fyldt med liv hver uge\.$/, (_, m, y) => `The first in the calendar was in ${MONTH_NAMES_EN[m as string] ?? m} ${y} - and the house is full of life every week.`],
   [/^Ventet (under en time|\d+ (?:time|timer|dag|dage|uger))$/, (_, t) => `Waited ${t.replace("under en time", "under an hour").replace(/timer?$/, m => m === "time" ? "hour" : "hours").replace(/dage?$/, m => m === "dag" ? "day" : "days").replace("uger", "weeks")}`],
   [/^Vis alle (\d+) mails$/, "Show all $1 mails"], [/^Se mailen: /, "See the mail: "],
   [/^Møde (?=\d)/, "Meeting "], [/ · har referat$/, " · has minutes"], [/ · fast underviser$/, " · regular teacher"], [/^Fra (?=\d)/, "From "], [/^Skrevet af /, "Written by "],
