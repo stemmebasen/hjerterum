@@ -1,3 +1,4 @@
+import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { complete } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
@@ -363,6 +364,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
     const { stale, doc } = await overviewStale(env, deps, env.DB);
     if (stale) await draftOverview(env, deps, doc).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   }
+  // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
+  await scheduledEnquiryScan(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_enquiries_failed", error instanceof Error ? error.message : error));
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));

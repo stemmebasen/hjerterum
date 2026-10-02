@@ -12,6 +12,7 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
+import { enquiries, enquiriesPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
@@ -119,8 +120,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
   if (path === "/" && request.method === "GET") {
-    const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
-      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db)]);
+    const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
+      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -128,7 +129,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
@@ -249,6 +250,25 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
 
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
   // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
+  // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
+  if (path === "/foresporgsler" && request.method === "GET") {
+    const data = await enquiries(db, now);
+    const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
+    return html(enquiriesPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL) }));
+  }
+  if (path === "/foresporgsler/klaret" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id"));
+    if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
+    return redirect(`${base}/foresporgsler`);
+  }
+  if (path === "/foresporgsler/scan" && request.method === "POST") {
+    if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/foresporgsler`);
+    const found = await scanEnquiries(env, deps, db).catch(error => { console.warn("cockpit_enquiry_scan_failed", error instanceof Error ? error.message : error); return null; });
+    return redirect(`${base}/foresporgsler?${found === null ? "fejl=1" : `scannet=${found}`}`);
+  }
+
   // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?"
   if (path === "/medlemmer" && request.method === "GET") {
     const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
@@ -279,9 +299,9 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       const field = (name: string, max: number) => String(form?.get(name) ?? "").trim().slice(0, max);
       if (path === "/opgaver/ny") {
         const text = field("text", 300), due = field("due", 10), owner = field("owner", 60) || who;
-        if (!text || (members.names.length && !members.names.includes(owner) && owner !== who)) return redirect(`${base}/opgaver`);
+        if (!text || (members.names.length && !members.names.includes(owner) && owner !== who && owner !== "Alle")) return redirect(`${base}/opgaver`);
         await addTodo(db, { owner, text, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, createdBy: who }, now);
-        return redirect(`${base}/opgaver?${owner === who ? "tilfojet=1" : `til=${encodeURIComponent(owner)}`}`);
+        return redirect(`${base}/opgaver?${owner === who ? "tilfojet=1" : owner === "Alle" ? "alle=1" : `til=${encodeURIComponent(owner)}`}`);
       }
       if (path === "/opgaver/afkryds") {
         const done = field("done", 1) === "1", id = field("id", 400);
@@ -299,9 +319,9 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     if (path !== "/opgaver") return html(notFound(base, who), 404);
     const [{ picture }, minutes, checked, todos] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who)]);
     const sentTo = url.searchParams.get("til");
-    const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
+    const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
-    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: tasksByPerson(all) }));
+    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: all }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {

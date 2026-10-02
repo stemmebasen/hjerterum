@@ -19,12 +19,17 @@ export function markdownToHtml(markdown: string): string {
   return `<html><head><meta charset="utf-8"></head><body>${out.join("")}</body></html>`;
 }
 
-/** The "## <title>" section of a Markdown text, without its heading. */
+/** The "## <title>" section of a Markdown text, without its heading. Reported: the board's task list
+ * filled with "Drøftelse: …" lines - the point "### 3. Fordeling af opgaver" was taken for "## Opgaver"
+ * and ran on through every later point. A "## " heading wins over a point's "### ", and a section
+ * ends at the next heading of its own level or higher. */
 export function section(markdown: string, title: RegExp): string {
   const lines = markdown.split(/\r?\n/);
-  const start = lines.findIndex(line => /^#{1,3}\s+/.test(line) && title.test(line));
-  if (start < 0) return "";
-  const rest = lines.slice(start + 1);
-  const end = rest.findIndex(line => /^#{1,2}\s+/.test(line));
+  const level = (line: string) => /^(#{1,3})\s+/.exec(line)?.[1]?.length ?? 0;
+  const at = (n: number) => lines.findIndex(line => level(line) === n && title.test(line.replace(/^#+\s+/, "")));
+  const found = [2, 1, 3].map(n => ({ n, start: at(n) })).find(x => x.start >= 0);
+  if (!found) return "";
+  const rest = lines.slice(found.start + 1);
+  const end = rest.findIndex(line => level(line) > 0 && level(line) <= found.n);
   return (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
 }
