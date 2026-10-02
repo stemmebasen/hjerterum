@@ -341,7 +341,9 @@ describe("the board cockpit", () => {
     expect(home).toContain("<h2>Medlemmer</h2>");
     expect(home).toContain("169");
     expect(home).toContain("345.144 kr.");
-    expect(home).toContain("Betaling stoppet");
+    // "Betaling stoppet" is not relevant; every kind of membership is.
+    expect(home).not.toContain("Betaling stoppet");
+    for (const plan of ["Standard (222 kr./md.", "Reduceret pris", "Støtte", "Gratis medlemskab", "Reduced price, engelsk", "Generøst"]) expect(home).toContain(plan);
     const { boardKnowledge } = await import("./ask.js");
     expect(await boardKnowledge(env, deps(ai.fetcher, NOW), db, "Hvor mange betalende medlemmer har vi?")).toContain("169 betalende");
     const upload = new FormData();

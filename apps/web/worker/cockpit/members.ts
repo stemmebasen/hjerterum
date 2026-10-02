@@ -109,7 +109,7 @@ export const MEMBERS_STYLE = `
 .figures b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}.figures span{font-size:12.5px;color:var(--muted)}
 .delta{font-size:12px;font-weight:700;margin-left:6px;padding:1px 7px;border-radius:999px;vertical-align:middle}.delta.up{background:var(--tint);color:var(--accent)}.delta.down{background:var(--warn-soft);color:var(--warn)}
 .bars{list-style:none;margin:0;padding:0;display:grid;gap:9px}.bars li{display:grid;gap:4px;font-size:13.5px}.bars .lbl{display:flex;justify-content:space-between;gap:10px}
-.bars .lbl span:last-child{color:var(--muted);white-space:nowrap}.bars i{display:block;height:6px;border-radius:999px;background:var(--accent)}.bars .stopped i{background:var(--warn)}.bars .track{background:var(--soft);border-radius:999px}
+.bars .lbl span:last-child{color:var(--muted);white-space:nowrap}.bars i{display:block;height:6px;border-radius:999px;background:var(--accent)}.bars .track{background:var(--soft);border-radius:999px}
 .drop{display:grid;gap:10px;place-items:center;text-align:center;border:1.5px dashed var(--line);border-radius:16px;padding:26px 18px;background:var(--soft)}
 .drop input{max-width:320px;background:var(--card)}.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 `;
@@ -119,14 +119,16 @@ export function membersPanel(base: string, rows: MemberStats[], link = true): st
   const [now, before] = rows;
   const head = `<header><h2>Medlemmer</h2><p>Fra MembershipWorks${now ? ` · opdateret ${esc(shortDay(now.taken_on))}` : ""}.</p></header>`;
   if (!now) return `<article class="panel">${head}<p class="empty">Ingen medlemstal endnu.</p><a class="more" href="${base}/medlemmer">Upload et skærmbillede →</a></article>`;
-  const top = now.plans.filter(p => p.share !== null).slice(0, 4);
+  // Requested: "\"Betaling stoppet\" grafen er ikke relevant. Men fint at se hvordan det går med samtlige abonnementer" -
+  // every kind of membership, without the stopped payments.
+  const top = now.plans.filter(p => p.share !== null && !/stoppet|cancel/i.test(p.name));
   const max = Math.max(...top.map(p => p.share ?? 0), 1);
   return `<article class="panel">${head}<div class="figures">
 <div><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span>betalende medlemmer</span></div>
 <div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>årlig indtægt fra dem</span></div>
 <div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
-${top.length ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li${/stoppet|cancel/i.test(p.name) ? ' class="stopped"' : ""}><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
+${top.length ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
 ${link ? `<a class="more" href="${base}/medlemmer">Alle tal og opdatering →</a>` : ""}</article>`;
 }
 
