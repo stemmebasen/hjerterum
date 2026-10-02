@@ -2,6 +2,7 @@ import type { BoardPicture } from "../saga/picture.js";
 import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
+import { voteTodo, type Proposal } from "./votes.js";
 import { esc, layout, longDay, shortDay } from "./page.js";
 
 /** Requested: "det er vigtigt, at vi får et meget veltænkt og gennemtænkt overblik på forsiden, gerne med en
@@ -25,6 +26,8 @@ export type HomeData = {
   newEnquiries?: number;
   eventsToReview?: number;
   boardNow?: { text: string; at: number } | null;
+  /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." */
+  votes?: Proposal[];
 };
 
 export const HOME_STYLE = `
@@ -78,7 +81,7 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
 
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
-  const open = data.todos.length + data.tasks.length + (data.isChair ? data.forChair.length : 0);
+  const open = data.todos.length + data.tasks.length + (data.isChair ? data.forChair.length : 0) + (data.votes?.length ?? 0);
   const summary = lead(data.summary);
   const welcome = `<section class="welcome"><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</section>`;
@@ -92,6 +95,7 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
+    ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
     ...data.todos.map(t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`),
     ...data.tasks.map(t => `<li>${esc(sentence(t.what))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`),

@@ -17,6 +17,7 @@ import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveS
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
+import { awaitingVote, castVote, createProposal, proposals, voteDecisions, votesPage, withdrawProposal, type Vote } from "./votes.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -126,7 +127,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
-    const [eventsToReview, boardNow] = await Promise.all([reviewCount(db, now), latestBoardNow(db)]);
+    const [eventsToReview, boardNow, votes] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -134,7 +135,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
@@ -349,12 +350,39 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
     const saga = who === members.chair ? currentForChair(picture?.forJacob ?? []) : [];
-    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now }));
+    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,
+      votes: await awaitingVote(db, who, now) }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {
-    const [{ picture }, minutes] = await Promise.all([boardPicture(db), approvedMinutes(db)]);
-    return html(decisionsPage(base, allDecisions(minutes, picture), who));
+    const [{ picture }, minutes, voted] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db)]);
+    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who));
+  }
+
+  // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
+  if (path === "/afstemninger" && request.method === "GET") {
+    const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage." };
+    return html(votesPage(base, { list: await proposals(db, now), who, members: members.names.length, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+  }
+  if (path === "/afstemninger/ny" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = await createProposal(db, { title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), days: Number(form?.get("days") ?? 7), who,
+      members: Math.max(members.names.length, 1) }, now);
+    return redirect(`${base}/afstemninger${id ? `?besked=ny#p${id}` : ""}`);
+  }
+  if (path === "/afstemninger/stem" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id"));
+    const ok = Number.isSafeInteger(id) && id > 0 && await castVote(db, id, who, String(form?.get("vote") ?? "") as Vote, now);
+    return redirect(`${base}/afstemninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
+  }
+  if (path === "/afstemninger/tilbage" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number((await request.formData().catch(() => null))?.get("id"));
+    const ok = Number.isSafeInteger(id) && id > 0 && await withdrawProposal(db, id, who, now);
+    return redirect(`${base}/afstemninger?besked=${ok ? "tilbage" : "afgjort"}`);
   }
 
   if (path === "/arrangementer" && request.method === "GET") {
