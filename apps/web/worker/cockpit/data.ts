@@ -170,7 +170,8 @@ export function allDecisions(minutes: ApprovedMinutes[], picture: BoardPicture |
 /** Every task by person, as "Hvem har hvad" in Matrix. */
 export function tasksByPerson(tasks: Task[]): Array<{ who: string; tasks: Task[] }> {
   const groups = new Map<string, Task[]>();
-  for (const task of tasks) { const who = task.who.trim() || "Uden navn"; groups.set(who, [...(groups.get(who) ?? []), task]); }
+  // Requested: '"Uden navn" kan vel kaldes "Alle"'.
+  for (const task of tasks) { const who = task.who.trim() || EVERYONE; groups.set(who, [...(groups.get(who) ?? []), task]); }
   return [...groups].map(([who, list]) => ({ who, tasks: list })).sort((a, b) => b.tasks.length - a.tasks.length || a.who.localeCompare(b.who, "da"));
 }
 
@@ -215,8 +216,11 @@ export type Todo = { id: number; owner: string; text: string; due: string | null
 /** A minutes task's lasting name: the meeting, who and what - the same task in the same minutes. */
 export const taskKey = (task: Task) => `${task.meeting}|${task.who}|${task.what}`.toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim().slice(0, 400);
 
+/** Requested: "Man skal kunne skrive en opgave til alle også". An item written to "Alle" is on every
+ * member's list, and whoever does it checks it off for everyone. */
+export const EVERYONE = "Alle";
 export async function todosFor(db: D1Database, owner: string): Promise<Todo[]> {
-  const rows = await db.prepare("SELECT id, owner, text, due, created_by, created_at_ms, done_at_ms FROM cockpit_todos WHERE owner = ? ORDER BY done_at_ms IS NOT NULL, COALESCE(due, '9999') , created_at_ms DESC LIMIT 300")
+  const rows = await db.prepare("SELECT id, owner, text, due, created_by, created_at_ms, done_at_ms FROM cockpit_todos WHERE owner IN (?, 'Alle') ORDER BY done_at_ms IS NOT NULL, COALESCE(due, '9999') , created_at_ms DESC LIMIT 300")
     .bind(owner).all<Todo>();
   return rows.results ?? [];
 }
@@ -228,7 +232,7 @@ export async function addTodo(db: D1Database, input: { owner: string; text: stri
 
 /** Only the owner checks an item off (or back on), and only the one who wrote it removes it. */
 export async function setTodoDone(db: D1Database, id: number, owner: string, done: boolean, nowMs: number): Promise<void> {
-  await db.prepare("UPDATE cockpit_todos SET done_at_ms = ? WHERE id = ? AND owner = ?").bind(done ? nowMs : null, id, owner).run();
+  await db.prepare("UPDATE cockpit_todos SET done_at_ms = ? WHERE id = ? AND owner IN (?, 'Alle')").bind(done ? nowMs : null, id, owner).run();
 }
 export async function removeTodo(db: D1Database, id: number, who: string): Promise<void> {
   await db.prepare("DELETE FROM cockpit_todos WHERE id = ? AND (created_by = ? OR owner = ?)").bind(id, who, who).run();

@@ -48,6 +48,10 @@ describe("Saga helpers", () => {
     expect(section(MINUTES, /beslutninger/i)).toBe("- Budgettet er vedtaget.");
     expect(section(MINUTES, /opgaver/i)).toBe("- Jacob - sender budgettet - fredag");
     expect(section(MINUTES, /budget/i)).toBe("");
+    // Reported: the point "### 3. Fordeling af opgaver" was read as "## Opgaver" and ran through every later point.
+    const points = "## Punkter\n### 3. Fordeling af opgaver\n- Drøftelse: Gitta vil fokusere på morgenteamet\n- Beslutning: De tre holder et møde\n### 4. Økonomi\n- Drøftelse: Over 50.000 kr.\n## Beslutninger\n- Timerne fastholdes\n## Opgaver\n- Frederik - overtager bookinger - 15. oktober\n## Næste møde\n- 15. oktober";
+    expect(section(points, /opgaver/i)).toBe("- Frederik - overtager bookinger - 15. oktober");
+    expect(section(points, /punkter/i)).toContain("### 4. Økonomi");
   });
 
   it("knows when a board message is meant for her", () => {

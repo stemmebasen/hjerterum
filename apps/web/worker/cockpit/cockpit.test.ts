@@ -343,6 +343,35 @@ describe("the board cockpit", () => {
     expect(await (await call("/cockpit/", { cookie })).text()).toContain("169");
   });
 
+  // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
+  it("lists the enquiries Saga finds in team@, and lets the board mark them Klaret", async () => {
+    const { db, login } = await setup();
+    const { insertMail } = await import("../saga/store.js");
+    const rent = (await insertMail(db, { ref: "m1", sender: "Maria Hansen <maria@example.com>", subject: "Leje af salen", receivedAtMs: NOW - 3_600_000, preview: "Hej, kan jeg leje salen til yoga i november?", nowMs: NOW }))!;
+    const news = (await insertMail(db, { ref: "m2", sender: "news@shop.dk", subject: "Ugens tilbud", receivedAtMs: NOW - 7_200_000, preview: "Spar 20 %", nowMs: NOW }))!;
+    let seen = "";
+    const ai = fakeServices({ ai: (system, user) => { seen = String(user); return system.includes("forespørgsel")
+      ? JSON.stringify({ items: [{ id: rent, enquiry: true, kind: "Lokaleleje", summary: "Maria Hansen vil leje salen til yoga i november" }, { id: news, enquiry: false }] }) : "Svar."; } });
+    const { handleCockpitRequest: handle } = await import("./handler.js");
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const cookie = `${await login()}; hjerterum_cockpit_who=Lisbeth`;
+    const go = (path: string, init: RequestInit = {}) => handle(new Request(`${ORIGIN}/cockpit${path}`, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(ai.fetcher, NOW));
+    expect(await (await go("/foresporgsler")).text()).toContain("2 nye mails venter på at blive læst");
+    const scanned = await go("/foresporgsler/scan", { method: "POST" });
+    expect(scanned.headers.get("location")).toBe("/cockpit/foresporgsler?scannet=1");
+    expect(seen).toContain("kan jeg leje salen");
+    const page = await (await go("/foresporgsler")).text();
+    expect(page).toContain("Maria Hansen vil leje salen til yoga i november");
+    expect(page).toContain("Lokaleleje");
+    expect(page).not.toContain("Ugens tilbud");
+    expect(await (await go("/")).text()).toContain("1 åben forespørgsel");
+    const form = new FormData(); form.append("id", String(rent)); form.append("done", "1");
+    await go("/foresporgsler/klaret", { method: "POST", body: form });
+    const after = await (await go("/foresporgsler")).text();
+    expect(after).toContain("Ingen åbne forespørgsler");
+    expect(after).toContain("klaret af Lisbeth");
+  });
+
   it("keeps Saga's statutes the same as the website's", () => {
     const flat = (text: string) => text.replace(/<br\s*\/?>|<\/(p|h\d|li|ol|ul)>/g, " ").replace(/<li>/g, " - ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8211;|&ndash;/g, "–").replace(/\s+/g, " ").trim();
@@ -427,6 +456,18 @@ describe("each member's task list", () => {
     expect(lisbeth).toContain("Fra Gitta");
     expect(lisbeth).not.toContain("Køb kaffe");
     expect(await (await call("/cockpit/", { cookie: as("Lisbeth") })).text()).toContain("Send nøglen til Gitta");
+
+    // Requested: "Man skal kunne skrive en opgave til alle også" - on every list, checked off by whoever does it.
+    const toAll = await call("/cockpit/opgaver/ny", { method: "POST", cookie: as("Gitta"), body: form({ text: "Ryd op i køkkenet", due: "", owner: "Alle" }) });
+    expect(toAll.headers.get("location")).toBe("/cockpit/opgaver?alle=1");
+    const jacobsList = await (await call("/cockpit/opgaver", { cookie: as("Jacob Hauge") })).text();
+    expect(jacobsList).toContain("Ryd op i køkkenet");
+    expect(jacobsList).toContain("Til alle · fra Gitta");
+    expect(jacobsList).toContain("Dine to-do's");
+    expect(jacobsList).toContain('<option value="Alle">Alle</option>');
+    const shared = await db.prepare("SELECT id FROM cockpit_todos WHERE owner = 'Alle'").first<{ id: number }>();
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Jacob Hauge"), body: form({ kind: "punkt", id: String(shared!.id), done: "1" }) });
+    expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(shared!.id).first<{ done_at_ms: number | null }>())!.done_at_ms).toBe(NOW);
 
     // Only the owner checks an item off; a name outside the board is refused.
     const todo = await db.prepare("SELECT id FROM cockpit_todos WHERE owner = 'Lisbeth'").first<{ id: number }>();
