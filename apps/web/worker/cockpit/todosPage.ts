@@ -92,7 +92,7 @@ ${done.length ? `<details class="done-list"><summary>Klaret (${done.length})</su
   const move = (t: Task) => { const who = t.who.trim() || EVERYONE, c = checkOf(t);
     return `<li data-who="${esc(who)}"${c ? ' class="is-done"' : ""}>${chip(who)}<span>${c ? '<span class="tick" aria-label="Klaret">✓</span> ' : ""}${esc(sharp(t.what))}${t.due && !c ? `<span class="when">· ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}${c ? `<span class="when">· klaret ${esc(DONE_DAY.format(c.at))}${c.by && c.by !== who ? ` af ${esc(c.by.split(/\s+/)[0]!)}` : ""}</span>` : ""}</span></li>`; };
   const people = [...new Set(everyone.map(t => t.who.trim() || EVERYONE))];
-  const board = everyone.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens opgaver fra referaterne siden 1. oktober - de nyeste øverst.</p>
+  const board = everyone.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens opgaver fra referaterne den seneste måned - de nyeste øverst.</p>
 ${people.length > 1 ? `<div class="who-filter" role="group" aria-label="Vis kun">${people.map(p => chip(p, "button", ` type="button" aria-pressed="false" data-who="${esc(p)}"`)).join("")}</div>` : ""}
 <ul class="moves">${current.map(t => move(t)).join("")}</ul>
 ${archived.length ? `<details class="done-list"><summary>Arkiv (${archived.length})</summary><ul class="moves">${archived.map(t => move(t)).join("")}</ul></details>` : ""}</div>

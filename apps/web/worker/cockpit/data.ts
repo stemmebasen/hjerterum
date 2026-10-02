@@ -272,6 +272,13 @@ export function currentTasks(tasks: Task[]): Task[] {
   return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day >= TASKS_SINCE)
     .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);
 }
+/** Requested: "Jeg synes godt, at det må være opgaver fra den sidste måned, der er samlet her" - the board's shared
+ * list holds the tasks from the minutes of the last 30 days, newest first. */
+export function lastMonthTasks(tasks: Task[], nowMs: number): Task[] {
+  const since = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(nowMs - 30 * 86_400_000);
+  return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day && t.day >= since)
+    .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);
+}
 export const currentTodos = (todos: Todo[]) => todos.filter(t => t.created_at_ms >= SINCE_MS).sort((a, b) => b.created_at_ms - a.created_at_ms);
 
 /** What is still open for this person: their minutes tasks not checked off, and their own items - newest first. */
