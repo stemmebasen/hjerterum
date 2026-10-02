@@ -1,5 +1,6 @@
 import { markdownToHtml } from "../saga/markdown.js";
 import type { BoardPicture } from "../saga/picture.js";
+import { APPROVED_BADGE, APPROVED_STYLE } from "./votes.js";
 import { DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 
 /** The board cockpit's pages, written on the server as plain HTML: quick on a phone, nothing to
@@ -114,7 +115,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.6.1";
+export const COCKPIT_VERSION = "1.7.0";
 export const COCKPIT_RELEASED = "2026-10-02";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
@@ -124,14 +125,14 @@ export function layout(base: string, title: string, body: string, options: { sec
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
-  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/foresporgsler", "Forespørgsler"], ["/arrangementer", "Arrangementer"]];
+  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/afstemninger", "Afstemninger"], ["/foresporgsler", "Forespørgsler"], ["/arrangementer", "Arrangementer"]];
   const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder", "/medlemmer": "/" };
   const here = parent[options.section ?? ""] ?? options.section;
   const desk = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
   // On a phone the five labels must fit side by side.
   const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Huset" };
   // The phone's tab bar keeps five places; Forespørgsler is on Overblik and under the initials.
-  const tabs = places.filter(([path]) => path !== "/foresporgsler").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  const tabs = places.filter(([path]) => path !== "/foresporgsler" && path !== "/afstemninger").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
@@ -152,7 +153,7 @@ export function morePage(base: string, who: string | null, options: { locked?: b
 ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
-<a href="${base}/foresporgsler">Forespørgsler</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
+<a href="${base}/afstemninger">Afstemninger</a><a href="${base}/foresporgsler">Forespørgsler</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
 <form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${access}</main>`, { section: "/profil", who });
 }
 
@@ -427,9 +428,9 @@ ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</
 export function decisionsPage(base: string, decisions: Decision[], who: string | null): string {
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1><div class="card"><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
 ${decisions.length ? `<table id="list" class="rows"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td data-label="Beslutning">${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</td><td data-label="Kilde">${d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
+<td data-label="Beslutning">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="${base}/afstemninger#p${d.voteId ?? ""}">Afstemning</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div></main>
-<script>document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who });
+<script>document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: APPROVED_STYLE });
 }
 
 export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; history: Array<{ day: string; label: string; text: string }>; docUrl: string | null; docError: string | null; who: string | null }): string {

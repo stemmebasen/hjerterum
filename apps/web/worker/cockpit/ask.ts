@@ -12,6 +12,7 @@ import { allDecisions, allTasks, approvedMinutes, boardPicture, openFor, type Ap
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { STATUTES } from "./statutes.js";
+import { votesForSaga } from "./votes.js";
 import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
@@ -167,6 +168,8 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
+    // Requested: "Opret forslag til afstemning" - the board's digital votes.
+    `DIGITALE AFSTEMNINGER I BESTYRELSEN (vedtaget ved flertal af bestyrelsen):\n${await votesForSaga(db, now)}`,
     // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
     `LEJE AF SALEN - PRISER OG REGLER (Hjerterums prisberegner):\n${ROOM_RENTAL_RULES}`,
     `ARRANGEMENTER I HUSET (Hjerterums kalender på holistisk.org):\n${house}`,

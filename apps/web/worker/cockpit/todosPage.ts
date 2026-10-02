@@ -1,5 +1,6 @@
 import { EVERYONE, taskKey, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
+import { voteTodo, type Proposal } from "./votes.js";
 
 /** Requested: "vi skal have en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der
  * er tildelt en. Man kan også selv skrive ind." The tasks the minutes give you, your own items and the
@@ -27,7 +28,9 @@ export type TodosData = { who: string; members: string[]; tasks: Task[]; checked
   /** Requested ("gennemtænkt"): "Hvem har hvad" moves here from Status - everyone's open tasks from the minutes, newest first. */
   everyone?: Task[];
   /** Who checked each task off, and when: shown with a check and the date for five days, then archived. */
-  boardChecks?: Map<string, { by: string; at: number }>; now?: number };
+  boardChecks?: Map<string, { by: string; at: number }>; now?: number;
+  /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." Gone once voted. */
+  votes?: Proposal[] };
 
 const box = (base: string, kind: "opgave" | "punkt" | "saga", id: string, done: boolean) =>
   `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">
@@ -71,7 +74,7 @@ export function todosPage(base: string, data: TodosData): string {
   const SOURCES: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
   const sagaItems = (data.saga ?? []).map(f => `<li class="todo">${box(base, "saga", f.key, false)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
 <div class="small muted">${esc(SOURCES[f.source] ?? "Fra Saga")}${f.from ? ` · ${esc(f.from)}` : ""}</div></div></li>`);
-  const open = [...sagaItems, ...openTodos.map(t => todoItem(base, t, data.who)), ...openTasks.map(t => taskItem(base, t, false))];
+  const open = [...(data.votes ?? []).map(p => voteTodo(base, p)), ...sagaItems, ...openTodos.map(t => todoItem(base, t, data.who)), ...openTasks.map(t => taskItem(base, t, false))];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">
