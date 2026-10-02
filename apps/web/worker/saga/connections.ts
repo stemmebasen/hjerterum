@@ -73,7 +73,7 @@ function mail(messages: { mails: number; lastMailMs: number | null; lastRelayedM
 }
 
 async function ai(env: SagaEnv): Promise<Connection> {
-  if (!env.AI_API_KEY || !env.AI_MODEL) return { ok: false, detail: "Saga har ingen AI-nøgle (AI_API_KEY), så hun kan hverken vurdere mails eller skrive overblik." };
+  if (!env.AI_API_KEY || !env.AI_MODEL) return { ok: false, detail: "Saga har ingen Requesty-nøgle (AI_API_KEY), så hun kan hverken vurdere mails eller skrive overblik." };
   const last = await serviceStatus(requireDb(env), "ai");
   if (!last) return { ok: null, detail: "Saga har ikke brugt sin AI endnu." };
   return last.ok ? { ok: true, detail: `Virker (${time(last.at_ms)}).` } : { ok: false, detail: `Sagas AI svarede med en fejl ${time(last.at_ms)}: ${last.detail || "ukendt"}.` };
