@@ -16,6 +16,7 @@ import { enquiries, enquiriesPage, openEnquiryCount, scanEnquiries, setHandled }
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
+import { latestBoardNow } from "./boardNow.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
@@ -124,7 +125,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
-    const eventsToReview = await reviewCount(db, now);
+    const [eventsToReview, boardNow] = await Promise.all([reviewCount(db, now), latestBoardNow(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -132,7 +133,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
