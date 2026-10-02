@@ -60,6 +60,10 @@ const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + t
 const inline = (text: string) => esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 const SOURCE: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
 
+/** A meeting's formalities - approving its agenda or the minutes before it. */
+const FORMALITY = /^(?:godkendelse af (?:dagsorden|referat)|(?:dagsorden(?:en)?|referat(?:et)?)(?: fra [^.]*)? (?:godkendes|godkendt|blev godkendt|er godkendt|vedtages|vedtaget))/i;
+const capital = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
+
 const NOW_TIME = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", minute: "2-digit" });
 
 /** Saga's summary in a sentence or two: its first lines, without headings. */
@@ -116,12 +120,16 @@ ${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 
 <a class="more" href="${base}/moder?dato=${esc(data.found[0]!.date)}&amp;forslag=1#nyt">Sæt det i kalenderen →</a>`
     : `<p class="empty">Intet møde er sat i kalenderen.</p><a class="more" href="${base}/moder#nyt">Planlæg et møde →</a>`}</article>`;
 
+  // Requested: "\"Referatet godkendes med bemærkning om fejl i tidligere referat.\" er ikke vigtigt nok til at stå på
+  // forsiden. Overskriften bør være sådan: Vigtigste punkter fra sidste møde / Torsdag den 1. oktober 2026 (Husk at
+  // godkende referatet)". The meeting's formalities (approving the agenda or the minutes) stay in the minutes.
   const l = data.latest;
-  const minutes = l ? `<article class="panel"><header><h2>Seneste referat</h2><p>Hvad der blev besluttet sidst, og hvor mange der har godkendt.</p></header>
-<p style="margin:0 0 10px"><strong>${esc(longDay(l.date))}</strong></p>
-${l.decisions.length ? `<ul class="items">${l.decisions.slice(0, 3).map(d => `<li>${esc(sentence(d))}</li>`).join("")}</ul>${l.decisions.length > 3 ? `<p class="small muted">og ${plural(l.decisions.length - 3, "beslutning", "beslutninger")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
+  const important = l ? l.decisions.filter(d => !FORMALITY.test(d)) : [];
+  const unsigned = l ? data.toSign.some(m2 => m2.id === l.id) : false;
+  const minutes = l ? `<article class="panel"><header><h2>Vigtigste punkter fra sidste møde</h2><p>${esc(capital(longDay(l.date)))}${unsigned ? ` · <a href="${base}/referat/${l.id}">Husk at godkende referatet</a>` : ""}</p></header>
+${important.length ? `<ul class="items">${important.slice(0, 3).map(d => `<li>${esc(sentence(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
-<a class="more" href="${base}/referat/${l.id}">${data.toSign.some(m2 => m2.id === l.id) ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
+<a class="more" href="${base}/referat/${l.id}">${unsigned ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
 
   // Requested: "Her skal Saga en gang i timen lave et resume og overblik over hvad der rører sig netop nu" - "et uformelt
   // resume på under halvtreds ord om, hvad der rører sig. Bare det vigtigste og det nyeste." - "Så det fulde resumé og
