@@ -13,9 +13,14 @@ export type CreateRoomBookingInput = {
   ticketPriceMinor: number;
   /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
   bookingType?: RoomBookingType;
+  /** Set by the server, never from the request: a fixed teacher's or the board's event needs no approval. */
+  preApproved?: boolean;
   memberName?: string;
   memberEmail?: string;
 };
+
+/** Requested: "Saga skal godkende events som medlemmer selv sætter op" - only an approved event is public. */
+export type ReviewStatus = "pending" | "approved" | "needs_board" | "rejected";
 
 export type CreatedRoomBooking = {
   id: number;
@@ -35,6 +40,8 @@ export type RoomBookingRow = {
   fee_minor: number;
   ticket_price_minor: number;
   booking_type?: RoomBookingType;
+  review_status?: ReviewStatus;
+  review_note?: string | null;
   status: "scheduled" | "cancelled";
   cancelled_at_ms: number | null;
 };
@@ -174,7 +181,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, booking_type, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, booking_type, review_status, review_note, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -198,10 +205,10 @@ export async function listMemberCalendarBookings(
             MAX(CASE WHEN a.clerk_user_id = ? THEN a.registration_status ELSE NULL END) AS registration_status
      FROM room_bookings b
      LEFT JOIN room_booking_attendees a ON a.room_booking_id = b.id
-     WHERE b.status = 'scheduled' AND b.ends_at_ms >= ?
+     WHERE b.status = 'scheduled' AND b.ends_at_ms >= ? AND (b.review_status = 'approved' OR b.clerk_user_id = ?)
      GROUP BY b.id
      ORDER BY b.starts_at_ms ASC`
-  ).bind(clerkUserId, clerkUserId, fromMs).all<MemberCalendarRow>();
+  ).bind(clerkUserId, clerkUserId, fromMs, clerkUserId).all<MemberCalendarRow>();
   return result.results ?? [];
 }
 
@@ -232,8 +239,9 @@ export async function createRoomBooking(
       `INSERT INTO room_bookings (
          clerk_user_id, teacher_name, teacher_email, title, description,
          starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
-         payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type,
+         review_status, reviewed_by, reviewed_at_ms
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -249,7 +257,10 @@ export async function createRoomBooking(
       ownerClerkUserId,
       now,
       now,
-      input.bookingType ?? "standard"
+      input.bookingType ?? "standard",
+      input.preApproved ? "approved" : "pending",
+      input.preApproved ? "Fast underviser eller bestyrelsen" : null,
+      input.preApproved ? now : null
     )
     .run();
 
@@ -318,7 +329,8 @@ export async function updateOwnedRoomBooking(
       `UPDATE room_bookings
        SET teacher_name = ?, teacher_email = ?, title = ?, description = ?,
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
-           ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?
+           ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?,
+           review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -334,6 +346,10 @@ export async function updateOwnedRoomBooking(
       ownerClerkUserId,
       Date.now(),
       input.bookingType ?? "standard",
+      // A changed event is approved again, unless its teacher is exempt.
+      input.preApproved ? "approved" : "pending",
+      input.preApproved ? "Fast underviser eller bestyrelsen" : null,
+      input.preApproved ? Date.now() : null,
       bookingId,
       ownerClerkUserId
     )
@@ -405,7 +421,7 @@ export async function attendRoomBooking(
   const now = Date.now();
   const booking = await db.prepare(
     `SELECT id, clerk_user_id, starts_at_ms, max_attendees, ticket_price_minor
-     FROM room_bookings WHERE id = ? AND status = 'scheduled'`
+     FROM room_bookings WHERE id = ? AND status = 'scheduled' AND review_status = 'approved'`
   ).bind(bookingId).first<{
     id: number; clerk_user_id: string; starts_at_ms: number;
     max_attendees: number | null; ticket_price_minor: number;
@@ -473,4 +489,10 @@ export async function unattendRoomBooking(
        AND registration_status IN ('pending', 'confirmed')`
   ).bind(now, bookingId, clerkUserId).run();
   if ((result.meta?.changes ?? 0) === 0) throw new Error("attendance_not_found");
+}
+
+/** The fixed teachers (the board's list): their events are approved at once. */
+export async function isFixedTeacher(db: D1Database, email: string): Promise<boolean> {
+  const row = await db.prepare("SELECT 1 AS hit FROM fixed_teachers WHERE email = ?").bind(email.trim().toLowerCase()).first<{ hit: number }>();
+  return Boolean(row);
 }
