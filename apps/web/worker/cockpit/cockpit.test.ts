@@ -183,7 +183,7 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "Lige om lidt i Hjerterum"]) expect(front).toContain(text);
     // Requested: "Så det fulde resumé og statusoverblik kommer først, når man klikker ind på status." - the front panel
     // has only Saga's short hourly text; the six-hour picture's waiting topics are on Status.
     expect(front).not.toContain("Venter på svar");

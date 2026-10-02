@@ -164,7 +164,7 @@ ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.appro
 ${now ? `<p class="now">${esc(tr(now.text))}</p>` : `<p class="empty">Saga skriver det første korte resumé inden for en time (på hverdage).</p>`}
 <a class="more" href="${base}/status">Mere i Status →</a></article>`;
 
-  const events = `<article class="panel"><header><h2>I huset</h2><p>De næste arrangementer i Hjerterum.</p></header>
+  const events = `<article class="panel"><header><h2>Lige om lidt i Hjerterum</h2><p>De næste arrangementer i Hjerterum.</p></header>
 ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="event">${e.image_url ? `<img src="${esc(e.image_url)}" alt="" loading="lazy">` : `<span class="date" style="width:52px;height:52px"><b style="font-size:20px">${new Date(e.starts_at_ms).getDate()}</b></span>`}
 <div><span class="t">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</span><span class="ctx">${esc(EVENT_TIME.format(e.starts_at_ms))}${e.host ? ` · ${esc(e.host)}` : ""}</span></div></li>`).join("")}</ul>` : `<p class="empty">Ingen arrangementer de næste dage.</p>`}
 ${heldFact(data.eventsHeld ?? 0)}<a class="more" href="${base}/arrangementer">Alle arrangementer →</a></article>`;
