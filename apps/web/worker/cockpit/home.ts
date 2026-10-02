@@ -23,6 +23,8 @@ export type HomeData = {
   events: HouseEvent[]; eventsMonth: number;
   /** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - every event in the calendar that has taken place. */
   eventsHeld?: number;
+  /** When the first of them took place. */
+  eventsSince?: number | null;
   progress: { working: number; waiting: number };
   memberStats?: MemberStats[];
   newEnquiries?: number;
@@ -35,15 +37,36 @@ export type HomeData = {
 };
 
 /** "over 3.600": rounded down to the hundred below (to the ten below under a hundred), so "over" is always true. */
-export function heldFact(held: number): string {
-  if (held < 20) return "";
+export function heldOver(held: number): number {
   const step = held >= 100 ? 100 : 10;
-  const over = Math.floor((held - 1) / step) * step;
-  return `<p class="fact">Vidste du, at Hjerterum har afholdt over ${over.toLocaleString("da-DK")} arrangementer, siden vi startede?</p>`;
+  return Math.floor((held - 1) / step) * step;
+}
+
+/** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then: "misplaced, and
+ * it's not as celebratory as I wanted it to be". A band of its own under the key figures: the number large, the
+ * sentence beside it, and when it began. */
+export function heldFact(held: number, sinceMs: number | null = null, base = ""): string {
+  if (held < 20) return "";
+  const over = heldOver(held).toLocaleString("da-DK");
+  const since = sinceMs ? new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(sinceMs) : null;
+  return `<section class="celebrate" aria-label="Vidste du?"><div class="big" aria-hidden="true">${over}<span>+</span></div>
+<div class="words"><p class="kicker">Vidste du?</p><p class="line">Hjerterum har afholdt over ${over} arrangementer, siden vi startede!</p>
+<p class="since">${since ? `Det første i kalenderen var i ${esc(since)} - og huset er fyldt med liv hver uge. ` : ""}<a href="${base}/arrangementer">Se arrangementerne →</a></p></div>
+<span class="hearts" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
 }
 
 export const HOME_STYLE = `
-.fact{margin:14px 0 0;padding:12px 14px;border-radius:12px;background:var(--tint);color:var(--ink);font-size:14.5px;line-height:1.5}
+.celebrate{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr;gap:10px 30px;align-items:center;padding:26px 30px;border-radius:var(--radius);
+background:radial-gradient(120% 140% at 0% 0%,var(--glow-2),transparent 60%),radial-gradient(90% 120% at 100% 100%,var(--glow-3),transparent 60%),var(--card);border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));box-shadow:var(--shadow)}
+.celebrate .big{font-family:var(--font);font-weight:800;font-size:clamp(52px,7.5vw,92px);line-height:.9;letter-spacing:-.04em;color:var(--accent);font-variant-numeric:tabular-nums}
+.celebrate .big span{font-size:.55em;vertical-align:.55em;margin-left:2px}
+.celebrate .kicker{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.celebrate .line{margin:2px 0 0;font-family:var(--font);font-size:clamp(20px,2.4vw,26px);font-weight:650;line-height:1.25;letter-spacing:-.01em;max-width:30ch}
+.celebrate .since{margin:8px 0 0;color:var(--muted);font-size:14.5px}.celebrate .since a{white-space:nowrap}
+.celebrate .hearts{position:absolute;right:22px;top:16px;display:flex;gap:6px;pointer-events:none}
+.celebrate .hearts i{display:block;width:14px;height:13px;background:var(--accent);opacity:.22;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat}
+.celebrate .hearts i:nth-child(2){width:20px;height:18px;opacity:.32;transform:translateY(-6px)}.celebrate .hearts i:nth-child(3){opacity:.16;transform:translateY(4px)}
+@media (max-width:640px){.celebrate{grid-template-columns:1fr;padding:22px}.celebrate .line{max-width:none}}
 .home{gap:26px}
 .items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
@@ -167,13 +190,13 @@ ${now ? `<p class="now">${esc(tr(now.text))}</p>` : `<p class="empty">Saga skriv
   const events = `<article class="panel"><header><h2>Lige om lidt i Hjerterum</h2><p>De næste arrangementer i Hjerterum.</p></header>
 ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="event">${e.image_url ? `<img src="${esc(e.image_url)}" alt="" loading="lazy">` : `<span class="date" style="width:52px;height:52px"><b style="font-size:20px">${new Date(e.starts_at_ms).getDate()}</b></span>`}
 <div><span class="t">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</span><span class="ctx">${esc(EVENT_TIME.format(e.starts_at_ms))}${e.host ? ` · ${esc(e.host)}` : ""}</span></div></li>`).join("")}</ul>` : `<p class="empty">Ingen arrangementer de næste dage.</p>`}
-${heldFact(data.eventsHeld ?? 0)}<a class="more" href="${base}/arrangementer">Alle arrangementer →</a></article>`;
+<a class="more" href="${base}/arrangementer">Alle arrangementer →</a></article>`;
 
   const working = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${plural(data.progress.working, "optagelse", "optagelser")} bliver til referat` : "",
     data.progress.waiting ? `${plural(data.progress.waiting, "referat", "referater")} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
 
   const enquiryNote = data.newEnquiries ? `<p class="notice"><a href="${base}/posthus"><strong>${plural(data.newEnquiries, "vigtig mail", "vigtige mails")}</strong> venter på svar i team@ →</a></p>` : "";
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${enquiryNote}${reviewNote}${working}
+  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${heldFact(data.eventsHeld ?? 0, data.eventsSince ?? null, base)}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });
 }
