@@ -21,3 +21,13 @@ describe("the latest meeting on the front page", () => {
     expect(page(false)).not.toContain("Husk at godkende referatet");
   });
 });
+
+// Reported (iPhone, Chrome): "Fejl på mobil" - the page was wider than the screen, because the glow behind the top
+// reached 200 px past the right edge. Nothing in the page's own style may reach past the edge.
+describe("the page on a phone", () => {
+  it("has no decoration that reaches past the screen's right edge", () => {
+    const html = page(false);
+    expect(html).not.toMatch(/right:-\d/);
+    expect(html).not.toMatch(/width:min\(\d+px,1\d\dvw\)/);
+  });
+});
