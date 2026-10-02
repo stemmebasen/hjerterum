@@ -3,6 +3,7 @@ import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { scheduledBoardNow } from "../cockpit/boardNow.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledTranslations } from "../cockpit/translate.js";
+import { mailWatch } from "./connections.js";
 import { complete } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
@@ -11,7 +12,7 @@ import { transcribe } from "./transcribe.js";
 import { docHash, parsePicture, trimMinutesDoc } from "./picture.js";
 import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, serviceStatus, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -362,6 +363,17 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 
 // ---- Scheduled ----
 
+const MAIL_ALERT_AFTER_MS = 2 * 3_600_000;
+async function alertMailWatch(env: SagaEnv, deps: SagaDeps): Promise<void> {
+  const db = requireDb(env);
+  const watch = await mailWatch(db, deps.now());
+  if (watch.state === "ok" || watch.state === "unknown") return;
+  const last = await serviceStatus(db, "team_mail");
+  if (watch.state === "stale" && last && deps.now() - last.at_ms < MAIL_ALERT_AFTER_MS) return;
+  if (!(await claimJob(db, "team_mail_alert", Math.floor(deps.now() / DAY), deps.now()))) return;
+  await telegramClient(env, deps).sendMessage(owner(env), `Hjerterums mail (team@) bliver ikke tjekket: ${watch.detail} Mails dertil når ikke frem til Saga, før det er rettet.`);
+}
+
 /** Every five minutes: new Drive recordings, one recording processed, and the weekly summary
  * on Sunday evening (18-19 Copenhagen time, once per week). */
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
@@ -393,6 +405,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Douglas taler engelsk" - Saga's front-page texts in English, when someone reads in English (weekdays).
   await scheduledTranslations(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_translations_failed", error instanceof Error ? error.message : error));
+  // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
+  // (or Matrix cannot read it), Saga tells Jacob privately, once a day. No AI.
+  await alertMailWatch(env, deps).catch(error => console.warn("saga_mail_watch_alert_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
   await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));

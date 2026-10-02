@@ -5,7 +5,7 @@ import {
   answerOwnerPrivately, approveMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
   processNextMinutes, reviseMinutes, revisePost, watchMail, type RelayedMail
 } from "./saga.js";
-import { sagaConnections } from "./connections.js";
+import { recordMailWatch, sagaConnections } from "./connections.js";
 import { minutesDocUrl } from "./drive.js";
 import { claimJob, latestOverview, markOwnerDone, ownerDone, setServiceStatus, latestWeeklySummary, minutesByApprovalMessage, pendingForOwner, postDraftByApprovalMessage, recentBoardMessages, recentMail, recentMinutes, saveBoardMessage } from "./store.js";
 import { section } from "./markdown.js";
@@ -175,12 +175,15 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     }
     // Hjerterum's mailbox (team@), read in Matrix and relayed here as background for the overview.
     if (url.pathname === "/api/saga/liva/mail" && request.method === "POST") {
-      const body = await request.json().catch(() => null) as { mails?: unknown } | null;
+      const body = await request.json().catch(() => null) as { mails?: unknown; status?: unknown } | null;
       const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
+      // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - Matrix reports every run, also an empty
+      // or failed one, so a stopped watch shows (saga/connections.ts) instead of looking connected.
+      if (body?.status && typeof body.status === "object") await recordMailWatch(db, body.status as Record<string, unknown>, deps.now());
       const mails: RelayedMail[] = (Array.isArray(body?.mails) ? body.mails : []).slice(0, 50)
         .map(m => m as Record<string, unknown>).filter(m => typeof m?.ref === "string" && m.ref)
         .map(m => ({ ref: text(m.ref, 1600), from: text(m.from, 320) || "ukendt", subject: text(m.subject, 500), receivedAt: text(m.receivedAt, 40), text: text(m.text, 4000) }));
-      if (!Array.isArray(body?.mails)) return json({ error: "invalid_request" }, 400);
+      if (!Array.isArray(body?.mails)) return body?.status ? json({ received: 0, fresh: 0 }) : json({ error: "invalid_request" }, 400);
       return json(await watchMail(env, deps, mails));
     }
     // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så

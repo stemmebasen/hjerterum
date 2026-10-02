@@ -115,7 +115,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.7.6";
+export const COCKPIT_VERSION = "1.7.7";
 export const COCKPIT_RELEASED = "2026-10-02";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
@@ -138,7 +138,7 @@ export function layout(base: string, title: string, body: string, options: { sec
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&display=swap">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="Hjerterum" width="40" height="40"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum" width="40" height="40"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
 <div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base, options.who ?? null)}</body></html>`;
@@ -223,7 +223,7 @@ export function loginPage(base: string, message: string, configured: boolean, te
 <p class="small muted">Saga sender dig et personligt link, der logger dig ind som dig. Det virker én gang inden for 15 minutter. Du kan også skrive /login til hende.</p>` : "";
   const password = configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required${personal ? "" : " autofocus"}></label>
 <button${personal ? ' class="ghost"' : ""}>Log ind</button></form>` : "";
-  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
+  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
 <p class="muted">Bestyrelsens cockpit med møder, referater og beslutninger.</p>
 ${message ? `<p class="notice warn">${esc(message)}</p>` : ""}${personal}${personal && password ? `<p class="small muted" style="margin:18px 0 6px">Eller med den fælles adgangskode</p>` : ""}${password}
 ${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
@@ -231,7 +231,7 @@ ${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op 
 
 /** Saga's personal link: one press logs in, so a link preview in Telegram never does. */
 export function linkPage(base: string, member: string | null, token: string): string {
-  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
+  return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
 ${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form method="post" action="${base}/login/link/${esc(token)}"><button>Log ind</button></form>`
     : `<p class="notice warn">Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.</p><p><a href="${base}/">Til login</a></p>`}</div></div>`);
 }
