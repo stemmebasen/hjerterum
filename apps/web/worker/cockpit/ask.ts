@@ -10,6 +10,7 @@ import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { allDecisions, approvedMinutes, boardPicture, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
+import { latestStats, statsForSaga } from "./members.js";
 import { STATUTES } from "./statutes.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
@@ -50,6 +51,9 @@ async function memberNumbers(db: D1Database): Promise<string> {
   ]);
   const lines = [...(own?.results ?? []).map(r => `- Hjerterums platform: ${r.n} med status ${r.status} (${r.tier})`),
     ...(imported?.results ?? []).map(r => `- MembershipWorks: ${r.n} med status ${r.status}${r.level ? ` (${r.level})` : ""}`)];
+  // Requested: "I can't see that you have inserted the figures anywhere" - MembershipWorks' own dashboard figures first.
+  const dashboard = statsForSaga(await latestStats(db));
+  if (dashboard) lines.unshift(dashboard);
   return lines.length ? lines.join("\n") : "(ingen medlemstal)";
 }
 
