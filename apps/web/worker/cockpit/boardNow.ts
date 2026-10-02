@@ -66,7 +66,8 @@ export function nowText(answer: string): string {
 
 export async function latestBoardNow(db: D1Database): Promise<(BoardNow & { newest: number }) | null> {
   const row = await db.prepare("SELECT text, newest_source_ms, created_at_ms FROM board_now ORDER BY created_at_ms DESC, id DESC LIMIT 1").first<{ text: string; newest_source_ms: number; created_at_ms: number }>().catch(() => null);
-  return row ? { text: nowText(row.text), at: row.created_at_ms, newest: row.newest_source_ms } : null;
+  // A text from before "under halvtreds ord" (points) is rewritten at the next hour, whether or not anything is new.
+  return row ? { text: nowText(row.text), at: row.created_at_ms, newest: /^\s*[-*•]\s/m.test(row.text) ? -1 : row.newest_source_ms } : null;
 }
 
 /** One summary, when there is something newer than the last one (or `force`). True when a new one was saved. */

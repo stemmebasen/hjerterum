@@ -12,6 +12,16 @@ const NOW = Date.parse("2026-10-02T10:00:00Z"); // Friday 12:00 in Copenhagen
 const HOUR = 3_600_000;
 
 describe("Bestyrelsen lige nu", () => {
+  it("rewrites a text from before the short format at the next hour", async () => {
+    const db = testDatabase();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Lisbeth", authorId: "201", text: "GF 14. okt.", sentAtMs: NOW - 2 * HOUR, fromAssistant: false });
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("- Thomas Emil: Jacob skal sende en sidste besked.\n- GF 14. okt.", NOW, NOW - HOUR).run();
+    const ai = fakeServices({ ai: () => "Roligt: GF 14. okt. forberedes." });
+    expect(await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW), db)).toBe(true);
+    expect((await latestBoardNow(db))?.text).toBe("Roligt: GF 14. okt. forberedes.");
+    expect(await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW + HOUR), db)).toBe(false);
+  });
+
   it("says what is done is done, and keeps it under fifty words", async () => {
     const db = testDatabase();
     await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Lisbeth", authorId: "201", text: "Hvad med Thomas Emil?", sentAtMs: NOW - HOUR, fromAssistant: false });
