@@ -630,8 +630,9 @@ describe("the front page's fun fact", () => {
   it("rounds down so \"over\" is always true, and says nothing about a handful", async () => {
     const { heldFact } = await import("./home.js");
     const band = heldFact(3651, Date.parse("2019-05-01T16:00:00Z"));
-    expect(band).toContain("Hjerterum har afholdt over 3.600 arrangementer, siden vi startede!");
-    expect(band).toContain("Det første i kalenderen var i maj 2019");
+    expect(band).toContain("Hjerterum har afholdt over 3.600 arrangementer siden starten?");
+    // Corrected: Hjerterum began in January 2016, before the calendar Saga has.
+    expect(band).toContain("Det første i kalenderen var i januar 2016 - og huset er fyldt med liv hver uge.");
     expect(heldFact(3600)).toContain("over 3.500 arrangementer");
     expect(heldFact(57)).toContain("over 50 arrangementer");
     expect(heldFact(5)).toBe("");
