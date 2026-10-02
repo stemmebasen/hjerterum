@@ -77,16 +77,26 @@ export async function recordMailWatch(db: D1Database, status: Record<string, unk
   const error = typeof status.error === "string" ? status.error.slice(0, 200) : "";
   const connected = status.connected === true;
   const count = (v: unknown) => Number.isFinite(Number(v)) ? Number(v) : 0;
-  const detail = error ? error : !connected ? "not_connected" : `${count(status.listed)} i indbakken, ${count(status.relayed)} nye givet videre`;
+  const detail = error ? error : !connected ? "not_connected" : `${count(status.listed)} nye i indbakken, ${count(status.relayed)} hentet`;
   await setServiceStatus(db, "team_mail", connected && !error, detail, nowMs);
 }
+
+const WATCH_ERRORS: Record<string, string> = {
+  not_connected: "team@ er ikke forbundet. Formanden forbinder den under Posthus.",
+  relay_timeout: "Seneste tjek af team@ blev ikke færdigt i tide.",
+  read_timeout: "Seneste tjek af team@ blev ikke færdigt i tide.",
+  mail_login_failed: "team@ afviste adgangskoden. Formanden forbinder den igen under Posthus.",
+  mail_password_unreadable: "Adgangskoden til team@ skal indtastes igen under Posthus.",
+  mail_key_missing: "Hjerterum mangler nøglen til at gemme adgangskoden til team@.",
+  mail_unreachable: "Mailserveren svarede ikke ved seneste tjek af team@.",
+};
 
 export type MailWatch = { state: "ok" | "error" | "stale" | "unknown"; detail: string };
 export async function mailWatch(db: D1Database, nowMs: number): Promise<MailWatch> {
   const last = await serviceStatus(db, "team_mail").catch(() => null);
   if (!last) return { state: "unknown", detail: "team@ er ikke blevet tjekket endnu." };
   if (nowMs - last.at_ms > MAIL_WATCH_STALE_MS) return { state: "stale", detail: `team@ er ikke blevet tjekket siden ${time(last.at_ms)}.` };
-  if (!last.ok) return { state: "error", detail: last.detail === "not_connected" ? "team@ er ikke forbundet." : last.detail === "relay_timeout" ? "Seneste tjek af team@ blev ikke færdigt i tide." : `team@ kunne ikke læses ved seneste tjek (${last.detail}).` };
+  if (!last.ok) return { state: "error", detail: WATCH_ERRORS[last.detail ?? ""] ?? `team@ kunne ikke læses ved seneste tjek (${last.detail}).` };
   return { state: "ok", detail: `Tjekket ${time(last.at_ms)} (${last.detail}).` };
 }
 

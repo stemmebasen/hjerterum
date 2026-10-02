@@ -10,9 +10,9 @@ export function testDatabase(): D1Database {
   return {
     prepare(query: string): D1PreparedStatement {
       const statement = sqlite.prepare(query);
-      let values: unknown[] = [];
+      let values: Array<string | number | bigint | null | Uint8Array> = [];
       const api: D1PreparedStatement = {
-        bind(...next: unknown[]) { values = next; return api; },
+        bind(...next: unknown[]) { values = next as typeof values; return api; },
         async first<T>() { return (statement.get(...values) as T | undefined) ?? null; },
         async all<T>() { return { results: statement.all(...values) as T[], success: true }; },
         async run() { const r = statement.run(...values); return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } }; }

@@ -21,14 +21,14 @@ describe("knowing that team@ is checked", () => {
     expect(await mailWatch(db, NOW)).toMatchObject({ state: "unknown" });
 
     expect(await (await report(env, services.fetcher, NOW, { mails: [], status: { connected: true, listed: 40, relayed: 0 } })).json()).toEqual({ received: 0, fresh: 0 });
-    expect(await mailWatch(db, NOW + 5 * MIN)).toEqual({ state: "ok", detail: expect.stringContaining("40 i indbakken, 0 nye givet videre") });
+    expect(await mailWatch(db, NOW + 5 * MIN)).toEqual({ state: "ok", detail: expect.stringContaining("40 nye i indbakken, 0 hentet") });
     // No report for more than half an hour: stopped.
     expect(await mailWatch(db, NOW + 31 * MIN)).toMatchObject({ state: "stale", detail: expect.stringContaining("ikke blevet tjekket siden") });
 
     await report(env, services.fetcher, NOW + 40 * MIN, { status: { connected: true, error: "imap_auth_failed" } });
     expect(await mailWatch(db, NOW + 41 * MIN)).toEqual({ state: "error", detail: "team@ kunne ikke læses ved seneste tjek (imap_auth_failed)." });
     await report(env, services.fetcher, NOW + 50 * MIN, { status: { connected: false } });
-    expect((await mailWatch(db, NOW + 51 * MIN)).detail).toBe("team@ er ikke forbundet.");
+    expect((await mailWatch(db, NOW + 51 * MIN)).detail).toBe("team@ er ikke forbundet. Formanden forbinder den under Posthus.");
   });
 
   it("tells Jacob privately once a day when team@ has not been checked for two hours", async () => {

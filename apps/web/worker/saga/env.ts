@@ -13,6 +13,8 @@ export interface SagaEnv {
   SAGA_OWNER_TELEGRAM_ID?: string;
   /** Bearer secret for Liva (Matrix) reading Saga's overview. */
   SAGA_LIVA_SECRET?: string;
+  /** Seals the team@ mailbox password (teamMail.ts); without it the Telegram webhook secret is the key material. */
+  MAIL_ENCRYPTION_KEY?: string;
   /** "on" lets Saga post in the board group (always after the chair's approval). Anything else:
    * she only reads along, and everything she makes goes to the chair privately. */
   SAGA_BOARD_POSTING?: string;

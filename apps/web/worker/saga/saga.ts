@@ -4,6 +4,7 @@ import { scheduledBoardNow } from "../cockpit/boardNow.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledTranslations } from "../cockpit/translate.js";
 import { mailWatch } from "./connections.js";
+import { readTeamMail } from "./teamMail.js";
 import { complete } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
@@ -407,6 +408,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
     .catch(error => console.warn("cockpit_translations_failed", error instanceof Error ? error.message : error));
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or Matrix cannot read it), Saga tells Jacob privately, once a day. No AI.
+  // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Saga reads team@ herself,
+  // every run, read-only (teamMail.ts); the run's outcome is what the watch below and Posthus show.
+  await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
   await alertMailWatch(env, deps).catch(error => console.warn("saga_mail_watch_alert_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
   await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))

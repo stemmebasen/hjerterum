@@ -26,6 +26,7 @@ import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { markOwnerDone, serviceStatus } from "../saga/store.js";
+import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } from "../saga/teamMail.js";
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { frontPageTexts, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
@@ -313,10 +314,31 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
-    const [data, watch] = await Promise.all([enquiries(db, now, all), mailWatch(db, now)]);
+    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), chairSignedIn ? teamMailAccount(db) : Promise.resolve(null)]);
+    const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
+      fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
     return html(postPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
-      watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok" }));
+      watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
+      mailbox: chairSignedIn ? { address: account?.address ?? null, by: account?.connected_by ?? null, at: account?.connected_at_ms ?? null, notice: mailNotice } : null }));
+  }
+  // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Only the chair, logged in
+  // with a personal link, connects or disconnects team@.
+  if (path === "/posthus/forbind" && request.method === "POST") {
+    if (!chairSignedIn || !personal) return html(notFound(base, who), 403);
+    const form = await request.formData().catch(() => null);
+    const outcome = await connectTeamMail(env, db, { address: String(form?.get("address") ?? ""), password: String(form?.get("password") ?? ""), by: personal, nowMs: now })
+      .then(() => "ok").catch(error => {
+        const code = error instanceof Error ? error.message : "";
+        return code === "mail_login_failed" ? "login" : code === "mail_address_invalid" ? "adresse" : code === "mail_key_missing" ? "noegle" : "fejl";
+      });
+    if (outcome === "ok") await readTeamMail(env, deps, db).catch(error => console.warn("team_mail_first_read_failed", error instanceof Error ? error.message : error));
+    return redirect(`${base}/posthus?mail=${outcome}#forbindelse`);
+  }
+  if (path === "/posthus/afbryd" && request.method === "POST") {
+    if (!chairSignedIn) return html(notFound(base, who), 403);
+    await disconnectTeamMail(db, now);
+    return redirect(`${base}/posthus?mail=afbrudt#forbindelse`);
   }
   if ((path === "/posthus/klaret" || path === "/foresporgsler/klaret") && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
