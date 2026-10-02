@@ -379,6 +379,13 @@ async function alertMailWatch(env: SagaEnv, deps: SagaDeps): Promise<void> {
  * on Sunday evening (18-19 Copenhagen time, once per week). */
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
+  // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Saga reads team@ herself,
+  // every run, read-only (teamMail.ts); the run's outcome is what the watch below and Posthus show. First of all the
+  // jobs: reported runs that stopped before the mail was read, the run's CPU spent on the jobs before it.
+  await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
+  // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
+  // (or cannot be read), Saga tells Jacob privately, once a day. No AI.
+  await alertMailWatch(env, deps).catch(error => console.warn("saga_mail_watch_alert_failed", error instanceof Error ? error.message : error));
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
   await handlePendingCorrections(env, deps).catch(error => console.warn("saga_corrections_failed", error instanceof Error ? error.message : error));
   await publishDraftedMinutes(env, deps).catch(error => console.warn("saga_minutes_publish_failed", error instanceof Error ? error.message : error));
@@ -406,12 +413,6 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Douglas taler engelsk" - Saga's front-page texts in English, when someone reads in English (weekdays).
   await scheduledTranslations(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_translations_failed", error instanceof Error ? error.message : error));
-  // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
-  // (or Matrix cannot read it), Saga tells Jacob privately, once a day. No AI.
-  // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Saga reads team@ herself,
-  // every run, read-only (teamMail.ts); the run's outcome is what the watch below and Posthus show.
-  await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
-  await alertMailWatch(env, deps).catch(error => console.warn("saga_mail_watch_alert_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
   await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));

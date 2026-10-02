@@ -171,19 +171,21 @@ describe("Saga reads the inbox and the subfolders of team@", () => {
     expect((await db.prepare("SELECT COUNT(*) AS n FROM team_mail_folders").first<{ n: number }>())!.n).toBe(0);
   });
 
-  it("shares 25 mails a run between the folders and leaves a folder's place alone when it got no room", async () => {
+  it("shares 12 mails a run between the folders and leaves a folder's place alone when it got no room", async () => {
     const db = testDatabase();
     const env = sagaEnv(db, { SAGA_TELEGRAM_WEBHOOK_SECRET: "webhook-secret-0123456789" });
-    const many = Array.from({ length: 30 }, (_, i) => mail(i + 1, `Mail ${i + 1}`, NOW - (30 - i) * 60 * MIN, `afsender${i}@example.dk`));
+    const many = Array.from({ length: 20 }, (_, i) => mail(i + 1, `Mail ${i + 1}`, NOW - (20 - i) * 60 * MIN, `afsender${i}@example.dk`));
     const boxes: Record<string, FetchedMail[]> = { "INBOX": many, "INBOX.Bookinger": [mail(4, "Booking", NOW - 60 * MIN, "ole@example.dk")] };
     const box = fakeFolders(boxes, [{ path: "INBOX", delimiter: "." }, { path: "INBOX.Bookinger", delimiter: "." }]);
     await connectTeamMail(env, db, { address: "team@holistisk.org", password: "rigtig", by: "Jacob", nowMs: NOW }, box.opener);
 
-    expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW), db, box.opener)).toEqual({ read: 25, answered: 0 });
-    expect((await db.prepare("SELECT path, last_uid FROM team_mail_folders").all()).results).toEqual([{ path: "INBOX", last_uid: 25 }]);
-    // The folder that waited is read first of the rest next time, and the inbox goes on from 26.
-    expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW + 5 * MIN), db, box.opener)).toEqual({ read: 6, answered: 0 });
-    expect((await db.prepare("SELECT path, last_uid FROM team_mail_folders ORDER BY path").all()).results).toEqual([{ path: "INBOX", last_uid: 30 }, { path: "INBOX.Bookinger", last_uid: 4 }]);
+    expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW), db, box.opener)).toEqual({ read: 12, answered: 0 });
+    expect((await db.prepare("SELECT path, last_uid FROM team_mail_folders").all()).results).toEqual([{ path: "INBOX", last_uid: 12 }]);
+    // The folder that waited is read next time, and the inbox goes on from 13.
+    expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW + 5 * MIN), db, box.opener)).toEqual({ read: 9, answered: 0 });
+    expect((await db.prepare("SELECT path, last_uid FROM team_mail_folders ORDER BY path").all()).results).toEqual([{ path: "INBOX", last_uid: 20 }, { path: "INBOX.Bookinger", last_uid: 4 }]);
+    // Each run says where it is, so a run cut off from outside shows where it stopped.
+    expect((await db.prepare("SELECT detail FROM saga_status WHERE key = 'team_mail_progress'").first<{ detail: string }>())!.detail).toBe("færdig");
   });
 });
 

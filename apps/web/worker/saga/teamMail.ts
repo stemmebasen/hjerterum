@@ -1,5 +1,6 @@
 import type { D1Database } from "../db.js";
 import { recordMailWatch } from "./connections.js";
+import { setServiceStatus } from "./store.js";
 import type { SagaDeps, SagaEnv } from "./env.js";
 import { watchMail } from "./saga.js";
 
@@ -12,9 +13,11 @@ export const TEAM_MAIL_HOST = "imap.one.com";
 const INBOX = "INBOX";
 /** The first read reaches this far back, so the mails since the old hand-over stopped come too. */
 const FIRST_LOOKBACK_MS = 30 * 24 * 3_600_000;
-const MAX_PER_RUN = 25;
+/** Saga runs every five minutes with 30 seconds of CPU for everything she does: reading and parsing mail is the
+ * heavy part, so a run takes a dozen mails and only the first 96 KB of each (the text is at the top; attachments are not read). */
+const MAX_PER_RUN = 12;
 const RUN_LIMIT_MS = 40_000;
-const MAX_SOURCE_BYTES = 256 * 1024;
+const MAX_SOURCE_BYTES = 96 * 1024;
 
 export type TeamMailAccount = { address: string; imap_host: string; password_sealed: string; uid_validity: string | null; last_uid: number | null; connected_by: string; connected_at_ms: number };
 
@@ -220,6 +223,9 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
       session = await opener({ host: account.imap_host, user: account.address, password }).catch(error => { throw loginError(error); });
       const open: ImapSession = session;
       const now = deps.now();
+      // Where the run is, so a run cut off from outside (the runtime's limits) shows where it stopped.
+      const progress = (step: string) => setServiceStatus(db, "team_mail_progress", true, step, deps.now());
+      await progress("logget ind");
       const marks = new Map((await db.prepare("SELECT path, uid_validity, last_uid, checked_at_ms FROM team_mail_folders").all<FolderMark>()).results?.map(m => [m.path, m] as const) ?? []);
       const listing = open.folders ? await open.folders() : null;
       const paths = listing ? readableFolders(listing) : [INBOX];
@@ -245,9 +251,10 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
       const order = [INBOX, ...paths.filter(p => p !== INBOX).sort((a, b) => (marks.get(a)?.checked_at_ms ?? 0) - (marks.get(b)?.checked_at_ms ?? 0) || a.localeCompare(b))];
       status.folders = order.length;
       let room = MAX_PER_RUN;
-      for (const path of order) {
+      for (const [n, path] of order.entries()) {
         const waiting = waitingIn.get(path) ?? [];
         if (room <= 0 && !waiting.length) continue;
+        await progress(`mappe ${n + 1}/${order.length}: ${path}`);
         // A subfolder that will not open is passed over (and tried again next run); the inbox failing is the run's error.
         const box = await open.open(path).catch(error => { if (path === INBOX) throw error; console.warn("team_mail_folder_unreadable", path, error instanceof Error ? error.message : error); return null; });
         if (!box) continue;
@@ -290,6 +297,7 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
       }
 
       // Sent mail: only who it went to, its subject and which mail it answers - kept to find the answers, never shown.
+      await progress("sendt");
       let sentRoom = MAX_SENT_PER_RUN;
       for (const path of sent) {
         if (sentRoom <= 0) break;
@@ -307,6 +315,7 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
         await watermark(path, box.uidValidity, batch.length ? batch[batch.length - 1]! : after === null ? Math.max(0, box.uidNext - 1) : after);
       }
       status.answered += await matchSentAnswers(db, now, account.address);
+      await progress("færdig");
     })(), limit]);
   } catch (error) {
     status.error = (error instanceof Error ? error.message : String(error)).slice(0, 200) || "unknown_error";
