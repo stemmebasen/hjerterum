@@ -21,6 +21,8 @@ export type HomeData = {
   latest: { id: number; date: string; decisions: string[]; approved: number; members: number } | null;
   picture: BoardPicture | null; summary: string | null; at: number | null;
   events: HouseEvent[]; eventsMonth: number;
+  /** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - every event in the calendar that has taken place. */
+  eventsHeld?: number;
   progress: { working: number; waiting: number };
   memberStats?: MemberStats[];
   newEnquiries?: number;
@@ -32,7 +34,16 @@ export type HomeData = {
   tr?: ((danish: string) => string) | undefined;
 };
 
+/** "over 3.600": rounded down to the hundred below (to the ten below under a hundred), so "over" is always true. */
+export function heldFact(held: number): string {
+  if (held < 20) return "";
+  const step = held >= 100 ? 100 : 10;
+  const over = Math.floor((held - 1) / step) * step;
+  return `<p class="fact">Vidste du, at Hjerterum har afholdt over ${over.toLocaleString("da-DK")} arrangementer, siden vi startede?</p>`;
+}
+
 export const HOME_STYLE = `
+.fact{margin:14px 0 0;padding:12px 14px;border-radius:12px;background:var(--tint);color:var(--ink);font-size:14.5px;line-height:1.5}
 .home{gap:26px}
 .items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
@@ -153,7 +164,7 @@ ${now ? `<p class="now">${esc(tr(now.text))}</p>` : `<p class="empty">Saga skriv
   const events = `<article class="panel"><header><h2>I huset</h2><p>De næste arrangementer i Hjerterum.</p></header>
 ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="event">${e.image_url ? `<img src="${esc(e.image_url)}" alt="" loading="lazy">` : `<span class="date" style="width:52px;height:52px"><b style="font-size:20px">${new Date(e.starts_at_ms).getDate()}</b></span>`}
 <div><span class="t">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</span><span class="ctx">${esc(EVENT_TIME.format(e.starts_at_ms))}${e.host ? ` · ${esc(e.host)}` : ""}</span></div></li>`).join("")}</ul>` : `<p class="empty">Ingen arrangementer de næste dage.</p>`}
-<a class="more" href="${base}/arrangementer">Alle arrangementer →</a></article>`;
+${heldFact(data.eventsHeld ?? 0)}<a class="more" href="${base}/arrangementer">Alle arrangementer →</a></article>`;
 
   const working = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${plural(data.progress.working, "optagelse", "optagelser")} bliver til referat` : "",
     data.progress.waiting ? `${plural(data.progress.waiting, "referat", "referater")} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";

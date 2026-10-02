@@ -140,7 +140,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
-    const [eventsToReview, boardNow, votes] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now)]);
+    const [eventsToReview, boardNow, votes, held] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now),
+      db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number }>().catch(() => null)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -150,7 +151,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     // Saga's own texts in English, when she has translated them.
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 

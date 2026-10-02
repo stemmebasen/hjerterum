@@ -209,6 +209,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Faste undervisere \((\d+)\) - deres events kræver ikke godkendelse$/, "Regular teachers ($1) - their events need no approval"],
   [/^(\d+) referat(?:er)?$/, "$1 minutes"], [/^i restance · (\d+) opsagt$/, "in arrears · $1 cancelled"], [/^i restance$/, "in arrears"], [/^Betaling stoppet$/, "Payment stopped"],
   [/^Opsagt$/, "Cancelled"], [/^Aktiv$/, "Active"], [/^(\d+) medlemmer$/, "$1 members"],
+  [/^Vidste du, at Hjerterum har afholdt over ([\d.]+) arrangementer, siden vi startede\?$/, (_, n) => `Did you know that Hjerterum has held more than ${n.replace(/\./g, ",")} events since we started?`],
   [/^Ventet (under en time|\d+ (?:time|timer|dag|dage|uger))$/, (_, t) => `Waited ${t.replace("under en time", "under an hour").replace(/timer?$/, m => m === "time" ? "hour" : "hours").replace(/dage?$/, m => m === "dag" ? "day" : "days").replace("uger", "weeks")}`],
   [/^Vis alle (\d+) mails$/, "Show all $1 mails"], [/^Se mailen: /, "See the mail: "],
   [/^Møde (?=\d)/, "Meeting "], [/ · har referat$/, " · has minutes"], [/ · fast underviser$/, " · regular teacher"], [/^Fra (?=\d)/, "From "], [/^Skrevet af /, "Written by "],

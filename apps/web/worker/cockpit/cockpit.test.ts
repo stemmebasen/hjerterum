@@ -576,3 +576,14 @@ describe("Saga sets meetings from the chat", () => {
     expect(await applyMeeting(db, "Hvilken dato mener du?", null, NOW)).toBe("Hvilken dato mener du?");
   });
 });
+
+describe("the front page's fun fact", () => {
+  // Requested: "Det kunne være sjovt, hvis der et sted står: Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?"
+  it("rounds down so \"over\" is always true, and says nothing about a handful", async () => {
+    const { heldFact } = await import("./home.js");
+    expect(heldFact(3651)).toBe('<p class="fact">Vidste du, at Hjerterum har afholdt over 3.600 arrangementer, siden vi startede?</p>');
+    expect(heldFact(3600)).toContain("over 3.500 arrangementer");
+    expect(heldFact(57)).toContain("over 50 arrangementer");
+    expect(heldFact(5)).toBe("");
+  });
+});
