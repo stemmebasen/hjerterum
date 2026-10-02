@@ -43,7 +43,7 @@ async function setup(extra: Partial<SagaEnv> = {}) {
 
 describe("the board cockpit", () => {
   it("lets no one in without the shared password, and says when it is not set up", async () => {
-    const plain = await setup({ COCKPIT_PASSWORD: "" });
+    const plain = await setup({ COCKPIT_PASSWORD: "", SAGA_TELEGRAM_BOT_USERNAME: "" });
     const closed = await plain.call("/cockpit");
     expect(closed.status).toBe(503);
     expect(await closed.text()).toContain("formanden mangler at vælge den fælles adgangskode");
@@ -83,10 +83,10 @@ describe("the board cockpit", () => {
     const picture = { summary: "God energi efter weekenden.", temperature: { level: "god", why: "Travlt op til generalforsamlingen" },
       topics: [{ title: "Reduceret medlemskab", status: "drøftes", who: ["Lisbeth"], waitsOnJacob: false, note: "Forslag til GF" }],
       document: { latestMeeting: "17/9", missingMinutes: [], dates: [{ date: "2026-10-14", what: "Generalforsamling" }], figures: [], decisions: [{ topic: "Prøveperiode", text: "Gratis prøveperiode til 15. oktober", date: "17/9", replaces: "" }],
-        openThreads: [], proposals: [], tasks: [{ who: "Lisbeth", what: "Skriv forslag om reduceret medlemskab", due: "14/10", since: "17/9" }], nextAgenda: [] },
+        openThreads: [], proposals: [], tasks: [{ who: "Lisbeth", what: "Skriv forslag om reduceret medlemskab", due: "14/10", since: "1/10" }, { who: "Lisbeth", what: "Gammel opgave fra før", due: "", since: "17/9" }], nextAgenda: [] },
       forJacob: [{ key: "", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" }] };
     await saveOverview(db, picture.summary, NOW, { data: JSON.stringify(picture), docHash: "x" });
-    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-09-17", nowMs: NOW }))!;
+    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Beslutninger\n- Budgettet er vedtaget\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Alle - Del opslaget - ingen frist aftalt" }, NOW);
     await decideMinutes(db, minutesId, "approved", NOW);
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
@@ -96,6 +96,8 @@ describe("the board cockpit", () => {
     expect(mine.match(/Skriv forslag om reduceret medlemskab/g)).toHaveLength(1);
     expect(mine).toContain("Del opslaget");
     expect(mine).not.toContain("Lav event-mail");
+    // Requested: "alle påmindelser fra før i går ikke fremgår af listen, så vi starter friskt".
+    expect(mine).not.toContain("Gammel opgave fra før");
     // Everyone's tasks stand under "Hvem har hvad", as in Matrix.
     const status = await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
     expect(status.slice(status.indexOf("Hvem har hvad"))).toContain("Lav event-mail");
@@ -353,7 +355,7 @@ describe("each member's task list", () => {
     const { db, call, form, login } = await setup();
     const session = await login();
     const as = (name: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(name)}`;
-    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-09-17", nowMs: NOW }))!;
+    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Lisbeth - Book lokale - ingen frist aftalt" }, NOW);
     await decideMinutes(db, minutesId, "approved", NOW);
 
@@ -399,5 +401,25 @@ describe("each member's task list", () => {
     const page = await (await call("/cockpit/", { cookie: `${await login()}; hjerterum_cockpit_who=Gitta` })).text();
     expect(page).toContain("Saga tænker …");
     expect(page).not.toContain("Saga læser med");
+  });
+});
+
+// Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."
+describe("Saga sets meetings from the chat", () => {
+  it("creates the meeting she is asked for, and moves one with its agenda", async () => {
+    const { applyMeeting } = await import("./ask.js");
+    const { db } = await setup();
+    const made = await applyMeeting(db, "Det er gjort.\n[[MØDE dato=2026-10-15 tid=13:30 sted=Hjerterum, Aarhus]]", "Jacob Hauge", NOW, "/cockpit");
+    expect(made).toContain("Det er gjort.");
+    expect(made).not.toContain("[[MØDE");
+    expect(made).toContain("✓ Sat i kalenderen: torsdag 15. oktober kl. 13:30, Hjerterum, Aarhus");
+    const meeting = await db.prepare("SELECT id, meeting_date, start_time, place FROM board_meetings").first<{ id: number; meeting_date: string; start_time: string; place: string }>();
+    expect(meeting).toMatchObject({ meeting_date: "2026-10-15", start_time: "13:30", place: "Hjerterum, Aarhus" });
+    expect(made).toContain(`(/cockpit/moder/${meeting!.id})`);
+    await db.prepare("UPDATE board_meetings SET agenda = 'Budget' WHERE id = ?").bind(meeting!.id).run();
+    const moved = await applyMeeting(db, "Flyttet.\n[[MØDE dato=2026-10-22 fra=2026-10-15]]", "Jacob Hauge", NOW);
+    expect(moved).toContain("Mødet er flyttet til torsdag 22. oktober");
+    expect(await db.prepare("SELECT meeting_date, start_time, agenda FROM board_meetings").all()).toMatchObject({ results: [{ meeting_date: "2026-10-22", start_time: "13:30", agenda: "Budget" }] });
+    expect(await applyMeeting(db, "Hvilken dato mener du?", null, NOW)).toBe("Hvilken dato mener du?");
   });
 });

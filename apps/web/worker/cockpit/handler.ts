@@ -4,10 +4,11 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
-import { cookie, loginBlocked, passwordMatches, readCookies, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, recordFailedLogin, SESSION_COOKIE, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, checkedTasks, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addTodo, checkedTasks, currentTasks, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
@@ -16,7 +17,7 @@ import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { serviceStatus } from "../saga/store.js";
-import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
+import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -51,36 +52,57 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   const path = (base ? url.pathname.slice(base.length) : url.pathname) || "/";
   const secure = url.protocol === "https:";
   const now = deps.now();
-  if (!env.DB) return html(loginPage(base, "", false), 503);
+  // Requested: the account locked to the member once identified - "1." (cockpit/personalLogin.ts). The
+  // shared password stays until COCKPIT_SHARED_LOGIN is "off"; Saga's personal link always works.
+  const shared = Boolean(env.COCKPIT_PASSWORD) && env.COCKPIT_SHARED_LOGIN !== "off";
+  const botLink = env.SAGA_TELEGRAM_BOT_USERNAME && env.SAGA_TELEGRAM_BOT_TOKEN ? `https://t.me/${env.SAGA_TELEGRAM_BOT_USERNAME}?start=login` : null;
+  const login = (message: string, status: number) => html(loginPage(base, message, shared, botLink), status);
+  if (!env.DB) return login("", 503);
   const db: D1Database = env.DB;
 
   // Forms are only taken from the cockpit's own pages.
-  if (request.method === "POST" && request.headers.get("origin") !== url.origin) return html(loginPage(base, "Siden blev sendt fra et andet sted. Prøv igen.", Boolean(env.COCKPIT_PASSWORD)), 403);
+  if (request.method === "POST" && request.headers.get("origin") !== url.origin) return login("Siden blev sendt fra et andet sted. Prøv igen.", 403);
 
   if (path === "/login" && request.method === "POST") {
-    if (!env.COCKPIT_PASSWORD) return html(loginPage(base, "", false), 503);
-    if (await loginBlocked(db, request, now)) return html(loginPage(base, "For mange forsøg. Vent et kvarter, og prøv igen.", true), 429);
+    if (!shared || !env.COCKPIT_PASSWORD) return login("", 503);
+    if (await loginBlocked(db, request, now)) return login("For mange forsøg. Vent et kvarter, og prøv igen.", 429);
     const form = await request.formData().catch(() => null);
     const given = String(form?.get("password") ?? "");
     if (!given || !(await passwordMatches(given, env.COCKPIT_PASSWORD))) {
       await recordFailedLogin(db, request, now);
-      return html(loginPage(base, "Forkert adgangskode.", true), 401);
+      return login("Forkert adgangskode.", 401);
     }
     const who = readCookies(request).get(WHO_COOKIE);
     return redirect(`${base}${who ? "/" : "/hvem"}`, [cookie(SESSION_COOKIE, await sessionValue(env.COCKPIT_PASSWORD, now), SESSION_DAYS * 86_400, secure)]);
   }
-  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure)]);
+  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure)]);
+
+  // Saga's personal link: shown first (a link preview never logs anyone in), used with one press.
+  const linkPath = /^\/login\/link\/([A-Za-z0-9_-]{20,64})$/.exec(path);
+  if (linkPath) {
+    const token = linkPath[1]!;
+    if (request.method === "POST") {
+      const member = env.SAGA_TELEGRAM_BOT_TOKEN ? await useLink(db, token, now) : null;
+      if (!member) return html(linkPage(base, null, token), 410);
+      return redirect(`${base}/`, [cookie(PERSON_COOKIE, await personSessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure),
+        cookie(WHO_COOKIE, member, PERSON_DAYS * 86_400, secure)]);
+    }
+    const member = await linkMember(db, token, now);
+    return html(linkPage(base, member, token), member ? 200 : 410);
+  }
 
   const jar = readCookies(request);
-  if (!(await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) {
-    return html(loginPage(base, "", Boolean(env.COCKPIT_PASSWORD)), env.COCKPIT_PASSWORD ? 401 : 503);
-  }
+  const person = await readPersonSession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(PERSON_COOKIE), now);
+  const personal = person && person.issuedMs > await signedOutAfter(db, person.member) ? person.member : null;
+  if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) return login("", shared || botLink ? 401 : 503);
   const members = await boardMembers(env, db);
   const saved = jar.get(WHO_COOKIE) ?? null;
-  const who = saved && (!members.names.length || members.names.includes(saved)) ? saved : null;
+  // A personal login is that member, and stays so; with the shared password you say who you are.
+  const who = personal ?? (saved && (!members.names.length || members.names.includes(saved)) ? saved : null);
   const today = copenhagenDay(now);
 
   if (path === "/hvem") {
+    if (personal) return redirect(`${base}/`);
     if (request.method === "POST") {
       const chosen = String((await request.formData().catch(() => null))?.get("who") ?? "").trim().slice(0, 60);
       if (!chosen || (members.names.length && !members.names.includes(chosen))) return html(whoPage(base, members.names, who), 400);
@@ -197,7 +219,15 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
 
-  if (path === "/mere" && request.method === "GET") return html(morePage(base, who));
+  const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
+  if (path === "/mere" && request.method === "GET") return html(morePage(base, who, { locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket") }));
+  // The chair (logged in with a personal link) closes a member's access on every device.
+  if (path === "/adgang" && request.method === "POST") {
+    const member = String((await request.formData().catch(() => null))?.get("member") ?? "");
+    if (!chairSignedIn || !members.names.includes(member) || member === personal) return html(notFound(base, who), 403);
+    await signOutMember(db, member, now);
+    return redirect(`${base}/mere?lukket=${encodeURIComponent(member)}`);
+  }
 
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
   // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
@@ -229,7 +259,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const [{ picture }, minutes, checked, todos] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who)]);
     const sentTo = url.searchParams.get("til");
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
-    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, allTasks(minutes, picture)), checked, todos, notice }));
+    return html(todosPage(base, { who, members: members.names, tasks: currentTasks(tasksFor(who, allTasks(minutes, picture))), checked, todos: currentTodos(todos), notice }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {
@@ -264,7 +294,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);
     if (!env.AI_API_KEY || !env.AI_MODEL) return answer({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
     if (await questionsToday(db, now) >= DAILY_QUESTIONS) return answer({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
-    try { return answer({ html: await askSaga(env, deps, db, who, input) }); }
+    try { return answer({ html: await askSaga(env, deps, db, who, input, base) }); }
     catch (error) {
       console.warn("cockpit_ask_failed", error instanceof Error ? error.message : error);
       return answer({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);

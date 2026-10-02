@@ -61,7 +61,7 @@ describe("corrections to one point of the minutes", () => {
     expect((await getMinutes(db, id))!.draft_markdown).toContain("Kassen er 41.200 kr.");
     expect(await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_signoffs").first()).toEqual({ n: 0 });
     const after = await (await call(`/cockpit/referat/${id}`, { headers: as("Lisbeth") })).text();
-    expect(after).toContain("Rettet efter Gittas rettelse: Kassebeholdningen er rettet til 41.200 kr.");
+    expect(after).toContain('<details class="m-made"><summary>1 rettelse</summary><p class="m-fixnote">Gitta: Kassebeholdningen er rettet til 41.200 kr.</p></details>');
     const told = services.telegram("sendMessage").at(-1)?.body as { chat_id: string; text: string };
     expect(told.chat_id).toBe(OWNER);
     expect(told.text).toContain("Gitta rettede punkt 2");
@@ -105,7 +105,7 @@ describe("corrections to one point of the minutes", () => {
     expect(await open()).toBe(0);
     page = await (await call(`/cockpit/referat/${id}`, { headers })).text();
     expect(page).not.toContain("Saga spørger dig:");
-    expect(page).toContain("Rettet efter Jacob Hauges rettelse: Jacob står for opsætningen.");
+    expect(page).toContain("Jacob Hauge: Jacob står for opsætningen.");
 
     // Saga asks once: after an answer, a second question is not shown - the correction is marked as not made.
     reply = JSON.stringify({ action: "ask", question: "Første spørgsmål?" });

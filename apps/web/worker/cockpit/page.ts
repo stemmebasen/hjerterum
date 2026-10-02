@@ -26,7 +26,11 @@ header.bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--b
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:700;letter-spacing:-.02em;font-size:16px;white-space:nowrap}
 .brand i{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;color:var(--accent-ink);font-style:normal;font-size:15px}
 .brand span{color:var(--muted);font-weight:500}
-nav.desk{display:flex;gap:2px;flex:1}nav.desk a{padding:8px 13px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px}
+/* Reported: "Her tilter designet" - with Opgaver in the menu the bar ran out of room: the logo was squeezed and
+   the name broke over two lines. Nothing in the bar shrinks or wraps; the name gives way first (the avatar says who). */
+.brand,.brand i,.me{flex:none}.me .who-name{white-space:nowrap}
+nav.desk{display:flex;gap:2px;flex:1;min-width:0}nav.desk a{padding:8px 12px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:550;font-size:14px;white-space:nowrap}
+@media (max-width:1180px){.me .who-name{display:none}}@media (max-width:1000px){.brand span{display:none}nav.desk a{padding:8px 9px}}
 nav.desk a:hover{color:var(--ink);background:var(--soft)}nav.desk a.on{background:var(--ink);color:var(--bg)}
 .me{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-left:auto}.me a{color:var(--muted);text-decoration:none}
 .avatar{width:32px;height:32px;border-radius:50%;background:var(--tint);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:13px;text-decoration:none}
@@ -110,10 +114,16 @@ ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
 }
 
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
-export function morePage(base: string, who: string | null): string {
+export function morePage(base: string, who: string | null, options: { locked?: boolean; members?: string[]; done?: string | null } = {}): string {
+  // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
+  const me = options.locked ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who ?? "")}</span>`
+    : `<a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>`;
+  const access = options.members?.length ? `<div class="card"><h2>Adgang</h2><p class="small muted">Luk et medlems adgang: deres login på alle enheder ophører, og de skal bede Saga om et nyt link.</p>
+${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
+<form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Mere", `<main><h1>Mere</h1><div class="card"><div class="menu">
-<a href="${base}/status">Status</a><a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a><a href="${base}/hvem">${who ? `Du er ${esc(who)} · skift` : "Vælg hvem du er"}</a>
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div></main>`, { section: "/mere", who });
+<a href="${base}/status">Status</a><a href="${base}/beslutninger">Beslutninger</a><a href="${base}/arkiv">Arkiv</a>${me}
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${access}</main>`, { section: "/mere", who });
 }
 
 const SAGA_STYLE = `
@@ -161,12 +171,23 @@ log.querySelectorAll(".saga-ideas button").forEach(b=>b.onclick=()=>{ask(b.textC
 if(history.length)log.querySelector(".saga-ideas")?.remove();})()</script>`;
 }
 
-export function loginPage(base: string, message: string, configured: boolean): string {
+export function loginPage(base: string, message: string, configured: boolean, telegram: string | null = null): string {
+  // Requested: the account locked to the member - "1.": Saga's personal link first, the shared password (while it lasts) below.
+  const personal = telegram ? `<a class="button" href="${esc(telegram)}" target="_blank" rel="noopener">Få dit login fra Saga på Telegram</a>
+<p class="small muted">Saga sender dig et personligt link, der logger dig ind som dig. Det virker én gang inden for 15 minutter. Du kan også skrive /login til hende.</p>` : "";
+  const password = configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required${personal ? "" : " autofocus"}></label>
+<button${personal ? ' class="ghost"' : ""}>Log ind</button></form>` : "";
   return layout(base, "Log ind", `<div class="center"><div class="card"><h1>Hjerterum bestyrelse</h1>
 <p class="muted">Bestyrelsens cockpit med møder, referater og beslutninger.</p>
-${configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required autofocus></label>
-${message ? `<p class="notice warn">${esc(message)}</p>` : ""}<button>Log ind</button></form>`
-    : `<p class="notice warn">Cockpittet er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
+${message ? `<p class="notice warn">${esc(message)}</p>` : ""}${personal}${personal && password ? `<p class="small muted" style="margin:18px 0 6px">Eller med den fælles adgangskode</p>` : ""}${password}
+${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
+}
+
+/** Saga's personal link: one press logs in, so a link preview in Telegram never does. */
+export function linkPage(base: string, member: string | null, token: string): string {
+  return layout(base, "Log ind", `<div class="center"><div class="card"><h1>Hjerterum bestyrelse</h1>
+${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form method="post" action="${base}/login/link/${esc(token)}"><button>Log ind</button></form>`
+    : `<p class="notice warn">Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.</p><p><a href="${base}/">Til login</a></p>`}</div></div>`);
 }
 
 export function whoPage(base: string, names: string[], current: string | null): string {

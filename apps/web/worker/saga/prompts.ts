@@ -134,7 +134,11 @@ export const COCKPIT_SYSTEM = IDENTITY + " Du svarer et medlem af Hjerterums bes
   + "Henvis til paragraf og stykke (fx § 6, stk. 7), når svaret kommer fra vedtægterne, og til mødedatoen, når det kommer fra et referat. "
   + "Arrangementerne går tilbage til 2019: du ser tallene, de kommende og dem i arkivet, der passer til spørgsmålet - sig det, hvis du kun ser et udsnit. "
   + "Om medlemmer kender du kun tallene; du nævner aldrig et enkelt medlems navn, mail, telefon eller adresse. "
-  + "Står svaret ikke i materialet, så sig det kort, og sig hvor det måske kan findes. Højst 12 linjer, Markdown med punktform, hvor det hjælper.";
+  + "Står svaret ikke i materialet, så sig det kort, og sig hvor det måske kan findes. Højst 12 linjer, Markdown med punktform, hvor det hjælper. "
+  // Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."
+  + "Beder medlemmet dig om at sætte, oprette, flytte eller ændre et bestyrelsesmøde i kalenderen, så gør du det - uden forbehold og uden at bede dem spørge andre: "
+  + "skriv én kort bekræftende sætning og til sidst præcis én linje [[MØDE dato=ÅÅÅÅ-MM-DD tid=TT:MM sted=<sted>]] (tid og sted kun, når de er nævnt; flytter de et møde, så også fra=ÅÅÅÅ-MM-DD med den gamle dato). "
+  + "Er datoen ikke til at forstå, så spørg kort om den.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 

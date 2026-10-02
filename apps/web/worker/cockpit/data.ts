@@ -244,8 +244,27 @@ export async function setTaskChecked(db: D1Database, owner: string, key: string,
   else await db.prepare("DELETE FROM cockpit_task_checks WHERE owner = ? AND task_key = ?").bind(owner, key).run();
 }
 
-/** What is still open for this person: their minutes tasks not checked off, and their own items. */
+/** Requested: "Det er vigtigt, at det er de nyeste opgaver, der er øverst. Desuden ... alle påmindelser fra
+ * før i går ikke fremgår af listen, så vi starter friskt" (2 October 2026). The list starts on 1 October:
+ * tasks from earlier minutes and items written before then are not shown; the newest come first. */
+export const TASKS_SINCE = "2026-10-01";
+const SINCE_MS = Date.parse(`${TASKS_SINCE}T00:00:00+02:00`);
+/** A task's day as YYYY-MM-DD: the minutes' meeting date, or the minutes document's "17/9" (this year). */
+export function taskDay(task: Task): string {
+  if (/^\d{4}-\d{2}-\d{2}/.test(task.meeting)) return task.meeting.slice(0, 10);
+  const short = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/.exec(task.meeting.trim());
+  if (!short) return "";
+  const year = short[3] ? (short[3].length === 2 ? `20${short[3]}` : short[3]) : TASKS_SINCE.slice(0, 4);
+  return `${year}-${short[2]!.padStart(2, "0")}-${short[1]!.padStart(2, "0")}`;
+}
+export function currentTasks(tasks: Task[]): Task[] {
+  return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day >= TASKS_SINCE)
+    .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);
+}
+export const currentTodos = (todos: Todo[]) => todos.filter(t => t.created_at_ms >= SINCE_MS).sort((a, b) => b.created_at_ms - a.created_at_ms);
+
+/** What is still open for this person: their minutes tasks not checked off, and their own items - newest first. */
 export async function openFor(db: D1Database, owner: string, tasks: Task[]): Promise<{ tasks: Task[]; todos: Todo[] }> {
   const [checked, todos] = await Promise.all([checkedTasks(db, owner), todosFor(db, owner)]);
-  return { tasks: tasksFor(owner, tasks).filter(task => !checked.has(taskKey(task))), todos: todos.filter(t => t.done_at_ms === null) };
+  return { tasks: currentTasks(tasksFor(owner, tasks)).filter(task => !checked.has(taskKey(task))), todos: currentTodos(todos).filter(t => t.done_at_ms === null) };
 }

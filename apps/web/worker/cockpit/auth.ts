@@ -78,3 +78,33 @@ export async function recordFailedLogin(db: D1Database, request: Request, nowMs:
     ON CONFLICT(bucket) DO UPDATE SET attempts = attempts + 1, at_ms = excluded.at_ms`).bind(await bucket(request, nowMs), nowMs).run();
   await db.prepare("DELETE FROM cockpit_login_attempts WHERE at_ms < ?").bind(nowMs - 24 * 3_600_000).run();
 }
+
+// ---- Requested: the account locked to the one member once identified - "1." (Saga's personal login link) ----
+
+export const PERSON_COOKIE = "hjerterum_cockpit_person";
+export const PERSON_DAYS = 180;
+export const LINK_MINUTES = 15;
+const b64 = (text: string) => btoa(String.fromCharCode(...encoder.encode(text))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64 = (text: string) => new TextDecoder().decode(Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)));
+
+/** A signed login for one member: who, when it was given and when it ends. */
+export async function personSessionValue(secret: string, member: string, nowMs: number): Promise<string> {
+  const body = `${b64(member)}.${nowMs}.${nowMs + PERSON_DAYS * 86_400_000}`;
+  return `${body}.${await sign("person", secret, body)}`;
+}
+
+export async function readPersonSession(secret: string | undefined, value: string | undefined, nowMs: number): Promise<{ member: string; issuedMs: number } | null> {
+  if (!secret || !value) return null;
+  const parts = value.split(".");
+  if (parts.length !== 4 || !/^\d+$/.test(parts[1]!) || !/^\d+$/.test(parts[2]!) || Number(parts[2]) <= nowMs) return null;
+  const body = parts.slice(0, 3).join(".");
+  if (!sameText(parts[3]!, await sign("person", secret, body))) return null;
+  try { return { member: unb64(parts[0]!), issuedMs: Number(parts[1]) }; } catch { return null; }
+}
+
+export const linkHash = async (token: string) => base64url(await crypto.subtle.digest("SHA-256", encoder.encode(`cockpit-link:${token}`)));
+export function newLinkToken(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return base64url(bytes.buffer);
+}
