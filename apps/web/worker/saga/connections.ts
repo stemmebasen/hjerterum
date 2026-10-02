@@ -78,7 +78,7 @@ export async function recordMailWatch(db: D1Database, status: Record<string, unk
   const connected = status.connected === true;
   const count = (v: unknown) => Number.isFinite(Number(v)) ? Number(v) : 0;
   const folders = count(status.folders);
-  const detail = error ? error : !connected ? "not_connected" : `${count(status.listed)} nye i ${folders > 1 ? `${folders} mapper` : "indbakken"}, ${count(status.relayed)} hentet`;
+  const detail = error ? error : !connected ? "not_connected" : `${count(status.listed)} nye i ${folders > 1 ? `${folders} mapper` : "indbakken"}, ${count(status.relayed)} hentet${count(status.answered) ? `, ${count(status.answered)} fundet besvaret` : ""}`;
   await setServiceStatus(db, "team_mail", connected && !error, detail, nowMs);
 }
 
