@@ -29,7 +29,7 @@ import { markOwnerDone, serviceStatus } from "../saga/store.js";
 import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } from "../saga/teamMail.js";
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
-import { frontPageTexts, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
+import { AUTO_TRANSLATED, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -62,7 +62,15 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   const state: { lang: Lang } = { lang: "da" };
   const response = await route(request, env, deps, state);
   if (state.lang !== "en" || !(response.headers.get("content-type") ?? "").startsWith("text/html")) return response;
-  return new Response(translateHtml(await response.text()), { status: response.status, headers: response.headers });
+  const page = await response.text();
+  // Requested: "I think that overview, tasks, and decisions should be automatically translated".
+  const url = new URL(request.url);
+  const path = (isCockpitHost(url.hostname) ? url.pathname : url.pathname.replace(/^\/cockpit/, "")) || "/";
+  if (env.DB && response.status === 200 && AUTO_TRANSLATED.has(path)) {
+    const english = await translatePage(env, deps, env.DB, page).catch(error => { console.warn("cockpit_page_translate_failed", error instanceof Error ? error.message : error); return null; });
+    if (english) return new Response(english, { status: response.status, headers: response.headers });
+  }
+  return new Response(translateHtml(page), { status: response.status, headers: response.headers });
 }
 
 async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { lang: Lang }): Promise<Response> {

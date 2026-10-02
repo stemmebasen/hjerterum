@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
-import { translateHtml } from "./i18n.js";
-import { scheduledTranslations } from "./translate.js";
+import { translateHtml, worthTranslating } from "./i18n.js";
+import { scheduledTranslations, translatePage } from "./translate.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -88,5 +88,45 @@ describe("the cockpit in English", () => {
       expect(after).toContain("Show the Danish original");
       expect(await (await call(`/referat/${id}?original=1`, { cookie: douglas })).text()).toContain("Budgettet er vedtaget");
     }
+  });
+});
+
+describe("whole pages in English", () => {
+  // Requested: "I think that overview, tasks, and decisions should be automatically translated".
+  const page = `<!doctype html><html lang="da"><body><h1>Opgaver</h1><ul><li>Ring til udlejeren om nøglerne</li><li>Jacob</li><li>3.600</li></ul><p translate="no">Hjerterum ApS kontrakt</p></body></html>`;
+
+  it("translates what the dictionary does not know, once, and keeps it", async () => {
+    const db = testDatabase();
+    let calls = 0;
+    const services = fakeServices({ ai: (_system, user) => { calls += 1; const { texts } = JSON.parse(user) as { texts: string[] };
+      return JSON.stringify({ texts: texts.map(t => t === "Ring til udlejeren om nøglerne" ? "Call the landlord about the keys" : `EN ${t}`) }); } });
+    const env = sagaEnv(db);
+    const weekday = Date.parse("2026-10-02T10:00:00Z");
+    const first = await translatePage(env, deps(services.fetcher, weekday), db, page);
+    expect(first).toContain("<li>Call the landlord about the keys</li>");
+    expect(first).toContain("<h1>Tasks</h1>");
+    expect(first).toContain("<li>Jacob</li>");
+    expect(first).toContain("<li>3.600</li>");
+    expect(first).toContain("Hjerterum ApS kontrakt");
+    expect(calls).toBe(1);
+    expect(await translatePage(env, deps(services.fetcher, weekday), db, page)).toContain("Call the landlord about the keys");
+    expect(calls).toBe(1);
+  });
+
+  it("does not call the AI at the weekend; kept translations still show", async () => {
+    const db = testDatabase();
+    let calls = 0;
+    const services = fakeServices({ ai: () => { calls += 1; return JSON.stringify({ texts: ["x"] }); } });
+    const saturday = Date.parse("2026-10-03T10:00:00Z");
+    const out = await translatePage(sagaEnv(db), deps(services.fetcher, saturday), db, page);
+    expect(out).toContain("Ring til udlejeren om nøglerne");
+    expect(calls).toBe(0);
+  });
+
+  it("leaves names, numbers and addresses alone", () => {
+    expect(worthTranslating("Jacob")).toBe(false);
+    expect(worthTranslating("team@holistisk.org")).toBe(false);
+    expect(worthTranslating("Køb kaffe")).toBe(true);
+    expect(worthTranslating("Book the room")).toBe(true);
   });
 });
