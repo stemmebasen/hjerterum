@@ -187,7 +187,9 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
       let room = MAX_PER_RUN;
       for (const path of order) {
         if (room <= 0) break;
-        const box = await open.open(path);
+        // A subfolder that will not open is passed over (and tried again next run); the inbox failing is the run's error.
+        const box = await open.open(path).catch(error => { if (path === INBOX) throw error; console.warn("team_mail_folder_unreadable", path, error instanceof Error ? error.message : error); return null; });
+        if (!box) continue;
         const mark = marks.get(path);
         // A changed UIDVALIDITY means the old numbers mean nothing: start again from the lookback.
         const after = !mark || mark.uid_validity !== box.uidValidity ? null : mark.last_uid;
@@ -195,8 +197,6 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
           .filter(uid => after === null || uid > after).sort((a, b) => a - b);
         status.listed += uids.length;
         const batch = uids.slice(0, room);
-        // Mails waiting with no room left this run: the watermark stays, so they come next run.
-        if (uids.length && !batch.length) continue;
         const mails = await open.fetch(batch);
         const relayed = [];
         for (const mail of mails.sort((a, b) => a.uid - b.uid)) {

@@ -153,6 +153,12 @@ describe("Saga reads the inbox and the subfolders of team@", () => {
     expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW + 5 * MIN), db, box.opener)).toEqual({ read: 1 });
     expect((await db.prepare("SELECT COUNT(*) AS n FROM board_mail").first<{ n: number }>())!.n).toBe(4);
 
+    // A folder that will not open is passed over; the others are still read.
+    listing.push({ path: "Mærkelig", delimiter: "." });
+    boxes["INBOX"]!.push(mail(4, "Stadig læst", NOW + 6 * MIN, "lise@example.dk"));
+    expect(await readTeamMail(env, deps(fakeServices().fetcher, NOW + 7 * MIN), db, box.opener)).toEqual({ read: 1 });
+    listing.pop();
+
     // A folder that is gone loses its place; another mailbox starts over.
     delete boxes["Arkiv.2026"];
     listing.splice(listing.findIndex(f => f.path === "Arkiv.2026"), 1);
