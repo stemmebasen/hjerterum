@@ -183,7 +183,7 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "Lige om lidt i Hjerterum"]) expect(front).toContain(text);
     // Requested: "Så det fulde resumé og statusoverblik kommer først, når man klikker ind på status." - the front panel
     // has only Saga's short hourly text; the six-hour picture's waiting topics are on Status.
     expect(front).not.toContain("Venter på svar");
@@ -574,5 +574,26 @@ describe("Saga sets meetings from the chat", () => {
     expect(moved).toContain("Mødet er flyttet til torsdag 22. oktober");
     expect(await db.prepare("SELECT meeting_date, start_time, agenda FROM board_meetings").all()).toMatchObject({ results: [{ meeting_date: "2026-10-22", start_time: "13:30", agenda: "Budget" }] });
     expect(await applyMeeting(db, "Hvilken dato mener du?", null, NOW)).toBe("Hvilken dato mener du?");
+  });
+});
+
+describe("the front page's fun fact", () => {
+  // Requested: "Det kunne være sjovt, hvis der et sted står: Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?"
+  it("rounds down so \"over\" is always true, and says nothing about a handful", async () => {
+    const { heldFact } = await import("./home.js");
+    expect(heldFact(3651)).toBe('<p class="fact">Vidste du, at Hjerterum har afholdt over 3.600 arrangementer, siden vi startede?</p>');
+    expect(heldFact(3600)).toContain("over 3.500 arrangementer");
+    expect(heldFact(57)).toContain("over 50 arrangementer");
+    expect(heldFact(5)).toBe("");
+  });
+});
+
+describe("the front page's lead", () => {
+  // Reported: under "Hej Jacob" the front page said "Bestyrelsen Medlemmer" - Saga's bold section headings taken for text.
+  it("skips bold section headings and bullet points", async () => {
+    const { lead } = await import("./home.js");
+    expect(lead("**Bestyrelsen**\n- Referatet er godkendt.\n\n**Medlemmer**\n- Ca. 165 medlemmer.")).toBe("");
+    expect(lead("**Bestyrelsen:**\nEn rolig uge med god energi.\n- Punkt")).toBe("En rolig uge med god energi.");
+    expect(lead("Det **vigtigste** er budgettet.")).toBe("Det **vigtigste** er budgettet.");
   });
 });

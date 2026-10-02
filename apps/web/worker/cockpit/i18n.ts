@@ -60,7 +60,7 @@ export const EN: Record<string, string> = {
   "Intet møde er sat i kalenderen.": "No meeting is in the calendar.", "Planlæg et møde →": "Plan a meeting →", "Vigtigste punkter fra sidste møde": "Key points from the last meeting",
   "Husk at godkende referatet": "Remember to approve the minutes", "Ingen beslutninger i referatet.": "No decisions in the minutes.", "har godkendt": "have approved",
   "Bestyrelsen lige nu": "The board right now", "Saga skriver det første korte resumé inden for en time (på hverdage).": "Saga writes the first short summary within an hour (on weekdays).",
-  "Mere i Status →": "More in Status →", "I huset": "In the house", "De næste arrangementer i Hjerterum.": "The next events in Hjerterum.", "Ingen arrangementer de næste dage.": "No events in the next few days.",
+  "Mere i Status →": "More in Status →", "Lige om lidt i Hjerterum": "Coming up at Hjerterum", "De næste arrangementer i Hjerterum.": "The next events in Hjerterum.", "Ingen arrangementer de næste dage.": "No events in the next few days.",
   "Alle arrangementer →": "All events →", "i team@ →": "in team@ →", "venter på godkendelse →": "awaiting approval →", "Kort fortalt": "In short", "Overblikket": "The overview",
   "Til overblikket": "To the overview",
   // Members
@@ -211,6 +211,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Faste undervisere \((\d+)\) - deres events kræver ikke godkendelse$/, "Regular teachers ($1) - their events need no approval"],
   [/^(\d+) referat(?:er)?$/, "$1 minutes"], [/^i restance · (\d+) opsagt$/, "in arrears · $1 cancelled"], [/^i restance$/, "in arrears"], [/^Betaling stoppet$/, "Payment stopped"],
   [/^Opsagt$/, "Cancelled"], [/^Aktiv$/, "Active"], [/^(\d+) medlemmer$/, "$1 members"],
+  [/^Vidste du, at Hjerterum har afholdt over ([\d.]+) arrangementer, siden vi startede\?$/, (_, n) => `Did you know that Hjerterum has held more than ${n.replace(/\./g, ",")} events since we started?`],
   [/^Ventet (under en time|\d+ (?:time|timer|dag|dage|uger))$/, (_, t) => `Waited ${t.replace("under en time", "under an hour").replace(/timer?$/, m => m === "time" ? "hour" : "hours").replace(/dage?$/, m => m === "dag" ? "day" : "days").replace("uger", "weeks")}`],
   [/^Vis alle (\d+) mails$/, "Show all $1 mails"], [/^Se mailen: /, "See the mail: "],
   [/^Møde (?=\d)/, "Meeting "], [/ · har referat$/, " · has minutes"], [/ · fast underviser$/, " · regular teacher"], [/^Fra (?=\d)/, "From "], [/^Skrevet af /, "Written by "],
