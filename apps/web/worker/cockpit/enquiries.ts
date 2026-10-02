@@ -135,8 +135,13 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
  * the members' own mail. */
 /** Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". The chair (logged in with a
  * personal link) connects team@ here; Saga reads it from then on. The password is never shown again. */
-function mailboxCard(base: string, box: { address: string | null; by: string | null; at: number | null; notice: string | null }): string {
+function mailboxCard(base: string, box: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null }): string {
   const notice = box.notice ? `<p class="notice">${esc(box.notice)}</p>` : "";
+  // Only the chair logged in with Saga's personal link may connect or disconnect team@ - with the shared password anyone
+  // could say they are the chair. Then the card says how, instead of hiding.
+  const personal = `<p class="small muted">${box.loginLink ? `Log ind med dit personlige link fra Saga for at ${box.address ? "ændre forbindelsen" : "forbinde team@"}: <a href="${esc(box.loginLink)}">åbn Saga i Telegram</a> og tryk på linket, hun sender.` : "Log ind med dit personlige link fra Saga for at ændre forbindelsen."}</p>`;
+  if (box.canChange === false) return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
+${box.address ? `<p>${esc(box.address)} er forbundet. Saga læser indbakken hvert femte minut.</p>` : `<p>team@ er ikke forbundet endnu, så Saga kan ikke læse den.</p>`}${personal}</div>`;
   if (box.address) return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
 <p>${esc(box.address)} er forbundet${box.by ? ` af ${esc(box.by)}` : ""}${box.at ? ` ${esc(new Date(box.at).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "Europe/Copenhagen" }))}` : ""}. Saga læser indbakken hvert femte minut. Hun læser kun: intet markeres, flyttes eller sendes.</p>
 <form method="post" action="${base}/posthus/afbryd" style="margin:0"><button class="ghost">Afbryd forbindelsen</button></form></div>`;
@@ -148,7 +153,7 @@ function mailboxCard(base: string, box: { address: string | null; by: string | n
 
 export function postPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean;
   inbox: BoardMailRow[]; inboxTotal: number; all: boolean; watch: string; watchOk: boolean; nowMs: number;
-  mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null } | null }): string {
+  mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null } | null }): string {
   const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hver time på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
 ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;

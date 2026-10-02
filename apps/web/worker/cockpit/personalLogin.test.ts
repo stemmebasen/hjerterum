@@ -31,6 +31,21 @@ async function setup(extra: Partial<SagaEnv> = {}) {
 }
 
 describe("a personal login from Saga", () => {
+  // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - with the shared password the chair saw no team@ card at all.
+  it("shows the chair the team@ card always, and lets only the personal link connect it", async () => {
+    const { call, linkFor, cookiesOf } = await setup();
+    const login = await call("/login", { method: "POST", body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() });
+    const shared = cookiesOf(login);
+    const asChair = await (await call("/posthus", { cookie: await memberCookie(shared, "Jacob Hauge") })).text();
+    expect(asChair).toContain("Forbindelse til team@");
+    expect(asChair).toContain("Log ind med dit personlige link fra Saga for at forbinde team@");
+    expect(asChair).not.toContain('action="/posthus/forbind"');
+    expect(await (await call("/posthus", { cookie: await memberCookie(shared, "Gitta") })).text()).not.toContain("Forbindelse til team@");
+    const { path } = await linkFor(Number(OWNER));
+    const jacob = cookiesOf(await call(path!, { method: "POST" }));
+    expect(await (await call("/posthus", { cookie: jacob })).text()).toContain('action="/posthus/forbind"');
+  });
+
   it("is sent privately to a board member's own Telegram, and to no one else", async () => {
     const { linkFor, services, telegram } = await setup();
     const { sent, path } = await linkFor(202);
