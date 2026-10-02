@@ -330,4 +330,18 @@ describe("the board cockpit", () => {
     expect(routed.status).toBe(401);
     expect(routed.headers.get("x-robots-tag")).toBe("noindex, nofollow");
   });
+
+  // Requested: "Lad os kalde den admin.hjerterum.info".
+  it("is the whole site on admin.<domain>, and an old /cockpit link lands on the same page", async () => {
+    const { call } = await setup();
+    const page = await call("/", {}, "https://admin.hjerterum.info");
+    expect(page.status).toBe(401);
+    expect(await page.text()).toContain('action="/login"');
+    const old = await call("/cockpit/referat/3?x=1", {}, "https://admin.hjerterum.info");
+    expect(old.status).toBe(301);
+    expect(old.headers.get("location")).toBe("/referat/3?x=1");
+    expect((await call("/cockpit", {}, "https://admin.hjerterum.info")).headers.get("location")).toBe("/");
+    const routed = await config.fetch(new Request("https://admin.hjerterum.info/"), sagaEnv(testDatabase(), { COCKPIT_PASSWORD: "x" }) as never);
+    expect(routed.status).toBe(401);
+  });
 });
