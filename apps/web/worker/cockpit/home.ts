@@ -24,6 +24,7 @@ export type HomeData = {
   memberStats?: MemberStats[];
   newEnquiries?: number;
   eventsToReview?: number;
+  boardNow?: { points: string[]; at: number } | null;
 };
 
 export const HOME_STYLE = `
@@ -54,6 +55,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
 const inline = (text: string) => esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
 const SOURCE: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
+
+const NOW_TIME = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", minute: "2-digit" });
 
 /** Saga's summary in a sentence or two: its first lines, without headings. */
 function lead(summary: string | null): string {
@@ -119,13 +122,15 @@ ${l.decisions.length ? `<ul class="items">${l.decisions.slice(0, 3).map(d => `<l
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
 <a class="more" href="${base}/referat/${l.id}">${data.toSign.some(m2 => m2.id === l.id) ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
 
-  const p = data.picture, keys = points(data.summary);
+  // Requested: "Her skal Saga en gang i timen lave et resume og overblik over hvad der rører sig netop nu med basis i
+  // Telegram, vigtige mails og fra mødet" - "Man kan så klikke videre og få et mere detaljeret blik i Status".
+  const p = data.picture, now = data.boardNow?.points.length ? data.boardNow : null, keys = now ? now.points : points(data.summary);
   const waiting = (p?.topics ?? []).filter(t => t.waitsOnJacob || t.status === "afventer").slice(0, 3);
-  const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>Sagas korte overblik over gruppen og referaterne.</p></header>
+  const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>${now ? `Fra gruppen, vigtige mails og seneste møde · opdateret ${esc(NOW_TIME.format(now.at))}` : "Sagas korte overblik over gruppen og referaterne."}</p></header>
 ${p?.temperature ? `<span class="mood">${esc(p.temperature.level)}</span><p style="margin:0 0 10px">${esc(p.temperature.why)}</p>` : ""}
 ${keys.length ? `<ul class="items">${keys.map(k => `<li>${inline(k)}</li>`).join("")}</ul>` : p ? "" : `<p class="empty">Saga har ikke lavet et overblik endnu.</p>`}
 ${waiting.length ? `<p class="small" style="margin:14px 0 4px"><strong>Venter på svar</strong></p><ul class="items">${waiting.map(t => `<li>${esc(t.title)}${t.waitsOnJacob ? ` <span class="warn small">· venter på ${data.isChair ? "dig" : "formanden"}</span>` : ""}${t.note ? `<span class="ctx">${esc(t.note)}</span>` : ""}</li>`).join("")}</ul>` : ""}
-<a class="more" href="${base}/status">Sagas fulde overblik →</a></article>`;
+<a class="more" href="${base}/status">Mere i Status →</a></article>`;
 
   const events = `<article class="panel"><header><h2>I huset</h2><p>De næste arrangementer i Hjerterum.</p></header>
 ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="event">${e.image_url ? `<img src="${esc(e.image_url)}" alt="" loading="lazy">` : `<span class="date" style="width:52px;height:52px"><b style="font-size:20px">${new Date(e.starts_at_ms).getDate()}</b></span>`}

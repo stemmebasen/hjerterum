@@ -73,7 +73,7 @@ describe("Saga's event desk", () => {
     expect(problems).toEqual(["Med medlemspris 100 kr. skal ikke-medlemmer betale mindst 200 kr. (prisberegneren)."]);
     expect(checkDraft({ ...draft, date: "2027-03-02", start: "17:00", end: "19:00" }).problems[0]).toContain("kl. 18:30");
     const text = membershipWorksText({ ...draft, non_member_price_kr: 200 });
-    expect(text).toContain("Titel: Lydhealing\nKategori: Lyd, Sang & Musik\nSted: Hjerterum");
+    expect(text).toContain("Titel: Lydhealing\nKategori: Lyd, Sang & Musik\nSted: Hjerterum, Guldsmedgade 26B, 8000 Aarhus");
     expect(text).toContain("Underviser: Lisbeth");
     expect(text).toContain("Medlemmer 100 kr. | Ikke-medlemmer 200 kr.");
     expect(draftFrom({ title: "X" }).missing).toContain("dato");

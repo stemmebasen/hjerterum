@@ -1,6 +1,6 @@
 import { markdownToHtml } from "../saga/markdown.js";
 import type { BoardPicture } from "../saga/picture.js";
-import { tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
+import { DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 
 /** The board cockpit's pages, written on the server as plain HTML: quick on a phone, nothing to
  * install, and nothing of the board's in a script. Every value from the database is escaped. */
@@ -32,7 +32,8 @@ header.bar{position:sticky;top:0;z-index:10}
 header.bar::before{content:"";position:absolute;inset:0;z-index:-1;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .top{max-width:1160px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px}
 .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);white-space:nowrap;flex:none}
-.brand-mark{width:38px;height:38px;border-radius:50%;background:#2446d8;display:grid;place-items:center;flex:none}.brand-mark img{width:28px;height:28px;display:block}
+.brand-mark{width:40px;height:40px;display:grid;place-items:center;flex:none}.brand-mark img{width:40px;height:40px;display:block;filter:brightness(0);opacity:.88}
+@media (prefers-color-scheme:dark){.brand-mark img{filter:none;opacity:1}}
 .brand b{font-weight:700;font-size:18px;letter-spacing:-.01em}.brand .names span{font-size:12.5px;color:var(--muted);font-weight:500}
 .brand .names{display:grid;line-height:1.15}
 nav.desk{display:flex;gap:4px;flex:1;min-width:0;justify-content:center}nav.desk a{padding:8px 14px;border-radius:999px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px;white-space:nowrap}
@@ -65,7 +66,7 @@ button,.button{font:inherit;font-weight:650;font-size:15px;border:0;border-radiu
 button:hover,.button:hover{filter:brightness(1.08)}button.ghost,.button.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}button.ghost:hover,.button.ghost:hover{border-color:var(--accent);color:var(--accent);filter:none}
 .notice{padding:14px 18px;border-radius:16px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--accent)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
 details{border-top:1px solid var(--line);padding:10px 0}details>summary{cursor:pointer;font-weight:600;list-style:none}details>summary::-webkit-details-marker{display:none}details>summary::before{content:"+";display:inline-block;width:18px;color:var(--faint)}details[open]>summary::before{content:"–"}
-.center{max-width:440px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;border-radius:50%;background:#2446d8;display:grid;place-items:center;margin:0 0 20px}.mark img{width:46px;height:46px}
+.center{max-width:440px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;display:grid;place-items:center;margin:0 0 20px}.mark img{width:64px;height:64px;filter:brightness(0);opacity:.88}@media (prefers-color-scheme:dark){.mark img{filter:none;opacity:1}}
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}th{font-size:12px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 tr:last-child td{border-bottom:0}
 [hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 30px;align-items:start}.block{min-width:0}
@@ -85,7 +86,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .empty{color:var(--muted);margin:0}
 main>h1+p{margin-top:-6px}.ver{margin:18px 0 0;font-size:12px;color:var(--faint);text-align:center}
 @media (max-width:760px){
-  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:25px;height:25px}.avatar{width:34px;height:34px}
+  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:34px;height:34px}.avatar{width:34px;height:34px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
     background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--faint);font-size:11px;font-weight:600;border-radius:12px}
@@ -113,7 +114,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.4.0";
+export const COCKPIT_VERSION = "1.5.0";
 export const COCKPIT_RELEASED = "2026-10-02";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)}</p>`;
 
@@ -136,7 +137,7 @@ export function layout(base: string, title: string, body: string, options: { sec
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&display=swap">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="" width="28" height="28"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="Hjerterum" width="40" height="40"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
 <div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
@@ -170,7 +171,8 @@ border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-dire
 @media (max-width:760px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;z-index:30}.saga-fab{right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));padding:11px 16px}}
 @media print{.saga,.saga-fab{display:none!important}}`;
 
-const IDEAS = ["Hvad siger vedtægterne om forslag til generalforsamlingen?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?", "Hvor mange medlemmer har vi?"];
+// Requested: "Presets" - Jacob's five.
+const IDEAS = ["Hjælp mig med at opsætte event", "Hvad er mine to-do's?", "Hvilke beslutninger har vi truffet om medlemskab?", "Hvilke sager hænger lige nu?", "Hvilke arrangementer er der de næste to uger?"];
 
 /** Saga in the bottom-right corner of every page. The conversation lives in this tab only. */
 function sagaChat(base: string): string {
@@ -386,7 +388,7 @@ ${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date
 export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
   prefill: { date: string; agenda: boolean }; today: string; who: string | null; notice: string; uploads: boolean }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
-<label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" placeholder="Fx Hjerterum, Valby"></label></div>
+<label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
 <label>Dagsorden (ét punkt pr. linje)<textarea name="agenda" placeholder="Godkendelse af referat&#10;Økonomi&#10;Eventuelt">${data.prefill.agenda ? esc(data.suggestion.join("\n")) : ""}</textarea></label>
 <div class="actions">${data.prefill.agenda ? "" : agendaFill(data.suggestion)}<button>Gem møde</button></div></form>`;
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
@@ -401,7 +403,7 @@ ${foundMeetings(base, data.found, data.today)}</div>
 <div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? uploadForm(base, data.past, data.today) : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
 }
 
-export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean },
+export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
   who: string | null, notice: string): string {
   const held = m.meeting_date <= data.today;
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
@@ -412,8 +414,11 @@ ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ?
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card"><h2>Dagsorden</h2>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
-<label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place ?? "")}"></label></div>
+<label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
 <label>Dagsorden (ét punkt pr. linje)<textarea name="agenda">${esc(m.agenda)}</textarea></label><div class="actions">${held ? "" : agendaFill(data.suggestion)}<button>Gem</button></div></form>
+${!held && data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button>
+<span class="small muted"> Hun læser referaterne, hængepartierne, gruppen og team@ - forslaget gemmes først, når du trykker Gem.</span></form>
+<script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
 <div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });

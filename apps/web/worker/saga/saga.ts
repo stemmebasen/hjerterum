@@ -1,5 +1,6 @@
 import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
+import { scheduledBoardNow } from "../cockpit/boardNow.js";
 import { complete } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
@@ -145,10 +146,24 @@ export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: 
   if (!(await recentBoardMessages(db, board(env), since, 1)).length && !(await recentMail(db, since, 1)).length && !(await recentMinutes(db, 1)).length) return;
   const read = doc ?? await readArchive(env, deps);
   const done = await ownerDone(db, deps.now() - 60 * DAY);
-  const answer = await complete(env, deps, [{ role: "system", content: OVERVIEW_SYSTEM }, { role: "user", content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}` }]);
-  const picture = parsePicture(answer);
+  const messages = [{ role: "system" as const, content: OVERVIEW_SYSTEM }, { role: "user" as const, content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}` }];
+  let answer = await complete(env, deps, messages);
+  let picture = parsePicture(answer);
+  // Reported: the cockpit greeted with "```json {" - the answer was cut off mid-JSON (too long) and kept as
+  // text. Once more, shorter; and a broken answer is never saved - the last good overview stands.
+  if (!picture && looksLikeJson(answer)) {
+    answer = await complete(env, deps, [...messages, { role: "assistant", content: answer.slice(0, 2000) },
+      { role: "user", content: "Dit svar blev for langt og blev afbrudt. Svar igen med præcis samme JSON-form, men kortere: højst 8 punkter i hver liste og korte tekster. Kun JSON." }]);
+    picture = parsePicture(answer);
+  }
+  if (!picture && looksLikeJson(answer)) {
+    console.warn("saga_overview_unreadable", answer.length);
+    return;
+  }
   await saveOverview(db, picture ? picture.summary : answer, deps.now(), { data: picture ? JSON.stringify(picture) : null, docHash: read.hash });
 }
+
+const looksLikeJson = (answer: string) => /^\s*(?:```|\{)/.test(answer);
 
 /** Whether the overview is out of date: something new in the group, the mail or the minutes, the
  * minutes document changed since it was read (read without AI), or it predates the picture. */
@@ -370,6 +385,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Saga skal godkende events som medlemmer selv sætter op ud fra kriterier der allerede ligger i blueprint eller systemet".
   await scheduledEventReview(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_event_review_failed", error instanceof Error ? error.message : error));
+  // Requested: "Bestyrelsen lige nu" - "en gang i timen ... resume og overblik over hvad der rører sig netop nu".
+  await scheduledBoardNow(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_board_now_failed", error instanceof Error ? error.message : error));
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));

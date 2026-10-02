@@ -5,6 +5,7 @@ import { calculateRoomPriceQuote, roomBookingProblems, ROOM_RENTAL_RULES, type R
 import { createRoomBooking, normalizeCreateRoomBookingInput, type ReviewStatus } from "../room-bookings.js";
 import { STATUTES } from "./statutes.js";
 import { esc } from "./page.js";
+import { DEFAULT_PLACE } from "./data.js";
 
 /** Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op ... så den kommende
  * hjemmeside og medlemssystem bliver en integreret del af vores cockpit" - "I det nye system" - "Undersøg gerne,
@@ -207,7 +208,7 @@ export function eventText(d: EventDraft): string {
 
 /** While both systems run: the same event, ready to paste into MembershipWorks. */
 export function membershipWorksText(d: EventDraft): string {
-  return [`Titel: ${d.title}`, `Kategori: ${d.category || "?"}`, "Sted: Hjerterum", `Start: ${d.date || "?"} ${d.start || "?"}`, `Slut: ${d.date || "?"} ${d.end || "?"}`,
+  return [`Titel: ${d.title}`, `Kategori: ${d.category || "?"}`, `Sted: ${DEFAULT_PLACE}`, `Start: ${d.date || "?"} ${d.start || "?"}`, `Slut: ${d.date || "?"} ${d.end || "?"}`,
     d.max_attendees ? `Max. deltagere: ${d.max_attendees}` : "", "", "Beskrivelse:", eventText(d)].filter((line, i) => line || i === 6).join("\n");
 }
 

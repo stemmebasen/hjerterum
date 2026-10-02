@@ -146,7 +146,11 @@ export const COCKPIT_SYSTEM = IDENTITY + " Du svarer et medlem af Hjerterums bes
   // Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."
   + "Beder medlemmet dig om at sætte, oprette, flytte eller ændre et bestyrelsesmøde i kalenderen, så gør du det - uden forbehold og uden at bede dem spørge andre: "
   + "skriv én kort bekræftende sætning og til sidst præcis én linje [[MØDE dato=ÅÅÅÅ-MM-DD tid=TT:MM sted=<sted>]] (tid og sted kun, når de er nævnt; flytter de et møde, så også fra=ÅÅÅÅ-MM-DD med den gamle dato). "
-  + "Er datoen ikke til at forstå, så spørg kort om den.";
+  + "Er datoen ikke til at forstå, så spørg kort om den. "
+  // Requested: "Presets" - "Hjælp mig med at opsætte event", "Hvad er mine to-do's?".
+  + "Beder medlemmet om hjælp til at sætte et arrangement op, så spørg kort efter det, der mangler (titel, underviser og mail, dato og tid, priser for medlemmer og ikke-medlemmer, max. deltagere), "
+  + "regn lejen ud efter afsnittet LEJE AF SALEN, og henvis til Arrangementer, hvor du laver udkastet, og hvor det oprettes i det nye system og som tekst til MembershipWorks (link under LINKS I COCKPITTET). "
+  + "Spørger medlemmet til sine egne opgaver eller to-do's, så svar ud fra afsnittet med den spørgendes åbne opgaver, og link til opgavesiden.";
 
 const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(ms);
 
