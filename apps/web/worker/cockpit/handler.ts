@@ -20,7 +20,7 @@ import { eventsPage } from "./eventsPage.js";
 import { minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
-import { serviceStatus } from "../saga/store.js";
+import { markOwnerDone, serviceStatus } from "../saga/store.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -306,6 +306,14 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       if (path === "/opgaver/afkryds") {
         const done = field("done", 1) === "1", id = field("id", 400);
         if (field("kind", 10) === "punkt") { if (/^\d+$/.test(id)) await setTodoDone(db, Number(id), who, done, now); }
+        // Saga's questions and tasks for the chair - the same list Matrix shows him (chairTasks.ts).
+        else if (field("kind", 10) === "saga") {
+          if (who === members.chair && done) {
+            const { picture } = await boardPicture(db, now);
+            const item = (picture?.forJacob ?? []).find(f => f.key === id);
+            if (item) await markOwnerDone(db, item.key, item.text, now);
+          }
+        }
         else if (id) await setTaskChecked(db, who, id, done, now);
         return redirect(`${base}/opgaver`);
       }
@@ -321,7 +329,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const sentTo = url.searchParams.get("til");
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
-    return html(todosPage(base, { who, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: all }));
+    const saga = who === members.chair ? currentForChair(picture?.forJacob ?? []) : [];
+    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: all }));
   }
 
   if (path === "/beslutninger" && request.method === "GET") {

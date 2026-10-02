@@ -372,6 +372,35 @@ describe("the board cockpit", () => {
     expect(after).toContain("klaret af Lisbeth");
   });
 
+  // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så forsvinder
+  // opgaven begge steder" - one list of the chair's open items for Matrix, and Matrix's "done" checks it off here.
+  it("gives Matrix the chair's open items and checks one off when Matrix says it is done", async () => {
+    const { db, env, call, form, login } = await setup();
+    const { handleSagaRequest } = await import("../saga/handler.js");
+    const cookie = `${await login()}; hjerterum_cockpit_who=Gitta`;
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Ring til udlejeren", due: "", owner: "Jacob Hauge" }) });
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Ryd op i køkkenet", due: "", owner: "Alle" }) });
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie, body: form({ text: "Gittas egen", due: "", owner: "Gitta" }) });
+    const api = (path: string, init: RequestInit = {}) => handleSagaRequest(new Request(`https://hjerterum.test/api/saga/liva/${path}`, { ...init,
+      headers: { authorization: "Bearer liva-secret", "content-type": "application/json" } }), env, deps(fakeServices().fetcher, NOW));
+    const list = await (await api("chair-tasks")).json() as { chair: string; items: Array<{ key: string; text: string; from: string | null }> };
+    expect(list.chair).toBe("Jacob Hauge");
+    expect(list.items.map(i => i.text).sort()).toEqual(["Ring til udlejeren", "Ryd op i køkkenet"]);
+    expect(list.items.find(i => i.text === "Ring til udlejeren")!.from).toBe("Gitta");
+    const key = list.items.find(i => i.text === "Ring til udlejeren")!.key;
+    expect(await (await api("chair-tasks/done", { method: "POST", body: JSON.stringify({ key }) })).json()).toEqual({ done: true });
+    expect(((await (await api("chair-tasks")).json()) as typeof list).items.map(i => i.text)).toEqual(["Ryd op i køkkenet"]);
+    expect(await (await api("chair-tasks/done", { method: "POST", body: JSON.stringify({ key }) })).json()).toEqual({ done: false });
+    expect((await handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/chair-tasks"), env, deps(fakeServices().fetcher, NOW))).status).toBe(401);
+    // In the cockpit it is now among the chair's done items.
+    const page = await (await call("/cockpit/opgaver", { cookie: `${await login()}; hjerterum_cockpit_who=Jacob Hauge` })).text();
+    expect(page.split('class="done-list"')[0]).not.toContain("Ring til udlejeren");
+    expect(page).toContain("Klaret (1)");
+    // Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet".
+    const { COCKPIT_VERSION } = await import("./page.js");
+    expect(page).toContain(`Hjerterum cockpit v${COCKPIT_VERSION}`);
+  });
+
   it("keeps Saga's statutes the same as the website's", () => {
     const flat = (text: string) => text.replace(/<br\s*\/?>|<\/(p|h\d|li|ol|ul)>/g, " ").replace(/<li>/g, " - ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8211;|&ndash;/g, "–").replace(/\s+/g, " ").trim();

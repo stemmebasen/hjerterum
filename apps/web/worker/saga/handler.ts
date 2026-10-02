@@ -1,3 +1,4 @@
+import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
@@ -181,6 +182,15 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
         .map(m => ({ ref: text(m.ref, 1600), from: text(m.from, 320) || "ukendt", subject: text(m.subject, 500), receivedAt: text(m.receivedAt, 40), text: text(m.text, 4000) }));
       if (!Array.isArray(body?.mails)) return json({ error: "invalid_request" }, 400);
       return json(await watchMail(env, deps, mails));
+    }
+    // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så
+    // forsvinder opgaven begge steder" - the chair's open items as the cockpit shows them, and Matrix's "done".
+    if (url.pathname === "/api/saga/liva/chair-tasks" && request.method === "GET") return json(await chairItems(env, db, deps.now()));
+    if (url.pathname === "/api/saga/liva/chair-tasks/done" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { key?: unknown } | null;
+      const key = typeof body?.key === "string" && /^[a-z0-9]{1,16}$/.test(body.key) ? body.key : "";
+      if (!key) return json({ error: "invalid_request" }, 400);
+      return json({ done: await chairItemDone(env, db, key, deps.now()) });
     }
     // Requested: "samle ét sted med spørgsmål og todos til mig" - the chair marks one as done.
     if (url.pathname === "/api/saga/liva/done" && request.method === "POST") {

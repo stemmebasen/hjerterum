@@ -83,7 +83,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .items{list-style:none;margin:0;padding:0}.items li{padding:11px 0;border-top:1px solid var(--line)}.items li:first-child{border-top:0;padding-top:0}
 .items .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
 .empty{color:var(--muted);margin:0}
-main>h1+p{margin-top:-6px}
+main>h1+p{margin-top:-6px}.ver{margin:18px 0 0;font-size:12px;color:var(--faint);text-align:center}
 @media (max-width:760px){
   nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:25px;height:25px}.avatar{width:34px;height:34px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
@@ -112,7 +112,15 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
 /** Requested: "Lav et mere moderne layout og som er mobilvenligt". A top bar on a computer; on a phone
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
+/** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
+export const COCKPIT_VERSION = "1.2.0";
+export const COCKPIT_RELEASED = "2026-10-02";
+const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)}</p>`;
+
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
+  // The version sits quietly at the end of every page's main column.
+  const end = body.lastIndexOf("</main>");
+  if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
   const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/foresporgsler", "Forespørgsler"], ["/arrangementer", "Arrangementer"]];
