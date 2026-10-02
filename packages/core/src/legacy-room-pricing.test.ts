@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   calculateLegacyRoomFee,
   calculateRoomPriceQuote,
-  LEGACY_SOME_PACKAGE_FEE_KR
+  LEGACY_SOME_PACKAGE_FEE_KR,
+  ROOM_RENTAL_RULES,
+  roomBookingProblems
 } from "./legacy-room-pricing.js";
 
 describe("calculateLegacyRoomFee", () => {
@@ -74,5 +76,26 @@ describe("calculateLegacyRoomFee", () => {
     expect(calculateRoomPriceQuote({
       bookingType: "free", dayOfWeek: 1, startMinutes: 600, durationMinutes: 120
     })).toMatchObject({ totalPriceKr: 0, minimumNonMemberPriceKr: 75 });
+  });
+
+  // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
+  it("matches Hjerterum's price calculator, also on A-time weekdays and in the member surcharge", () => {
+    expect(calculateRoomPriceQuote({ bookingType: "standard", dayOfWeek: 6, startMinutes: 600, durationMinutes: 270 }).totalPriceKr).toBe(1530);
+    expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 19 * 60, durationMinutes: 180, memberPriceKr: 500 }))
+      .toMatchObject({ band: "A", totalPriceKr: 412, nonMemberPriceKr: 625 });
+    expect(calculateRoomPriceQuote({ bookingType: "reduced", dayOfWeek: 2, startMinutes: 600, durationMinutes: 240, memberPriceKr: 1000 }))
+      .toMatchObject({ band: "B", totalPriceKr: 300, nonMemberPriceKr: 1100, discountPercent: 0 });
+    expect(calculateRoomPriceQuote({ bookingType: "free", dayOfWeek: 5, startMinutes: 1110, durationMinutes: 120 })).toMatchObject({ minimumNonMemberPriceKr: 150 });
+  });
+
+  it("holds the calculator's booking rules", () => {
+    expect(roomBookingProblems({ bookingType: "standard", dayOfWeek: 1, startMinutes: 900, durationMinutes: 300 })).toEqual([]);
+    expect(roomBookingProblems({ bookingType: "reduced", dayOfWeek: 1, startMinutes: 900, durationMinutes: 300 })).toEqual(["crosses_a_time_boundary"]);
+    expect(roomBookingProblems({ bookingType: "free", dayOfWeek: 6, startMinutes: 900, durationMinutes: 300 })).toEqual([]);
+    expect(roomBookingProblems({ bookingType: "reduced", dayOfWeek: 1, startMinutes: 16 * 60 + 30, durationMinutes: 120 })).toEqual([]);
+    expect(roomBookingProblems({ bookingType: "standard", dayOfWeek: 1, startMinutes: 600, durationMinutes: 90 })).toEqual(["duration_too_short"]);
+    expect(roomBookingProblems({ bookingType: "standard", dayOfWeek: 1, startMinutes: 600, durationMinutes: 615 })).toEqual(["duration_too_long", "duration_not_half_hours"]);
+    expect(ROOM_RENTAL_RULES).toContain("https://prisberegner.replit.app/beregner");
+    expect(ROOM_RENTAL_RULES).toContain("10 t 2.700 kr.");
   });
 });

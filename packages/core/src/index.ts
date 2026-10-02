@@ -73,9 +73,17 @@ export {
 } from "./event-policy.js";
 export {
   calculateLegacyRoomFee,
-  LEGACY_SOME_PACKAGE_FEE_KR
+  calculateRoomPriceQuote,
+  LEGACY_SOME_PACKAGE_FEE_KR,
+  ROOM_PRICE_CALCULATOR_URL,
+  ROOM_PRICES_PAGE_URL,
+  ROOM_RENTAL_RULES,
+  roomBookingProblems
 } from "./legacy-room-pricing.js";
 export type {
   LegacyRoomPricingInput,
-  LegacyRoomPricingResult
+  LegacyRoomPricingResult,
+  RoomBookingProblem,
+  RoomBookingType,
+  RoomPriceQuote
 } from "./legacy-room-pricing.js";

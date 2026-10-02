@@ -1,4 +1,4 @@
-import { calculateLegacyRoomFee } from "../../../packages/core/src/legacy-room-pricing.js";
+import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import type { D1Database } from "./db.js";
 import { hasExternalEventConflict } from "./external-events.js";
 
@@ -11,6 +11,8 @@ export type CreateRoomBookingInput = {
   endsAt: string;
   maxAttendees?: number | null;
   ticketPriceMinor: number;
+  /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
+  bookingType?: RoomBookingType;
   memberName?: string;
   memberEmail?: string;
 };
@@ -32,6 +34,7 @@ export type RoomBookingRow = {
   max_attendees: number | null;
   fee_minor: number;
   ticket_price_minor: number;
+  booking_type?: RoomBookingType;
   status: "scheduled" | "cancelled";
   cancelled_at_ms: number | null;
 };
@@ -89,14 +92,18 @@ function localPricingParts(startMs: number): { dayOfWeek: number; startMinutes: 
   return { dayOfWeek, startMinutes: hour * 60 + minute };
 }
 
-function calculateFee(startMs: number, endMs: number): number {
+/** Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
+ * The room fee is the price calculator's (it was the old WordPress server's), and its rules hold:
+ * 2 to 10 hours in half hours, and no weekday booking across 18:30 with member discount or free rent. */
+function calculateFee(startMs: number, endMs: number, bookingType: RoomBookingType = "standard"): number {
   const { dayOfWeek, startMinutes } = localPricingParts(startMs);
-  return calculateLegacyRoomFee({
-    dayOfWeek,
-    startMinutes,
-    durationMinutes: (endMs - startMs) / 60_000
-  }).feeKr;
+  const timing = { dayOfWeek, startMinutes, durationMinutes: Math.round((endMs - startMs) / 60_000) };
+  const problem = roomBookingProblems({ ...timing, bookingType })[0];
+  if (problem) throw new Error(`invalid_${problem}`);
+  return calculateRoomPriceQuote({ ...timing, bookingType, ...(bookingType === "reduced" ? { memberPriceKr: 0 } : {}) }).totalPriceKr;
 }
+
+const BOOKING_TYPES: readonly RoomBookingType[] = ["standard", "reduced", "free"];
 
 export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBookingInput {
   if (!value || typeof value !== "object") throw new Error("invalid_body");
@@ -129,6 +136,8 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     throw new Error("invalid_ticket_price");
   }
   const ticketPriceMinor = Math.round(ticketPriceKr * 100);
+  const bookingType = body.bookingType === undefined ? "standard" : body.bookingType;
+  if (!BOOKING_TYPES.includes(bookingType as RoomBookingType)) throw new Error("invalid_booking_type");
 
   return {
     teacherName,
@@ -139,6 +148,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     ...(typeof body.description === "string" ? { description: body.description.trim() || null } : {}),
     ...(maxAttendees !== null ? { maxAttendees } : { maxAttendees: null }),
     ticketPriceMinor,
+    bookingType: bookingType as RoomBookingType,
     ...(typeof body.memberName === "string" && body.memberName.trim()
       ? { memberName: body.memberName.trim() }
       : {}),
@@ -164,7 +174,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, booking_type, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -181,7 +191,7 @@ export async function listMemberCalendarBookings(
 ): Promise<MemberCalendarRow[]> {
   const result = await db.prepare(
     `SELECT b.id, b.clerk_user_id, b.teacher_name, b.teacher_email, b.title, b.description,
-            b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.ticket_price_minor, b.status,
+            b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.ticket_price_minor, b.booking_type, b.status,
             b.cancelled_at_ms,
             SUM(CASE WHEN a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count,
             MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,
@@ -215,15 +225,15 @@ export async function createRoomBooking(
     throw new Error("booking_conflict");
   }
 
-  const feeKr = calculateFee(startMs, endMs);
+  const feeKr = calculateFee(startMs, endMs, input.bookingType);
   const now = Date.now();
   const insert = await db
     .prepare(
       `INSERT INTO room_bookings (
          clerk_user_id, teacher_name, teacher_email, title, description,
          starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
-         payout_clerk_user_id, created_at_ms, updated_at_ms
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -238,7 +248,8 @@ export async function createRoomBooking(
       input.ticketPriceMinor,
       ownerClerkUserId,
       now,
-      now
+      now,
+      input.bookingType ?? "standard"
     )
     .run();
 
@@ -301,13 +312,13 @@ export async function updateOwnedRoomBooking(
     if ((registrations?.count ?? 0) > 0) throw new Error("booking_has_registrations");
   }
 
-  const feeKr = calculateFee(startMs, endMs);
+  const feeKr = calculateFee(startMs, endMs, input.bookingType);
   const result = await db
     .prepare(
       `UPDATE room_bookings
        SET teacher_name = ?, teacher_email = ?, title = ?, description = ?,
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
-           ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?
+           ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -322,6 +333,7 @@ export async function updateOwnedRoomBooking(
       input.ticketPriceMinor,
       ownerClerkUserId,
       Date.now(),
+      input.bookingType ?? "standard",
       bookingId,
       ownerClerkUserId
     )

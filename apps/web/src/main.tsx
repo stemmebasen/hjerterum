@@ -6,7 +6,7 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
-import { calculateRoomPriceQuote, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
+import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 
 const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
@@ -188,7 +188,7 @@ function RoomPriceCalculator() {
   const [memberPrice, setMemberPrice] = useState("");
   const dateValue = new Date(`${date}T12:00:00`);
   const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
-  const durationHours = Math.max(2, Number(hours) || 2);
+  const durationHours = Math.min(10, Math.max(2, Number(hours) || 2));
   const pricing = calculateRoomPriceQuote({
     bookingType,
     dayOfWeek: dateValue.getDay(),
@@ -196,6 +196,8 @@ function RoomPriceCalculator() {
     durationMinutes: durationHours * 60,
     ...(bookingType === "reduced" ? { memberPriceKr: Number(memberPrice) || 0 } : {})
   });
+  const crosses = roomBookingProblems({ bookingType, dayOfWeek: dateValue.getDay(), startMinutes: startHour * 60 + startMinute, durationMinutes: durationHours * 60 })
+    .includes("crosses_a_time_boundary");
   const bandLabel = pricing.band === "A"
     ? "A-pris (weekend eller fra kl. 18.30)"
     : "B-pris (hverdage før kl. 18.30)";
@@ -210,7 +212,7 @@ function RoomPriceCalculator() {
       <div className="price-form">
         <label>Dato<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
         <label>Starttid<input type="time" value={start} onChange={(event) => setStart(event.target.value)} /></label>
-        <label>Varighed i timer<input type="number" min="2" max="24" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
+        <label>Varighed i timer<input type="number" min="2" max="10" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
         {bookingType === "reduced" && <label>Medlemspris pr. deltager<input type="number" min="0" step="1" value={memberPrice} onChange={(event) => setMemberPrice(event.target.value)} placeholder="Fx 300" /></label>}
       </div>
       <div className="price-result">
@@ -219,6 +221,7 @@ function RoomPriceCalculator() {
         <p>{bandLabel}. Beregningen bruger pakkepris eller påbegyndte halve timer.</p>
         {bookingType === "reduced" && pricing.memberPriceKr !== null && <p>Medlemspris: {pricing.memberPriceKr.toLocaleString("da-DK")} kr. · ikke-medlemmer: {pricing.nonMemberPriceKr?.toLocaleString("da-DK")} kr.</p>}
         {bookingType === "free" && <p>Ikke-medlemmer skal mindst betale {pricing.minimumNonMemberPriceKr} kr. pr. deltager.</p>}
+        {crosses && <p role="alert">Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30 - læg den helt før eller helt efter, eller book to gange.</p>}
         <small>Prisen er en beregning og udgør ikke en onlinebetaling eller endelig bookingbekræftelse.</small>
       </div>
     </section>
