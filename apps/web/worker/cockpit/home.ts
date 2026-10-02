@@ -51,8 +51,8 @@ export function heldFact(held: number, sinceMs: number | null = null, base = "")
   if (held < 20) return "";
   const over = heldOver(held).toLocaleString("da-DK");
   const since = new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(Math.min(sinceMs ?? HJERTERUM_BEGAN_MS, HJERTERUM_BEGAN_MS));
-  return `<section class="celebrate" aria-label="Vidste du?"><div class="big" aria-hidden="true">${over}<span>+</span></div>
-<div class="words"><p class="kicker">Vidste du?</p><p class="line">Hjerterum har afholdt over ${over} arrangementer siden starten?</p>
+  return `<section class="celebrate" aria-label="Vidste du"><div class="big" aria-hidden="true">${over}<span>+</span></div>
+<div class="words"><p class="kicker">Vidste du</p><p class="line">Hjerterum har afholdt over ${over} arrangementer siden starten?</p>
 <p class="since">Det første i kalenderen var i ${esc(since)} - og huset er fyldt med liv hver uge. <a href="${base}/arrangementer">Se arrangementerne →</a></p></div>
 <span class="hearts" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
 }
