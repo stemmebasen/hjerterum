@@ -183,7 +183,10 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["Bestyrelsen lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "Mere i Status", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    // Requested: "Så det fulde resumé og statusoverblik kommer først, når man klikker ind på status." - the front panel
+    // has only Saga's short hourly text; the six-hour picture's waiting topics are on Status.
+    expect(front).not.toContain("Venter på svar");
     // Requested: "Hav kontakt med tribes ... giver ikke rigtig mening i sig selv. Desuden er de også gamle" - an undated line from the minutes document stays out.
     expect(front).not.toContain("Underskriv lejekontrakten");
     for (const heavy of ["Nøgletal", "Hvem har hvad", "Hængepartier", "Ugeopsummering", "beskeder denne uge"]) expect(front).not.toContain(heavy);
@@ -201,7 +204,8 @@ describe("the board cockpit", () => {
     const more = await (await call("/cockpit/mere", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
     for (const text of ["/cockpit/status", "/cockpit/arkiv", "Du er Jacob Hauge · skift", 'action="/cockpit/logout"']) expect(more).toContain(text);
     const lisbeth = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text();
-    expect(lisbeth).toContain("venter på formanden");
+    expect(lisbeth).not.toContain("venter på formanden");
+    expect(await (await call("/cockpit/status", { cookie: `${session}; hjerterum_cockpit_who=Lisbeth` })).text()).toContain("venter på formanden");
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
     const plan = await (await call("/cockpit/moder?dato=2026-10-08&forslag=1", { cookie: session })).text();
     expect(plan).toContain('value="2026-10-08"');
