@@ -1,6 +1,7 @@
 import { minutesDocText } from "./drive.js";
 import { requireDb, type SagaDeps, type SagaEnv } from "./env.js";
-import { boardActivity, serviceStatus } from "./store.js";
+import type { D1Database } from "../db.js";
+import { boardActivity, serviceStatus, setServiceStatus } from "./store.js";
 
 /** Requested: "Er der kontakt til Google doc, telegram gruppen og mailen?" - each source Saga
  * reads, checked when the chair opens his page, and said in plain words: connected or not, and
@@ -67,9 +68,33 @@ async function googleDoc(env: SagaEnv, deps: SagaDeps): Promise<Connection> {
   }
 }
 
-function mail(messages: { mails: number; lastMailMs: number | null; lastRelayedMs: number | null }): Connection {
-  if (!messages.mails) return { ok: null, detail: "Ingen mails fra team@ endnu. Forbind mailen nedenfor, hvis den ikke er forbundet." };
-  return { ok: true, detail: `Forbundet. Seneste mail: ${time(messages.lastMailMs!)}.` };
+/** Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - it was not: Matrix stopped handing mail over on
+ * 23 Sep while this said "Forbundet". Matrix reports every run (every ten minutes): connected, how many mails it saw and
+ * handed over, or the error. Without a report for half an hour the watch has stopped. */
+export const MAIL_WATCH_STALE_MS = 30 * 60_000;
+
+export async function recordMailWatch(db: D1Database, status: Record<string, unknown>, nowMs: number): Promise<void> {
+  const error = typeof status.error === "string" ? status.error.slice(0, 200) : "";
+  const connected = status.connected === true;
+  const count = (v: unknown) => Number.isFinite(Number(v)) ? Number(v) : 0;
+  const detail = error ? error : !connected ? "not_connected" : `${count(status.listed)} i indbakken, ${count(status.relayed)} nye givet videre`;
+  await setServiceStatus(db, "team_mail", connected && !error, detail, nowMs);
+}
+
+export type MailWatch = { state: "ok" | "error" | "stale" | "unknown"; detail: string };
+export async function mailWatch(db: D1Database, nowMs: number): Promise<MailWatch> {
+  const last = await serviceStatus(db, "team_mail").catch(() => null);
+  if (!last) return { state: "unknown", detail: "Matrix har ikke meldt om team@ endnu." };
+  if (nowMs - last.at_ms > MAIL_WATCH_STALE_MS) return { state: "stale", detail: `team@ er ikke blevet tjekket siden ${time(last.at_ms)}.` };
+  if (!last.ok) return { state: "error", detail: last.detail === "not_connected" ? "team@ er ikke forbundet i Matrix (Hjerterum-siden)." : `Matrix kan ikke læse team@: ${last.detail}` };
+  return { state: "ok", detail: `Tjekket ${time(last.at_ms)} (${last.detail}).` };
+}
+
+async function mail(db: D1Database, messages: { mails: number; lastMailMs: number | null }, nowMs: number): Promise<Connection> {
+  const watch = await mailWatch(db, nowMs);
+  const latest = messages.mails ? ` Seneste mail: ${time(messages.lastMailMs!)}.` : "";
+  if (watch.state === "ok") return { ok: true, detail: `${watch.detail}${latest}` };
+  return { ok: watch.state === "unknown" ? null : false, detail: `${watch.detail}${latest}` };
 }
 
 async function ai(env: SagaEnv): Promise<Connection> {
@@ -82,5 +107,5 @@ async function ai(env: SagaEnv): Promise<Connection> {
 export async function sagaConnections(env: SagaEnv, deps: SagaDeps, origin: string): Promise<SagaConnections> {
   const activity = await boardActivity(requireDb(env), env.SAGA_BOARD_CHAT_ID ?? "");
   const [t, g, a] = await Promise.all([telegram(env, deps, origin, activity.groupMessages, activity.lastGroupMessageMs), googleDoc(env, deps), ai(env)]);
-  return { telegram: t, googleDoc: g, mail: mail(activity), ai: a };
+  return { telegram: t, googleDoc: g, mail: await mail(requireDb(env), activity, deps.now()), ai: a };
 }
