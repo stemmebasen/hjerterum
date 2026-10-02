@@ -8,7 +8,7 @@ import { BOARD, deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-s
 // Requested: "\"Bestyrelsen lige nu\" virker ikke. Her skal Saga en gang i timen lave et resume og overblik over hvad der
 // rører sig netop nu med basis i Telegram, vigtige mails og fra mødet (hvis det er mindre end 48 timer siden)" -
 // "Man kan så klikke videre og få et mere detaljeret blik i Status".
-const NOW = Date.parse("2026-10-02T10:00:00Z"); // Friday 12:00 in Copenhagen
+const NOW = Date.parse("2026-10-09T10:00:00Z"); // Friday 12:00 in Copenhagen
 const HOUR = 3_600_000;
 
 describe("Bestyrelsen lige nu", () => {
@@ -29,7 +29,8 @@ describe("Bestyrelsen lige nu", () => {
     let input = "", system = "";
     const ai = fakeServices({ ai: (s, user) => { system = s; input = user; return `- ${Array.from({ length: 80 }, (_, i) => `ord${i}`).join(" ")}`; } });
     await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW), db);
-    expect(system).toContain("højst 45 ord");
+    expect(system).toContain("Højst 45 ord");
+    expect(system).toContain("i entréen: varmt, venligt og let");
     expect(system).toContain("Det, der står under KLARET, er klaret");
     expect(input).toContain("KLARET");
     expect(input).toContain("Svar Thomas Emil om sagen");
@@ -43,7 +44,7 @@ describe("Bestyrelsen lige nu", () => {
     await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Gitta", authorId: "202", text: "Skal vi rykke julefesten?", sentAtMs: NOW - 2 * HOUR, fromAssistant: false });
     await saveBoardMessage(db, { chatId: BOARD, messageId: 2, author: "Douglas", authorId: "203", text: "Gammel besked", sentAtMs: NOW - 5 * 24 * HOUR, fromAssistant: false });
     await insertMail(db, { ref: "m1", sender: "Udlejer", subject: "Varsel om husleje", receivedAtMs: NOW - HOUR, preview: "Huslejen stiger.", nowMs: NOW });
-    const minutes = (await queueMinutes(db, { source: "upload", fileId: "f", fileName: "m.m4a", mimeType: null, meetingDate: "2026-10-01", nowMs: NOW - 20 * HOUR }))!;
+    const minutes = (await queueMinutes(db, { source: "upload", fileId: "f", fileName: "m.m4a", mimeType: null, meetingDate: "2026-10-08", nowMs: NOW - 20 * HOUR }))!;
     await updateMinutes(db, minutes, { status: "drafted", draft: "# Referat\n## Beslutninger\n- GF 14. okt. forberedes" }, NOW - 18 * HOUR);
     await saveMeeting(db, { date: "2026-09-17", time: "", place: "", agenda: "Gammelt møde" }, "Jacob", NOW - 15 * 24 * HOUR);
     let input = "", calls = 0;
