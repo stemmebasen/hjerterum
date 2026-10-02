@@ -1,3 +1,4 @@
+import { sessionMemberValue } from "../cockpit/auth.js";
 import { DatabaseSync } from "node:sqlite";
 import type { D1Database, D1PreparedStatement } from "../db.js";
 import type { SagaDeps, SagaEnv } from "./env.js";
@@ -69,3 +70,15 @@ export function sagaEnv(db: D1Database, extra: Partial<SagaEnv> = {}): SagaEnv {
     ELEVENLABS_API_KEY: "el-key", SAGA_BOARD_POSTING: "on", ...extra };
 }
 export const deps = (fetcher: typeof fetch, now = Date.parse("2026-09-23T10:00:00Z")): SagaDeps => ({ fetcher, now: () => now });
+
+/** The cockpit's login cookie with the member chosen once for it (cockpit/auth.ts MEMBER_COOKIE). */
+export async function memberCookie(session: string, name: string, password = "hjerte-2026"): Promise<string> {
+  const value = session.split(";").map(p => p.trim()).find(p => p.startsWith("hjerterum_cockpit="))?.slice("hjerterum_cockpit=".length) ?? "";
+  return `${session}; hjerterum_cockpit_member=${await sessionMemberValue(password, value, name)}`;
+}
+
+/** Synchronous lookups for tests: each member's cookie, made once. */
+export async function memberCookies(session: string, names = ["Jacob Hauge", "Lisbeth", "Gitta", "Douglas", "Douglas Smith"]): Promise<(name: string) => string> {
+  const made = new Map(await Promise.all(names.map(async n => [n, await memberCookie(session, n)] as const)));
+  return name => made.get(name) ?? "";
+}

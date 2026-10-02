@@ -49,7 +49,7 @@ export const EN: Record<string, string> = {
     "Saga sends you a personal link that logs you in as you. It works once within 15 minutes. You can also write /login to her.",
   "Bestyrelsens cockpit med møder, referater og beslutninger.": "The board's cockpit with meetings, minutes and decisions.", "Du logger ind som": "You are logging in as",
   "Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.": "The link is used or expired. Write /login to Saga on Telegram for a new one.", "Til login": "To login",
-  "Hvem er du?": "Who are you?", "Så viser overblikket dine egne opgaver. Valget huskes på denne enhed.": "Then the overview shows your own tasks. The choice is remembered on this device.",
+  "Hvem er du?": "Who are you?", "Så viser overblikket dine egne opgaver. Du vælger én gang: valget gælder, til du logger ud.": "Then the overview shows your own tasks. You choose once: it holds until you log out.",
   "Dit navn": "Your name", "Fortsæt": "Continue",
   // Front page
   "Her er det vigtigste i bestyrelsen lige nu.": "Here is what matters most in the board right now.", "Næste møde": "Next meeting", "Dine opgaver": "Your tasks", "Til godkendelse": "To approve",

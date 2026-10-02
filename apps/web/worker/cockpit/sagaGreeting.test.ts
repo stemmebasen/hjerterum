@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
-import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
 // Requested: "Ændr: Hej \"navn\"🙂 Jeg er Saga. Spørg mig f. eks. om vedtægter, beslutninger, sager, møder, arrangementer og
 // medlemsskab. Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber" - and "Douglas taler engelsk".
@@ -21,10 +21,10 @@ describe("Saga's greeting and what she knows about membership", () => {
     const login = new FormData(); login.append("password", "hjerte-2026");
     const session = ((await call("/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
 
-    expect(await (await call("/", { cookie: `${session}; hjerterum_cockpit_who=${encodeURIComponent("Douglas Smith")}` })).text())
+    expect(await (await call("/", { cookie: await memberCookie(session, "Douglas Smith") })).text())
       .toContain("Hej Douglas 🙂 Jeg er Saga. Spørg mig f.eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab.");
 
-    const answer = await call("/saga", { method: "POST", json: true, cookie: `${session}; hjerterum_cockpit_who=Lisbeth`, body: JSON.stringify({ question: "Hvad koster et medlemskab?", history: [] }) });
+    const answer = await call("/saga", { method: "POST", json: true, cookie: await memberCookie(session, "Lisbeth"), body: JSON.stringify({ question: "Hvad koster et medlemskab?", history: [] }) });
     expect(answer.status).toBe(200);
     expect(system).toContain("MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR");
     expect(system).toContain("- Generøst medlemskab: 333 kr. / 3.465 kr.");
