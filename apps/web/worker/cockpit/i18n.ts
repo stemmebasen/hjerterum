@@ -229,7 +229,19 @@ const SCRIPT: Array<[string, string]> = [["Saga tænker …", "Saga is thinking 
 const unescape = (s: string) => s.replace(/&(amp|lt|gt|quot|#39);/g, (_, e: string) => ({ amp: "&", lt: "<", gt: ">", quot: "\"", "#39": "'" })[e]!);
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
-export function translateText(text: string): string {
+/** Requested: "I think that overview, tasks, and decisions should be automatically translated". What the members and
+ * Saga write (tasks, to-do's, proposals, decisions) is not in the dictionary: on those pages it is translated with the
+ * EU model and kept (translate.ts). `kept` holds those translations; `missing` collects what has none yet. */
+export type AutoTranslation = { kept?: Map<string, string>; missing?: Set<string> };
+
+/** Worth sending to the model: real Danish words, not a name, a number, a date or an address. */
+export function worthTranslating(text: string): boolean {
+  if (text.length < 4 || text.length > 2000 || /^(https?:\/\/|[\w.+-]+@[\w-]+\.)/i.test(text)) return false;
+  const words = text.match(/[A-Za-zÆØÅæøå]{2,}/g) ?? [];
+  return words.length >= 2 || /[æøåÆØÅ]/.test(text);
+}
+
+export function translateText(text: string, auto?: AutoTranslation): string {
   const raw = text.trim();
   if (!raw || !/[A-Za-zÆØÅæøå]/.test(raw)) return text;
   // Pages escape their text; the phrases are plain.
@@ -238,6 +250,11 @@ export function translateText(text: string): string {
   const exact = EN[core];
   let out = exact ?? core;
   if (exact === undefined) for (const [pattern, to] of RULES) out = out.replace(pattern, to as never);
+  if (out === core && auto) {
+    const kept = auto.kept?.get(core);
+    if (kept) out = kept;
+    else if (worthTranslating(core)) auto.missing?.add(core);
+  }
   return out === core ? text : text.replace(raw, () => escaped ? escape(out) : out);
 }
 
@@ -245,7 +262,7 @@ const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input"
 const RAW = new Set(["script", "style", "textarea"]);
 
 /** The finished page, in English. */
-export function translateHtml(html: string): string {
+export function translateHtml(html: string, auto?: AutoTranslation): string {
   const out: string[] = [];
   const stack: string[] = [];
   let skipDepth = -1;
@@ -253,7 +270,7 @@ export function translateHtml(html: string): string {
   let last = 0;
   for (let m = re.exec(html); m; m = re.exec(html)) {
     const text = html.slice(last, m.index);
-    out.push(skipDepth >= 0 || !text.trim() ? text : translateText(text));
+    out.push(skipDepth >= 0 || !text.trim() ? text : translateText(text, auto));
     let tag = m[0];
     const name = (m[1] ?? "").toLowerCase();
     last = re.lastIndex;
@@ -284,6 +301,6 @@ export function translateHtml(html: string): string {
     if (skipDepth < 0 && /\btranslate="no"/.test(tag)) skipDepth = stack.length - 1;
   }
   const rest = html.slice(last);
-  out.push(skipDepth >= 0 || !rest.trim() ? rest : translateText(rest));
+  out.push(skipDepth >= 0 || !rest.trim() ? rest : translateText(rest, auto));
   return out.join("");
 }

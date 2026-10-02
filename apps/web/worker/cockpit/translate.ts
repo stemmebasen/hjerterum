@@ -4,7 +4,7 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { latestBoardNow } from "./boardNow.js";
 import { approvedMinutes, boardPicture, minutesDecisions } from "./data.js";
 import { frontPagePoints, lead } from "./home.js";
-import { englishReaders } from "./i18n.js";
+import { englishReaders, translateHtml } from "./i18n.js";
 
 /** Requested: "Douglas taler engelsk" - "Ja byg det sådan". Saga's own short texts on the front page ("Bestyrelsen lige nu",
  * the overview's lead, the key points from the last meeting) are translated once, when they are new and someone reads the
@@ -23,12 +23,17 @@ async function hash(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** The kept English of each text that has one. */
+/** The kept English of each text that has one - read 50 at a time, a page can hold a hundred texts. */
 export async function translations(db: D1Database, texts: string[]): Promise<Map<string, string>> {
   const found = new Map<string, string>();
-  for (const text of new Set(texts.filter(t => t.trim()))) {
-    const row = await db.prepare("SELECT text FROM cockpit_translations WHERE source_hash = ? AND lang = 'en'").bind(await hash(text)).first<{ text: string }>().catch(() => null);
-    if (row) found.set(text, row.text);
+  const byHash = new Map<string, string>();
+  for (const text of new Set(texts.filter(t => t.trim()))) byHash.set(await hash(text), text);
+  const hashes = [...byHash.keys()];
+  for (let i = 0; i < hashes.length; i += 50) {
+    const part = hashes.slice(i, i + 50);
+    const rows = await db.prepare(`SELECT source_hash, text FROM cockpit_translations WHERE lang = 'en' AND source_hash IN (${part.map(() => "?").join(",")})`)
+      .bind(...part).all<{ source_hash: string; text: string }>().catch(() => ({ results: [] as Array<{ source_hash: string; text: string }> }));
+    for (const row of rows.results ?? []) { const text = byHash.get(row.source_hash); if (text) found.set(text, row.text); }
   }
   return found;
 }
@@ -82,4 +87,33 @@ export async function translateMinutes(env: SagaEnv, deps: SagaDeps, db: D1Datab
   if (answer.length < Math.min(200, markdown.length / 3)) throw new Error("translation_too_short");
   await keep(db, markdown, answer, deps.now());
   return answer;
+}
+
+/** Requested: "I think that overview, tasks, and decisions should be automatically translated". The pages that are
+ * translated whole for a member who reads in English. */
+export const AUTO_TRANSLATED = new Set(["/", "/status", "/opgaver", "/beslutninger"]);
+const AUTO_WAIT_MS = 20_000;
+
+const weekend = (nowMs: number) => ["Sat", "Sun"].includes(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short" }).format(nowMs));
+
+/** The page in English: the dictionary, then the kept translations; what has none yet is translated now (in parts of
+ * 20, at most 160 texts) - on weekdays only, as all of Saga's AI - and kept. A page that waits longer than 20 s is shown
+ * with what is ready, and the rest is finished in the background for the next visit. */
+export async function translatePage(env: SagaEnv, deps: SagaDeps, db: D1Database, html: string): Promise<string> {
+  const missing = new Set<string>();
+  translateHtml(html, { missing });
+  const texts = [...missing].slice(0, 160);
+  let kept = await translations(db, texts);
+  const left = texts.filter(t => !kept.has(t));
+  if (left.length && env.AI_API_KEY && env.AI_MODEL && !weekend(deps.now())) {
+    const parts: string[][] = [];
+    for (let i = 0; i < left.length; i += 20) parts.push(left.slice(i, i + 20));
+    const work = Promise.all(parts.map(part => translateTexts(env, deps, db, part).catch(error => { console.warn("cockpit_page_translate_failed", error instanceof Error ? error.message : error); return 0; })));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ready = await Promise.race([work.then(() => true), new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), AUTO_WAIT_MS); })]);
+    clearTimeout(timer);
+    if (!ready) deps.waitUntil?.(work);
+    kept = await translations(db, texts);
+  }
+  return translateHtml(html, { kept });
 }
