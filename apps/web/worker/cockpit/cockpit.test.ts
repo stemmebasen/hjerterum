@@ -306,6 +306,43 @@ describe("the board cockpit", () => {
     expect(off.status).toBe(503);
   });
 
+  // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?" -
+  // "I can't see that you have inserted the figures anywhere."
+  it("shows MembershipWorks' figures, and lets Saga read a new screenshot that a member checks before it is saved", async () => {
+    let user: unknown = null;
+    const { db, call, login } = await setup();
+    const ai = fakeServices({ ai: (system, u) => { user = u; return system.includes("MembershipWorks")
+      ? '{"total_accounts":452,"with_membership":"390","paying":181,"free":186,"past_due":12,"pending_cancellation":0,"cancelled":6,"annual_revenue_kr":"361.200","plans":[{"name":"Standard","count":118,"share":30.3}]}' : "Svar."; } });
+    const { handleCockpitRequest: handle } = await import("./handler.js");
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const session = await login(), cookie = `${session}; hjerterum_cockpit_who=Lisbeth`;
+    const home = await (await call("/cockpit/", { cookie })).text();
+    expect(home).toContain("<h2>Medlemmer</h2>");
+    expect(home).toContain("169");
+    expect(home).toContain("345.144 kr.");
+    expect(home).toContain("Betaling stoppet");
+    const { boardKnowledge } = await import("./ask.js");
+    expect(await boardKnowledge(env, deps(ai.fetcher, NOW), db, "Hvor mange betalende medlemmer har vi?")).toContain("169 betalende");
+    const upload = new FormData();
+    upload.append("billede", new File([new Uint8Array([137, 80, 78, 71])], "stats.png", { type: "image/png" }));
+    const read = await (await handle(new Request(`${ORIGIN}/cockpit/medlemmer/laes`, { method: "POST", headers: { origin: ORIGIN, cookie }, body: upload }), env, deps(ai.fetcher, NOW))).text();
+    expect(JSON.stringify(user)).toContain("data:image/png;base64,iVBORw==");
+    expect(read).toContain("Tjek tallene");
+    expect(read).toContain('name="paying" inputmode="numeric" value="181"');
+    expect(read).toContain('name="annual_revenue_kr" inputmode="numeric" value="361200"');
+    // Nothing is saved before the member presses Gem.
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM cockpit_member_stats").first()).toEqual({ n: 1 });
+    const fields: Record<string, string> = { taken_on: "2026-10-01", total_accounts: "452", with_membership: "390", paying: "181", free: "186", past_due: "12", pending_cancellation: "0", cancelled: "6", annual_revenue_kr: "361200", plans: '[{"name":"Standard","count":118,"share":30.3}]' };
+    const save = new FormData(); for (const [k, v] of Object.entries(fields)) save.append(k, v);
+    const saved = await handle(new Request(`${ORIGIN}/cockpit/medlemmer/gem`, { method: "POST", headers: { origin: ORIGIN, cookie }, body: save }), env, deps(ai.fetcher, NOW));
+    expect(saved.headers.get("location")).toBe("/cockpit/medlemmer?gemt=1");
+    expect(await db.prepare("SELECT paying, added_by FROM cockpit_member_stats ORDER BY id DESC").first()).toEqual({ paying: 181, added_by: "Lisbeth" });
+    // The newest date leads; the change since the screenshot before is shown.
+    const page = await (await call("/cockpit/medlemmer", { cookie })).text();
+    expect(page).toContain("Udvikling");
+    expect(await (await call("/cockpit/", { cookie })).text()).toContain("169");
+  });
+
   it("keeps Saga's statutes the same as the website's", () => {
     const flat = (text: string) => text.replace(/<br\s*\/?>|<\/(p|h\d|li|ol|ul)>/g, " ").replace(/<li>/g, " - ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8211;|&ndash;/g, "–").replace(/\s+/g, " ").trim();

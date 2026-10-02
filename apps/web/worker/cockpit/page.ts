@@ -14,68 +14,84 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 const STYLE = `
-:root{--bg:#f4f2ec;--card:#fffdf8;--ink:#1b1e1c;--muted:#5c635f;--faint:#8a908c;--line:#e6e1d6;--accent:#1f4d42;--accent-2:#2e6a5a;--accent-ink:#fff;--soft:#efebe2;--tint:#e4ece7;
---good:#2c6e50;--warn:#9c4f17;--warn-soft:#f8ecdf;--shadow:0 1px 0 rgba(20,24,22,.03);--radius:18px;--nav-h:66px;--bar:#1d443a;--bar-ink:#f4f1e9;--serif:"Fraunces",Georgia,"Times New Roman",serif}
-@media (prefers-color-scheme:dark){:root{--bg:#0e1110;--card:#151a18;--ink:#eceeec;--muted:#a3aba7;--faint:#7c8481;--line:#242b28;--accent:#93cdb8;--accent-2:#6fb39d;--accent-ink:#0c1311;--soft:#1c2220;--tint:#1a2924;
---good:#91d3ab;--warn:#eaa46b;--warn-soft:#2d221a;--shadow:none;--bar:#142b25;--bar-ink:#eef0ec}}
+/* Requested: "It still looks like a quite weird and old design, and I don't like the green ... Take a look at
+   my page for inspiration - jacobhauge.com". The same system: cool paper, white cards, deep ink, one cobalt
+   accent, Bricolage Grotesque, tight bold headings, pill buttons, a glass header and a soft glow. */
+:root{--bg:#eef1f4;--card:#fff;--ink:#16202e;--muted:#5a6675;--faint:#7d8896;--line:#dce2e9;--accent:#2446d8;--accent-2:#1b37b5;--accent-ink:#fff;--soft:#f1f4f8;--tint:#e8edfd;
+--good:#2446d8;--warn:#a4501a;--warn-soft:#fbefe4;--shadow:0 1px 2px rgba(22,32,46,.04),0 10px 30px -18px rgba(22,32,46,.18);--radius:20px;--nav-h:66px;
+--glow-1:rgb(36 70 216 / .16);--glow-2:rgb(124 92 255 / .13);--glow-3:rgb(40 190 225 / .12);--font:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#121821;--card:#1a222d;--ink:#e8edf3;--muted:#9aa6b4;--faint:#748191;--line:#2a3441;--accent:#7c93ff;--accent-2:#9aabff;--accent-ink:#0e1522;--soft:#212a36;--tint:#1f2a4a;
+--good:#7c93ff;--warn:#f0a86e;--warn-soft:#2e2219;--shadow:none;--glow-1:rgb(61 91 255 / .26);--glow-2:rgb(139 107 255 / .20);--glow-3:rgb(43 179 217 / .16)}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:15.5px/1.6 "Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
-a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:3px}
-/* Requested: "Og brug gerne vores hvide logo" and a calmer, more considered design: a deep green bar with
-   Hjerterum's white logo, five fixed places, and nothing in the bar that shrinks or wraps. */
-header.bar{position:sticky;top:0;z-index:10;background:var(--bar);color:var(--bar-ink);box-shadow:0 1px 0 rgba(0,0,0,.08)}
-.top{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:22px}
-.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--bar-ink);white-space:nowrap;flex:none}
-.brand img{width:38px;height:38px;flex:none;display:block}
-.brand b{font-family:var(--serif);font-weight:600;font-size:20px;letter-spacing:-.01em}.brand .names span{font-size:11px;opacity:.7;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
-.brand .names{display:grid;line-height:1.1}
-nav.desk{display:flex;gap:2px;flex:1;min-width:0}nav.desk a{padding:8px 13px;border-radius:999px;text-decoration:none;color:color-mix(in srgb,var(--bar-ink) 78%,transparent);font-weight:550;font-size:14px;white-space:nowrap}
-nav.desk a:hover{color:var(--bar-ink);background:rgba(255,255,255,.08)}nav.desk a.on{background:var(--bar-ink);color:var(--bar)}
-.me{display:flex;align-items:center;gap:10px;font-size:13px;margin-left:auto;flex:none}.me .who-name{white-space:nowrap;opacity:.8}
-.avatar{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.14);color:var(--bar-ink);display:grid;place-items:center;font-weight:700;font-size:13px;text-decoration:none}
-@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:920px){.brand .names span{display:none}nav.desk a{padding:8px 10px}}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;overflow-x:clip;position:relative;isolation:isolate}
+body::before{content:"";position:absolute;z-index:-1;top:-160px;right:-200px;width:min(980px,110vw);height:760px;pointer-events:none;filter:blur(10px);
+background:radial-gradient(closest-side at 38% 42%,var(--glow-2),transparent 72%),radial-gradient(closest-side at 64% 36%,var(--glow-1),transparent 70%),radial-gradient(closest-side at 72% 66%,var(--glow-3),transparent 70%)}
+a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:.2em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+header.bar{position:sticky;top:0;z-index:10}
+header.bar::before{content:"";position:absolute;inset:0;z-index:-1;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.top{max-width:1160px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);white-space:nowrap;flex:none}
+.brand-mark{width:38px;height:38px;border-radius:50%;background:#2446d8;display:grid;place-items:center;flex:none}.brand-mark img{width:28px;height:28px;display:block}
+.brand b{font-weight:700;font-size:18px;letter-spacing:-.01em}.brand .names span{font-size:12.5px;color:var(--muted);font-weight:500}
+.brand .names{display:grid;line-height:1.15}
+nav.desk{display:flex;gap:4px;flex:1;min-width:0;justify-content:center}nav.desk a{padding:8px 14px;border-radius:999px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px;white-space:nowrap}
+nav.desk a:hover{color:var(--accent)}nav.desk a.on{background:var(--card);box-shadow:var(--shadow);font-weight:600}
+.me{display:flex;align-items:center;gap:10px;font-size:14px;margin-left:auto;flex:none}.me .who-name{white-space:nowrap;color:var(--muted)}
+.avatar{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--ink);color:var(--ink);display:grid;place-items:center;font-weight:650;font-size:13px;text-decoration:none}
+.avatar:hover{border-color:var(--accent);color:var(--accent)}
+@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:980px){.brand .names span{display:none}nav.desk a{padding:8px 10px;font-size:14.5px}}
 nav.tabs{display:none}
-main{max-width:1120px;margin:0 auto;padding:28px 20px 72px;display:grid;gap:18px}
-h1{font-family:var(--serif);font-size:36px;line-height:1.1;margin:0;letter-spacing:-.015em;font-weight:600}h2{font-family:var(--serif);font-size:21px;margin:0 0 14px;font-weight:600;letter-spacing:-.005em}
-h3{font-size:11.5px;margin:18px 0 8px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-weight:650}h3:first-child{margin-top:0}
+main{max-width:1160px;margin:0 auto;padding:40px 24px 88px;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--font)}
+h1{font-size:clamp(34px,4.4vw,52px);line-height:1.02;margin:0;letter-spacing:-.03em;font-weight:700}h2{font-size:20px;margin:0 0 14px;font-weight:650;letter-spacing:-.015em;line-height:1.2}
+h3{font-size:12px;margin:18px 0 8px;color:var(--faint);text-transform:uppercase;letter-spacing:.08em;font-weight:650}h3:first-child{margin-top:0}
 .hero{display:grid;gap:10px;margin-bottom:4px}.hero p{margin:0;color:var(--muted)}
-.chips{display:flex;gap:8px;flex-wrap:wrap}.chips a,.chips span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:13.5px;font-weight:550;color:var(--ink);text-decoration:none}
-.chips .hot{background:var(--warn-soft);color:var(--warn);box-shadow:none}.chips b{font-weight:750}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:18px;align-items:start}
-.card{background:var(--card);border-radius:var(--radius);padding:24px 26px;min-width:0;box-shadow:var(--shadow);border:1px solid var(--line)}
-.muted{color:var(--muted)}.small{font-size:13.5px}.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chips a,.chips span{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:14px;font-weight:550;color:var(--ink);text-decoration:none}
+.chips .hot{background:var(--warn-soft);color:var(--warn);box-shadow:none}.chips b{font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:20px;align-items:start}
+.card{background:var(--card);border-radius:var(--radius);padding:26px 28px;min-width:0;box-shadow:var(--shadow);border:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.muted{color:var(--muted)}.small{font-size:14px}.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
 ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
-ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px}
-ul.plain li>a:only-child::after{content:"›";color:var(--faint);font-size:22px;line-height:1;font-weight:400}
+ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px;color:var(--ink)}
+ul.plain li>a:only-child::after{content:"→";color:var(--faint);font-size:16px;line-height:1;font-weight:400}ul.plain li>a:only-child:hover{color:var(--accent)}
 ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::marker{color:var(--faint);font-weight:600}
-.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:11.5px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
-form.stack{display:grid;gap:12px}label{display:grid;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
-input,textarea,select{font:inherit;font-size:16px;font-weight:400;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 13px;width:100%;min-height:46px}
-input:focus,textarea:focus,select:focus{outline:3px solid color-mix(in srgb,var(--accent) 25%,transparent);border-color:var(--accent);background:var(--card)}
+.doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:12px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
+form.stack{display:grid;gap:12px}label{display:grid;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)}
+input,textarea,select{font:inherit;font-size:16px;font-weight:400;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px 14px;width:100%;min-height:46px}
+input:focus,textarea:focus,select:focus{outline:3px solid color-mix(in srgb,var(--accent) 22%,transparent);border-color:var(--accent);background:var(--card)}
 textarea{min-height:130px;resize:vertical}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1 1 160px}
-button,.button{font:inherit;font-weight:650;font-size:14.5px;border:0;border-radius:12px;padding:12px 18px;min-height:46px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
-button:hover,.button:hover{filter:brightness(1.07)}button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.ghost:hover{background:var(--soft);filter:none}
-.notice{padding:13px 16px;border-radius:14px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--good)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
+button,.button{font:inherit;font-weight:650;font-size:15px;border:0;border-radius:999px;padding:12px 22px;min-height:46px;background:var(--accent);color:var(--accent-ink);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+button:hover,.button:hover{filter:brightness(1.08)}button.ghost,.button.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}button.ghost:hover,.button.ghost:hover{border-color:var(--accent);color:var(--accent);filter:none}
+.notice{padding:14px 18px;border-radius:16px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--accent)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
 details{border-top:1px solid var(--line);padding:10px 0}details>summary{cursor:pointer;font-weight:600;list-style:none}details>summary::-webkit-details-marker{display:none}details>summary::before{content:"+";display:inline-block;width:18px;color:var(--faint)}details[open]>summary::before{content:"–"}
-.center{max-width:420px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;border-radius:50%;background:var(--bar);display:grid;place-items:center;margin:0 0 18px}.mark img{width:48px;height:48px}
-table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14.5px}th{font-size:11.5px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
+.center{max-width:440px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;border-radius:50%;background:#2446d8;display:grid;place-items:center;margin:0 0 20px}.mark img{width:46px;height:46px}
+table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}th{font-size:12px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 tr:last-child td{border-bottom:0}
 [hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 30px;align-items:start}.block{min-width:0}
-.chip{display:inline-block;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--muted);margin-right:4px}
-.chip.good{color:var(--good);background:var(--tint)}.chip.wait{color:var(--warn);background:var(--warn-soft)}.waits,.warn{color:var(--warn);font-weight:600}
+.chip{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--muted);margin-right:4px}
+.chip.good{color:var(--accent);background:var(--tint)}.chip.wait{color:var(--warn);background:var(--warn-soft)}.waits,.warn{color:var(--warn);font-weight:600}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 12px}.stats div{background:var(--soft);border-radius:14px;padding:12px 14px}
-.stats b{display:block;font-size:24px;letter-spacing:-.02em}.stats span{font-size:12px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
+.stats b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em}.stats span{font-size:12.5px;color:var(--muted)}ul.msgs li{white-space:pre-wrap;word-break:break-word}
 details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;margin:4px 0}
 .menu{display:grid}.menu a,.menu button{display:flex;justify-content:space-between;align-items:center;padding:16px 4px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink);font-weight:600;font-size:16px;background:none;border-radius:0;min-height:56px;width:100%}
-.menu a::after,.menu button::after{content:"›";color:var(--faint);font-size:22px;font-weight:400}
+.menu a::after,.menu button::after{content:"→";color:var(--faint);font-size:16px;font-weight:400}
+/* Panels: the front page's blocks, also used on Medlemmer. */
+.panel{background:var(--card);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);border-radius:var(--radius);padding:26px 28px;min-width:0;box-shadow:var(--shadow)}
+.panel>header{margin:0 0 14px}.panel h2{font-size:21px;font-weight:650;margin:0;letter-spacing:-.015em}.panel header p{margin:3px 0 0;font-size:13.5px;color:var(--faint)}
+.panel .more{display:inline-block;margin-top:14px;font-size:14px;font-weight:600;text-decoration:none}
+.items{list-style:none;margin:0;padding:0}.items li{padding:11px 0;border-top:1px solid var(--line)}.items li:first-child{border-top:0;padding-top:0}
+.items .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
+.empty{color:var(--muted);margin:0}
+main>h1+p{margin-top:-6px}
 @media (max-width:760px){
-  nav.desk,.me .who-name{display:none}.top{padding:9px 16px}.brand img{width:34px;height:34px}h1{font-size:30px}
+  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:25px;height:25px}.avatar{width:34px;height:34px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
-    background:color-mix(in srgb,var(--card) 90%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
+    background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--faint);font-size:11px;font-weight:600;border-radius:12px}
   nav.tabs a svg{width:22px;height:22px}nav.tabs a.on{color:var(--accent)}
-  main{padding:18px 14px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom));gap:14px}h1{font-size:27px}
-  .grid{grid-template-columns:1fr;gap:14px}.card{padding:18px;border-radius:18px}.cols{grid-template-columns:1fr}
+  main{padding:22px 16px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom));gap:16px}h1{font-size:34px}
+  .grid{grid-template-columns:1fr;gap:16px}.card,.panel{padding:20px;border-radius:18px}.cols{grid-template-columns:1fr}
   table.rows tr:first-child{display:none}table.rows tr{display:block;padding:12px 0;border-bottom:1px solid var(--line)}table.rows tr:last-child{border-bottom:0}
   table.rows td{display:block;border:0;padding:2px 0}table.rows td[data-label]::before{content:attr(data-label);display:block;font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
   .actions{justify-content:stretch}.actions>*{flex:1}
@@ -100,7 +116,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
   const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/arrangementer", "Arrangementer"]];
-  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
+  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder", "/medlemmer": "/" };
   const here = parent[options.section ?? ""] ?? options.section;
   const desk = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
   // On a phone the five labels must fit side by side.
@@ -108,10 +124,10 @@ export function layout(base: string, title: string, body: string, options: { sec
   const tabs = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f3f4f1" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1211" media="(prefers-color-scheme: dark)">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400..800&family=Fraunces:opsz,wght@9..144,500..700&display=swap">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&display=swap">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><img src="${base}/logo.png" alt="" width="38" height="38"><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="" width="28" height="28"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
 <div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;

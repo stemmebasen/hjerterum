@@ -1,6 +1,7 @@
 import type { BoardPicture } from "../saga/picture.js";
 import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
+import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { esc, layout, longDay, shortDay } from "./page.js";
 
 /** Requested: "det er vigtigt, at vi får et meget veltænkt og gennemtænkt overblik på forsiden, gerne med en
@@ -20,32 +21,27 @@ export type HomeData = {
   picture: BoardPicture | null; summary: string | null; at: number | null;
   events: HouseEvent[]; eventsMonth: number;
   progress: { working: number; waiting: number };
+  memberStats?: MemberStats[];
 };
 
 export const HOME_STYLE = `
 .home{gap:26px}
 .welcome{display:grid;gap:8px;padding:6px 0 2px}.welcome .eyebrow{font-size:13px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0}
-.welcome h1{font-size:44px}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
+.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.tile{display:grid;gap:4px;padding:18px 20px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);text-decoration:none;color:var(--ink);min-width:0}
+.tile{display:grid;gap:4px;padding:18px 20px;border-radius:var(--radius);background:var(--card);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
 .tile:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.tile .label{font-size:12.5px;font-weight:650;color:var(--muted)}
-.tile b{font-family:var(--serif);font-size:30px;font-weight:600;line-height:1.15;letter-spacing:-.01em}.tile .sub{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile b{font-size:32px;font-weight:700;line-height:1.1;letter-spacing:-.03em}.tile .sub{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile.hot{background:var(--warn-soft);border-color:transparent}.tile.hot b,.tile.hot .label{color:var(--warn)}
 .panels{display:grid;grid-template-columns:1.15fr 1fr;gap:18px;align-items:start}.panels>div{display:grid;gap:18px;min-width:0}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px 26px;min-width:0}
-.panel header{margin:0 0 14px}.panel h2{font-family:var(--serif);font-size:22px;font-weight:600;margin:0}.panel header p{margin:3px 0 0;font-size:13.5px;color:var(--faint)}
-.panel .more{display:inline-block;margin-top:14px;font-size:14px;font-weight:600;text-decoration:none}
-.items{list-style:none;margin:0;padding:0}.items li{padding:11px 0;border-top:1px solid var(--line)}.items li:first-child{border-top:0;padding-top:0}
-.items .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
 .when{display:flex;gap:16px;align-items:center}.date{flex:none;width:58px;height:62px;border-radius:14px;background:var(--tint);display:grid;place-items:center;text-align:center;line-height:1}
-.date b{font-family:var(--serif);font-size:26px;font-weight:600;color:var(--accent)}.date span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.date b{font-size:26px;font-weight:700;color:var(--accent);letter-spacing:-.02em}.date span{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
 .meter{height:6px;border-radius:999px;background:var(--soft);overflow:hidden;margin:6px 0 2px}.meter i{display:block;height:100%;background:var(--accent);border-radius:999px}
 .mood{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:4px 11px;border-radius:999px;background:var(--tint);color:var(--accent);margin-bottom:10px}
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.empty{color:var(--muted);margin:0}
 @media (max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}}
-@media (max-width:760px){.welcome h1{font-size:34px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}}
+@media (max-width:760px){.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}}
 `;
 
 const MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" });
@@ -138,5 +134,5 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
     data.progress.waiting ? `${plural(data.progress.waiting, "referat", "referater")} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
 
   return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${working}
-<div class="panels"><div>${yours}${minutes}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE });
+<div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });
 }

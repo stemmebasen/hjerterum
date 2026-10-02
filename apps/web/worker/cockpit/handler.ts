@@ -12,6 +12,7 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
+import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -118,8 +119,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // the chair's Hjerterum page in Matrix, for the whole board. Approving minutes and posts stays in
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
   if (path === "/" && request.method === "GET") {
-    const [{ picture, summary, at }, minutes, list, progress, events, month] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
-      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>()]);
+    const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
+      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -127,7 +128,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     return html(homePage(base, { who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [],
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, progress, memberStats,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
@@ -248,6 +249,29 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
 
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
   // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
+  // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?"
+  if (path === "/medlemmer" && request.method === "GET") {
+    const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
+    return html(membersPage(base, { who, rows, history, today, notice: url.searchParams.has("gemt") ? "Medlemstallene er gemt." : "" }));
+  }
+  if (path === "/medlemmer/laes" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const file = (await request.formData().catch(() => null))?.get("billede");
+    const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
+    if (!(file instanceof File) || !IMAGE_TYPES.has(file.type) || !file.size || file.size > IMAGE_MAX || !env.AI_API_KEY || !env.AI_MODEL)
+      return html(membersPage(base, { who, rows, history, today, read: null }));
+    const read = await readScreenshot(env, deps, { type: file.type, base64: toBase64(new Uint8Array(await file.arrayBuffer())) }, today)
+      .catch(error => { console.warn("cockpit_member_screenshot_failed", error instanceof Error ? error.message : error); return null; });
+    return html(membersPage(base, { who, rows, history, today, read }));
+  }
+  if (path === "/medlemmer/gem" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const input = statsInput(await request.formData(), today);
+    if (!input) return redirect(`${base}/medlemmer`);
+    await saveStats(db, input, who, now);
+    return redirect(`${base}/medlemmer?gemt=1`);
+  }
+
   if (path === "/opgaver" || path.startsWith("/opgaver/")) {
     if (!who) return redirect(`${base}/hvem`);
     if (request.method === "POST") {

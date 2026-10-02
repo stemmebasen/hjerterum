@@ -1,7 +1,9 @@
 import type { SagaDeps, SagaEnv } from "./env.js";
 import { setServiceStatus } from "./store.js";
 
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+export type ChatPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+/** A user turn may carry a picture (a screenshot Saga reads), as OpenAI-compatible content parts. */
+export type ChatMessage = { role: "system" | "assistant"; content: string } | { role: "user"; content: string | ChatPart[] };
 
 /** Requested: "Saga skal bruge Requesty API fremover". Requesty's EU router (OpenAI-compatible chat
  * completions) is the default; AI_BASE_URL only overrides it. The provider stays behind this one function. */
