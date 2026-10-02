@@ -273,14 +273,53 @@ export async function checkedTasks(db: D1Database, owner: string): Promise<Map<s
 }
 
 /** Requested: "når et bestyrelsesmedlem har løst en opgave og klikket flueben, så skal der være et flueben + dato ud
- * for den fælles oversigt i fem dage, hvorefter hele linjen arkiveres". Who checked each minutes task off, and when. */
+ * for den fælles oversigt i fem dage, hvorefter hele linjen arkiveres" - later "after 7 days". Who checked each minutes task off, and when. */
 export async function taskChecksByKey(db: D1Database): Promise<Map<string, { by: string; at: number }>> {
-  const rows = await db.prepare("SELECT task_key, owner, done_at_ms FROM cockpit_task_checks ORDER BY done_at_ms ASC").all<{ task_key: string; owner: string; done_at_ms: number }>();
+  // A task a member removed from their own list is not done: it is never shown as checked on the shared list.
+  const rows = await db.prepare("SELECT task_key, owner, done_at_ms FROM cockpit_task_checks WHERE removed = 0 ORDER BY done_at_ms ASC").all<{ task_key: string; owner: string; done_at_ms: number }>();
   return new Map((rows.results ?? []).map(r => [r.task_key, { by: r.owner, at: r.done_at_ms }]));
 }
 
+/** The tasks a member removed from their own list. */
+export async function removedTasks(db: D1Database, owner: string): Promise<Set<string>> {
+  const rows = await db.prepare("SELECT task_key FROM cockpit_task_checks WHERE owner = ? AND removed = 1").bind(owner).all<{ task_key: string }>().catch(() => ({ results: [] as Array<{ task_key: string }> }));
+  return new Set((rows.results ?? []).map(r => r.task_key));
+}
+
+export async function removeTaskFor(db: D1Database, owner: string, key: string, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO cockpit_task_checks (owner, task_key, done_at_ms, removed) VALUES (?, ?, ?, 1) ON CONFLICT(owner, task_key) DO UPDATE SET done_at_ms = excluded.done_at_ms, removed = 1")
+    .bind(owner, key, nowMs).run();
+}
+
+/** Requested: "make sure that there are no duplicates in the to-dos". The same task comes from the approved minutes, from
+ * Saga's reading of the minutes document and from Saga's list for the chair, each in its own words ("Send sidste besked
+ * til Thomas Emil (kopi til Douglas) og bloker ham derefter", "Sende sidste besked til Thomas Emil og blokere ham").
+ * Two lines are the same task when most of the shorter one's words (by their first four letters) are in the other. */
+const STOP = new Set(["og", "til", "på", "at", "en", "et", "de", "den", "det", "med", "for", "af", "om", "som", "der", "fra", "har", "ham", "hun",
+  "nye", "nyt", "ny", "the", "and", "evt", "kan", "skal", "vil", "efter", "inden", "senest", "derefter"]);
+export function taskWords(text: string): Set<string> {
+  return new Set((text.toLocaleLowerCase("da-DK").match(/[\p{L}\p{N}]+/gu) ?? []).filter(w => w.length >= 3 && !STOP.has(w) && !/^\d+$/.test(w)).map(w => w.slice(0, 4)));
+}
+export function sameTask(a: string, b: string): boolean {
+  const x = taskWords(a), y = taskWords(b);
+  const [small, big] = x.size <= y.size ? [x, y] : [y, x];
+  if (!small.size) return false;
+  const shared = [...small].filter(w => big.has(w)).length;
+  return shared >= Math.min(3, small.size) && shared / small.size >= 0.6;
+}
+
+/** One line per task: the first of each group of the same task is shown, the rest go with it (checked or removed together). */
+export function mergeSame<T>(items: T[], text: (item: T) => string): Array<{ item: T; twins: T[] }> {
+  const groups: Array<{ item: T; twins: T[] }> = [];
+  for (const item of items) {
+    const group = groups.find(g => sameTask(text(g.item), text(item)));
+    if (group) group.twins.push(item); else groups.push({ item, twins: [] });
+  }
+  return groups;
+}
+
 export async function setTaskChecked(db: D1Database, owner: string, key: string, done: boolean, nowMs: number): Promise<void> {
-  if (done) await db.prepare("INSERT INTO cockpit_task_checks (owner, task_key, done_at_ms) VALUES (?, ?, ?) ON CONFLICT(owner, task_key) DO UPDATE SET done_at_ms = excluded.done_at_ms").bind(owner, key, nowMs).run();
+  if (done) await db.prepare("INSERT INTO cockpit_task_checks (owner, task_key, done_at_ms, removed) VALUES (?, ?, ?, 0) ON CONFLICT(owner, task_key) DO UPDATE SET done_at_ms = excluded.done_at_ms, removed = 0").bind(owner, key, nowMs).run();
   else await db.prepare("DELETE FROM cockpit_task_checks WHERE owner = ? AND task_key = ?").bind(owner, key).run();
 }
 

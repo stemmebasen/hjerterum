@@ -8,7 +8,7 @@ import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, pers
 import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, removeTaskFor, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
@@ -400,34 +400,39 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
         await addTodo(db, { owner, text, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, createdBy: who }, now);
         return redirect(`${base}/opgaver?${owner === who ? "tilfojet=1" : owner === "Alle" ? "alle=1" : `til=${encodeURIComponent(owner)}`}`);
       }
+      // Requested: "make sure that there are no duplicates in the to-dos" - one line can stand for the same task from
+      // several places (the minutes, the minutes document, Saga's list, your own); "also" carries the others.
+      const lines = [[field("kind", 10), field("id", 400)], ...String(form?.get("also") ?? "").split(/\r?\n/).map(entry => entry.trim()).filter(Boolean).slice(0, 12)
+        .map(entry => { const at = entry.indexOf(":"); return [entry.slice(0, at), entry.slice(at + 1, at + 401)]; })].filter(([kind, id]) => kind && id);
+      const sagaItem = async (id: string) => (who === members.chair ? ((await boardPicture(db, now)).picture?.forJacob ?? []).find(f => f.key === id) : undefined);
       if (path === "/opgaver/afkryds") {
-        const done = field("done", 1) === "1", id = field("id", 400);
-        if (field("kind", 10) === "punkt") { if (/^\d+$/.test(id)) await setTodoDone(db, Number(id), who, done, now); }
-        // Saga's questions and tasks for the chair - the same list Matrix shows him (chairTasks.ts).
-        else if (field("kind", 10) === "saga") {
-          if (who === members.chair && done) {
-            const { picture } = await boardPicture(db, now);
-            const item = (picture?.forJacob ?? []).find(f => f.key === id);
-            if (item) await markOwnerDone(db, item.key, item.text, now);
-          }
+        const done = field("done", 1) === "1";
+        for (const [kind, id] of lines) {
+          if (kind === "punkt") { if (/^\d+$/.test(id!)) await setTodoDone(db, Number(id), who, done, now); }
+          // Saga's questions and tasks for the chair - the same list Matrix shows him (chairTasks.ts).
+          else if (kind === "saga") { const item = done ? await sagaItem(id!) : undefined; if (item) await markOwnerDone(db, item.key, item.text, now); }
+          else if (kind === "opgave") await setTaskChecked(db, who, id!, done, now);
         }
-        else if (id) await setTaskChecked(db, who, id, done, now);
         return redirect(`${base}/opgaver`);
       }
-      if (path === "/opgaver/slet") {
-        const id = field("id", 12);
-        if (/^\d+$/.test(id)) await removeTodo(db, Number(id), who);
+      // Requested: "I can't delete them." Your own items are deleted; a task from the minutes or Saga leaves your list.
+      if (path === "/opgaver/fjern" || path === "/opgaver/slet") {
+        for (const [kind, id] of path === "/opgaver/slet" ? [["punkt", field("id", 12)]] : lines) {
+          if (kind === "punkt") { if (/^\d+$/.test(id!)) await removeTodo(db, Number(id), who); }
+          else if (kind === "saga") { const item = await sagaItem(id!); if (item) await markOwnerDone(db, item.key, item.text, now); }
+          else if (kind === "opgave") await removeTaskFor(db, who, id!, now);
+        }
         return redirect(`${base}/opgaver`);
       }
       return html(notFound(base, who), 404);
     }
     if (path !== "/opgaver") return html(notFound(base, who), 404);
-    const [{ picture }, minutes, checked, todos] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who)]);
+    const [{ picture }, minutes, checked, todos, removed] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who), removedTasks(db, who)]);
     const sentTo = url.searchParams.get("til");
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
     const saga = who === members.chair ? currentForChair(picture?.forJacob ?? []) : [];
-    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,
+    return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,
       votes: await awaitingVote(db, who, now) }));
   }
 

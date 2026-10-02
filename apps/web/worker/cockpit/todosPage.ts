@@ -1,4 +1,4 @@
-import { EVERYONE, imperative, taskKey, type Task, type Todo } from "./data.js";
+import { EVERYONE, imperative, mergeSame, taskKey, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 
@@ -23,17 +23,22 @@ ul.moves li:first-child{border-top:0}ul.moves li.is-done>span:last-child{color:v
 `;
 
 export type TodosData = { who: string; members: string[]; tasks: Task[]; checked: Map<string, number>; todos: Todo[]; notice: string;
+  /** Tasks this member removed from their own list (data.ts removeTaskFor). */
+  removed?: Set<string>;
   /** The chair's questions and tasks from Saga - the same as in Matrix, checked off in either place. */
   saga?: Array<{ key: string; kind: string; text: string; source: string; from?: string | null }>;
   /** Requested ("gennemtænkt"): "Hvem har hvad" moves here from Status - everyone's open tasks from the minutes, newest first. */
   everyone?: Task[];
-  /** Who checked each task off, and when: shown with a check and the date for five days, then archived. */
+  /** Who checked each task off, and when: shown with a check and the date for seven days, then archived. */
   boardChecks?: Map<string, { by: string; at: number }>; now?: number;
   /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." Gone once voted. */
   votes?: Proposal[] };
 
-const box = (base: string, kind: "opgave" | "punkt" | "saga", id: string, done: boolean) =>
-  `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">
+type Kind = "opgave" | "punkt" | "saga";
+/** The same task's other lines (kind:id), checked or removed with the one shown. */
+const alsoField = (also: string[]) => also.length ? `<input type="hidden" name="also" value="${esc(also.join("\n"))}">` : "";
+const box = (base: string, kind: Kind, id: string, done: boolean, also: string[] = []) =>
+  `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">${alsoField(also)}
 <button class="check${done ? " done" : ""}" aria-label="${done ? "Markér som ikke klaret" : "Markér som klaret"}" title="${done ? "Fortryd" : "Klaret"}">${done ? "✓" : ""}</button></form>`;
 
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
@@ -55,26 +60,46 @@ const hue = (name: string) => name === EVERYONE || /,|\bog\b/.test(name) ? SHARE
 const chip = (name: string, tag = "span", extra = "") => `<${tag} class="who" style="--c:${hue(name)}"${extra}>${esc(name)}</${tag}>`;
 const dueLabel = (due: string | null | undefined) => due ? ` <span class="pill">${esc(/^\d{4}-\d{2}-\d{2}$/.test(due) ? shortDay(due) : due)}</span>` : "";
 
-function taskItem(base: string, task: Task, done: boolean): string {
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done)}<div class="what">${esc(sharp(task.what))}${dueLabel(task.due)}
-<div class="small muted">${task.source === "dokument" ? "Fra referatdokumentet" : "Fra referatet"}${task.meeting ? ` ${esc(shortDay(task.meeting))}` : ""}${task.who ? ` · ${esc(task.who)}` : ""}</div></div></li>`;
+/** Requested: "I can't delete them." Every line on your own list can be removed - your own items are deleted; a task
+ * from the minutes or from Saga leaves your list (the minutes themselves are not changed). */
+const removeButton = (base: string, kind: Kind, id: string, also: string[]) =>
+  `<form method="post" action="${base}/opgaver/fjern"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}">${alsoField(also)}<button class="x" aria-label="Fjern fra din liste" title="Fjern fra din liste">×</button></form>`;
+function taskItem(base: string, task: Task, done: boolean, also: string[] = []): string {
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done, also)}<div class="what">${esc(sharp(task.what))}${dueLabel(task.due)}
+<div class="small muted">${task.source === "dokument" ? "Fra referatdokumentet" : "Fra referatet"}${task.meeting ? ` ${esc(shortDay(task.meeting))}` : ""}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also)}</li>`;
 }
 
-function todoItem(base: string, todo: Todo, who: string): string {
+function todoItem(base: string, todo: Todo, who: string, also: string[] = []): string {
   const done = todo.done_at_ms !== null;
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done, also)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
 <div class="small muted">${todo.owner === EVERYONE ? `Til alle · ${todo.created_by === who ? "skrevet af dig" : `fra ${esc(todo.created_by)}`}` : todo.created_by === who ? "Skrevet af dig" : `Fra ${esc(todo.created_by)}`}</div></div>
-<form method="post" action="${base}/opgaver/slet"><input type="hidden" name="id" value="${todo.id}"><button class="x" aria-label="Slet punktet" title="Slet">×</button></form></li>`;
+${removeButton(base, "punkt", String(todo.id), also)}</li>`;
 }
+
+const SEVEN_DAYS = 7 * 86_400_000;
 
 export function todosPage(base: string, data: TodosData): string {
   setPalette(data.members);
-  const openTasks = data.tasks.filter(t => !data.checked.has(taskKey(t))), doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)));
-  const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null);
+  const removed = data.removed ?? new Set<string>(), nowMs = data.now ?? Date.now();
+  // Requested: "checked to-dos will get archived from the list after 7 days that they have been checked".
+  const recent = (at: number | null | undefined) => at !== null && at !== undefined && nowMs - at <= SEVEN_DAYS;
+  const openTasks = data.tasks.filter(t => !data.checked.has(taskKey(t)) && !removed.has(taskKey(t)));
+  const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
+  const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
   const SOURCES: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
-  const sagaItems = (data.saga ?? []).map(f => `<li class="todo">${box(base, "saga", f.key, false)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
-<div class="small muted">${esc(SOURCES[f.source] ?? "Fra Saga")}${f.from ? ` · ${esc(f.from)}` : ""}</div></div></li>`);
-  const open = [...(data.votes ?? []).map(p => voteTodo(base, p)), ...sagaItems, ...openTodos.map(t => todoItem(base, t, data.who)), ...openTasks.map(t => taskItem(base, t, false))];
+  type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
+  const sagaLine = (f: NonNullable<TodosData["saga"]>[number]): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
+<div class="small muted">${esc(SOURCES[f.source] ?? "Fra Saga")}${f.from ? ` · ${esc(f.from)}` : ""}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
+  // Requested: "make sure that there are no duplicates in the to-dos" - the approved minutes' wording first, then the
+  // minutes document's, Saga's and your own; the same task is one line, and checking or removing it takes all of them.
+  const lines: Line[] = [
+    ...openTasks.filter(t => t.source !== "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also) })),
+    ...openTasks.filter(t => t.source === "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also) })),
+    ...(data.saga ?? []).map(sagaLine),
+    ...openTodos.map((t): Line => ({ kind: "punkt", id: String(t.id), text: t.text, render: also => todoItem(base, t, data.who, also) })),
+  ];
+  const merged = mergeSame(lines, l => l.text).map(({ item, twins }) => item.render(twins.map(t => `${t.kind}:${t.id}`)));
+  const open = [...(data.votes ?? []).map(p => voteTodo(base, p)), ...merged];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">
@@ -86,12 +111,11 @@ export function todosPage(base: string, data: TodosData): string {
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
-${done.length ? `<details class="done-list"><summary>Klaret (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}</div>`;
+${done.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}</div>`;
   const everyone = data.everyone ?? [], checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
-  const FIVE_DAYS = 5 * 86_400_000;
   const checkOf = (t: Task) => checks.get(taskKey(t));
-  const current = everyone.filter(t => { const c = checkOf(t); return !c || now - c.at <= FIVE_DAYS; });
-  const archived = everyone.filter(t => { const c = checkOf(t); return c && now - c.at > FIVE_DAYS; });
+  const current = everyone.filter(t => { const c = checkOf(t); return !c || now - c.at <= SEVEN_DAYS; });
+  const archived = everyone.filter(t => { const c = checkOf(t); return c && now - c.at > SEVEN_DAYS; });
   const DONE_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
   const move = (t: Task) => { const who = t.who.trim() || EVERYONE, c = checkOf(t);
     return `<li data-who="${esc(who)}"${c ? ' class="is-done"' : ""}>${chip(who)}<span>${c ? '<span class="tick" aria-label="Klaret">✓</span> ' : ""}${esc(sharp(t.what))}${t.due && !c ? `<span class="when">· ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}${c ? `<span class="when">· klaret ${esc(DONE_DAY.format(c.at))}${c.by && c.by !== who ? ` af ${esc(c.by.split(/\s+/)[0]!)}` : ""}</span>` : ""}</span></li>`; };

@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { imperative, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
+import { imperative, mergeSame, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { voteTodo, type Proposal } from "./votes.js";
@@ -147,9 +147,14 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
   const mine = [
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
-    ...data.todos.map(t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`),
-    ...data.tasks.map(t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`),
-    ...(data.isChair ? data.forChair.map(f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(f.text)}<span class="ctx">${esc(SOURCE[f.source] ?? "")}${f.from ? ` · ${esc(f.from)}` : ""}</span></li>`) : [])
+    // Requested: "make sure that there are no duplicates in the to-dos" - the same task from the minutes, the minutes
+    // document, Saga's list and your own items is one line here too (data.ts sameTask).
+    ...mergeSame<{ text: string; html: string }>([
+      ...data.tasks.filter(t => t.source !== "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
+      ...data.tasks.filter(t => t.source === "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
+      ...(data.isChair ? data.forChair.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(f.text)}<span class="ctx">${esc(SOURCE[f.source] ?? "")}${f.from ? ` · ${esc(f.from)}` : ""}</span></li>`)(f) })) : []),
+      ...data.todos.map(t => ({ text: t.text, html: (t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`)(t) })),
+    ], line => line.text).map(group => group.item.html)
   ];
   const yours = `<article class="panel"><header><h2>Til dig</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="items">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
