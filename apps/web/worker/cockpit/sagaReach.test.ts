@@ -38,4 +38,14 @@ describe("Saga's reach", () => {
     const found = await teamMail(db, NOW, "Hvad har udlejeren skrevet om huslejen?");
     expect(found).toContain("Huslejen stiger med 4 procent");
   });
+
+  it("knows the room prices and rules from the price calculator", async () => {
+    const { boardKnowledge } = await import("./ask.js");
+    const { sagaEnv, fakeServices, testDatabase: fresh } = await import("../saga/test-support.js");
+    const db = fresh();
+    const services = fakeServices();
+    const text = await boardKnowledge(sagaEnv(db), { fetcher: services.fetcher, now: () => NOW } as never, db, "Hvad koster det at leje salen en lørdag?");
+    expect(text).toContain("LEJE AF SALEN - PRISER OG REGLER");
+    expect(text).toContain("https://prisberegner.replit.app/beregner");
+  });
 });

@@ -113,7 +113,8 @@ function roomBookingView(row: RoomBookingRow) {
     endsAt: new Date(row.ends_at_ms).toISOString(),
     maxAttendees: row.max_attendees,
     feeKr: row.fee_minor / 100,
-    ticketPriceKr: row.ticket_price_minor / 100
+    ticketPriceKr: row.ticket_price_minor / 100,
+    bookingType: row.booking_type ?? "standard"
   };
 }
 

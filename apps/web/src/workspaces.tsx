@@ -38,6 +38,7 @@ type Booking = {
   isOwner?: boolean;
   feeKr: number;
   ticketPriceKr: number;
+  bookingType?: "standard" | "reduced" | "free";
   handlingFeeKr?: number;
   registrationStatus?: "pending" | "confirmed" | "cancelled" | null;
   status?: string;
@@ -280,7 +281,8 @@ function MemberEvents({
             startsAt: new Date(String(form.get("startsAt"))).toISOString(),
             endsAt: new Date(String(form.get("endsAt"))).toISOString(),
             maxAttendees: Number(form.get("maxAttendees")) || null,
-            ticketPriceKr: Number(form.get("ticketPriceKr")) || 0
+            ticketPriceKr: Number(form.get("ticketPriceKr")) || 0,
+            bookingType: String(form.get("bookingType") || "standard")
           })
         }
       );
@@ -298,6 +300,9 @@ function MemberEvents({
         code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
         code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :
+        code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "En booking er mindst 2 og højst 10 timer." :
+        code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
+        code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
         "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen."
       );
     } finally {
@@ -348,6 +353,14 @@ function MemberEvents({
                 <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
                 <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
               </div>
+              <label>Lejetype (som i prisberegneren på holistisk.org/lejepriser)
+                <select name="bookingType" defaultValue={editing?.bookingType ?? "standard"}>
+                  <option value="standard">Standard - fast pakkepris, ingen medlemsrabat</option>
+                  <option value="reduced">Reduceret pris - medlemmer betaler mindre end ikke-medlemmer</option>
+                  <option value="free">Gratis leje - medlemmer deltager gratis</option>
+                </select>
+                <small>2-10 timer. Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30.</small>
+              </label>
               <div className="workspace-form-row">
                 <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
                 <label>Billetpris pr. deltager
@@ -372,7 +385,7 @@ function MemberEvents({
                 <article key={booking.id}>
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
-                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
+                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => setEditing(booking)}>Redigér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
