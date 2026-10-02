@@ -117,7 +117,7 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
   const yours = `<article class="panel"><header><h2>Til dig</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="items">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
-<a class="more" href="${base}/afstemninger">Stil et forslag til afstemning →</a></article>`;
+<a class="more" href="${base}/beslutninger#nyt">Stil et forslag til afstemning →</a></article>`;
 
   const m = data.next;
   const agenda = m ? m.agenda.split("\n").filter(Boolean) : [];

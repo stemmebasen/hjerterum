@@ -17,7 +17,7 @@ import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveS
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
-import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, votesPage, withdrawProposal, type Vote } from "./votes.js";
+import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -391,43 +391,42 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       votes: await awaitingVote(db, who, now) }));
   }
 
+  // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.
+  if (path === "/afstemninger" && request.method === "GET") return redirect(`${base}/beslutninger${url.search}`);
   if (path === "/beslutninger" && request.method === "GET") {
-    const [{ picture }, minutes, voted] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db)]);
-    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who));
-  }
-
-  // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
-  if (path === "/afstemninger" && request.method === "GET") {
+    const [{ picture }, minutes, voted, list] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db), proposals(db, now)]);
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
-    return html(votesPage(base, { list: await proposals(db, now), who, members: members.names.length, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who,
+      { ...voteBlocks(base, { list, who, members: members.names.length }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
   }
+  // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger/ny" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = await createProposal(db, { title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), days: Number(form?.get("days") ?? 7), who,
       members: Math.max(members.names.length, 1) }, now);
-    return redirect(`${base}/afstemninger${id ? `?besked=ny#p${id}` : ""}`);
+    return redirect(`${base}/beslutninger${id ? `?besked=ny#p${id}` : ""}`);
   }
   if (path === "/afstemninger/stem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = Number(form?.get("id"));
     const ok = Number.isSafeInteger(id) && id > 0 && await castVote(db, id, who, String(form?.get("vote") ?? "") as Vote, now);
-    return redirect(`${base}/afstemninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
+    return redirect(`${base}/beslutninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
   }
   // Requested: "Til et forslag skal et medlem kunne notere: Jeg ønsker at drøfte dette på et møde".
   if (path === "/afstemninger/droeft" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id"));
     const done = Number.isSafeInteger(id) && id > 0 ? await toggleDiscuss(db, id, who, now) : null;
-    return redirect(`${base}/afstemninger?besked=${done === "added" ? "droeft" : done === "removed" ? "ikkedroeft" : "afgjort"}#p${id}`);
+    return redirect(`${base}/beslutninger?besked=${done === "added" ? "droeft" : done === "removed" ? "ikkedroeft" : "afgjort"}#p${id}`);
   }
   if (path === "/afstemninger/tilbage" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id"));
     const ok = Number.isSafeInteger(id) && id > 0 && await withdrawProposal(db, id, who, now);
-    return redirect(`${base}/afstemninger?besked=${ok ? "tilbage" : "afgjort"}`);
+    return redirect(`${base}/beslutninger?besked=${ok ? "tilbage" : "afgjort"}`);
   }
 
   if (path === "/arrangementer" && request.method === "GET") {
