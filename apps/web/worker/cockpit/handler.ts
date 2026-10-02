@@ -12,7 +12,7 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { enquiries, enquiriesPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
+import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
@@ -26,6 +26,7 @@ import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { markOwnerDone, serviceStatus } from "../saga/store.js";
+import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { frontPageTexts, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
@@ -308,22 +309,26 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
   // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
   // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
-  if (path === "/foresporgsler" && request.method === "GET") {
-    const data = await enquiries(db, now);
+  // Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks" - the old address leads there.
+  if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
+  if (path === "/posthus" && request.method === "GET") {
+    const all = url.searchParams.get("alle") === "1";
+    const [data, watch] = await Promise.all([enquiries(db, now, all), mailWatch(db, now)]);
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
-    return html(enquiriesPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL) }));
+    return html(postPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
+      watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok" }));
   }
-  if (path === "/foresporgsler/klaret" && request.method === "POST") {
+  if ((path === "/posthus/klaret" || path === "/foresporgsler/klaret") && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = Number(form?.get("id"));
     if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
-    return redirect(`${base}/foresporgsler`);
+    return redirect(`${base}/posthus`);
   }
-  if (path === "/foresporgsler/scan" && request.method === "POST") {
-    if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/foresporgsler`);
+  if ((path === "/posthus/scan" || path === "/foresporgsler/scan") && request.method === "POST") {
+    if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/posthus`);
     const found = await scanEnquiries(env, deps, db).catch(error => { console.warn("cockpit_enquiry_scan_failed", error instanceof Error ? error.message : error); return null; });
-    return redirect(`${base}/foresporgsler?${found === null ? "fejl=1" : `scannet=${found}`}`);
+    return redirect(`${base}/posthus?${found === null ? "fejl=1" : `scannet=${found}`}`);
   }
 
   // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?"

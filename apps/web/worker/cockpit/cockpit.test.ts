@@ -348,7 +348,7 @@ describe("the board cockpit", () => {
   });
 
   // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
-  it("lists the enquiries Saga finds in team@, and lets the board mark them Klaret", async () => {
+  it("shows team@ as Posthus: the important unanswered mails with how long they have waited, then the whole inbox", async () => {
     const { db, login } = await setup();
     const { insertMail } = await import("../saga/store.js");
     const rent = (await insertMail(db, { ref: "m1", sender: "Maria Hansen <maria@example.com>", subject: "Leje af salen", receivedAtMs: NOW - 3_600_000, preview: "Hej, kan jeg leje salen til yoga i november?", nowMs: NOW }))!;
@@ -360,19 +360,30 @@ describe("the board cockpit", () => {
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const cookie = `${await login()}; hjerterum_cockpit_who=Lisbeth`;
     const go = (path: string, init: RequestInit = {}) => handle(new Request(`${ORIGIN}/cockpit${path}`, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(ai.fetcher, NOW));
-    expect(await (await go("/foresporgsler")).text()).toContain("2 nye mails venter på at blive læst");
-    const scanned = await go("/foresporgsler/scan", { method: "POST" });
-    expect(scanned.headers.get("location")).toBe("/cockpit/foresporgsler?scannet=1");
+    // Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks" - the old address leads there.
+    expect((await go("/foresporgsler")).headers.get("location")).toBe("/cockpit/posthus");
+    const before = await (await go("/posthus")).text();
+    expect(before).toContain("<h1>Posthus</h1>");
+    expect(before).toContain("2 nye mails venter på, at Saga læser dem");
+    // The ordinary inbox, below: every mail to team@.
+    expect(before).toContain("<h2>Indbakke <span class=\"pill\">2</span></h2>");
+    expect(before).toContain("Ugens tilbud");
+    const scanned = await go("/posthus/scan", { method: "POST" });
+    expect(scanned.headers.get("location")).toBe("/cockpit/posthus?scannet=1");
     expect(seen).toContain("kan jeg leje salen");
-    const page = await (await go("/foresporgsler")).text();
-    expect(page).toContain("Maria Hansen vil leje salen til yoga i november");
-    expect(page).toContain("Lokaleleje");
-    expect(page).not.toContain("Ugens tilbud");
-    expect(await (await go("/")).text()).toContain("1 åben forespørgsel");
+    const page = await (await go("/posthus")).text();
+    const important = page.split("<h2>Indbakke")[0]!;
+    expect(important).toContain("Vigtige mails, der stadig er ubesvarede");
+    expect(important).toContain("Maria Hansen vil leje salen til yoga i november");
+    expect(important).toContain("Lokaleleje");
+    // "Ved hver mail skal der stå hvor længe afsenderen har ventet på svar."
+    expect(important).toContain('<span class="wait">Venter 1 time</span>');
+    expect(important).not.toContain("Ugens tilbud");
+    expect(await (await go("/")).text()).toContain("1 vigtig mail</strong> venter på svar i team@");
     const form = new FormData(); form.append("id", String(rent)); form.append("done", "1");
-    await go("/foresporgsler/klaret", { method: "POST", body: form });
-    const after = await (await go("/foresporgsler")).text();
-    expect(after).toContain("Ingen åbne forespørgsler");
+    await go("/posthus/klaret", { method: "POST", body: form });
+    const after = (await (await go("/posthus")).text()).split("<h2>Indbakke")[0]!;
+    expect(after).toContain("Ingen ubesvarede henvendelser");
     expect(after).toContain("klaret af Lisbeth");
   });
 
