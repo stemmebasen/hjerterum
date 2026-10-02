@@ -24,11 +24,12 @@ export type HomeData = {
   memberStats?: MemberStats[];
   newEnquiries?: number;
   eventsToReview?: number;
-  boardNow?: { points: string[]; at: number } | null;
+  boardNow?: { text: string; at: number } | null;
 };
 
 export const HOME_STYLE = `
 .home{gap:26px}
+.now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:grid;gap:8px;padding:6px 0 2px}.welcome .eyebrow{font-size:13px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0}
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
@@ -64,10 +65,6 @@ function lead(summary: string | null): string {
   const lines = (summary ?? "").split(/\r?\n/).map(l => l.trim()).filter(l => l && !/^#/.test(l) && !/^temperatur:/i.test(l) && !/^[-*]\s+/.test(l));
   const text = lines.slice(0, 2).join(" ");
   return text.length > 280 ? `${text.slice(0, 277).replace(/\s+\S*$/, "")} …` : text;
-}
-function points(summary: string | null, max = 3): string[] {
-  const lines = (summary ?? "").split(/\r?\n/).map(l => l.trim()).filter(l => /^[-*]\s+/.test(l)).map(l => l.replace(/^[-*]\s+/, ""));
-  return lines.slice(0, max);
 }
 
 /** What waits on the chair from Saga's picture - only what is current: from the group (it covers the last
@@ -122,14 +119,13 @@ ${l.decisions.length ? `<ul class="items">${l.decisions.slice(0, 3).map(d => `<l
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
 <a class="more" href="${base}/referat/${l.id}">${data.toSign.some(m2 => m2.id === l.id) ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
 
-  // Requested: "Her skal Saga en gang i timen lave et resume og overblik over hvad der rører sig netop nu med basis i
-  // Telegram, vigtige mails og fra mødet" - "Man kan så klikke videre og få et mere detaljeret blik i Status".
-  const p = data.picture, now = data.boardNow?.points.length ? data.boardNow : null, keys = now ? now.points : points(data.summary);
-  const waiting = (p?.topics ?? []).filter(t => t.waitsOnJacob || t.status === "afventer").slice(0, 3);
-  const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>${now ? `Fra gruppen, vigtige mails og seneste møde · opdateret ${esc(NOW_TIME.format(now.at))}` : "Sagas korte overblik over gruppen og referaterne."}</p></header>
-${p?.temperature ? `<span class="mood">${esc(p.temperature.level)}</span><p style="margin:0 0 10px">${esc(p.temperature.why)}</p>` : ""}
-${keys.length ? `<ul class="items">${keys.map(k => `<li>${inline(k)}</li>`).join("")}</ul>` : p ? "" : `<p class="empty">Saga har ikke lavet et overblik endnu.</p>`}
-${waiting.length ? `<p class="small" style="margin:14px 0 4px"><strong>Venter på svar</strong></p><ul class="items">${waiting.map(t => `<li>${esc(t.title)}${t.waitsOnJacob ? ` <span class="warn small">· venter på ${data.isChair ? "dig" : "formanden"}</span>` : ""}${t.note ? `<span class="ctx">${esc(t.note)}</span>` : ""}</li>`).join("")}</ul>` : ""}
+  // Requested: "Her skal Saga en gang i timen lave et resume og overblik over hvad der rører sig netop nu" - "et uformelt
+  // resume på under halvtreds ord om, hvad der rører sig. Bare det vigtigste og det nyeste." - "Så det fulde resumé og
+  // statusoverblik kommer først, når man klikker ind på status." Only Saga's short text here: no temperature, no
+  // waiting topics from the six-hour picture (they went stale: a meeting "i dag" the day after, a case already done).
+  const now = data.boardNow?.text ? data.boardNow : null;
+  const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>${now ? `Saga · ${esc(NOW_TIME.format(now.at))}` : "Sagas korte resumé af, hvad der rører sig."}</p></header>
+${now ? `<p class="now">${esc(now.text)}</p>` : `<p class="empty">Saga skriver det første korte resumé inden for en time (på hverdage).</p>`}
 <a class="more" href="${base}/status">Mere i Status →</a></article>`;
 
   const events = `<article class="panel"><header><h2>I huset</h2><p>De næste arrangementer i Hjerterum.</p></header>

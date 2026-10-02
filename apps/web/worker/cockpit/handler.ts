@@ -17,6 +17,7 @@ import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveS
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
+import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
@@ -368,6 +369,36 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
       fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
     const desk = deskSection(base, { review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
+  }
+
+  // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).
+  if (path === "/arrangementer/undervisere" && request.method === "GET") {
+    return html(teachersPage(base, { teachers: await listTeachers(db, now), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), nowMs: now, who }));
+  }
+  const teacherPath = /^\/arrangementer\/undervisere\/([^/]+)$/.exec(path);
+  if (teacherPath) {
+    let key = "";
+    try { key = teacherKey(decodeURIComponent(teacherPath[1]!)); } catch { key = ""; }
+    const found = key ? (await listTeachers(db, now)).find(t => t.key === key) : undefined;
+    const record = key ? await teacherRecord(db, key) : null;
+    const name = found?.name ?? record?.name;
+    if (!name) return html(notFound(base, who), 404);
+    const here = `${base}/arrangementer/undervisere/${encodeURIComponent(key)}`;
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      if (form?.get("action") === "summary") {
+        if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(here);
+        try { await summarizeTeacher(env, deps, db, name, who); return redirect(`${here}?besked=resume`); }
+        catch (error) { console.warn("cockpit_teacher_summary_failed", error instanceof Error ? error.message : error); return redirect(`${here}?besked=fejl`); }
+      }
+      if (form) await saveContact(db, name, form, who, now);
+      return redirect(`${here}?besked=gemt`);
+    }
+    const NOTICE: Record<string, string> = { gemt: "Kontaktoplysningerne er gemt.", resume: "Saga har lavet et nyt resumé.", fejl: "Saga kunne ikke lave et resumé lige nu. Prøv igen om lidt." };
+    const [known, events] = await Promise.all([knownContacts(db, name), teacherEvents(db, name)]);
+    return html(teacherPage(base, { name, record, known, events, fixed: found?.fixed ?? false, nowMs: now, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "",
+      aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), who }));
   }
 
   // Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op" (cockpit/eventDesk.ts).
