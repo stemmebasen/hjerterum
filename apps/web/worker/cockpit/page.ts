@@ -25,7 +25,7 @@ const STYLE = `
 --good:#7c93ff;--warn:#f0a86e;--warn-soft:#2e2219;--shadow:none;--glow-1:rgb(61 91 255 / .26);--glow-2:rgb(139 107 255 / .20);--glow-3:rgb(43 179 217 / .16)}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;overflow-x:clip;position:relative;isolation:isolate}
-body::before{content:"";position:absolute;z-index:-1;top:-160px;right:-200px;width:min(980px,110vw);height:760px;pointer-events:none;filter:blur(10px);
+body::before{content:"";position:absolute;z-index:-1;top:-160px;right:0;width:min(980px,100%);height:760px;pointer-events:none;filter:blur(10px);
 background:radial-gradient(closest-side at 38% 42%,var(--glow-2),transparent 72%),radial-gradient(closest-side at 64% 36%,var(--glow-1),transparent 70%),radial-gradient(closest-side at 72% 66%,var(--glow-3),transparent 70%)}
 a{color:var(--accent);text-decoration-thickness:1px;text-underline-offset:.2em}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
