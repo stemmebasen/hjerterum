@@ -78,7 +78,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .menu a::after,.menu button::after{content:"→";color:var(--faint);font-size:16px;font-weight:400}
 /* Panels: the front page's blocks, also used on Medlemmer. */
 .panel{background:var(--card);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);border-radius:var(--radius);padding:26px 28px;min-width:0;box-shadow:var(--shadow)}
-.panel header{margin:0 0 14px}.panel h2{font-size:21px;font-weight:650;margin:0;letter-spacing:-.015em}.panel header p{margin:3px 0 0;font-size:13.5px;color:var(--faint)}
+.panel>header{margin:0 0 14px}.panel h2{font-size:21px;font-weight:650;margin:0;letter-spacing:-.015em}.panel header p{margin:3px 0 0;font-size:13.5px;color:var(--faint)}
 .panel .more{display:inline-block;margin-top:14px;font-size:14px;font-weight:600;text-decoration:none}
 .items{list-style:none;margin:0;padding:0}.items li{padding:11px 0;border-top:1px solid var(--line)}.items li:first-child{border-top:0;padding-top:0}
 .items .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
