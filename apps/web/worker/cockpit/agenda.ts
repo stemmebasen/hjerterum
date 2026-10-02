@@ -11,7 +11,9 @@ import type { Meeting } from "./data.js";
 
 const SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum. Foreslå dagsordenen til et bestyrelsesmøde ud fra materialet nedenfor. "
   + "Tag kun punkter med, der har grundlag i materialet: udsatte punkter, opfølgning på opgaver og beslutninger, hængepartier, kommende datoer og frister (fx generalforsamling), "
-  + "og emner rejst i gruppen eller i mails til team@. Opfind intet. Start med \"Godkendelse af dagsorden\" og \"Godkendelse af referat fra sidste møde\", slut med \"Eventuelt\". "
+  + "og emner rejst i gruppen eller i mails til team@. "
+  // Requested: "Til et forslag skal et medlem kunne notere: Jeg ønsker at drøfte dette på et møde".
+  + "Et afstemningsforslag, der er markeret ØNSKES DRØFTET PÅ ET MØDE, skal med som eget punkt (med forslagets titel og hvem der ønsker det drøftet). Opfind intet. Start med \"Godkendelse af dagsorden\" og \"Godkendelse af referat fra sidste møde\", slut med \"Eventuelt\". "
   + "Højst 12 punkter, hvert en kort linje på dansk (gerne med hvem der fremlægger, når det står i materialet). "
   + 'Svar KUN med JSON: {"items":["...","..."]}.';
 

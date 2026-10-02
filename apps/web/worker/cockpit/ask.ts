@@ -11,6 +11,7 @@ import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } 
 import { allDecisions, allTasks, approvedMinutes, boardPicture, openFor, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
+import { MEMBERSHIP_FACTS } from "./membership.js";
 import { STATUTES } from "./statutes.js";
 import { votesForSaga } from "./votes.js";
 import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
@@ -168,6 +169,8 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
+    // Requested: "Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber".
+    `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
     // Requested: "Opret forslag til afstemning" - the board's digital votes.
     `DIGITALE AFSTEMNINGER I BESTYRELSEN (vedtaget ved flertal af bestyrelsen):\n${await votesForSaga(db, now)}`,
     // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".

@@ -64,14 +64,27 @@ export async function withdrawProposal(db: D1Database, id: number, who: string, 
   return Number(result.meta?.changes ?? 0) === 1;
 }
 
-export type ProposalView = Proposal & { ballots: Ballot[] };
+/** Requested: "Til et forslag skal et medlem kunne notere: Jeg ønsker at drøfte dette på et møde". A note on the proposal -
+ * the vote goes on - that Saga takes into her suggestion for the next agenda. Pressed again, it is taken back. */
+export async function toggleDiscuss(db: D1Database, id: number, who: string, nowMs: number): Promise<"added" | "removed" | null> {
+  const p = await db.prepare("SELECT status FROM board_proposals WHERE id = ?").bind(id).first<{ status: string }>();
+  if (!p || p.status === "withdrawn") return null;
+  const gone = await db.prepare("DELETE FROM board_vote_discuss WHERE proposal_id = ? AND member = ?").bind(id, who).run();
+  if (Number(gone.meta?.changes ?? 0) > 0) return "removed";
+  await db.prepare("INSERT INTO board_vote_discuss (proposal_id, member, created_at_ms) VALUES (?, ?, ?)").bind(id, who, nowMs).run();
+  return "added";
+}
+
+export type ProposalView = Proposal & { ballots: Ballot[]; discuss: string[] };
 
 export async function proposals(db: D1Database, nowMs: number): Promise<ProposalView[]> {
   await settleDue(db, nowMs);
   const rows = (await db.prepare("SELECT * FROM board_proposals WHERE status = 'open' OR decided_at_ms >= ? ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END, COALESCE(decided_at_ms, created_at_ms) DESC LIMIT 60")
     .bind(nowMs - 365 * DAY).all<Proposal>().catch(() => ({ results: [] as Proposal[] }))).results ?? [];
   const ballots = rows.length ? (await db.prepare(`SELECT proposal_id, voter, vote, voted_at_ms FROM board_votes WHERE proposal_id IN (${rows.map(() => "?").join(",")})`).bind(...rows.map(r => r.id)).all<Ballot>()).results ?? [] : [];
-  return rows.map(r => ({ ...r, ballots: ballots.filter(b => b.proposal_id === r.id) }));
+  const discuss = rows.length ? (await db.prepare(`SELECT proposal_id, member FROM board_vote_discuss WHERE proposal_id IN (${rows.map(() => "?").join(",")}) ORDER BY created_at_ms`)
+    .bind(...rows.map(r => r.id)).all<{ proposal_id: number; member: string }>().catch(() => ({ results: [] as Array<{ proposal_id: number; member: string }> }))).results ?? [] : [];
+  return rows.map(r => ({ ...r, ballots: ballots.filter(b => b.proposal_id === r.id), discuss: discuss.filter(d => d.proposal_id === r.id).map(d => d.member) }));
 }
 
 /** The open proposals a member has not voted on - on their to-do. */
@@ -92,7 +105,7 @@ export async function voteDecisions(db: D1Database): Promise<Decision[]> {
 /** For Saga: the open proposals and the latest outcomes. */
 export async function votesForSaga(db: D1Database, nowMs: number): Promise<string> {
   const list = await proposals(db, nowMs).catch(() => [] as ProposalView[]);
-  return list.slice(0, 20).map(p => `- ${p.title} (forslag fra ${p.created_by}): ${STATUS[p.status]}${p.status === "open" ? `, frist ${shortDay(isoDay(p.deadline_ms))}` : ""}; ${tally(p)}`).join("\n") || "(ingen)";
+  return list.slice(0, 20).map(p => `- ${p.title} (forslag fra ${p.created_by}): ${STATUS[p.status]}${p.status === "open" ? `, frist ${shortDay(isoDay(p.deadline_ms))}` : ""}; ${tally(p)}${p.discuss.length ? `; ØNSKES DRØFTET PÅ ET MØDE af ${p.discuss.join(", ")}` : ""}`).join("\n") || "(ingen)";
 }
 
 // ---- Pages ----
@@ -112,29 +125,34 @@ export const VOTES_STYLE = `
 .prop .state.adopted{background:#e6f4ea;color:#1e6b35}.prop .state.rejected,.prop .state.withdrawn{background:var(--soft);color:var(--muted)}
 .prop .bar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;display:flex}.prop .bar i{display:block;height:100%}.prop .bar .y{background:var(--accent)}.prop .bar .n{background:#a16207}.prop .bar .a{background:var(--line)}
 .prop .acts{display:flex;gap:8px;flex-wrap:wrap}.prop .acts button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}.prop .who{font-size:13px;color:var(--muted)}
+.prop .talk{display:inline-flex;align-items:center;gap:6px;width:fit-content;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:#fdf3e1;color:#8a5a00}
 .newprop{display:grid;gap:10px}.newprop label{display:grid;gap:4px}
-@media (prefers-color-scheme:dark){.prop .state.adopted{background:#163824;color:#8fd6a5}}
+@media (prefers-color-scheme:dark){.prop .state.adopted{background:#163824;color:#8fd6a5}.prop .talk{background:#3a2c10;color:#f3c66b}}
 ${APPROVED_STYLE}`;
 
 function proposalHtml(base: string, p: ProposalView, who: string | null): string {
   const mine = who ? p.ballots.find(b => b.voter === who)?.vote : undefined;
   const n = (v: Vote) => p.ballots.filter(b => b.vote === v).length, pct = (k: number) => `${Math.round(100 * k / p.members)}%`;
   const needed = Math.floor(p.members / 2) + 1;
+  const talk = !!who && p.discuss.includes(who);
+  const talkButton = `<button name="discuss" value="1" class="ghost" formaction="${base}/afstemninger/droeft" aria-pressed="${talk}">${talk ? "Fortryd: drøft på et møde" : "Jeg ønsker at drøfte dette på et møde"}</button>`;
   // Requested: "Giv det et flot badge \"GODKENDT\" ved godkendelse".
   return `<article class="prop" id="p${p.id}"><h3>${p.status === "adopted" ? APPROVED_BADGE : `<span class="state ${p.status}">${STATUS[p.status]}</span>`}${esc(p.title)}</h3>
 ${p.text ? `<p style="margin:0;white-space:pre-wrap">${esc(p.text)}</p>` : ""}
 <div class="who">Stillet af ${esc(p.created_by)} ${esc(shortDay(isoDay(p.created_at_ms)))}${p.status === "open" ? ` · frist ${esc(shortDay(isoDay(p.deadline_ms)))} · vedtaget ved ${needed} stemmer for` : p.decided_at_ms ? ` · afgjort ${esc(shortDay(isoDay(p.decided_at_ms)))}` : ""}</div>
 <div class="bar" role="img" aria-label="${esc(tally(p))}"><i class="y" style="width:${pct(n("for"))}"></i><i class="n" style="width:${pct(n("imod"))}"></i><i class="a" style="width:${pct(n("undlader"))}"></i></div>
+${p.discuss.length ? `<div class="talk">💬 Ønskes drøftet på et møde af ${esc(p.discuss.map(n => n.split(/\s+/)[0]!).join(", "))}</div>` : ""}
 <div class="who">${esc(tally(p))}${p.ballots.length ? ` · ${p.ballots.map(b => `${esc(b.voter.split(/\s+/)[0]!)}: ${b.vote}`).join(", ")}` : ""}</div>
 ${p.status === "open" && who ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}">
 ${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}
-${p.created_by === who ? `<button name="withdraw" value="1" class="ghost" formaction="${base}/afstemninger/tilbage">Træk forslaget tilbage</button>` : ""}</form>${mine ? `<div class="who">Du har stemt ${mine}. Du kan ændre din stemme, indtil forslaget er afgjort.</div>` : ""}` : ""}</article>`;
+${talkButton}${p.created_by === who ? `<button name="withdraw" value="1" class="ghost" formaction="${base}/afstemninger/tilbage">Træk forslaget tilbage</button>` : ""}</form>${mine ? `<div class="who">Du har stemt ${mine}. Du kan ændre din stemme, indtil forslaget er afgjort.</div>` : ""}`
+  : p.status === "adopted" || p.status === "rejected" ? who ? `<form method="post" action="${base}/afstemninger/droeft" class="acts"><input type="hidden" name="id" value="${p.id}">${talkButton}</form>` : "" : ""}</article>`;
 }
 
 export function votesPage(base: string, data: { list: ProposalView[]; who: string | null; members: number; notice: string }): string {
   const open = data.list.filter(p => p.status === "open"), closed = data.list.filter(p => p.status !== "open");
   const needed = Math.floor(Math.max(1, data.members) / 2) + 1;
-  return layout(base, "Afstemninger", `<main><h1>Afstemninger</h1><p class="muted">Stil et forslag, og bestyrelsen stemmer digitalt. Ved flertal - mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for - er forslaget vedtaget. Alle har forslaget på deres to-do, til de har stemt.</p>
+  return layout(base, "Afstemninger", `<main><h1>Afstemninger</h1><p class="muted">Stil et forslag, og bestyrelsen stemmer digitalt. Ved flertal - mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for - er forslaget vedtaget. Alle har forslaget på deres to-do, til de har stemt. Vil du hellere tage det op på et møde, så tryk <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p>
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}
 <div class="card"><h2>Opret forslag til afstemning</h2>${data.who ? `<form class="newprop" method="post" action="${base}/afstemninger/ny">
 <label>Forslag<input name="title" required maxlength="200" placeholder="Fx Vi forlænger den gratis prøveperiode til 1. december"></label>

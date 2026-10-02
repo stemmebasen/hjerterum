@@ -17,7 +17,7 @@ import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveS
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
-import { awaitingVote, castVote, createProposal, proposals, voteDecisions, votesPage, withdrawProposal, type Vote } from "./votes.js";
+import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, votesPage, withdrawProposal, type Vote } from "./votes.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -361,7 +361,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
 
   // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger" && request.method === "GET") {
-    const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage." };
+    const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
+      droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
     return html(votesPage(base, { list: await proposals(db, now), who, members: members.names.length, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
   }
   if (path === "/afstemninger/ny" && request.method === "POST") {
@@ -377,6 +378,13 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const id = Number(form?.get("id"));
     const ok = Number.isSafeInteger(id) && id > 0 && await castVote(db, id, who, String(form?.get("vote") ?? "") as Vote, now);
     return redirect(`${base}/afstemninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
+  }
+  // Requested: "Til et forslag skal et medlem kunne notere: Jeg ønsker at drøfte dette på et møde".
+  if (path === "/afstemninger/droeft" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number((await request.formData().catch(() => null))?.get("id"));
+    const done = Number.isSafeInteger(id) && id > 0 ? await toggleDiscuss(db, id, who, now) : null;
+    return redirect(`${base}/afstemninger?besked=${done === "added" ? "droeft" : done === "removed" ? "ikkedroeft" : "afgjort"}#p${id}`);
   }
   if (path === "/afstemninger/tilbage" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
