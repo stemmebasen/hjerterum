@@ -401,7 +401,7 @@ describe("the board cockpit", () => {
     await go("/posthus/klaret", { method: "POST", body: form });
     const after = (await (await go("/posthus")).text()).split("<h2>Indbakke")[0]!;
     expect(after).toContain("Ingen ubesvarede henvendelser");
-    expect(after).toContain("klaret af Lisbeth");
+    expect(after).toContain("besvaret ifølge Lisbeth");
   });
 
   // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så forsvinder

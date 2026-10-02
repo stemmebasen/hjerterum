@@ -11,7 +11,8 @@ import { esc, layout } from "./page.js";
  * scan waits until Monday unless someone presses "Scan nu". */
 
 export const KINDS = ["Lokaleleje", "Undervisning og arrangementer", "Medlemskab", "Samarbejde", "Andet"] as const;
-export type Enquiry = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string; enquiry_summary: string | null; handled_at_ms: number | null; handled_by: string | null };
+export type Enquiry = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string; enquiry_summary: string | null; handled_at_ms: number | null; handled_by: string | null;
+  answered_at_ms?: number | null; answered_how?: string | null };
 
 const DAY = 86_400_000;
 const BATCH = 25;
@@ -25,12 +26,26 @@ const SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum (et
 
 type Unscanned = { id: number; sender: string; subject: string; preview: string };
 
-/** One AI call over the newest unread mails (the last 30 days). Returns how many enquiries it found. */
+/** Reported: "Det er for let, at der kun er tre mails, der er ubesvarede" - with the subfolders Saga has many more mails
+ * to read, 25 an hour would take a day. A scan reads up to four batches in a row. */
+const MAX_BATCHES = 4;
 export async function scanEnquiries(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  let found = 0;
+  for (let i = 0; i < MAX_BATCHES; i++) {
+    const batch = await scanBatch(env, deps, db);
+    found += batch?.found ?? 0;
+    // Nothing left - or the model answered for none of them, then the next batch would be the same.
+    if (!batch?.scanned) break;
+  }
+  return found;
+}
+
+/** One AI call over the newest unread mails (the last 30 days): how many it read and how many enquiries it found. */
+async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<{ scanned: number; found: number } | null> {
   const now = deps.now();
   const rows = (await db.prepare("SELECT id, sender, subject, preview FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
     .bind(now - 30 * DAY, BATCH).all<Unscanned>()).results ?? [];
-  if (!rows.length) return 0;
+  if (!rows.length) return null;
   const text = await complete(env, deps, [{ role: "system", content: SYSTEM },
     { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 700) }))) }]);
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
@@ -44,15 +59,16 @@ export async function scanEnquiries(env: SagaEnv, deps: SagaDeps, db: D1Database
     const kind = KINDS.includes(item.kind as (typeof KINDS)[number]) ? String(item.kind) : "Andet";
     verdicts.set(id, item.enquiry === true ? { kind, summary: String(item.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 200) } : null);
   }
-  let found = 0;
+  let found = 0, scanned = 0;
   for (const row of rows) {
     if (!verdicts.has(row.id)) continue; // not answered: read again next time
+    scanned++;
     const verdict = verdicts.get(row.id)!;
     if (verdict) found++;
     await db.prepare("UPDATE board_mail SET scanned_at_ms = ?, enquiry_kind = ?, enquiry_summary = ? WHERE id = ?")
       .bind(now, verdict?.kind ?? null, verdict?.summary || null, row.id).run();
   }
-  return found;
+  return { scanned, found };
 }
 
 /** The scheduled scan: hourly on weekdays, and only when there is something new. */
@@ -70,22 +86,26 @@ const INBOX = 60;
 
 export async function enquiries(db: D1Database, nowMs: number, all = false): Promise<{ open: Enquiry[]; handled: Enquiry[]; unscanned: number; inbox: BoardMailRow[]; inboxTotal: number }> {
   const [list, waiting, inbox, total] = await Promise.all([
-    db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
+    db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by, answered_at_ms, answered_how FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
       .bind(nowMs - 90 * DAY).all<Enquiry>().then(r => r.results ?? []).catch(() => [] as Enquiry[]),
     db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 30 * DAY).first<{ n: number }>().catch(() => null),
     db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms FROM board_mail ORDER BY received_at_ms DESC LIMIT ?").bind(all ? 500 : INBOX)
       .all<BoardMailRow>().then(r => r.results ?? []).catch(() => [] as BoardMailRow[]),
     db.prepare("SELECT COUNT(*) AS n FROM board_mail").first<{ n: number }>().catch(() => null)]);
-  return { open: list.filter(e => e.handled_at_ms === null), handled: list.filter(e => e.handled_at_ms !== null).slice(0, 30), unscanned: Number(waiting?.n ?? 0),
+  // Answered is what Saga saw in team@ (an answer in Sent, marked answered, put in "Besvarede") or someone pressing Besvaret.
+  const closed = (e: Enquiry) => e.handled_at_ms !== null || (e.answered_at_ms ?? null) !== null;
+  return { open: list.filter(e => !closed(e)), handled: list.filter(closed).slice(0, 30), unscanned: Number(waiting?.n ?? 0),
     inbox, inboxTotal: Number(total?.n ?? 0) };
 }
 
 export async function setHandled(db: D1Database, id: number, who: string, done: boolean, nowMs: number): Promise<void> {
   await db.prepare("UPDATE board_mail SET handled_at_ms = ?, handled_by = ? WHERE id = ? AND enquiry_kind IS NOT NULL").bind(done ? nowMs : null, done ? who : null, id).run();
+  // Fortryd on a mail Saga saw answered: open again, and she does not close it again by herself.
+  if (!done) await db.prepare("UPDATE board_mail SET answered_at_ms = NULL, answered_how = 'genåbnet' WHERE id = ? AND answered_at_ms IS NOT NULL").bind(id).run();
 }
 
 export const openEnquiryCount = (db: D1Database, nowMs: number) =>
-  db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE enquiry_kind IS NOT NULL AND handled_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 90 * DAY).first<{ n: number }>()
+  db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE enquiry_kind IS NOT NULL AND handled_at_ms IS NULL AND answered_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 90 * DAY).first<{ n: number }>()
     .then(r => Number(r?.n ?? 0)).catch(() => 0);
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -120,11 +140,21 @@ const STYLE = `
 @media (max-width:760px){.enq li{grid-template-columns:1fr}.enq form{grid-row:auto;grid-column:1}}
 `;
 
+const DAY_MONTH = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short" });
+/** How the mail got answered - by a person pressing Besvaret, or what Saga saw in team@. */
+function closedBy(e: Enquiry): string {
+  if (e.handled_by) return ` · besvaret ifølge ${esc(e.handled_by)}`;
+  if (e.answered_how === "svar" && e.answered_at_ms) return ` · svar sendt fra team@ ${esc(DAY_MONTH.format(e.answered_at_ms))}`;
+  if (e.answered_how === "markeret") return " · markeret som besvaret i team@";
+  if (e.answered_how === "mappe") return " · lagt i Besvarede i team@";
+  return "";
+}
+
 function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
   const mail = address(e.sender);
   const days = (nowMs - e.received_at_ms) / DAY;
   return `<li><div>${open ? `<span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>` : ""}<span class="kind">${esc(e.enquiry_kind)}</span><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
-<span class="meta">${esc(name(e.sender))}${mail ? ` · <a href="mailto:${esc(mail)}">${esc(mail)}</a>` : ""} · ${esc(WHEN.format(e.received_at_ms))}${!open && e.handled_by ? ` · klaret af ${esc(e.handled_by)}` : ""}</span>
+<span class="meta">${esc(name(e.sender))}${mail ? ` · <a href="mailto:${esc(mail)}">${esc(mail)}</a>` : ""} · ${esc(WHEN.format(e.received_at_ms))}${!open ? closedBy(e) : ""}</span>
 <details><summary>Se mailen: ${esc(e.subject)}</summary><p>${esc(e.preview)}</p></details>
 <form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="${open ? "" : "ghost"}">${open ? "Besvaret" : "Fortryd"}</button></form></li>`;
 }
@@ -160,7 +190,7 @@ export function postPage(base: string, data: { who: string | null; open: Enquiry
 ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;
   const important = `<div class="card"><h2>Vigtige mails, der stadig er ubesvarede${data.open.length ? ` <span class="pill">${data.open.length}</span>` : ""}</h2>
-<p class="small muted" style="margin:0 0 6px">Henvendelser om lokaler, undervisning, arrangementer, medlemskab og samarbejde - fundet af Saga. Tryk Besvaret, når nogen har svaret.</p>
+<p class="small muted" style="margin:0 0 6px">Henvendelser om lokaler, undervisning, arrangementer, medlemskab og samarbejde - fundet af Saga. Saga tjekker selv team@ for svar: et svar i Sendt, en mail markeret som besvaret, eller lagt i mappen Besvarede. Er der svaret fra en anden mail, så tryk Besvaret.</p>
 ${data.open.length ? `<ul class="enq">${data.open.map(e => item(base, e, true, data.nowMs)).join("")}</ul>` : `<p class="muted">Ingen ubesvarede henvendelser.</p>`}
 ${data.handled.length ? `<details class="done-list"><summary>Besvaret (${data.handled.length})</summary><ul class="enq">${data.handled.map(e => item(base, e, false, data.nowMs)).join("")}</ul></details>` : ""}${scan}</div>`;
   const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>

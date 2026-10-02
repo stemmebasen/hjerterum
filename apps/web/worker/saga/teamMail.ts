@@ -19,7 +19,9 @@ const MAX_SOURCE_BYTES = 256 * 1024;
 export type TeamMailAccount = { address: string; imap_host: string; password_sealed: string; uid_validity: string | null; last_uid: number | null; connected_by: string; connected_at_ms: number };
 
 /** The slice of an IMAP client Saga uses - ImapFlow in the worker, a fake in tests. */
-export type FetchedMail = { uid: number; envelope?: { date?: Date; subject?: string; from?: Array<{ name?: string; address?: string }> }; source?: Uint8Array };
+type Address = { name?: string; address?: string };
+export type FetchedMail = { uid: number; envelope?: { date?: Date; subject?: string; from?: Address[]; to?: Address[]; cc?: Address[]; replyTo?: Address[];
+  messageId?: string; inReplyTo?: string }; flags?: Iterable<string>; references?: string; source?: Uint8Array };
 export type MailFolder = { path: string; delimiter?: string; specialUse?: string; noSelect?: boolean };
 export type ImapSession = {
   /** Opens a folder read-only (the inbox when none is named); search and fetch then work in it. */
@@ -27,7 +29,8 @@ export type ImapSession = {
   /** Every folder in the mailbox (IMAP LIST). Without it only the inbox is read. */
   folders?(): Promise<MailFolder[]>;
   search(query: { since?: Date; uid?: string }): Promise<number[]>;
-  fetch(uids: number[]): Promise<FetchedMail[]>;
+  /** The mails with envelope and flags; with body: false not the message itself (only to see who answered what). */
+  fetch(uids: number[], options?: { body?: boolean }): Promise<FetchedMail[]>;
   /** Lays a whole message in the inbox, unread (prisberegneren's booking requests) - nothing is sent. */
   append?(raw: Uint8Array): Promise<void>;
   close(): Promise<void>;
@@ -50,11 +53,14 @@ export const imapflowOpener: ImapOpener = async login => {
         noSelect: f.flags.has("\\Noselect") || f.flags.has("\\NonExistent") }));
     },
     async search(query) { const found = await client.search(query, { uid: true }); return Array.isArray(found) ? found : []; },
-    async fetch(uids) {
+    async fetch(uids, options) {
       const mails: FetchedMail[] = [];
       if (!uids.length) return mails;
-      for await (const message of client.fetch(uids.join(","), { uid: true, envelope: true, source: { maxLength: MAX_SOURCE_BYTES } }, { uid: true })) {
-        mails.push({ uid: message.uid, ...(message.envelope ? { envelope: message.envelope as NonNullable<FetchedMail["envelope"]> } : {}), ...(message.source ? { source: message.source } : {}) });
+      const body = options?.body !== false;
+      for await (const message of client.fetch(uids.join(","), { uid: true, envelope: true, flags: true, headers: ["references"], ...(body ? { source: { maxLength: MAX_SOURCE_BYTES } } : {}) }, { uid: true })) {
+        const references = message.headers ? new TextDecoder().decode(message.headers).replace(/^references:\s*/i, "").replace(/\s+/g, " ").trim() : "";
+        mails.push({ uid: message.uid, ...(message.envelope ? { envelope: message.envelope as NonNullable<FetchedMail["envelope"]> } : {}), ...(message.flags ? { flags: message.flags } : {}),
+          ...(references ? { references } : {}), ...(body && message.source ? { source: message.source } : {}) });
       }
       return mails;
     },
@@ -154,22 +160,57 @@ async function bodyText(source: Uint8Array | undefined): Promise<string> {
  * in English or Danish), and anything inside them. The inbox always comes first. */
 const SKIPPED_USE = new Set(["\\Sent", "\\Drafts", "\\Trash", "\\Junk", "\\All", "\\Flagged"]);
 const SKIPPED_NAME = /^(?:sent|sent items|sent messages|sent mail|sendt|sendte|sendte elementer|sendte e-mails|sendt post|drafts?|kladder?|templates|skabeloner|trash|deleted|deleted items|deleted messages|papirkurv|slettet|slettede|slettede elementer|junk|junk e-mail|junk mail|spam|uønsket|uønsket post|uønsket e-mail|outbox|udbakke)$/i;
+const SENT_NAME = /^(?:sent|sent items|sent messages|sent mail|sendt|sendte|sendte elementer|sendte e-mails|sendt post)$/i;
+const leaf = (f: { path: string; delimiter?: string }) => (f.delimiter ? f.path.split(f.delimiter).pop() ?? f.path : f.path).trim();
 export function readableFolders(folders: MailFolder[]): string[] {
-  const leaf = (f: MailFolder) => (f.delimiter ? f.path.split(f.delimiter).pop() ?? f.path : f.path).trim();
   const skipped = folders.filter(f => (f.specialUse && SKIPPED_USE.has(f.specialUse)) || SKIPPED_NAME.test(leaf(f)));
   const inSkipped = (f: MailFolder) => skipped.some(s => f.path === s.path || (!!s.delimiter && f.path.startsWith(s.path + s.delimiter)));
   const paths = folders.filter(f => !f.noSelect && !inSkipped(f) && f.path.toUpperCase() !== INBOX).map(f => f.path);
   return [INBOX, ...new Set(paths)];
 }
+/** The sent-mail folders - read only for whom team@ answered, never shown or handed to Saga as mail. */
+export function sentFolders(folders: MailFolder[]): string[] {
+  return folders.filter(f => !f.noSelect && (f.specialUse === "\\Sent" || SENT_NAME.test(leaf(f)))).map(f => f.path);
+}
+/** A folder the house puts answered mail in ("Besvarede"). */
+const ANSWERED_FOLDER = /^(?:besvaret|besvarede|answered|replied)$/i;
 
 type FolderMark = { path: string; uid_validity: string; last_uid: number; checked_at_ms: number };
+type Unanswered = { id: number; message_ref: string; sender: string; subject: string; received_at_ms: number; message_id: string | null; reply_address: string | null;
+  folder: string | null; uid_validity: string | null; uid: number | null };
+
+/** Sent mail is looked at this far back the first time, and a mail is checked for an answer for this long. */
+const SENT_LOOKBACK_MS = 90 * 24 * 3_600_000;
+const ANSWER_WINDOW_MS = 60 * 24 * 3_600_000;
+const MAX_SENT_PER_RUN = 300;
+
+const lower = (text: string | undefined) => (text ?? "").trim().toLowerCase();
+const firstAddress = (list: Address[] | undefined) => lower(list?.find(a => a.address)?.address);
+const answeredFlag = (mail: FetchedMail) => [...(mail.flags ?? [])].some(f => f.toLowerCase() === "\\answered");
+const addressOf = (sender: string) => lower(/<([^>]+)>/.exec(sender)?.[1] ?? (sender.includes("@") ? sender : ""));
+/** "Re: Sv: Fwd: Leje af salen" and "leje af salen" are the same subject. */
+export const sameSubject = (subject: string) => subject.toLowerCase().replace(/^(?:\s*(?:re|sv|aw|vs|fw|fwd|videresend)\s*(?:\[\d+\])?\s*:\s*)+/i, "").replace(/\s+/g, " ").trim();
+
+/** Where a kept mail lies in team@: from its own columns, or from the reference it was kept under (imap:[path:]validity:uid). */
+function location(row: Unanswered): { folder: string; uidValidity: string; uid: number } | null {
+  if (row.folder && row.uid_validity && row.uid) return { folder: row.folder, uidValidity: row.uid_validity, uid: row.uid };
+  const m = /^imap:(?:(.+):)?([^:]+):(\d+)$/.exec(row.message_ref);
+  return m ? { folder: m[1] ?? INBOX, uidValidity: m[2]!, uid: Number(m[3]) } : null;
+}
+
+async function markAnswered(db: D1Database, id: number, atMs: number, how: "svar" | "markeret" | "mappe"): Promise<void> {
+  await db.prepare("UPDATE board_mail SET answered_at_ms = ?, answered_how = ? WHERE id = ? AND answered_at_ms IS NULL AND answered_how IS NULL").bind(atMs, how, id).run();
+}
 
 /** One run: the new mails in the inbox and the other folders to Saga (each once), every folder's watermark moved, and
- * what happened recorded. A mail moved between folders is the same mail to Saga (same sender, subject and minute). */
-export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database, opener: ImapOpener = imapflowOpener): Promise<{ read: number; error?: string }> {
+ * what happened recorded. A mail moved between folders is the same mail to Saga (same sender, subject and minute).
+ * Asked: "hvordan ved Saga, at de ikke er besvaret?" - "Hun er nødt til at tjekke, om der er kommet svar i mailboksen".
+ * Every run also looks for answers to the mails of the last 60 days: the mail marked answered in team@ (what a mail
+ * program does when someone replies), the mail put in a folder "Besvarede", or a mail in Sent that replies to it. */
+export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database, opener: ImapOpener = imapflowOpener): Promise<{ read: number; answered: number; error?: string }> {
   const account = await teamMailAccount(db);
-  if (!account) return { read: 0 };
-  const status = { connected: true, folders: 0, listed: 0, relayed: 0, error: "" };
+  if (!account) return { read: 0, answered: 0 };
+  const status = { connected: true, folders: 0, listed: 0, relayed: 0, answered: 0, error: "" };
   let session: ImapSession | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const limit = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("read_timeout")), RUN_LIMIT_MS); });
@@ -178,40 +219,94 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
       const password = await openPassword(env, account.password_sealed);
       session = await opener({ host: account.imap_host, user: account.address, password }).catch(error => { throw loginError(error); });
       const open: ImapSession = session;
+      const now = deps.now();
       const marks = new Map((await db.prepare("SELECT path, uid_validity, last_uid, checked_at_ms FROM team_mail_folders").all<FolderMark>()).results?.map(m => [m.path, m] as const) ?? []);
-      const paths = open.folders ? readableFolders(await open.folders()) : [INBOX];
-      if (open.folders) await db.prepare("DELETE FROM team_mail_folders WHERE path NOT IN (SELECT value FROM json_each(?))").bind(JSON.stringify(paths)).run();
+      const listing = open.folders ? await open.folders() : null;
+      const paths = listing ? readableFolders(listing) : [INBOX];
+      const sent = listing ? sentFolders(listing) : [];
+      const answeredFolders = new Set((listing ?? []).filter(f => ANSWERED_FOLDER.test(leaf(f))).map(f => f.path));
+      if (listing) await db.prepare("DELETE FROM team_mail_folders WHERE path NOT IN (SELECT value FROM json_each(?))").bind(JSON.stringify([...paths, ...sent])).run();
+      const unanswered = (await db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, message_id, reply_address, folder, uid_validity, uid FROM board_mail
+        WHERE answered_at_ms IS NULL AND answered_how IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 500`).bind(now - ANSWER_WINDOW_MS).all<Unanswered>()).results ?? [];
+      const waitingIn = new Map<string, Unanswered[]>();
+      for (const row of unanswered) { const at = location(row); if (at) waitingIn.set(at.folder, [...(waitingIn.get(at.folder) ?? []), row]); }
+
+      const watermark = (path: string, uidValidity: string, last: number) => db.prepare(`INSERT INTO team_mail_folders (path, uid_validity, last_uid, checked_at_ms) VALUES (?, ?, ?, ?)
+        ON CONFLICT(path) DO UPDATE SET uid_validity = excluded.uid_validity, last_uid = excluded.last_uid, checked_at_ms = excluded.checked_at_ms`).bind(path, uidValidity, last, now).run();
+      const newUids = async (mark: FolderMark | undefined, box: { uidValidity: string }, lookbackMs: number) => {
+        // A changed UIDVALIDITY means the old numbers mean nothing: start again from the lookback.
+        const after = !mark || mark.uid_validity !== box.uidValidity ? null : mark.last_uid;
+        const uids = (after === null ? await open.search({ since: new Date(now - lookbackMs) }) : await open.search({ uid: `${after + 1}:*` }))
+          .filter(uid => after === null || uid > after).sort((a, b) => a - b);
+        return { after, uids };
+      };
+
       // The inbox first, then the folder checked longest ago, so no folder waits for ever behind a busy one.
       const order = [INBOX, ...paths.filter(p => p !== INBOX).sort((a, b) => (marks.get(a)?.checked_at_ms ?? 0) - (marks.get(b)?.checked_at_ms ?? 0) || a.localeCompare(b))];
       status.folders = order.length;
       let room = MAX_PER_RUN;
       for (const path of order) {
-        if (room <= 0) break;
+        const waiting = waitingIn.get(path) ?? [];
+        if (room <= 0 && !waiting.length) continue;
         // A subfolder that will not open is passed over (and tried again next run); the inbox failing is the run's error.
         const box = await open.open(path).catch(error => { if (path === INBOX) throw error; console.warn("team_mail_folder_unreadable", path, error instanceof Error ? error.message : error); return null; });
         if (!box) continue;
-        const mark = marks.get(path);
-        // A changed UIDVALIDITY means the old numbers mean nothing: start again from the lookback.
-        const after = !mark || mark.uid_validity !== box.uidValidity ? null : mark.last_uid;
-        const uids = (after === null ? await open.search({ since: new Date(deps.now() - FIRST_LOOKBACK_MS) }) : await open.search({ uid: `${after + 1}:*` }))
-          .filter(uid => after === null || uid > after).sort((a, b) => a - b);
-        status.listed += uids.length;
-        const batch = uids.slice(0, room);
-        const mails = await open.fetch(batch);
-        const relayed = [];
-        for (const mail of mails.sort((a, b) => a.uid - b.uid)) {
-          relayed.push({ ref: path === INBOX ? `imap:${box.uidValidity}:${mail.uid}` : `imap:${path}:${box.uidValidity}:${mail.uid}`, from: sender(mail), subject: mail.envelope?.subject ?? "",
-            receivedAt: (mail.envelope?.date instanceof Date && !Number.isNaN(mail.envelope.date.getTime()) ? mail.envelope.date : new Date(deps.now())).toISOString(),
-            text: await bodyText(mail.source) });
+        if (room > 0) {
+          const { after, uids } = await newUids(marks.get(path), box, FIRST_LOOKBACK_MS);
+          status.listed += uids.length;
+          const batch = uids.slice(0, room);
+          const mails = (await open.fetch(batch)).sort((a, b) => a.uid - b.uid);
+          const relayed = [];
+          for (const mail of mails) {
+            relayed.push({ ref: path === INBOX ? `imap:${box.uidValidity}:${mail.uid}` : `imap:${path}:${box.uidValidity}:${mail.uid}`, from: sender(mail), subject: mail.envelope?.subject ?? "",
+              receivedAt: (mail.envelope?.date instanceof Date && !Number.isNaN(mail.envelope.date.getTime()) ? mail.envelope.date : new Date(now)).toISOString(),
+              text: await bodyText(mail.source) });
+          }
+          if (relayed.length) await watchMail(env, deps, relayed);
+          // Where each mail lies, and whether it is answered already - on the kept row, also when it was kept from another folder.
+          for (const [i, mail] of mails.entries()) {
+            const r = relayed[i]!;
+            await db.prepare(`UPDATE board_mail SET folder = ?, uid_validity = ?, uid = ?, message_id = COALESCE(?, message_id), reply_address = COALESCE(?, reply_address)
+              WHERE message_ref = ? OR (sender = ? AND subject = ? AND received_at_ms / 60000 = ? / 60000)`)
+              .bind(path, box.uidValidity, mail.uid, lower(mail.envelope?.messageId) || null, firstAddress(mail.envelope?.replyTo) || firstAddress(mail.envelope?.from) || null,
+                r.ref, r.from.slice(0, 320), (r.subject || "(intet emne)").slice(0, 500), Date.parse(r.receivedAt)).run();
+            const how = answeredFolders.has(path) ? "mappe" : answeredFlag(mail) ? "markeret" : null;
+            if (how) {
+              const row = await db.prepare("SELECT id FROM board_mail WHERE folder = ? AND uid_validity = ? AND uid = ?").bind(path, box.uidValidity, mail.uid).first<{ id: number }>();
+              if (row) { await markAnswered(db, row.id, now, how); status.answered++; }
+            }
+          }
+          status.relayed += relayed.length;
+          room -= batch.length;
+          const last = batch.length ? batch[batch.length - 1]! : after === null ? Math.max(0, box.uidNext - 1) : after;
+          await watermark(path, box.uidValidity, last);
         }
-        if (relayed.length) await watchMail(env, deps, relayed);
-        status.relayed += relayed.length;
-        room -= batch.length;
-        const last = batch.length ? batch[batch.length - 1]! : after === null ? Math.max(0, box.uidNext - 1) : after;
-        await db.prepare(`INSERT INTO team_mail_folders (path, uid_validity, last_uid, checked_at_ms) VALUES (?, ?, ?, ?)
-          ON CONFLICT(path) DO UPDATE SET uid_validity = excluded.uid_validity, last_uid = excluded.last_uid, checked_at_ms = excluded.checked_at_ms`)
-          .bind(path, box.uidValidity, last, deps.now()).run();
+        // The mails here still without an answer: marked answered since, or lying in "Besvarede".
+        const here = waiting.map(row => ({ row, at: location(row)! })).filter(w => w.at.uidValidity === box.uidValidity);
+        if (here.length) {
+          const flagged = answeredFolders.has(path) ? here.map(w => w.at.uid) : (await open.fetch(here.map(w => w.at.uid), { body: false })).filter(answeredFlag).map(m => m.uid);
+          for (const w of here.filter(w => flagged.includes(w.at.uid))) { await markAnswered(db, w.row.id, now, answeredFolders.has(path) ? "mappe" : "markeret"); status.answered++; }
+        }
       }
+
+      // Sent mail: only who it went to, its subject and which mail it answers - kept to find the answers, never shown.
+      let sentRoom = MAX_SENT_PER_RUN;
+      for (const path of sent) {
+        if (sentRoom <= 0) break;
+        const box = await open.open(path).catch(error => { console.warn("team_mail_sent_unreadable", path, error instanceof Error ? error.message : error); return null; });
+        if (!box) continue;
+        const { after, uids } = await newUids(marks.get(path), box, SENT_LOOKBACK_MS);
+        const batch = uids.slice(0, sentRoom);
+        for (const mail of await open.fetch(batch, { body: false })) {
+          const to = [...(mail.envelope?.to ?? []), ...(mail.envelope?.cc ?? [])].map(a => lower(a.address)).filter(Boolean);
+          await db.prepare(`INSERT OR IGNORE INTO team_mail_sent (ref, message_id, in_reply_to, refs, recipients, subject, sent_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+            .bind(`${path}:${box.uidValidity}:${mail.uid}`, lower(mail.envelope?.messageId) || null, lower(mail.envelope?.inReplyTo) || null, lower(mail.references) || null,
+              to.join(" "), mail.envelope?.subject ?? "", mail.envelope?.date instanceof Date && !Number.isNaN(mail.envelope.date.getTime()) ? mail.envelope.date.getTime() : now).run();
+        }
+        sentRoom -= batch.length;
+        await watermark(path, box.uidValidity, batch.length ? batch[batch.length - 1]! : after === null ? Math.max(0, box.uidNext - 1) : after);
+      }
+      status.answered += await matchSentAnswers(db, now, account.address);
     })(), limit]);
   } catch (error) {
     status.error = (error instanceof Error ? error.message : String(error)).slice(0, 200) || "unknown_error";
@@ -220,7 +315,29 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
     await (session as ImapSession | null)?.close().catch(() => undefined);
   }
   await recordMailWatch(db, status, deps.now());
-  return { read: status.relayed, ...(status.error ? { error: status.error } : {}) };
+  return { read: status.relayed, answered: status.answered, ...(status.error ? { error: status.error } : {}) };
+}
+
+/** A mail is answered when a mail in Sent replies to it (In-Reply-To or References), or went to the address an answer
+ * goes to after it came - with the same subject, or to at most three people (a newsletter to many answers no one). */
+export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress: string): Promise<number> {
+  const [rows, sent] = await Promise.all([
+    db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, message_id, reply_address, folder, uid_validity, uid FROM board_mail
+      WHERE answered_at_ms IS NULL AND answered_how IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 500`).bind(nowMs - ANSWER_WINDOW_MS).all<Unanswered>().then(r => r.results ?? []),
+    db.prepare("SELECT message_id, in_reply_to, refs, recipients, subject, sent_at_ms FROM team_mail_sent WHERE sent_at_ms >= ? ORDER BY sent_at_ms")
+      .bind(nowMs - ANSWER_WINDOW_MS - SENT_LOOKBACK_MS).all<{ message_id: string | null; in_reply_to: string | null; refs: string | null; recipients: string; subject: string; sent_at_ms: number }>().then(r => r.results ?? []),
+  ]);
+  let answered = 0;
+  for (const row of rows) {
+    const id = row.message_id?.toLowerCase() ?? "";
+    const to = row.reply_address?.toLowerCase() || addressOf(row.sender);
+    const own = !to || to === ownAddress.toLowerCase() || /^(?:no-?reply|do-?not-?reply|mailer-daemon|postmaster)@/.test(to);
+    const reply = sent.find(s => s.sent_at_ms >= row.received_at_ms - 60_000 && (
+      (id && (s.in_reply_to === id || (s.refs ?? "").includes(id))) ||
+      (!own && s.recipients.split(" ").includes(to) && (sameSubject(s.subject) === sameSubject(row.subject) || s.recipients.split(" ").length <= 3))));
+    if (reply) { await markAnswered(db, row.id, reply.sent_at_ms, "svar"); answered++; }
+  }
+  return answered;
 }
 
 /** Requested: "her og nu skal der bare lande en e-mail med alle oplysningerne i vores fællesmail team@holistisk.org". A
