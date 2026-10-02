@@ -183,7 +183,7 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: `${session}; hjerterum_cockpit_who=Jacob%20Hauge` })).text();
-    for (const text of ["Bestyrelsen lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "Sagas fulde overblik", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "<strong>Generalforsamlingen</strong> fylder", "Venter på svar", "Lokaleleje", "Mere i Status", "Til dig", "Næste møde", "I huset"]) expect(front).toContain(text);
     // Requested: "Hav kontakt med tribes ... giver ikke rigtig mening i sig selv. Desuden er de også gamle" - an undated line from the minutes document stays out.
     expect(front).not.toContain("Underskriv lejekontrakten");
     for (const heavy of ["Nøgletal", "Hvem har hvad", "Hængepartier", "Ugeopsummering", "beskeder denne uge"]) expect(front).not.toContain(heavy);
