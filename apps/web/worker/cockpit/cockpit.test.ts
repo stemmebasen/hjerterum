@@ -427,7 +427,7 @@ describe("the board cockpit", () => {
     // In the cockpit it is now among the chair's done items.
     const page = await (await call("/cockpit/opgaver", { cookie: await memberCookie(await login(), "Jacob Hauge") })).text();
     expect(page.split('class="done-list"')[0]).not.toContain("Ring til udlejeren");
-    expect(page).toContain("Klaret (1)");
+    expect(page).toContain("Klaret de sidste 7 dage (1)");
     // Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet".
     const { COCKPIT_VERSION } = await import("./page.js");
     expect(page).toContain(`Hjerterum cockpit v${COCKPIT_VERSION}`);
@@ -435,7 +435,7 @@ describe("the board cockpit", () => {
 
   // Requested: "når et bestyrelsesmedlem har løst en opgave og klikket flueben, så skal der være et flueben + dato ud for
   // den fælles oversigt i fem dage, hvorefter hele linjen arkiveres" - and "bare ikke rød".
-  it("shows a checked task with a check and the date for five days on the shared list, then archives it", async () => {
+  it("shows a checked task with a check and the date for seven days on the shared list, then archives it", async () => {
     const { db, env, services, call, form, login } = await setup();
     await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms)
       VALUES ('telegram', 'gf', 'm.m4a', 'approved', '2026-10-01', ?, 1, 1)`).bind("# Referat\n## Opgaver\n- Lisbeth - Dirigent for generalforsamlingen - 14. oktober\n- Gitta - Laver skabelon til nyhedsbrev").run();
@@ -450,11 +450,42 @@ describe("the board cockpit", () => {
     expect(board).not.toContain("Arkiv (");
     for (const red of ["#c0265e", "#dc2626", "#e11d48"]) expect(today).not.toContain(red);
     const { handleCockpitRequest } = await import("./handler.js");
-    const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: await memberCookie(session, "Gitta") } }), env, deps(services.fetcher, NOW + 6 * 86_400_000))).text();
+    const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: await memberCookie(session, "Gitta") } }), env, deps(services.fetcher, NOW + 8 * 86_400_000))).text();
     const laterBoard = later.slice(later.indexOf("Hvad bevæger sig"));
     expect(laterBoard).toContain("Arkiv (1)");
     expect(laterBoard.split("Arkiv (1)")[0]).not.toContain("Dirigent for generalforsamlingen");
     expect(laterBoard.split("Arkiv (1)")[0]).toContain("Lav skabelon til nyhedsbrev");
+  });
+
+  // Requested: "make sure that there are no duplicates in the to-dos. Right now, it's quite a mess, and I can't delete them."
+  it("shows the same task from the minutes, the document and Saga once, and lets you remove any line", async () => {
+    const { db, call, form, login } = await setup();
+    await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms)
+      VALUES ('telegram', 'm1', 'm.m4a', 'approved', '2026-10-01', ?, 1, 1)`).bind("# Referat\n## Opgaver\n- Jacob - Send den sidste besked til Thomas Emil og bloker ham\n- Jacob - Book salen til julefesten").run();
+    const picture = { summary: "Rolig uge.", temperature: { level: "god", why: "Rolig uge" }, topics: [],
+      document: { latestMeeting: "2026-10-01", missingMinutes: [], dates: [], figures: [], decisions: [], openThreads: [], proposals: [], nextAgenda: [],
+        tasks: [{ who: "Jacob", what: "Sende sidste besked til Thomas Emil og blokere ham", due: "", since: "2026-10-01" }] },
+      forJacob: [{ key: "k1", kind: "opgave", text: "Send sidste besked til Thomas Emil (kopi til Douglas) og bloker ham derefter", source: "dokument", from: "", since: "2026-10-01" }] };
+    await saveOverview(db, "x", NOW, { data: JSON.stringify(picture), docHash: "x" });
+    const jacob = await memberCookie(await login(), "Jacob Hauge");
+    const page = await (await call("/cockpit/opgaver", { cookie: jacob })).text();
+    const mine = page.slice(page.indexOf("Dine to-do's"), page.indexOf("Skriv en opgave"));
+    expect(mine.match(/Thomas Emil/g)).toHaveLength(1);
+    expect(mine).toContain("Book salen til julefesten");
+    const front = await (await call("/cockpit/", { cookie: jacob })).text();
+    expect(front.slice(front.indexOf("<h2>Til dig"), front.indexOf("<h2>Næste møde")).match(/Thomas Emil/g)).toHaveLength(1);
+
+    // Removing the one line takes its twins too: the minutes task, the document's and Saga's item.
+    const line = /<form method="post" action="\/cockpit\/opgaver\/fjern"><input type="hidden" name="kind" value="([^"]+)"><input type="hidden" name="id" value="([^"]+)"><input type="hidden" name="also" value="([^"]+)">/.exec(mine)!;
+    const unescape = (t: string) => t.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+    await call("/cockpit/opgaver/fjern", { method: "POST", cookie: jacob, body: form({ kind: line[1]!, id: unescape(line[2]!), also: unescape(line[3]!) }) });
+    const after = await (await call("/cockpit/opgaver", { cookie: jacob })).text();
+    const mineAfter = after.slice(after.indexOf("Dine to-do's"), after.indexOf("Skriv en opgave"));
+    expect(mineAfter).not.toContain("Thomas Emil");
+    expect(mineAfter).toContain("Book salen til julefesten");
+    expect(mineAfter).not.toContain("Klaret de sidste 7 dage");
+    // Removed is not done: the board's shared list does not show it as checked.
+    expect(after.slice(after.indexOf("Hvad bevæger sig"))).not.toMatch(/✓<\/span> Send den sidste besked/);
   });
 
   it("keeps Saga's statutes the same as the website's", () => {
@@ -527,7 +558,7 @@ describe("each member's task list", () => {
     const key = /name="id" value="([^"]+)"/.exec(page)![1]!.replace(/&amp;/g, "&").replace(/&#39;/g, "'");
     await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Gitta"), body: form({ kind: "opgave", id: key, done: "1" }) });
     page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
-    expect(page).toContain("Klaret (1)");
+    expect(page).toContain("Klaret de sidste 7 dage (1)");
     expect(page).toContain("Intet venter på dig");
     expect(await (await call("/cockpit/", { cookie: as("Gitta") })).text()).not.toContain("Lav event-mail");
 
