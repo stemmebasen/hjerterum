@@ -32,7 +32,8 @@ header.bar{position:sticky;top:0;z-index:10}
 header.bar::before{content:"";position:absolute;inset:0;z-index:-1;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
 .top{max-width:1160px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:24px}
 .brand{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink);white-space:nowrap;flex:none}
-.brand-mark{width:38px;height:38px;border-radius:50%;background:#2446d8;display:grid;place-items:center;flex:none}.brand-mark img{width:28px;height:28px;display:block}
+.brand-mark{width:40px;height:40px;display:grid;place-items:center;flex:none}.brand-mark img{width:40px;height:40px;display:block;filter:brightness(0);opacity:.88}
+@media (prefers-color-scheme:dark){.brand-mark img{filter:none;opacity:1}}
 .brand b{font-weight:700;font-size:18px;letter-spacing:-.01em}.brand .names span{font-size:12.5px;color:var(--muted);font-weight:500}
 .brand .names{display:grid;line-height:1.15}
 nav.desk{display:flex;gap:4px;flex:1;min-width:0;justify-content:center}nav.desk a{padding:8px 14px;border-radius:999px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px;white-space:nowrap}
@@ -65,7 +66,7 @@ button,.button{font:inherit;font-weight:650;font-size:15px;border:0;border-radiu
 button:hover,.button:hover{filter:brightness(1.08)}button.ghost,.button.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}button.ghost:hover,.button.ghost:hover{border-color:var(--accent);color:var(--accent);filter:none}
 .notice{padding:14px 18px;border-radius:16px;background:var(--tint);color:var(--ink)}.notice.good{color:var(--accent)}.notice.warn{background:var(--warn-soft);color:var(--warn)}
 details{border-top:1px solid var(--line);padding:10px 0}details>summary{cursor:pointer;font-weight:600;list-style:none}details>summary::-webkit-details-marker{display:none}details>summary::before{content:"+";display:inline-block;width:18px;color:var(--faint)}details[open]>summary::before{content:"–"}
-.center{max-width:440px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;border-radius:50%;background:#2446d8;display:grid;place-items:center;margin:0 0 20px}.mark img{width:46px;height:46px}
+.center{max-width:440px;margin:12vh auto;padding:0 16px}.mark{width:64px;height:64px;display:grid;place-items:center;margin:0 0 20px}.mark img{width:64px;height:64px;filter:brightness(0);opacity:.88}@media (prefers-color-scheme:dark){.mark img{filter:none;opacity:1}}
 table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}th{font-size:12px;color:var(--faint);font-weight:650;text-transform:uppercase;letter-spacing:.06em}
 tr:last-child td{border-bottom:0}
 [hidden]{display:none!important}.actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.wide{grid-column:1/-1}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:8px 30px;align-items:start}.block{min-width:0}
@@ -85,7 +86,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .empty{color:var(--muted);margin:0}
 main>h1+p{margin-top:-6px}.ver{margin:18px 0 0;font-size:12px;color:var(--faint);text-align:center}
 @media (max-width:760px){
-  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:25px;height:25px}.avatar{width:34px;height:34px}
+  nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:34px;height:34px}.avatar{width:34px;height:34px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
     background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}
   nav.tabs a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-decoration:none;color:var(--faint);font-size:11px;font-weight:600;border-radius:12px}
@@ -136,7 +137,7 @@ export function layout(base: string, title: string, body: string, options: { sec
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&display=swap">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${STYLE}${options.style ?? ""}</style></head><body>
-${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="" width="28" height="28"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
+${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png" alt="Hjerterum" width="40" height="40"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
 <div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base)}</body></html>`;
