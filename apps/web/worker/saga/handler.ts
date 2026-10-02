@@ -1,3 +1,4 @@
+import { teamMailAccount } from "./teamMail.js";
 import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
 import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../cockpit/ask.js";
 import { boardMembers } from "../cockpit/data.js";
@@ -181,7 +182,8 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
       const text = (value: unknown, max: number) => typeof value === "string" ? value.slice(0, max) : "";
       // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - Matrix reports every run, also an empty
       // or failed one, so a stopped watch shows (saga/connections.ts) instead of looking connected.
-      if (body?.status && typeof body.status === "object") await recordMailWatch(db, body.status as Record<string, unknown>, deps.now());
+      // Once Hjerterum reads team@ itself (teamMail.ts), its own runs are the status; an outside report is ignored.
+      if (body?.status && typeof body.status === "object" && !(await teamMailAccount(db))) await recordMailWatch(db, body.status as Record<string, unknown>, deps.now());
       const mails: RelayedMail[] = (Array.isArray(body?.mails) ? body.mails : []).slice(0, 50)
         .map(m => m as Record<string, unknown>).filter(m => typeof m?.ref === "string" && m.ref)
         .map(m => ({ ref: text(m.ref, 1600), from: text(m.from, 320) || "ukendt", subject: text(m.subject, 500), receivedAt: text(m.receivedAt, 40), text: text(m.text, 4000) }));

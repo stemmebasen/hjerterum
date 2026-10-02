@@ -104,6 +104,7 @@ export function waited(receivedMs: number, nowMs: number): string {
 }
 
 const STYLE = `
+.mailbox-form{display:grid;gap:10px;max-width:420px}.mailbox-form label{display:grid;gap:4px;font-size:13px}.mailbox-form button{justify-self:start}
 .enq{list-style:none;margin:0;padding:0;display:grid}.enq li{display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}
 .enq li:first-child{border-top:0;padding-top:2px}.enq .line{font-weight:600;line-height:1.4}.enq .meta{font-size:13px;color:var(--faint);grid-column:1}
 .enq .kind{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-right:8px;vertical-align:1px}
@@ -132,8 +133,22 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
  * der stadig er ubesvarede\". Ved hver mail skal der stå hvor længe afsenderen har ventet på svar. Nedenunder er almindelig mailboks.
  * Alt sammen i samme design som siden har". The inbox is team@ as Matrix hands it to Saga - read-only; answers are written from
  * the members' own mail. */
+/** Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". The chair (logged in with a
+ * personal link) connects team@ here; Saga reads it from then on. The password is never shown again. */
+function mailboxCard(base: string, box: { address: string | null; by: string | null; at: number | null; notice: string | null }): string {
+  const notice = box.notice ? `<p class="notice">${esc(box.notice)}</p>` : "";
+  if (box.address) return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
+<p>${esc(box.address)} er forbundet${box.by ? ` af ${esc(box.by)}` : ""}${box.at ? ` ${esc(new Date(box.at).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "Europe/Copenhagen" }))}` : ""}. Saga læser indbakken hvert femte minut. Hun læser kun: intet markeres, flyttes eller sendes.</p>
+<form method="post" action="${base}/posthus/afbryd" style="margin:0"><button class="ghost">Afbryd forbindelsen</button></form></div>`;
+  return `<div class="card" id="forbindelse"><h2>Forbindelse til team@</h2>${notice}
+<p class="small muted">Forbind Hjerterums fælles mail, så Saga kan læse den. Adgangskoden gemmes krypteret i Hjerterum og vises aldrig igen. Saga læser kun - hun sender aldrig noget fra team@.</p>
+<form method="post" action="${base}/posthus/forbind" class="mailbox-form"><label>Mailadresse<input name="address" type="email" value="team@holistisk.org" required autocomplete="off"></label>
+<label>Adgangskode (One.com)<input name="password" type="password" required autocomplete="new-password"></label><button>Forbind</button></form></div>`;
+}
+
 export function postPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean;
-  inbox: BoardMailRow[]; inboxTotal: number; all: boolean; watch: string; watchOk: boolean; nowMs: number }): string {
+  inbox: BoardMailRow[]; inboxTotal: number; all: boolean; watch: string; watchOk: boolean; nowMs: number;
+  mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null } | null }): string {
   const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hver time på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
 ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;
@@ -147,5 +162,5 @@ ${data.inbox.length ? `<ul class="inbox">${data.inbox.map(m => `<li><details><su
 <span class="subj">${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${important}${inbox}</main>`, { section: "/posthus", who: data.who, style: STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${important}${inbox}${data.mailbox ? mailboxCard(base, data.mailbox) : ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }

@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "hjerterum-platform",
   "compatibility_date": "2026-09-07",
+  "compatibility_flags": ["nodejs_compat"],
   "main": "./worker/config-entry.ts",
   "keep_vars": true,
   "assets": {
