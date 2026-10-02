@@ -149,19 +149,24 @@ ${talkButton}${p.created_by === who ? `<button name="withdraw" value="1" class="
   : p.status === "adopted" || p.status === "rejected" ? who ? `<form method="post" action="${base}/afstemninger/droeft" class="acts"><input type="hidden" name="id" value="${p.id}">${talkButton}</form>` : "" : ""}</article>`;
 }
 
-export function votesPage(base: string, data: { list: ProposalView[]; who: string | null; members: number; notice: string }): string {
+/** Requested: "Beslutninger og Afstemninger skal merges" - the votes are part of the page Beslutninger (page.ts decisionsPage):
+ * the open proposals first, the board's decisions, a new proposal, and the decided votes folded away. */
+export type VoteBlocks = { intro: string; open: string; create: string; closed: string };
+export function voteBlocks(base: string, data: { list: ProposalView[]; who: string | null; members: number }): VoteBlocks {
   const open = data.list.filter(p => p.status === "open"), closed = data.list.filter(p => p.status !== "open");
   const needed = Math.floor(Math.max(1, data.members) / 2) + 1;
-  return layout(base, "Afstemninger", `<main><h1>Afstemninger</h1><p class="muted">Stil et forslag, og bestyrelsen stemmer digitalt. Ved flertal - mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for - er forslaget vedtaget. Alle har forslaget på deres to-do, til de har stemt. Vil du hellere tage det op på et møde, så tryk <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}
-<div class="card"><h2>Opret forslag til afstemning</h2>${data.who ? `<form class="newprop" method="post" action="${base}/afstemninger/ny">
+  return {
+    intro: `Et forslag er vedtaget ved flertal: mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for.`,
+    open: open.length ? `<div class="card" id="afstemning"><h2>Til afstemning <span class="pill">${open.length}</span></h2>${open.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : "",
+    create: `<div class="card" id="nyt"><h2>Opret forslag til afstemning</h2>${data.who ? `<form class="newprop" method="post" action="${base}/afstemninger/ny">
 <label>Forslag<input name="title" required maxlength="200" placeholder="Fx Vi forlænger den gratis prøveperiode til 1. december"></label>
 <label>Begrundelse (valgfri)<textarea name="text" rows="3" maxlength="4000"></textarea></label>
 <label>Frist<select name="days"><option value="3">3 dage</option><option value="7" selected>7 dage</option><option value="14">14 dage</option></select></label>
-<p style="margin:0"><button>Stil forslaget</button></p></form>` : `<p class="muted"><a href="${base}/hvem">Vælg hvem du er</a> for at stille et forslag.</p>`}</div>
-<div class="card"><h2>Til afstemning${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>${open.length ? open.map(p => proposalHtml(base, p, data.who)).join("") : `<p class="muted">Ingen forslag til afstemning lige nu.</p>`}</div>
-${closed.length ? `<div class="card"><h2>Afgjort</h2>${closed.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : ""}</main>`, { section: "/afstemninger", who: data.who, style: VOTES_STYLE });
+<p style="margin:0"><button>Stil forslaget</button></p>
+<p class="small muted" style="margin:0">Alle har forslaget på deres to-do, til de har stemt. Vil nogen hellere tage det op på et møde, kan de trykke <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p></form>` : `<p class="muted"><a href="${base}/hvem">Vælg hvem du er</a> for at stille et forslag.</p>`}${open.length ? "" : `<p class="muted small" style="margin:10px 0 0">Ingen forslag til afstemning lige nu.</p>`}</div>`,
+    closed: closed.length ? `<div class="card"><details><summary><h2 style="display:inline">Afgjorte afstemninger (${closed.length})</h2></summary>${closed.map(p => proposalHtml(base, p, data.who)).join("")}</details></div>` : ""
+  };
 }
 
 /** On the to-do and the front page: "Stem om …". */
-export const voteTodo = (base: string, p: Proposal) => `<li><a href="${base}/afstemninger#p${p.id}"><strong>Stem om: ${esc(p.title)}</strong></a><span class="ctx">Forslag fra ${esc(p.created_by)} · frist ${esc(shortDay(isoDay(p.deadline_ms)))}</span></li>`;
+export const voteTodo = (base: string, p: Proposal) => `<li><a href="${base}/beslutninger#p${p.id}"><strong>Stem om: ${esc(p.title)}</strong></a><span class="ctx">Forslag fra ${esc(p.created_by)} · frist ${esc(shortDay(isoDay(p.deadline_ms)))}</span></li>`;

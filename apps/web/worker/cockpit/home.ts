@@ -117,7 +117,7 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
   const yours = `<article class="panel"><header><h2>Til dig</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="items">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
-<a class="more" href="${base}/afstemninger">Stil et forslag til afstemning →</a></article>`;
+<a class="more" href="${base}/beslutninger#nyt">Stil et forslag til afstemning →</a></article>`;
 
   const m = data.next;
   const agenda = m ? m.agenda.split("\n").filter(Boolean) : [];
@@ -158,7 +158,7 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   const working = data.progress.working || data.progress.waiting ? `<p class="notice">${[data.progress.working ? `${plural(data.progress.working, "optagelse", "optagelser")} bliver til referat` : "",
     data.progress.waiting ? `${plural(data.progress.waiting, "referat", "referater")} lægges op om lidt` : ""].filter(Boolean).join(" · ")}.</p>` : "";
 
-  const enquiryNote = data.newEnquiries ? `<p class="notice"><a href="${base}/foresporgsler"><strong>${plural(data.newEnquiries, "åben forespørgsel", "åbne forespørgsler")}</strong> i team@ →</a></p>` : "";
+  const enquiryNote = data.newEnquiries ? `<p class="notice"><a href="${base}/posthus"><strong>${plural(data.newEnquiries, "vigtig mail", "vigtige mails")}</strong> venter på svar i team@ →</a></p>` : "";
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
   return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });

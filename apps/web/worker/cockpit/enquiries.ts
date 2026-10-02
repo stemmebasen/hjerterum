@@ -65,12 +65,19 @@ export async function scheduledEnquiryScan(env: SagaEnv, deps: SagaDeps, db: D1D
   await scanEnquiries(env, deps, db);
 }
 
-export async function enquiries(db: D1Database, nowMs: number): Promise<{ open: Enquiry[]; handled: Enquiry[]; unscanned: number }> {
-  const [list, waiting] = await Promise.all([
+export type BoardMailRow = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string | null; handled_at_ms: number | null };
+const INBOX = 60;
+
+export async function enquiries(db: D1Database, nowMs: number, all = false): Promise<{ open: Enquiry[]; handled: Enquiry[]; unscanned: number; inbox: BoardMailRow[]; inboxTotal: number }> {
+  const [list, waiting, inbox, total] = await Promise.all([
     db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
       .bind(nowMs - 90 * DAY).all<Enquiry>().then(r => r.results ?? []).catch(() => [] as Enquiry[]),
-    db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 30 * DAY).first<{ n: number }>().catch(() => null)]);
-  return { open: list.filter(e => e.handled_at_ms === null), handled: list.filter(e => e.handled_at_ms !== null).slice(0, 30), unscanned: Number(waiting?.n ?? 0) };
+    db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 30 * DAY).first<{ n: number }>().catch(() => null),
+    db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms FROM board_mail ORDER BY received_at_ms DESC LIMIT ?").bind(all ? 500 : INBOX)
+      .all<BoardMailRow>().then(r => r.results ?? []).catch(() => [] as BoardMailRow[]),
+    db.prepare("SELECT COUNT(*) AS n FROM board_mail").first<{ n: number }>().catch(() => null)]);
+  return { open: list.filter(e => e.handled_at_ms === null), handled: list.filter(e => e.handled_at_ms !== null).slice(0, 30), unscanned: Number(waiting?.n ?? 0),
+    inbox, inboxTotal: Number(total?.n ?? 0) };
 }
 
 export async function setHandled(db: D1Database, id: number, who: string, done: boolean, nowMs: number): Promise<void> {
@@ -85,30 +92,60 @@ const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", w
 const name = (sender: string) => sender.replace(/<[^>]*>/, "").replace(/"/g, "").trim() || sender;
 const address = (sender: string) => /<([^>]+)>/.exec(sender)?.[1] ?? (sender.includes("@") ? sender : "");
 
+/** How long the sender has waited for an answer, in plain words. */
+export function waited(receivedMs: number, nowMs: number): string {
+  const hours = Math.max(0, Math.floor((nowMs - receivedMs) / 3_600_000));
+  if (hours < 1) return "under en time";
+  if (hours < 24) return hours === 1 ? "1 time" : `${hours} timer`;
+  const days = Math.floor(hours / 24);
+  if (days < 14) return days === 1 ? "1 dag" : `${days} dage`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks} uger`;
+}
+
 const STYLE = `
 .enq{list-style:none;margin:0;padding:0;display:grid}.enq li{display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}
 .enq li:first-child{border-top:0;padding-top:2px}.enq .line{font-weight:600;line-height:1.4}.enq .meta{font-size:13px;color:var(--faint);grid-column:1}
 .enq .kind{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-right:8px;vertical-align:1px}
+.enq .wait{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--soft);color:var(--muted);margin-right:8px;vertical-align:1px;white-space:nowrap}
+.enq .wait.late{background:var(--warn-soft);color:var(--warn)}
 .enq form{margin:0;grid-row:1/span 2;grid-column:2}.enq details{border:0;padding:4px 0 0;grid-column:1}.enq details summary{font-size:13px;color:var(--muted);font-weight:500}
 .enq details p{margin:6px 0 0;font-size:14px;color:var(--muted);white-space:pre-wrap}.scan{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.inbox{list-style:none;margin:0;padding:0;display:grid}.inbox li{border-top:1px solid var(--line);padding:0}.inbox li:first-child{border-top:0}
+.inbox details{border:0;padding:12px 0}.inbox summary{list-style:none;cursor:pointer;font-weight:400;padding:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 14px}.inbox summary::-webkit-details-marker{display:none}.inbox summary::before,.inbox summary::after{content:none!important;display:none!important}
+.inbox .from{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inbox .at{font-size:12.5px;color:var(--faint);white-space:nowrap}
+.inbox .subj{grid-column:1/-1;font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inbox .body{margin:10px 0 0;font-size:14px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}.inbox .kind{font-size:11px;font-weight:700;color:var(--accent);margin-right:4px}
 @media (max-width:760px){.enq li{grid-template-columns:1fr}.enq form{grid-row:auto;grid-column:1}}
 `;
 
-function item(base: string, e: Enquiry, open: boolean): string {
+function item(base: string, e: Enquiry, open: boolean, nowMs: number): string {
   const mail = address(e.sender);
-  return `<li><div><span class="kind">${esc(e.enquiry_kind)}</span><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
+  const days = (nowMs - e.received_at_ms) / DAY;
+  return `<li><div>${open ? `<span class="wait${days >= 2 ? " late" : ""}">Venter ${esc(waited(e.received_at_ms, nowMs))}</span>` : ""}<span class="kind">${esc(e.enquiry_kind)}</span><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
 <span class="meta">${esc(name(e.sender))}${mail ? ` · <a href="mailto:${esc(mail)}">${esc(mail)}</a>` : ""} · ${esc(WHEN.format(e.received_at_ms))}${!open && e.handled_by ? ` · klaret af ${esc(e.handled_by)}` : ""}</span>
 <details><summary>Se mailen: ${esc(e.subject)}</summary><p>${esc(e.preview)}</p></details>
-<form method="post" action="${base}/foresporgsler/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="${open ? "" : "ghost"}">${open ? "Klaret" : "Fortryd"}</button></form></li>`;
+<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="${open ? "" : "ghost"}">${open ? "Besvaret" : "Fortryd"}</button></form></li>`;
 }
 
-export function enquiriesPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean }): string {
-  const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på at blive læst. Saga læser dem hver time på hverdage.` : "Saga har læst alle nye mails i team@."}</p>
-${data.canScan && data.unscanned ? `<form method="post" action="${base}/foresporgsler/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
+/** Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks - øverst bruger vi den nuværende sektion til \"Vigtige mails,
+ * der stadig er ubesvarede\". Ved hver mail skal der stå hvor længe afsenderen har ventet på svar. Nedenunder er almindelig mailboks.
+ * Alt sammen i samme design som siden har". The inbox is team@ as Matrix hands it to Saga - read-only; answers are written from
+ * the members' own mail. */
+export function postPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean;
+  inbox: BoardMailRow[]; inboxTotal: number; all: boolean; watch: string; watchOk: boolean; nowMs: number }): string {
+  const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hver time på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
+${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;
-  const list = `<div class="card"><h2>Åbne${data.open.length ? ` <span class="pill">${data.open.length}</span>` : ""}</h2>
-${data.open.length ? `<ul class="enq">${data.open.map(e => item(base, e, true)).join("")}</ul>` : `<p class="muted">Ingen åbne forespørgsler.</p>`}
-${data.handled.length ? `<details class="done-list"><summary>Klaret (${data.handled.length})</summary><ul class="enq">${data.handled.map(e => item(base, e, false)).join("")}</ul></details>` : ""}</div>`;
-  return layout(base, "Forespørgsler", `<main><h1>Forespørgsler</h1><p class="muted">Henvendelser til team@ om lokaler, undervisning, arrangementer, medlemskab og samarbejde - fundet af Saga, de nyeste øverst. Tryk Klaret, når en er taget hånd om.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${scan}${list}</main>`, { section: "/foresporgsler", who: data.who, style: STYLE });
+  const important = `<div class="card"><h2>Vigtige mails, der stadig er ubesvarede${data.open.length ? ` <span class="pill">${data.open.length}</span>` : ""}</h2>
+<p class="small muted" style="margin:0 0 6px">Henvendelser om lokaler, undervisning, arrangementer, medlemskab og samarbejde - fundet af Saga. Tryk Besvaret, når nogen har svaret.</p>
+${data.open.length ? `<ul class="enq">${data.open.map(e => item(base, e, true, data.nowMs)).join("")}</ul>` : `<p class="muted">Ingen ubesvarede henvendelser.</p>`}
+${data.handled.length ? `<details class="done-list"><summary>Besvaret (${data.handled.length})</summary><ul class="enq">${data.handled.map(e => item(base, e, false, data.nowMs)).join("")}</ul></details>` : ""}${scan}</div>`;
+  const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>
+<p class="small ${data.watchOk ? "muted" : "warn"}" style="margin:0 0 6px">${esc(data.watch)}</p>
+${data.inbox.length ? `<ul class="inbox">${data.inbox.map(m => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
+<span class="subj">${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}
+${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
+  return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${important}${inbox}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }

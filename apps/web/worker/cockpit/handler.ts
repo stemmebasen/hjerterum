@@ -12,12 +12,12 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
 import { todosPage } from "./todosPage.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { enquiries, enquiriesPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
+import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
-import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, votesPage, withdrawProposal, type Vote } from "./votes.js";
+import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -26,6 +26,7 @@ import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
 import { markOwnerDone, serviceStatus } from "../saga/store.js";
+import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { frontPageTexts, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
@@ -308,22 +309,26 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested: "en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der er tildelt en.
   // Man kan også selv skrive ind." Each member's own list; an item can be written to another member.
   // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
-  if (path === "/foresporgsler" && request.method === "GET") {
-    const data = await enquiries(db, now);
+  // Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks" - the old address leads there.
+  if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
+  if (path === "/posthus" && request.method === "GET") {
+    const all = url.searchParams.get("alle") === "1";
+    const [data, watch] = await Promise.all([enquiries(db, now, all), mailWatch(db, now)]);
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
-    return html(enquiriesPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL) }));
+    return html(postPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
+      watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok" }));
   }
-  if (path === "/foresporgsler/klaret" && request.method === "POST") {
+  if ((path === "/posthus/klaret" || path === "/foresporgsler/klaret") && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = Number(form?.get("id"));
     if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
-    return redirect(`${base}/foresporgsler`);
+    return redirect(`${base}/posthus`);
   }
-  if (path === "/foresporgsler/scan" && request.method === "POST") {
-    if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/foresporgsler`);
+  if ((path === "/posthus/scan" || path === "/foresporgsler/scan") && request.method === "POST") {
+    if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/posthus`);
     const found = await scanEnquiries(env, deps, db).catch(error => { console.warn("cockpit_enquiry_scan_failed", error instanceof Error ? error.message : error); return null; });
-    return redirect(`${base}/foresporgsler?${found === null ? "fejl=1" : `scannet=${found}`}`);
+    return redirect(`${base}/posthus?${found === null ? "fejl=1" : `scannet=${found}`}`);
   }
 
   // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?"
@@ -391,43 +396,42 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       votes: await awaitingVote(db, who, now) }));
   }
 
+  // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.
+  if (path === "/afstemninger" && request.method === "GET") return redirect(`${base}/beslutninger${url.search}`);
   if (path === "/beslutninger" && request.method === "GET") {
-    const [{ picture }, minutes, voted] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db)]);
-    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who));
-  }
-
-  // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
-  if (path === "/afstemninger" && request.method === "GET") {
+    const [{ picture }, minutes, voted, list] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db), proposals(db, now)]);
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
-    return html(votesPage(base, { list: await proposals(db, now), who, members: members.names.length, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who,
+      { ...voteBlocks(base, { list, who, members: members.names.length }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
   }
+  // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger/ny" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = await createProposal(db, { title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), days: Number(form?.get("days") ?? 7), who,
       members: Math.max(members.names.length, 1) }, now);
-    return redirect(`${base}/afstemninger${id ? `?besked=ny#p${id}` : ""}`);
+    return redirect(`${base}/beslutninger${id ? `?besked=ny#p${id}` : ""}`);
   }
   if (path === "/afstemninger/stem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     const id = Number(form?.get("id"));
     const ok = Number.isSafeInteger(id) && id > 0 && await castVote(db, id, who, String(form?.get("vote") ?? "") as Vote, now);
-    return redirect(`${base}/afstemninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
+    return redirect(`${base}/beslutninger?besked=${ok ? "stemt" : "afgjort"}#p${id}`);
   }
   // Requested: "Til et forslag skal et medlem kunne notere: Jeg ønsker at drøfte dette på et møde".
   if (path === "/afstemninger/droeft" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id"));
     const done = Number.isSafeInteger(id) && id > 0 ? await toggleDiscuss(db, id, who, now) : null;
-    return redirect(`${base}/afstemninger?besked=${done === "added" ? "droeft" : done === "removed" ? "ikkedroeft" : "afgjort"}#p${id}`);
+    return redirect(`${base}/beslutninger?besked=${done === "added" ? "droeft" : done === "removed" ? "ikkedroeft" : "afgjort"}#p${id}`);
   }
   if (path === "/afstemninger/tilbage" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id"));
     const ok = Number.isSafeInteger(id) && id > 0 && await withdrawProposal(db, id, who, now);
-    return redirect(`${base}/afstemninger?besked=${ok ? "tilbage" : "afgjort"}`);
+    return redirect(`${base}/beslutninger?besked=${ok ? "tilbage" : "afgjort"}`);
   }
 
   if (path === "/arrangementer" && request.method === "GET") {

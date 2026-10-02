@@ -37,7 +37,9 @@ describe("digital votes in the board", () => {
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
     const as = (who: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}`;
 
-    expect(await (await call("/", { cookie: as("Lisbeth") })).text()).toContain('href="/afstemninger">Afstemninger</a>');
+    // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.
+    expect(await (await call("/", { cookie: as("Lisbeth") })).text()).not.toContain('href="/afstemninger">Afstemninger</a>');
+    expect((await call("/afstemninger?besked=ny", { cookie: as("Lisbeth") })).headers.get("location")).toBe("/beslutninger?besked=ny");
     const made = await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi forlænger prøveperioden til 1. december", text: "Flere nye medlemmer.", days: "7" }) });
     expect(made.headers.get("location")).toContain("besked=ny");
 
@@ -46,7 +48,7 @@ describe("digital votes in the board", () => {
       expect(await (await call("/opgaver", { cookie: as(who) })).text()).toContain("Stem om: Vi forlænger prøveperioden til 1. december");
       expect(await (await call("/", { cookie: as(who) })).text()).toContain("Stem om: Vi forlænger prøveperioden");
     }
-    const page = await (await call("/afstemninger", { cookie: as("Gitta") })).text();
+    const page = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
     expect(page).toContain("vedtaget ved 2 stemmer for");
     expect(page).toContain("Stem for");
 
@@ -60,11 +62,12 @@ describe("digital votes in the board", () => {
     expect(await (await call("/opgaver", { cookie: as("Jacob Hauge") })).text()).not.toContain("Stem om:");
     const decisions = await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text();
     expect(decisions).toContain("Vi forlænger prøveperioden til 1. december");
-    expect(decisions).toContain('href="/afstemninger#p1">Afstemning</a>');
+    expect(decisions).toContain('href="#p1">Afstemning</a>');
+    expect(decisions).toContain('<article class="prop" id="p1">');
     const late = await call("/afstemninger/stem", { method: "POST", cookie: as("Jacob Hauge"), body: form({ id: "1", vote: "imod" }) });
     expect(late.headers.get("location")).toContain("besked=afgjort");
     // Requested: "Giv det et flot badge \"GODKENDT\" ved godkendelse".
-    expect(await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text()).toContain('<span class="approved-badge">');
+    expect(await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text()).toContain('<span class="approved-badge">');
     expect(decisions).toContain("GODKENDT</span>");
   });
 
@@ -82,10 +85,10 @@ describe("digital votes in the board", () => {
     const as = (who: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}`;
 
     await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi holder åbent hus i november", text: "", days: "7" }) });
-    expect(await (await call("/afstemninger", { cookie: as("Gitta") })).text()).toContain("Jeg ønsker at drøfte dette på et møde");
+    expect(await (await call("/beslutninger", { cookie: as("Gitta") })).text()).toContain("Jeg ønsker at drøfte dette på et møde");
     const noted = await call("/afstemninger/droeft", { method: "POST", cookie: as("Gitta"), body: form({ id: "1" }) });
     expect(noted.headers.get("location")).toContain("besked=droeft");
-    const page = await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text();
+    const page = await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text();
     expect(page).toContain("Ønskes drøftet på et møde af Gitta");
     expect(page).toContain("Stem for");
     expect(await (await call("/opgaver", { cookie: as("Gitta") })).text()).toContain("Stem om: Vi holder åbent hus i november");
@@ -98,6 +101,6 @@ describe("digital votes in the board", () => {
 
     // Pressed again, it is taken back.
     expect((await call("/afstemninger/droeft", { method: "POST", cookie: as("Gitta"), body: form({ id: "1" }) })).headers.get("location")).toContain("besked=ikkedroeft");
-    expect(await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text()).not.toContain("Ønskes drøftet på et møde af");
+    expect(await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text()).not.toContain("Ønskes drøftet på et møde af");
   });
 });
