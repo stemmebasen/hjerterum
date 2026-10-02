@@ -1,6 +1,7 @@
 import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { scheduledBoardNow } from "../cockpit/boardNow.js";
+import { scheduledSiteSync } from "../cockpit/site.js";
 import { complete } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
@@ -388,6 +389,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Bestyrelsen lige nu" - "en gang i timen ... resume og overblik over hvad der rører sig netop nu".
   await scheduledBoardNow(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_now_failed", error instanceof Error ? error.message : error));
+  // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
+  await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));
   if (parts.weekday === "Sun" && parts.hour === "18" && env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));

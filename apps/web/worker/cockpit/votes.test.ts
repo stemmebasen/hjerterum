@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { outcome } from "./votes.js";
+import { saveMeeting } from "./data.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 
@@ -65,5 +66,38 @@ describe("digital votes in the board", () => {
     // Requested: "Giv det et flot badge \"GODKENDT\" ved godkendelse".
     expect(await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text()).toContain('<span class="approved-badge">');
     expect(decisions).toContain("GODKENDT</span>");
+  });
+
+  it("lets a member note that they want to discuss a proposal at a meeting, for Saga's agenda, while the vote goes on", async () => {
+    const db = testDatabase();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
+    let agendaPrompt = "";
+    const services = fakeServices({ ai: system => { agendaPrompt = system; return '{"items":["Godkendelse af dagsorden"]}'; } });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
+      ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
+    const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
+    const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const as = (who: string) => `${session}; hjerterum_cockpit_who=${encodeURIComponent(who)}`;
+
+    await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi holder åbent hus i november", text: "", days: "7" }) });
+    expect(await (await call("/afstemninger", { cookie: as("Gitta") })).text()).toContain("Jeg ønsker at drøfte dette på et møde");
+    const noted = await call("/afstemninger/droeft", { method: "POST", cookie: as("Gitta"), body: form({ id: "1" }) });
+    expect(noted.headers.get("location")).toContain("besked=droeft");
+    const page = await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text();
+    expect(page).toContain("Ønskes drøftet på et møde af Gitta");
+    expect(page).toContain("Stem for");
+    expect(await (await call("/opgaver", { cookie: as("Gitta") })).text()).toContain("Stem om: Vi holder åbent hus i november");
+
+    // Saga's agenda suggestion sees it.
+    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "" }, "Jacob Hauge", NOW);
+    await call(`/moder/${meetingId}/forslag`, { method: "POST", cookie: as("Jacob Hauge") });
+    expect(agendaPrompt).toContain("Vi holder åbent hus i november (forslag fra Lisbeth)");
+    expect(agendaPrompt).toContain("ØNSKES DRØFTET PÅ ET MØDE af Gitta");
+
+    // Pressed again, it is taken back.
+    expect((await call("/afstemninger/droeft", { method: "POST", cookie: as("Gitta"), body: form({ id: "1" }) })).headers.get("location")).toContain("besked=ikkedroeft");
+    expect(await (await call("/afstemninger", { cookie: as("Jacob Hauge") })).text()).not.toContain("Ønskes drøftet på et møde af");
   });
 });

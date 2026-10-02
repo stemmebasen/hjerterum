@@ -153,7 +153,8 @@ describe("Saga as a listener only (the default)", () => {
     await webhook(env, services.fetcher, boardMessage(2, "Saga, hvornår er næste møde?"));
     expect(await count(db, "board_messages")).toBe(1);
     expect(await count(db, "board_post_drafts")).toBe(0);
-    expect(services.calls).toHaveLength(0);
+    // Only the daily read of holistisk.org (no AI) - nothing to Telegram, nothing to the AI.
+    expect(services.calls.filter(call => !call.url.startsWith("https://holistisk.org/wp-json/"))).toHaveLength(0);
   });
 
   it("gives the weekly summary to the chair privately, and approved minutes stay with him", async () => {
@@ -346,7 +347,8 @@ describe("Saga's weekly summary and Liva's overview", () => {
     const db = testDatabase(), services = fakeServices();
     await runSagaJobs(sagaEnv(db), deps(services.fetcher, sunday18));
     expect(await count(db, "board_post_drafts")).toBe(0);
-    expect(services.calls).toHaveLength(0);
+    // Only the daily read of holistisk.org (no AI) - nothing to Telegram, nothing to the AI.
+    expect(services.calls.filter(call => !call.url.startsWith("https://holistisk.org/wp-json/"))).toHaveLength(0);
   });
 
   it("shows Liva the board's week behind a bearer secret", async () => {

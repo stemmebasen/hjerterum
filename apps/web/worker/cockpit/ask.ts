@@ -11,6 +11,8 @@ import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } 
 import { allDecisions, allTasks, approvedMinutes, boardPicture, openFor, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
+import { MEMBERSHIP_FACTS } from "./membership.js";
+import { siteForSaga } from "./site.js";
 import { STATUTES } from "./statutes.js";
 import { votesForSaga } from "./votes.js";
 import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
@@ -153,10 +155,10 @@ async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: s
  * the board, for the question asked - in the cockpit and when the chair asks her in Telegram. */
 export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Database, question: string): Promise<string> {
   const now = deps.now();
-  const [minutes, { picture }, list, chat, members, house, doc, mail] = await Promise.all([approvedMinutes(db), boardPicture(db, now), meetings(db),
+  const [minutes, { picture }, list, chat, members, house, doc, mail, site] = await Promise.all([approvedMinutes(db), boardPicture(db, now), meetings(db),
     env.SAGA_BOARD_CHAT_ID ? recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 60 * DAY, 400) : Promise.resolve([]), memberNumbers(db), events(db, deps, now, question),
     env.GOOGLE_MINUTES_DOC_ID ? minutesDocText(env, deps).then(text => trimMinutesDoc(text.trim(), 25_000)).catch(() => "") : Promise.resolve(""),
-    teamMail(db, now, question)]);
+    teamMail(db, now, question), siteForSaga(db, question)]);
   const d = picture?.document;
   const parts = [
     `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}`,
@@ -168,10 +170,14 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
+    // Requested: "Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber".
+    `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
     // Requested: "Opret forslag til afstemning" - the board's digital votes.
     `DIGITALE AFSTEMNINGER I BESTYRELSEN (vedtaget ved flertal af bestyrelsen):\n${await votesForSaga(db, now)}`,
     // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
     `LEJE AF SALEN - PRISER OG REGLER (Hjerterums prisberegner):\n${ROOM_RENTAL_RULES}`,
+    // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig".
+    `HJEMMESIDEN holistisk.org (Hjerterums offentlige sider):\n${site}`,
     `ARRANGEMENTER I HUSET (Hjerterums kalender på holistisk.org):\n${house}`,
     `GODKENDTE REFERATER - det nyeste er den gældende sandhed:\n${minutesForQuestion(minutes, question)}`,
     doc ? `BESTYRELSENS REFERATDOKUMENT:\n${doc}` : "",

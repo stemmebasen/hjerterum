@@ -1,0 +1,37 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { handleCockpitRequest } from "./handler.js";
+import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+
+// Requested: "Ændr: Hej \"navn\"🙂 Jeg er Saga. Spørg mig f. eks. om vedtægter, beslutninger, sager, møder, arrangementer og
+// medlemsskab. Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber" - and "Douglas taler engelsk".
+const ORIGIN = "https://admin.hjerterum.example";
+const NOW = Date.parse("2026-10-02T10:00:00Z");
+
+describe("Saga's greeting and what she knows about membership", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("greets by first name and answers membership questions from the house's own pages, in the asker's language", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    let system = "";
+    const services = fakeServices({ ai: s => { system = s; return "Standard koster 222 kr. om måneden."; } });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, init: RequestInit & { cookie?: string; json?: boolean } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
+      ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.json ? { "content-type": "application/json" } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
+    const login = new FormData(); login.append("password", "hjerte-2026");
+    const session = ((await call("/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
+
+    expect(await (await call("/", { cookie: `${session}; hjerterum_cockpit_who=${encodeURIComponent("Douglas Smith")}` })).text())
+      .toContain("Hej Douglas 🙂 Jeg er Saga. Spørg mig f.eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab.");
+
+    const answer = await call("/saga", { method: "POST", json: true, cookie: `${session}; hjerterum_cockpit_who=Lisbeth`, body: JSON.stringify({ question: "Hvad koster et medlemskab?", history: [] }) });
+    expect(answer.status).toBe(200);
+    expect(system).toContain("MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR");
+    expect(system).toContain("- Generøst medlemskab: 333 kr. / 3.465 kr.");
+    expect(system).toContain("Support medlemskab: 50 kr. / 540 kr.");
+    expect(system).toContain("Bindingsperiode: løbende måned + 1 måned");
+    expect(system).toContain("tribes@holistisk.org");
+    expect(system).toContain("betaling dér er ikke åbnet endnu");
+    expect(system).toContain("Svar på det sprog, spørgsmålet er stillet på");
+  });
+});
