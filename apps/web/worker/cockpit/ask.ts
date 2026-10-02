@@ -12,6 +12,7 @@ import { allDecisions, approvedMinutes, boardPicture, type ApprovedMinutes, meet
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { STATUTES } from "./statutes.js";
+import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
  * vedtægter, beslutninger, sager, events og medlemmer". A board member asks in the cockpit and gets
@@ -166,6 +167,8 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
     `MEDLEMSTAL:\n${members}`,
+    // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
+    `LEJE AF SALEN - PRISER OG REGLER (Hjerterums prisberegner):\n${ROOM_RENTAL_RULES}`,
     `ARRANGEMENTER I HUSET (Hjerterums kalender på holistisk.org):\n${house}`,
     `GODKENDTE REFERATER - det nyeste er den gældende sandhed:\n${minutesForQuestion(minutes, question)}`,
     doc ? `BESTYRELSENS REFERATDOKUMENT:\n${doc}` : "",
