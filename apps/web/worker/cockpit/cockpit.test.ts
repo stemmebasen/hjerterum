@@ -285,6 +285,11 @@ describe("the board cockpit", () => {
     expect(await response.json()).toEqual({ html: "<p>Ifølge <strong>§ 6, stk. 7</strong> skal forslag være formanden i hænde senest 2 uger før.</p><ul><li>Spørg gerne igen</li></ul>" });
     expect(seen).toContain("Vedtægter for foreningen");
     expect(seen).toContain("1 med status active (standard)");
+    // Requested: "Det vil være godt hvis hun kan blive klædt på til lovgivning indenfor foreninger med begrænset ansvar".
+    expect(seen).toContain("FORENINGSRET");
+    expect(seen).toContain("§ 4, stk. 1: Foreningen kan undlade årsrapport");
+    expect(seen).toContain("https://www.retsinformation.dk/eli/lta/2026/639");
+    expect(seen).toContain("Opfind aldrig en paragraf");
     expect(seen).toContain("Lisbeth spørger: Hvornår skal forslag til GF være inde?");
     for (const secret of ["Hemmelig Hansen", "hemmelig@example.com", "Udkast ikke godkendt endnu"]) expect(seen).not.toContain(secret);
     // Only the asker's own turns come along, never a system message from the page.
