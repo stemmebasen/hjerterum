@@ -327,13 +327,16 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
-    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), chairSignedIn ? teamMailAccount(db) : Promise.resolve(null)]);
+    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), who && who === members.chair ? teamMailAccount(db) : Promise.resolve(null)]);
     const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
       fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
     return html(postPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
       watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
-      mailbox: chairSignedIn ? { address: account?.address ?? null, by: account?.connected_by ?? null, at: account?.connected_at_ms ?? null, notice: mailNotice } : null }));
+      // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - logged in with the shared password the chair saw no card at all.
+      // The chair always sees it; only connecting or disconnecting needs Saga's personal link (anyone could say they are the chair).
+      mailbox: who && who === members.chair ? { address: account?.address ?? null, by: account?.connected_by ?? null, at: account?.connected_at_ms ?? null, notice: mailNotice,
+        canChange: chairSignedIn, loginLink: botLink } : null }));
   }
   // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Only the chair, logged in
   // with a personal link, connects or disconnects team@.
