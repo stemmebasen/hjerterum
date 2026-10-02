@@ -21,7 +21,10 @@ import { archivePage, decisionsPage, layout, loginPage, meetingPage, meetingsPag
  * personlige todos) - baseret på hvem der er logget ind." - "Til start laver vi bare ét samlet login".
  * On cockpit.<domain> the cockpit is the whole site; elsewhere it lives under /cockpit. */
 
-export const isCockpitRequest = (url: URL) => url.hostname.startsWith("cockpit.") || url.pathname === "/cockpit" || url.pathname.startsWith("/cockpit/");
+/** Requested: "Lad os kalde den admin.hjerterum.info". admin.<domain> (and cockpit.<domain>) is the
+ * cockpit's own address: the whole site is the cockpit there. */
+export const isCockpitHost = (hostname: string) => /^(?:admin|cockpit)\./i.test(hostname);
+export const isCockpitRequest = (url: URL) => isCockpitHost(url.hostname) || url.pathname === "/cockpit" || url.pathname.startsWith("/cockpit/");
 const AUDIO = /\.(mp3|m4a|mp4|aac|wav|ogg|oga|webm)$/i;
 const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
 
@@ -39,7 +42,10 @@ const redirect = (location: string, cookies: string[] = []) => {
 
 export async function handleCockpitRequest(request: Request, env: SagaEnv, deps: SagaDeps): Promise<Response> {
   const url = new URL(request.url);
-  const base = url.hostname.startsWith("cockpit.") ? "" : "/cockpit";
+  const base = isCockpitHost(url.hostname) ? "" : "/cockpit";
+  // An old /cockpit/… link on the cockpit's own address goes to the same page without the prefix.
+  if (!base && (url.pathname === "/cockpit" || url.pathname.startsWith("/cockpit/")) && (request.method === "GET" || request.method === "HEAD"))
+    return new Response(null, { status: 301, headers: { location: (url.pathname.slice("/cockpit".length) || "/") + url.search, "cache-control": "no-store" } });
   const path = (base ? url.pathname.slice(base.length) : url.pathname) || "/";
   const secure = url.protocol === "https:";
   const now = deps.now();
