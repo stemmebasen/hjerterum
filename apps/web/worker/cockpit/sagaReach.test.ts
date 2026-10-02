@@ -13,13 +13,16 @@ describe("Saga's reach", () => {
   it("lists every approved minutes and reads the ones the question points to in full", () => {
     const all = [...Array.from({ length: 12 }, (_, i) => minutes(`2026-${String(10 - Math.floor(i / 2)).padStart(2, "0")}-${i % 2 ? "01" : "15"}`, `# Referat\n## Økonomi\n- Punkt ${i}`)),
       minutes("2025-03-04", "# Referat\n## Lejekontrakt\n- Udlejeren hæver huslejen"), minutes("2024-11-20", "# Referat\n## Generalforsamling\n- Dirigent valgt")];
-    const text = minutesForQuestion(all, "Hvad blev der sagt om huslejen?");
+    // All of them, when they fit; with less room, the newest and the ones the question points to.
+    expect(minutesForQuestion(all, "Hvad blev der sagt om huslejen?")).toContain("Dirigent valgt");
+    const budget = 9 * 30 + 50;
+    const text = minutesForQuestion(all, "Hvad blev der sagt om huslejen?", budget);
     expect(text).toContain("ALLE 14 GODKENDTE REFERATER");
-    expect(text).toContain("- 2024-11-20: Generalforsamling");
     expect(text).toContain("Udlejeren hæver huslejen");
     expect(text).not.toContain("Dirigent valgt");
-    expect(minutesForQuestion(all, "Hvad står der i referatet fra 20. november 2024?")).toContain("Dirigent valgt");
-    expect(minutesForQuestion(all, "Referatet fra 2024-11-20?")).toContain("Dirigent valgt");
+    expect(text).toContain("2024-11-20 [kun overskrifter - spørg efter datoen]: Generalforsamling");
+    expect(minutesForQuestion(all, "Hvad står der i referatet fra 20. november 2024?", budget)).toContain("Dirigent valgt");
+    expect(minutesForQuestion(all, "Referatet fra 2024-11-20?", budget)).toContain("Dirigent valgt");
     expect(text.indexOf("NYESTE REFERAT (gældende) 2026-10-15")).toBeGreaterThan(0);
   });
 
@@ -27,6 +30,8 @@ describe("Saga's reach", () => {
     const db = testDatabase();
     await insertMail(db, { ref: "a", sender: "Maria <maria@example.com>", subject: "Leje af salen", receivedAtMs: NOW - DAY, preview: "Hej, kan jeg leje salen til yoga?", nowMs: NOW });
     await insertMail(db, { ref: "b", sender: "Udlejer <udlejer@example.com>", subject: "Varsling af huslejestigning", receivedAtMs: NOW - 200 * DAY, preview: "Huslejen stiger med 4 procent fra 1. januar.", nowMs: NOW });
+    // The same mail again under another reference (the year before the connection is relayed too) is kept once.
+    expect(await insertMail(db, { ref: "a2", sender: "Maria <maria@example.com>", subject: "Leje af salen", receivedAtMs: NOW - DAY, preview: "Hej", nowMs: NOW })).toBeNull();
     const plain = await teamMail(db, NOW, "Hvad skriver folk til os?");
     expect(plain).toContain("Leje af salen");
     expect(plain).not.toContain("Varsling af huslejestigning");

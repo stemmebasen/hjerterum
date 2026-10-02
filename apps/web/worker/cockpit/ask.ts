@@ -72,9 +72,9 @@ const MONTHS = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "a
 const FULL_MINUTES = 8, MORE_MINUTES = 6, MINUTES_CHARS = 140_000;
 
 /** Requested: "Saga skal ... kunne gennemse alle referater". Every approved minutes is listed (date and
- * its points), the newest are read in full, and so are the older ones the question points to - by
- * date ("3. september", "september 2025", 2025-09-03) or by its words. */
-export function minutesForQuestion(minutes: ApprovedMinutes[], question: string): string {
+ * its points). The newest and the ones the question points to - by date ("3. september", "september 2025",
+ * 2025-09-03) or by its words - are read in full, and the rest too, newest first, as long as they fit. */
+export function minutesForQuestion(minutes: ApprovedMinutes[], question: string, budget = MINUTES_CHARS): string {
   if (!minutes.length) return "(ingen)";
   const q = question.toLocaleLowerCase("da-DK");
   const words = questionWords(question);
@@ -86,18 +86,20 @@ export function minutesForQuestion(minutes: ApprovedMinutes[], question: string)
       || new RegExp(`\\b${month}\\s+${y}\\b`).test(q);
   };
   const hits = (m: ApprovedMinutes) => { const text = (m.draft_markdown ?? "").toLocaleLowerCase("da-DK"); return words.filter(w => text.includes(w)).length; };
-  const older = minutes.slice(FULL_MINUTES).map(m => ({ m, score: (dated(m) ? 100 : 0) + hits(m) })).filter(x => x.score > 0)
+  const pointed = minutes.slice(FULL_MINUTES).map(m => ({ m, score: (dated(m) ? 100 : 0) + hits(m) })).filter(x => x.score > 0)
     .sort((a, b) => b.score - a.score).slice(0, MORE_MINUTES).map(x => x.m);
-  const chosen = new Set([...minutes.slice(0, FULL_MINUTES), ...older]);
-  let budget = MINUTES_CHARS;
-  const full = minutes.filter(m => chosen.has(m)).map((m, i) => {
-    const text = (m.draft_markdown ?? "").slice(0, Math.max(0, budget));
-    budget -= text.length;
-    return `--- ${i === 0 && m === minutes[0] ? "NYESTE REFERAT (gældende)" : "Referat"} ${m.meeting_date ?? ""} ---\n${text}`;
-  });
+  const chosen = new Set<ApprovedMinutes>();
+  let used = 0;
+  for (const m of [...minutes.slice(0, FULL_MINUTES), ...pointed, ...minutes]) {
+    const size = (m.draft_markdown ?? "").length;
+    if (chosen.has(m) || used + size > budget) continue;
+    chosen.add(m);
+    used += size;
+  }
+  const full = minutes.filter(m => chosen.has(m)).map(m => `--- ${m === minutes[0] ? "NYESTE REFERAT (gældende)" : "Referat"} ${m.meeting_date ?? ""} ---\n${m.draft_markdown ?? ""}`);
   const points = (m: ApprovedMinutes) => (m.draft_markdown ?? "").split(/\r?\n/).filter(line => /^#{2,3}\s+/.test(line)).map(line => line.replace(/^#+\s+/, "").trim()).slice(0, 8).join("; ");
-  const index = minutes.map(m => `- ${m.meeting_date ?? "uden dato"}${m.source === "document" ? " (fra referatdokumentet)" : ""}${chosen.has(m) ? " [læst herunder]" : ""}: ${points(m) || "-"}`);
-  return `ALLE ${minutes.length} GODKENDTE REFERATER (nyeste først; spørg efter en dato for at få et ældre læst i fuld længde):\n${index.join("\n")}\n\n${full.join("\n\n")}`;
+  const index = minutes.map(m => `- ${m.meeting_date ?? "uden dato"}${m.source === "document" ? " (fra referatdokumentet)" : ""}${chosen.has(m) ? "" : " [kun overskrifter - spørg efter datoen]"}: ${points(m) || "-"}`);
+  return `ALLE ${minutes.length} GODKENDTE REFERATER (nyeste først):\n${index.join("\n")}\n\n${full.join("\n\n")}`;
 }
 
 type TeamMail = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_summary: string | null; handled_by: string | null };
