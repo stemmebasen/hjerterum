@@ -1,4 +1,6 @@
 import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
+import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../cockpit/ask.js";
+import { boardMembers } from "../cockpit/data.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
@@ -189,6 +191,21 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så
     // forsvinder opgaven begge steder" - the chair's open items as the cockpit shows them, and Matrix's "done".
     if (url.pathname === "/api/saga/liva/chair-tasks" && request.method === "GET") return json(await chairItems(env, db, deps.now()));
+    // Requested: "Kan jeg have Saga og Zilla tilgængelig i chat i Matrix på en klog måde?" - "Ja". The chair asks Saga from
+    // Matrix's chat: the same answer as in the cockpit (her own knowledge and EU model, the same daily limit); Matrix only
+    // shows it. Links point into the cockpit.
+    if (url.pathname === "/api/saga/liva/ask" && request.method === "POST") {
+      const input = askInput(await request.json().catch(() => null));
+      if (!input) return json({ error: "invalid_request" }, 400);
+      if (!env.AI_API_KEY || !env.AI_MODEL) return json({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
+      if (await questionsToday(db, deps.now()) >= DAILY_QUESTIONS) return json({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
+      const chair = (await boardMembers(env, db)).chair;
+      try { return json({ answer: await askSagaMarkdown(env, deps, db, chair, input, `${url.origin}/cockpit`) }); }
+      catch (error) {
+        console.warn("saga_liva_ask_failed", error instanceof Error ? error.message : error);
+        return json({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);
+      }
+    }
     if (url.pathname === "/api/saga/liva/chair-tasks/done" && request.method === "POST") {
       const body = await request.json().catch(() => null) as { key?: unknown } | null;
       const key = typeof body?.key === "string" && /^[a-z0-9]{1,16}$/.test(body.key) ? body.key : "";
