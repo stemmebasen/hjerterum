@@ -24,4 +24,13 @@ describe("Hjerterum Lys", () => {
   it("loads the same fonts on the React pages", () => {
     expect(indexHtml.replaceAll("&amp;", "&")).toContain(LYS_FONTS_URL);
   });
+
+  it("dresses the board's cockpit in the same design", async () => {
+    const { layout } = await import("./cockpit/page.js");
+    const html = layout("", "Overblik", "<main><h1>Overblik</h1></main>", { section: "/", who: "Jacob Hauge" });
+    expect(html).toContain(LYS_FONTS_URL.replaceAll("&", "&amp;"));
+    expect(html).toContain("--lys-bg:#fbfaf8");
+    expect(html).toContain("<b>Hjerterum</b>");
+    expect(html).not.toMatch(/Bricolage|#2446d8|--glow/);
+  });
 });
