@@ -5,10 +5,9 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
+import { LysArt, LysTop } from "./lys";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
-
-const LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
 
 type Member = {
   id: number;
@@ -141,11 +140,8 @@ function WorkspaceHeader({
   const links = mode === "admin" ? adminLinks : memberLinks;
 
   return (
-    <header className="workspace-header">
-      <a href="/" className="workspace-brand" aria-label="Hjerterum forside">
-        <img src={LOGO_URL} alt="Hjerterum" />
-      </a>
-      <nav aria-label={mode === "admin" ? "Adminnavigation" : "Medlemsnavigation"}>
+    <LysTop right={<UserButton clerk={clerk} />}>
+      <nav className="lys-nav" aria-label={mode === "admin" ? "Adminnavigation" : "Medlemsnavigation"}>
         {links.map(([href, label]) => {
           const isMemberOverview = href === "/member-portal/" && path === "/member-portal/dashboard";
           return (
@@ -155,8 +151,7 @@ function WorkspaceHeader({
           );
         })}
       </nav>
-      <UserButton clerk={clerk} />
-    </header>
+    </LysTop>
   );
 }
 
@@ -165,47 +160,90 @@ function Status({ value }: { value: string }) {
   return <span className={"workspace-status " + (active ? "is-active" : "")}>{active ? "Aktiv" : value.replaceAll("_", " ")}</span>;
 }
 
+const REVIEW_LABEL: Record<NonNullable<Booking["reviewStatus"]>, [string, string]> = {
+  pending: ["Afventer godkendelse", "clay"],
+  needs_board: ["Hos bestyrelsen", "clay"],
+  approved: ["Godkendt", "sage"],
+  rejected: ["Ikke godkendt", "rose"]
+};
+
+/** Hjerterum Lys (apps/web/lys.ts), in the website's layout: kicker, a serif headline with its italic line, the text
+ * beside it; then the figures and the two lists a member comes for. */
 function MemberOverview({ member, calendar }: { member: Member | null; calendar: Booking[] }) {
   const registrations = calendar.filter((booking) => booking.isAttending);
+  const owned = calendar.filter((booking) => booking.isOwner);
+  const awaiting = owned.filter((booking) => booking.reviewStatus === "pending" || booking.reviewStatus === "needs_board").length;
+  const benefits = includesMemberBenefits(member?.tier ?? null);
+  const firstName = member?.fullName.trim().split(/\s+/)[0];
   return (
-    <>
-      <section className="workspace-hero">
-        <p className="kicker">Dit Hjerterum</p>
-        <h1>Godt at se dig{member?.fullName ? ", " + member.fullName.split(" ")[0] : ""}.</h1>
-        <p>Her har du medlemskab, events og dine oplysninger samlet ét sted.</p>
-      </section>
-      <div className="workspace-cards">
-        <article className="workspace-card">
-          <p className="kicker">Medlemskab</p>
-          {member && (
-            <>
-              <Status value={member.status} />
-              <h2>{membershipName(member.tier)}</h2>
-              <p>{member.managedExternally ? "Eksisterende medlemskab via MembershipWorks" : member.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
-              {member.managedExternally
-                ? <span className="workspace-note">Dit eksisterende medlemskab fortsætter uændret.</span>
-                : <a className="text-link" href="/member-portal/medlemskab">Betaling og medlemskab →</a>}
-            </>
-          )}
-        </article>
-        <article className="workspace-card">
-          <p className="kicker">Næste tilmelding</p>
-          {registrations[0] ? (
-            <>
-              <time>{formatDate(registrations[0].startsAt)}</time>
-              <h2>{registrations[0].title}</h2>
-              <a className="text-link" href="/member-portal/kalender">Se dine tilmeldinger →</a>
-            </>
-          ) : (
-            <>
-              <h2>Din kalender er åben</h2>
-              <p>Du er ikke tilmeldt et kommende event.</p>
-              <a className="text-link" href="/member-portal/kalender">Se kalenderen →</a>
-            </>
-          )}
-        </article>
+    <section className="lys-page member-overview">
+      <div className="lys-intro">
+        <div className="lys-rise">
+          <p className="lys-kicker">Dit Hjerterum</p>
+          <h1 className="lys-title">{firstName ? "Hej " + firstName + "." : "Velkommen."}<em>Godt at se dig.</em></h1>
+        </div>
+        <div className="member-overview-side lys-rise d2">
+          <LysArt size="mini" />
+          <p>Her har du dit medlemskab, dine tilmeldinger og dine egne events samlet ét sted.</p>
+        </div>
       </div>
-    </>
+      {member && (
+        <div className="lys-tiles lys-rise d3">
+          <div className="lys-tile"><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
+            <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/medlemskab">betaling →</a></>}</small></div>
+          {benefits && <div className="lys-tile"><span>Tilmeldt</span><b>{registrations.length}</b>
+            <small>{registrations[0] ? "næste: " + formatDate(registrations[0].startsAt) : "ingen kommende"}</small></div>}
+          {benefits && <div className="lys-tile"><span>Mine events</span><b>{owned.length}</b>
+            <small>{awaiting ? awaiting + " afventer godkendelse" : owned.length ? "alle behandlet" : "ingen endnu"}</small></div>}
+        </div>
+      )}
+      <div className="lys-grid lys-rise d4">
+        {benefits ? (
+          <>
+            <article className="lys-card">
+              <p className="lys-kicker">Kalender</p>
+              <h2>Mine tilmeldinger</h2>
+              {registrations.length ? (
+                <ul className="lys-list">
+                  {registrations.slice(0, 4).map((booking) => (
+                    <li key={booking.id}><span>{booking.title}<span className="lys-meta">{formatDate(booking.startsAt)}</span></span>
+                      {booking.registrationStatus === "pending" ? <span className="lys-chip clay">Afventer</span> : <span className="lys-chip sage">Tilmeldt</span>}</li>
+                  ))}
+                </ul>
+              ) : <p className="lys-sub">Du er ikke tilmeldt et kommende event.</p>}
+              <p className="member-overview-more"><a className="lys-link" href="/member-portal/kalender">{registrations.length ? "Se kalenderen og afmeld →" : "Find et event i kalenderen →"}</a></p>
+            </article>
+            <article className="lys-card sage">
+              <p className="lys-kicker">Salen</p>
+              <h2>Mine events</h2>
+              {owned.length ? (
+                <ul className="lys-list">
+                  {owned.slice(0, 4).map((booking) => {
+                    const [label, tone] = REVIEW_LABEL[booking.reviewStatus ?? "approved"];
+                    return <li key={booking.id}><span>{booking.title}<span className="lys-meta">{formatDate(booking.startsAt)}</span></span><span className={"lys-chip " + tone}>{label}</span></li>;
+                  })}
+                </ul>
+              ) : <p className="lys-sub">Som medlem kan du leje salen og lægge dit event i Hjerterums kalender.</p>}
+              <p className="member-overview-more"><a className="lys-btn" href="/member-portal/events">{owned.length ? "Administrér dine events" : "Opret et event"}</a></p>
+            </article>
+          </>
+        ) : (
+          <>
+            <article className="lys-card sage">
+              <p className="lys-kicker">Støttemedlem</p>
+              <h2>Tak fordi du støtter Hjerterum</h2>
+              <p className="lys-sub">{membershipPlansSupportText}</p>
+            </article>
+            <article className="lys-card">
+              <p className="lys-kicker">Medlemskab</p>
+              <h2>{member ? membershipName(member.tier) : "Dit medlemskab"}</h2>
+              <p className="lys-sub">{member?.managedExternally ? "Dit eksisterende medlemskab via MembershipWorks fortsætter uændret." : "Betaling, kort og opsigelse finder du samlet ét sted."}</p>
+              {!member?.managedExternally && <a className="lys-link" href="/member-portal/medlemskab">Betaling og medlemskab →</a>}
+            </article>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 

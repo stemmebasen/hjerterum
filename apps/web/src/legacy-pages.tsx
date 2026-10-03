@@ -17,11 +17,11 @@ const groups = [
   {title:"English", links:[["Welcome","/welcome"],["Events","/events-en"],["About us","/vision-en"],["The team","/team"],["Membership","/become-a-member"],["Membership benefits","/benefits-of-membership"],["Membership terms","/conditions-of-membership"],["About our room","/use-hjerterum"],["Book room","/price-list"],["Practical information","/guidelines-for-teachers"],["Rental terms","/conditions-for-renting-the-room"],["Managing your event","/managing-your-event"],["Marketing your event","/marketing-of-your-event"],["Contact","/contact-us"],["Donations","/donations"]]}
 ];
 export function PublicNavigation() {
-  return <nav className="site-nav" aria-label="Hovednavigation">
+  return <nav className="site-nav lys-nav" aria-label="Hovednavigation">
     {groups.map(group => <details key={group.title} name="public-navigation"><summary>{group.title}</summary>
       <div className="nav-dropdown">{group.links.map(([label,href])=><a key={href} href={href}>{label}</a>)}</div>
     </details>)}
-    <a href="/behandlere">Behandlere</a><a href="/kontakt-os">Kontakt</a><a className="nav-login" href="/sign-in">Log ind</a>
+    <a href="/behandlere">Behandlere</a><a href="/kontakt-os">Kontakt</a><a className="nav-login lys-pill" href="/sign-in">Log ind</a>
   </nav>;
 }
 // Static, allowlist-sanitised content checked into GitHub. No live WordPress HTML is executed.

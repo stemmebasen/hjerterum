@@ -27,4 +27,12 @@ describe("medlem.hjerterum.info", () => {
     expect((await config.fetch(new Request("https://admin.hjerterum.info/"), env())).status).toBe(401);
     expect(await (await config.fetch(new Request("https://hjerterum-platform-staging.example.workers.dev/"), env())).text()).toBe("spa /");
   });
+
+  it("serves the shared logo on every address", async () => {
+    for (const host of ["medlem.hjerterum.info", "admin.hjerterum.info", "hjerterum-platform-staging.example.workers.dev"]) {
+      const response = await config.fetch(new Request(`https://${host}/logo.png`), env());
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("image/png");
+    }
+  });
 });

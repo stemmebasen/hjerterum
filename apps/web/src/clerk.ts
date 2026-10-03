@@ -90,7 +90,7 @@ async function initializeClerk(): Promise<ClerkBrowser | null> {
   await window.Clerk.load({
     ui: { ClerkUI: window.__internal_ClerkUICtor },
     appearance: { variables: {
-      fontFamily: "Arial, sans-serif",
+      fontFamily: "Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif",
       colorPrimary: "var(--profile-button)",
       colorPrimaryForeground: "var(--profile-button-ink)",
       colorBackground: "var(--profile-surface)",
