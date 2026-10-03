@@ -76,6 +76,7 @@ This document is the primary product and migration specification for the new Hje
 - New members are onboarded into the new system and receive the agreed first 30 days free. Existing records do not receive a new trial merely because they are re-imported.
 - Member profiles can expose practitioner/teacher visit-card information where the member chooses to do so.
 - Hjerterum membership may confer CIRKLER eligibility through the separate CIRKLER integration.
+- CIRKLER sign-up from the member portal (decided 2026-10-03): the "Min CIRKLER-profil" card asks the Worker for a signed, single-use Ed25519 ticket (`POST /api/integrations/cirkler/handoff`) and sends the member to cirkler.net, where they are logged in without a mail link. CIRKLER re-checks eligibility daily through `POST /api/integrations/cirkler/eligibility` with a service key. Members whose tier includes member benefits are eligible; Support is not. Hjerterum's team has no manual steps. Secrets: `CIRKLER_HANDOFF_PRIVATE_KEY`, `CIRKLER_SERVICE_KEY`, optional `CIRKLER_BASE_URL`. Code: `apps/web/worker/cirkler-integration.ts`.
 - Email-based fallback linking between Clerk and an existing member record is legacy behaviour that must be acceptance-tested before replacement.
 
 ### Events and rooms

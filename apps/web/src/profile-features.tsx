@@ -1,22 +1,45 @@
 import { useState } from "react";
-import type { ClerkBrowser } from "./clerk";
+import { apiFetch, type ClerkBrowser } from "./clerk";
 import { PublicProfileEditor } from "./public-profiles";
 
 export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: ClerkBrowser }) {
   const [section, setSection] = useState<"overview" | "public" | "cirkler">("overview");
+  const [opening, setOpening] = useState(false);
+  const [cirklerError, setCirklerError] = useState<string | null>(null);
+
+  // Hjerterum laver en signeret billet og sender medlemmet videre til cirkler.net. Profilen bor kun i CIRKLER.
+  async function openCirkler() {
+    setOpening(true);
+    setCirklerError(null);
+    try {
+      const response = await apiFetch(clerk, "/api/integrations/cirkler/handoff", { method: "POST" });
+      const body = await response.json().catch(() => ({})) as { url?: string; error?: string };
+      if (response.ok && body.url) {
+        window.location.assign(body.url);
+        return;
+      }
+      setCirklerError(body.error === "active_membership_required"
+        ? "Gratis CIRKLER kræver et aktivt medlemskab med medlemsgoder. Du kan stadig tilmelde dig direkte på cirkler.net."
+        : "Vi kunne ikke åbne CIRKLER lige nu. Prøv igen om lidt.");
+    } catch {
+      setCirklerError("Vi kunne ikke åbne CIRKLER lige nu. Prøv igen om lidt.");
+    }
+    setOpening(false);
+  }
   if (section === "public") return <PublicProfileEditor clerk={clerk} fullName={fullName} onBack={() => setSection("overview")} />;
 
   if (section === "cirkler") return <section className="profile-editor" aria-label="Min CIRKLER-profil">
     <button className="text-button" onClick={() => setSection("overview")}>← Tilbage til min profil</button>
     <p className="kicker">CIRKLER · uddybende profil</p><h2>Dit næste fællesskab</h2>
-    <p>Tilmeldingen begynder med en særskilt CIRKLER-profil. Her fortæller du om dine ønsker, før du bekræfter din tilmelding.</p>
+    <p>Som medlem af Hjerterum er du med i CIRKLER uden medlemsbetaling. Tryk på knappen, så åbner CIRKLERs tilmelding med dit medlemskab bekræftet. Har du allerede en CIRKLER-profil, bliver du logget direkte ind.</p>
     <ol className="profile-steps">
       <li><strong>Dine ønsker</strong><span>Hvad søger du i et fællesskab, og hvad interesserer dig?</span></li>
       <li><strong>Det praktiske</strong><span>Område, tidspunkter og det, du ønsker at fortælle os.</span></li>
       <li><strong>Gennemse og bekræft</strong><span>Se dine oplysninger, og vælg aktivt at tilmelde dig.</span></li>
     </ol>
-    <p className="profile-note">Din CIRKLER-profil vises ikke på Hjerterums offentlige hjemmeside. Tilmelding åbner ved den fælles lancering af Hjerterum og CIRKLER.</p>
-    <button className="pill-button dark" disabled>Tilmelding åbner ved lancering</button>
+    <p className="profile-note">Hjerterum sender dit navn, din e-mail, dit telefonnummer og en bekræftelse af dit medlemskab til CIRKLER. Din CIRKLER-profil vises ikke på Hjerterums hjemmeside.</p>
+    <button className="pill-button dark" onClick={() => void openCirkler()} disabled={opening}>{opening ? "Åbner CIRKLER …" : "Tilmeld dig eller åbn CIRKLER"}</button>
+    {cirklerError && <p className="profile-note" role="alert">{cirklerError}</p>}
   </section>;
 
   return <>
@@ -29,7 +52,7 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
         <button className="pill-button dark" onClick={() => setSection("public")}>Åbn mit visitkort</button>
       </section>
       <section className="profile-feature-card" aria-label="CIRKLER-profil og tilmelding">
-        <div className="profile-card-top"><span className="profile-emblem profile-emblem-cirkler" aria-hidden="true">◎</span><span className="profile-badge">Åbner ved lancering</span></div>
+        <div className="profile-card-top"><span className="profile-emblem profile-emblem-cirkler" aria-hidden="true">◎</span><span className="profile-badge">Gratis for medlemmer</span></div>
         <p className="kicker">Små, faste fællesskaber</p><h2>Min CIRKLER-profil</h2>
         <p>Fortæl om dine ønsker og det, du søger i et fællesskab. Din uddybende profil hjælper CIRKLER med at finde en passende cirkel.</p>
         <p className="profile-scope">Din CIRKLER-profil vises ikke på den offentlige hjemmeside.</p>
