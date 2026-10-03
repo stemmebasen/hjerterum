@@ -35,6 +35,8 @@ Concrete providers are isolated behind adapters. Required adapter families inclu
 - AI provider
 - object storage when/if persistent uploads are introduced
 - CIRKLER entitlement lookup
+- Telegram Bot API, ElevenLabs transcription, Google Drive/Docs, team@ IMAP and the WordPress API (the board's tools; see BLUEPRINT, the checkpoint of 2026-10-03)
+- OpenAI-compatible AI endpoint (Requesty's EU router to Vertex AI EU)
 
 ## Data strategy
 
@@ -115,7 +117,7 @@ Target jobs must be idempotent or otherwise duplicate-safe. Legacy Tribes schedu
 
 The legacy application has no persistent upload backend. The event image picker is frontend-only and does not upload or persist files.
 
-R2/object storage may be introduced later through the storage adapter, but that is a new capability, not part of 1:1 migration parity.
+R2 is in use for the board's tools (since 2026-10-01): uploaded meeting recordings and the archived media of holistisk.org, in the EU bucket `hjerterum-board-recordings-eu`. Persistent uploads for members (for example event images) are still a new capability, not part of 1:1 migration parity.
 
 ## Routing compatibility
 

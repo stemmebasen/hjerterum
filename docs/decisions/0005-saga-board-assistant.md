@@ -1,6 +1,6 @@
 # Saga, the board's assistant in Telegram
 
-Status: Accepted — 2026-09-23
+Status: Accepted — 2026-09-23 · amended 2026-10-03 (see "Amendments")
 
 ## Decision
 
@@ -44,3 +44,14 @@ Until the bot token and owner are set, Saga does nothing. The bot needs privacy 
 ## Later
 
 Answers from Drive documents (statutes, budgets), the chair's Hjerterum mail, and the platform's members, events and bookings (read first; any action only with approval).
+
+## Amendments (2026-10-03)
+
+The decision stands, with these changes made at the chair's request (details in BLUEPRINT, the checkpoint of 2026-10-03):
+
+- **The board cockpit** (`admin.hjerterum.info`) is where the board works with Saga's output: minutes, meetings, tasks, decisions and votes, Posthus, events and members. Members log in with a personal link from Saga.
+- **Minutes go up at once.** They no longer wait for the chair's approval. Every member signs off or corrects per point in the cockpit, and the chair can still correct by replying in Telegram. The group stays silent unless `SAGA_MINUTES_PING` is on.
+- **team@ is read by Hjerterum itself** over IMAP (read-only, every relevant folder, password sealed). It is no longer relayed from Matrix (`POST /api/saga/liva/mail` is kept for compatibility, and an outside status report is ignored once Hjerterum reads the mailbox). Saga checks whether a mail was answered before calling it unanswered.
+- **Liva asks Saga.** Besides reading the overview, Liva may ask Saga on the chair's behalf (`POST /api/saga/liva/ask`).
+- **The AI route is EU-only:** Claude Sonnet 5.5 through Requesty's EU router on Vertex AI EU.
+- **Saga may change the asker's own cockpit list when asked.** She never changes what concerns others or the whole association.
