@@ -48,8 +48,9 @@ const sharp = (text: string) => sentence(imperative(text.replace(/^\s*(?:drøfte
 /** Requested: "et farvet felt med navn, så man hurtigt kan se, hvem der har hvilken opgave". Each person keeps one colour. */
 // Requested: "jeg synes ikke, at det giver mening med rød farve. Dog må hver af os gerne have forskellige farver, bare
 // ikke rød." No red or pink; each board member gets the next colour in the member list, so no two share one.
-const HUES = ["#2446d8", "#0e7c86", "#7c3aed", "#2f7d32", "#a16207", "#0369a1", "#4338ca", "#047857"];
-const SHARED = "#4b5d73";
+// Hjerterum Lys: the same eight distinct colours, warmed and softened to sit beside the shared palette - still no red or pink.
+const HUES = ["#3f6a80", "#2f6f66", "#6a5a8c", "#4f6f3a", "#9a6a1f", "#5b4a3f", "#4d5f8f", "#7a6a3a"];
+const SHARED = "#6b625a";
 let palette = new Map<string, string>();
 const first = (name: string) => name.trim().split(/\s+/)[0]!.toLocaleLowerCase("da-DK");
 function setPalette(members: string[]): void {

@@ -1,0 +1,77 @@
+/* Hjerterum Lys on the React pages: the older variables now point at the shared --lys-* tokens (apps/web/lys.ts),
+   so every existing page turns light at once; then the few blocks that need it get the shared look. */
+:root, .profile-workspace {
+  --ink: var(--lys-ink); --muted: var(--lys-muted);
+  --profile-bg: var(--lys-bg); --profile-surface: var(--lys-surface); --profile-line: var(--lys-line);
+  --profile-button: var(--lys-accent); --profile-button-ink: var(--lys-accent-ink);
+  --profile-sage: var(--lys-sage); --profile-clay: var(--lys-clay);
+  --cream: var(--lys-bg); --paper: var(--lys-surface); --line: var(--lys-line); --brown: var(--lys-accent); --sage: var(--lys-sage); --rose: var(--lys-rose);
+  font-family: var(--lys-sans);
+}
+body { background: var(--lys-bg); color: var(--lys-ink); font-family: var(--lys-sans); -webkit-font-smoothing: antialiased; }
+body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { background: var(--lys-bg); color: var(--lys-ink); }
+.kicker, .member-profile-page .kicker { font: 600 11.5px/1.2 var(--lys-sans); letter-spacing: .2em; text-transform: uppercase; color: var(--lys-terra); }
+.text-link { color: var(--lys-accent); font-weight: 600; }
+.pill-button { font-family: var(--lys-sans); font-weight: 600; }
+.pill-button.dark, .member-profile-page .pill-button.dark, .member-calendar-page .pill-button.dark { background: var(--lys-accent); color: var(--lys-accent-ink); border-color: var(--lys-accent); }
+.pill-button.light, .pill-button.subtle { background: var(--lys-surface); color: var(--lys-ink); border-color: var(--lys-line); }
+:is(.workspace-card, .soft-panel, .story-card, .membership-price-card, .price-result, .auth-unavailable, .workspace-table-wrap, .metric-grid article,
+  .membership-source-summary article, .member-event-card, .profile-basics, .profile-feature-card, .profile-editor) {
+  background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow);
+}
+.member-profile-page .pill-button, .member-profile-page .workspace-form textarea, .member-profile-page .workspace-form select { font-family: var(--lys-sans); }
+.workspace-section, .workspace-hero { width: min(1164px, calc(100% - 56px)); }
+
+/* The public navigation keeps its dropdowns: on a phone it wraps instead of scrolling (a scroller would clip them). */
+.lys-nav.site-nav { font-size: 14.5px; gap: 2px; }
+.lys-nav.site-nav > a, .lys-nav.site-nav summary { color: var(--lys-ink); padding: 8px 13px; }
+.lys-nav.site-nav .nav-login { margin-left: 8px; }
+@media (max-width: 760px) { .lys-nav.site-nav { flex-wrap: wrap; overflow: visible; } }
+
+/* Signing in: the shared top, then the form centred on the light page. */
+.auth-shell { padding: 0; }
+.auth-shell .auth-card { margin-top: clamp(28px, 8vh, 80px); }
+
+/* The member overview: the website's intro (kicker and headline left, the words right), the living geometry above them. */
+.member-overview-side { display: grid; justify-items: end; }
+.member-overview-side p { justify-self: stretch; margin: 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
+.member-overview-more { margin: 18px 0 0; }
+.member-overview .lys-tile small a { margin-left: 2px; }
+@media (max-width: 760px) { .member-overview-side { justify-items: stretch; } .member-overview-side p { font-size: 16.5px; } .member-overview .lys-tile:first-child { grid-column: 1 / -1; } }
+
+/* The website's menus: a quiet chevron instead of the browser's triangle, and "Log ind" as the one filled button. */
+.lys-nav summary { list-style: none; display: inline-flex; align-items: center; gap: 7px; }
+.lys-nav summary::-webkit-details-marker { display: none; }
+.lys-nav summary::after { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); opacity: .5; }
+.lys-nav details[open] > summary { background: var(--lys-soft); }
+.lys-nav .nav-dropdown { background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: 18px; box-shadow: var(--lys-shadow); }
+.lys-nav .nav-dropdown a { color: var(--lys-ink); font-size: 14.5px; }
+.lys-nav .nav-dropdown a:hover { background: var(--lys-soft); }
+.lys-nav > a.nav-login.lys-pill { background: var(--lys-accent); color: var(--lys-accent-ink); border: 0; padding: 9px 18px; font-weight: 600; }
+.lys-nav > a.nav-login.lys-pill:hover { filter: brightness(1.12); }
+
+/* Form fields: the select boxes look like the text fields beside them. */
+.workspace-form select { width: 100%; min-height: 46px; padding: 11px 14px; border: 1px solid var(--lys-line); border-radius: 12px; background: var(--lys-surface); color: var(--lys-ink); font: 400 15.5px/1.3 var(--lys-sans); }
+.workspace-form :is(input:not([type="checkbox"], [type="radio"], [type="file"]), textarea) { border-color: var(--lys-line); background: var(--lys-surface); color: var(--lys-ink); border-radius: 12px; }
+.workspace-form :is(input, textarea, select):focus { outline: 3px solid color-mix(in srgb, var(--lys-accent) 18%, transparent); border-color: var(--lys-accent); }
+
+/* On the website's pages the top sits inside the page's own width: its logo lines up with the text below. */
+.page-shell .lys-top { padding-left: 0; padding-right: 0; }
+
+/* The website's hero (approved "Hjerterum Lys"): words left, the living geometry right, with what is about to happen. */
+.lys-hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; padding: clamp(28px, 6vh, 64px) 0 40px; }
+.lys-hero .lys-title { font-size: clamp(42px, 4.6vw, 62px); }
+.lys-hero-lead { margin: 18px 0 0; max-width: 34ch; color: var(--lys-muted); font-size: 19px; line-height: 1.6; }
+.lys-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 26px 0 0; }
+.lys-hero-art { position: relative; padding-bottom: 70px; }
+.lys-soon { position: absolute; left: -36px; bottom: 0; width: min(320px, 74%); background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); padding: 18px 20px; box-shadow: 0 24px 60px -28px rgba(42, 38, 34, .35); }
+.lys-soon .lys-kicker { margin-bottom: 8px; }
+.lys-soon .lys-list li { padding: 9px 0; }
+.lys-soon .lys-link { display: inline-block; margin-top: 8px; font-size: 13.5px; }
+.legacy-home > .legacy-content > :first-child { margin-top: 0; }
+@media (max-width: 860px) {
+  .lys-hero { grid-template-columns: 1fr; gap: 8px; padding-top: 20px; }
+  .lys-hero-art { padding-bottom: 0; }
+  .lys-hero .lys-art { max-width: 260px; margin: 0 auto; }
+  .lys-soon { position: relative; left: 0; width: 100%; margin-top: -48px; }
+}

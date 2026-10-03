@@ -56,6 +56,13 @@ This document is the primary product and migration specification for the new Hje
 - The billing view distinguishes loading, unavailable payments, request errors and a genuinely empty invoice list. Payment-management actions are not offered while payment availability is unconfirmed or payments are unconfigured.
 - Participant signup/unregistration using a second identity, imported MembershipWorks identity linking, concurrency, payment acceptance, notifications and public profile publication are not yet accepted end-to-end. The browser checks above must not be treated as production-cutover approval.
 
+### Login mail through Resend (2026-10-03)
+
+- Reported: "Jeg får ikke OTP fra login". The Clerk instance on staging is a development instance (`advanced-shad-1373.clerk.accounts.dev`); Clerk itself delivers its emails there, capped at 100 a month.
+- Decided: "Ok, så lad os gøre med begge" - Clerk keeps the login; Resend delivers Clerk's emails from `login@hjerterum.info` (`RESEND_FROM_EMAIL`). With "Delivered by Clerk" switched off on a template, Clerk sends the rendered email to `POST /api/clerk/email` (`email.created`, Svix-signed with `CLERK_WEBHOOK_SECRET`); the login code goes out in Hjerterum's Danish wording and design, other templates as Clerk wrote them. Emails Clerk delivered itself are never sent again; a failed send answers 5xx so Clerk retries, and Resend's idempotency key (the Svix id) keeps it to one email.
+- Set-up order: verify `hjerterum.info` in Resend (DNS in Cloudflare) → GitHub secrets `RESEND_API_KEY` and, after adding the Clerk webhook for `email.created` at `/api/clerk/email`, `CLERK_WEBHOOK_SECRET` → deploy → test → only then switch off "Delivered by Clerk" on the verification-code template.
+- A production Clerk instance on hjerterum.info is still required before real members; the same Resend delivery carries over.
+
 ## 2. Product scope
 
 ### Public site

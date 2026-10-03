@@ -8,8 +8,10 @@ import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
+import "./lys-spa.css";
+import { injectLys, LysArt, LysTop } from "./lys";
 
-const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
+injectLys();
 
 type PublicBooking = {
   id: number;
@@ -93,34 +95,17 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
   return <div className="user-button" ref={ref} />;
 }
 
-function Brand({ className = "" }: { className?: string }) {
-  return (
-    <a className={`brand ${className}`.trim()} href="/" aria-label="Hjerterum forside">
-      <img
-        src={HJERTERUM_LOGO_URL}
-        alt="Hjerterum"
-        style={{ display: "block", height: "48px", width: "auto", maxWidth: "190px", objectFit: "contain" }}
-      />
-    </a>
-  );
-}
-
 function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?: ClerkBrowser; user?: ClerkUser }) {
+  if (!member) return <LysTop><PublicNavigation /></LysTop>;
   return (
-    <header className="site-header">
-      <Brand />
-      {member ? (
-        <nav className="site-nav member-nav" aria-label="Medlemsnavigation">
-          <a href="/member-portal/dashboard">Medlemskab</a>
-          <a href="/member-portal/kalender">Kalender</a>
-          <a href="/member-portal/kontakt">Kontakt</a>
-          <a href="/member-portal/profil">Profil</a>
-          {clerk && user && <UserButton clerk={clerk} />}
-        </nav>
-      ) : (
-        <PublicNavigation />
-      )}
-    </header>
+    <LysTop right={clerk && user ? <UserButton clerk={clerk} /> : null}>
+      <nav className="lys-nav" aria-label="Medlemsnavigation">
+        <a href="/member-portal/dashboard">Medlemskab</a>
+        <a href="/member-portal/kalender">Kalender</a>
+        <a href="/member-portal/kontakt">Kontakt</a>
+        <a href="/member-portal/profil">Profil</a>
+      </nav>
+    </LysTop>
   );
 }
 
@@ -147,7 +132,7 @@ function AuthPage({
 
   return (
     <main className="auth-shell">
-      <Brand className="auth-brand" />
+      <LysTop />
       <div className="auth-card">
         {!clerk ? (
           <div className="auth-unavailable">
@@ -288,12 +273,34 @@ function usePublicEvents() {
   return { events, eventsReachable };
 }
 
+const SOON_TIME = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+
+/** Requested: "tilføre noget eksklusivt design - måske noget geometri der bevæger sig i hero" - the approved Hjerterum Lys
+ * hero (apps/web/lys.ts): the website's words on the left, the slow circles on the right with what is about to happen. */
 function PublicHome() {
   const { events, eventsReachable } = usePublicEvents();
+  const now = Date.now();
+  const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
   return <main className="page-shell">
     <SiteHeader />
+    <section className="lys-hero">
+      <div>
+        <p className="lys-kicker lys-rise">Hjerterum i Aarhus</p>
+        <h1 className="lys-title lys-rise d2">Et rum for nærvær,<em>praksis og fællesskab.</em></h1>
+        <p className="lys-hero-lead lys-rise d3">Bevægelse, fordybelse og fællesskab i Guldsmedgade, midt i Aarhus.</p>
+        <p className="lys-hero-actions lys-rise d4"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/bliv-medlem">Bliv medlem</a></p>
+      </div>
+      <div className="lys-hero-art">
+        <LysArt />
+        {soon.length > 0 && <div className="lys-soon lys-rise d4">
+          <p className="lys-kicker">Lige om lidt i Hjerterum</p>
+          <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
+          <a className="lys-link" href="/events">Hele kalenderen →</a>
+        </div>}
+      </div>
+    </section>
     <section className="legacy-page legacy-home">
-      <header><p className="kicker">Hjerterum i Aarhus</p><h1>Et rum for nærvær, praksis og fællesskab.</h1></header>
       <LegacyBody page={legacyPage("/")!} />
     </section>
     <EventSection events={events} reachable={eventsReachable} />

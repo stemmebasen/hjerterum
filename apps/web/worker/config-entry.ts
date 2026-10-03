@@ -7,6 +7,8 @@ import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
 import { handleCirklerIntegrationRequest, isCirklerIntegrationRequest, type CirklerIntegrationEnv } from "./cirkler-integration.js";
+import { logoResponse } from "./cockpit/logo.js";
+import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -23,6 +25,9 @@ interface ScheduledControllerLike {
   cron: string;
 }
 
+/** medlem.<domain>: the member area's own address. */
+export const isMemberHost = (hostname: string) => /^medlem\./i.test(hostname);
+
 const app = appWorker as unknown as {
   fetch(request: Request, env: Env): Promise<Response>;
   scheduled(controller: ScheduledControllerLike, env: Env): Promise<void>;
@@ -36,6 +41,20 @@ export default {
     // /ny-beregner-2026 on every address (before the cockpit, which otherwise takes every path on its own address).
     if (isCalculatorRequest(url)) {
       return handleCalculatorRequest(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+    }
+
+    // Requested: "Kan du ligge den på medlem.hjerterum.info?" - the member area's own address opens in the member
+    // area; everything else (sign-in, the public pages, the API) works there as on any other address.
+    if (isMemberHost(url.hostname) && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
+      return new Response(null, { status: 302, headers: { location: "/member-portal" + url.search, "cache-control": "no-store" } });
+    }
+
+    // Hjerterum Lys (apps/web/lys.ts): one top on every page, so the hands are served on every address, not only the cockpit's.
+    if (url.pathname === "/logo.png" && (request.method === "GET" || request.method === "HEAD")) return logoResponse();
+
+    // Clerk's login emails, delivered through Resend from Hjerterum's own address (login-mail.ts).
+    if (url.pathname === LOGIN_MAIL_PATH) {
+      return handleLoginMail(request, env as LoginMailEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     }
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
