@@ -150,5 +150,5 @@ export const MINUTES_STYLE = `
 .m-foot{margin-top:32px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 @media (max-width:640px){.minutes{padding:22px 18px;border-radius:12px}.minutes h1{font-size:23px}.m-point p{margin-left:0}}
 @media print{header.bar,nav.tabs,.m-tools,.m-sign,.saga-fab{display:none!important}body{background:#fff;color:#000}main{padding:0;max-width:none}.minutes{border:0;padding:0;max-width:none;font-size:11pt}
-:root{--muted:#555;--line:#ccc;--soft:#eef1f4;--accent:#2446d8;--good:#2446d8;--card:#fff;--ink:#000}a{color:inherit;text-decoration:none}}
+:root{--muted:#555;--line:#ccc;--soft:#f6f3ef;--accent:#5b4a3f;--good:#4c5e43;--card:#fff;--ink:#000}a{color:inherit;text-decoration:none}}
 `;

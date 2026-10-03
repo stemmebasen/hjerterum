@@ -2,6 +2,7 @@ import type { BoardPicture } from "../saga/picture.js";
 import { imperative, mergeSame, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
+import { lysArt } from "../../lys.js";
 import { voteTodo, type Proposal } from "./votes.js";
 import { esc, layout, longDay, shortDay } from "./page.js";
 
@@ -59,11 +60,11 @@ export function heldFact(held: number, sinceMs: number | null = null, base = "")
 
 export const HOME_STYLE = `
 .celebrate{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr;gap:10px 30px;align-items:center;padding:26px 30px;border-radius:var(--radius);
-background:radial-gradient(120% 140% at 0% 0%,var(--glow-2),transparent 60%),radial-gradient(90% 120% at 100% 100%,var(--glow-3),transparent 60%),var(--card);border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));box-shadow:var(--shadow)}
-.celebrate .big{font-family:var(--font);font-weight:800;font-size:clamp(52px,7.5vw,92px);line-height:.9;letter-spacing:-.04em;color:var(--accent);font-variant-numeric:tabular-nums}
+background:var(--lys-clay);border:0}
+.celebrate .big{font-family:var(--serif);font-weight:400;font-size:clamp(52px,7.5vw,92px);line-height:.9;letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}
 .celebrate .big span{font-size:.55em;vertical-align:.55em;margin-left:2px}
-.celebrate .kicker{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
-.celebrate .line{margin:2px 0 0;font-family:var(--font);font-size:clamp(20px,2.4vw,26px);font-weight:650;line-height:1.25;letter-spacing:-.01em;max-width:30ch}
+.celebrate .kicker{margin:0;font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra)}
+.celebrate .line{margin:4px 0 0;font-family:var(--serif);font-size:clamp(21px,2.4vw,27px);font-weight:400;line-height:1.25;letter-spacing:-.01em;max-width:30ch}
 .celebrate .since{margin:8px 0 0;color:var(--muted);font-size:14.5px}.celebrate .since a{white-space:nowrap}
 .celebrate .hearts{position:absolute;right:22px;top:16px;display:flex;gap:6px;pointer-events:none}
 .celebrate .hearts i{display:block;width:14px;height:13px;background:var(--accent);opacity:.22;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat}
@@ -74,12 +75,13 @@ background:radial-gradient(120% 140% at 0% 0%,var(--glow-2),transparent 60%),rad
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
 mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat}
 .now{margin:0;font-size:16.5px;line-height:1.6}
-.welcome{display:grid;gap:8px;padding:6px 0 2px}.welcome .eyebrow{font-size:13px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0}
+.welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
+.welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
-.tile{display:grid;gap:4px;padding:18px 20px;border-radius:var(--radius);background:var(--card);border:1px solid color-mix(in srgb,var(--line) 60%,transparent);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
+.tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
 .tile:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.tile .label{font-size:12.5px;font-weight:650;color:var(--muted)}
-.tile b{font-size:32px;font-weight:700;line-height:1.1;letter-spacing:-.03em}.tile .sub{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile b{font-size:32px;font-weight:600;line-height:1.1;letter-spacing:-.03em}.tile .sub{font-size:13px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tile.hot{background:var(--warn-soft);border-color:transparent}.tile.hot b,.tile.hot .label{color:var(--warn)}
 .panels{display:grid;grid-template-columns:1.15fr 1fr;gap:18px;align-items:start}.panels>div{display:grid;gap:18px;min-width:0}
 .when{display:flex;gap:16px;align-items:center}.date{flex:none;width:58px;height:62px;border-radius:14px;background:var(--tint);display:grid;place-items:center;text-align:center;line-height:1}
@@ -135,8 +137,8 @@ export function homePage(base: string, data: HomeData): string {
   const open = data.todos.length + data.tasks.length + (data.isChair ? data.forChair.length : 0) + (data.votes?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
-  const welcome = `<section class="welcome"><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
-${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</section>`;
+  const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
+${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
   const tiles = `<section class="tiles" aria-label="Kort fortalt">
