@@ -6,6 +6,7 @@ import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
+import { handleCirklerIntegrationRequest, isCirklerIntegrationRequest, type CirklerIntegrationEnv } from "./cirkler-integration.js";
 import { logoResponse } from "./cockpit/logo.js";
 import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
 
@@ -72,6 +73,11 @@ export default {
         now: () => Date.now(),
         ...(ctx ? { waitUntil: (work: Promise<unknown>) => ctx.waitUntil(work) } : {})
       });
+    }
+
+    // CIRKLER: tilmelding fra medlemsportalen og det daglige tjek af medlemskab (cirkler-integration.ts).
+    if (isCirklerIntegrationRequest(url)) {
+      return handleCirklerIntegrationRequest(request, env as CirklerIntegrationEnv, { now: () => Date.now() });
     }
 
     if (request.method === "GET" && url.pathname === "/api/events/external") {
