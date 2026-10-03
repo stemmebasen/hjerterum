@@ -6,6 +6,7 @@ import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
+import { logoResponse } from "./cockpit/logo.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -45,6 +46,9 @@ export default {
     if (isMemberHost(url.hostname) && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
       return new Response(null, { status: 302, headers: { location: "/member-portal" + url.search, "cache-control": "no-store" } });
     }
+
+    // Hjerterum Lys (apps/web/lys.ts): one top on every page, so the hands are served on every address, not only the cockpit's.
+    if (url.pathname === "/logo.png" && (request.method === "GET" || request.method === "HEAD")) return logoResponse();
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {

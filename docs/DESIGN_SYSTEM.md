@@ -133,3 +133,14 @@ The user explicitly requested the same design everywhere and the original websit
 - Existing source copy, including policies, fees and offers, is an imported snapshot, not a change to application eligibility, moderation, billing, trials or payment logic.
 - WiFi credentials are not copied into the public repository; instructions refer users to Hjerterum. Public newsletter links omit subscriber tracking IDs.
 - Content is checked into GitHub rather than fetched and executed from WordPress at runtime. Original images and PDF documents remain hosted at holistisk.org.
+
+## Hjerterum Lys — 2026-10-03
+
+Reported: "hjerterum.info … er meget anderledes end admin. Der bør ikke være nogen forskel. Det bør være den samme styling og det samme design" — keep the website's top, take admin's modern content, "meget let og lyst". The user approved the proposal ("Lad os bruge det design"), with "HJERTERUM" alone in the header and moving geometry in the hero, and asked to keep the layout of the live hjerterum.info pages ("Fint at holde fast i layout som dette"). This supersedes the Georgia/Arial tokens of the profile direction above; its structure (cards, collapsible private data, opt-in publication) stands.
+
+- One source: `apps/web/lys.ts` (tokens `--lys-*`, the shared top, the blocks, the geometry). The React pages inject it (`src/lys.tsx`); `src/lys-spa.css` points the older variables at the Lys tokens, so existing pages follow. The cockpit (step 2) and the website's hero (step 3) take the same source.
+- Light palette: background #fbfaf8, surface #fff, line #ebe5dd, ink #2a2622, muted #766d64, warm brown action #5b4a3f, terracotta voice #94503f (kickers and the italic headline line), sage #e8eee2, clay #f5e9df, rose #f6e8ea. System dark appearance from the same tokens.
+- Playfair Display for headings (an italic terracotta second line, as on hjerterum.info: "Mere nærvær. / Mindre støj."), Inter for everything functional; small uppercase terracotta kickers.
+- The top: the hands and "HJERTERUM" in spaced capitals, quiet pill navigation, "Log ind" as the one filled button. On a phone the member navigation scrolls sideways; the website's menus wrap.
+- Layout as on hjerterum.info: kicker and headline left, the words beside them; then rounded cards (kicker, serif title, short muted text), some tinted sage or clay.
+- Geometry: three circles in the palette drifting slowly around one another, a dotted ring and one accent arc (`lysArt`). Large in the website's hero, small on the member overview, hidden on phones; still for anyone who prefers reduced motion.

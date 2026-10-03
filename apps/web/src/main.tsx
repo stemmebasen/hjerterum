@@ -8,8 +8,10 @@ import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
+import "./lys-spa.css";
+import { injectLys, LysTop } from "./lys";
 
-const HJERTERUM_LOGO_URL = "https://hjerterum.info/member-portal/logo.png";
+injectLys();
 
 type PublicBooking = {
   id: number;
@@ -93,34 +95,17 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
   return <div className="user-button" ref={ref} />;
 }
 
-function Brand({ className = "" }: { className?: string }) {
-  return (
-    <a className={`brand ${className}`.trim()} href="/" aria-label="Hjerterum forside">
-      <img
-        src={HJERTERUM_LOGO_URL}
-        alt="Hjerterum"
-        style={{ display: "block", height: "48px", width: "auto", maxWidth: "190px", objectFit: "contain" }}
-      />
-    </a>
-  );
-}
-
 function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?: ClerkBrowser; user?: ClerkUser }) {
+  if (!member) return <LysTop><PublicNavigation /></LysTop>;
   return (
-    <header className="site-header">
-      <Brand />
-      {member ? (
-        <nav className="site-nav member-nav" aria-label="Medlemsnavigation">
-          <a href="/member-portal/dashboard">Medlemskab</a>
-          <a href="/member-portal/kalender">Kalender</a>
-          <a href="/member-portal/kontakt">Kontakt</a>
-          <a href="/member-portal/profil">Profil</a>
-          {clerk && user && <UserButton clerk={clerk} />}
-        </nav>
-      ) : (
-        <PublicNavigation />
-      )}
-    </header>
+    <LysTop right={clerk && user ? <UserButton clerk={clerk} /> : null}>
+      <nav className="lys-nav" aria-label="Medlemsnavigation">
+        <a href="/member-portal/dashboard">Medlemskab</a>
+        <a href="/member-portal/kalender">Kalender</a>
+        <a href="/member-portal/kontakt">Kontakt</a>
+        <a href="/member-portal/profil">Profil</a>
+      </nav>
+    </LysTop>
   );
 }
 
@@ -147,7 +132,7 @@ function AuthPage({
 
   return (
     <main className="auth-shell">
-      <Brand className="auth-brand" />
+      <LysTop />
       <div className="auth-card">
         {!clerk ? (
           <div className="auth-unavailable">
