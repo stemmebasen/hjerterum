@@ -7,6 +7,7 @@ import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler
 import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
 import { logoResponse } from "./cockpit/logo.js";
+import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -49,6 +50,11 @@ export default {
 
     // Hjerterum Lys (apps/web/lys.ts): one top on every page, so the hands are served on every address, not only the cockpit's.
     if (url.pathname === "/logo.png" && (request.method === "GET" || request.method === "HEAD")) return logoResponse();
+
+    // Clerk's login emails, delivered through Resend from Hjerterum's own address (login-mail.ts).
+    if (url.pathname === LOGIN_MAIL_PATH) {
+      return handleLoginMail(request, env as LoginMailEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+    }
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {
