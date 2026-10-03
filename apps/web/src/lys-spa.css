@@ -57,3 +57,21 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 
 /* On the website's pages the top sits inside the page's own width: its logo lines up with the text below. */
 .page-shell .lys-top { padding-left: 0; padding-right: 0; }
+
+/* The website's hero (approved "Hjerterum Lys"): words left, the living geometry right, with what is about to happen. */
+.lys-hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; padding: clamp(28px, 6vh, 64px) 0 40px; }
+.lys-hero .lys-title { font-size: clamp(42px, 4.6vw, 62px); }
+.lys-hero-lead { margin: 18px 0 0; max-width: 34ch; color: var(--lys-muted); font-size: 19px; line-height: 1.6; }
+.lys-hero-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 26px 0 0; }
+.lys-hero-art { position: relative; padding-bottom: 70px; }
+.lys-soon { position: absolute; left: -36px; bottom: 0; width: min(320px, 74%); background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); padding: 18px 20px; box-shadow: 0 24px 60px -28px rgba(42, 38, 34, .35); }
+.lys-soon .lys-kicker { margin-bottom: 8px; }
+.lys-soon .lys-list li { padding: 9px 0; }
+.lys-soon .lys-link { display: inline-block; margin-top: 8px; font-size: 13.5px; }
+.legacy-home > .legacy-content > :first-child { margin-top: 0; }
+@media (max-width: 860px) {
+  .lys-hero { grid-template-columns: 1fr; gap: 8px; padding-top: 20px; }
+  .lys-hero-art { padding-bottom: 0; }
+  .lys-hero .lys-art { max-width: 260px; margin: 0 auto; }
+  .lys-soon { position: relative; left: 0; width: 100%; margin-top: -48px; }
+}
