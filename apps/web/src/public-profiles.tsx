@@ -121,7 +121,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
   </section>;
 }
 
-export function PublicProfiles() {
+export function PublicProfiles({ bare = false }: { bare?: boolean }) {
   const [profiles, setProfiles] = useState<Array<PublicProfile & { id: string }> | null>(null);
   const [error, setError] = useState(false);
   const [reload, setReload] = useState(0);
@@ -135,11 +135,14 @@ export function PublicProfiles() {
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [reload]);
+  const list = error ? <p role="alert">Profilerne kunne ikke hentes. <button className="text-button" onClick={() => setReload(n => n + 1)}>Prøv igen</button></p> : !profiles ? <p role="status">Henter profiler …</p> : profiles.length ?
+    <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} />)}</div> :
+    bare ? null : <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>;
+  // On the website's page the heading and the regular teachers come from site/pages.ts.
+  if (bare) return <div className="profile-workspace public-profile-directory">{list}</div>;
   return <section className="workspace-section member-profile-page public-profile-directory">
     <p className="kicker">Menneskene i huset</p><h1>Undervisere & behandlere</h1>
     <p className="profile-lead">Mød dem, der deler deres faglighed i Hjerterum.</p>
-    {error ? <p role="alert">Profilerne kunne ikke hentes. <button className="text-button" onClick={() => setReload(n => n + 1)}>Prøv igen</button></p> : !profiles ? <p role="status">Henter profiler …</p> : profiles.length ?
-      <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} />)}</div> :
-      <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>}
+    {list}
   </section>;
 }

@@ -5,7 +5,7 @@ import { processNextMinutes } from "../saga/saga.js";
 import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPosted, queueMinutes, saveBoardMessage, saveOverview, updateMinutes } from "../saga/store.js";
 import { itemKey } from "../saga/picture.js";
 import { STATUTES } from "./statutes.js";
-import legacy from "../../src/legacy-content.json";
+import { sitePage } from "../../site/redirects.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
 
@@ -491,10 +491,10 @@ describe("the board cockpit", () => {
   });
 
   it("keeps Saga's statutes the same as the website's", () => {
-    const flat = (text: string) => text.replace(/<br\s*\/?>|<\/(p|h\d|li|ol|ul)>/g, " ").replace(/<li>/g, " - ").replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#8211;|&ndash;/g, "–").replace(/\s+/g, " ").trim();
-    const site = /<details><summary><strong>Læs Hjerterums vedtægter[\s\S]*?<\/summary>([\s\S]*?)<\/details>/.exec(JSON.stringify(legacy).replace(/\\n/g, "\n").replace(/\\"/g, '"'))?.[1] ?? "";
-    expect(flat(site)).toBe(flat(STATUTES));
+    // One text (site/statutes.ts): every paragraph Saga knows stands on the website's page about the association.
+    const words = (text: string) => text.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+    const site = words(sitePage("/om-os/foreningen")!.body);
+    for (const paragraph of STATUTES.split(/\n\s*\n/)) expect(site).toContain(words(paragraph));
   });
 
   it("shows the historical minutes from the board's document, one meeting at a time", async () => {

@@ -122,6 +122,8 @@ The approved direction applies to all public, member and admin routes. Shared ro
 
 ## Shared site and original content rollout — 2026-09-25
 
+*Superseded on 2026-10-04 by "The website from holistisk.org" below: legacy-content.json and the legacy pages are gone.*
+
 The user explicitly requested the same design everywhere and the original website's content first, with editorial cleanup later.
 
 - All event listings use EventCard, including public home, public calendar and member calendar. Public calendar lists all returned upcoming events by month; home shows six.
@@ -144,3 +146,14 @@ Reported: "hjerterum.info … er meget anderledes end admin. Der bør ikke være
 - The top: the hands and "HJERTERUM" in spaced capitals, quiet pill navigation, "Log ind" as the one filled button. On a phone the member navigation scrolls sideways; the website's menus wrap.
 - Layout as on hjerterum.info: kicker and headline left, the words beside them; then rounded cards (kicker, serif title, short muted text), some tinted sage or clay.
 - Geometry: three circles in the palette drifting slowly around one another, a dotted ring and one accent arc (`lysArt`). Large in the website's hero, small on the member overview, hidden on phones; still for anyone who prefers reduced motion.
+
+## The website from holistisk.org — 2026-10-04
+
+Requested: "tag al indholdet fra holistisk.org og importér og restrukturér det - ryd op - så vi ikke lader noget gå tabt", with hjerterum.info's front page as the model ("En forside som denne er nu blevet rigtig fin") and permission to replace hjerterum.info's current content.
+
+- Menu as on hjerterum.info: Events · Behandling & terapi · Behandlere & undervisere · Medlemskab · Lej Hjerterum · Vision / om os · Kontakt · English, with "Log ind" as the filled button.
+- Front page in hjerterum.info's sequence: "Oplevelser / for medlemmer / *af* medlemmer" with the living geometry and the next three events, the kinds of evenings, the calendar, the memberships, CIRKLER, "Mere nærvær. / *Mindre støj.*" with cards into each section, the newsletter.
+- Content pages share one layout: kicker, serif headline with its italic line, the words beside it, then reading text (max ~760 px), live parts (calendar, plans, price calculator, visit cards, regular teachers), pictures and cards onward. Text is Markdown in `apps/web/site/pages.ts` and `pages-en.ts`; nothing in it can run.
+- All 56 holistisk.org pages are accounted for in `docs/CONTENT_LEDGER.md`; old addresses answer 301 to their new place. Pictures and documents are copied into the platform; the originals are archived in `docs/legacy/holistisk-org/`.
+- The statutes are one adopted text for the website and Saga (`apps/web/site/statutes.ts`), shown word for word.
+- Signing up for membership still links to holistisk.org (as hjerterum.info does) until payment runs on the platform.

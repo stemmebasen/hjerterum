@@ -8,6 +8,7 @@ import { runSagaJobs } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
 import { logoResponse } from "./cockpit/logo.js";
 import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
+import { redirectFor } from "../site/redirects.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -63,6 +64,12 @@ export default {
         now: () => Date.now(),
         ...(ctx ? { waitUntil: (work: Promise<unknown>) => ctx.waitUntil(work) } : {})
       });
+    }
+
+    // The website (site/pages.ts): holistisk.org's old addresses lead to the page that now carries their content.
+    if (request.method === "GET" || request.method === "HEAD") {
+      const target = redirectFor(url.pathname);
+      if (target) return new Response(null, { status: 301, headers: { location: target, "cache-control": "public, max-age=3600" } });
     }
 
     // Saga, the board assistant (docs/decisions/0005-saga-board-assistant.md).
