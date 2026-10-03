@@ -9,7 +9,7 @@ import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 import "./lys-spa.css";
-import { injectLys, LysTop } from "./lys";
+import { injectLys, LysArt, LysTop } from "./lys";
 
 injectLys();
 
@@ -273,12 +273,34 @@ function usePublicEvents() {
   return { events, eventsReachable };
 }
 
+const SOON_TIME = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+
+/** Requested: "tilføre noget eksklusivt design - måske noget geometri der bevæger sig i hero" - the approved Hjerterum Lys
+ * hero (apps/web/lys.ts): the website's words on the left, the slow circles on the right with what is about to happen. */
 function PublicHome() {
   const { events, eventsReachable } = usePublicEvents();
+  const now = Date.now();
+  const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
   return <main className="page-shell">
     <SiteHeader />
+    <section className="lys-hero">
+      <div>
+        <p className="lys-kicker lys-rise">Hjerterum i Aarhus</p>
+        <h1 className="lys-title lys-rise d2">Et rum for nærvær,<em>praksis og fællesskab.</em></h1>
+        <p className="lys-hero-lead lys-rise d3">Bevægelse, fordybelse og fællesskab i Guldsmedgade, midt i Aarhus.</p>
+        <p className="lys-hero-actions lys-rise d4"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/bliv-medlem">Bliv medlem</a></p>
+      </div>
+      <div className="lys-hero-art">
+        <LysArt />
+        {soon.length > 0 && <div className="lys-soon lys-rise d4">
+          <p className="lys-kicker">Lige om lidt i Hjerterum</p>
+          <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
+          <a className="lys-link" href="/events">Hele kalenderen →</a>
+        </div>}
+      </div>
+    </section>
     <section className="legacy-page legacy-home">
-      <header><p className="kicker">Hjerterum i Aarhus</p><h1>Et rum for nærvær, praksis og fællesskab.</h1></header>
       <LegacyBody page={legacyPage("/")!} />
     </section>
     <EventSection events={events} reachable={eventsReachable} />
