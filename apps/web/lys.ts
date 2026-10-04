@@ -67,15 +67,16 @@ const BLOCKS = `
 .lys-link{font-weight:600;font-size:14px;text-decoration:none;color:var(--lys-accent)}
 @media (max-width:760px){.lys-page{padding:28px 18px 64px}.lys-intro{grid-template-columns:1fr;gap:8px}.lys-intro>p{margin-top:8px}.lys-tiles{grid-template-columns:1fr 1fr}.lys-tile>b{font-size:22px}}`;
 
-/** Living geometry: three circles in Hjerterum's colours drifting slowly around one another - circles that meet. */
+/** Living geometry: three circles in Hjerterum's colours drifting slowly around one another - circles that meet. Requested:
+ * "Kan du fjerne prikkerne i animationen" - no dots orbiting the rings. */
 const ART = `
 .lys-art{width:100%;max-width:500px;aspect-ratio:1;display:block;margin-left:auto;overflow:visible}
-.lys-art .blob{mix-blend-mode:multiply;opacity:.92}.lys-art .o1,.lys-art .o2,.lys-art .o3,.lys-art .breathe,.lys-art .r1,.lys-art .arc,.lys-art .dot,.lys-art .dot2{transform-origin:250px 250px}
+.lys-art .blob{mix-blend-mode:multiply;opacity:.92}.lys-art .o1,.lys-art .o2,.lys-art .o3,.lys-art .breathe,.lys-art .arc{transform-origin:250px 250px}
 .lys-art .o1{animation:lys-orbit 26s linear infinite}.lys-art .o2{animation:lys-orbit 34s linear infinite reverse}.lys-art .o3{animation:lys-orbit 42s linear infinite}
 .lys-art .breathe{animation:lys-breathe 9s ease-in-out infinite alternate}.lys-art .ring{fill:none;stroke:var(--lys-ink)}
-.lys-art .r1{stroke-opacity:.14;stroke-dasharray:1.5 7;animation:lys-orbit 120s linear infinite}.lys-art .r2{stroke-opacity:.08}
+.lys-art .r1{stroke-opacity:.12}.lys-art .r2{stroke-opacity:.08}
 .lys-art .arc{fill:none;stroke:var(--lys-accent);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:70 1500;animation:lys-orbit 16s linear infinite}
-.lys-art .dot{animation:lys-orbit 22s linear infinite reverse}.lys-art .dot2{animation:lys-orbit 38s linear infinite}
+
 .lys-art.mini{width:150px;height:150px;flex:none;margin:-20px 0 -10px}.lys-art.mini .o1{animation-duration:60s}.lys-art.mini .o2{animation-duration:80s}
 .lys-art.mini .o3{animation-duration:100s}.lys-art.mini .arc{animation-duration:40s}
 @keyframes lys-orbit{to{transform:rotate(360deg)}}@keyframes lys-breathe{from{transform:scale(.97)}to{transform:scale(1.04)}}
@@ -93,6 +94,5 @@ export function lysArt(size: "hero" | "mini" = "hero"): string {
 <g class="breathe"><g class="o1"><circle class="blob" cx="205" cy="215" r="150" fill="var(--lys-blob-1)"/></g>
 <g class="o2"><circle class="blob" cx="300" cy="225" r="140" fill="var(--lys-blob-2)"/></g>
 <g class="o3"><circle class="blob" cx="250" cy="300" r="132" fill="var(--lys-blob-3)"/></g></g>
-<circle class="ring r1" cx="250" cy="250" r="214"/><circle class="ring r2" cx="250" cy="250" r="238"/><circle class="arc" cx="250" cy="250" r="238"/>
-<g class="dot"><circle cx="464" cy="250" r="4.5" fill="var(--lys-accent)"/></g><g class="dot2"><circle cx="250" cy="12" r="3" fill="var(--lys-ink)" fill-opacity=".35"/></g></svg>`;
+<circle class="ring r1" cx="250" cy="250" r="214"/><circle class="ring r2" cx="250" cy="250" r="238"/><circle class="arc" cx="250" cy="250" r="238"/></svg>`;
 }
