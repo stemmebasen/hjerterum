@@ -11,9 +11,9 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
   addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, removeTaskFor, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
-import { memberPage, membersListPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
+import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
 import { addNote, changeManualMembership, grantMembership, listMembers, memberById, memberCounts, memberEvents, membershipWorksAccount, membershipWorksSummary,
-  memberTimeline, saveMembershipWorksExport, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
+  memberTimeline, saveMembershipWorksExport, importTurnover, turnoverPlan, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
 import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
@@ -422,6 +422,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       console.warn("cockpit_membershipworks_export_failed", error instanceof Error ? error.message : error);
       return redirect(`${base}/medlemmer?fejl=no_accounts`);
     }
+  }
+  // Requested: "det er meningen at vi ved turnover importerer alle medlemmer" - the preview, then the one button.
+  if (path === "/medlemmer/skifte") {
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      if ((await request.formData().catch(() => null))?.get("ok") !== "1") return redirect(`${base}/medlemmer/skifte`);
+      const done = await importTurnover(db, who, now);
+      return redirect(`${base}/medlemmer/skifte?flyttet=${done.imported}`);
+    }
+    const moved = url.searchParams.get("flyttet");
+    return html(turnoverPage(base, who, { rows: await turnoverPlan(db, today), today, notice: moved && /^\d+$/.test(moved) ? `${moved} medlemmer er flyttet til det nye system.` : undefined }));
   }
   const memberPath = /^\/medlemmer\/(\d{1,9})(?:\/(note|adgang|medlemskab|afslut|genaktiver))?$/.exec(path);
   if (memberPath) {

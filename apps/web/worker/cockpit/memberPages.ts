@@ -1,5 +1,5 @@
 import { membershipPlan, membershipPlans } from "../../membership.js";
-import { isoDay, statusText, STATUS_FILTERS, type AdminMember, type MemberEvent, type MembershipWorksAccount, type StatusFilter, type TimelineEntry } from "../member-admin.js";
+import { isoDay, planName, statusText, STATUS_FILTERS, type AdminMember, type MemberEvent, type MembershipWorksAccount, type StatusFilter, type TimelineEntry, type TurnoverGroup, type TurnoverRow } from "../member-admin.js";
 import { esc, layout } from "./page.js";
 
 /** Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - "Husk den
@@ -46,11 +46,10 @@ table.m-list a{font-weight:600;text-decoration:none;color:var(--ink)}table.m-lis
 @media (max-width:760px){.labels .badge{white-space:normal}.labels .badge.plan{border-radius:12px;margin-right:0}.labels .badge.plan+.badge{border-radius:999px}}
 `;
 
-const planName = (tier: string) => membershipPlan(tier)?.name ?? tier;
 /** As MembershipWorks labels a membership: "Standard medlemskab - 222 kr./md. eller 2.310 kr./år". */
 function planLabel(m: Pick<AdminMember, "tier" | "billing">): string {
   const plan = membershipPlan(m.tier);
-  if (!plan) return m.tier;
+  if (!plan) return planName(m.tier);
   return m.billing === "manual" ? plan.name : `${plan.name} - ${kr(plan.month)}/md. eller ${kr(plan.year)}/år`;
 }
 
@@ -72,7 +71,7 @@ export function membersListPage(base: string, who: string | null, d: MembersList
   const tile = (filter: StatusFilter, label: string, n: number) => `<a class="m-tile${d.filter === filter ? " on" : ""}" href="${base}/medlemmer?status=${filter}"><span>${label}</span><b>${n}</b></a>`;
   const rows = d.members.map(m => `<tr><td data-label="Navn"><a href="${base}/medlemmer/${m.id}">${esc(m.fullName)}</a><small>${esc(m.email)}</small></td>
 <td data-label="Medlemskab">${esc(planName(m.tier))}</td><td data-label="Status">${statusBadge(m, d.now)}</td>
-<td data-label="Betaling">${m.billing === "manual" ? "Manuel" : m.interval === "year" ? "Kort · årlig" : "Kort · månedlig"}</td><td data-label="Medlem siden">${esc(memberSince(m))}</td></tr>`).join("");
+<td data-label="Betaling">${m.paysInMembershipworks ? "MembershipWorks" : m.billing === "manual" ? "Manuel" : m.interval === "year" ? "Kort · årlig" : "Kort · månedlig"}</td><td data-label="Medlem siden">${esc(memberSince(m))}</td></tr>`).join("");
   const list = `<section class="panel"><form class="m-search" method="get" action="${base}/medlemmer"><input type="search" name="q" value="${esc(d.q)}" placeholder="Søg på navn eller e-mail" aria-label="Søg">
 <select name="status" aria-label="Status">${STATUS_FILTERS.map(f => `<option value="${f}"${f === d.filter ? " selected" : ""}>${FILTER_LABEL[f]}</option>`).join("")}</select><button>Søg</button></form>
 ${d.members.length ? `<table class="rows m-list"><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Betaling</th><th>Medlem siden</th></tr>${rows}</table>`
@@ -86,6 +85,7 @@ ${d.members.length ? `<table class="rows m-list"><tr><th>Navn</th><th>Medlemskab
 ${d.mw.latest ? `<p class="small" style="margin:0 0 8px"><strong>${d.mw.accounts}</strong> konti fra <em>${esc(d.mw.latest.filename)}</em>, ${esc(DATE.format(d.mw.latest.atMs))} (${esc(d.mw.latest.by)}). ${d.mw.linked} er flyttet hertil.</p>` : `<p class="small muted" style="margin:0 0 8px">Ingen eksport endnu.</p>`}
 <p class="small muted" style="margin:0 0 10px">Når en af dem melder sig ind her, kobles medlem siden, telefon og underviser på, og I mindes om at stoppe betalingen i MembershipWorks.</p>
 <form class="stack" method="post" action="${base}/medlemmer/membershipworks" enctype="multipart/form-data"><input type="file" name="fil" accept=".csv,text/csv" required><button class="ghost">Upload eksport (CSV)</button></form>
+${d.mw.accounts ? `<a class="more" href="${base}/medlemmer/skifte">Skiftet fra MembershipWorks →</a>` : ""}
 <a class="more" href="${base}/medlemmer/tal">Tal fra MembershipWorks (skærmbillede) →</a></section>`;
   return layout(base, "Medlemmer", `<main><div class="hero"><h1>Medlemmer</h1><p>Medlemmerne i det nye system. Medlemmer i MembershipWorks fortsætter dér, indtil de selv melder sig ind her.</p></div>
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
@@ -127,7 +127,7 @@ export function memberPage(base: string, who: string | null, d: MemberPageData):
   const m = d.member, at = `${base}/medlemmer/${m.id}`;
   const tabs = `<nav class="m-tabs" aria-label="Medlem">${MEMBER_TABS.map(t => `<a href="${at}?fane=${t}"${t === d.tab ? ' aria-current="page"' : ""}>${TAB_LABEL[t]}</a>`).join("")}</nav>`;
   const head = `<a class="m-back" href="${base}/medlemmer">← Medlemmer</a><div class="hero"><h1>${esc(m.fullName)}</h1>
-<div class="labels"><span class="badge plan">${esc(planLabel(m))}</span>${statusBadge(m, d.now)}${m.isTeacher ? ' <span class="badge off">Underviser</span>' : ""}${m.membershipworksId ? ' <span class="badge off">Fra MembershipWorks</span>' : ""}</div></div>`;
+<div class="labels"><span class="badge plan">${esc(planLabel(m))}</span>${statusBadge(m, d.now)}${m.isTeacher ? ' <span class="badge off">Underviser</span>' : ""}${m.membershipworksId ? ' <span class="badge off">Fra MembershipWorks</span>' : ""}${m.awaitingLogin ? ' <span class="badge off">Har ikke logget ind endnu</span>' : ""}</div></div>`;
   let body: string;
   if (d.tab === "kontakt") {
     body = `<section class="panel"><div class="m-contact"><strong>${esc(m.fullName)}</strong>
@@ -147,10 +147,44 @@ ${m.phone ? `<a href="tel:${esc(m.phone.replace(/\s+/g, ""))}">☎ ${esc(m.phone
 <form method="post" action="${at}/${m.status === "active" ? "afslut" : "genaktiver"}"><button class="ghost">${m.status === "active" ? "Afslut medlemskab" : "Genaktivér"}</button></form></div>`
       : `<p class="small muted">Betaling, kort og opsigelse styres i Stripe - medlemmet gør det selv i medlemsområdet.</p>`;
     body = `<section class="panel"><h2>${esc(planName(m.tier))}</h2><div class="m-facts">
-<p>${m.billing === "manual" ? "Manuel betaling - givet af Hjerterum, ingen betaling via kort" : `Betaling med kort via Stripe · ${m.interval === "year" ? "årlig" : "månedlig"}`}</p>
+<p>${m.paysInMembershipworks ? `Betaler stadig via MembershipWorks · ${m.interval === "year" ? "årlig" : "månedlig"}${m.nextChargeOn ? ` · første træk i det nye system ${esc(isoDay(m.nextChargeOn))}` : ""}`
+    : m.billing === "manual" ? "Manuel betaling - givet af Hjerterum, ingen betaling via kort" : `Betaling med kort via Stripe · ${m.interval === "year" ? "årlig" : "månedlig"}`}</p>
 ${statusLine}<p>Medlem siden ${esc(memberSince(m))}</p></div>${manual}
 <div class="m-actions" style="margin-top:12px"><form method="post" action="${at}/adgang"><input type="hidden" name="blocked" value="${m.accessBlocked ? "0" : "1"}"><button class="ghost">${m.accessBlocked ? "Genåbn adgang" : "Bloker adgang"}</button></form></div>
 ${d.mw ? mwBox(d.mw, m, d.today) : ""}</section>`;
   }
   return layout(base, m.fullName, `<main>${head}${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${tabs}${body}</main>`, { section: "/medlemmer", who, style: MEMBER_PAGES_STYLE });
+}
+
+const GROUPS: Array<{ key: TurnoverGroup; title: string; text: string }> = [
+  { key: "kort", title: "Betaler med kort", text: "Bliver medlemmer her. Betalingen kører videre i MembershipWorks, indtil det nye system overtager trækket på deres fornyelsesdato." },
+  { key: "manuel", title: "Manuel betaling", text: "Bliver medlemmer med manuel betaling, som i MembershipWorks." },
+  { key: "gratis", title: "Gratis medlemskab", text: "Bliver medlemmer med gratis medlemskab." },
+  { key: "restance", title: "I restance", text: "Fornyelsesdatoen er passeret. Bliver medlemmer i restance - tag stilling til hver enkelt." },
+  { key: "medlem", title: "Allerede medlem her", text: "Har allerede et medlemskab i det nye system og røres ikke." },
+  { key: "springes", title: "Springes over", text: "Kan ikke flyttes automatisk." }
+];
+
+/** Requested: "det er meningen at vi ved turnover importerer alle medlemmer og fra den dato begynder at trække kontingent over
+ * vores nye system". What the switch will do with each account, before anything is done; then the one button. */
+export function turnoverPage(base: string, who: string | null, d: { rows: TurnoverRow[]; today: string; notice?: string | undefined }): string {
+  const movable = d.rows.filter(r => r.group !== "medlem" && r.group !== "springes").length;
+  const section = (g: (typeof GROUPS)[number]) => {
+    const rows = d.rows.filter(r => r.group === g.key);
+    if (!rows.length) return "";
+    return `<details class="panel"${g.key === "restance" || g.key === "springes" ? " open" : ""}><summary><strong>${g.title}</strong> <span class="pill">${rows.length}</span></summary><p class="small muted">${g.text}</p>
+<table class="rows m-list"><tr><th>Navn</th><th>Medlemskab</th><th>Betaling</th><th>Medlem siden</th><th>${g.key === "springes" || g.key === "medlem" ? "Hvorfor" : "Fornyelse"}</th></tr>
+${rows.map(r => `<tr><td data-label="Navn">${esc(r.fullName)}<small>${esc(r.email)}</small></td><td data-label="Medlemskab">${esc(r.tier ? planName(r.tier) : r.plan ?? "–")}</td>
+<td data-label="Betaling">${r.billing === "auto" ? (r.interval === "year" ? "Kort · årlig" : "Kort · månedlig") : r.billing === "manual" ? "Manuel" : "–"}</td>
+<td data-label="Medlem siden">${r.joinedOn ? esc(isoDay(r.joinedOn)) : "–"}</td><td data-label="${g.key === "springes" || g.key === "medlem" ? "Hvorfor" : "Fornyelse"}">${r.reason ? esc(r.reason) : r.renewsOn ? esc(isoDay(r.renewsOn)) : "–"}</td></tr>`).join("")}</table></details>`;
+  };
+  return layout(base, "Skiftet fra MembershipWorks", `<main><a class="m-back" href="${base}/medlemmer">← Medlemmer</a><div class="hero"><h1>Skiftet fra MembershipWorks</h1>
+<p>Sådan bliver medlemmerne fra den seneste eksport flyttet til det nye system på skiftedagen. Intet sker, før I trykker på knappen nederst.</p></div>
+${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}
+<div class="m-tiles">${GROUPS.slice(0, 4).map(g => `<div class="m-tile"><span>${g.title}</span><b>${d.rows.filter(r => r.group === g.key).length}</b></div>`).join("")}</div>
+${GROUPS.map(section).join("")}
+<section class="panel"><h2>Flyt ${movable} medlemmer</h2>
+<p class="small muted">De bliver medlemmer her med samme e-mail og logger ind med en e-mailkode. Der trækkes intet i det nye system endnu: betaling med kort fortsætter i MembershipWorks, indtil Stripe er sat op til at overtage. Kør igen efter en ny eksport - kun nye medlemmer tilføjes.</p>
+${movable ? `<form class="stack" method="post" action="${base}/medlemmer/skifte"><label style="display:flex;gap:10px;align-items:center;font-weight:500"><input type="checkbox" name="ok" value="1" required style="width:20px;min-height:0"> Ja, flyt ${movable} medlemmer fra MembershipWorks til det nye system</label><button>Flyt medlemmerne</button></form>`
+    : `<p class="empty">Der er ingen at flytte.</p>`}</section></main>`, { section: "/medlemmer", who, style: MEMBER_PAGES_STYLE });
 }

@@ -206,3 +206,29 @@ it("links a member who joins later to their MembershipWorks account", async () =
   await linkMembershipWorks(db, m.id, NOW);
   expect((await memberTimeline(db, linked)).filter(e => e.kind === "moved")).toHaveLength(1);
 });
+
+describe("the switch from MembershipWorks", () => {
+  // Requested: "det er meningen at vi ved turnover importerer alle medlemmer og fra den dato begynder at trække kontingent over vores nye system".
+  it("previews each account, moves them once, and lets each claim their membership at their first login", async () => {
+    const db = testDatabase();
+    await saveMembershipWorksExport(db, "export.csv", "Jacob Hauge", EXPORT, NOW);
+    const { turnoverPlan, importTurnover } = await import("./member-admin.js");
+    const plan = await turnoverPlan(db, "2026-10-04");
+    expect(plan.map(r => [r.email, r.group])).toEqual([["mette@example.dk", "kort"], ["ole@example.dk", "gratis"], ["sara@example.dk", "restance"]]);
+    expect(await importTurnover(db, "Jacob Hauge", NOW)).toEqual({ imported: 3, skipped: 0 });
+    expect(await importTurnover(db, "Jacob Hauge", NOW)).toEqual({ imported: 0, skipped: 0 });
+    const rows = await db.prepare("SELECT email, tier, interval, status, billing, pays_in_membershipworks, next_charge_on, joined_on, is_teacher, clerk_user_id FROM members ORDER BY email").all();
+    expect(rows.results).toEqual([
+      { email: "mette@example.dk", tier: "standard", interval: "month", status: "active", billing: "manual", pays_in_membershipworks: 1, next_charge_on: "2026-11-28", joined_on: "2025-04-28", is_teacher: 1, clerk_user_id: "pending:mette@example.dk" },
+      { email: "ole@example.dk", tier: "gratis", interval: "none", status: "active", billing: "manual", pays_in_membershipworks: 0, next_charge_on: null, joined_on: "2024-01-05", is_teacher: 0, clerk_user_id: "pending:ole@example.dk" },
+      { email: "sara@example.dk", tier: "reduceret", interval: "month", status: "past_due", billing: "manual", pays_in_membershipworks: 0, next_charge_on: null, joined_on: "2026-09-01", is_teacher: 0, clerk_user_id: "pending:sara@example.dk" }
+    ]);
+    // First login with the verified email: the membership is theirs.
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () => Response.json({ id: "user_mette", primary_email_address_id: "e1", email_addresses: [{ id: "e1", email_address: "mette@example.dk", verification: { status: "verified" } }] })) as typeof fetch;
+    try {
+      expect(await resolveActiveMembership(db, "user_mette", "clerk-key")).toMatchObject({ source: "hjerterum", fullName: "Mette Holm" });
+    } finally { globalThis.fetch = realFetch; }
+    expect((await getMemberByClerkUserId(db, "user_mette"))!.paysInMembershipworks).toBe(true);
+  });
+});

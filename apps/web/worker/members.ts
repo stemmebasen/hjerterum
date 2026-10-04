@@ -24,6 +24,8 @@ export type MemberView = {
   accessBlocked: boolean;
   /** "manual": given by the board in admin → Medlemmer, with no payment through Stripe (worker/member-admin.ts). */
   billing: "stripe" | "manual";
+  /** Moved from MembershipWorks on the day of the switch; their payment still runs there. */
+  paysInMembershipworks: boolean;
 };
 
 function requireString(value: unknown, field: string): string {
@@ -58,7 +60,7 @@ export async function getMemberByClerkUserId(
   const row = await db
     .prepare(
       `SELECT id, clerk_user_id, stripe_customer_id, stripe_subscription_id,
-              tier, interval, status, full_name, email, phone, street_address, is_teacher, access_blocked, billing
+              tier, interval, status, full_name, email, phone, street_address, is_teacher, access_blocked, billing, pays_in_membershipworks
        FROM members WHERE clerk_user_id = ? LIMIT 1`
     )
     .bind(clerkUserId)
@@ -77,6 +79,7 @@ export async function getMemberByClerkUserId(
       is_teacher: number;
       access_blocked: number;
       billing: string;
+      pays_in_membershipworks: number;
     }>();
 
   if (!row) return null;
@@ -94,7 +97,8 @@ export async function getMemberByClerkUserId(
     streetAddress: row.street_address,
     isTeacher: row.is_teacher === 1,
     accessBlocked: row.access_blocked === 1,
-    billing: row.billing === "manual" ? "manual" : "stripe"
+    billing: row.billing === "manual" ? "manual" : "stripe",
+    paysInMembershipworks: row.pays_in_membershipworks === 1
   };
 }
 

@@ -16,22 +16,25 @@ export type AdminMember = {
   tier: string; interval: string; status: string; billing: "stripe" | "manual"; statusSinceMs: number | null; joinedOn: string | null;
   createdAtMs: number; isTeacher: boolean; accessBlocked: boolean; membershipworksId: string | null;
   stripeCustomerId: string; stripeSubscriptionId: string | null;
+  /** Imported on the day of the switch: still charged by MembershipWorks until the platform takes over, on nextChargeOn. */
+  paysInMembershipworks: boolean; nextChargeOn: string | null; awaitingLogin: boolean;
 };
 
 type MemberRow = {
   id: number; clerk_user_id: string; full_name: string; email: string; phone: string | null; street_address: string | null; tier: string; interval: string;
   status: string; billing: string; status_since_ms: number | null; joined_on: string | null; created_at_ms: number; is_teacher: number; access_blocked: number;
-  membershipworks_id: string | null; stripe_customer_id: string; stripe_subscription_id: string | null;
+  membershipworks_id: string | null; stripe_customer_id: string; stripe_subscription_id: string | null; pays_in_membershipworks: number; next_charge_on: string | null;
 };
 
 const COLUMNS = `id, clerk_user_id, full_name, email, phone, street_address, tier, interval, status, billing, status_since_ms, joined_on, created_at_ms,
-  is_teacher, access_blocked, membershipworks_id, stripe_customer_id, stripe_subscription_id`;
+  is_teacher, access_blocked, membershipworks_id, stripe_customer_id, stripe_subscription_id, pays_in_membershipworks, next_charge_on`;
 
 const member = (r: MemberRow): AdminMember => ({
   id: r.id, clerkUserId: r.clerk_user_id, fullName: r.full_name, email: r.email, phone: r.phone, streetAddress: r.street_address, tier: r.tier,
   interval: r.interval, status: r.status, billing: r.billing === "manual" ? "manual" : "stripe", statusSinceMs: r.status_since_ms, joinedOn: r.joined_on,
   createdAtMs: r.created_at_ms, isTeacher: r.is_teacher === 1, accessBlocked: r.access_blocked === 1, membershipworksId: r.membershipworks_id,
-  stripeCustomerId: r.stripe_customer_id, stripeSubscriptionId: r.stripe_subscription_id
+  stripeCustomerId: r.stripe_customer_id, stripeSubscriptionId: r.stripe_subscription_id,
+  paysInMembershipworks: r.pays_in_membershipworks === 1, nextChargeOn: r.next_charge_on, awaitingLogin: r.clerk_user_id.startsWith("pending:")
 });
 
 export const STATUS_FILTERS = ["alle", "aktive", "restance", "opsagt"] as const;
@@ -115,7 +118,9 @@ export async function memberEvents(db: D1Database, m: AdminMember): Promise<{ cr
 const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
 const DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 export const isoDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DAY.format(new Date(`${iso}T12:00:00Z`)) : iso;
-const planName = (tier: string) => membershipPlan(tier)?.name ?? tier;
+export const planName = (tier: string) => tier === FREE_TIER ? "Gratis medlemskab" : membershipPlan(tier)?.name ?? tier;
+/** MembershipWorks' "Free Membership", carried over as it is. */
+export const FREE_TIER = "gratis";
 
 /** As MembershipWorks says it: "Aktiv", "I restance 35 dage", "Opsagt". */
 export function statusText(m: Pick<AdminMember, "status" | "statusSinceMs">, now: number): string {
@@ -310,4 +315,58 @@ export async function linkMembershipWorks(db: D1Database, memberId: number, now:
   const stillPaying = a.billing === "auto" && a.renewsOn !== null && a.renewsOn >= copenhagenDay(now);
   await recordTimeline(db, memberId, { atMs: now, kind: "moved", title: "Fundet i MembershipWorks",
     detail: [a.plan, a.joinedOn ? `medlem siden ${isoDay(a.joinedOn)}` : "", stillPaying ? `betaler stadig i MembershipWorks (næste træk ${isoDay(a.renewsOn!)}) - stop betalingen dér` : ""].filter(Boolean).join(" · ") || null });
+}
+
+// ------------------------------------------------------------------ The switch: MembershipWorks' members become the platform's
+
+/** Requested: "det er meningen at vi ved turnover importerer alle medlemmer og fra den dato begynder at trække kontingent over
+ * vores nye system". What happens to each account in the export on the day of the switch. Charging through the platform's
+ * Stripe comes later ("Spørg mig når vi kommer dertil"); until then their payment runs on in MembershipWorks. */
+export type TurnoverGroup = "kort" | "manuel" | "gratis" | "restance" | "medlem" | "springes";
+export type TurnoverRow = MembershipWorksAccount & { group: TurnoverGroup; reason: string | null };
+
+export async function turnoverPlan(db: D1Database, today: string): Promise<TurnoverRow[]> {
+  const [{ results: accounts }, { results: members }] = await Promise.all([
+    db.prepare("SELECT * FROM membershipworks_accounts ORDER BY full_name COLLATE NOCASE").all<AccountRow>(),
+    db.prepare("SELECT LOWER(email) AS email FROM members").all<{ email: string }>()
+  ]);
+  const already = new Set((members ?? []).map(m => m.email));
+  return (accounts ?? []).map(account).map(a => {
+    const free = /free|gratis/i.test(a.plan ?? "");
+    const group: TurnoverGroup = already.has(a.email) ? "medlem"
+      : !a.tier && !free ? "springes"
+      : a.renewsOn !== null && a.renewsOn < today && !free ? "restance"
+      : free ? "gratis"
+      : a.billing === "auto" && a.stripeCustomerId ? "kort" : "manuel";
+    const reason = group === "medlem" ? "Er allerede medlem i det nye system" : group === "springes" ? (a.plan ? `Ukendt medlemskab: ${a.plan}` : "Intet medlemskab i MembershipWorks") : null;
+    return { ...a, group, reason };
+  });
+}
+
+/** On the day of the switch: every account that can be carried over becomes a member here, with their membership, interval,
+ * member since, phone and teacher label. They log in with their email; nothing is charged here, and a card member's
+ * payment runs on in MembershipWorks until the platform takes over on their renewal date. Running it again adds only
+ * the new ones. */
+export async function importTurnover(db: D1Database, by: string, now: number): Promise<{ imported: number; skipped: number }> {
+  const today = copenhagenDay(now);
+  const plan = await turnoverPlan(db, today);
+  let imported = 0;
+  for (const a of plan) {
+    if (a.group === "medlem" || a.group === "springes") continue;
+    const tier = a.group === "gratis" ? FREE_TIER : a.tier!;
+    const pastDue = a.group === "restance";
+    const inserted = await db.prepare(`INSERT OR IGNORE INTO members (clerk_user_id, stripe_customer_id, tier, interval, status, full_name, email, phone, is_teacher,
+      created_at_ms, updated_at_ms, billing, status_since_ms, joined_on, membershipworks_id, pays_in_membershipworks, next_charge_on)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?, ?, ?, ?)`)
+      .bind(`pending:${a.email}`, a.stripeCustomerId ?? `pending:${a.email}`, tier, a.interval ?? "none", pastDue ? "past_due" : "active", a.fullName, a.email, a.phone,
+        a.labels.some(l => /teacher/i.test(l)) ? 1 : 0, now, now, pastDue && a.renewsOn ? Date.parse(`${a.renewsOn}T12:00:00Z`) : now, a.joinedOn ?? today,
+        a.accountId ?? a.email, a.group === "kort" ? 1 : 0, a.group === "kort" ? a.renewsOn : null).run();
+    const id = Number(inserted.meta?.last_row_id);
+    if (!inserted.meta?.changes || !id) continue;
+    imported += 1;
+    await recordTimeline(db, id, { atMs: now, kind: "moved", title: "Flyttet fra MembershipWorks", by,
+      detail: [a.plan, a.joinedOn ? `medlem siden ${isoDay(a.joinedOn)}` : "", a.group === "kort" && a.renewsOn ? `betaler via MembershipWorks indtil ${isoDay(a.renewsOn)}` : "",
+        pastDue && a.renewsOn ? `i restance siden ${isoDay(a.renewsOn)}` : ""].filter(Boolean).join(" · ") || null });
+  }
+  return { imported, skipped: plan.filter(a => a.group === "springes").length };
 }
