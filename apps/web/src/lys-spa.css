@@ -22,11 +22,17 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .member-profile-page .pill-button, .member-profile-page .workspace-form textarea, .member-profile-page .workspace-form select { font-family: var(--lys-sans); }
 .workspace-section, .workspace-hero { width: min(1164px, calc(100% - 56px)); }
 
-/* The public navigation keeps its dropdowns: on a phone it wraps instead of scrolling (a scroller would clip them). */
-.lys-nav.site-nav { font-size: 14.5px; gap: 2px; }
-.lys-nav.site-nav > a, .lys-nav.site-nav summary { color: var(--lys-ink); padding: 8px 13px; }
-.lys-nav.site-nav .nav-login { margin-left: 8px; }
-@media (max-width: 760px) { .lys-nav.site-nav { flex-wrap: wrap; overflow: visible; } }
+/* The website's menu (site/pages.ts NAV): eight places as on hjerterum.info; below the width where they fit beside
+   the logo they take their own row and scroll sideways, like the member area's. */
+.lys-nav.site-nav { gap: 0; }
+.lys-nav.site-nav { flex-wrap: nowrap; }
+.lys-nav.site-nav > a { color: var(--lys-ink); padding: 8px 8px; font-size: 13.5px; white-space: nowrap; }
+@media (max-width: 1220px) {
+  .page-shell .lys-top { flex-wrap: wrap; row-gap: 6px; }
+  .lys-nav.site-nav { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .lys-nav.site-nav::-webkit-scrollbar { display: none; }
+  .page-shell .lys-me { margin-left: auto; }
+}
 
 /* Signing in: the shared top, then the form centred on the light page. */
 .auth-shell { padding: 0; }
@@ -39,16 +45,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .member-overview .lys-tile small a { margin-left: 2px; }
 @media (max-width: 760px) { .member-overview-side { justify-items: stretch; } .member-overview-side p { font-size: 16.5px; } .member-overview .lys-tile:first-child { grid-column: 1 / -1; } }
 
-/* The website's menus: a quiet chevron instead of the browser's triangle, and "Log ind" as the one filled button. */
-.lys-nav summary { list-style: none; display: inline-flex; align-items: center; gap: 7px; }
-.lys-nav summary::-webkit-details-marker { display: none; }
-.lys-nav summary::after { content: ""; width: 5px; height: 5px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); opacity: .5; }
-.lys-nav details[open] > summary { background: var(--lys-soft); }
-.lys-nav .nav-dropdown { background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: 18px; box-shadow: var(--lys-shadow); }
-.lys-nav .nav-dropdown a { color: var(--lys-ink); font-size: 14.5px; }
-.lys-nav .nav-dropdown a:hover { background: var(--lys-soft); }
-.lys-nav > a.nav-login.lys-pill { background: var(--lys-accent); color: var(--lys-accent-ink); border: 0; padding: 9px 18px; font-weight: 600; }
-.lys-nav > a.nav-login.lys-pill:hover { filter: brightness(1.12); }
+.lys-me > a.lys-pill { background: var(--lys-accent); color: var(--lys-accent-ink); border: 0; padding: 9px 18px; font-weight: 600; text-decoration: none; }
+.lys-me > a.lys-pill:hover { filter: brightness(1.12); }
 
 /* Form fields: the select boxes look like the text fields beside them. */
 .workspace-form select { width: 100%; min-height: 46px; padding: 11px 14px; border: 1px solid var(--lys-line); border-radius: 12px; background: var(--lys-surface); color: var(--lys-ink); font: 400 15.5px/1.3 var(--lys-sans); }
@@ -68,10 +66,134 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .lys-soon .lys-kicker { margin-bottom: 8px; }
 .lys-soon .lys-list li { padding: 9px 0; }
 .lys-soon .lys-link { display: inline-block; margin-top: 8px; font-size: 13.5px; }
-.legacy-home > .legacy-content > :first-child { margin-top: 0; }
 @media (max-width: 860px) {
   .lys-hero { grid-template-columns: 1fr; gap: 8px; padding-top: 20px; }
   .lys-hero-art { padding-bottom: 0; }
   .lys-hero .lys-art { max-width: 260px; margin: 0 auto; }
   .lys-soon { position: relative; left: 0; width: 100%; margin-top: -48px; }
+}
+
+/* The website's pages (src/site-pages.tsx): hjerterum.info's layout in Lys - kicker and headline left, the words
+   beside them, then calm reading text, the live parts, pictures and the ways onward. */
+.site-page, .site-home { padding-bottom: 0; }
+.site-intro { padding: clamp(28px, 6vh, 64px) 0 12px; }
+.site-intro .lys-title { font-size: clamp(40px, 4.8vw, 62px); }
+.site-intro-side { display: grid; gap: 18px; }
+.site-intro-side > p { margin: 30px 0 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
+.site-intro-image { width: 100%; max-height: 300px; object-fit: cover; border-radius: var(--lys-radius); }
+.site-intro-image + p { margin-top: 0; }
+.site-back { display: inline-block; margin-bottom: 18px; font: 500 14px/1.2 var(--lys-sans); color: var(--lys-muted); text-decoration: none; }
+.site-back:hover { color: var(--lys-accent); }
+.site-body { display: grid; gap: 28px; padding: 24px 0 8px; }
+.site-prose { max-width: 760px; font: 400 17px/1.75 var(--lys-sans); color: var(--lys-ink); overflow-wrap: anywhere; }
+.site-prose > :first-child { margin-top: 0; }
+.site-prose h2 { font: 400 clamp(28px, 3.2vw, 36px)/1.15 var(--lys-serif); letter-spacing: -.01em; margin: 56px 0 14px; scroll-margin-top: 96px; }
+.site-prose h3 { font: 400 23px/1.25 var(--lys-serif); margin: 34px 0 10px; scroll-margin-top: 96px; }
+.site-prose p, .site-prose ul, .site-prose ol { margin: 0 0 16px; }
+.site-prose ul, .site-prose ol { padding-left: 22px; }
+.site-prose li { margin: 6px 0; }
+.site-prose li::marker { color: var(--lys-terra); }
+.site-prose a { color: var(--lys-accent); font-weight: 600; text-decoration-thickness: 1px; text-underline-offset: .2em; }
+.site-prose strong { font-weight: 600; }
+.site-prose hr { border: 0; border-top: 1px solid var(--lys-line); margin: 36px 0; }
+.site-prose blockquote { margin: 0 0 22px; padding: 20px 24px; border-radius: var(--lys-radius); background: var(--lys-clay); color: var(--lys-ink); }
+.site-prose blockquote p { margin: 0; }
+.site-prose blockquote p + p { margin-top: 10px; }
+.site-prose figure { margin: 22px 0 26px; }
+.site-prose figure img { width: 100%; height: auto; border-radius: 18px; display: block; }
+.site-prose figcaption { margin-top: 10px; font-size: 14px; color: var(--lys-muted); line-height: 1.5; }
+.site-prose details { margin: 14px 0; padding: 16px 22px; border: 1px solid var(--lys-line); border-radius: 18px; background: var(--lys-surface); }
+.site-prose details[open] { padding-bottom: 6px; }
+.site-prose summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+.site-prose summary::-webkit-details-marker { display: none; }
+.site-prose summary::after { content: "+"; color: var(--lys-terra); font-size: 20px; line-height: 1; }
+.site-prose details[open] summary::after { content: "–"; }
+.site-prose details[open] summary { margin-bottom: 14px; }
+.site-table { overflow-x: auto; margin: 6px 0 20px; }
+.site-table table { border-collapse: collapse; width: 100%; font-size: 15.5px; background: var(--lys-surface); border-radius: 16px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--lys-line); }
+.site-table th, .site-table td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--lys-line); vertical-align: top; }
+.site-table th { font: 600 12px/1.3 var(--lys-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--lys-muted); background: var(--lys-soft); }
+.site-table tr:last-child td { border-bottom: 0; }
+.site-widget { min-width: 0; }
+.site-widget .events-section { padding: 0; }
+.site-gallery { padding: 36px 0 8px; }
+.site-gallery h2 { font: 400 clamp(26px, 3vw, 34px)/1.2 var(--lys-serif); margin: 0 0 18px; }
+.site-gallery > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.site-gallery img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 16px; display: block; }
+.site-more { padding: 44px 0 8px; }
+.site-more > .lys-kicker { margin-bottom: 14px; }
+.site-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 16px; }
+.site-card { display: flex; flex-direction: column; text-decoration: none; color: var(--lys-ink); transition: transform .2s ease, box-shadow .2s ease; }
+.site-card:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -26px rgba(42, 38, 34, .35); }
+.site-card h2 { font-size: 24px; }
+.site-card .lys-link { margin-top: auto; }
+.site-teachers { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; margin: 4px 0 8px; }
+.site-teacher img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 18px; display: block; background: var(--lys-soft); }
+.site-teacher h3 { font: 400 20px/1.25 var(--lys-serif); margin: 12px 0 4px; }
+.site-teacher h3 a { color: var(--lys-ink); text-decoration: none; }
+.site-teacher h3 a:hover { color: var(--lys-accent); }
+.site-teacher p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--lys-muted); }
+.site-newsletter { display: grid; grid-template-columns: 1fr 1.1fr; gap: 24px 40px; align-items: end; margin: 48px 0 0; padding: 30px 32px; border-radius: var(--lys-radius); background: var(--lys-sage); position: relative; }
+.site-prose + .site-widget .site-newsletter, .site-widget-newsletter .site-newsletter { margin-top: 0; }
+.site-newsletter h3 { font: 400 28px/1.2 var(--lys-serif); margin: 8px 0 6px; }
+.site-newsletter p:not(.lys-kicker) { margin: 0; color: var(--lys-muted); }
+.site-newsletter-fields { display: grid; grid-template-columns: 1fr 1.3fr auto; gap: 10px; align-items: end; }
+.site-newsletter label { display: grid; gap: 6px; font: 600 12.5px/1.2 var(--lys-sans); color: var(--lys-sage-ink); }
+.site-newsletter input { min-height: 46px; padding: 10px 14px; border: 1px solid transparent; border-radius: 999px; background: var(--lys-surface); color: var(--lys-ink); font: 400 15.5px var(--lys-sans); }
+.site-newsletter input:focus { outline: 3px solid color-mix(in srgb, var(--lys-accent) 20%, transparent); }
+.site-newsletter .lys-btn { min-height: 46px; justify-content: center; }
+.site-honeypot { position: absolute; left: -5000px; width: 1px; height: 1px; overflow: hidden; }
+.site-foot { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 24px 48px; margin-top: 72px; padding: 40px 0 36px; border-top: 1px solid var(--lys-line); font-size: 14.5px; color: var(--lys-muted); }
+.site-foot b { font: 400 22px/1 var(--lys-serif); letter-spacing: .2em; text-transform: uppercase; color: var(--lys-ink); }
+.site-foot p { margin: 12px 0 0; line-height: 1.6; }
+.site-foot a { color: var(--lys-ink); text-decoration: none; }
+.site-foot a:hover { color: var(--lys-accent); }
+.site-foot nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 20px; align-content: start; }
+.site-foot-legal { grid-column: 1 / -1; font-size: 13px; color: var(--lys-faint); }
+
+/* The front page: hjerterum.info's sequence in Lys. */
+.site-home-title em { display: block; font-style: normal; color: inherit; }
+.site-home-title em span { font-style: italic; color: var(--lys-terra); }
+.site-categories { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 34px; padding: 22px 0 8px; border-top: 1px solid var(--lys-line); border-bottom: 1px solid var(--lys-line); }
+.site-categories a { display: grid; justify-items: center; gap: 8px; font: 600 11.5px/1 var(--lys-sans); letter-spacing: .18em; text-transform: uppercase; color: var(--lys-muted); text-decoration: none; padding-bottom: 12px; }
+.site-categories a span { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 50%; background: var(--lys-surface); box-shadow: inset 0 0 0 1px var(--lys-line); color: var(--lys-terra); transition: background .2s ease; }
+.site-categories a:hover span { background: var(--lys-clay); }
+.site-categories svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.site-home-section { padding: 64px 0 8px; }
+.site-section-head { display: flex; justify-content: space-between; align-items: end; gap: 20px; margin-bottom: 22px; }
+.site-section-head h2 { font: 400 clamp(32px, 3.6vw, 44px)/1.1 var(--lys-serif); margin: 10px 0 0; }
+.site-section-head p:not(.lys-kicker) { margin: 10px 0 0; max-width: 56ch; color: var(--lys-muted); }
+.site-section-head .lys-link { white-space: nowrap; }
+.site-cirkler { margin: 64px 0 0; padding: 40px clamp(24px, 4vw, 48px); border-radius: var(--lys-radius); background: var(--lys-clay); }
+.site-cirkler h2 { font: 400 clamp(32px, 3.6vw, 42px)/1.1 var(--lys-serif); letter-spacing: .06em; margin: 10px 0 12px; }
+.site-cirkler p:not(.lys-kicker) { max-width: 62ch; margin: 0 0 22px; color: var(--lys-muted); font-size: 17px; line-height: 1.7; }
+.site-cirkler .lys-btn { background: var(--lys-terra); }
+.site-vision .lys-intro { margin-bottom: 28px; }
+.site-vision .lys-title { font-size: clamp(40px, 4.6vw, 58px); margin-top: 12px; }
+
+/* The memberships. */
+.site-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; align-items: stretch; }
+.site-plan { position: relative; display: flex; flex-direction: column; padding: 24px 22px; border-radius: var(--lys-radius); background: var(--lys-surface); border: 1px solid var(--lys-line); box-shadow: var(--lys-shadow); }
+.site-plan.featured { border: 1.5px solid var(--lys-accent); }
+.site-plan-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--lys-accent); color: var(--lys-accent-ink); font: 600 11.5px/1 var(--lys-sans); white-space: nowrap; }
+.site-plan-price { margin: 14px 0 2px; color: var(--lys-muted); }
+.site-plan-price b { font: 400 40px/1 var(--lys-serif); color: var(--lys-ink); }
+.site-plan-year { margin: 0 0 14px; font-size: 13.5px; color: var(--lys-muted); }
+.site-plan-year span { color: var(--lys-sage-ink); font-weight: 600; }
+.site-plan-text { margin: 0 0 20px; font-size: 14.5px; line-height: 1.6; color: var(--lys-muted); }
+.site-plan .lys-btn { margin-top: auto; justify-content: center; }
+
+@media (max-width: 860px) {
+  .site-newsletter { grid-template-columns: 1fr; }
+  .site-newsletter-fields { grid-template-columns: 1fr; }
+  .site-foot { grid-template-columns: 1fr; }
+  .site-section-head { flex-direction: column; align-items: start; }
+}
+@media (max-width: 760px) {
+  .site-intro-side > p { margin-top: 10px; font-size: 16.5px; }
+  .site-prose { font-size: 16px; }
+  .site-prose h2 { margin-top: 42px; }
+  .site-categories { gap: 8px 20px; }
+  .site-categories a span { width: 44px; height: 44px; }
+  .site-home-section { padding-top: 48px; }
 }

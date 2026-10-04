@@ -1,5 +1,7 @@
 import { EventCard, calendarMonth } from "./event-card";
-import { LegacyPage, LegacyBody, legacyPage, PublicNavigation } from "./legacy-pages";
+import { SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { redirectFor, sitePage } from "../site/redirects";
+import type { Section } from "../site/pages";
 import { PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState } from "react";
@@ -9,7 +11,7 @@ import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 import "./lys-spa.css";
-import { injectLys, LysArt, LysTop } from "./lys";
+import { injectLys, LysTop } from "./lys";
 
 injectLys();
 
@@ -84,29 +86,8 @@ function useClerk() {
   return { clerk, user, loaded };
 }
 
-function UserButton({ clerk }: { clerk: ClerkBrowser }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!ref.current) return;
-    const node = ref.current;
-    clerk.mountUserButton(node);
-    return () => clerk.unmountUserButton(node);
-  }, [clerk]);
-  return <div className="user-button" ref={ref} />;
-}
-
-function SiteHeader({ member = false, clerk, user }: { member?: boolean; clerk?: ClerkBrowser; user?: ClerkUser }) {
-  if (!member) return <LysTop><PublicNavigation /></LysTop>;
-  return (
-    <LysTop right={clerk && user ? <UserButton clerk={clerk} /> : null}>
-      <nav className="lys-nav" aria-label="Medlemsnavigation">
-        <a href="/member-portal/dashboard">Medlemskab</a>
-        <a href="/member-portal/kalender">Kalender</a>
-        <a href="/member-portal/kontakt">Kontakt</a>
-        <a href="/member-portal/profil">Profil</a>
-      </nav>
-    </LysTop>
-  );
+function SiteHeader({ current }: { current?: Section | undefined }) {
+  return <LysTop right={<a className="lys-pill" href="/sign-in">Log ind</a>}><SiteNav current={current} /></LysTop>;
 }
 
 function AuthPage({
@@ -146,11 +127,10 @@ function AuthPage({
   );
 }
 
-function EventSection({ events, reachable, full = false }: { events: CalendarEvent[]; reachable: boolean; full?: boolean }) {
-  const visible = full ? events : events.slice(0, 6);
+function EventSection({ events, reachable, full = false, limit = 6 }: { events: CalendarEvent[]; reachable: boolean; full?: boolean; limit?: number }) {
+  const visible = full ? events : events.slice(0, limit);
   const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
-  return <section className={"events-section" + (full ? " public-calendar" : " content-section")} id="kalender">
-    {!full && <div className="section-intro"><p className="kicker">Kalender</p><h2>Det sker i Hjerterum</h2><p>Bevægelse, fordybelse og fællesskab. Find dit næste pusterum.</p></div>}
+  return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
     {reachable && visible.length ? months.map(month => <section className="calendar-month" key={month} aria-label={month}>
       <h2>{month}</h2><div className="member-event-grid">
         {visible.map(event => calendarMonth(event.startsAt) !== month ? null : <EventCard key={event.key}
@@ -161,7 +141,6 @@ function EventSection({ events, reachable, full = false }: { events: CalendarEve
             : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
         </EventCard>)}
       </div></section>) : <div className="calendar-empty"><p>{reachable ? "Der er ingen kommende events i kalenderen endnu." : "Kalenderen indlæses."}</p></div>}
-    {!full && <a className="text-link section-link" href="/events">Åbn hele kalenderen →</a>}
   </section>;
 }
 
@@ -275,290 +254,52 @@ function usePublicEvents() {
 
 const SOON_TIME = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-/** Requested: "tilføre noget eksklusivt design - måske noget geometri der bevæger sig i hero" - the approved Hjerterum Lys
- * hero (apps/web/lys.ts): the website's words on the left, the slow circles on the right with what is about to happen. */
+/** The front page (src/site-pages.tsx): hjerterum.info's structure in Hjerterum Lys, with the living geometry and
+ * "Lige om lidt" - the next three events - floating over it. */
 function PublicHome() {
   const { events, eventsReachable } = usePublicEvents();
   const now = Date.now();
   const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
-  return <main className="page-shell">
-    <SiteHeader />
-    <section className="lys-hero">
-      <div>
-        <p className="lys-kicker lys-rise">Hjerterum i Aarhus</p>
-        <h1 className="lys-title lys-rise d2">Et rum for nærvær,<em>praksis og fællesskab.</em></h1>
-        <p className="lys-hero-lead lys-rise d3">Bevægelse, fordybelse og fællesskab i Guldsmedgade, midt i Aarhus.</p>
-        <p className="lys-hero-actions lys-rise d4"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/bliv-medlem">Bliv medlem</a></p>
-      </div>
-      <div className="lys-hero-art">
-        <LysArt />
-        {soon.length > 0 && <div className="lys-soon lys-rise d4">
-          <p className="lys-kicker">Lige om lidt i Hjerterum</p>
-          <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
-          <a className="lys-link" href="/events">Hele kalenderen →</a>
-        </div>}
-      </div>
-    </section>
-    <section className="legacy-page legacy-home">
-      <LegacyBody page={legacyPage("/")!} />
-    </section>
-    <EventSection events={events} reachable={eventsReachable} />
-    <footer className="site-footer"><a href="/kontakt-os">Guldsmedgade 26B · Aarhus C</a><a href="/nyhedsbrev">Nyhedsbrev</a><a href="/kontakt-os">Kontakt Hjerterum</a></footer>
-  </main>;
+  return <SiteHome
+    header={<SiteHeader />}
+    soon={soon.length > 0 && <div className="lys-soon lys-rise d4">
+      <p className="lys-kicker">Lige om lidt i Hjerterum</p>
+      <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
+      <a className="lys-link" href="/events">Hele kalenderen →</a>
+    </div>}
+    events={<EventSection events={events} reachable={eventsReachable} limit={3} />}
+    plans={<MembershipPlans />}
+  />;
 }
 
+/** Every content page lives in site/pages.ts; the old holistisk.org addresses are moved there by the worker (301)
+ * and, when the app itself is served without it, here. */
 function PublicContentPage({ path }: { path: string }) {
-  const normalizedPath = path.replace(/\/+$/, "") || "/";
-  const english = normalizedPath === "/welcome" || normalizedPath === "/events-en" ||
-    normalizedPath === "/vision-en" || normalizedPath === "/book-your-event" ||
-    normalizedPath === "/become-a-member" || normalizedPath === "/conditions-of-membership" ||
-    normalizedPath === "/use-hjerterum" || normalizedPath === "/conditions-for-renting-the-room" ||
-    normalizedPath === "/guidelines-for-teachers";
+  const page = sitePage(path);
+  const target = page ? undefined : redirectFor(path);
   const { events, eventsReachable } = usePublicEvents();
+  useEffect(() => { if (target) window.location.replace(target); }, [target]);
+  if (target) return <main className="page-shell"><SiteHeader /></main>;
+  if (!page) return <NotFound />;
+  return <SitePageView page={page} header={<SiteHeader current={page.section} />} widgets={{
+    events: <EventSection events={events} reachable={eventsReachable} full />,
+    "membership-plans": <MembershipPlans lang={page.lang} />,
+    "price-calculator": <RoomPriceCalculator />,
+    profiles: <PublicProfiles bare />
+  }} />;
+}
 
-  useEffect(() => {
-    const titles: Record<string, string> = {
-      "/welcome": "Welcome to Hjerterum",
-      "/events": "Events i Hjerterum",
-      "/events-en": "Events at Hjerterum",
-      "/vision": "Hvad er Hjerterum?",
-      "/vision-en": "What is Hjerterum?",
-      "/historien-bag-hjerterum": "Historien bag Hjerterum",
-      "/behandlere": "Behandlere og undervisere",
-      "/praktisk-information": "Praktisk information",
-      "/artikler": "Artikler og inspiration",
-      "/team": "Mød Hjerterum",
-      "/teamet": "Mød Hjerterum",
-      "/kontakt-os": "Kontakt Hjerterum",
-      "/fordele-ved-medlemskab": "Fordele ved et medlemskab",
-      "/benefits-of-membership": "Benefits of membership",
-      "/medlemskabs-betingelser": "Vilkår for medlemskab",
-      "/conditions-of-membership": "Terms of membership",
-      "/bliv-medlem": "Bliv medlem af Hjerterum",
-      "/become-a-member": "Become a member of Hjerterum",
-      "/book-dit-event": "Book dit event i Hjerterum",
-      "/book-your-event": "Book your event at Hjerterum",
-      "/brug-centret": "Brug Hjerterum",
-      "/use-hjerterum": "Use Hjerterum",
-      "/lejepriser": "Lejepriser",
-      "/betingelser-for-leje-af-sal": "Vilkår for leje af sal",
-      "/conditions-for-renting-the-room": "Conditions for renting the room",
-      "/guidelines-for-undervisere": "Praktisk information",
-      "/guidelines-for-teachers": "Practical information",
-      "/price-list": "Book Room at Hjerterum"
-    };
-    document.title = `${titles[normalizedPath] || "Hjerterum"} · Hjerterum`;
-  }, [normalizedPath]);
-
-  if (normalizedPath === "/events" || normalizedPath === "/events-en" || normalizedPath === "/kalendervisning") {
-    return (
-      <main className="page-shell">
-        <SiteHeader />
-        <section className="content-section public-page-intro">
-          <p className="kicker">{english ? "Calendar" : "Kalender"}</p>
-          <h1>{english ? "Events at Hjerterum" : "Events i Hjerterum"}</h1>
-          <p className="lead-copy">
-            {english
-              ? "A varied program of yoga, meditation, breathwork, talks, music, community and inner exploration."
-              : "Et levende program med yoga, meditation, åndedræt, musik, fællesskab og plads til indre fordybelse."}
-          </p>
-        </section>
-        <EventSection events={events} reachable={eventsReachable} full />
-        <section className="soft-panel public-policy">
-          <h2>{english ? "A safe and respectful space" : "Et trygt og respektfuldt rum"}</h2>
-          <p>{english
-            ? "Ask before filming or photographing, and respect a no. We look after each other's safety, privacy and trust."
-            : "Spørg før du filmer eller fotograferer, og respekter et nej. Vi passer på hinandens tryghed, privatliv og tillid."}</p>
-          <p>{english
-            ? "For events arranged by external teachers, Hjerterum acts as mediator and lessor of the premises. Questions about content or agreements should be addressed to the organiser."
-            : "Ved events arrangeret af eksterne undervisere fungerer Hjerterum som formidler og udlejer af lokalerne. Spørgsmål om indhold eller aftaler skal rettes til arrangøren."}</p>
-        </section>
-      </main>
-    );
-  }
-
-  const existingPage = legacyPage(normalizedPath);
-  if (existingPage) return <main className="page-shell"><SiteHeader />
-    <LegacyPage page={existingPage} path={normalizedPath}>
-      {(normalizedPath === "/price-list" || normalizedPath === "/lejepriser") && <RoomPriceCalculator />}
-      {(normalizedPath === "/bliv-medlem" || normalizedPath === "/fordele-ved-medlemskab") && <MembershipPlans />}
-    </LegacyPage>
+function NotFound() {
+  useEffect(() => { document.title = "Siden findes ikke · Hjerterum"; }, []);
+  return <main className="page-shell site-page">
+    <SiteHeader />
+    <section className="lys-intro site-intro">
+      <div><p className="lys-kicker">Hjerterum</p><h1 className="lys-title">Siden findes<em>ikke længere</em></h1></div>
+      <div className="site-intro-side"><p>Måske er den flyttet, da vi samlede hjemmesiden. Prøv forsiden, kalenderen eller menuen øverst.</p>
+        <p className="lys-hero-actions"><a className="lys-btn" href="/">Til forsiden</a><a className="lys-btn ghost" href="/events">Se kalenderen</a></p></div>
+    </section>
   </main>;
-
-  if (normalizedPath === "/behandlere") return <main className="profile-workspace"><div className="page-shell"><SiteHeader /><PublicProfiles /></div></main>;
-
-  const page = (() => {
-    switch (normalizedPath) {
-      case "/vision":
-      case "/historien-bag-hjerterum":
-        return {
-          kicker: "Hjerterum",
-          title: normalizedPath === "/historien-bag-hjerterum" ? "Historien bag Hjerterum." : "Et rum for nærvær, praksis og fællesskab.",
-          body: normalizedPath === "/historien-bag-hjerterum"
-            ? "Hjerterum er vokset frem af et ønske om at skabe et åbent hus i Aarhus for personlig udvikling, indre transformation og fællesskab."
-            : "Hjerterum er et levende hus i Aarhus, hvor mennesker mødes om det, der skaber mere kontakt, ro, liv og forbindelse.",
-          action: ["Se kalenderen", "/events"]
-        };
-      case "/vision-en":
-        return {
-          kicker: "Hjerterum",
-          title: "A space for community, creativity and personal development.",
-          body: "Hjerterum is an open and safe space in Aarhus for meaningful events, practice, creativity and connection.",
-          action: ["Explore events", "/events-en"]
-        };
-      case "/team":
-      case "/teamet":
-        return {
-          kicker: "Menneskene i huset",
-          title: "Mød Hjerterum.",
-          body: "Hjerterum er skabt og holdt levende af mennesker, undervisere, behandlere og arrangører, der deler huset og fællesskabet.",
-          action: ["Kontakt os", "/kontakt-os"]
-        };
-      case "/behandlere":
-        return {
-          kicker: "Menneskene i huset",
-          title: "Behandlere og undervisere i Hjerterum.",
-          body: "Hjerterum er hjem for undervisere, behandlere og arrangører med forskellige faglige og holistiske perspektiver. Kalenderen viser de aktuelle events og tilbud i huset.",
-          action: ["Se aktuelle events", "/events"]
-        };
-      case "/praktisk-information":
-        return {
-          kicker: "Brug Hjerterum",
-          title: "Praktisk information om huset.",
-          body: "Her samler vi den praktiske viden fra Hjerterums tidligere sider: hvordan du holder event, bruger salen, markedsfører dit arrangement og bliver en del af husets fællesskab.",
-          action: ["Læs om at bruge huset", "/brug-centret"]
-        };
-      case "/artikler":
-        return {
-          kicker: "Inspiration",
-          title: "Artikler og inspiration fra Hjerterum.",
-          body: "Hjerterums artikler og faglige indhold samles løbende her, så viden om praksis, nærvær og personlig udvikling bliver lettere at finde.",
-          action: ["Kontakt os", "/kontakt-os"]
-        };
-      case "/kontakt-os":
-        return {
-          kicker: "Kontakt",
-          title: "Kom forbi Hjerterum.",
-          body: "Har du spørgsmål til huset, medlemskab eller events, er du velkommen til at skrive til os.",
-          action: ["Skriv til os", "mailto:hjerterum@holistisk.org"]
-        };
-      case "/fordele-ved-medlemskab":
-      case "/benefits-of-membership":
-      case "/bliv-medlem":
-      case "/become-a-member":
-        return {
-          kicker: english ? "Membership" : "Medlemskab",
-          title: english ? "Be part of Hjerterum." : "Hjerterum er noget, vi skaber sammen.",
-          body: english
-            ? "Membership connects you to the house, its community and a varied program of events."
-            : "Som medlem er du med til at holde huset levende og tilgængeligt. Du bliver en del af fællesskabet og får adgang til aktiviteter og mulighed for selv at skabe noget i Hjerterum.",
-          action: [english ? "Contact us about membership" : "Kontakt os om medlemskab", "/kontakt-os"]
-        };
-      case "/medlemskabs-betingelser":
-      case "/conditions-of-membership":
-        return {
-          kicker: english ? "Membership" : "Medlemskab",
-          title: english ? "Membership terms." : "Vilkår for medlemskab.",
-          body: english
-            ? "Membership is personal and connected to the community around Hjerterum. The current terms are reviewed before any paid membership flow is activated."
-            : "Medlemskabet er personligt og knyttet til fællesskabet omkring Hjerterum. Vilkårene gennemgås, før et betalt medlemsflow aktiveres.",
-          action: [english ? "Membership overview" : "Se medlemskab", english ? "/become-a-member" : "/bliv-medlem"]
-        };
-      case "/book-dit-event":
-      case "/book-your-event":
-        return {
-          kicker: english ? "Use the house" : "Brug Hjerterum",
-          title: english ? "Create your own event in the house." : "Skab dit eget arrangement i Hjerterum.",
-          body: english
-            ? "Our rooms can be used for teaching, workshops, treatments, meetings and events. Members can create and reserve events through the member area."
-            : "Hjerterums lokaler kan bruges til undervisning, workshops, behandlinger, møder og events. Medlemmer kan oprette og reservere arrangementer gennem medlemsområdet.",
-          action: [english ? "Open member area" : "Åbn medlemsområdet", "/member-portal/kalender"]
-        };
-      case "/brug-centret":
-      case "/use-hjerterum":
-      case "/lejepriser":
-      case "/betingelser-for-leje-af-sal":
-      case "/conditions-for-renting-the-room":
-      case "/guidelines-for-undervisere":
-      case "/guidelines-for-teachers":
-        return {
-          kicker: english ? "Use the house" : "Brug Hjerterum",
-          title: english ? "Create your own event in the house." : "Skab dit eget arrangement i huset.",
-          body: english
-            ? "Hjerterum's room at Guldsmedgade 26B can host teaching, workshops, treatments, meetings and events."
-            : "Hjerterums sal på Guldsmedgade 26B kan bruges til undervisning, workshops, behandlinger, møder og events.",
-          action: [english ? "Calculate the rental price" : "Beregn lejepris", "/price-list"]
-        };
-      case "/price-list":
-        return {
-          kicker: "Brug Hjerterum",
-          title: "Beregn prisen for at leje salen.",
-          body: "Vælg dato, starttid og varighed for at få et estimat efter Hjerterums aktuelle prisberegner.",
-          action: ["Læs om at bruge huset", "/brug-centret"]
-        };
-      case "/welcome":
-        return {
-          kicker: "Hjerterum",
-          title: "A space for presence, practice and community.",
-          body: "Hjerterum is a community space in Aarhus for practice, creativity, connection and inner exploration.",
-          action: ["Explore events", "/events-en"]
-        };
-      default:
-        return null;
-    }
-  })();
-
-  if (!page) return <PublicHome />;
-
-  return (
-    <main className="page-shell">
-      <SiteHeader />
-      <section className="content-section public-page-intro">
-        <p className="kicker">{page.kicker}</p>
-        <h1>{page.title}</h1>
-        <p className="lead-copy">{page.body}</p>
-        <a className="pill-button dark" href={page.action[1]}>{page.action[0]}</a>
-      </section>
-      {normalizedPath === "/price-list" && <RoomPriceCalculator />}
-      {(normalizedPath === "/bliv-medlem" || normalizedPath === "/fordele-ved-medlemskab") && <MembershipPlans />}
-      <section className="three-grid public-link-grid">
-        <a className="story-card" href={english ? "/events-en" : "/events"}>
-          <span className="story-number">01</span>
-          <h3>{english ? "Events" : "Events"}</h3>
-          <p>{english ? "Find workshops, practice and community." : "Find workshops, praksis og fællesskab."}</p>
-        </a>
-        <a className="story-card" href={english ? "/become-a-member" : "/bliv-medlem"}>
-          <span className="story-number">02</span>
-          <h3>{english ? "Membership" : "Medlemskab"}</h3>
-          <p>{english ? "Join the community around the house." : "Bliv en del af fællesskabet omkring huset."}</p>
-        </a>
-        <a className="story-card" href={english ? "/book-your-event" : "/book-dit-event"}>
-          <span className="story-number">03</span>
-          <h3>{english ? "Use the house" : "Brug huset"}</h3>
-          <p>{english ? "Create an event in Hjerterum." : "Skab dit eget arrangement i Hjerterum."}</p>
-        </a>
-        {normalizedPath === "/brug-centret" && (
-          <>
-            <a className="story-card" href="/price-list">
-              <span className="story-number">04</span>
-              <h3>Prisberegner</h3>
-              <p>Beregn et estimat ud fra bookingtype, dato, tidspunkt og varighed.</p>
-            </a>
-            <a className="story-card" href="/praktisk-information">
-              <span className="story-number">05</span>
-              <h3>Praktisk information</h3>
-              <p>Læs om forberedelse, brug af huset og bookingprocessen.</p>
-            </a>
-          </>
-        )}
-      </section>
-      <section className="contact-section">
-        <div><p className="kicker">{english ? "Get in touch" : "Kontakt"}</p><h2>{english ? "You are welcome." : "Du er velkommen."}</h2><p>Guldsmedgade 26B, 8000 Aarhus C</p></div>
-        <div className="contact-links">        <a href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org</a><a href="/">Hjerterum</a></div>
-      </section>
-    </main>
-  );
 }
 
 function App() {

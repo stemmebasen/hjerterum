@@ -63,6 +63,13 @@ This document is the primary product and migration specification for the new Hje
 - Set-up order: verify `hjerterum.info` in Resend (DNS in Cloudflare) → GitHub secrets `RESEND_API_KEY` and, after adding the Clerk webhook for `email.created` at `/api/clerk/email`, `CLERK_WEBHOOK_SECRET` → deploy → test → only then switch off "Delivered by Clerk" on the verification-code template.
 - A production Clerk instance on hjerterum.info is still required before real members; the same Resend delivery carries over.
 
+### The website from holistisk.org (2026-10-04)
+
+- Requested: "tag al indholdet fra holistisk.org og importér og restrukturér det - ryd op - så vi ikke lader noget gå tabt"; "Du har tilladelse til at overskrive det nuværende indhold på hjerterum.info hjemmeside".
+- The platform's public website now carries all of holistisk.org's content in hjerterum.info's structure (`apps/web/site/`); every old address redirects (301) to its new place; `docs/CONTENT_LEDGER.md` accounts for all 56 pages, and the originals are archived in `docs/legacy/holistisk-org/`.
+- Before hjerterum.info is pointed at the platform: the user approves the pages on staging, and membership sign-up keeps working (it links to holistisk.org's membership system until Stripe is configured). hjerterum.info's current app serves `/member-portal/` - the platform serves the member area at the same address.
+- holistisk.org's full media library (603 files) is listed but not copied; download it before holistisk.org is closed.
+
 ## 2. Product scope
 
 ### Public site
