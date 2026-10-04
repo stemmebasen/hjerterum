@@ -39,6 +39,11 @@ export async function resolveActiveMembership(
 
   if (!clerkSecretKey) throw new Error("membership_lookup_not_configured");
   const email = await clerkPrimaryEmail(clerkUserId, clerkSecretKey);
+  // A member imported from MembershipWorks on the day of the switch (member-admin.ts importTurnover) waits for their first
+  // login with that (verified) email, and is theirs from then on.
+  const claimed = await db.prepare("UPDATE members SET clerk_user_id = ?, updated_at_ms = ? WHERE clerk_user_id = ?")
+    .bind(clerkUserId, Date.now(), `pending:${email.trim().toLowerCase()}`).run();
+  if (claimed.meta?.changes) return resolveActiveMembership(db, clerkUserId, clerkSecretKey, requireBenefits);
   const external = await findMembershipWorksMemberByEmail(db, email);
   if (!external || external.status !== "active" || external.accessBlocked === 1) return null;
   if (requireBenefits && !includesMemberBenefits(external.membershipLevel)) return null;

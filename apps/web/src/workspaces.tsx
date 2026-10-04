@@ -23,6 +23,7 @@ type Member = {
   managedExternally?: boolean;
   /** "manual": given by Hjerterum in admin → Medlemmer, with no card payment (worker/member-admin.ts). */
   billing?: "stripe" | "manual";
+  paysInMembershipworks?: boolean;
 };
 
 type Booking = {
@@ -603,7 +604,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <Status value={member.status} />
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
-          <p>Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort.</p>
+          <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret via MembershipWorks." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
           <a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt os om medlemskabet →</a>
         </div>
       </section>
