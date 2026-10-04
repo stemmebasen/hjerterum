@@ -8,7 +8,8 @@ export type LegacyPage = { slug: string; title: string; url: string; modified: s
 /** What was tidied, moved or left out - and why. Everything else was carried over in full, in cleaner words. */
 export const NOTES: Record<string, string> = {
   "administrer-dine-events": "Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender.",
-  "behandling-terapi": "Behandlerne er fra 2021–2024 (Aurora Gayatri, Soroush Zand); Douglas Crawford er tilføjet fra den engelske side. Bør bekræftes af bestyrelsen.",
+  "behandling-terapi": "Aurora Gayatri og Soroush Zand er ikke længere med (besluttet 4. oktober 2026); Douglas Crawford er tilføjet fra den engelske side. Introduktionen til breathwork er bevaret.",
+  "treatment-and-therapy": "Som den danske side: kun Douglas Crawford er med.",
   "book-dit-event": "Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren.",
   "book-your-event": "Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren.",
   "bliv-medlem": "Indmeldelse sker fortsat på holistisk.org (som fra hjerterum.info), indtil betaling kører på platformen.",

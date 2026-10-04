@@ -206,22 +206,6 @@ ${DISCLAIMER}
 
 ## Behandlere med medlemsrabat {#behandlere}
 
-### Aurora Gayatri – terapeut og selvkærlighedscoach
-![Aurora Gayatri – You Unfolding](/media/2019-08-aurora-gayatri-1.webp)
-
-> Jeg er lysarbejder. Mit hjerte brænder for at guide dig hjem – til selvkærlighedens land. At støtte dig i at transformere følelser af mindreværd, angst, depression, vrede og selvhad til livsbekræftende følelser af indre storhed, tillid, frihed, glæde og selvkærlighed. At hjælpe dig med at skabe dybe rødder ned i Moder Jord og turde lade din sande natur udfolde sig – i dit smukke lys.
-
-Aurora tilbyder terapi, healing og breathwork – både individuelt og i grupper. Kontakt hende via [You Unfolding på Facebook](https://www.facebook.com/pg/YouUnfolding/about/), eller send en sms til 27 57 03 96, så ringer hun dig op.
-
-### Soroush Zand – healing og clairvoyant rådgivning
-![Soroush Zand – healing og clairvoyant rådgivning](/media/2021-10-soroush-headrer.webp)
-
-- **Clairvoyant rådgivning** – her bliver du set.
-- **Samtale** – her drøfter I dine temaer i fællesskab.
-- **Behandling** – her kan du slappe helt af og få ny energi.
-
-Soroush tilbyder healing, polaritetsterapi og clairvoyant rådgivning, healingsaftener med krystalsyngeskåle og den gratis spirituelle podcast "Sjæl – samtaler om spiritualitet". Kontakt: 30 64 21 62 · [kontakt@sjæl.dk](mailto:kontakt@xn--sjl-zla.dk) · [sjæl.dk](http://www.xn--sjl-zla.dk/)
-
 ### Douglas Crawford – lysarbejder
 ![Douglas Crawford – lysarbejder](/media/2020-12-lightworker-1.webp)
 

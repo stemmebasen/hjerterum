@@ -55,7 +55,7 @@ ${DISCLAIMER_EN}
 +++
 
 ## Treatments {#treatments}
-As a member of Hjerterum you get special offers on treatments and therapy sessions with practitioners in the house – among them Aurora Gayatri (therapy, healing and breathwork), Soroush Zand (healing, polarity therapy and clairvoyant guidance) and Douglas Crawford (Source Breathwork/rebirthing and coaching in A Course in Miracles, [masteringlife.dk](http://www.masteringlife.dk/)). See [all practitioners and teachers](/behandlere) and [treatments and breathwork](/behandling) (in Danish).
+As a member of Hjerterum you get special offers on treatments and therapy sessions with practitioners in the house – among them Douglas Crawford (Source Breathwork/rebirthing and coaching in A Course in Miracles, [masteringlife.dk](http://www.masteringlife.dk/)). See [all practitioners and teachers](/behandlere) and [treatments and breathwork](/behandling) (in Danish).
 
 ## Contact {#contact}
 **Hjerterum**, Guldsmedgade 26B, ground floor, 8000 Aarhus C. Would you like to see the place? Schedule a visit by email.
