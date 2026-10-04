@@ -151,9 +151,9 @@ describe("GET /api/stats/site", () => {
     expect(response.headers.get("content-type")).toContain("application/json");
     const body = await response.json() as Record<string, unknown>;
     expect(Object.keys(body)).toEqual(["site", "days", "from", "to", "tracksEnquiries", "totals", "previous", "series", "pages", "entryPages", "referrers", "campaigns", "devices", "countries"]);
-    expect(body).toMatchObject({ site: "hjerterum", days: 7, from: "2026-09-28", to: "2026-10-04", tracksEnquiries: false });
+    expect(body).toMatchObject({ site: "hjerterum", days: 7, from: "2026-09-28", to: "2026-10-04", tracksEnquiries: true });
     // Visitors are distinct (day, visitor): visitor 3 on two days counts twice.
-    expect(body.totals).toEqual({ visitors: 4, pageViews: 5, enquiries: 0, conversionRate: null });
+    expect(body.totals).toEqual({ visitors: 4, pageViews: 5, enquiries: 0, conversionRate: 0 });
     expect(Object.keys(body.totals as object)).toEqual(["visitors", "pageViews", "enquiries", "conversionRate"]);
     expect(body.previous).toEqual({ visitors: 2, pageViews: 2, enquiries: 0 });
     const series = body.series as Array<Record<string, unknown>>;
@@ -218,7 +218,7 @@ describe("admin → Statistik", () => {
     expect(html).toMatch(/data-kpi="visitors">4</);
     expect(html).toMatch(/data-kpi="pageViews">5</);
     expect(html).toContain("▲ +100 %");
-    expect(html).not.toContain('data-kpi="enquiries"');
+    expect(html).toMatch(/data-kpi="enquiries">0</);
     expect(html).toContain('aria-current="page">7 dage');
     for (const text of ["Mest besøgte sider", "Indgangssider", "Kilder", "Kampagner (UTM)", "Enheder", "Lande", "instagram.com", "nyhedsbrev · oktober", "Sverige",
       "<span>/medlemskab</span><small>Bliv en del af Hjerterum</small>", 'href="/statistik" class="on"', "slettes efter 6 måneder"]) expect(html).toContain(text);

@@ -1,6 +1,7 @@
 import { SITE_PAGES } from "../../site/pages.js";
 import { KEEP_MONTHS, STATS_PERIODS, type Ranked, type SiteStats } from "../site-stats.js";
 import { esc, layout } from "./page.js";
+import { enquiryTopic } from "../../site/enquiries.js";
 
 /** Requested: "I admin skal vi også have en statistik side på som den vi bruger i Matrix" - and then "Byg en statistikside
  * i jeres admin over besøg på jeres offentlige hjemmeside": unique visitors and page views for the last 7, 30 or 90 days
@@ -61,7 +62,7 @@ function tiles(stats: SiteStats): string {
   const t = stats.totals, p = stats.previous;
   const tile = (label: string, value: string, after: string, kpi: string) => `<div class="st-tile"><span>${label}</span><strong data-kpi="${kpi}">${value}</strong>${after}</div>`;
   const perVisitor = (views: number, visitors: number) => visitors ? decimal(views / visitors) : "–";
-  // Henvendelser and konvertering only where the site counts enquiries from its own forms (Hjerterum has none yet).
+  // Henvendelser and konvertering only where the site counts enquiries from its own forms (site/enquiries.ts).
   return `<div class="st-tiles">${tile("Unikke besøgende", number(t.visitors), delta(t.visitors, p.visitors), "visitors")}${tile("Sidevisninger", number(t.pageViews), delta(t.pageViews, p.pageViews), "pageViews")}
 ${stats.tracksEnquiries ? `${tile("Henvendelser", number(t.enquiries), delta(t.enquiries, p.enquiries), "enquiries")}${tile("Konvertering", t.conversionRate === null ? "–" : `${decimal(t.conversionRate)} %`,
     `<span class="st-delta">henvendelser pr. besøgende${p.visitors ? ` · før ${percent(p.enquiries, p.visitors)}` : ""}</span>`, "conversion")}` : ""}
@@ -69,7 +70,7 @@ ${tile("Sider pr. besøgende", perVisitor(t.pageViews, t.visitors), `<span class
 }
 
 /** Visitors per day: one series, so no legend - the heading names it. Each column shows its numbers on hover or focus. */
-function chart(series: SiteStats["series"]): string {
+function chart(series: SiteStats["series"], withEnquiries: boolean): string {
   const max = Math.max(1, ...series.map(d => d.visitors));
   const step = 10 ** Math.floor(Math.log10(max)), top = Math.ceil(max / step) * step;
   const every = Math.ceil(series.length / 10), gap = series.length > 40 ? 1 : series.length > 14 ? 3 : 8;
@@ -77,7 +78,7 @@ function chart(series: SiteStats["series"]): string {
   const shown = (i: number, step: number) => i === series.length - 1 || (i % step === 0 && series.length - 1 - i >= step * 0.7);
   const phone = Math.ceil(series.length / 4);
   const columns = series.map(d => `<div class="st-col" tabindex="0" aria-label="${esc(dayLabel(d.day, true))}: ${d.visitors} besøgende"><i style="height:${(d.visitors / top * 100).toFixed(1)}%"></i>
-<span class="st-tip"><b>${esc(dayLabel(d.day, true))}</b>${number(d.visitors)} besøgende<br>${number(d.pageViews)} sidevisninger</span></div>`).join("");
+<span class="st-tip"><b>${esc(dayLabel(d.day, true))}</b>${number(d.visitors)} besøgende<br>${number(d.pageViews)} sidevisninger${withEnquiries ? `<br>${number(d.enquiries)} henvendelser` : ""}</span></div>`).join("");
   return `<div class="st-chart" style="--gap:${gap}px"><div class="st-axis" aria-hidden="true"><span>${number(top)}</span><span>${number(top / 2)}</span><span>0</span></div>
 <div class="st-plot" role="img" aria-label="Unikke besøgende pr. dag">${columns}</div>
 <div class="st-dates" aria-hidden="true">${series.map((d, i) => {
@@ -86,9 +87,9 @@ function chart(series: SiteStats["series"]): string {
   }).join("")}</div></div>`;
 }
 
-function dayTable(series: SiteStats["series"]): string {
-  return `<table class="st-table"><tr><th>Dag</th><th class="n">Besøgende</th><th class="n">Sidevisninger</th></tr>
-${series.slice().reverse().map(d => `<tr><td>${esc(dayLabel(d.day, true))}</td><td class="n">${number(d.visitors)}</td><td class="n">${number(d.pageViews)}</td></tr>`).join("")}</table>`;
+function dayTable(series: SiteStats["series"], withEnquiries: boolean): string {
+  return `<table class="st-table"><tr><th>Dag</th><th class="n">Besøgende</th><th class="n">Sidevisninger</th>${withEnquiries ? '<th class="n">Henvendelser</th>' : ""}</tr>
+${series.slice().reverse().map(d => `<tr><td>${esc(dayLabel(d.day, true))}</td><td class="n">${number(d.visitors)}</td><td class="n">${number(d.pageViews)}</td>${withEnquiries ? `<td class="n">${number(d.enquiries)}</td>` : ""}</tr>`).join("")}</table>`;
 }
 
 function list(title: string, unit: string, items: Ranked[], label: (key: string) => { text: string; small?: string }): string {
@@ -105,7 +106,16 @@ function list(title: string, unit: string, items: Ranked[], label: (key: string)
 
 const page = (key: string) => ({ text: key || "/", small: pageTitle(key) });
 
-export function statsPage(base: string, who: string | null, stats: SiteStats, counting = true): string {
+/** The enquiries by topic, for the board: the counted forms (site/enquiries.ts). */
+function topicList(topics: Array<{ key: string; count: number }>): string {
+  const max = Math.max(1, ...topics.map(t => t.count));
+  return `<section class="panel"><header><h2>Henvendelser efter emne</h2></header>${topics.length ? `<table class="st-table"><tr><th>Emne</th><th class="n">Henvendelser</th></tr>${topics.map(t => {
+    const label = enquiryTopic(t.key)?.label.da ?? t.key;
+    return `<tr><td class="k"><div class="st-bar" title="${esc(label)}"><i style="width:${Math.round(t.count / max * 100)}%"></i><span>${esc(label)}</span></div></td><td class="n">${number(t.count)}</td></tr>`;
+  }).join("")}</table>` : `<p class="empty">Ingen henvendelser i perioden.</p>`}</section>`;
+}
+
+export function statsPage(base: string, who: string | null, stats: SiteStats, counting = true, topics: Array<{ key: string; count: number }> = []): string {
   const periods = STATS_PERIODS.map(days => `<a href="${base}/statistik?dage=${days}"${days === stats.days ? ' aria-current="page"' : ""}>${days} dage</a>`).join("");
   const head = `<div class="st-head"><div class="hero"><h1>Statistik</h1><p>Hjemmesidens besøg de seneste ${stats.days} dage, ${esc(dayLabel(stats.from, true))} – ${esc(dayLabel(stats.to, true))}</p></div>
 <nav class="st-periods" aria-label="Periode">${periods}</nav></div>`;
@@ -117,9 +127,9 @@ export function statsPage(base: string, who: string | null, stats: SiteStats, co
 <p class="muted">Tællingen starter med det første besøg på hjemmesiden${counting ? "" : ", når STATS_API_SECRET er sat"}. ${how}</p></section></main>`, { section: "/statistik", who, style: STATS_STYLE });
   }
   return layout(base, "Statistik", `<main>${head}${off}${tiles(stats)}
-<section class="panel"><header><h2>Unikke besøgende pr. dag</h2></header>${chart(stats.series)}
-<details><summary>Vis som tabel</summary>${dayTable(stats.series)}</details>
-<p class="st-note">${how}</p></section>
+<section class="panel"><header><h2>Unikke besøgende pr. dag</h2></header>${chart(stats.series, stats.tracksEnquiries)}
+<details><summary>Vis som tabel</summary>${dayTable(stats.series, stats.tracksEnquiries)}</details>
+<p class="st-note">${how}${stats.tracksEnquiries ? " Henvendelser er dem, der er sendt med hjemmesidens formularer; konvertering er henvendelser pr. besøgende." : ""}</p></section>
 <div class="st-lists">
 ${list("Mest besøgte sider", "Side", stats.pages, page)}
 ${list("Indgangssider", "Første side", stats.entryPages, page)}
@@ -127,5 +137,6 @@ ${list("Kilder", "Kom fra", stats.referrers, key => ({ text: key || "Direkte ell
 ${list("Kampagner (UTM)", "Kilde · medie · kampagne", stats.campaigns, key => ({ text: key.split("|").filter(Boolean).join(" · ") || "–" }))}
 ${list("Enheder", "Enhed", stats.devices, key => ({ text: DEVICES[key] ?? (key || "Ukendt") }))}
 ${list("Lande", "Land", stats.countries, key => key ? { text: countryName(key), small: key } : { text: "Ukendt" })}
+${stats.tracksEnquiries ? topicList(topics) : ""}
 </div></main>`, { section: "/statistik", who, style: STATS_STYLE });
 }

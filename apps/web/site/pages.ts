@@ -178,8 +178,13 @@ Hjerterum Open er events, som Hjerterum selv skaber og arrangerer – koncerter,
 
 Har du ønsker eller idéer til indhold, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
 
+## Spørgsmål til et event? {#skriv}
+Har du spørgsmål om tilmelding, pladser eller et bestemt event, så skriv til os her.
+
+{{enquiry-event-deltagelse}}
+
 ## Vil du holde et event?
-Undervisere og arrangører kan leje salen og nå ud til husets store fællesskab. [Læs om at leje Hjerterum](/lej-hjerterum), eller skriv til [events@holistisk.org](mailto:events@holistisk.org).
+Undervisere og arrangører kan leje salen og nå ud til husets store fællesskab. [Læs om at leje Hjerterum](/lej-hjerterum), eller [skriv til os om dit event](/lej-hjerterum#skriv).
 
 +++ Politik om fotografering og video
 ${PHOTO_POLICY}
@@ -339,7 +344,12 @@ Donationer er – sammen med medlemskontingent og leje af salen – det, der få
 - **MobilePay:** 734388
 - **Bankoverførsel** (fx ved beløb over 1.000 kr.): Djursland Bank, reg.nr. 7268, kontonr. 1211404
 
-Vil du støtte fast uden medlemsfordele, kan du vælge Support-medlemskabet. På forhånd tak fra teamet bag ♡`,
+Vil du støtte fast uden medlemsfordele, kan du vælge Support-medlemskabet. På forhånd tak fra teamet bag ♡
+
+## Spørgsmål om medlemskab? {#skriv}
+Skriv til os, hvis du vil vide mere om medlemskaberne, reduceret pris eller dit eget medlemskab.
+
+{{enquiry-medlemskab}}`,
     image: { src: "/media/2021-05-cafe-time.webp", alt: "Café-stemning i Hjerterum" },
     children: ["/medlemskab/vilkaar"],
     sources: ["bliv-medlem", "fordele-ved-medlemskab", "lav-indkomst-medlemskab-low-income-membership", "donationer"]
@@ -476,7 +486,12 @@ Find prisen og send din bookingforespørgsel med [prisberegneren og bookingformu
 
 +++ Ansvarsfraskrivelse
 ${DISCLAIMER}
-+++`,
++++
+
+## Spørgsmål om at holde et event? {#skriv}
+Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her. Selve bookingen sender du med [prisberegneren](/beregner).
+
+{{enquiry-event-opsaetning}}`,
     image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
     gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
     children: ["/lej-hjerterum/praktisk", "/lej-hjerterum/vilkaar", "/lej-hjerterum/markedsfoering", "/lej-hjerterum/dine-events"],
@@ -558,7 +573,7 @@ Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
 Prisen for at leje salen beregner du hurtigt og nemt med vores [prisberegner](/beregner). Den fulde prisliste står under [Priser](/lej-hjerterum#priser).
 
 ## Betaling og oprettelse af event {#betaling}
-Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
+Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [skriv til os](#skriv) eller til [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
 
 ## Aflysning {#aflysning}
 Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker administrationen. Ved forløb og gentagne events beholder vi kun én grundpris.
@@ -585,7 +600,10 @@ Sørg for, at salen er ren og pæn, når du går, så den er klar til de næste.
 **Det bruger vi ikke.** Send ikke private Messenger-beskeder til bestyrelsesmedlemmer, og ring eller skriv ikke til deres private telefonnumre. Når vi bruger Hjerterums fælles kanaler, går henvendelser ikke tabt, og flere i bestyrelsen kan hjælpe ved behov.
 
 ## Ansvar
-${DISCLAIMER}`,
+${DISCLAIMER}
+
+## Spørgsmål om faktura og betaling? {#skriv}
+{{enquiry-oekonomi}}`,
     sources: ["betingelser-for-leje-af-sal", "fakturaer", "hjerterum-betalinger"]
   },
   {
@@ -645,7 +663,12 @@ Uanset om du søger ro, inspiration eller nye bekendtskaber, er du velkommen. Vi
 Velkommen til et sted, der **giver plads til at være** ♡
 
 ## En forening
-Hjerterum er en forening, Hjerterum F.M.B.A., som drives af medlemmernes kontingent, leje af salen og donationer – og af et team af ildsjæle. [Læs om foreningen, vedtægterne og generalforsamlingen](/om-os/foreningen).`,
+Hjerterum er en forening, Hjerterum F.M.B.A., som drives af medlemmernes kontingent, leje af salen og donationer – og af et team af ildsjæle. [Læs om foreningen, vedtægterne og generalforsamlingen](/om-os/foreningen).
+
+## Vil du samarbejde med Hjerterum? {#samarbejde}
+Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller underviser – hører vi gerne fra dig.
+
+{{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
     children: ["/om-os/teamet", "/om-os/historien", "/om-os/tribes", "/om-os/foreningen", "/om-os/artikler", "/om-os/himalayan-hermitage"],
     sources: ["vision"]
@@ -909,8 +932,11 @@ Vi gemmer ikke din IP-adresse. For at kunne tælle dig én gang pr. dag laver vi
 
 Har din browser Global Privacy Control slået til, tæller vi slet ikke dit besøg. Login, medlemsområdet og administrationen tælles heller ikke.
 
+## Når du skriver til os {#henvendelser}
+Sender du en henvendelse med en af formularerne på hjemmesiden, kommer den som en mail i Hjerterums fælles indbakke, så teamet kan svare dig. Vi bruger dine oplysninger til at besvare henvendelsen og gemmer dem ikke på hjemmesiden. I statistikken tæller vi kun, at der kom en henvendelse – hvilken dag, om hvilket emne og fra hvilken side.
+
 ## Hvem ser tallene, og hvor længe gemmes de {#sletning}
-Tallene bruges kun samlet – fx hvor mange besøgende en side havde – af bestyrelsen og Hjerterums administration. **Besøgene slettes automatisk efter 6 måneder.**
+Tallene bruges kun samlet – fx hvor mange besøgende en side havde – af bestyrelsen og Hjerterums administration. **Besøg og optællingen af henvendelser slettes automatisk efter 6 måneder.**
 
 ## Spørgsmål
 Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis du har spørgsmål til, hvordan vi passer på dine oplysninger.`,
@@ -927,14 +953,19 @@ Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis du har
 
 Vil du se stedet? Aftal en tid til fremvisning pr. mail.
 
-## Skriv til os
+## Skriv til os {#skriv}
+Vælg, hvad din henvendelse handler om, så kommer den til de rette i teamet. Du kan forvente svar inden for 3–5 hverdage.
+
+{{enquiry-generel}}
+
+## Eller skriv direkte
 - **Medlemskab og bookinger:** Team Hjerterum – [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
 - **Idéer til events:** [events@holistisk.org](mailto:events@holistisk.org)
 - **Tribes:** [tribes@holistisk.org](mailto:tribes@holistisk.org)
 - **Økonomi og regnskab:** kassereren – [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Andre henvendelser:** Jacob Hauge, formand – [jh@holistisk.org](mailto:jh@holistisk.org)
 
-Send venligst kun din henvendelse til én af adresserne. Du kan forvente svar inden for 3–5 hverdage.
+Send venligst kun din henvendelse ét sted – med formularen eller til én af adresserne.
 
 **Undervisere i nødstilfælde:** se [kommunikationspolitikken](/lej-hjerterum/vilkaar#kommunikation). Teamet kan ikke kontaktes via privat Messenger eller sms.
 

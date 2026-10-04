@@ -60,11 +60,15 @@ As a member of Hjerterum you get special offers on treatments and therapy sessio
 ## Contact {#contact}
 **Hjerterum**, Guldsmedgade 26B, ground floor, 8000 Aarhus C. Would you like to see the place? Schedule a visit by email.
 
+Write to us with the form, or to one of the addresses below.
+
+{{enquiry-generel}}
+
 - **Membership and bookings:** Team Hjerterum – [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
 - **Accounting:** the treasurer – [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Other enquiries:** Jacob Hauge, chair – [jh@holistisk.org](mailto:jh@holistisk.org)
 
-Please write to only one of the addresses; you can expect an answer within 3–5 working days. Teachers in an emergency: see the [communication policy](/en/rent#communication). The team cannot be contacted via private Messenger or text messages.
+Please write only once – with the form or to one of the addresses; you can expect an answer within 3–5 working days. Teachers in an emergency: see the [communication policy](/en/rent#communication). The team cannot be contacted via private Messenger or text messages.
 
 **Payment:** MobilePay 734388 · Djursland Bank, reg. no. 7268, account no. 1211404 · Hjerterum F.M.B.A., CVR 40827692.
 

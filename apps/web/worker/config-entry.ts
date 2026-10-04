@@ -11,6 +11,7 @@ import { logoResponse } from "./cockpit/logo.js";
 import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
 import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
+import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -62,6 +63,8 @@ export default {
     // The website's visits, counted without cookies, for admin → Statistik and the read-only statistics API (site-stats.ts).
     if (url.pathname === VISIT_PATH) return handleVisit(request, env as StatsEnv, Date.now());
     if (url.pathname === STATS_API_PATH) return handleStatsApi(request, env as StatsEnv, Date.now());
+    // The website's enquiry forms, laid in team@'s inbox (enquiries.ts).
+    if (url.pathname === ENQUIRY_PATH) return handleEnquiry(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {

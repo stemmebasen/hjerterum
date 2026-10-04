@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { renderMarkdown } from "../site/markdown";
 import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
+import { EnquiryForm } from "./enquiry-form";
 
 /** The public website in Hjerterum Lys (site/pages.ts): the homepage modelled on hjerterum.info ("En forside som denne
  * er nu blevet rigtig fin") and one view for every content page. Live parts (calendar, plans, price calculator,
@@ -107,7 +108,8 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
     </section>
     <div className="site-body">
       {parts.map((part, index) => index % 2
-        ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "newsletter" ? <Newsletter lang={page.lang} /> : widgets[part]}</div>
+        ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "newsletter" ? <Newsletter lang={page.lang} />
+          : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
         : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
     </div>
     {page.gallery && <section className="site-gallery" aria-label={page.gallery.title}>

@@ -32,9 +32,10 @@ async function sha(text: string): Promise<string> {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))].map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function tooMany(db: D1Database, request: Request, nowMs: number): Promise<boolean> {
+/** A few requests an hour from one address; the website's enquiry forms share it with their own scope (worker/enquiries.ts). */
+export async function tooMany(db: D1Database, request: Request, nowMs: number, scope = "beregner"): Promise<boolean> {
   const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? "unknown";
-  const hash = await sha(`beregner:${ip}`);
+  const hash = await sha(`${scope}:${ip}`);
   const row = await db.prepare("SELECT COUNT(*) AS n FROM calculator_requests WHERE ip_hash = ? AND at_ms > ?").bind(hash, nowMs - 3_600_000).first<{ n: number }>().catch(() => null);
   if ((row?.n ?? 0) >= PER_HOUR) return true;
   await db.prepare("INSERT INTO calculator_requests (ip_hash, at_ms) VALUES (?, ?)").bind(hash, nowMs).run().catch(() => undefined);

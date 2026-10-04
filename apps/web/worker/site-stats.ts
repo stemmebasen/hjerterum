@@ -3,7 +3,8 @@ import { sitePage } from "../site/redirects.js";
 
 /** Requested: "Byg en statistikside i jeres admin over besøg på jeres offentlige hjemmeside, og et read-only API, der
  * leverer de samme tal til et eksternt overblik. Formatet ... er fælles for flere sites og skal følges præcist".
- * Every page the website shows sends one small signal (src/visits.ts); admin → Statistik (cockpit/statsPage.ts) and
+ * Every page the website shows sends one small signal (src/visits.ts), and every enquiry sent with the website's forms is
+ * counted (worker/enquiries.ts); admin → Statistik (cockpit/statsPage.ts) and
  * GET /api/stats/site read the same numbers from siteStats() below.
  * No cookies, nothing kept in the browser, no address stored: a visitor is an HMAC of address, browser and host with a
  * secret that changes every day (an HMAC of "site-stats:<day>"), so a visitor is recognised within one Danish day only. */
@@ -11,8 +12,8 @@ import { sitePage } from "../site/redirects.js";
 export const VISIT_PATH = "/api/besog";
 export const STATS_API_PATH = "/api/stats/site";
 export const SITE_NAME = "hjerterum";
-/** The website has no enquiry forms of its own: contact is by mail, the newsletter is Mailchimp's, sign-up is on holistisk.org. */
-export const TRACKS_ENQUIRIES = false;
+/** The website's own enquiry forms are counted (worker/enquiries.ts, table site_enquiries). */
+export const TRACKS_ENQUIRIES = true;
 export const STATS_PERIODS = [7, 30, 90] as const;
 /** Visits are deleted after six months (the privacy text on /privatliv says so). */
 export const KEEP_MONTHS = 6;
@@ -108,7 +109,9 @@ export async function handleVisit(request: Request, env: StatsEnv, now: number):
 
 /** Visits older than six months are deleted (run with the five-minute jobs; it touches nothing on most runs). */
 export async function pruneVisits(db: D1Database, now: number): Promise<void> {
-  await db.prepare("DELETE FROM site_visits WHERE day < ?").bind(monthsBefore(copenhagenDay(now), KEEP_MONTHS)).run();
+  const before = monthsBefore(copenhagenDay(now), KEEP_MONTHS);
+  await db.prepare("DELETE FROM site_visits WHERE day < ?").bind(before).run();
+  await db.prepare("DELETE FROM site_enquiries WHERE day < ?").bind(before).run();
 }
 
 export type Ranked = { key: string; visitors: number; views: number };
@@ -127,8 +130,10 @@ export const periodOf = (raw: string | null) => (STATS_PERIODS as readonly numbe
 const VISITORS = "COUNT(DISTINCT day || '|' || visitor)";
 
 async function totals(db: D1Database, from: string, to: string) {
-  const row = await db.prepare(`SELECT ${VISITORS} AS visitors, COUNT(*) AS pageViews FROM site_visits WHERE day BETWEEN ? AND ?`).bind(from, to).first<{ visitors: number; pageViews: number }>();
-  return { visitors: Number(row?.visitors ?? 0), pageViews: Number(row?.pageViews ?? 0), enquiries: 0 };
+  const row = await db.prepare(`SELECT ${VISITORS} AS visitors, COUNT(*) AS pageViews,
+    (SELECT COUNT(*) FROM site_enquiries WHERE day BETWEEN ?1 AND ?2) AS enquiries FROM site_visits WHERE day BETWEEN ?1 AND ?2`).bind(from, to)
+    .first<{ visitors: number; pageViews: number; enquiries: number }>();
+  return { visitors: Number(row?.visitors ?? 0), pageViews: Number(row?.pageViews ?? 0), enquiries: TRACKS_ENQUIRIES ? Number(row?.enquiries ?? 0) : 0 };
 }
 
 async function ranked(db: D1Database, from: string, to: string, column: "path" | "referrer" | "campaign" | "device" | "country", limit: number, where = ""): Promise<Ranked[]> {
@@ -140,21 +145,30 @@ async function ranked(db: D1Database, from: string, to: string, column: "path" |
 /** The last 7, 30 or 90 days (today included, Danish time) against the same number of days just before them. */
 export async function siteStats(db: D1Database, days: number, now: number): Promise<SiteStats> {
   const to = copenhagenDay(now), from = addDays(to, -(days - 1));
-  const [current, previous, perDay, pages, entryPages, referrers, campaigns, devices, countries] = await Promise.all([
+  const [current, previous, perDay, enquiriesPerDay, pages, entryPages, referrers, campaigns, devices, countries] = await Promise.all([
     totals(db, from, to), totals(db, addDays(from, -days), addDays(from, -1)),
     db.prepare(`SELECT day, COUNT(DISTINCT visitor) AS visitors, COUNT(*) AS pageViews FROM site_visits WHERE day BETWEEN ? AND ? GROUP BY day`).bind(from, to)
       .all<{ day: string; visitors: number; pageViews: number }>(),
+    db.prepare("SELECT day, COUNT(*) AS n FROM site_enquiries WHERE day BETWEEN ? AND ? GROUP BY day").bind(from, to).all<{ day: string; n: number }>(),
     ranked(db, from, to, "path", 15), ranked(db, from, to, "path", 10, " AND entry = 1"), ranked(db, from, to, "referrer", 10, " AND entry = 1"),
     ranked(db, from, to, "campaign", 10, " AND entry = 1 AND campaign IS NOT NULL"), ranked(db, from, to, "device", 5), ranked(db, from, to, "country", 10)
   ]);
   const byDay = new Map((perDay.results ?? []).map(r => [r.day, r]));
+  const enquiriesByDay = new Map((enquiriesPerDay.results ?? []).map(r => [r.day, Number(r.n)]));
   const series = Array.from({ length: days }, (_, i) => {
     const day = addDays(from, i), r = byDay.get(day);
-    return { day, visitors: Number(r?.visitors ?? 0), pageViews: Number(r?.pageViews ?? 0), enquiries: 0 };
+    return { day, visitors: Number(r?.visitors ?? 0), pageViews: Number(r?.pageViews ?? 0), enquiries: TRACKS_ENQUIRIES ? enquiriesByDay.get(day) ?? 0 : 0 };
   });
   const conversionRate = TRACKS_ENQUIRIES && current.visitors ? Math.round(current.enquiries / current.visitors * 1000) / 10 : null;
   return { site: SITE_NAME, days, from, to, tracksEnquiries: TRACKS_ENQUIRIES, totals: { ...current, conversionRate }, previous, series,
     pages, entryPages, referrers, campaigns, devices, countries };
+}
+
+/** For the board only: which topics the enquiries were about (the API's format has no place for it). */
+export async function enquiryTopics(db: D1Database, from: string, to: string): Promise<Array<{ key: string; count: number }>> {
+  const { results } = await db.prepare("SELECT topic AS key, COUNT(*) AS count FROM site_enquiries WHERE day BETWEEN ? AND ? GROUP BY topic ORDER BY count DESC, topic")
+    .bind(from, to).all<{ key: string; count: number }>();
+  return (results ?? []).map(r => ({ key: String(r.key), count: Number(r.count) }));
 }
 
 const json = (body: unknown, status = 200, extra: Record<string, string> = {}) => new Response(JSON.stringify(body), {
