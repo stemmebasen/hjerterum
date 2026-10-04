@@ -8,7 +8,7 @@ The untouched originals are archived in `docs/legacy/holistisk-org/pages/`; this
 
 ## Struktur
 
-The menu follows hjerterum.info: Events · Behandling & terapi · Behandlere & undervisere · Medlemskab · Lej Hjerterum ·
+The menu follows hjerterum.info: Events · Behandlere & undervisere · Medlemskab · Lej Hjerterum ·
 Vision / om os · Kontakt · English. The content pages live in `apps/web/site/pages.ts` and `pages-en.ts`.
 
 ## Medier
@@ -26,7 +26,7 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [administrer-dine-events](https://holistisk.org/administrer-dine-events/) | Administrer dine events | 2026-08-24 | [/lej-hjerterum/dine-events](/lej-hjerterum/dine-events) | Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender. |
 | [artikler](https://holistisk.org/artikler/) | Artikler | 2026-04-10 | [/om-os/artikler](/om-os/artikler) |  |
 | [become-a-member](https://holistisk.org/become-a-member/) | Become a member of Hjerterum | 2026-09-29 | [/en/membership](/en/membership) |  |
-| [behandling-terapi](https://holistisk.org/behandling-terapi/) | Behandlere i Hjerterum | 2024-02-04 | [/behandling](/behandling) | Aurora Gayatri og Soroush Zand er ikke længere med (besluttet 4. oktober 2026); Douglas Crawford er tilføjet fra den engelske side. Introduktionen til breathwork er bevaret. |
+| [behandling-terapi](https://holistisk.org/behandling-terapi/) | Behandlere i Hjerterum | 2024-02-04 | – (/behandlere) | Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere. |
 | [benefits-of-membership](https://holistisk.org/benefits-of-membership/) | Benefits of membership | 2026-08-16 | [/en/membership#benefits](/en/membership#benefits) |  |
 | [betingelser-for-leje-af-sal](https://holistisk.org/betingelser-for-leje-af-sal/) | Vilkår for leje af sal | 2026-06-05 | [/lej-hjerterum/vilkaar](/lej-hjerterum/vilkaar) |  |
 | [bliv-medlem](https://holistisk.org/bliv-medlem/) | Bliv medlem af Hjerterum | 2026-09-29 | [/medlemskab](/medlemskab) | Indmeldelse sker fortsat på holistisk.org (som fra hjerterum.info), indtil betaling kører på platformen. |
@@ -51,8 +51,8 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [himalayan-hermitage-2](https://holistisk.org/himalayan-hermitage-2/) | Himalayan Hermitage | 2020-11-23 | [/om-os/himalayan-hermitage](/om-os/himalayan-hermitage) |  |
 | [historien-bag-hjerterum](https://holistisk.org/historien-bag-hjerterum/) | Historien bag Hjerterum | 2026-05-17 | [/om-os/historien](/om-os/historien) |  |
 | [hjerterum-betalinger](https://holistisk.org/hjerterum-betalinger/) | Hjerterum payments | 2019-12-13 | [/lej-hjerterum/vilkaar#betaling](/lej-hjerterum/vilkaar#betaling) | Tom side; betaling via faktura pr. mail. |
-| [hjerterum-tribes](https://holistisk.org/hjerterum-tribes/) | Hjerterum Tribes! | 2026-06-13 | [/om-os/tribes](/om-os/tribes) | Sætningen om opstart i august/september er fjernet som forældet; ansøgning via tribes.dk. |
-| [hvad-er-breathwork](https://holistisk.org/hvad-er-breathwork/) | Hvad er breathwork? | 2020-11-23 | [/behandling#breathwork](/behandling#breathwork) |  |
+| [hjerterum-tribes](https://holistisk.org/hjerterum-tribes/) | Hjerterum Tribes! | 2026-06-13 | – (/om-os) | Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til Vision / om os. |
+| [hvad-er-breathwork](https://holistisk.org/hvad-er-breathwork/) | Hvad er breathwork? | 2020-11-23 | – (/behandlere) | Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere. |
 | [kalendervisning](https://holistisk.org/kalendervisning/) | Kalender | 2024-10-03 | [/events](/events) |  |
 | [kontakt](https://holistisk.org/kontakt/) | Tag Kontakt | 2019-08-28 | [/kontakt](/kontakt) | Kontaktside fra 2019 (Mejlgade 95, daværende team); erstattet af den nuværende kontaktside. |
 | [kontakt-os](https://holistisk.org/kontakt-os/) | Kontakt os | 2026-08-05 | [/kontakt](/kontakt) |  |
@@ -72,9 +72,9 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [team](https://holistisk.org/team/) | The Team | 2026-05-16 | [/en/team](/en/team) |  |
 | [teamet](https://holistisk.org/teamet/) | Teamet bag | 2026-05-16 | [/om-os/teamet](/om-os/teamet) |  |
 | [test](https://holistisk.org/) | – | 2026-09-29 | [/](/) | Udkastet til holistisk.org's nye forside; indholdet indgår i den nye forside. |
-| [treatment-and-therapy](https://holistisk.org/treatment-and-therapy/) | Therapists | 2022-12-21 | [/en#treatments](/en#treatments) | Som den danske side: kun Douglas Crawford er med. |
-| [tribes](https://holistisk.org/tribes/) | Hjerterum Tribes | 2026-06-11 | [/en/team#tribes](/en/team#tribes) |  |
-| [udtalelser-om-breathwork](https://holistisk.org/udtalelser-om-breathwork/) | En journaliststuderendes beretning | 2021-04-20 | [/behandling/breathwork](/behandling/breathwork) |  |
+| [treatment-and-therapy](https://holistisk.org/treatment-and-therapy/) | Therapists | 2022-12-21 | – (/en) | Treatments er fjernet fra den engelske side sammen med Behandling og Terapi (4. oktober 2026). |
+| [tribes](https://holistisk.org/tribes/) | Hjerterum Tribes | 2026-06-11 | – (/en/team) | Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til The team. |
+| [udtalelser-om-breathwork](https://holistisk.org/udtalelser-om-breathwork/) | En journaliststuderendes beretning | 2021-04-20 | – (/om-os/artikler) | Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Artikler. |
 | [use-hjerterum](https://holistisk.org/use-hjerterum/) | About Our Room | 2026-08-28 | [/en/rent](/en/rent) |  |
 | [vision](https://holistisk.org/vision/) | Hvad er Hjerterum? | 2026-06-05 | [/om-os](/om-os) | Vedtægterne er flyttet ordret til foreningssiden (/om-os/foreningen#vedtaegter). |
 | [vision-en](https://holistisk.org/vision-en/) | What is Hjerterum? | 2026-06-05 | [/en#about](/en#about) |  |

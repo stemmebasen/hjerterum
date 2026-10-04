@@ -8,7 +8,7 @@ import { SITE_PAGES_EN } from "./pages-en.js";
 import { STATUTES } from "./statutes.js";
 
 export type Lang = "da" | "en";
-export type Section = "events" | "behandling" | "behandlere" | "medlemskab" | "lej" | "om-os" | "kontakt" | "en";
+export type Section = "events" | "behandlere" | "medlemskab" | "lej" | "om-os" | "kontakt" | "en";
 export type Picture = { src: string; alt: string };
 
 export type SitePage = {
@@ -32,7 +32,6 @@ export type SitePage = {
 
 export const NAV: Array<{ section: Section; label: string; href: string }> = [
   { section: "events", label: "Events", href: "/events" },
-  { section: "behandling", label: "Behandling & terapi", href: "/behandling" },
   { section: "behandlere", label: "Behandlere & undervisere", href: "/behandlere" },
   { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
   { section: "lej", label: "Lej Hjerterum", href: "/lej-hjerterum" },
@@ -200,97 +199,6 @@ ${DISCLAIMER}
     sources: ["events", "kalendervisning", "nye-community-events-hjerterum-events", "online-events", "faellesspisning-i-hjerterum"]
   },
 
-  // ---------------------------------------------------------------- Behandling & terapi
-  {
-    path: "/behandling", lang: "da", section: "behandling",
-    kicker: "Behandling & terapi", title: "Omsorg med plads", em: "til hele dig",
-    lead: "Find behandlinger og terapeutiske tilbud, der støtter dig i at lande, mærke efter og finde din egen vej.",
-    description: "Behandlinger og terapi i Hjerterum i Aarhus – med rabat for medlemmer – og en introduktion til breathwork.",
-    card: { title: "Omsorg med plads til hele dig", text: "Behandlinger og terapeutiske tilbud – med rabat for medlemmer." },
-    body: `Som medlem af Hjerterum kan du få rabat på behandlinger og terapisessioner hos en række af husets behandlere. Mange præsenterer sig selv i [oversigten over behandlere og undervisere](/behandlere).
-
-## Behandlere med medlemsrabat {#behandlere}
-
-### Douglas Crawford – lysarbejder
-![Douglas Crawford – lysarbejder](/media/2020-12-lightworker-1.webp)
-
-Douglas' fokus som lysarbejder er tryghed og støtte først, så blokeringer kan slippes let og blidt. Han tilbyder Source Breathwork (rebirthing) og coaching i A Course in Miracles. Læs mere på [masteringlife.dk](http://www.masteringlife.dk/).
-
-## Hvad er breathwork? {#breathwork}
-I breathwork bruger vi åndedrættet til at åbne op for ubevidste følelser, tanker og overbevisninger, der blokerer for oplevelsen af indre fred.
-
-Det cirkulære åndedræt, vi bruger i breathwork, dirigerer vi op i brystet, i hjertet – for at kunne få kontakt til alle følelser. Breathwork er en kærlig frisættelsesmetode, og nøgleordet er tryghed: vores fokus som facilitatorer er altid at skabe et trygt og kærligt rum, så du kan komme i kontakt med det, der fylder i kroppen og sindet.
-
-Breathwork lærer dig at rumme hele følelsesspektret. Du bliver mere autentisk og kommer hjem i dig selv – med alt det, du rummer. Når du er tryg med dine følelser og kan rumme dig selv, kan du også rumme andre og det, der foregår omkring dig, på godt og ondt.
-
-**Sådan foregår en session.** Først er der en kort introduktion til den tekniske del. Selve sessionen varer en time: du ligger på en madras og trækker vejret til blid, instrumental musik, og facilitatorerne støtter dig med blid berøring og guidning undervejs. Bagefter får du en stund til at ligge og integrere oplevelsen, og til sidst samles vi i en cirkel, hvor du kan dele dine oplevelser.
-
-[Læs en journaliststuderendes beretning om en breathwork-aften i Hjerterum](/behandling/breathwork).`,
-    children: ["/behandling/breathwork", "/behandlere"],
-    sources: ["behandling-terapi", "hvad-er-breathwork"]
-  },
-  {
-    path: "/behandling/breathwork", lang: "da", section: "behandling",
-    kicker: "Behandling & terapi · Beretning", title: "”Det er bare", em: "en følelse”",
-    lead: "En onsdag aften i september prøvede journaliststuderende Sofie Tronier breathwork på egen krop. Hun grinede, græd og var bange – alt sammen inden for en time.",
-    description: "En journaliststuderendes beretning om en breathwork-session i Hjerterum.",
-    card: { title: "”Det er bare en følelse”", text: "En journaliststuderendes beretning om breathwork." },
-    body: `*Artiklen er skrevet af journaliststuderende Sofie Tronier (tekst og foto), som venligt har givet os lov til at bruge den. Den fortæller om, hvad du fx kan opleve i en breathwork-session. Tak til Sofie.*
-
-En stikkende og rystende fornemmelse har bredt sig fra mine fingerspidser til mine lægge og helt op til kæben. Min krop sitrer, og jeg mærker, at jeg langsomt mister kontrollen over den. Jeg trækker stadig vejret dybt ned i brystet, og efter noget tid mærker jeg et tryk i solar plexus. Vi er ikke mere end et kvarter inde i sessionen, før de første tårer langsomt presser sig ud af mine lukkede øjne og ned på siden af mine kinder. Jeg lægger mig fladt ned. Både fordi det er en del af øvelsen, og fordi jeg må erkende, at breathwork har en effekt på min krop.
-
-## Et fællesskab
-En halv time tidligere sidder vi 15 mennesker i en rundkreds, både mænd og kvinder. Aurora fortæller, at vi skal trække vejret i brystet. "Det er der, hjertet sidder. Ved at have fokus på området omkring hjertet kan man opnå en større selvkærlighed," siger hun. Jeg tænker, at det lyder alt for abstrakt til at kunne mærke på min egen krop. Imens Aurora fortæller, kigger jeg diskret rundt på de andre deltagere. Kvinden ved siden af mig er omkring 60 år, klædt i yogatøj og med et blik i øjnene, som fortæller, at hun har oplevet en del. Et par pladser længere henne sidder en mand omkring samme alder. Han spørger underviseren, hvordan man skal sidde.
-
-"Du skal ligge ned, medmindre du falder i søvn," svarer Jan.
-
-Den ældre mand smiler, så mellemrummet mellem hans tænder kommer til syne. Han sætter sig til rette i en form for skrædderstilling. Han har jeans på. På den anden side sidder en ung kvinde med næsepiercing. Hendes mørke hår står i kontrast til hendes blege ansigt. Hun virker afslappet.
-
-## Breathwork
-Det er den første onsdag i september, klokken er 19, og aftenens breathwork-session er skudt i gang. Breathwork er en måde at trække vejret på, hvor man trækker vejret i den øverste del af brystet – helst med helt åben mund, så man får så meget luft ind som muligt. Formålet er, at vejrtrækningen skal lukke op for følelser, man normalt undertrykker, bevidst eller ubevidst. Det kan føre til både grin, gråd og vrede. Vejrtrækningen kan også give en fysisk reaktion, hvor kroppen ryster og trækker sig sammen. Det føles som en blanding af krampe og fornemmelsen af, at ens krop sover.
-
-## Hjerterum – en indre opdagelsesrejse
-Det er Hjerterum, der huser aftenens breathwork-session – blot et af mange events, som Hjerterum afholder. Aftenens undervisere er Maria, Jan og Aurora.
-
-"Breathwork er en måde at komme i kontakt med det ubevidste sind, hvor en masse følelser er blevet fortrængt," siger Jan. Det er også Jan, som fortæller aftenens nye deltagere, hvad de kan forvente af den næste time.
-
-![Jan, Maria og Aurora – undervisere i Hjerterum](/media/2019-11-skaermbillede-2019-11-22-08-04-26.webp "Jan, Maria og Aurora – undervisere i Hjerterum.")
-
-Tilbage i sessionen udgør en grøn vase med orange nelliker rundkredsens midtpunkt og skaber symmetri i rummet. Efter Aurora og de andre undervisere har introduceret breathwork, præsenterer vi hver især os selv og den følelse, vi sidder med. Én føler sig sårbar på grund af en strid med kommunen, en anden føler sig opløftet og klar, og en tredje har voldsom hjertebanken, fordi han ikke kunne finde en parkeringsplads og derfor var ved at komme for sent.
-
-![Rummet i opgangen på Mejlgade](/media/2019-11-skaermbillede-2019-11-22-11-02-49.webp "Rummet i opgangen på Mejlgade er minimalistisk indrettet, men rummer alligevel genstande, jeg forbinder med den meditative verden.")
-
-Da vi er færdige i rundkredsen, lægger jeg mig til rette et tilfældigt sted i rummet, og min krop hviler tungt på madrassen. Med lukkede øjne og til lyden af noget, der minder om meditationsmusik, prøver jeg at holde fokus på min vejrtrækning. Med et stadig distanceret mindset åbner jeg munden på vid gab og trækker vejret dybt ned i brystet. Jeg får associationer til, når lægen skal tjekke min vejrtrækning ved mistanke om lungebetændelse. I starten kan jeg ikke lade være med at grine af de andres vejrtrækninger. De virker voldsomme og overdrevne. Det er grænseoverskridende at ånde ud uden at dæmpe udåndingslyden. Efter noget tid giver jeg alligevel slip og trækker pludselig vejret uden at tænke over, at andre kan høre mig.
-
-![Under sessionen ligger alle på en madras](/media/2019-11-skaermbillede-2019-11-22-08-00-31.webp "Under sessionen ligger alle på en madras – de fleste med en pude under nakken og et tæppe over sig.")
-
-## Fysiske og psykiske reaktioner
-Tilbage på madrassen mærker jeg allerede efter et par minutter en stikken i hænderne, som om de sover. Den stikkende fornemmelse bevæger sig ud i hele kroppen. Mens jeg fortsætter min vejrtrækning med lukkede øjne, mærker jeg tårer løbe ned ad mine kinder. Sådan ligger jeg lidt, indtil jeg fornemmer et menneske ved min side. Jeg mærker en varm kvindehånd på min pande.
-
-"Det er okay at give slip, Sofie," siger en rolig stemme.
-
-Hånden bevæger sig blidt hen over mit ansigt, mens den anden hånd lægger et tryk på mit bryst, som hjælper mig til at gøre min vejrtrækning endnu dybere. Efter lidt tid bliver jeg overladt til mig selv igen. Min krop føles lammet, og jeg trækker hænderne op til brystet i et forsøg på at bevare en form for kontrol. Til sidst må jeg holde pause og trække vejret normalt for en stund. Jeg kan knap løfte hænderne fra madrassen. Så mærker jeg igen en hånd på mit hoved. I mellemtiden er flere brudt ud i en blanding af højlydt grin og gråd. Jeg klemmer læberne sammen for ikke at grine af dem, men da underviseren fortæller mig, at alle følelser er velkomne, bryder jeg ud i latter. Underviseren anerkender mine følelser ved at grine med mig og fortæller samtidig, at følelserne er de samme, uanset om det er grin eller gråd. Det mærker jeg kort efter på egen krop, da mit grin pludselig ændrer sig til gråd.
-
-Resten af sessionen kommer deltagerne hele følelsespaletten rundt. På et tidspunkt råber en af mændene i vrede, og jeg kan høre, at han ryster. Jeg får at vide, at jeg ikke skal være bange.
-
-"Det er bare en følelse," siger Maria stille.
-
-## Tilbage til fællesskabet
-Efter en time åbner vi øjnene igen. Min krop sitrer og føles udmattet, og jeg må vente lidt med at sætte mig op. Omkring mig er der flere, som stadig græder. Efter lidt tid begynder folk at rejse sig. Alle skal have et glas vand – både fordi sessionen er fysisk hård, og fordi vejrtrækning med åben mund gør en meget tør i munden. Vi sætter os igen i en rundkreds og snakker. Nogle havde en meget fysisk oplevelse, mens andre blev bragt tilbage til bestemte episoder i deres liv. En af deltagerne fik en pludselig trang til pizza, og det griner vi alle lidt af. Jeg åbner op om mine betænkeligheder, og da jeg skal videre til næste sætning, pisker følelserne gennem min krop, og jeg begynder at græde. Jeg kan pludselig ikke færdiggøre mine sætninger. Gruppen giver mig tid til at græde færdig, så jeg til sidst får fremstammet, at jeg er rørt over trygheden i rummet og pladsen til at vise præcis det, jeg føler.
-
-## Tid til refleksion
-Da sessionen er slut, er der ingen, der tager direkte hjem. Alle krammer og snakker – om deres oplevelser eller om noget helt andet. Jeg sætter mig i sofaen og sunder mig. Jeg snakker med en ung mand, som, mens han binder sine snørebånd, fortæller, at han har været her et par gange, og at hans oplevelse ændrer sig fra gang til gang. En midaldrende mand fortæller, at nogle sammenligner oplevelsen med at være på svampe. Manden med mellemrum mellem tænderne deler sin oplevelse med kvinden i yogatøj.
-
-"Det er bedre end sex," griner han.
-
-Folk har ikke travlt; de hygger sig, og der går over en halv time, før de sidste er gået. En time efter er jeg selv hjemme. Jeg har behov for at fortælle folk om min oplevelse – som når man har opdaget et rigtig godt stykke musik. Da jeg skal sove, kan jeg mærke, at jeg er øm i kroppen. Min krop er rolig, men min hjerne er forvirret over, hvad jeg egentlig lige har oplevet. Én ting er dog sikker: Jeg oplevede nogle store følelser, og jeg føler mig faktisk lidt lettere.
-
----
-
-[Læs mere om breathwork i Hjerterum](/behandling#breathwork)`,
-    sources: ["udtalelser-om-breathwork"]
-  },
-
   // ---------------------------------------------------------------- Behandlere & undervisere
   {
     path: "/behandlere", lang: "da", section: "behandlere",
@@ -331,7 +239,6 @@ Reduceret pris er til dig med en lav indkomst – fx SU eller kontanthjælp, ell
 ## Fordele ved et medlemskab {#fordele}
 - Du deltager i events til rabatpris og ofte helt gratis.
 - Du får jævnligt tilbud på Hjerterums egne events – koncerter, foredrag, temaaftener, fællesspisning, filmaftener og meget mere – som en del af [Hjerterum Open](/events#hjerterum-open). Ofte gratis eller til særlig pris for medlemmer.
-- Du kan blive en del af en [Tribe](/om-os/tribes): en lille gruppe på 5–8 medlemmer, der skaber et nærende fællesskab og en dybere, fortrolig forbindelse. Skriv til [tribes@holistisk.org](mailto:tribes@holistisk.org), hvis du vil være med.
 - Det er nemmere at tilmelde sig events, når du er logget ind.
 - Du får rabat på økologisk specialkaffe, andre specialdrikke og biodynamisk kage og snacks i caféen hver torsdag eftermiddag og til andre arrangementer.
 - Du får tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.
@@ -644,7 +551,7 @@ Events, der er oprettet i den tidligere kalender på holistisk.org, administrere
     path: "/om-os", lang: "da", section: "om-os",
     kicker: "Vision / om os", title: "Mere nærvær.", em: "Mindre støj.",
     lead: "Hjerterum er skabt omkring troen på, at de bedste oplevelser vokser frem, når mennesker mødes med åbenhed og tid. Vi samler foredrag, behandlinger, musik, samtaler og små pauser i hverdagen – i et rum, hvor man må komme, som man er.",
-    description: "Hvad er Hjerterum? Visionen, teamet, historien, foreningen og Tribes.",
+    description: "Hvad er Hjerterum? Visionen, teamet, historien og foreningen.",
     card: { title: "Mere nærvær. Mindre støj.", text: "Visionen, menneskene og historien bag Hjerterum." },
     body: `## Hvad er Hjerterum?
 Lad os starte med at sige, hvad vi **ikke** er:
@@ -655,8 +562,6 @@ Lad os starte med at sige, hvad vi **ikke** er:
 - Ikke et sted uden plads til humor og lethed.
 
 **Hjerterum er for alle.** Hjerterum er et åbent og trygt rum for fællesskab, kreativitet og personlig udvikling. Her kan du deltage i en masse nærende og meningsfulde events – fx foredrag, koncerter, yoga, breathwork, workshops og sociale arrangementer. Er du underviser eller facilitator, er du altid velkommen til at [bruge vores sted](/lej-hjerterum).
-
-**Bliv en del af Tribes.** Du kan også blive en del af [Hjerterum Tribes](/om-os/tribes) – en lille gruppe på 5–8 medlemmer, som du er en del af for en tid. Tribes samler Hjerterums medlemmer i et nærende fællesskab og giver mulighed for at lære dig selv og andre mennesker dybere at kende.
 
 Uanset om du søger ro, inspiration eller nye bekendtskaber, er du velkommen. Vi tror på, at god energi og åbenhed skaber gode møder – mellem mennesker og med sig selv.
 
@@ -670,7 +575,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
 
 {{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
-    children: ["/om-os/teamet", "/om-os/historien", "/om-os/tribes", "/om-os/foreningen", "/om-os/artikler", "/om-os/himalayan-hermitage"],
+    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/artikler", "/om-os/himalayan-hermitage"],
     sources: ["vision"]
   },
   {
@@ -744,48 +649,6 @@ Hjerterum er ikke bare et center, men et levende eventyr – et sted, hvor hjert
     sources: ["historien-bag-hjerterum"]
   },
   {
-    path: "/om-os/tribes", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Hjerterum", em: "Tribes",
-    lead: "En tribe er en lille gruppe på 5–8 medlemmer, der skaber et nærende fællesskab – og en mulighed for at lære dig selv og andre dybere at kende.",
-    description: "Hjerterum Tribes: små, faste grupper for medlemmer af Hjerterum.",
-    card: { title: "Hjerterum Tribes", text: "Små, faste grupper med plads til at blive set." },
-    body: `![Hjerterum Tribes](/media/2026-04-hjerterum-2.webp)
-
-Tribes eksisterer for at skabe nærende fællesskaber, der kan give mening og sammenhæng i den enkeltes liv. Det er en unik mulighed for at lære dig selv og andre mennesker dybere at kende og få en meningsfuld og fortrolig forbindelse i et lille og trygt fællesskab.
-
-## Tribemødet
-Du mødes med din tribe én gang om måneden – eller oftere, hvis I bliver enige om det. I skiftes til at være ordstyrer. Før hvert møde sender vi materiale ud med et hovedtema og en række underspørgsmål, som I kan arbejde med. På den måde er der en struktur, der hjælper jer med at kaste lys på nogle essentielle områder hos jer selv og hinanden.
-
-Vores intention er at komme med temaer, som I alle på hver jeres måde kan relatere til i jeres daglige liv. Der opstår noget magisk, når man begynder at se, at ens udfordringer ikke er unikke, men deles af andre – at de i virkeligheden er dybt menneskelige og fælles. I mødet med andres genkendelse kan følelsen af at stå alene opløses, og den ensomhed og skam, mange af os bærer på, kan begynde at slippe.
-
-Temaerne varierer, men fælles for dem er, at de retter opmærksomheden mod noget grundlæggende og dybt hos jer hver især. Vi vil bringe emner frem, der vækker jeres sårbarhed og autenticitet, så I kan opleve at blive set på et dybere plan – for den, I er, og med det, I bærer på.
-
-Et typisk tribemøde varer 2 timer. I kan lave jeres egen struktur eller bruge vores programskabelon:
-
-| Tid | Program |
-|---|---|
-| 19.00 | Åbning – fx et lille musikstykke eller en kort guidning |
-| 19.15 | Delerunde og "siden sidst" – check-in |
-| 20.00 | Dagens tema |
-| 21.00 | Afslutning |
-
-## Et større fællesskab
-Jeres tribe er – sammen med andre tribes – en del af et større netværk, så der er rig mulighed for at lære andre at kende. Der bliver arrangeret tribe-arrangementer som caféaftener, koncerter og foredrag. Jo flere der er med, jo flere events bliver der sat op – i og uden for Hjerterum.
-
-## Hvor længe varer en tribe?
-En tribe har ingen fast udløbsdato – den fortsætter, så længe der er lyst og vilje. Ønsker du at træde ud, kan du frit gøre det. Vi anbefaler dog, at I til det første møde aftaler et fælles commitment – fx 6 måneder – så der opstår tillid, kontinuitet og dybde i gruppen. Træder et medlem ud, så skriv til os, så hjælper vi jer med at finde et nyt.
-
-## Tilmelding
-Er du klar til at gå et spadestik dybere sammen med andre – og opleve en dybere forbindelse til dig selv og andre? [Send en ansøgning](https://tribes.dk/ansog). Tag dig god tid til den: jo tydeligere et billede vi får af dig, desto nemmere er det for os at skabe det helt rigtige match. Du skal være aktivt medlem af Hjerterum for at være med – er du ikke medlem, så [læs om medlemskab](/medlemskab).
-
-Når vi har behandlet din ansøgning og fundet en tribe til dig, sætter vi dig i forbindelse med den. Kan vi mod forventning ikke tilbyde dig en plads, skriver vi til dig.
-
-Vi håber, du vil finde forbindelse, fællesskab og mening med Hjerterum Tribes ♡
-
-*Deltagelse i Hjerterum Tribes sker på eget ansvar. Hjerterum skaber rammen og strukturen, men vi forventer, at du som deltager har en modenhed, så du kan tage ansvar for dig selv i gruppen og for det, der måtte komme op. Opstår der en konflikt i gruppen, opfordrer vi jer til at forsøge at løse den sammen. Bliver noget mod forventning for svært, kan I kontakte os på [tribes@holistisk.org](mailto:tribes@holistisk.org), så hjælper vi efter bedste evne.*`,
-    sources: ["hjerterum-tribes"]
-  },
-  {
     path: "/om-os/foreningen", lang: "da", section: "om-os",
     kicker: "Vision / om os", title: "Foreningen", em: "Hjerterum",
     lead: "Hjerterum F.M.B.A. er en forening med generalforsamling, vedtægter og en bestyrelse valgt af medlemmerne. Her finder du referater, budgetter, nyhedsbreve og vedtægter.",
@@ -833,8 +696,7 @@ ${statutesMarkdown(STATUTES)}
     lead: "Beretninger fra aftener og foredrag i Hjerterum – skrevet af gæster, der var med.",
     description: "Artikler og beretninger fra arrangementer i Hjerterum.",
     card: { title: "Artikler", text: "Beretninger fra aftener og foredrag i huset." },
-    body: `- ["Det er bare en følelse" – en journaliststuderendes beretning om breathwork](/behandling/breathwork)
-- [Kan man vaske sine følelser i lavendelolie?](#lavendel)
+    body: `- [Kan man vaske sine følelser i lavendelolie?](#lavendel)
 - [Sex skal mærkes med hele kroppen](#den-hellige-seksualitet)
 
 ## Kan man vaske sine følelser i lavendelolie? {#lavendel}
@@ -961,7 +823,6 @@ Vælg, hvad din henvendelse handler om, så kommer den til de rette i teamet. Du
 ## Eller skriv direkte
 - **Medlemskab og bookinger:** Team Hjerterum – [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
 - **Idéer til events:** [events@holistisk.org](mailto:events@holistisk.org)
-- **Tribes:** [tribes@holistisk.org](mailto:tribes@holistisk.org)
 - **Økonomi og regnskab:** kassereren – [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Andre henvendelser:** Jacob Hauge, formand – [jh@holistisk.org](mailto:jh@holistisk.org)
 

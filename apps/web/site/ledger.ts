@@ -8,8 +8,6 @@ export type LegacyPage = { slug: string; title: string; url: string; modified: s
 /** What was tidied, moved or left out - and why. Everything else was carried over in full, in cleaner words. */
 export const NOTES: Record<string, string> = {
   "administrer-dine-events": "Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender.",
-  "behandling-terapi": "Aurora Gayatri og Soroush Zand er ikke længere med (besluttet 4. oktober 2026); Douglas Crawford er tilføjet fra den engelske side. Introduktionen til breathwork er bevaret.",
-  "treatment-and-therapy": "Som den danske side: kun Douglas Crawford er med.",
   "book-dit-event": "Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren.",
   "book-your-event": "Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren.",
   "bliv-medlem": "Indmeldelse sker fortsat på holistisk.org (som fra hjerterum.info), indtil betaling kører på platformen.",
@@ -18,7 +16,6 @@ export const NOTES: Record<string, string> = {
   "guidelines-for-undervisere": "WiFi-koden står ikke på den offentlige side; den følger bookingen.",
   "guidelines-for-teachers": "WiFi-koden står ikke på den offentlige side; den følger bookingen.",
   "hjerterum-betalinger": "Tom side; betaling via faktura pr. mail.",
-  "hjerterum-tribes": "Sætningen om opstart i august/september er fjernet som forældet; ansøgning via tribes.dk.",
   "himalayan-hermitage": "Den engelske udgave er samlet med den danske på én side.",
   "kontakt": "Kontaktside fra 2019 (Mejlgade 95, daværende team); erstattet af den nuværende kontaktside.",
   "nyhedsbrev": "Mailchimp-links uden sporings-id; efteråret 2024 kopieret som PDF. Tilmelding til nyhedsbrevet er på forsiden, kontakt- og foreningssiden.",
@@ -47,7 +44,7 @@ The untouched originals are archived in \`docs/legacy/holistisk-org/pages/\`; th
 
 ## Struktur
 
-The menu follows hjerterum.info: Events · Behandling & terapi · Behandlere & undervisere · Medlemskab · Lej Hjerterum ·
+The menu follows hjerterum.info: Events · Behandlere & undervisere · Medlemskab · Lej Hjerterum ·
 Vision / om os · Kontakt · English. The content pages live in \`apps/web/site/pages.ts\` and \`pages-en.ts\`.
 
 ## Medier

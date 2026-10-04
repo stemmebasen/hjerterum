@@ -169,7 +169,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
         <div><p className="lys-kicker">Vision / om os</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
         <p>Hjerterum er skabt omkring troen på, at de bedste oplevelser vokser frem, når mennesker mødes med åbenhed og tid. Vi samler foredrag, behandlinger, musik, samtaler og små pauser i hverdagen – i et rum, hvor man må komme, som man er.</p>
       </div>
-      <Cards paths={["/behandling", "/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />
+      <Cards paths={["/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />
     </section>
     <Newsletter />
     <SiteFooter />

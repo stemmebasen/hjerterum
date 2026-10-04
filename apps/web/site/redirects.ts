@@ -9,10 +9,12 @@ export const REDIRECTS: Record<string, string> = {
   "/nye-community-events-hjerterum-events": "/events#hjerterum-open",
   "/online-events": "/events",
   "/faellesspisning-i-hjerterum": "/events#hjerterum-open",
-  // Behandling & terapi
-  "/behandling-terapi": "/behandling",
-  "/hvad-er-breathwork": "/behandling#breathwork",
-  "/udtalelser-om-breathwork": "/behandling/breathwork",
+  // Behandling og Terapi - removed ("skal fjernes helt"): the old addresses, and the platform's own, lead to the practitioners.
+  "/behandling-terapi": "/behandlere",
+  "/hvad-er-breathwork": "/behandlere",
+  "/udtalelser-om-breathwork": "/om-os/artikler",
+  "/behandling": "/behandlere",
+  "/behandling/breathwork": "/om-os/artikler",
   // Behandlere & undervisere
   "/faste-laerere-regular-teachers": "/behandlere#faste-undervisere",
   // Medlemskab
@@ -38,7 +40,7 @@ export const REDIRECTS: Record<string, string> = {
   "/vision": "/om-os",
   "/teamet": "/om-os/teamet",
   "/historien-bag-hjerterum": "/om-os/historien",
-  "/hjerterum-tribes": "/om-os/tribes",
+  "/hjerterum-tribes": "/om-os",
   "/generalforsamling-general-assembly": "/om-os/foreningen#generalforsamling",
   "/nyhedsbrev": "/om-os/foreningen#nyhedsbreve",
   "/artikler": "/om-os/artikler",
@@ -51,7 +53,7 @@ export const REDIRECTS: Record<string, string> = {
   "/vision-en": "/en#about",
   "/events-en": "/en#events",
   "/contact-us": "/en#contact",
-  "/treatment-and-therapy": "/en#treatments",
+  "/treatment-and-therapy": "/en",
   "/become-a-member": "/en/membership",
   "/benefits-of-membership": "/en/membership#benefits",
   "/conditions-of-membership": "/en/membership#terms",
@@ -65,13 +67,21 @@ export const REDIRECTS: Record<string, string> = {
   "/managing-your-event": "/en/rent#your-events",
   "/marketing-of-your-event": "/en/rent#marketing",
   "/team": "/en/team",
-  "/tribes": "/en/team#tribes",
+  "/tribes": "/en/team",
   // holistisk.org's draft front page
   "/test": "/"
 };
 
 /** WordPress' own pages with nothing to carry: logging in and out now happens at /sign-in. */
 export const RETIRED: Record<string, string> = {
+  // Requested: "\"Behandling og Terapi\" skal fjernes helt".
+  "behandling-terapi": "Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere.",
+  "hvad-er-breathwork": "Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere.",
+  "udtalelser-om-breathwork": "Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Artikler.",
+  "treatment-and-therapy": "Treatments er fjernet fra den engelske side sammen med Behandling og Terapi (4. oktober 2026).",
+  // Requested: "Alt vedrørende Tribes skal væk".
+  "hjerterum-tribes": "Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til Vision / om os.",
+  "tribes": "Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til The team.",
   "log-ud": "WordPress' log-ud-side uden indhold; log ud sker nu i medlemsområdet.",
   "medlems-login": "WordPress' login-side uden indhold; login er nu /sign-in."
 };
