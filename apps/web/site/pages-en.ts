@@ -1,6 +1,6 @@
 import type { SitePage } from "./pages.js";
 
-/** The English pages: the holistisk.org English section (welcome, events, membership, the room, the team, Tribes,
+/** The English pages: the holistisk.org English section (welcome, events, membership, the room, the team,
  * contact), gathered into four pages that say the same as the Danish ones. */
 
 const DISCLAIMER_EN = `For events that are not arranged directly by Hjerterum, Hjerterum acts solely as mediator and lessor of the premises. Hjerterum is not responsible for content, teaching, advice or other matters in the collaboration between participants and external teachers or organisers. Any agreements, courses or disagreements are a matter between the participant and the third party.
@@ -54,9 +54,6 @@ At concert evenings, pictures and videos that capture the atmosphere may be take
 ${DISCLAIMER_EN}
 +++
 
-## Treatments {#treatments}
-As a member of Hjerterum you get special offers on treatments and therapy sessions with practitioners in the house – among them Douglas Crawford (Source Breathwork/rebirthing and coaching in A Course in Miracles, [masteringlife.dk](http://www.masteringlife.dk/)). See [all practitioners and teachers](/behandlere) and [treatments and breathwork](/behandling) (in Danish).
-
 ## Contact {#contact}
 **Hjerterum**, Guldsmedgade 26B, ground floor, 8000 Aarhus C. Would you like to see the place? Schedule a visit by email.
 
@@ -79,7 +76,7 @@ When you use Hjerterum, you are responsible for any damage to yourself or your b
 {{newsletter}}`,
     image: { src: "/media/2021-06-p1010197.webp", alt: "Chairs in a circle around a candle in the room" },
     children: ["/en/membership", "/en/rent", "/en/team"],
-    sources: ["welcome", "vision-en", "events-en", "contact-us", "treatment-and-therapy"]
+    sources: ["welcome", "vision-en", "events-en", "contact-us"]
   },
   {
     path: "/en/membership", lang: "en", section: "en",
@@ -99,7 +96,6 @@ The **reduced price** (111 DKK a month or 1,155 DKK a year) is for you on a low 
 ## Benefits of membership {#benefits}
 - You join events at a discount and often completely free.
 - You regularly get offers on Hjerterum's own events – concerts, talks, themed evenings, community dinners, film evenings and more – as part of [Hjerterum Open](/en#hjerterum-open).
-- You can become part of a [Tribe](/en/team#tribes): a small group of 5–8 members for a nourishing, confidential connection. Write to [tribes@holistisk.org](mailto:tribes@holistisk.org).
 - It is easier to sign up for events when you are logged in.
 - You get a discount on organic speciality coffee, other speciality drinks and biodynamic cake and snacks in the café every Thursday afternoon and at other events.
 - You get offers on events with Hjerterum's partners in Aarhus and East Jutland.
@@ -192,8 +188,8 @@ ${DISCLAIMER_EN}
     path: "/en/team", lang: "en", section: "en",
     kicker: "English · The team", title: "The people", em: "behind Hjerterum",
     lead: "The Hjerterum association is led by a team of dedicated people who also make up the board.",
-    description: "The board and team behind Hjerterum in Aarhus, how we work, and Hjerterum Tribes.",
-    card: { title: "The team and Tribes", text: "The board, how we work, and Hjerterum Tribes." },
+    description: "The board and team behind Hjerterum in Aarhus, and how we work.",
+    card: { title: "The team", text: "The board and how we work." },
     body: `![The board of Hjerterum](/media/2025-12-pcgo-hdy.webp "From left: Gitta Kaas, Douglas Crawford, Jacob Hauge (chair), Frederik Kærgaard (treasurer) and Lisbeth Jespersen (vice-chair).")
 
 ## The board
@@ -205,16 +201,7 @@ ${DISCLAIMER_EN}
 
 Our employees rarely stop at their scheduled hours – they often add volunteer time because they care about Hjerterum and the community.
 
-We have deliberately chosen a flat structure: employees and volunteers share responsibility, and there is no traditional boss. Hjerterum runs on fewer working hours than before, so teachers and organisers do more of the preparation themselves. If you write to us, expect an answer within 3–5 working days. When booking, have concrete dates and times, your text and cover image ready, follow the guides we send, and check the website first. Our shared goal: that Hjerterum is led professionally and with heart ♥
-
-## Hjerterum Tribes {#tribes}
-![Hjerterum Tribes](/media/2026-04-hjerterum-2.webp)
-
-At Hjerterum you can become part of a small group – a tribe – of 5–8 members for a while. Tribes bring members together in a nourishing community and are a unique opportunity to get to know yourself and others more deeply.
-
-You meet once a month – or more if you agree – and take turns being the moderator. Before each meeting we send material with a main theme and questions to work with. Something magical happens when you see that your challenges are not unique but deeply human and shared; the feeling of standing alone, and the loneliness and shame many of us carry, can begin to let go. A meeting lasts about 2 hours; use your own structure or our template (welcome, an opening such as a guidance or a piece of music, a check-in round, the theme, practicalities, wrap-up).
-
-A tribe has no set end date – it continues as long as there is desire and will. We recommend agreeing on a commitment, e.g. 6 months, at the first meeting. You must be an active member to join. [Apply here](https://tribes.dk) – the clearer the picture we get of you, the easier it is to find the right match. Participation is at your own risk; if a conflict becomes too hard to solve in the group, write to [tribes@holistisk.org](mailto:tribes@holistisk.org) and we'll help as best we can ♡`,
-    sources: ["team", "tribes"]
+We have deliberately chosen a flat structure: employees and volunteers share responsibility, and there is no traditional boss. Hjerterum runs on fewer working hours than before, so teachers and organisers do more of the preparation themselves. If you write to us, expect an answer within 3–5 working days. When booking, have concrete dates and times, your text and cover image ready, follow the guides we send, and check the website first. Our shared goal: that Hjerterum is led professionally and with heart ♥`,
+    sources: ["team"]
   }
 ];

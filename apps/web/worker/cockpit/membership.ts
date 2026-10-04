@@ -22,7 +22,6 @@ export const MEMBERSHIP_FACTS = [
   "FORDELE (står på holistisk.org):",
   "- Rabat på events og ofte helt gratis adgang.",
   "- Tilbud på Hjerterums egne events (Hjerterum Open Events: koncerter, foredrag, tema-aftener, fællesspisning, filmaftener mv.), ofte gratis eller til særlig reduceret pris.",
-  "- Tribes: små grupper på 5-8 deltagere for nærende fællesskab; man skriver til tribes@holistisk.org for at være med.",
   "- Nemmere booking af events, når man er logget ind (navn og mail udfyldes).",
   "- Rabat på økologisk specialkaffe, andre specialdrikke og biodynamisk kage/snacks i caféen hver torsdag eftermiddag og til andre arrangementer.",
   "- Tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.",

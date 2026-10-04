@@ -183,8 +183,8 @@ describe("GET /api/stats/site", () => {
 
   it("keeps the lists to their lengths, sorted by visitors and then views", async () => {
     const db = testDatabase();
-    const paths = ["/", "/events", "/behandling", "/behandling/breathwork", "/behandlere", "/medlemskab", "/medlemskab/vilkaar", "/lej-hjerterum", "/lej-hjerterum/praktisk",
-      "/lej-hjerterum/vilkaar", "/lej-hjerterum/markedsfoering", "/lej-hjerterum/dine-events", "/om-os", "/om-os/teamet", "/om-os/historien", "/om-os/tribes", "/om-os/foreningen", "/kontakt"];
+    const paths = ["/", "/events", "/behandlere", "/privatliv", "/om-os/artikler", "/medlemskab", "/medlemskab/vilkaar", "/lej-hjerterum", "/lej-hjerterum/praktisk",
+      "/lej-hjerterum/vilkaar", "/lej-hjerterum/markedsfoering", "/lej-hjerterum/dine-events", "/om-os", "/om-os/teamet", "/om-os/historien", "/om-os/himalayan-hermitage", "/om-os/foreningen", "/kontakt"];
     for (const [i, p] of paths.entries()) {
       for (let v = 0; v <= i; v++) await visit(db, at("2026-10-04T08:00:00Z"), { p, r: `https://site${i}.example` }, { ip: `${i}.${v}`, country: ["DK", "SE", "NO", "DE", "NL", "GB", "US", "FR", "ES", "IT", "PL", "FI"][i % 12]! });
     }
