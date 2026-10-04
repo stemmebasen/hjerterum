@@ -10,6 +10,8 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
   addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, removeTaskFor, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
+import { statsPage } from "./statsPage.js";
+import { periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
 import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
@@ -370,6 +372,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   }
 
   // Requested: "Hvis vi uploader et sådan skærmbillede til Saga ind i mellem, kan hun så opdatere det i systemet?"
+  // Requested: "Byg en statistikside i jeres admin over besøg på jeres offentlige hjemmeside" (statsPage.ts, site-stats.ts).
+  if (path === "/statistik" && request.method === "GET") return html(statsPage(base, who, await siteStats(db, periodOf(url.searchParams.get("dage")), now), Boolean(env.STATS_API_SECRET)));
+
   if (path === "/medlemmer" && request.method === "GET") {
     const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
     return html(membersPage(base, { who, rows, history, today, notice: url.searchParams.has("gemt") ? "Medlemstallene er gemt." : "" }));

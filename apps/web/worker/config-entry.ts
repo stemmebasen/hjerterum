@@ -10,6 +10,7 @@ import { handleCirklerIntegrationRequest, isCirklerIntegrationRequest, type Cirk
 import { logoResponse } from "./cockpit/logo.js";
 import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mail.js";
 import { redirectFor } from "../site/redirects.js";
+import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -57,6 +58,10 @@ export default {
     if (url.pathname === LOGIN_MAIL_PATH) {
       return handleLoginMail(request, env as LoginMailEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     }
+
+    // The website's visits, counted without cookies, for admin → Statistik and the read-only statistics API (site-stats.ts).
+    if (url.pathname === VISIT_PATH) return handleVisit(request, env as StatsEnv, Date.now());
+    if (url.pathname === STATS_API_PATH) return handleStatsApi(request, env as StatsEnv, Date.now());
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {
@@ -116,5 +121,7 @@ export default {
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
     await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
       .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
+    const db = (env as StatsEnv).DB;
+    if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
   }
 };

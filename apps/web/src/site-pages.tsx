@@ -52,6 +52,7 @@ export function SiteFooter() {
     <nav aria-label="Sidefod">
       {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
       <a href="/om-os/foreningen">Foreningen</a>
+      <a href="/privatliv">Privatliv</a>
       <a href="/sign-in">Log ind</a>
     </nav>
     <p className="site-foot-legal">© {new Date().getFullYear()} Hjerterum F.M.B.A. · CVR 40827692 · Et fællesskab baseret på nærvær.</p>

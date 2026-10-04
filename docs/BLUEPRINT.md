@@ -70,6 +70,13 @@ This document is the primary product and migration specification for the new Hje
 - Before hjerterum.info is pointed at the platform: the user approves the pages on staging, and membership sign-up keeps working (it links to holistisk.org's membership system until Stripe is configured). hjerterum.info's current app serves `/member-portal/` - the platform serves the member area at the same address.
 - holistisk.org's full media library (603 files) is listed but not copied; download it before holistisk.org is closed.
 
+### Website statistics and the statistics API (2026-10-04)
+
+- Requested: "Byg en statistikside i jeres admin over besøg på jeres offentlige hjemmeside, og et read-only API, der leverer de samme tal til et eksternt overblik. Formatet ... er fælles for flere sites og skal følges præcist".
+- Counting (`apps/web/worker/site-stats.ts`, `src/visits.ts`): each public page sends one signal to `POST /api/besog`. No cookies, nothing kept in the browser, no IP address stored. A visitor is an HMAC of IP + user-agent + host with the day's secret, HMAC(`STATS_API_SECRET`, "site-stats:<YYYY-MM-DD>"), Danish days. Not counted: bots, `Sec-GPC: 1`, login/member/admin pages, API calls (only the website's own pages count). The first page of a visitor's day is the entry page and alone keeps source (referrer domain, never the site itself) and campaign (with utm_source). Device from the user-agent, country from `cf-ipcountry`. Visits are deleted after six months (the five-minute jobs), as `/privatliv` says.
+- Admin → Statistik (`/statistik` in the cockpit) and `GET /api/stats/site?days=7|30|90` (Bearer `STATS_API_SECRET`, else 401; JSON in the shared format, `cache-control: no-store`) read the same `siteStats()`. `STATS_API_SECRET` is set by the owner as a GitHub secret and synced to the Worker on deploy; without it nothing is counted and the API answers 401. Changing it starts a new count for the rest of that day.
+- `tracksEnquiries` is false until the website has enquiry forms of its own ("Hjerterum skal dog have flere henvendelsesformularer ligesom på stemmebasen.dk" - next).
+
 ## 2. Product scope
 
 ### Public site

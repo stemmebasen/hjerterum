@@ -29,6 +29,7 @@ jobs:
       ALLOWED_EMAILS: ${{ secrets.ALLOWED_EMAILS }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       CLERK_WEBHOOK_SECRET: ${{ secrets.CLERK_WEBHOOK_SECRET }}
+      STATS_API_SECRET: ${{ secrets.STATS_API_SECRET }}
     steps:
       - uses: actions/checkout@v6
 
@@ -118,6 +119,7 @@ jobs:
           put_if_set ALLOWED_EMAILS "${ALLOWED_EMAILS:-}"
           put_if_set RESEND_API_KEY "${RESEND_API_KEY:-}"
           put_if_set CLERK_WEBHOOK_SECRET "${CLERK_WEBHOOK_SECRET:-}"
+          put_if_set STATS_API_SECRET "${STATS_API_SECRET:-}"
           printf '%s' "$STAGING_URL" | pnpm --dir apps/web exec wrangler secret put APP_BASE_URL --env staging >/dev/null
 
       - name: Smoke test deployed staging API, D1, MembershipWorks and frontend
