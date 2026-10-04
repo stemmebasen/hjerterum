@@ -631,13 +631,20 @@ describe("the front page's fun fact", () => {
   // Requested: "Det kunne være sjovt, hvis der et sted står: Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?"
   it("rounds down so \"over\" is always true, and says nothing about a handful", async () => {
     const { heldFact } = await import("./home.js");
-    const band = heldFact(3651, Date.parse("2019-05-01T16:00:00Z"));
-    expect(band).toContain("Hjerterum har afholdt over 3.600 arrangementer siden starten?");
+    // Then: "Fylder nu alt for meget... Læg den et andet sted og lad den fylde meget mindre - måske som en kvadratisk kasse".
+    const box = heldFact(3651, Date.parse("2019-05-01T16:00:00Z"));
+    expect(box).toContain('<a class="fact" href="/arrangementer"');
+    expect(box).toContain("<b>3.600<span>+</span></b>");
     // Corrected: Hjerterum began in January 2016, before the calendar Saga has.
-    expect(band).toContain("Det første i kalenderen var i januar 2016 - og huset er fyldt med liv hver uge.");
+    expect(box).toContain("arrangementer siden 2016");
+    expect(box).toContain('title="Vidste du? Hjerterum har afholdt over 3.600 arrangementer siden januar 2016."');
     expect(heldFact(3600)).toContain("over 3.500 arrangementer");
     expect(heldFact(57)).toContain("over 50 arrangementer");
     expect(heldFact(5)).toBe("");
+    const { translateHtml } = await import("./i18n.js");
+    const english = translateHtml(box);
+    expect(english).toContain("events since 2016");
+    expect(english).toContain('title="Did you know? Hjerterum has held more than 3,600 events since January 2016."');
   });
 });
 

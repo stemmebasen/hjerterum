@@ -43,33 +43,29 @@ export function heldOver(held: number): number {
   return Math.floor((held - 1) / step) * step;
 }
 
-/** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then: "misplaced, and
- * it's not as celebratory as I wanted it to be". A band of its own under the key figures: the number large, the
- * sentence beside it, and when it began. */
+/** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then a band of its own,
+ * and then: "Fylder nu alt for meget... Læg den et andet sted og lad den fylde meget mindre - måske som en kvadratisk
+ * kasse". A small square at the end of the key figures: the number, and since when; the whole sentence on hover. */
 /** Corrected: "Det første i kalenderen var i januar 2016" - the calendar Saga has reaches back only to 2019, but Hjerterum began in January 2016. */
 const HJERTERUM_BEGAN_MS = Date.UTC(2016, 0, 15);
 export function heldFact(held: number, sinceMs: number | null = null, base = ""): string {
   if (held < 20) return "";
   const over = heldOver(held).toLocaleString("da-DK");
-  const since = new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(Math.min(sinceMs ?? HJERTERUM_BEGAN_MS, HJERTERUM_BEGAN_MS));
-  return `<section class="celebrate" aria-label="Vidste du"><div class="big" aria-hidden="true">${over}<span>+</span></div>
-<div class="words"><p class="kicker">Vidste du</p><p class="line">Hjerterum har afholdt over ${over} arrangementer siden starten?</p>
-<p class="since">Det første i kalenderen var i ${esc(since)} - og huset er fyldt med liv hver uge. <a href="${base}/arrangementer">Se arrangementerne →</a></p></div>
-<span class="hearts" aria-hidden="true"><i></i><i></i><i></i></span></section>`;
+  const began = Math.min(sinceMs ?? HJERTERUM_BEGAN_MS, HJERTERUM_BEGAN_MS);
+  const since = new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(began);
+  const year = new Intl.DateTimeFormat("da-DK", { year: "numeric", timeZone: "Europe/Copenhagen" }).format(began);
+  const sentence = `Vidste du? Hjerterum har afholdt over ${over} arrangementer siden ${since}.`;
+  return `<a class="fact" href="${base}/arrangementer" title="${esc(sentence)}" aria-label="${esc(sentence)}"><span class="kicker">Vidste du</span>
+<b>${over}<span>+</span></b><span class="sub">arrangementer siden ${esc(year)}</span></a>`;
 }
 
 export const HOME_STYLE = `
-.celebrate{position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr;gap:10px 30px;align-items:center;padding:26px 30px;border-radius:var(--radius);
-background:var(--lys-clay);border:0}
-.celebrate .big{font-family:var(--serif);font-weight:400;font-size:clamp(52px,7.5vw,92px);line-height:.9;letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}
-.celebrate .big span{font-size:.55em;vertical-align:.55em;margin-left:2px}
-.celebrate .kicker{margin:0;font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra)}
-.celebrate .line{margin:4px 0 0;font-family:var(--serif);font-size:clamp(21px,2.4vw,27px);font-weight:400;line-height:1.25;letter-spacing:-.01em;max-width:30ch}
-.celebrate .since{margin:8px 0 0;color:var(--muted);font-size:14.5px}.celebrate .since a{white-space:nowrap}
-.celebrate .hearts{position:absolute;right:22px;top:16px;display:flex;gap:6px;pointer-events:none}
-.celebrate .hearts i{display:block;width:14px;height:13px;background:var(--accent);opacity:.22;-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 .9 5.6 2.4C13.6.9 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat}
-.celebrate .hearts i:nth-child(2){width:20px;height:18px;opacity:.32;transform:translateY(-6px)}.celebrate .hearts i:nth-child(3){opacity:.16;transform:translateY(4px)}
-@media (max-width:640px){.celebrate{grid-template-columns:1fr;padding:22px}.celebrate .line{max-width:none}}
+.fact{width:132px;aspect-ratio:1;display:grid;align-content:center;justify-items:center;gap:2px;padding:12px;border-radius:18px;background:var(--lys-clay);
+text-decoration:none;color:var(--ink);text-align:center}.fact:hover{filter:brightness(.98)}
+.fact .kicker{font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--lys-terra)}
+.fact b{font:400 32px/1.05 var(--serif);letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}.fact b span{font-size:.6em;vertical-align:.45em;margin-left:1px}
+.fact .sub{font-size:11.5px;line-height:1.3;color:var(--muted)}
+.tiles.with-fact{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
 .home{gap:26px}
 .items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
@@ -90,7 +86,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .mood{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:4px 11px;border-radius:999px;background:var(--tint);color:var(--accent);margin-bottom:10px}
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media (max-width:900px){.tiles{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}}
+@media (max-width:900px){.tiles,.tiles.with-fact{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.fact{width:auto;aspect-ratio:auto;min-height:118px}}
 @media (max-width:760px){.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}}
 `;
 
@@ -141,11 +137,12 @@ export function homePage(base: string, data: HomeData): string {
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
-  const tiles = `<section class="tiles" aria-label="Kort fortalt">
+  const fact = heldFact(data.eventsHeld ?? 0, data.eventsSince ?? null, base);
+  const tiles = `<section class="tiles${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>
 <a class="tile${data.toSign.length ? " hot" : ""}" href="${base}${data.toSign[0] ? `/referat/${data.toSign[0].id}` : "/moder"}"><span class="label">Til godkendelse</span><b>${data.toSign.length}</b><span class="sub">${data.toSign.length ? plural(data.toSign.length, "referat", "referater") : "du er ajour"}</span></a>
-<a class="tile" href="${base}/arrangementer"><span class="label">Arrangementer</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a></section>`;
+<a class="tile" href="${base}/arrangementer"><span class="label">Arrangementer</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${fact}</section>`;
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
@@ -206,6 +203,6 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
 
   const enquiryNote = data.newEnquiries ? `<p class="notice"><a href="${base}/posthus"><strong>${plural(data.newEnquiries, "vigtig mail", "vigtige mails")}</strong> venter på svar i team@ →</a></p>` : "";
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${heldFact(data.eventsHeld ?? 0, data.eventsSince ?? null, base)}${enquiryNote}${reviewNote}${working}
+  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });
 }
