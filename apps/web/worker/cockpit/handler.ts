@@ -11,6 +11,10 @@ import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMemb
   addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, removeTaskFor, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
+import { memberPage, membersListPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
+import { addNote, changeManualMembership, grantMembership, listMembers, memberById, memberCounts, memberEvents, membershipWorksAccount, membershipWorksSummary,
+  memberTimeline, saveMembershipWorksExport, STATUS_FILTERS, type StatusFilter } from "../member-admin.js";
+import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
@@ -45,6 +49,14 @@ export const isCockpitHost = (hostname: string) => /^(?:admin|cockpit)\./i.test(
 export const isCockpitRequest = (url: URL) => isCockpitHost(url.hostname) || url.pathname === "/cockpit" || url.pathname.startsWith("/cockpit/");
 const AUDIO = /\.(mp3|m4a|mp4|aac|wav|ogg|oga|webm)$/i;
 const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
+const memberNotice = (code: string | null) => code === "givet" ? "Medlemskabet er givet. Personen har adgang til medlemsområdet med det samme."
+  : /^eksport-\d+$/.test(code ?? "") ? `MembershipWorks-eksporten er gemt: ${code!.slice("eksport-".length)} konti.` : undefined;
+const MEMBER_ERRORS: Record<string, string> = {
+  no_account: "Der er ingen bruger med den e-mail endnu. Bed personen logge ind på medlem.hjerterum.info én gang med sin e-mail, og prøv igen.",
+  already_member: "Personen har allerede et aktivt medlemskab.", invalid_email: "Skriv en gyldig e-mail.", invalid_tier: "Vælg et medlemskab.",
+  clerk_not_configured: "Login-systemet er ikke sat op på serveren (CLERK_SECRET_KEY mangler).", no_accounts: "Filen kunne ikke læses som en MembershipWorks-eksport (CSV).",
+  failed: "Det lykkedes ikke. Prøv igen."
+};
 
 const HEADERS = {
   "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-frame-options": "DENY", "referrer-policy": "same-origin", "x-robots-tag": "noindex, nofollow",
@@ -378,7 +390,68 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     return html(statsPage(base, who, stats, Boolean(env.STATS_API_SECRET), await enquiryTopics(db, stats.from, stats.to)));
   }
 
+  // Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - the
+  // platform's own members, as MembershipWorks shows them (memberPages.ts, member-admin.ts).
   if (path === "/medlemmer" && request.method === "GET") {
+    const q = (url.searchParams.get("q") ?? "").slice(0, 100);
+    const asked = url.searchParams.get("status") ?? "alle";
+    const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
+    const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
+    return html(membersListPage(base, who, { members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+  }
+  if (path === "/medlemmer/giv" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    try {
+      const id = await grantMembership(db, env, deps, { email: String(form?.get("email") ?? ""), tier: String(form?.get("tier") ?? ""), note: String(form?.get("note") ?? "").trim().slice(0, 300), by: who });
+      return redirect(`${base}/medlemmer/${id}?besked=givet`);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "failed";
+      if (!(code in MEMBER_ERRORS)) console.warn("cockpit_member_grant_failed", code);
+      return redirect(`${base}/medlemmer?fejl=${code in MEMBER_ERRORS ? code : "failed"}#giv`);
+    }
+  }
+  if (path === "/medlemmer/membershipworks" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const file = (await request.formData().catch(() => null))?.get("fil");
+    if (!(file instanceof File) || !file.size || file.size > 5 * 1024 * 1024) return redirect(`${base}/medlemmer?fejl=no_accounts`);
+    try {
+      const saved = await saveMembershipWorksExport(db, file.name || "export.csv", who, await file.text(), now);
+      return redirect(`${base}/medlemmer?besked=eksport-${saved.accounts}`);
+    } catch (error) {
+      console.warn("cockpit_membershipworks_export_failed", error instanceof Error ? error.message : error);
+      return redirect(`${base}/medlemmer?fejl=no_accounts`);
+    }
+  }
+  const memberPath = /^\/medlemmer\/(\d{1,9})(?:\/(note|adgang|medlemskab|afslut|genaktiver))?$/.exec(path);
+  if (memberPath) {
+    const id = Number(memberPath[1]), action = memberPath[2];
+    const m = await memberById(db, id);
+    if (!m) return redirect(`${base}/medlemmer`);
+    if (action && request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      const tab = action === "note" ? "tidslinje" : "medlemskab";
+      try {
+        if (action === "note") await addNote(db, id, String(form?.get("note") ?? ""), who, now);
+        else if (action === "adgang") await changeMemberAccess(db, { source: "hjerterum", memberId: id, blocked: form?.get("blocked") === "1" }, who);
+        else if (action === "medlemskab") await changeManualMembership(db, id, { kind: "plan", tier: String(form?.get("tier") ?? "") }, who, now);
+        else await changeManualMembership(db, id, { kind: action === "afslut" ? "end" : "reactivate" }, who, now);
+      } catch (error) {
+        console.warn("cockpit_member_action_failed", error instanceof Error ? error.message : error);
+      }
+      return redirect(`${base}/medlemmer/${id}?fane=${tab}`);
+    }
+    if (request.method !== "GET") return redirect(`${base}/medlemmer/${id}`);
+    const asked = url.searchParams.get("fane") ?? "medlemskab";
+    const tab: MemberTab = (MEMBER_TABS as readonly string[]).includes(asked) ? asked as MemberTab : "medlemskab";
+    const [timeline, events, mw] = await Promise.all([tab === "tidslinje" ? memberTimeline(db, m) : Promise.resolve([]), tab === "events" ? memberEvents(db, m) : Promise.resolve({ created: [], registered: [] }),
+      membershipWorksAccount(db, m.email)]);
+    return html(memberPage(base, who, { member: m, tab, timeline, events, mw, now, today, notice: memberNotice(url.searchParams.get("besked")) }));
+  }
+
+  // MembershipWorks' figures from a screenshot (members.ts) - now under Medlemmer → Tal fra MembershipWorks.
+  if (path === "/medlemmer/tal" && request.method === "GET") {
     const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
     return html(membersPage(base, { who, rows, history, today, notice: url.searchParams.has("gemt") ? "Medlemstallene er gemt." : "" }));
   }
@@ -395,9 +468,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/medlemmer/gem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const input = statsInput(await request.formData(), today);
-    if (!input) return redirect(`${base}/medlemmer`);
+    if (!input) return redirect(`${base}/medlemmer/tal`);
     await saveStats(db, input, who, now);
-    return redirect(`${base}/medlemmer?gemt=1`);
+    return redirect(`${base}/medlemmer/tal?gemt=1`);
   }
 
   if (path === "/opgaver" || path.startsWith("/opgaver/")) {

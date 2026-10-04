@@ -358,10 +358,11 @@ describe("the board cockpit", () => {
     const fields: Record<string, string> = { taken_on: "2026-10-01", total_accounts: "452", with_membership: "390", paying: "181", free: "186", past_due: "12", pending_cancellation: "0", cancelled: "6", annual_revenue_kr: "361200", plans: '[{"name":"Standard","count":118,"share":30.3}]' };
     const save = new FormData(); for (const [k, v] of Object.entries(fields)) save.append(k, v);
     const saved = await handle(new Request(`${ORIGIN}/cockpit/medlemmer/gem`, { method: "POST", headers: { origin: ORIGIN, cookie }, body: save }), env, deps(ai.fetcher, NOW));
-    expect(saved.headers.get("location")).toBe("/cockpit/medlemmer?gemt=1");
+    // Requested: the "Medlemmer" section shows the platform's own members; these figures moved under it.
+    expect(saved.headers.get("location")).toBe("/cockpit/medlemmer/tal?gemt=1");
     expect(await db.prepare("SELECT paying, added_by FROM cockpit_member_stats ORDER BY id DESC").first()).toEqual({ paying: 181, added_by: "Lisbeth" });
     // The newest date leads; the change since the screenshot before is shown.
-    const page = await (await call("/cockpit/medlemmer", { cookie })).text();
+    const page = await (await call("/cockpit/medlemmer/tal", { cookie })).text();
     expect(page).toContain("Udvikling");
     expect(await (await call("/cockpit/", { cookie })).text()).toContain("169");
   });

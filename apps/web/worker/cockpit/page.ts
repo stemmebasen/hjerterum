@@ -111,7 +111,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.13.0";
+export const COCKPIT_VERSION = "1.14.0";
 export const COCKPIT_RELEASED = "2026-10-04";
 const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
@@ -121,14 +121,14 @@ export function layout(base: string, title: string, body: string, options: { sec
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
-  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/arrangementer", "Arrangementer"], ["/statistik", "Statistik"]];
-  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder", "/medlemmer": "/" };
+  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Arrangementer"], ["/statistik", "Statistik"]];
+  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
   const here = parent[options.section ?? ""] ?? options.section;
   const desk = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
   // On a phone the five labels must fit side by side.
   const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Huset" };
-  // The phone's tab bar keeps five places; Posthus and Statistik are on Overblik and under the initials.
-  const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  // The phone's tab bar keeps five places; Posthus, Medlemmer and Statistik are on Overblik and under the initials.
+  const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#1f1d1a" media="(prefers-color-scheme: dark)">

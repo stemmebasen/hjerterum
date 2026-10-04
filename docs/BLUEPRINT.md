@@ -86,6 +86,15 @@ This document is the primary product and migration specification for the new Hje
 
 ## 2. Product scope
 
+
+### Medlemmer in admin (2026-10-04)
+
+- Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - "Husk den skal lægge sig op ad hvad MembershipWorks gør med medlemmer" - "vi skal kun fokusere på vores eget systems medlemmer".
+- Admin → Medlemmer (`worker/cockpit/memberPages.ts`, `worker/member-admin.ts`) lists the platform's own members (`members`) with search, status filter and key figures. A member's page follows MembershipWorks' layout: the membership label with its status ("I restance 35 dage"), then the tabs Medlemskab (billing, since when, member since), Kontakt, Tidslinje (with notes) and Events (created here or as host in the calendar, and sign-ups).
+- The timeline (`member_timeline`, migration 0037) is written by Stripe's member webhook (joining, `invoice.paid`, `invoice.payment_failed`, status changes, cancellation; idempotent per event) and by the board's actions. The Stripe webhook endpoint must subscribe to `invoice.paid` for payments to show.
+- "Giv medlemskab" gives a membership with no card payment (MembershipWorks' "Manual Billing"): `billing = 'manual'`, tied to the person's Clerk login with a verified email. The member area shows it without Stripe actions, and it is never sent to Stripe. Only manual memberships can be changed, ended or reactivated in admin; Stripe memberships are managed by the member.
+- MembershipWorks' account export can be uploaded for reference only ("Det er godt at have dette liggende, når og hvis medlemmet vælger at oprette sig i vores nye system. Indtil da fortsætter de blot i MW"). It gives no one access. When a person in it becomes a member here, member since, phone and teacher are carried over, and the timeline reminds the board to stop the payment in MembershipWorks while it still runs. The export holds personal data: it lives only in D1, never in the repository.
+- MembershipWorks' figures from a screenshot moved to Medlemmer → Tal fra MembershipWorks (`/medlemmer/tal`).
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.

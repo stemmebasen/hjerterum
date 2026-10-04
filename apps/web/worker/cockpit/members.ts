@@ -118,7 +118,7 @@ export const MEMBERS_STYLE = `
 export function membersPanel(base: string, rows: MemberStats[], link = true): string {
   const [now, before] = rows;
   const head = `<header><h2>Medlemmer</h2><p>Fra MembershipWorks${now ? ` · opdateret ${esc(shortDay(now.taken_on))}` : ""}.</p></header>`;
-  if (!now) return `<article class="panel">${head}<p class="empty">Ingen medlemstal endnu.</p><a class="more" href="${base}/medlemmer">Upload et skærmbillede →</a></article>`;
+  if (!now) return `<article class="panel">${head}<p class="empty">Ingen medlemstal endnu.</p><a class="more" href="${base}/medlemmer/tal">Upload et skærmbillede →</a></article>`;
   // Requested: "\"Betaling stoppet\" grafen er ikke relevant. Men fint at se hvordan det går med samtlige abonnementer" -
   // every kind of membership, without the stopped payments.
   const top = now.plans.filter(p => p.share !== null && !/stoppet|cancel/i.test(p.name));
@@ -129,7 +129,7 @@ export function membersPanel(base: string, rows: MemberStats[], link = true): st
 <div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
 ${top.length ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
-${link ? `<a class="more" href="${base}/medlemmer">Alle tal og opdatering →</a>` : ""}</article>`;
+${link ? `<a class="more" href="${base}/medlemmer/tal">Alle tal og opdatering →</a>` : ""}</article>`;
 }
 
 function numbersForm(base: string, input: StatsInput, note: string): string {
@@ -138,7 +138,7 @@ function numbersForm(base: string, input: StatsInput, note: string): string {
 <div class="nums">${FIELDS.map(f => `<label>${LABELS[f]}<input name="${f}" inputmode="numeric" value="${input[f] ?? ""}"${REQUIRED.has(f) ? " required" : ""}></label>`).join("")}</div>
 <input type="hidden" name="plans" value="${esc(JSON.stringify(input.plans))}">
 ${input.plans.length ? `<p class="small muted" style="margin:0">Medlemstyper: ${input.plans.map(p => `${esc(p.name)}${p.share !== null ? ` ${String(p.share).replace(".", ",")} %` : ""}`).join(" · ")}</p>` : ""}
-<div class="actions"><a class="button ghost" href="${base}/medlemmer">Fortryd</a><button>Gem tallene</button></div></form></div>`;
+<div class="actions"><a class="button ghost" href="${base}/medlemmer/tal">Fortryd</a><button>Gem tallene</button></div></form></div>`;
 }
 
 export function membersPage(base: string, data: { who: string | null; rows: MemberStats[]; history: MemberStats[]; read?: StatsInput | null; notice?: string; today: string }): string {
@@ -153,6 +153,6 @@ ${data.history.map(h => `<tr><td data-label="Dato">${esc(shortDay(h.taken_on))}<
     ? data.read ? numbersForm(base, data.read, "Saga har læst disse tal fra skærmbilledet. Ret dem, hvis noget er forkert, og gem.")
       : `<p class="notice warn">Saga kunne ikke læse MembershipWorks-tal på billedet. Prøv et skærmbillede af hele Current Stats-siden.</p>${upload}`
     : `${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}<div class="grid">${membersPanel(base, data.rows, false)}${upload}</div>${history}`;
-  return layout(base, "Medlemmer", `<main><h1>Medlemmer</h1><p class="muted">Tallene fra MembershipWorks${now ? `, senest ${esc(shortDay(now.taken_on))}` : ""}. Kun tal - aldrig navne eller kontaktoplysninger.</p>${body}</main>`,
+  return layout(base, "Tal fra MembershipWorks", `<main><a class="m-back" href="${base}/medlemmer" style="font-weight:600;text-decoration:none">← Medlemmer</a><h1>Tal fra MembershipWorks</h1><p class="muted">Tallene fra MembershipWorks${now ? `, senest ${esc(shortDay(now.taken_on))}` : ""}. Kun tal - aldrig navne eller kontaktoplysninger.</p>${body}</main>`,
     { section: "/medlemmer", who: data.who, style: MEMBERS_STYLE });
 }
