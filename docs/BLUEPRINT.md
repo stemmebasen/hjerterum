@@ -75,7 +75,14 @@ This document is the primary product and migration specification for the new Hje
 - Requested: "Byg en statistikside i jeres admin over besøg på jeres offentlige hjemmeside, og et read-only API, der leverer de samme tal til et eksternt overblik. Formatet ... er fælles for flere sites og skal følges præcist".
 - Counting (`apps/web/worker/site-stats.ts`, `src/visits.ts`): each public page sends one signal to `POST /api/besog`. No cookies, nothing kept in the browser, no IP address stored. A visitor is an HMAC of IP + user-agent + host with the day's secret, HMAC(`STATS_API_SECRET`, "site-stats:<YYYY-MM-DD>"), Danish days. Not counted: bots, `Sec-GPC: 1`, login/member/admin pages, API calls (only the website's own pages count). The first page of a visitor's day is the entry page and alone keeps source (referrer domain, never the site itself) and campaign (with utm_source). Device from the user-agent, country from `cf-ipcountry`. Visits are deleted after six months (the five-minute jobs), as `/privatliv` says.
 - Admin → Statistik (`/statistik` in the cockpit) and `GET /api/stats/site?days=7|30|90` (Bearer `STATS_API_SECRET`, else 401; JSON in the shared format, `cache-control: no-store`) read the same `siteStats()`. `STATS_API_SECRET` is set by the owner as a GitHub secret and synced to the Worker on deploy; without it nothing is counted and the API answers 401. Changing it starts a new count for the rest of that day.
-- `tracksEnquiries` is false until the website has enquiry forms of its own ("Hjerterum skal dog have flere henvendelsesformularer ligesom på stemmebasen.dk" - next).
+- `tracksEnquiries` is true: the website's own enquiry forms are counted (below), and `conversionRate` is enquiries per visitor.
+
+### Enquiry forms on the website (2026-10-04)
+
+- Requested: "Hjerterum skal dog have flere henvendelsesformularer ligesom på stemmebasen.dk" - "Her skal vi i hvert fald have: Henvendelse vedr. opsætning af event, … deltagelse i et event, … medlemsskab, … samarbejde, … økonomi og fakturering, Generel henvendelse".
+- As on stemmebasen.dk, one form (`src/enquiry-form.tsx`, topics in `site/enquiries.ts`) is placed where each question arises, with its topic chosen and changeable: Kontakt (generel), Events (deltagelse), Lej Hjerterum (opsætning), Medlemskab, Vision / om os (samarbejde), Lejevilkår (økonomi og fakturering) and the English page. Fields: name, email, phone (required only for "Ring mig hellere op"), a topic-specific detail where it helps, message.
+- `POST /api/henvendelse` (`worker/enquiries.ts`) lays the enquiry in team@holistisk.org's inbox (the connected team mail, as the price calculator does), subject "<emne>: <navn>", Reply-To the sender, so it waits in Posthus. Honeypot + fill time against robots; five an hour from one address. If the team mail is not connected the form says so and points to hjerterum@holistisk.org.
+- Only day, topic and page are kept (`site_enquiries`, deleted after six months) for the statistics; nothing about the sender is stored on the website. `/privatliv#henvendelser` says so.
 
 ## 2. Product scope
 
