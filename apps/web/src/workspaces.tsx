@@ -21,6 +21,8 @@ type Member = {
   isTeacher: boolean;
   source?: "hjerterum" | "membershipworks";
   managedExternally?: boolean;
+  /** "manual": given by Hjerterum in admin → Medlemmer, with no card payment (worker/member-admin.ts). */
+  billing?: "stripe" | "manual";
 };
 
 type Booking = {
@@ -544,7 +546,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   const [billingState, setBillingState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
 
   useEffect(() => {
-    if (!member || member.managedExternally) return;
+    if (!member || member.managedExternally || member.billing === "manual") return;
     let active = true;
     setBillingState("loading");
     setInvoices([]);
@@ -590,6 +592,22 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
       ? "Opsigelsen er registreret. Medlemskabet fortsætter til periodens udløb."
       : "Opsigelsen kunne ikke gennemføres.");
     setBusy(false);
+  }
+
+  if (member?.billing === "manual") {
+    return (
+      <section className="workspace-section workspace-narrow">
+        <p className="kicker">Medlemskab</p>
+        <h1>Dit medlemskab</h1>
+        <div className="workspace-card">
+          <Status value={member.status} />
+          <h2>{membershipName(member.tier)}</h2>
+          <p>{membershipPlan(member.tier)?.description}</p>
+          <p>Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort.</p>
+          <a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt os om medlemskabet →</a>
+        </div>
+      </section>
+    );
   }
 
   if (member?.managedExternally) {

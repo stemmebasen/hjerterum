@@ -45,6 +45,8 @@ export interface SagaEnv {
   /** The website statistics (worker/site-stats.ts): the bearer secret of GET /api/stats/site, and the key of the daily
    * secret that visitors are hashed with. Set by the owner; without it nothing is counted and the API answers 401. */
   STATS_API_SECRET?: string;
+  /** Clerk's server key: admin → Medlemmer looks up the person to give a membership to (worker/member-admin.ts). */
+  CLERK_SECRET_KEY?: string;
 }
 
 /** The part of an R2 bucket the cockpit and Saga use. */
