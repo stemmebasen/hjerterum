@@ -890,6 +890,33 @@ Mange hilsner fra Kathmandu – Sisse og Alex`,
 
   // ---------------------------------------------------------------- Kontakt
   {
+    // Requested: "Gem besøg i 6 måneder, og slet dem derefter automatisk. Nævn det i privatlivsteksten." (worker/site-stats.ts)
+    path: "/privatliv", lang: "da", section: "om-os",
+    kicker: "Privatliv", title: "Privatliv på", em: "hjemmesiden",
+    lead: "Vi tæller besøg på hjemmesiden for at se, hvad der bliver læst – uden cookies og uden at kunne genkende dig fra den ene dag til den næste.",
+    description: "Sådan tæller Hjerterum besøg på hjemmesiden: uden cookies, uden at gemme IP-adresser, og besøgene slettes efter 6 måneder.",
+    card: { title: "Privatliv", text: "Besøgsstatistik uden cookies." },
+    body: `## Besøgsstatistik uden cookies {#statistik}
+Når du ser en side på hjemmesiden, sender din browser et lille signal om, hvilken side det var. Vi bruger ingen cookies og gemmer intet i din browser.
+
+## Det gemmer vi
+- hvilken side du så, og hvilken dag
+- for den første side, du ser på en dag: hvilken hjemmeside du kom fra (kun dens navn, fx google.com) og en eventuel kampagne (utm-mærkerne i linket)
+- om du bruger mobil, tablet eller computer, og hvilket land besøget kom fra
+
+## Det gemmer vi ikke
+Vi gemmer ikke din IP-adresse. For at kunne tælle dig én gang pr. dag laver vi en kode ud fra din IP-adresse, din browser og hjemmesidens adresse sammen med en hemmelig nøgle, der skifter hver dag. Koden kan ikke føres tilbage til dig, og den er ny hver dag, så ingen kan følge dig fra dag til dag.
+
+Har din browser Global Privacy Control slået til, tæller vi slet ikke dit besøg. Login, medlemsområdet og administrationen tælles heller ikke.
+
+## Hvem ser tallene, og hvor længe gemmes de {#sletning}
+Tallene bruges kun samlet – fx hvor mange besøgende en side havde – af bestyrelsen og Hjerterums administration. **Besøgene slettes automatisk efter 6 måneder.**
+
+## Spørgsmål
+Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis du har spørgsmål til, hvordan vi passer på dine oplysninger.`,
+    sources: []
+  },
+  {
     path: "/kontakt", lang: "da", section: "kontakt",
     kicker: "Kontakt", title: "Lad os høre", em: "fra dig",
     lead: "Har du spørgsmål til medlemskab, events eller mulighederne i Hjerterum, er du velkommen til at række ud.",

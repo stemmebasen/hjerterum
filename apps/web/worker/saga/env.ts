@@ -42,6 +42,9 @@ export interface SagaEnv {
   /** "on": Saga writes one short message in the board's group when new minutes are up, asking
    * everyone to read and approve them. Otherwise she stays silent there. */
   SAGA_MINUTES_PING?: string;
+  /** The website statistics (worker/site-stats.ts): the bearer secret of GET /api/stats/site, and the key of the daily
+   * secret that visitors are hashed with. Set by the owner; without it nothing is counted and the API answers 401. */
+  STATS_API_SECRET?: string;
 }
 
 /** The part of an R2 bucket the cockpit and Saga use. */

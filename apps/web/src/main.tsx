@@ -12,6 +12,7 @@ import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } fr
 import "./styles.css";
 import "./lys-spa.css";
 import { injectLys, LysTop } from "./lys";
+import { countVisit } from "./visits";
 
 injectLys();
 
@@ -258,6 +259,7 @@ const SOON_TIME = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-d
  * "Lige om lidt" - the next three events - floating over it. */
 function PublicHome() {
   const { events, eventsReachable } = usePublicEvents();
+  useEffect(countVisit, []);
   const now = Date.now();
   const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
@@ -280,6 +282,7 @@ function PublicContentPage({ path }: { path: string }) {
   const target = page ? undefined : redirectFor(path);
   const { events, eventsReachable } = usePublicEvents();
   useEffect(() => { if (target) window.location.replace(target); }, [target]);
+  useEffect(() => { if (page) countVisit(); }, [page]);
   if (target) return <main className="page-shell"><SiteHeader /></main>;
   if (!page) return <NotFound />;
   return <SitePageView page={page} header={<SiteHeader current={page.section} />} widgets={{
