@@ -117,7 +117,7 @@ describe("CIRKLER endpoints", () => {
   });
 
   it("answers the eligibility check only with the service key", async () => {
-    const env: CirklerIntegrationEnv = { DB: new FakeDatabase({ membersById: { 7: nativeRow() } }), CIRKLER_SERVICE_KEY: "secret-key" };
+    const env: CirklerIntegrationEnv = { DB: new FakeDatabase({ membersById: { 7: nativeRow() } }), CIRKLER_SERVICE_KEY: "secret-key\n" };
     const request = (key: string) => new Request("https://hjerterum.example/api/integrations/cirkler/eligibility", {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
