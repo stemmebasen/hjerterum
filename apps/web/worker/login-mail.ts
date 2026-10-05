@@ -65,16 +65,16 @@ export function composeMail(email: ClerkEmail): OutgoingMail | null {
     const reset = /reset_password/.test(email.slug ?? "");
     const what = reset ? "nulstille din adgangskode" : "logge ind";
     const text = `Din kode til at ${what} hos Hjerterum er ${code}.\n\nSkriv den på siden, hvor du er ved at ${what}. Koden gælder i 10 minutter.\n\nHar du ikke bedt om koden, kan du se bort fra denne mail.\n\nHjerterum · Guldsmedgade 26B · 8000 Aarhus C`;
-    const html = `<!doctype html><html lang="da"><body style="margin:0;padding:0;background:#fbfaf8">
-<div style="max-width:520px;margin:0 auto;padding:40px 24px;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif;color:#2a2622">
+    const html = `<!doctype html><html lang="da"><body style="margin:0;padding:0;background:#f7f3ee">
+<div style="max-width:520px;margin:0 auto;padding:40px 24px;font-family:Inter,'Segoe UI',Helvetica,Arial,sans-serif;color:#231c15">
 <p style="margin:0 0 28px;font:400 15px/1 Georgia,'Times New Roman',serif;letter-spacing:.22em;text-transform:uppercase">Hjerterum</p>
-<div style="background:#ffffff;border:1px solid #ebe5dd;border-radius:20px;padding:32px 28px">
-<p style="margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#94503f">Din kode</p>
+<div style="background:#fffcf8;border:1px solid #e3d9cc;border-radius:20px;padding:32px 28px">
+<p style="margin:0 0 10px;font-size:11px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#8a5a34">Din kode</p>
 <p style="margin:0 0 18px;font:400 26px/1.25 Georgia,'Times New Roman',serif">Her er koden til at ${esc(what)}.</p>
-<p style="margin:0 0 18px;font:600 34px/1.2 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.18em;color:#5b4a3f">${esc(code)}</p>
-<p style="margin:0;font-size:15px;line-height:1.6;color:#766d64">Skriv den på siden, hvor du er ved at ${esc(what)}. Koden gælder i 10 minutter.</p>
+<p style="margin:0 0 18px;font:600 34px/1.2 'SF Mono',Menlo,Consolas,monospace;letter-spacing:.18em;color:#654a33">${esc(code)}</p>
+<p style="margin:0;font-size:15px;line-height:1.6;color:#6e6258">Skriv den på siden, hvor du er ved at ${esc(what)}. Koden gælder i 10 minutter.</p>
 </div>
-<p style="margin:22px 4px 0;font-size:13px;line-height:1.6;color:#a0978d">Har du ikke bedt om koden, kan du se bort fra denne mail.<br>Hjerterum · Guldsmedgade 26B · 8000 Aarhus C</p>
+<p style="margin:22px 4px 0;font-size:13px;line-height:1.6;color:#9a8e82">Har du ikke bedt om koden, kan du se bort fra denne mail.<br>Hjerterum · Guldsmedgade 26B · 8000 Aarhus C</p>
 </div></body></html>`;
     return { subject: `${code} er din kode til Hjerterum`, html, text };
   }

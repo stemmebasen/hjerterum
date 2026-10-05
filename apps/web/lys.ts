@@ -12,14 +12,14 @@
 export const LYS_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap";
 
 const TOKENS = `
-:root{--lys-bg:#fbfaf8;--lys-surface:#fff;--lys-soft:#f6f3ef;--lys-line:#ebe5dd;--lys-ink:#2a2622;--lys-muted:#766d64;--lys-faint:#a0978d;
---lys-accent:#5b4a3f;--lys-accent-ink:#fffaf4;--lys-sage:#e8eee2;--lys-sage-ink:#4c5e43;--lys-clay:#f5e9df;--lys-clay-ink:#8a5636;
---lys-rose:#f6e8ea;--lys-rose-ink:#8c4b57;--lys-terra:#94503f;--lys-radius:20px;--lys-shadow:0 1px 2px rgba(42,38,34,.04),0 8px 24px -18px rgba(42,38,34,.18);
+:root{--lys-bg:#f7f3ee;--lys-surface:#fffcf8;--lys-soft:#efe8df;--lys-line:#e3d9cc;--lys-ink:#231c15;--lys-muted:#6e6258;--lys-faint:#9a8e82;
+--lys-accent:#654a33;--lys-accent-ink:#fffaf4;--lys-sage:#e8eee2;--lys-sage-ink:#4c5e43;--lys-clay:#f1e2d0;--lys-clay-ink:#7a4f2c;
+--lys-rose:#f6e8ea;--lys-rose-ink:#8c4b57;--lys-terra:#8a5a34;--lys-sand:#c69e7d;--lys-sand-soft:#ead9c4;--lys-radius:20px;--lys-shadow:0 1px 2px rgba(35,28,21,.04),0 8px 24px -18px rgba(35,28,21,.2);
 --lys-serif:"Playfair Display",Georgia,"Times New Roman",serif;--lys-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
---lys-blob-1:#e9efe1;--lys-blob-2:#f6e9de;--lys-blob-3:#f7e8eb;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--lys-bg:#1f1d1a;--lys-surface:#282521;--lys-soft:#2f2b27;--lys-line:#3a352f;--lys-ink:#f3eee6;--lys-muted:#bdb4a9;
---lys-faint:#8e857b;--lys-accent:#e6cdb8;--lys-accent-ink:#2a211b;--lys-sage:#33402e;--lys-sage-ink:#d6e2cc;--lys-clay:#45372c;--lys-clay-ink:#f0d6c2;
---lys-rose:#45333a;--lys-rose-ink:#f2d3da;--lys-terra:#e3a58f;--lys-shadow:none;--lys-blob-1:#3b4634;--lys-blob-2:#4a3b30;--lys-blob-3:#4a3840}}`;
+--lys-blob-1:#e8e3d3;--lys-blob-2:#e3c6a6;--lys-blob-3:#ecd9d0;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--lys-bg:#1a1510;--lys-surface:#251e17;--lys-soft:#2e261e;--lys-line:#3b3228;--lys-ink:#f4eee4;--lys-muted:#c0b3a3;
+--lys-faint:#8f8173;--lys-accent:#d9b48f;--lys-accent-ink:#231a12;--lys-sage:#33402e;--lys-sage-ink:#d6e2cc;--lys-clay:#43342a;--lys-clay-ink:#efd3b5;
+--lys-rose:#45333a;--lys-rose-ink:#f2d3da;--lys-terra:#d9a77c;--lys-sand:#b48a68;--lys-sand-soft:#4a3a2b;--lys-shadow:none;--lys-blob-1:#3b3a2d;--lys-blob-2:#4a3b2a;--lys-blob-3:#43342d}}`;
 
 /** The top that every page shares: Hjerterum's hands and HJERTERUM, calm links, a pill or the member on the right. */
 const TOP = `
@@ -75,7 +75,7 @@ const ART = `
 .lys-art .o1{animation:lys-orbit 26s linear infinite}.lys-art .o2{animation:lys-orbit 34s linear infinite reverse}.lys-art .o3{animation:lys-orbit 42s linear infinite}
 .lys-art .breathe{animation:lys-breathe 9s ease-in-out infinite alternate}.lys-art .ring{fill:none;stroke:var(--lys-ink)}
 .lys-art .r1{stroke-opacity:.12}.lys-art .r2{stroke-opacity:.08}
-.lys-art .arc{fill:none;stroke:var(--lys-accent);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:70 1500;animation:lys-orbit 16s linear infinite}
+.lys-art .arc{fill:none;stroke:var(--lys-sand);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:70 1500;animation:lys-orbit 16s linear infinite}
 
 .lys-art.mini{width:150px;height:150px;flex:none;margin:-20px 0 -10px}.lys-art.mini .o1{animation-duration:60s}.lys-art.mini .o2{animation-duration:80s}
 .lys-art.mini .o3{animation-duration:100s}.lys-art.mini .arc{animation-duration:40s}
