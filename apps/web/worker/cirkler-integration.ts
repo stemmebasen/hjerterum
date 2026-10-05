@@ -188,9 +188,12 @@ async function handoff(request: Request, env: CirklerIntegrationEnv, deps: Cirkl
 }
 
 async function eligibility(request: Request, env: CirklerIntegrationEnv): Promise<Response> {
-  if (!env.DB || !env.CIRKLER_SERVICE_KEY) return json({ error: "cirkler_integration_not_configured" }, { status: 503 });
+  // Nøglen trimmes, så et mellemrum eller linjeskift fra indsætningen i
+  // Cloudflare ikke giver 401 over for CIRKLER, der trimmer sin kopi.
+  const serviceKey = env.CIRKLER_SERVICE_KEY?.trim() ?? "";
+  if (!env.DB || !serviceKey) return json({ error: "cirkler_integration_not_configured" }, { status: 503 });
   const authorization = request.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ") || !constantTimeEqual(authorization.slice(7).trim(), env.CIRKLER_SERVICE_KEY)) {
+  if (!authorization.startsWith("Bearer ") || !constantTimeEqual(authorization.slice(7).trim(), serviceKey)) {
     return json({ error: "unauthorized" }, { status: 401 });
   }
   const body = await request.json().catch(() => null) as { refs?: unknown } | null;
