@@ -364,16 +364,8 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 
 // ---- Scheduled ----
 
-const MAIL_ALERT_AFTER_MS = 2 * 3_600_000;
-async function alertMailWatch(env: SagaEnv, deps: SagaDeps): Promise<void> {
-  const db = requireDb(env);
-  const watch = await mailWatch(db, deps.now());
-  if (watch.state === "ok" || watch.state === "unknown") return;
-  const last = await serviceStatus(db, "team_mail");
-  if (watch.state === "stale" && last && deps.now() - last.at_ms < MAIL_ALERT_AFTER_MS) return;
-  if (!(await claimJob(db, "team_mail_alert", Math.floor(deps.now() / DAY), deps.now()))) return;
-  await telegramClient(env, deps).sendMessage(owner(env), `Hjerterums mail (team@) bliver ikke tjekket: ${watch.detail} Mails dertil når ikke frem til Saga, før det er rettet.`);
-}
+// Requested (5 October): "Disse Telegram beskeder er unødvendige - og dem vil jeg gerne være fri for. Mailen har virket
+// fint." The team@ watch is shown under Forbindelser in the cockpit; it no longer writes to Jacob on Telegram.
 
 /** Every five minutes: new Drive recordings, one recording processed, and the weekly summary
  * on Sunday evening (18-19 Copenhagen time, once per week). */
@@ -385,7 +377,6 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or cannot be read), Saga tells Jacob privately, once a day. No AI.
-  await alertMailWatch(env, deps).catch(error => console.warn("saga_mail_watch_alert_failed", error instanceof Error ? error.message : error));
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
   await handlePendingCorrections(env, deps).catch(error => console.warn("saga_corrections_failed", error instanceof Error ? error.message : error));
   await publishDraftedMinutes(env, deps).catch(error => console.warn("saga_minutes_publish_failed", error instanceof Error ? error.message : error));
