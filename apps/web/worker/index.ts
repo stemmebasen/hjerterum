@@ -36,6 +36,8 @@ import {
   type RoomBookingRow
 } from "./room-bookings.js";
 import { verifyStripeWebhook } from "./stripe.js";
+import { listDayItems } from "./room-day.js";
+import { getExternalEvents } from "./external-events.js";
 
 interface Env {
   ENVIRONMENT?: string;
@@ -423,6 +425,23 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
   }
 }
 
+/** What is on a given day: the room's bookings and the membership calendar's events, for picking a free time. */
+async function roomDay(request: Request, env: Env, date: string): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
+  const external = await getExternalEvents().catch(() => []);
+  try {
+    const items = await listDayItems(env.DB, user.userId, date, external);
+    if (!items) return json({ error: "invalid_date" }, { status: 400 });
+    return json({ date, items });
+  } catch {
+    return json({ error: "database_query_failed" }, { status: 503 });
+  }
+}
+
 async function payoutAccount(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
@@ -590,6 +609,9 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
+    }
+    if (request.method === "GET" && url.pathname === "/api/room-bookings/day") {
+      return roomDay(request, env, url.searchParams.get("date") ?? "");
     }
     if (request.method === "GET" && url.pathname === "/api/room-bookings/calendar") {
       return memberCalendar(request, env);
