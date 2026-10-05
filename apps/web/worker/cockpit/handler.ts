@@ -27,6 +27,7 @@ import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteD
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
+import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
@@ -569,6 +570,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     return redirect(`${base}/beslutninger?besked=${ok ? "tilbage" : "afgjort"}`);
   }
 
+  // A member's event photo or file, for the board to look at before approving (worker/event-files.ts).
+  const eventFile = /^\/arrangementer\/fil\/(\d+)$/.exec(path);
+  if (eventFile && request.method === "GET") {
+    const target = env.EVENT_MEDIA ? await fileForDownload(db, Number(eventFile[1])) : null;
+    const object = target && env.EVENT_MEDIA ? await env.EVENT_MEDIA.get(target.r2_key) : null;
+    if (!target || !object) return html(notFound(base, who), 404);
+    return new Response(object.body, { headers: { "content-type": target.content_type,
+      "content-disposition": `${target.kind === "cover" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(target.filename)}`,
+      "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; img-src 'self'; sandbox" } });
+  }
+
   if (path === "/arrangementer" && request.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
     const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;
@@ -579,7 +591,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       eventsForReview(db, now), openDrafts(db), fixedTeachers(db)]);
     const NOTICES: Record<string, string> = { godkendt: "Eventet er godkendt og vises nu offentligt.", afvist: "Eventet er afvist og vises ikke.", fast: "Listen over faste undervisere er opdateret.",
       fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
-    const desk = deskSection(base, { review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
+    const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
+    const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
   }
 
