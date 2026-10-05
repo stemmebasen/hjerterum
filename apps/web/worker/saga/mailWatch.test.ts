@@ -31,19 +31,17 @@ describe("knowing that team@ is checked", () => {
     expect((await mailWatch(db, NOW + 51 * MIN)).detail).toBe("team@ er ikke forbundet. Formanden forbinder den under Posthus.");
   });
 
-  it("tells Jacob privately once a day when team@ has not been checked for two hours", async () => {
+  // Requested (5 October): "Disse Telegram beskeder er unødvendige - og dem vil jeg gerne være fri for." The watch is
+  // shown under Forbindelser; Jacob gets no Telegram message about it, however long team@ goes unchecked.
+  it("never writes to Jacob on Telegram about team@, however long it goes unchecked", async () => {
     const db = testDatabase();
     const services = fakeServices();
     const env = sagaEnv(db);
     await report(env, services.fetcher, NOW, { mails: [], status: { connected: true, listed: 3, relayed: 0 } });
     const toJacob = () => services.telegram("sendMessage").filter(c => (c.body as { chat_id: string }).chat_id === OWNER && /team@/.test((c.body as { text: string }).text));
-
-    await runSagaJobs(env, deps(services.fetcher, NOW + 60 * MIN));
-    expect(toJacob()).toHaveLength(0);
     await runSagaJobs(env, deps(services.fetcher, NOW + 130 * MIN));
-    expect(toJacob()).toHaveLength(1);
-    expect((toJacob()[0]!.body as { text: string }).text).toContain("Hjerterums mail (team@) bliver ikke tjekket");
-    await runSagaJobs(env, deps(services.fetcher, NOW + 200 * MIN));
-    expect(toJacob()).toHaveLength(1);
+    await runSagaJobs(env, deps(services.fetcher, NOW + 24 * 60 * MIN));
+    expect(toJacob()).toHaveLength(0);
+    expect((await mailWatch(db, NOW + 24 * 60 * MIN)).state).toBe("stale");
   });
 });
