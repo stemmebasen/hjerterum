@@ -2,6 +2,7 @@ import { teamMailAccount } from "./teamMail.js";
 import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
 import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../cockpit/ask.js";
 import { boardMembers } from "../cockpit/data.js";
+import { sagaBrief } from "./brief.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
@@ -193,6 +194,8 @@ export async function handleSagaRequest(request: Request, env: SagaEnv, deps: Sa
     // Requested: "min adgang til cockpittet synkroniseres med Matrix ... når jeg klikker på »klaret«, jamen så
     // forsvinder opgaven begge steder" - the chair's open items as the cockpit shows them, and Matrix's "done".
     if (url.pathname === "/api/saga/liva/chair-tasks" && request.method === "GET") return json(await chairItems(env, db, deps.now()));
+    // Requested: "Byg en brief til Matrix' startside" - what the chair must do or should soon, read from Saga's own data (brief.ts).
+    if (url.pathname === "/api/saga/liva/brief" && request.method === "GET") return json(await sagaBrief(env, db, deps.now()));
     // Requested: "Kan jeg have Saga og Zilla tilgængelig i chat i Matrix på en klog måde?" - "Ja". The chair asks Saga from
     // Matrix's chat: the same answer as in the cockpit (her own knowledge and EU model, the same daily limit); Matrix only
     // shows it. Links point into the cockpit.
