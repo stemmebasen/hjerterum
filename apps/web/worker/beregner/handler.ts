@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
-import { deliverToTeamInbox, type ImapOpener } from "../saga/teamMail.js";
+import { deliverToTeamInbox, verifyTeamInbox, type ImapOpener } from "../saga/teamMail.js";
 import { buildMime } from "./mime.js";
 import { calculatorPage, type Lang } from "./page.js";
 import { calculate, crossesBand, DAYS_DA, parseCalcInput, type CalcResult } from "./quote.js";
@@ -100,9 +100,16 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
     if (!env.DB) return json({ error: "unavailable" }, 503);
     const form = await request.formData().catch(() => null);
     if (!form) return json({ error: "invalid_form" }, 400);
+    // A control check (the chair's own system, with the same bearer as its other calls): the request is validated and
+    // priced like a real one, and the mailbox is opened to prove it would have landed - but nothing is written or sent.
+    const probe = form.get("probe") === "1";
+    if (probe) {
+      const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+      if (!env.SAGA_LIVA_SECRET || bearer !== env.SAGA_LIVA_SECRET) return json({ error: "unauthorized" }, 401);
+    }
     // A form filled by a person: the hidden field stays empty, and it takes a few seconds.
     const started = Number(form.get("started"));
-    if (field(form, "website", 200) || !Number.isFinite(started) || deps.now() - started < MIN_FILL_MS) return json({ ok: true });
+    if (!probe && (field(form, "website", 200) || !Number.isFinite(started) || deps.now() - started < MIN_FILL_MS)) return json({ ok: true });
     const input = parseCalcInput(Object.fromEntries(["day", "start", "hours", "type", "memberPrice"].map(k => [k, form.get(k)])));
     if (!input || crossesBand(input)) return json({ error: "invalid_calculation" }, 400);
     const req: BookingRequest = {
@@ -121,9 +128,14 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
       if (!/^image\/(jpeg|png|webp|gif)$/.test(f.type)) return json({ error: "image_type" }, 415);
       image = { filename: f.name || "forsidebillede", contentType: f.type, bytes: new Uint8Array(await f.arrayBuffer()) };
     }
-    if (await tooMany(env.DB, request, deps.now())) return json({ error: "too_many" }, 429);
+    if (!probe && await tooMany(env.DB, request, deps.now())) return json({ error: "too_many" }, 429);
     try {
       const calc = calculate(input);
+      if (probe) {
+        bookingMail(req, calc, "team@holistisk.org", image, new Date(deps.now()));
+        await verifyTeamInbox(env, env.DB, opener);
+        return json({ ok: true, probe: true, totalKr: calc.totalKr });
+      }
       await deliverToTeamInbox(env, env.DB, bookingMail(req, calc, "team@holistisk.org", image, new Date(deps.now())), opener);
       return json({ ok: true });
     } catch (error) {

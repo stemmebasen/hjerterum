@@ -84,6 +84,26 @@ describe("the price calculator", () => {
     expect((await send(form({}), "9.9.9.9")).status).toBe(429);
   });
 
+  // Requested (the chair, 5 October 2026): the calculator's form checked often, without a request landing in team@.
+  it("answers a probe with the same validation and price, opens the mailbox, and writes nothing", async () => {
+    const e = env(), box = mailbox();
+    await connectTeamMail(e, e.DB!, { address: "team@holistisk.org", password: "pw", by: "Jacob Hauge", nowMs: NOW }, box.opener);
+    const form = (fields: Record<string, string> = {}) => {
+      const f = new FormData();
+      for (const [k, v] of Object.entries({ probe: "1", day: "3", start: "19:00", hours: "3", type: "reduced", memberPrice: "500", eventName: "Kontroltjek", dates: "2026-10-21",
+        description: "Automatisk kontroltjek.", name: "Kontroltjek", email: "kontroltjek@example.dk", ...fields })) f.append(k, v);
+      return f;
+    };
+    const send = (f: FormData, auth = "Bearer liva-secret") => handleCalculatorRequest(new Request(`${ORIGIN}/beregner/foresporgsel`, { method: "POST", body: f, headers: { authorization: auth } }), e, deps(fakeServices().fetcher, NOW), box.opener);
+    expect((await send(form(), "Bearer wrong")).status).toBe(401);
+    expect(await (await send(form({ email: "nej" }))).json()).toMatchObject({ error: "missing_fields", fields: ["email"] });
+    const answer = await (await send(form())).json() as { ok: boolean; probe: boolean; totalKr: number };
+    expect(answer).toMatchObject({ ok: true, probe: true });
+    expect(answer.totalKr).toBeGreaterThan(0);
+    expect(box.appended).toEqual([]);
+    // Ten probes in a row are not "too many": the limit is for people.
+    for (let i = 0; i < 6; i++) expect((await send(form())).status).toBe(200);
+  });
   it("says so when team@ is not connected - nothing is lost silently", async () => {
     const e = env();
     const f = new FormData();

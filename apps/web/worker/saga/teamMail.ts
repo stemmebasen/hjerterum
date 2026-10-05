@@ -352,6 +352,18 @@ export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress
 /** Requested: "her og nu skal der bare lande en e-mail med alle oplysningerne i vores fællesmail team@holistisk.org". A
  * booking request from prisberegneren is laid straight into team@'s own inbox (IMAP APPEND), unread, with the sender's
  * address as Reply-To - nothing leaves Hjerterum and nothing is sent from team@. Saga's next read sees it like any mail. */
+/** The mailbox opened and closed again, nothing written: the calculator's probe (beregner/handler.ts) proves the request
+ * would have landed. */
+export async function verifyTeamInbox(env: SagaEnv, db: D1Database, opener: ImapOpener = imapflowOpener): Promise<{ address: string }> {
+  const account = await teamMailAccount(db);
+  if (!account) throw new Error("team_mail_not_connected");
+  const password = await openPassword(env, account.password_sealed);
+  const session = await opener({ host: account.imap_host, user: account.address, password }).catch(error => { throw loginError(error); });
+  try { if (!session.append) throw new Error("mail_append_unavailable"); }
+  finally { await session.close().catch(() => undefined); }
+  return { address: account.address };
+}
+
 export async function deliverToTeamInbox(env: SagaEnv, db: D1Database, raw: Uint8Array, opener: ImapOpener = imapflowOpener): Promise<{ address: string }> {
   const account = await teamMailAccount(db);
   if (!account) throw new Error("team_mail_not_connected");
