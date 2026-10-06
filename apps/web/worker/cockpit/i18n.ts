@@ -207,7 +207,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^- afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden\.$/, "- the vote goes on, and Saga puts the proposal on her suggestion for the next agenda."],
   [/^Du er (.+?) · skift$/, "You are $1 · change"], [/^Logget ind som /, "Logged in as "], [/ · profil og log ud$/, " · profile and log out"], [/ · profil$/, " · profile"],
   [/^og (\d+) punkt(?:er)? mere$/, (_, n) => `and ${n} more point${n === "1" ? "" : "s"}`],
-  [/^Opdateret /, "Updated "], [/^Fra gruppen$/, "From the group"], [/^Fra referatdokumentet$/, "From the minutes document"], [/^Fra team@$/, "From team@"],
+  [/^Opdateret /, "Updated "], [/^Fra Telegram gruppen$/, "From the Telegram group"], [/^Fra referatdokumentet$/, "From the minutes document"], [/^Fra team@$/, "From team@"],
   [/\bventer på dig\b/g, "waiting for you"], [/^(\d+) af (\d+)$/, "$1 of $2"],
   [/^(.+?) · Hjerterum bestyrelse$/, (_, t) => `${translateText(t)} · Hjerterum board`],
   [/^Faste undervisere \((\d+)\) - deres events kræver ikke godkendelse$/, "Regular teachers ($1) - their events need no approval"],
