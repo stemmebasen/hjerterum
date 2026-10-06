@@ -357,7 +357,7 @@ ${data.forChair.length > 5 ? `<p class="small"><a href="${base}/status#formand">
   const own = data.ownTodos ?? [], open = own.length + data.mine.length;
   const lines = [...own.map(t => `<li>${esc(t.text)}${t.due ? ` <span class="pill">${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}${t.created_by !== data.who ? `<div class="small muted">Fra ${esc(t.created_by)}</div>` : ""}</li>`), ...data.mine.map(taskLine)];
   const tasks = open ? `<h3>Dine opgaver</h3><ul class="plain">${lines.slice(0, 5).join("")}</ul><p class="small"><a href="${base}/opgaver">${open > 5 ? `Alle ${open} opgaver` : "Kryds af eller skriv en opgave"} →</a></p>` : "";
-  const mine = `<div class="card"><h2>Til dig</h2>${sign}${forChair}${tasks}
+  const mine = `<div class="card"><h2>Dine opgaver</h2>${sign}${forChair}${tasks}
 ${sign || forChair || tasks ? "" : `<p class="muted">${data.who ? `Intet venter på dig lige nu. <a href="${base}/opgaver">Skriv en opgave</a>` : `<a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.`}</p>`}</div>`;
   const next = `<div class="card"><h2>Næste møde</h2>${data.next ? `${meetingSummary(base, data.next)}<p class="small muted">${inDays(daysUntil(data.next.meeting_date, data.today))}</p>`
     : `<p class="muted">Intet møde er sat i kalenderen.</p>${data.found.length ? "" : `<p><a class="button" href="${base}/moder#nyt">Planlæg et møde</a></p>`}`}${foundMeetings(base, data.found, data.today)}</div>`;
