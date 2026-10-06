@@ -137,6 +137,10 @@ This document is the primary product and migration specification for the new Hje
 - The concrete prior agreement on AI event approval is being recovered. The current Worker booking path does not yet apply AI moderation or the fixed-teacher approval exception. Do not describe these as implemented.
 - External calendar providers and their read/write capabilities, visibility of circle meetings, booking permissions, recurring-series behaviour, applicable approval exemptions and venue-payment policies must follow recovered/confirmed product rules; this checkpoint does not invent those decisions.
 
+### Administratorer (2026-10-06)
+
+- The chair, as super admin, sees who has admin access and who is active: cockpit → Medlemmer → Administratorer (`/administratorer`, chair only; others get 403). Two lists: the board in the cockpit (everyone who has written in the board's group, with when they last used a personal login link, asked Saga or worked a task; "Adgang lukket" after the chair closed it) and the admin e-mails of the member area (`ALLOWED_EMAILS`, each looked up at Clerk for name and last sign-in). Active means seen within 30 days. The shared cockpit password does not say who is who, so it counts for no one. Read-only.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.

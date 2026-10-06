@@ -1,3 +1,4 @@
+import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import type { D1Database } from "../db.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -392,12 +393,19 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
 
   // Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - the
   // platform's own members, as MembershipWorks shows them (memberPages.ts, member-admin.ts).
+  // Requested by the chair as super admin: which admin members there are and who is active (cockpit/admins.ts). Chair only.
+  if (path === "/administratorer" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
+    return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
+  }
   if (path === "/medlemmer" && request.method === "GET") {
     const q = (url.searchParams.get("q") ?? "").slice(0, 100);
     const asked = url.searchParams.get("status") ?? "alle";
     const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
     const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
-    return html(membersListPage(base, who, { members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+    return html(membersListPage(base, who, { chair: Boolean(who && members.chair && who === members.chair), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
   }
   if (path === "/medlemmer/giv" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
