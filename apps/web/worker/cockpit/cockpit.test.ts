@@ -108,7 +108,7 @@ describe("the board cockpit", () => {
     await decideMinutes(db, minutesId, "approved", NOW);
     const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(lisbeth).toContain("Hej Lisbeth");
-    const mine = lisbeth.slice(lisbeth.indexOf("<h2>Til dig"), lisbeth.indexOf("<h2>Næste teammøde"));
+    const mine = lisbeth.slice(lisbeth.indexOf("<h2>Dine opgaver"), lisbeth.indexOf("<h2>Næste teammøde"));
     expect(mine).toContain("Skriv forslag om reduceret medlemskab");
     expect(mine.match(/Skriv forslag om reduceret medlemskab/g)).toHaveLength(1);
     expect(mine).toContain("Del opslaget");
@@ -205,7 +205,7 @@ describe("the board cockpit", () => {
     await markPosted(db, weekly, 5);
     // Requested: "vise det der er vigtigst og relevant lige nu, og så gemme de 'tunge tabeller' i en undermenu".
     const front = await (await call("/cockpit/", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
-    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Til dig", "Næste møde", "Lige om lidt i Hjerterum"]) expect(front).toContain(text);
+    for (const text of ["Bestyrelsen lige nu", "Mere i Status", "Dine opgaver", "Næste møde", "Lige om lidt i Hjerterum"]) expect(front).toContain(text);
     // Requested: "Så det fulde resumé og statusoverblik kommer først, når man klikker ind på status." - the front panel
     // has only Saga's short hourly text; the six-hour picture's waiting topics are on Status.
     expect(front).not.toContain("Venter på svar");
@@ -521,7 +521,7 @@ describe("the board cockpit", () => {
     expect(mine.match(/Thomas Emil/g)).toHaveLength(1);
     expect(mine).toContain("Book salen til julefesten");
     const front = await (await call("/cockpit/", { cookie: jacob })).text();
-    expect(front.slice(front.indexOf("<h2>Til dig"), front.indexOf("<h2>Næste teammøde")).match(/Thomas Emil/g)).toHaveLength(1);
+    expect(front.slice(front.indexOf("<h2>Dine opgaver"), front.indexOf("<h2>Næste teammøde")).match(/Thomas Emil/g)).toHaveLength(1);
 
     // Removing the one line takes its twins too: the minutes task, the document's and Saga's item.
     const line = /<form method="post" action="\/cockpit\/opgaver\/fjern"><input type="hidden" name="kind" value="([^"]+)"><input type="hidden" name="id" value="([^"]+)"><input type="hidden" name="also" value="([^"]+)">/.exec(mine)!;
