@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
-import { LINK_MINUTES, linkHash, newLinkToken } from "./auth.js";
+import { LINK_MINUTES, linkHash, loginCodeHash, newLinkToken, newLoginCode } from "./auth.js";
 
 /** Requested: "Hvordan kan vi sikre os, at kontoen, når først den er identificeret, bliver låst fast til
  * den enkelte bruger?" - "1.". A board member writes /login to Saga in a private Telegram chat (or taps
@@ -50,18 +50,28 @@ export async function scheduledBoardAccess(env: SagaEnv, deps: SagaDeps, db: D1D
   }
 }
 
-export async function createLoginLink(db: D1Database, member: string, telegramId: string, nowMs: number): Promise<string> {
-  const token = newLinkToken();
-  await db.prepare("INSERT INTO cockpit_login_links (token_hash, member, telegram_id, created_at_ms, expires_at_ms) VALUES (?, ?, ?, ?, ?)")
-    .bind(await linkHash(token), member, telegramId, nowMs, nowMs + LINK_MINUTES * 60_000).run();
+/** A login for one member: a link (opens in Telegram's own browser) and a code (typed in the member's usual browser). Either, once. */
+export async function createLoginLink(db: D1Database, secret: string, member: string, telegramId: string, nowMs: number): Promise<{ token: string; code: string }> {
+  const token = newLinkToken(), code = newLoginCode();
+  await db.prepare("INSERT INTO cockpit_login_links (token_hash, member, telegram_id, created_at_ms, expires_at_ms, code_hash) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(await linkHash(token), member, telegramId, nowMs, nowMs + LINK_MINUTES * 60_000, await loginCodeHash(secret, code)).run();
   await db.prepare("DELETE FROM cockpit_login_links WHERE expires_at_ms < ?").bind(nowMs - 86_400_000).run();
-  return token;
+  return { token, code };
 }
 
 /** The member a link is for, while it is unused and in time. */
 export async function linkMember(db: D1Database, token: string, nowMs: number): Promise<string | null> {
   const row = await db.prepare("SELECT member FROM cockpit_login_links WHERE token_hash = ? AND used_at_ms IS NULL AND expires_at_ms > ?").bind(await linkHash(token), nowMs).first<{ member: string }>();
   return row?.member ?? null;
+}
+
+/** Uses the code typed on the login page: the member it belongs to, while it is unused and in time - and then the link beside it is used up too. */
+export async function useCode(db: D1Database, secret: string, code: string, nowMs: number): Promise<string | null> {
+  const hash = await loginCodeHash(secret, code);
+  const row = await db.prepare("SELECT token_hash, member FROM cockpit_login_links WHERE code_hash = ? AND used_at_ms IS NULL AND expires_at_ms > ?").bind(hash, nowMs).first<{ token_hash: string; member: string }>();
+  if (!row) return null;
+  const result = await db.prepare("UPDATE cockpit_login_links SET used_at_ms = ? WHERE token_hash = ? AND used_at_ms IS NULL").bind(nowMs, row.token_hash).run();
+  return Number(result.meta?.changes ?? 0) === 1 ? row.member : null;
 }
 
 /** Uses the link: only the first press counts. */
@@ -89,6 +99,12 @@ export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Dat
   if (present === false) { await closeIfOpen(db, member, deps.now()); await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til cockpittet. Er det en fejl, så skriv til formanden."); return; }
   if (present === null) { await telegram.sendMessage(chatId, "Jeg kan ikke tjekke lige nu, om du er med i bestyrelsens gruppe. Prøv igen om lidt."); return; }
   if (!env.COCKPIT_URL) { await telegram.sendMessage(chatId, "Cockpittet har ikke fået sin adresse endnu. Prøv igen senere."); return; }
-  const token = await createLoginLink(db, member, telegramId, deps.now());
-  await telegram.sendMessage(chatId, `Hej ${member.split(/\s+/)[0]}. Her er dit personlige login til bestyrelsens cockpit. Det virker én gang inden for ${LINK_MINUTES} minutter - del det ikke:\n${env.COCKPIT_URL.replace(/\/+$/, "")}/login/link/${token}`);
+  const { token, code } = await createLoginLink(db, env.SAGA_TELEGRAM_BOT_TOKEN ?? "", member, telegramId, deps.now());
+  const address = env.COCKPIT_URL.replace(/\/+$/, "");
+  // Requested after: "Det er som om, jeg bliver logget ind i Telegrams egen browser." The link logs in Telegram's browser; the code logs in the usual one.
+  await telegram.sendMessage(chatId, `Hej ${escapeHtml(member.split(/\s+/)[0] ?? "")}. Her er dit personlige login til bestyrelsens cockpit. Det virker én gang inden for ${LINK_MINUTES} minutter - del det ikke.\n\n`
+    + `Åbn linket:\n${address}/login/link/${token}\n\n`
+    + `Åbner det i Telegrams egen browser, og vil du logge ind i din almindelige browser (Safari, Chrome ...)? Gå så til ${address.replace(/^https?:\/\//, "")} og skriv koden:\n<code>${code.slice(0, 4)} ${code.slice(4)}</code>`, { html: true });
 }
+
+const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

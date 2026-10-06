@@ -9,8 +9,8 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
-import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
-import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
+import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
   addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
@@ -129,6 +129,24 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   }
   if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure), cookie(MEMBER_COOKIE, "", 0, secure)]);
 
+  // The personal login is kept for half a year in the browser it was made in (the link: Telegram's own; the code: the member's usual one).
+  const signedIn = async (member: string) => redirect(`${base}/`, [cookie(PERSON_COOKIE, await personSessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure),
+    cookie(WHO_COOKIE, member, PERSON_DAYS * 86_400, secure)]);
+
+  // Saga's code, typed here: "Det er som om, jeg bliver logget ind i Telegrams egen browser" - the link logs in Telegram's browser, the code the usual one.
+  if (path === "/login/kode" && request.method === "POST") {
+    if (!botLink || !env.SAGA_TELEGRAM_BOT_TOKEN) return login("", 503);
+    if (await loginBlocked(db, request, now) || await codeGuessingBlocked(db, now)) return login("For mange forsøg. Vent et kvarter, og prøv igen - eller brug linket fra Saga.", 429);
+    const form = await request.formData().catch(() => null);
+    const code = readLoginCode(String(form?.get("code") ?? ""));
+    const member = code ? await useCode(db, env.SAGA_TELEGRAM_BOT_TOKEN, code, now) : null;
+    if (!member) {
+      await Promise.all([recordFailedLogin(db, request, now), recordWrongCode(db, now)]);
+      return login(code ? "Koden passer ikke, eller den er brugt eller udløbet. Skriv /login til Saga for en ny." : "Koden er otte cifre. Du finder den i beskeden fra Saga.", 401);
+    }
+    return signedIn(member);
+  }
+
   // Saga's personal link: shown first (a link preview never logs anyone in), used with one press.
   const linkPath = /^\/login\/link\/([A-Za-z0-9_-]{20,64})$/.exec(path);
   if (linkPath) {
@@ -136,8 +154,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST") {
       const member = env.SAGA_TELEGRAM_BOT_TOKEN ? await useLink(db, token, now) : null;
       if (!member) return html(linkPage(base, null, token), 410);
-      return redirect(`${base}/`, [cookie(PERSON_COOKIE, await personSessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure),
-        cookie(WHO_COOKIE, member, PERSON_DAYS * 86_400, secure)]);
+      return signedIn(member);
     }
     const member = await linkMember(db, token, now);
     return html(linkPage(base, member, token), member ? 200 : 410);

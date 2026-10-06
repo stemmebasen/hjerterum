@@ -102,6 +102,31 @@ export async function readPersonSession(secret: string | undefined, value: strin
   try { return { member: unb64(parts[0]!), issuedMs: Number(parts[1]) }; } catch { return null; }
 }
 
+/** Saga's login code: eight digits, typed on the login page (cockpit/personalLogin.ts). Stored only as a keyed hash. */
+export const CODE_DIGITS = 8;
+export function newLoginCode(): string {
+  let code = "";
+  while (code.length < CODE_DIGITS) {
+    for (const byte of crypto.getRandomValues(new Uint8Array(16))) if (byte < 250 && code.length < CODE_DIGITS) code += String(byte % 10);
+  }
+  return code;
+}
+/** Whatever was typed - spaces, dashes - as the digits of a code, or null when it is not eight digits. */
+export const readLoginCode = (typed: string): string | null => { const digits = typed.replace(/\D/g, ""); return digits.length === CODE_DIGITS ? digits : null; };
+export const loginCodeHash = (secret: string, code: string) => sign("login-code", secret, code);
+
+/** At most this many wrong codes in a quarter of an hour from anywhere - eight digits cannot be guessed at that pace. */
+const MAX_CODE_FAILURES = 20;
+const codeBucket = (nowMs: number) => `code:${Math.floor(nowMs / WINDOW_MS)}`;
+export async function codeGuessingBlocked(db: D1Database, nowMs: number): Promise<boolean> {
+  const row = await db.prepare("SELECT attempts FROM cockpit_login_attempts WHERE bucket = ?").bind(codeBucket(nowMs)).first<{ attempts: number }>();
+  return (row?.attempts ?? 0) >= MAX_CODE_FAILURES;
+}
+export async function recordWrongCode(db: D1Database, nowMs: number): Promise<void> {
+  await db.prepare(`INSERT INTO cockpit_login_attempts (bucket, attempts, at_ms) VALUES (?, 1, ?)
+    ON CONFLICT(bucket) DO UPDATE SET attempts = attempts + 1, at_ms = excluded.at_ms`).bind(codeBucket(nowMs), nowMs).run();
+}
+
 export const linkHash = async (token: string) => base64url(await crypto.subtle.digest("SHA-256", encoder.encode(`cockpit-link:${token}`)));
 export function newLinkToken(): string {
   const bytes = new Uint8Array(24);

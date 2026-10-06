@@ -17,9 +17,9 @@ export function telegramClient(env: SagaEnv, deps: SagaDeps) {
   }
   const keyboard = (buttons?: InlineButton[][]) => buttons ? { reply_markup: { inline_keyboard: buttons } } : {};
   return {
-    sendMessage: (chatId: string, text: string, options: { replyTo?: number; buttons?: InlineButton[][] } = {}) =>
+    sendMessage: (chatId: string, text: string, options: { replyTo?: number; buttons?: InlineButton[][]; html?: boolean } = {}) =>
       call<{ message_id: number }>("sendMessage", {
-        chat_id: chatId, text: text.slice(0, 4096), disable_web_page_preview: true,
+        chat_id: chatId, text: text.slice(0, 4096), disable_web_page_preview: true, ...(options.html ? { parse_mode: "HTML" } : {}),
         ...(options.replyTo ? { reply_parameters: { message_id: options.replyTo, allow_sending_without_reply: true } } : {}),
         ...keyboard(options.buttons)
       }),

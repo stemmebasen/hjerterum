@@ -248,7 +248,10 @@ if(history.length)log.querySelector(".saga-ideas")?.remove();})()</script>`;
 export function loginPage(base: string, message: string, configured: boolean, telegram: string | null = null): string {
   // Requested: the account locked to the member - "1.": Saga's personal link first, the shared password (while it lasts) below.
   const personal = telegram ? `<a class="button" href="${esc(telegram)}" target="_blank" rel="noopener">Få dit login fra Saga på Telegram</a>
-<p class="small muted">Saga sender dig et personligt link, der logger dig ind som dig. Det virker én gang inden for 15 minutter. Du kan også skrive /login til hende.</p>` : "";
+<p class="small muted">Saga sender dig et personligt link og en kode. Begge virker én gang inden for 15 minutter. Du kan også skrive /login til hende.</p>
+<form class="stack" method="post" action="${base}/login/kode"><label>Har du en kode fra Saga?<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="0000 0000" required></label>
+<button class="ghost">Log ind med kode</button></form>
+<p class="small muted">Åbner linket i Telegrams egen browser, bliver du kun logget ind dér. Skriv i stedet koden her, i den browser du plejer at bruge til admin.</p>` : "";
   const password = configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required${personal ? "" : " autofocus"}></label>
 <button${personal ? ' class="ghost"' : ""}>Log ind</button></form>` : "";
   return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
@@ -260,7 +263,8 @@ ${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op 
 /** Saga's personal link: one press logs in, so a link preview in Telegram never does. */
 export function linkPage(base: string, member: string | null, token: string): string {
   return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
-${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form method="post" action="${base}/login/link/${esc(token)}"><button>Log ind</button></form>`
+${member ? `<p>Du logger ind som <strong>${esc(member)}</strong>.</p><form method="post" action="${base}/login/link/${esc(token)}"><button>Log ind</button></form>
+<p class="small muted">Står du i Telegrams egen browser? Så bliver du kun logget ind her. Vil du være det i din almindelige browser, så tryk ikke - gå til admin-siden dér, og skriv koden fra Saga.</p>`
     : `<p class="notice warn">Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.</p><p><a href="${base}/">Til login</a></p>`}</div></div>`);
 }
 
