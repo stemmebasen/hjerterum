@@ -165,8 +165,14 @@ function responsibilitiesCard(base: string, text: string, saved: boolean): strin
 ${saved ? '<p class="notice">Gemt. Saga kender dem nu.</p>' : ""}${responsibilitiesForm(base, text, "/profil")}</div>`;
 }
 
+/** The chair's way to the board members' details - whether each has activated their login, what they are responsible for and what they asked Saga. */
+function adminsCard(base: string): string {
+  return `<div class="card"><h2>Bestyrelsens medlemmer</h2><p class="small muted">Hvem der har aktiveret deres login, hvad de har ansvar for, og hvad de har spurgt Saga om. Kun for formanden.</p>
+<p style="margin:0;display:flex;gap:18px;flex-wrap:wrap"><a href="${base}/administratorer">Administratorer →</a><a href="${base}/samtaler">Samtaler med Saga →</a></p></div>`;
+}
+
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
-export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null; responsibilities?: string; saved?: boolean } = {}): string {
+export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null; responsibilities?: string; saved?: boolean; chair?: boolean } = {}): string {
   // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
   // Requested: "Once you have logged in, you can't change to another person." No switching - log out to be someone else.
   const me = who ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who)}</span>` : `<a href="${base}/hvem">Vælg hvem du er</a>`;
@@ -175,7 +181,7 @@ ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>`
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
 <a href="${base}/posthus">Posthus</a><a href="${base}/statistik">Statistik</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${options.chair ? adminsCard(base) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
 const SAGA_STYLE = `

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedEmails, cockpitAdmins, memberAreaAdmins, stateOf } from "./admins.js";
+import { adminsPage, allowedEmails, cockpitAdmins, memberAreaAdmins, stateOf } from "./admins.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { saveBoardMessage } from "../saga/store.js";
 
@@ -38,6 +38,28 @@ describe("the board in the cockpit", () => {
     ]);
     expect(list[0]!.lastSeenMs).toBe(NOW - DAY);
     expect(list[3]!.lastSeenMs).toBeNull();
+  });
+
+  // Requested: "Kan jeg nu se detaljer om de andre medlemmer, såsom om de har aktiveret deres konto og chatudskrift?"
+  it("says who has activated their login, what each wrote that they are responsible for, and how much they asked Saga", async () => {
+    const { db, env } = await board();
+    await db.prepare("INSERT INTO cockpit_login_links (token_hash, member, telegram_id, created_at_ms, expires_at_ms, used_at_ms) VALUES ('a', 'Lisbeth', '201', ?, ?, ?)").bind(NOW - 9 * DAY, NOW, NOW - 9 * DAY).run();
+    await db.prepare("INSERT INTO cockpit_login_links (token_hash, member, telegram_id, created_at_ms, expires_at_ms, used_at_ms) VALUES ('b', 'Lisbeth', '201', ?, ?, ?)").bind(NOW - 2 * DAY, NOW, NOW - 2 * DAY).run();
+    await db.prepare("INSERT INTO cockpit_responsibilities (member, text, updated_at_ms) VALUES ('Lisbeth', 'Lokaler og nøgler\nØkonomi', ?)").bind(NOW).run();
+    for (const [who, at] of [["Lisbeth", 3], ["Lisbeth", 2], ["Gitta", 5]] as const)
+      await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, 'Hvad?', 'Svar', ?)").bind(who, NOW - at * DAY).run();
+    const list = await cockpitAdmins(env, db, NOW);
+    const lisbeth = list.find(a => a.name === "Lisbeth")!, gitta = list.find(a => a.name === "Gitta")!, douglas = list.find(a => a.name === "Douglas")!;
+    expect(lisbeth).toMatchObject({ activatedMs: NOW - 9 * DAY, responsibilities: "Lokaler og nøgler\nØkonomi", sagaQuestions: 2 });
+    expect(gitta).toMatchObject({ activatedMs: null, responsibilities: null, sagaQuestions: 1 });
+    expect(douglas).toMatchObject({ activatedMs: null, responsibilities: null, sagaQuestions: 0 });
+    const page = adminsPage("/cockpit", "Jacob Hauge", { cockpit: list, area: [], nowMs: NOW });
+    expect(page).toContain("Login aktiveret 27. sep. 2026");
+    expect(page).toContain("Har ikke aktiveret sit login endnu");
+    expect(page).toContain("Lokaler og nøgler · Økonomi");
+    expect(page).toContain("Ikke skrevet endnu");
+    expect(page).toContain('<a href="/cockpit/samtaler?medlem=Lisbeth">2 spørgsmål →</a>');
+    expect(page).not.toContain('samtaler?medlem=Douglas');
   });
 
   it("marks a member whose access the chair closed, until a new personal link is used", async () => {
