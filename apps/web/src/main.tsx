@@ -23,6 +23,7 @@ type PublicBooking = {
   description: string | null;
   startsAt: string;
   endsAt: string;
+  imageUrl?: string | null;
 };
 
 type ExternalEvent = {
@@ -221,7 +222,7 @@ function usePublicEvents() {
             endsAt: event.endsAt,
             host: event.teacherName,
             location: "Hjerterum",
-            imageUrl: null,
+            imageUrl: event.imageUrl ?? null,
             link: null,
             source: "hjerterum" as const
           }))

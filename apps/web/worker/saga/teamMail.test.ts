@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { enquiries, setHandled } from "../cockpit/enquiries.js";
+import { enquiries, postPage, setHandled } from "../cockpit/enquiries.js";
 import { mailWatch } from "./connections.js";
-import { connectTeamMail, disconnectTeamMail, openPassword, readableFolders, readTeamMail, sameSubject, teamMailAccount, type FetchedMail, type ImapOpener, type MailFolder } from "./teamMail.js";
+import { connectTeamMail, disconnectTeamMail, openPassword, readableFolders, readTeamMail, replyTarget, sameSubject, teamMailAccount, type FetchedMail, type ImapOpener, type MailFolder } from "./teamMail.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "./test-support.js";
 
 // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Hjerterum reads team@ itself.
@@ -246,3 +246,49 @@ describe("Saga sees in team@ which mails are answered", () => {
   });
 });
 
+
+// Asked: "Er vi sikre på, at modtageren ikke har fået svar?" - a mail a web form sent from team@ itself has no one to answer in its
+// headers, so Saga could never see the answer. The asker is read from what the form wrote.
+describe("who an answer goes to", () => {
+  const own = "team@holistisk.org";
+  it("is the Reply-To or the sender", () => {
+    expect(replyTarget({ reply_address: "Kunde@Example.dk", sender: "Kunde <team@holistisk.org>", preview: "" }, own)).toEqual({ to: "kunde@example.dk", fromText: false });
+    expect(replyTarget({ reply_address: null, sender: "Mette Jensen <mette@example.dk>", preview: "" }, own)).toEqual({ to: "mette@example.dk", fromText: false });
+  });
+
+  it("is the first other address in a form's text when the mail came from team@ itself", () => {
+    const preview = "Bookingforespørgsel\nNavn: Rie Jespersen\nE-mail: kontakt@riejespersen.dk\nTelefon: 12 34 56 78\nSend til team@holistisk.org";
+    expect(replyTarget({ reply_address: "team@holistisk.org", sender: "<team@holistisk.org>", preview }, own)).toEqual({ to: "kontakt@riejespersen.dk", fromText: true });
+    expect(replyTarget({ reply_address: null, sender: "team@holistisk.org", preview }, own)).toEqual({ to: "kontakt@riejespersen.dk", fromText: true });
+  });
+
+  it("is no one when there is no address but the house's own and no-reply ones", () => {
+    expect(replyTarget({ reply_address: "team@holistisk.org", sender: "team@holistisk.org", preview: "Skriv til team@holistisk.org eller noreply@example.dk" }, own)).toBeNull();
+    expect(replyTarget({ reply_address: null, sender: "", preview: "" }, own)).toBeNull();
+  });
+});
+
+describe("an answer to a form mail from team@ itself", () => {
+  it("is found in Sent by the address the form wrote, and Posthus says when an answer cannot be followed", async () => {
+    const db = testDatabase();
+    const env = sagaEnv(db, { SAGA_TELEGRAM_WEBHOOK_SECRET: "webhook-secret-0123456789" });
+    const form = (uid: number, name: string, email: string): FetchedMail => ({ uid, envelope: { date: new Date(NOW - (5 + uid) * 60 * MIN), subject: `Bookingforespørgsel ${uid}`, from: [{ address: "team@holistisk.org" }], messageId: `<f${uid}@holistisk.org>` },
+      source: mime("team@holistisk.org", `Bookingforespørgsel ${uid}`, `Navn: ${name}\nE-mail: ${email}\nEvent: Yoga ${uid}`) });
+    const boxes: Record<string, FetchedMail[]> = {
+      INBOX: [form(1, "Rie", "rie@example.dk"), form(2, "Ukendt", "")],
+      Sendt: [{ uid: 1, envelope: { date: new Date(NOW - 2 * 60 * MIN), subject: "Tak for din henvendelse", to: [{ address: "rie@example.dk" }] } }],
+    };
+    const box = fakeFolders(boxes, [{ path: "INBOX", delimiter: "." }, { path: "Sendt", delimiter: ".", specialUse: "\\Sent" }]);
+    await connectTeamMail(env, db, { address: "team@holistisk.org", password: "rigtig", by: "Jacob", nowMs: NOW }, box.opener);
+    await readTeamMail(env, deps(fakeServices().fetcher, NOW), db, box.opener);
+    const how = Object.fromEntries(((await db.prepare("SELECT subject, answered_how FROM board_mail").all<{ subject: string; answered_how: string | null }>()).results ?? []).map(r => [r.subject, r.answered_how]));
+    expect(how).toEqual({ "Bookingforespørgsel 1": "svar", "Bookingforespørgsel 2": null });
+
+    // Posthus: the one with no address to answer says so; the other no longer waits.
+    await db.prepare("UPDATE board_mail SET scanned_at_ms = ?, enquiry_kind = 'Lokaleleje'").bind(NOW).run();
+    const page = postPage("/cockpit", { who: "Jacob", ...(await enquiries(db, NOW)), notice: "", canScan: false, all: false, watch: "", watchOk: true, nowMs: NOW, mailbox: { address: "team@holistisk.org", by: null, at: null, notice: null } });
+    expect(page).toContain("Bookingforespørgsel 2");
+    expect(page.split("<h2>Indbakke")[0]).toContain("Svar kan ikke følges");
+    expect((page.match(/Svar kan ikke følges/g) ?? []).length).toBe(1);
+  });
+});

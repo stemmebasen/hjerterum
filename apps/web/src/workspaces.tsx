@@ -1,6 +1,9 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
+import { EventPlanner } from "./event-planner";
+import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
+import { planFromBooking, planInstants, todayKey, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
@@ -43,6 +46,10 @@ type Booking = {
   bookingType?: "standard" | "reduced" | "free";
   reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
   reviewNote?: string | null;
+  /** The cover photo's address once the event is approved. */
+  imageUrl?: string | null;
+  /** The photo and files the member may open: all of the organiser's own, the registered member's event files. */
+  files?: EventFile[];
   handlingFeeKr?: number;
   registrationStatus?: "pending" | "confirmed" | "cancelled" | null;
   status?: string;
@@ -256,25 +263,49 @@ function localDateTimeInput(value: string): string {
   return local.toISOString().slice(0, 16);
 }
 
+const EMPTY_PLAN: Plan = { date: "", start: "10:00", end: "12:00", type: "standard" };
+
 function MemberEvents({
   clerk,
   member,
   bookings,
+  markedDates,
   reload
 }: {
   clerk: ClerkBrowser;
   member: Member | null;
   bookings: Booking[];
+  markedDates: Set<string>;
   reload: () => Promise<void>;
 }) {
+  const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
+  const [cover, setCover] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [payout, setPayout] = useState<{
     configured: boolean;
+    uploads?: boolean;
     account: { status: string; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   } | null>(null);
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
+
+  useEffect(() => {
+    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard") : EMPTY_PLAN);
+    setCover(null);
+    setExtraFiles([]);
+  }, [editing]);
+  // The files already on the event being edited, as the calendar last reported them (so a removal shows at once).
+  const existingFiles = editing ? bookings.find((booking) => booking.id === editing.id)?.files ?? [] : [];
+
+  async function removeExistingFile(file: EventFile) {
+    if (!editing || !window.confirm("Vil du fjerne “" + file.filename + "” fra eventet?")) return;
+    const response = await apiFetch(clerk, `/api/room-bookings/${editing.id}/files/${file.id}`, { method: "DELETE" });
+    setMessage(response.ok ? "Filen er fjernet." : "Filen kunne ikke fjernes.");
+    if (response.ok) await reload();
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -309,6 +340,8 @@ function MemberEvents({
     setMessage("");
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const fileIssues = fileProblems(cover, extraFiles, existingFiles.filter((file) => file.kind === "file").length);
+    if (fileIssues.length) { setMessage(fileIssues[0]!); setSaving(false); return; }
     try {
       const response = await apiFetch(
         clerk,
@@ -321,11 +354,10 @@ function MemberEvents({
             teacherEmail: member.email,
             title: String(form.get("title") || ""),
             description: String(form.get("description") || ""),
-            startsAt: new Date(String(form.get("startsAt"))).toISOString(),
-            endsAt: new Date(String(form.get("endsAt"))).toISOString(),
+            ...planInstants(plan),
             maxAttendees: Number(form.get("maxAttendees")) || null,
             ticketPriceKr: Number(form.get("ticketPriceKr")) || 0,
-            bookingType: String(form.get("bookingType") || "standard")
+            bookingType: plan.type
           })
         }
       );
@@ -333,20 +365,28 @@ function MemberEvents({
         const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
         throw new Error(body.error || "event_save_failed");
       }
+      const saved = await response.json().catch(() => ({})) as { id?: number };
+      const bookingId = editing ? editing.id : saved.id;
+      const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
       formElement.reset();
+      setPlan(EMPTY_PLAN);
+      setCover(null);
+      setExtraFiles([]);
       setEditing(null);
-      setMessage(editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.");
+      setMessage((editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.")
+        + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : ""));
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
       setMessage(
         code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
+        code === "payments_not_configured" ? "Betalte events kan ikke oprettes endnu, fordi betalingen ikke er koblet til. Sæt billetprisen til 0 kr., så oprettes eventet som gratis." :
         code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :
         code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "En booking er mindst 2 og højst 10 timer." :
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
-        "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen."
+        "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til hjerterum@holistisk.org, hvis det bliver ved."
       );
     } finally {
       setSaving(false);
@@ -392,27 +432,21 @@ function MemberEvents({
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new"}>
               <label>Titel<input name="title" defaultValue={editing?.title ?? ""} required /></label>
               <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? ""} /></label>
-              <div className="workspace-form-row">
-                <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
-                <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
-              </div>
-              <label>Lejetype (som i prisberegneren på holistisk.org/lejepriser)
-                <select name="bookingType" defaultValue={editing?.bookingType ?? "standard"}>
-                  <option value="standard">Standard - fast pakkepris, ingen medlemsrabat</option>
-                  <option value="reduced">Reduceret pris - medlemmer betaler mindre end ikke-medlemmer</option>
-                  <option value="free">Gratis leje - medlemmer deltager gratis</option>
-                </select>
-                <small>2-10 timer. Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30.</small>
-              </label>
-              <div className="workspace-form-row">
-                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
-                <label>Billetpris pr. deltager
-                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} />
-                  <small>0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling.</small>
+              <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
+                ignore={editing ? { startsAt: editing.startsAt, endsAt: editing.endsAt } : null} onProblem={setPlanProblemCode} />
+              <div className="workspace-form-row event-numbers">
+                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? ""} /></label>
+                <label>Billetpris pr. deltager (kr.)
+                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
+                  <small>{payout?.configured === false
+                    ? "Betalte events kan oprettes, når betalingen er koblet til. Indtil da er billetprisen 0 kr. (gratis)."
+                    : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
                 </label>
               </div>
+              <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
+                onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
               <div className="workspace-actions">
-                <button className="pill-button dark" disabled={saving}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
+                <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
               </div>
               {message && <p className="workspace-message" role="status">{message}</p>}
@@ -426,6 +460,7 @@ function MemberEvents({
             <div className="workspace-list">
               {bookings.map((booking) => (
                 <article key={booking.id}>
+                  {booking.files?.find((file) => file.kind === "cover") && <AuthImage clerk={clerk} file={booking.files.find((file) => file.kind === "cover")!} alt="" />}
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
                   <span className="member-event-review">{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
@@ -505,9 +540,10 @@ function MemberCalendar({
             const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
             return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
               host={booking?.teacherName || external?.host || null} location={external?.location || "Hjerterum"}
-              imageUrl={external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
+              imageUrl={booking?.imageUrl || external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
                   {booking ? <>
                     <p className="member-event-price">{booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
+              {booking.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
               {booking.isOwner ? (
                 <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
               ) : (
@@ -783,17 +819,21 @@ export function MemberWorkspace({
 
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
+  const markedDates = new Set([...calendar, ...externalEvents].map((entry) => todayKey(new Date(entry.startsAt))));
   return (
     <main className="workspace-shell profile-workspace">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
-        accessError && normalized !== "/member-portal/profil" ? <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section> :
+        accessError && normalized !== "/member-portal/profil" ? <>
+          <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section>
+          <section className="workspace-section"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
+        </> :
         normalized === "/member-portal/medlemskab" ? (
           <MemberBilling clerk={clerk} member={member} />
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : normalized === "/member-portal/events" ? (
-          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
+          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>

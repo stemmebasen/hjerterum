@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import type { EventMediaBucket } from "../event-files.js";
 
 /** Saga, Hjerterum's board assistant. Every value is configured per environment; a missing one
  * switches the matching part off instead of failing the whole Worker. */
@@ -32,6 +33,8 @@ export interface SagaEnv {
   /** Requested: "upload referat (mp3/m4a) knap" - recordings uploaded in the board cockpit wait
    * here (R2) until Saga has transcribed them. */
   BOARD_RECORDINGS?: RecordingBucket;
+  /** Member events' cover photos and files; the cockpit shows them to the board when it approves an event. */
+  EVENT_MEDIA?: EventMediaBucket;
   /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). Set by
    * the chair as a secret; without it the cockpit says it is not set up and lets no one in. */
   COCKPIT_PASSWORD?: string;

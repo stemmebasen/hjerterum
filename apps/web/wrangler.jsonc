@@ -35,6 +35,10 @@
         {
           "binding": "BOARD_RECORDINGS",
           "bucket_name": "hjerterum-board-recordings-eu"
+        },
+        {
+          "binding": "EVENT_MEDIA",
+          "bucket_name": "hjerterum-event-media"
         }
       ]
     },
