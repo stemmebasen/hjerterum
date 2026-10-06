@@ -184,11 +184,13 @@ export function teachersPage(base: string, data: { teachers: TeacherRow[]; query
   const item = (t: TeacherRow) => `<li><a href="${base}/arrangementer/undervisere/${encodeURIComponent(t.key)}">${esc(t.name)}</a>
 <span class="meta">${t.events} arrangement${t.events === 1 ? "" : "er"}${t.first ? ` · ${year(t.first)}${year(t.last) !== year(t.first) ? `-${year(t.last)}` : ""}` : ""}${t.upcoming ? ` · ${t.upcoming} kommende` : ""}</span>
 <span class="badges">${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span></li>`;
+  const missing = data.teachers.filter(t => !t.hasContact).length;
   const active = shown.filter(t => isActive(t, data.nowMs)), earlier = shown.filter(t => !isActive(t, data.nowMs));
   return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Arrangementer</a></p><h1>Undervisere</h1>
 <p class="muted">Alle, der har undervist eller holdt arrangementer i Hjerterum - samlet automatisk fra kalenderen (siden 2019), bookingerne i det nye system og listen over faste undervisere.</p>
 <form class="search" method="get" action="${base}/arrangementer/undervisere"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg på navn" aria-label="Søg på navn">${data.sort === "navn" ? `<input type="hidden" name="sorter" value="navn">` : ""}<button>Søg</button></form>
 <p class="sorting small" role="group" aria-label="Sortér"><span class="muted">Sortér:</span> ${(["events", "navn"] as const).map(s => `<a href="${base}/arrangementer/undervisere?${new URLSearchParams({ ...(data.query ? { q: data.query } : {}), sorter: s })}"${data.sort === s ? ` class="on" aria-current="true"` : ""}>${s === "events" ? "Flest events" : "A–Å"}</a>`).join("")}</p>
+${missing ? `<p class="small" style="margin:12px 0 0"><a href="${base}/arrangementer/undervisere/forslag">${missing} undervisere mangler kontakt - se forslag fra mails og medlemslister →</a></p>` : ""}
 <div class="card"><h2>Aktive <span class="pill">${active.length}</span></h2><p class="small muted">Kommende arrangementer eller aktive det seneste år.</p>${active.length ? `<ul class="tl">${active.map(item).join("")}</ul>` : `<p class="muted">Ingen.</p>`}</div>
 ${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}</main>`,
   { section: "/arrangementer", who: data.who, style: STYLE });
