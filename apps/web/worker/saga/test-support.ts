@@ -27,7 +27,7 @@ export function testDatabase(): D1Database {
 export type Call = { url: string; method: string; body: unknown };
 
 /** Telegram, AI, ElevenLabs and Google Drive, faked; every call is recorded. */
-export function fakeServices(options: { ai?: (system: string, user: string) => string } = {}) {
+export function fakeServices(options: { ai?: (system: string, user: string) => string; chatMembers?: Record<string, string> } = {}) {
   const calls: Call[] = [];
   let messageId = 1000;
   const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
@@ -41,6 +41,11 @@ export function fakeServices(options: { ai?: (system: string, user: string) => s
     if (url.startsWith("https://api.telegram.org/bot")) {
       const api = url.split("/").pop();
       if (api === "getFile") return reply({ ok: true, result: { file_path: "voice/file_1.ogg" } });
+      if (api === "getChatMember") {
+        // Everyone is in the group unless a test says otherwise ("left", "kicked", or "error" for Telegram not answering).
+        const status = options.chatMembers?.[String((body as { user_id?: number }).user_id)] ?? "member";
+        return status === "error" ? reply({ ok: false, description: "Bad Request: chat not found" }, 400) : reply({ ok: true, result: { status } });
+      }
       return reply({ ok: true, result: { message_id: ++messageId } });
     }
     if (url === "https://api.elevenlabs.io/v1/speech-to-text") return reply({ text: "x", words: [

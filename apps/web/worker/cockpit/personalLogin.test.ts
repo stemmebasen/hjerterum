@@ -59,7 +59,7 @@ describe("a personal login from Saga", () => {
     const refused = services.telegram("sendMessage").at(-1)?.body as { chat_id: number; text: string };
     expect(refused.text).toContain("kun for Hjerterums bestyrelse");
     expect(refused.text).not.toContain("/login/link/");
-    expect(services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
+    expect(services.calls.filter(c => !c.url.endsWith("/getChatMember") && (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
   });
 
   it("logs in once as that member, who cannot be switched, and ends when the chair closes the access", async () => {

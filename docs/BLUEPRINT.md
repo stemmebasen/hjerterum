@@ -113,6 +113,12 @@ This document is the primary product and migration specification for the new Hje
 - They go into her context under "DET, DU HAR LÆRT AF SAMTALERNE", below the real material: minutes, statutes and the rest still win if they disagree.
 - "Det Saga har lært" (`/hukommelse`, linked from Profil) shows them to every member (the house's and their own); a member forgets their own, the chair any. The chat window invites members to tell her when she is wrong.
 
+### Login: only people who are in the board's group now (2026-10-06)
+
+- A personal login link from Saga is given only to a Telegram account that has written in the board's group **and is in the group right now** (Saga asks Telegram, `getChatMember`). The chair's own account always counts. If Telegram cannot say, Saga asks them to try again - nothing is given.
+- Once an hour Saga checks everyone she knows from the group; whoever has left is signed out of every device (shown as "Adgang lukket" on Administratorer) and cannot get a new link. Nothing happens if Telegram cannot answer.
+- The chair's own pages (Administratorer, Samtaler med Saga, forgetting others' memories) need the chair's personal login: with the shared password anyone can pick any name.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.

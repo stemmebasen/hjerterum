@@ -31,6 +31,8 @@ export function telegramClient(env: SagaEnv, deps: SagaDeps) {
       if (buttons) form.set("reply_markup", JSON.stringify({ inline_keyboard: buttons }));
       return call<{ message_id: number }>("sendDocument", form);
     },
+    /** Whether a person is in a chat right now (Telegram's own answer): status member/administrator/creator, or restricted but still in it. */
+    getChatMember: (chatId: string, userId: string) => call<{ status: string; is_member?: boolean }>("getChatMember", { chat_id: chatId, user_id: Number(userId) }),
     editMessageReplyMarkup: (chatId: string, messageId: number) =>
       call<unknown>("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: { inline_keyboard: [] } }),
     answerCallbackQuery: (id: string, text?: string) =>

@@ -145,7 +145,7 @@ describe("Saga's Telegram webhook", () => {
 // Requested: "Jeg vil ikke have hun interagerer i gruppen." Posting is off unless turned on.
 describe("Saga as a listener only (the default)", () => {
   const listening = (db: ReturnType<typeof testDatabase>, extra: Partial<SagaEnv> = {}) => { const { SAGA_BOARD_POSTING: _on, ...env } = sagaEnv(db, extra); return env as SagaEnv; };
-  const toBoard = (services: ReturnType<typeof fakeServices>) => services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD);
+  const toBoard = (services: ReturnType<typeof fakeServices>) => services.calls.filter(c => !c.url.endsWith("/getChatMember") && (c.body as { chat_id?: string })?.chat_id === BOARD);
 
   it("reads the group but never drafts or posts there, even when asked", async () => {
     const db = testDatabase(), services = fakeServices();
