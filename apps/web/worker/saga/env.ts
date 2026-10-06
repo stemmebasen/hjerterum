@@ -50,6 +50,8 @@ export interface SagaEnv {
   STATS_API_SECRET?: string;
   /** Clerk's server key: admin → Medlemmer looks up the person to give a membership to (worker/member-admin.ts). */
   CLERK_SECRET_KEY?: string;
+  /** The e-mails that may open the admin pages of the member area (worker/admin-auth.ts); the chair sees them on Administratorer. */
+  ALLOWED_EMAILS?: string;
 }
 
 /** The part of an R2 bucket the cockpit and Saga use. */

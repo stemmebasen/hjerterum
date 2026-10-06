@@ -699,3 +699,28 @@ describe("the board looks at a member's event photo and files", () => {
     expect((await call("/cockpit/arrangementer/fil/9999", { cookie: as("Lisbeth") })).status).toBe(404);
   });
 });
+
+// Requested by the chair as super admin: "what active admin members are there" - on a page only the chair opens.
+describe("Administratorer", () => {
+  it("is for the chair only: she sees the board and the admin e-mails, the others are told no", async () => {
+    const { call, login, env } = await setup({ ALLOWED_EMAILS: "jacob@example.dk" });
+    env.CLERK_SECRET_KEY = "";
+    const session = await login();
+    const as = await memberCookies(session);
+    const chair = await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") });
+    expect(chair.status).toBe(200);
+    const page = await chair.text();
+    expect(page).toContain("<h1>Administratorer</h1>");
+    for (const name of ["Jacob Hauge", "Lisbeth", "Gitta"]) expect(page).toContain(name);
+    expect(page).toContain("formand");
+    expect(page).toContain("jacob@example.dk");
+    expect(page).toContain("Clerk er ikke koblet");
+    const other = await call("/cockpit/administratorer", { cookie: as("Lisbeth") });
+    expect(other.status).toBe(403);
+    expect(await other.text()).toContain("kun for formanden");
+    expect((await call("/cockpit/administratorer")).status).toBe(401);
+    // The link is on Medlemmer, for the chair only.
+    expect(await (await call("/cockpit/medlemmer", { cookie: as("Jacob Hauge") })).text()).toContain("/administratorer");
+    expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
+  });
+});

@@ -144,6 +144,10 @@ This document is the primary product and migration specification for the new Hje
 - Photo and files (requested; the photo rules follow the booking form): one cover photo (jpg, png, webp or gif, up to 8 MB) and up to five other files (pdf, Word, Excel, PowerPoint, OpenDocument, text or pictures, up to 10 MB). What a file is comes from its first bytes. The photo is public once the event is approved; a new photo on an approved event is looked at again. The other files are for the organiser, the confirmed attendees and the board (the cockpit shows them when it approves an event). The bytes are in R2 (`EVENT_MEDIA`), the rows in `room_booking_files`; uploads are off until that binding exists.
 - Decided, not built yet: paid events charge the attendee's card at once (the card used for dues) and the organiser's room rent on the day of the event, from the same card. Nobody can book the room or sign up for an event while their membership payment is behind. Stripe is not connected on staging, so a ticket price above 0 kr. is refused with a clear message until it is.
 
+### Administratorer (2026-10-06)
+
+- The chair, as super admin, sees who has admin access and who is active: cockpit → Medlemmer → Administratorer (`/administratorer`, chair only; others get 403). Two lists: the board in the cockpit (everyone who has written in the board's group, with when they last used a personal login link, asked Saga or worked a task; "Adgang lukket" after the chair closed it) and the admin e-mails of the member area (`ALLOWED_EMAILS`, each looked up at Clerk for name and last sign-in). Active means seen within 30 days. The shared cockpit password does not say who is who, so it counts for no one. Read-only.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.

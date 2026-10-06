@@ -61,7 +61,8 @@ export function statusBadge(m: AdminMember, now: number): string {
 const memberSince = (m: AdminMember) => m.joinedOn ? isoDay(m.joinedOn) : DATE.format(m.createdAtMs);
 
 export type MembersListData = {
-  members: AdminMember[]; counts: { active: number; pastDue: number; ended: number; newLast30: number }; q: string; filter: StatusFilter; notice?: string | undefined; error?: string | undefined;
+  /** The chair also gets a link to Administratorer. */
+  chair?: boolean | undefined; members: AdminMember[]; counts: { active: number; pastDue: number; ended: number; newLast30: number }; q: string; filter: StatusFilter; notice?: string | undefined; error?: string | undefined;
   mw: { accounts: number; linked: number; latest: { filename: string; by: string; atMs: number } | null }; now: number;
 };
 
@@ -87,10 +88,11 @@ ${d.mw.latest ? `<p class="small" style="margin:0 0 8px"><strong>${d.mw.accounts
 <form class="stack" method="post" action="${base}/medlemmer/membershipworks" enctype="multipart/form-data"><input type="file" name="fil" accept=".csv,text/csv" required><button class="ghost">Upload eksport (CSV)</button></form>
 ${d.mw.accounts ? `<a class="more" href="${base}/medlemmer/skifte">Skiftet fra MembershipWorks →</a>` : ""}
 <a class="more" href="${base}/medlemmer/tal">Tal fra MembershipWorks (skærmbillede) →</a></section>`;
+  const admins = d.chair ? `<section class="panel"><header><h2>Administratorer</h2><p>Se, hvem der har adgang til admin, og hvem der har været aktive. Kun for formanden.</p></header><a class="more" href="${base}/administratorer">Se administratorerne →</a></section>` : "";
   return layout(base, "Medlemmer", `<main><div class="hero"><h1>Medlemmer</h1><p>Medlemmerne i det nye system. Medlemmer i MembershipWorks fortsætter dér, indtil de selv melder sig ind her.</p></div>
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
 <div class="m-tiles">${tile("aktive", "Aktive", d.counts.active)}${tile("restance", "I restance", d.counts.pastDue)}${tile("opsagt", "Opsagt", d.counts.ended)}<div class="m-tile"><span>Nye de sidste 30 dage</span><b>${d.counts.newLast30}</b></div></div>
-<div class="m-layout">${list}<div class="m-side">${give}${mw}</div></div></main>`, { section: "/medlemmer", who, style: MEMBER_PAGES_STYLE });
+<div class="m-layout">${list}<div class="m-side">${give}${mw}${admins}</div></div></main>`, { section: "/medlemmer", who, style: MEMBER_PAGES_STYLE });
 }
 
 export const MEMBER_TABS = ["medlemskab", "kontakt", "tidslinje", "events"] as const;
