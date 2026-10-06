@@ -686,8 +686,9 @@ describe("the front page's fun fact", () => {
   it("rounds down so \"over\" is always true, reads as the sentence without \"Vidste du\", and says nothing about a handful", async () => {
     const { heldFact } = await import("./home.js");
     const box = heldFact(3651);
-    expect(box).toContain('<a class="fact" href="/arrangementer"');
-    expect(box).toContain("<span class=\"sub\">Hjerterum har haft over</span>\n<b>3.600</b><span class=\"sub\">events siden start</span>");
+    // Requested: all five boxes equally large - this one is a tile like the other four (label, number, line below).
+    expect(box).toContain('<a class="tile fact" href="/arrangementer"');
+    expect(box).toContain('<span class="label">Hjerterum har haft over</span>\n<b>3.600</b><span class="sub">events siden start</span>');
     expect(box).toContain('title="Hjerterum har haft over 3.600 events siden start."');
     expect(box).not.toContain("Vidste du");
     expect(box).not.toContain("kicker");
