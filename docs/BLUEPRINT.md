@@ -96,6 +96,11 @@ This document is the primary product and migration specification for the new Hje
 - MembershipWorks' account export can be uploaded for reference only ("Det er godt at have dette liggende, når og hvis medlemmet vælger at oprette sig i vores nye system. Indtil da fortsætter de blot i MW"). It gives no one access. When a person in it becomes a member here, member since, phone and teacher are carried over, and the timeline reminds the board to stop the payment in MembershipWorks while it still runs. The export holds personal data: it lives only in D1, never in the repository.
 - MembershipWorks' figures from a screenshot moved to Medlemmer → Tal fra MembershipWorks (`/medlemmer/tal`).
 - The switch (2026-10-04): "det er meningen at vi ved turnover importerer alle medlemmer og fra den dato begynder at trække kontingent over vores nye system". Medlemmer → Skiftet fra MembershipWorks previews every account of the latest export (card, manual, free, past due, already a member, skipped) and one confirmed button moves them (migration 0038). An imported member is `clerk_user_id = pending:<email>` until their first login with that verified email; card members keep paying in MembershipWorks (`pays_in_membershipworks`) until the platform takes over on `next_charge_on`. Taking over the charging through Stripe is not built yet: "Spørg mig når vi kommer dertil" (which Stripe account, whether MembershipWorks uses subscriptions, the date).
+### Board members' responsibilities (2026-10-06)
+
+- Each board member writes what they are responsible for, in their own words (at most 600 characters): asked on their front page until it is written (inline form), editable under Profil (`/profil`, `POST /profil/ansvar`; an empty save changes nothing). Stored in `cockpit_responsibilities`.
+- Saga reads them: her knowledge for the cockpit chat and Matrix has an "ANSVARSOMRÅDER I BESTYRELSEN" section, listing who has not written yet, so she can say who a matter concerns and who should be told.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.

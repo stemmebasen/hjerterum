@@ -149,8 +149,20 @@ function languageCard(base: string, lang: "da" | "en"): string {
 <form method="post" action="${base}/sprog" style="display:flex;gap:8px;margin:0">${choice("da", "Dansk")}${choice("en", "English")}</form></div>`;
 }
 
+/** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked". The member's own words; on the front page
+ * the same form stands until they have written something (home.ts). */
+export function responsibilitiesForm(base: string, text: string, back: "/" | "/profil", placeholder = "Fx lokaler og nøgler, økonomi, nyhedsbrev"): string {
+  return `<form class="stack" method="post" action="${base}/profil/ansvar"><input type="hidden" name="back" value="${back}">
+<label>Mine ansvarsområder<textarea name="text" required maxlength="600" rows="3" placeholder="${esc(placeholder)}">${esc(text)}</textarea></label><button>Gem</button></form>`;
+}
+
+function responsibilitiesCard(base: string, text: string, saved: boolean): string {
+  return `<div class="card" id="ansvar"><h2>Mine ansvarsområder</h2><p class="small muted">Skriv med dine egne ord, hvad du har ansvar for i Hjerterum. Så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind.</p>
+${saved ? '<p class="notice">Gemt. Saga kender dem nu.</p>' : ""}${responsibilitiesForm(base, text, "/profil")}</div>`;
+}
+
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
-export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null } = {}): string {
+export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null; responsibilities?: string; saved?: boolean } = {}): string {
   // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
   // Requested: "Once you have logged in, you can't change to another person." No switching - log out to be someone else.
   const me = who ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who)}</span>` : `<a href="${base}/hvem">Vælg hvem du er</a>`;
@@ -159,7 +171,7 @@ ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>`
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
 <a href="${base}/posthus">Posthus</a><a href="${base}/statistik">Statistik</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
 const SAGA_STYLE = `

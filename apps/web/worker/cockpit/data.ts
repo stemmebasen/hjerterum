@@ -254,6 +254,30 @@ export async function todosFor(db: D1Database, owner: string): Promise<Todo[]> {
   return rows.results ?? [];
 }
 
+/** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - what each board member is responsible
+ * for, in their own words (at most 600 characters). */
+export const MAX_RESPONSIBILITIES = 600;
+
+export async function responsibilities(db: D1Database): Promise<Map<string, string>> {
+  const rows = await db.prepare("SELECT member, text FROM cockpit_responsibilities").all<{ member: string; text: string }>().then(r => r.results ?? []).catch(() => []);
+  return new Map(rows.map(r => [r.member, r.text]));
+}
+
+/** The member's own words, trimmed; an empty text changes nothing (the field is required - it is not cleared by accident). */
+export async function setResponsibilities(db: D1Database, member: string, text: string, nowMs: number): Promise<boolean> {
+  const clean = text.replace(/\r\n/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, MAX_RESPONSIBILITIES);
+  if (!clean) return false;
+  await db.prepare("INSERT INTO cockpit_responsibilities (member, text, updated_at_ms) VALUES (?, ?, ?) ON CONFLICT(member) DO UPDATE SET text = excluded.text, updated_at_ms = excluded.updated_at_ms")
+    .bind(member, clean, nowMs).run();
+  return true;
+}
+
+/** What Saga reads about who is responsible for what; a member who has not written yet is listed as such, so she can ask. */
+export function responsibilitiesForSaga(names: string[], written: Map<string, string>): string {
+  const lines = names.map(name => `- ${name}: ${written.get(name)?.replace(/\s*\n\s*/g, "; ") ?? "(har ikke skrevet sine ansvarsområder endnu)"}`);
+  return lines.join("\n") || "(ingen i bestyrelsen er kendt endnu)";
+}
+
 export async function addTodo(db: D1Database, input: { owner: string; text: string; due: string | null; createdBy: string }, nowMs: number): Promise<void> {
   await db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms) VALUES (?, ?, ?, ?, ?)")
     .bind(input.owner, input.text, input.due, input.createdBy, nowMs).run();
