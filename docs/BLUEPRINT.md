@@ -107,6 +107,12 @@ This document is the primary product and migration specification for the new Hje
 - Each member's front page and Opgaver show their own list: the chair's `forJacob` (chair only) plus the `forMembers` items written to them by name or to all, minus what they have ticked off. Ticking is per member (`cockpit_saga_done`); the chair's own list is still ticked through `board_owner_done` so Matrix follows.
 - Under "Hej <name>" a line in the member's own numbers ("Der venter 3 ting på dig, og én har frist i dag. Du har 1 referat til godkendelse."), and the responsibilities they wrote, with a link to edit.
 
+### Saga learns from the conversations (2026-10-06)
+
+- While answering in the cockpit chat (and Matrix), Saga may write `[[HUSK omfang=mig|alle tekst=...]]` when a member tells her something worth keeping or corrects her. `mig` is about that member and used only when answering them; `alle` is about the house or how the board works and used for everyone. Stored in `saga_memories` (at most 60 for the house, 30 per member, the oldest let go; the same text once; 280 characters). Each memory says who taught her.
+- They go into her context under "DET, DU HAR LÆRT AF SAMTALERNE", below the real material: minutes, statutes and the rest still win if they disagree.
+- "Det Saga har lært" (`/hukommelse`, linked from Profil) shows them to every member (the house's and their own); a member forgets their own, the chair any. The chat window invites members to tell her when she is wrong.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.
