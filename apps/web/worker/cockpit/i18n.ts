@@ -205,7 +205,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Stil et forslag, og bestyrelsen stemmer digitalt\. Ved flertal - mindst (\d+) af (\S+) stemmer for - er forslaget vedtaget\. Alle har forslaget på deres to-do, til de har stemt\. Vil du hellere tage det op på et møde, så tryk$/,
     (_, n, of) => `Make a proposal, and the board votes digitally. With a majority - at least ${n} of ${of === "bestyrelsens" ? "the board's" : of} votes for - the proposal is adopted. Everyone has the proposal on their to-do until they have voted. Would you rather raise it at a meeting, press`],
   [/^- afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden\.$/, "- the vote goes on, and Saga puts the proposal on her suggestion for the next agenda."],
-  [/^Du er (.+?) · skift$/, "You are $1 · change"], [/^Logget ind som /, "Logged in as "], [/ · profil og log ud$/, " · profile and log out"],
+  [/^Du er (.+?) · skift$/, "You are $1 · change"], [/^Logget ind som /, "Logged in as "], [/ · profil og log ud$/, " · profile and log out"], [/ · profil$/, " · profile"],
   [/^og (\d+) punkt(?:er)? mere$/, (_, n) => `and ${n} more point${n === "1" ? "" : "s"}`],
   [/^Opdateret /, "Updated "], [/^Fra gruppen$/, "From the group"], [/^Fra referatdokumentet$/, "From the minutes document"], [/^Fra team@$/, "From team@"],
   [/\bventer på dig\b/g, "waiting for you"], [/^(\d+) af (\d+)$/, "$1 of $2"],

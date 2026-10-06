@@ -39,6 +39,7 @@ nav.desk a:hover{background:var(--soft)}nav.desk a.on{background:var(--card);box
 .me{display:flex;align-items:center;gap:10px;font-size:14px;margin-left:auto;flex:none}.me .who-name{white-space:nowrap;color:var(--muted)}
 .avatar{width:38px;height:38px;border-radius:50%;background:var(--lys-clay);color:var(--lys-clay-ink);display:grid;place-items:center;font-weight:600;font-size:13px;text-decoration:none}
 .avatar:hover{filter:brightness(.97)}
+.logout{margin:0}.logout button{background:none;border:0;box-shadow:none;color:var(--muted);font-size:13.5px;font-weight:500;padding:6px 8px;min-height:0;cursor:pointer}.logout button:hover{color:var(--ink);filter:none}
 @media (max-width:1100px){.me .who-name{display:none}}@media (max-width:1060px){.brand b{display:none}nav.desk a{padding:8px 10px}}
 nav.tabs{display:none}
 main{max-width:1220px;margin:0 auto;padding:44px 28px 88px;display:grid;gap:20px}
@@ -135,7 +136,8 @@ export function layout(base: string, title: string, body: string, options: { sec
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${LYS_FONTS_URL.replace(/&/g, "&amp;")}">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${LYS_CSS}${COCKPIT_STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="" width="44" height="44"></span><b>Hjerterum</b></a><nav class="desk" aria-label="Menu">${desk}</nav>
-<div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil og log ud` : "Vælg hvem du er")}">${esc(initials)}</a></div></div></header>
+<div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil` : "Vælg hvem du er")}">${esc(initials)}</a>
+<form method="post" action="${base}/logout" class="logout"><button>Log ud</button></form></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
 ${body}${options.section === undefined ? "" : sagaChat(base, options.who ?? null)}</body></html>`;
 }
