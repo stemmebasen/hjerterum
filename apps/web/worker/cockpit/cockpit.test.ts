@@ -217,6 +217,8 @@ describe("the board cockpit", () => {
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
     expect(front).toContain('<span>Huset</span>');
+    // Requested: "Man skal kunne logge ud af sin admin" - the log-out button sits in the header on every page, not only under Profil.
+    expect(front).toContain('<form method="post" action="/cockpit/logout" class="logout"><button>Log ud</button></form>');
     const more = await (await call("/cockpit/mere", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     for (const text of ["/cockpit/status", "/cockpit/arkiv", "Logget ind som Jacob Hauge", 'action="/cockpit/logout"']) expect(more).toContain(text);
     const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
