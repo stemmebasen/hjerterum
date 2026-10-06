@@ -105,7 +105,7 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
     const probe = form.get("probe") === "1";
     if (probe) {
       const bearer = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-      if (!env.SAGA_LIVA_SECRET || bearer !== env.SAGA_LIVA_SECRET) return json({ error: "unauthorized" }, 401);
+      if (!env.SAGA_LIVA_SECRET?.trim() || bearer.trim() !== env.SAGA_LIVA_SECRET.trim()) return json({ error: "unauthorized" }, 401);
     }
     // A form filled by a person: the hidden field stays empty, and it takes a few seconds.
     const started = Number(form.get("started"));

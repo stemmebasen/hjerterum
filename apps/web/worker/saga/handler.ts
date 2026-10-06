@@ -34,7 +34,10 @@ function picture(data: string | null, done: Set<string>): BoardPicture | null {
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
 /** Constant-time comparison of two secrets. */
-function sameSecret(given: string | null, expected: string | undefined): boolean {
+function sameSecret(rawGiven: string | null, rawExpected: string | undefined): boolean {
+  // Reported (Matrix): "Saga afviste Matrix' nøgle" - a key pasted with a stray space or line break on
+  // either side is not a different key.
+  const given = rawGiven?.trim(), expected = rawExpected?.trim();
   if (!given || !expected || given.length !== expected.length) return false;
   let diff = 0;
   for (let i = 0; i < given.length; i++) diff |= given.charCodeAt(i) ^ expected.charCodeAt(i);
