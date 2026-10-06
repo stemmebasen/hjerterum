@@ -115,7 +115,7 @@ export const EN: Record<string, string> = {
   "Hele bestyrelsens opgaver fra referaterne den seneste måned - de nyeste øverst.": "The whole board's tasks from the minutes in the last month - newest first.",
   "Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.":
     "Tasks from the minutes, and the ones you or others in the board write to you - newest first. Tap the square when one is done.",
-  "Slet punktet": "Delete the item", "Slet": "Delete", "Fx ring til udlejer om nøgler": "E.g. call the landlord about keys", "Klaret": "Done", "Vis kun": "Show only", "Dine to-do's": "Your to-dos",
+  "Slet punktet": "Delete the item", "Slet": "Delete", "Fx ring til udlejer om nøgler": "E.g. call the landlord about keys", "Klaret": "Done", "Opgaver, der er klaret, forsvinder automatisk efter syv dage.": "Tasks that are done disappear automatically after seven days.", "Vis kun": "Show only", "Dine to-do's": "Your to-dos",
   "Tilføj": "Add", "Gem": "Save",
   // Votes
   "GODKENDT": "APPROVED", "Træk forslaget tilbage": "Withdraw the proposal", "Jeg ønsker at drøfte dette på et møde": "I want to discuss this at a meeting", "Fortryd: drøft på et møde": "Undo: discuss at a meeting",
@@ -207,7 +207,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^- afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden\.$/, "- the vote goes on, and Saga puts the proposal on her suggestion for the next agenda."],
   [/^Du er (.+?) · skift$/, "You are $1 · change"], [/^Logget ind som /, "Logged in as "], [/ · profil og log ud$/, " · profile and log out"],
   [/^og (\d+) punkt(?:er)? mere$/, (_, n) => `and ${n} more point${n === "1" ? "" : "s"}`],
-  [/^Opdateret /, "Updated "], [/^Fra gruppen$/, "From the group"], [/^Fra referatdokumentet$/, "From the minutes document"], [/^Fra team@$/, "From team@"],
+  [/^Klaret de sidste 7 dage \((\d+)\)$/, "Done in the last 7 days ($1)"], [/^Opdateret /, "Updated "], [/^Fra gruppen$/, "From the group"], [/^Fra referatdokumentet$/, "From the minutes document"], [/^Fra team@$/, "From team@"],
   [/\bventer på dig\b/g, "waiting for you"], [/^(\d+) af (\d+)$/, "$1 of $2"],
   [/^(.+?) · Hjerterum bestyrelse$/, (_, t) => `${translateText(t)} · Hjerterum board`],
   [/^Faste undervisere \((\d+)\) - deres events kræver ikke godkendelse$/, "Regular teachers ($1) - their events need no approval"],
