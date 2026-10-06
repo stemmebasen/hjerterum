@@ -186,6 +186,12 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - The chair, as super admin, sees who has admin access and who is active: cockpit → Medlemmer → Administratorer (`/administratorer`, chair only; others get 403). Two lists: the board in the cockpit (everyone who has written in the board's group, with when they last used a personal login link, asked Saga or worked a task; "Adgang lukket" after the chair closed it) and the admin e-mails of the member area (`ALLOWED_EMAILS`, each looked up at Clerk for name and last sign-in). Active means seen within 30 days. The shared cockpit password does not say who is who, so it counts for no one. Read-only.
 - The chair can also read what the board's members asked Saga and what she answered: Administratorer → Samtaler med Saga (`/samtaler`, chair only; others get 403). It reads `cockpit_questions` (cockpit and Matrix, kept 90 days), groups one person's questions less than 30 minutes apart into a conversation, filters by member and word, and downloads as plain text (`?udskrift=1`).
 
+### Undervisere (2026-10-06)
+
+- Cockpit → Arrangementer → Undervisere (`/arrangementer/undervisere`) collects the teachers by itself: every host name in Hjerterum's calendar (MembershipWorks, since 2019), every booking in the new system, the fixed teachers and what the board has added. Active (a fixed teacher, something coming, or something within a year) first, the rest under "Tidligere".
+- Order inside each group: by number of events (default) or alphabetical (`?sorter=navn`, "A–Å"); the choice follows the search.
+- The calendar carries only the host's name, so mails and phone numbers come from elsewhere, looked up by the exact name (not case): the website's teacher register, bookings, the fixed teachers, mails to team@ (sender), members and the MembershipWorks import (`contactsByName`). The list says "Mangler kontakt" only when none of them knows anything - the same places the teacher's own page looks. The board's saved contact always wins over what is found.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.
