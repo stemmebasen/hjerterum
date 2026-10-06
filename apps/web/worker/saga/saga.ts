@@ -172,9 +172,11 @@ const looksLikeJson = (answer: string) => /^\s*(?:```|\{)/.test(answer);
 
 /** Whether the overview is out of date: something new in the group, the mail or the minutes, the
  * minutes document changed since it was read (read without AI), or it predates the picture. */
-async function overviewStale(env: SagaEnv, deps: SagaDeps, db: NonNullable<SagaEnv["DB"]>): Promise<{ stale: boolean; doc?: { text: string; hash: string } }> {
+export async function overviewStale(env: SagaEnv, deps: SagaDeps, db: NonNullable<SagaEnv["DB"]>): Promise<{ stale: boolean; doc?: { text: string; hash: string } }> {
   const last = await latestOverview(db);
   if (!last || last.doc_hash === null || await boardActivitySince(db, board(env), last.created_at_ms)) return { stale: true };
+  // A picture from before Saga sent matters on to the members they concern (forMembers) is made again, so they get their lists at once.
+  if (last.data && !last.data.includes('"forMembers"')) return { stale: true };
   if (!env.GOOGLE_MINUTES_DOC_ID) return { stale: false };
   const doc = await readArchive(env, deps);
   return { stale: doc.hash !== "unread" && doc.hash !== last.doc_hash, doc };

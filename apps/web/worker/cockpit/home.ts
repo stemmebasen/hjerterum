@@ -17,9 +17,12 @@ export type HomeData = {
   who: string | null; isChair: boolean; today: string;
   toSign: ApprovedMinutes[];
   tasks: Task[]; todos: Array<{ text: string; due: string | null; created_by: string }>;
-  forChair: BoardPicture["forJacob"];
+  /** What Saga has for this member: the chair's own list (chair only) and what she wrote to them or to all. */
+  forMe: BoardPicture["forJacob"];
   /** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - asked on the front page until it is written. */
   needsResponsibilities?: boolean;
+  /** What this member wrote that they are responsible for (shown quietly under the greeting). */
+  responsibilities?: string;
   next: Meeting | null; found: Array<{ date: string; what: string }>;
   latest: { id: number; date: string; decisions: string[]; approved: number; members: number } | null;
   picture: BoardPicture | null; summary: string | null; at: number | null;
@@ -75,7 +78,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
-.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
+.welcome .personal{font-size:19px;line-height:1.45;color:var(--ink);margin:2px 0 0}.welcome .ansvar-line{margin:0}.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
 .tile:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.tile .label{font-size:12.5px;font-weight:650;color:var(--muted)}
@@ -129,12 +132,22 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
   });
 }
 
+/** Requested: "Sikr at hvert medlem får en helt personlig admin visning med bl.a. personlige todos og personlige hilsener".
+ * The greeting's second line says what waits on this member, in this member's own numbers - not the board's. */
+export function personalLines(d: { open: number; dueToday: number; toSign: number }): string[] {
+  return [d.open ? `Der venter ${d.open} ting på dig${d.dueToday ? `, og ${d.dueToday === 1 ? "én" : d.dueToday} har frist i dag` : ""}.` : "Intet venter på dig lige nu.",
+    ...(d.toSign ? [`Du har ${d.toSign} ${d.toSign === 1 ? "referat" : "referater"} til godkendelse.`] : [])];
+}
+
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
-  const open = data.todos.length + data.tasks.length + (data.isChair ? data.forChair.length : 0) + (data.votes?.length ?? 0);
+  const open = data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
-  const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
+  const dueToday = [...data.todos.map(t => t.due), ...data.tasks.map(t => t.due)].filter(due => due === data.today).length;
+  const ownLine = data.who ? `<p class="personal">${personalLines({ open, dueToday, toSign: data.toSign.length }).map(line => `<span>${esc(line)}</span>`).join(" ")}</p>${data.responsibilities
+    ? `<p class="small muted ansvar-line">Dine ansvarsområder: ${esc(data.responsibilities.replace(/\s*\n\s*/g, " · "))} <a href="${base}/profil#ansvar">Ret</a></p>` : ""}` : "";
+  const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>${ownLine}
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
@@ -154,7 +167,7 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
     ...mergeSame<{ text: string; html: string }>([
       ...data.tasks.filter(t => t.source !== "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
       ...data.tasks.filter(t => t.source === "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
-      ...(data.isChair ? data.forChair.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(withoutStop(f.text))}<span class="ctx">${esc(SAGA_SOURCE[f.source] ?? "")}</span></li>`)(f) })) : []),
+      ...(data.forMe.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(withoutStop(f.text))}<span class="ctx">${esc(SAGA_SOURCE[f.source] ?? "")}</span></li>`)(f) }))),
       ...data.todos.map(t => ({ text: t.text, html: (t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`)(t) })),
     ], line => line.text).map(group => group.item.html)
   ];

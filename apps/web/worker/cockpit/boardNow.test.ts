@@ -72,7 +72,7 @@ describe("Bestyrelsen lige nu", () => {
   });
 
   it("shows the points on the front page, with a way on to Status", () => {
-    const page = homePage("", { who: "Jacob", isChair: true, today: "2026-10-02", toSign: [], tasks: [], todos: [], forChair: [], next: null, found: [], summary: null, at: null,
+    const page = homePage("", { who: "Jacob", isChair: true, today: "2026-10-02", toSign: [], tasks: [], todos: [], forMe: [], next: null, found: [], summary: null, at: null,
       events: [], eventsMonth: 0, progress: { working: 0, waiting: 0 }, latest: null, boardNow: { text: "Udlejeren varsler huslejestigning.", at: NOW },
       picture: { summary: "", temperature: { level: "god", why: "Gammel" }, topics: [{ title: "Thomas Emil-håndtering", status: "afventer", who: [], waitsOnJacob: true, note: "" }], document: {} as never, forJacob: [] } } as never);
     expect(page).toContain("Udlejeren varsler huslejestigning.");
