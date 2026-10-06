@@ -53,12 +53,12 @@ export async function allMemories(db: D1Database): Promise<Memory[]> {
   return db.prepare("SELECT id, scope, member, text, learned_from, created_at_ms FROM saga_memories ORDER BY created_at_ms DESC, id DESC").all<Memory>().then(r => r.results ?? []).catch(() => []);
 }
 
-/** Who may remove a memory: the member their own, the chair any. */
-export async function forget(db: D1Database, id: number, who: string, isChair: boolean): Promise<boolean> {
-  const row = await db.prepare("SELECT scope, member FROM saga_memories WHERE id = ?").bind(id).first<{ scope: string; member: string | null }>();
-  if (!row || !(isChair || (row.scope === "member" && row.member === who))) return false;
+/** Who may remove a memory: the member their own, the chair any. Returns what was removed, or null. */
+export async function forget(db: D1Database, id: number, who: string, isChair: boolean): Promise<Memory | null> {
+  const row = await db.prepare("SELECT id, scope, member, text, learned_from, created_at_ms FROM saga_memories WHERE id = ?").bind(id).first<Memory>();
+  if (!row || !(isChair || (row.scope === "member" && row.member === who))) return null;
   await db.prepare("DELETE FROM saga_memories WHERE id = ?").bind(id).run();
-  return true;
+  return row;
 }
 
 /** What Saga has learned, for her context: the house's, and the asker's own. */

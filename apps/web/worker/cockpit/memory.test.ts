@@ -60,10 +60,10 @@ describe("what Saga remembers", () => {
     await remember(db, { scope: "member", member: "Gitta", text: "Gittas", learnedFrom: "Gitta" }, NOW);
     await remember(db, { scope: "member", member: "Lisbeth", text: "Lisbeths", learnedFrom: "Lisbeth" }, NOW);
     const [husets, gittas, lisbeths] = ["Husets", "Gittas", "Lisbeths"].map(t => (async () => (await allMemories(db)).find(m => m.text === t)!.id)());
-    expect(await forget(db, await husets!, "Gitta", false)).toBe(false);
-    expect(await forget(db, await lisbeths!, "Gitta", false)).toBe(false);
-    expect(await forget(db, await gittas!, "Gitta", false)).toBe(true);
-    expect(await forget(db, await husets!, "Jacob Hauge", true)).toBe(true);
+    expect(await forget(db, await husets!, "Gitta", false)).toBeNull();
+    expect(await forget(db, await lisbeths!, "Gitta", false)).toBeNull();
+    expect(await forget(db, await gittas!, "Gitta", false)).toMatchObject({ text: "Gittas" });
+    expect(await forget(db, await husets!, "Jacob Hauge", true)).toMatchObject({ text: "Husets" });
     expect((await allMemories(db)).map(m => m.text)).toEqual(["Lisbeths"]);
   });
 

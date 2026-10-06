@@ -119,6 +119,15 @@ This document is the primary product and migration specification for the new Hje
 - Once an hour Saga checks everyone she knows from the group; whoever has left is signed out of every device (shown as "Adgang lukket" on Administratorer) and cannot get a new link. Nothing happens if Telegram cannot answer.
 - The chair's own pages (Administratorer, Samtaler med Saga, forgetting others' memories) need the chair's personal login: with the shared password anyone can pick any name.
 
+### The chair's powers - one foundation (2026-10-06)
+
+The chair's powers will grow, so they live in one place: `worker/cockpit/authority.ts`.
+- `POWERS` names every power and what it takes: `named` (the person says they are the chair - only for what is harmless to show, since with the shared password anyone can pick any name) or `personal` (logged in with the chair's own link from Saga, given only to her Telegram account).
+- The handler decides with `may("power")` and answers `denied("power")`; nothing else asks "is this the chair?" on its own. `actorOf` / `can` / `denial` are unit-tested for member, chair by name and chair with her own login.
+- Anything that reads or changes something about other people is written to `chair_audit` with `audit(...)`: reading members' conversations with Saga (and downloading them), closing a member's access, connecting or disconnecting team@, forgetting what others taught Saga. The chair reads the log at `/formand/log` (Profil → Bestyrelsens medlemmer). Her own things (her own memories) are not logged.
+- **To add a power:** a line in `POWERS`; `may("...")` where it is used; `audit(...)` if it touches others; a test. The log page lists the powers automatically.
+- Open governance choice: who may read the log. Today only the chair; the board could be given a read-only view later.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.

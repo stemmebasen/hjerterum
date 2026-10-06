@@ -173,7 +173,7 @@ function memoryCard(base: string): string {
 /** The chair's way to the board members' details - whether each has activated their login, what they are responsible for and what they asked Saga. */
 function adminsCard(base: string): string {
   return `<div class="card"><h2>Bestyrelsens medlemmer</h2><p class="small muted">Hvem der har aktiveret deres login, hvad de har ansvar for, og hvad de har spurgt Saga om. Kun for formanden.</p>
-<p style="margin:0;display:flex;gap:18px;flex-wrap:wrap"><a href="${base}/administratorer">Administratorer →</a><a href="${base}/samtaler">Samtaler med Saga →</a></p></div>`;
+<p style="margin:0;display:flex;gap:18px;flex-wrap:wrap"><a href="${base}/administratorer">Administratorer →</a><a href="${base}/samtaler">Samtaler med Saga →</a><a href="${base}/formand/log">Formandens log →</a></p></div>`;
 }
 
 /** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */

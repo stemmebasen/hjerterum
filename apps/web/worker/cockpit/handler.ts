@@ -1,6 +1,7 @@
 import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import { allMemories, forget, memoryPage } from "./memory.js";
+import { actorOf, audit, auditPage, can, denial, recentAudit, type Power } from "./authority.js";
 import type { D1Database } from "../db.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
@@ -333,12 +334,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     return redirect(`${base}/profil`);
   }
 
-  const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
-  // The chair's own pages (who the board's members are and what they asked Saga) need the personal login from Saga: with the shared
-  // password anyone can pick any name, so the name alone proves nothing.
-  const chairOnly = () => html(problem(base, who, members.chair && who === members.chair
-    ? "Siden er kun for formanden og kræver dit personlige login: skriv /login til Saga på Telegram, og åbn linket." : "Siden er kun for formanden."), 403);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: chairSignedIn,
+  // What the chair may do is decided in one place (authority.ts): the name alone opens only what is harmless, the rest needs her personal login.
+  const actor = actorOf(who, personal, members.chair);
+  const may = (power: Power) => can(actor, power);
+  const denied = (power: Power) => html(problem(base, who, denial(actor, power)), 403);
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: may("access.close") ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: may("admins.read"),
     responsibilities: who ? (await responsibilities(db)).get(who) ?? "" : "", saved: url.searchParams.get("ansvar") === "gemt" }));
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" (data.ts responsibilities).
   if (path === "/profil/ansvar" && request.method === "POST") {
@@ -350,8 +350,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // The chair (logged in with a personal link) closes a member's access on every device.
   if (path === "/adgang" && request.method === "POST") {
     const member = String((await request.formData().catch(() => null))?.get("member") ?? "");
-    if (!chairSignedIn || !members.names.includes(member) || member === personal) return html(notFound(base, who), 403);
+    if (!may("access.close") || !members.names.includes(member) || member === personal) return html(notFound(base, who), 403);
     await signOutMember(db, member, now);
+    await audit(db, actor, "access.close", `Lukkede ${member}s adgang på alle enheder`, now);
     return redirect(`${base}/profil?lukket=${encodeURIComponent(member)}`);
   }
 
@@ -362,7 +363,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
-    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), who && who === members.chair ? teamMailAccount(db) : Promise.resolve(null)]);
+    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), may("mailbox.see") ? teamMailAccount(db) : Promise.resolve(null)]);
     const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken og undermapperne.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
       fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
@@ -370,25 +371,27 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
       // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - logged in with the shared password the chair saw no card at all.
       // The chair always sees it; only connecting or disconnecting needs Saga's personal link (anyone could say they are the chair).
-      mailbox: who && who === members.chair ? { address: account?.address ?? null, by: account?.connected_by ?? null, at: account?.connected_at_ms ?? null, notice: mailNotice,
-        canChange: chairSignedIn, loginLink: botLink } : null }));
+      mailbox: may("mailbox.see") ? { address: account?.address ?? null, by: account?.connected_by ?? null, at: account?.connected_at_ms ?? null, notice: mailNotice,
+        canChange: may("mailbox.connect"), loginLink: botLink } : null }));
   }
   // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Only the chair, logged in
   // with a personal link, connects or disconnects team@.
   if (path === "/posthus/forbind" && request.method === "POST") {
-    if (!chairSignedIn || !personal) return html(notFound(base, who), 403);
+    if (!may("mailbox.connect") || !personal) return html(notFound(base, who), 403);
     const form = await request.formData().catch(() => null);
     const outcome = await connectTeamMail(env, db, { address: String(form?.get("address") ?? ""), password: String(form?.get("password") ?? ""), by: personal, nowMs: now })
       .then(() => "ok").catch(error => {
         const code = error instanceof Error ? error.message : "";
         return code === "mail_login_failed" ? "login" : code === "mail_address_invalid" ? "adresse" : code === "mail_key_missing" ? "noegle" : "fejl";
       });
+    if (outcome === "ok") await audit(db, actor, "mailbox.connect", `Forbandt ${String(form?.get("address") ?? "").slice(0, 120)}`, now);
     if (outcome === "ok") await readTeamMail(env, deps, db).catch(error => console.warn("team_mail_first_read_failed", error instanceof Error ? error.message : error));
     return redirect(`${base}/posthus?mail=${outcome}#forbindelse`);
   }
   if (path === "/posthus/afbryd" && request.method === "POST") {
-    if (!chairSignedIn) return html(notFound(base, who), 403);
+    if (!may("mailbox.connect")) return html(notFound(base, who), 403);
     await disconnectTeamMail(db, now);
+    await audit(db, actor, "mailbox.connect", "Afbrød forbindelsen til team@", now);
     return redirect(`${base}/posthus?mail=afbrudt#forbindelse`);
   }
   if ((path === "/posthus/klaret" || path === "/foresporgsler/klaret") && request.method === "POST") {
@@ -416,16 +419,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested by the chair as super admin: which admin members there are and who is active (cockpit/admins.ts). Chair only.
   if (path === "/administratorer" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    if (!chairSignedIn) return chairOnly();
+    if (!may("admins.read")) return denied("admins.read");
     const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
     return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
   }
   // Requested by the chair: "Lad mig også se chatudskrift" - what the board's members asked Saga (cockpit/samtaler.ts). Chair only.
   if (path === "/samtaler" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    if (!chairSignedIn) return chairOnly();
+    if (!may("conversations.read")) return denied("conversations.read");
     const member = (url.searchParams.get("medlem") ?? "").slice(0, 80);
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    await audit(db, actor, "conversations.read", `${url.searchParams.get("udskrift") ? "Hentede udskrift af" : "Læste"} samtaler${member ? ` med ${member}` : ""}${q ? ` (søgning: ${q})` : ""}`, now);
     const transcript = await sagaTranscript(db, { who: member || undefined, q });
     if (url.searchParams.get("udskrift")) return new Response(transcriptText(transcript.conversations, now), { headers: { ...HEADERS, "content-type": "text/plain; charset=utf-8", "content-disposition": 'attachment; filename="samtaler-med-saga.txt"' } });
     return html(samtalerPage(base, who, { transcript, member, q, nowMs: now }));
@@ -435,7 +439,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const asked = url.searchParams.get("status") ?? "alle";
     const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
     const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
-    return html(membersListPage(base, who, { chair: chairSignedIn, members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+    return html(membersListPage(base, who, { chair: may("admins.read"), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
   }
   if (path === "/medlemmer/giv" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
@@ -729,14 +733,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
 
   // Saga in the corner of every page: the answer goes only to the one asking.
   // Requested: "Og vigtigt at Saga lærer af vores samtaler!" - what she remembers, for everyone to see (cockpit/memory.ts).
+  // The chair's own log of what she has done that concerns others (cockpit/authority.ts).
+  if (path === "/formand/log" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("audit.read")) return denied("audit.read");
+    return html(auditPage(base, who, await recentAudit(db)));
+  }
   if (path === "/hukommelse" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    return html(memoryPage(base, who, { memories: await allMemories(db), isChair: chairSignedIn }));
+    return html(memoryPage(base, who, { memories: await allMemories(db), isChair: may("memory.forget_any") }));
   }
   if (path === "/hukommelse/glem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id") ?? 0);
-    if (Number.isSafeInteger(id) && id > 0) await forget(db, id, who, chairSignedIn);
+    if (Number.isSafeInteger(id) && id > 0) {
+      const gone = await forget(db, id, who, may("memory.forget_any"));
+      if (gone && gone.member !== who) await audit(db, actor, "memory.forget_any", `Glemte: ${gone.text.slice(0, 160)}`, now);
+    }
     return redirect(`${base}/hukommelse`);
   }
   if (path === "/saga" && request.method === "POST") {
