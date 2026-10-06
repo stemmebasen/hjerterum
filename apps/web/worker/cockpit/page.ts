@@ -134,7 +134,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f7f3ee" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#1a1510" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#fbfaf8" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#1f1d1a" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${LYS_FONTS_URL.replace(/&/g, "&amp;")}">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${LYS_CSS}${COCKPIT_STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="" width="44" height="44"></span><b>Hjerterum</b></a><nav class="desk" aria-label="Menu">${desk}</nav>

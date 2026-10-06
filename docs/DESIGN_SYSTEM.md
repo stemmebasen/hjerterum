@@ -141,20 +141,11 @@ The user explicitly requested the same design everywhere and the original websit
 Reported: "hjerterum.info … er meget anderledes end admin. Der bør ikke være nogen forskel. Det bør være den samme styling og det samme design" — keep the website's top, take admin's modern content, "meget let og lyst". The user approved the proposal ("Lad os bruge det design"), with "HJERTERUM" alone in the header and moving geometry in the hero, and asked to keep the layout of the live hjerterum.info pages ("Fint at holde fast i layout som dette"). This supersedes the Georgia/Arial tokens of the profile direction above; its structure (cards, collapsible private data, opt-in publication) stands.
 
 - One source: `apps/web/lys.ts` (tokens `--lys-*`, the shared top, the blocks, the geometry). The React pages inject it (`src/lys.tsx`); `src/lys-spa.css` points the older variables at the Lys tokens, so existing pages follow. The board's cockpit takes the same source: its own variable names point at the Lys tokens, the same top (hands and HJERTERUM, pill navigation, initials), Playfair headings, terracotta labels, and the small geometry on Overblik; the cobalt accent and the glow are gone. The website's home opens with the approved hero: kicker, "Et rum for nærvær, / *praksis og fællesskab.*", two actions, and the large geometry with "Lige om lidt i Hjerterum" (the next three events) floating over it.
-- Light palette (superseded by the sand step of 2026-10-05 below): background #fbfaf8, surface #fff, line #ebe5dd, ink #2a2622, muted #766d64, warm brown action #5b4a3f, terracotta voice #94503f (kickers and the italic headline line), sage #e8eee2, clay #f5e9df, rose #f6e8ea. System dark appearance from the same tokens.
+- Light palette: background #fbfaf8, surface #fff, line #ebe5dd, ink #2a2622, muted #766d64, warm brown action #5b4a3f, terracotta voice #94503f (kickers and the italic headline line), sage #e8eee2, clay #f5e9df, rose #f6e8ea. System dark appearance from the same tokens.
 - Playfair Display for headings (an italic terracotta second line, as on hjerterum.info: "Mere nærvær. / Mindre støj."), Inter for everything functional; small uppercase terracotta kickers.
 - The top: the hands and "HJERTERUM" in spaced capitals, quiet pill navigation, "Log ind" as the one filled button. On a phone the member navigation scrolls sideways; the website's menus wrap.
 - Layout as on hjerterum.info: kicker and headline left, the words beside them; then rounded cards (kicker, serif title, short muted text), some tinted sage or clay.
 - Geometry: three circles in the palette drifting slowly around one another, a dotted ring and one accent arc (`lysArt`). Large in the website's hero, small on the member overview, hidden on phones; still for anyone who prefers reduced motion.
-
-## Lys leans toward the Instagram look — 2026-10-05
-
-Reported with a screenshot of Hjerterum's Instagram post (cream paper, a sand-coloured block, near-black warm ink, brown headline): "Ift farver, kan du læne dig lidt mere henad dette". A step, not a redesign: the structure, fonts and layout stay; only the tokens in `apps/web/lys.ts` move toward the post (cream #f4f0eb, sand #c69e7d, ink #18130d, brown #6b4d2d were sampled from it).
-
-- Light: background #f7f3ee, surface #fffcf8, soft #efe8df, line #e3d9cc, ink #231c15, muted #6e6258, brown action #654a33, camel voice #8a5a34 (kickers and the italic line, replacing the red terracotta), clay #f1e2d0 with ink #7a4f2c, and two new tokens `--lys-sand` #c69e7d and `--lys-sand-soft` #ead9c4 (the accent arc in the geometry is sand now). The geometry's three circles are sage-sand, sand and rose-sand. Sage and rose stay as status colours.
-- Dark: background #1a1510, surface #251e17, ink #f4eee4, action and voice in light sand (#d9b48f, #d9a77c).
-- `theme-color`, the login mail and the cockpit follow the same values. `worker/lys.test.ts` checks that text on background, surface, clay and sage keeps 4.5:1 in both modes.
-- Not changed: the booking calculator (`worker/beregner`) has its own slate and green palette; the legacy decorative colours in `styles.css` that no page reads.
 
 ## The website from holistisk.org — 2026-10-04
 
