@@ -217,6 +217,13 @@ export async function unsignedFor(db: D1Database, member: string, nowMs: number)
 
 export type Todo = { id: number; owner: string; text: string; due: string | null; created_by: string; created_at_ms: number; done_at_ms: number | null };
 
+/** Where Saga found an item for the chair, as the line under it says. Requested: the front page should read "Svar på: Hvem skal
+ * spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" / "Fra Telegram gruppen". */
+export const SAGA_SOURCE: Record<string, string> = { telegram: "Fra Telegram gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
+
+/** Saga's wording without the full stop she ends it with. */
+export const withoutStop = (text: string) => text.replace(/\s*\.\s*$/, "").trim();
+
 /** A minutes task's lasting name: the meeting, who and what - the same task in the same minutes. */
 /** Requested: "Til mig bør ordlyden ikke være: Ser på automatisk opsætning af nyhedsbrev ... Sender preview-link ... Men:
  * Se på ... Send preview-link". A task reads as an instruction: the verb it starts with in the present tense ("ser",

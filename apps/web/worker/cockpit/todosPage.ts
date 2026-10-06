@@ -1,4 +1,4 @@
-import { EVERYONE, imperative, mergeSame, taskKey, type Task, type Todo } from "./data.js";
+import { EVERYONE, imperative, mergeSame, SAGA_SOURCE, taskKey, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 
@@ -87,10 +87,9 @@ export function todosPage(base: string, data: TodosData): string {
   const openTasks = data.tasks.filter(t => !data.checked.has(taskKey(t)) && !removed.has(taskKey(t)));
   const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
-  const SOURCES: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
   type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
   const sagaLine = (f: NonNullable<TodosData["saga"]>[number]): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
-<div class="small muted">${esc(SOURCES[f.source] ?? "Fra Saga")}${f.from ? ` · ${esc(f.from)}` : ""}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
+<div class="small muted">${esc(SAGA_SOURCE[f.source] ?? "Fra Saga")}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
   // Requested: "make sure that there are no duplicates in the to-dos" - the approved minutes' wording first, then the
   // minutes document's, Saga's and your own; the same task is one line, and checking or removing it takes all of them.
   const lines: Line[] = [
