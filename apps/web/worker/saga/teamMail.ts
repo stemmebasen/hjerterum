@@ -180,7 +180,7 @@ const ANSWERED_FOLDER = /^(?:besvaret|besvarede|answered|replied)$/i;
 
 type FolderMark = { path: string; uid_validity: string; last_uid: number; checked_at_ms: number };
 type Unanswered = { id: number; message_ref: string; sender: string; subject: string; received_at_ms: number; message_id: string | null; reply_address: string | null;
-  folder: string | null; uid_validity: string | null; uid: number | null };
+  folder: string | null; uid_validity: string | null; uid: number | null; preview?: string | null };
 
 /** Sent mail is looked at this far back the first time, and a mail is checked for an answer for this long. */
 const SENT_LOOKBACK_MS = 90 * 24 * 3_600_000;
@@ -191,6 +191,21 @@ const lower = (text: string | undefined) => (text ?? "").trim().toLowerCase();
 const firstAddress = (list: Address[] | undefined) => lower(list?.find(a => a.address)?.address);
 const answeredFlag = (mail: FetchedMail) => [...(mail.flags ?? [])].some(f => f.toLowerCase() === "\\answered");
 const addressOf = (sender: string) => lower(/<([^>]+)>/.exec(sender)?.[1] ?? (sender.includes("@") ? sender : ""));
+const ANY_ADDRESS = /[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g;
+const usableAddress = (to: string, own: string) => Boolean(to) && to !== own.toLowerCase() && !/^(?:no-?reply|do-?not-?reply|mailer-daemon|postmaster)@/.test(to);
+/** Who an answer to a mail would go to: its Reply-To or sender. A mail a web form sent from team@ itself carries the asker only in
+ * what the form wrote, so there the first other address in the text counts. Null when no one can be found - then Saga cannot
+ * see an answer by its recipient, and Posthus says so. */
+export function replyTarget(row: Pick<Unanswered, "reply_address" | "sender" | "preview">, ownAddress: string): { to: string; fromText: boolean } | null {
+  const direct = row.reply_address?.trim().toLowerCase() || addressOf(row.sender);
+  if (usableAddress(direct, ownAddress)) return { to: direct, fromText: false };
+  for (const found of row.preview?.match(ANY_ADDRESS) ?? []) {
+    const address = found.toLowerCase();
+    if (usableAddress(address, ownAddress)) return { to: address, fromText: true };
+  }
+  return null;
+}
+
 /** "Re: Sv: Fwd: Leje af salen" and "leje af salen" are the same subject. */
 export const sameSubject = (subject: string) => subject.toLowerCase().replace(/^(?:\s*(?:re|sv|aw|vs|fw|fwd|videresend)\s*(?:\[\d+\])?\s*:\s*)+/i, "").replace(/\s+/g, " ").trim();
 
@@ -331,7 +346,7 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
  * goes to after it came - with the same subject, or to at most three people (a newsletter to many answers no one). */
 export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress: string): Promise<number> {
   const [rows, sent] = await Promise.all([
-    db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, message_id, reply_address, folder, uid_validity, uid FROM board_mail
+    db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, message_id, reply_address, folder, uid_validity, uid, preview FROM board_mail
       WHERE answered_at_ms IS NULL AND answered_how IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 500`).bind(nowMs - ANSWER_WINDOW_MS).all<Unanswered>().then(r => r.results ?? []),
     db.prepare("SELECT message_id, in_reply_to, refs, recipients, subject, sent_at_ms FROM team_mail_sent WHERE sent_at_ms >= ? ORDER BY sent_at_ms")
       .bind(nowMs - ANSWER_WINDOW_MS - SENT_LOOKBACK_MS).all<{ message_id: string | null; in_reply_to: string | null; refs: string | null; recipients: string; subject: string; sent_at_ms: number }>().then(r => r.results ?? []),
@@ -339,11 +354,10 @@ export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress
   let answered = 0;
   for (const row of rows) {
     const id = row.message_id?.toLowerCase() ?? "";
-    const to = row.reply_address?.toLowerCase() || addressOf(row.sender);
-    const own = !to || to === ownAddress.toLowerCase() || /^(?:no-?reply|do-?not-?reply|mailer-daemon|postmaster)@/.test(to);
+    const target = replyTarget({ reply_address: row.reply_address, sender: row.sender, preview: row.preview ?? "" }, ownAddress);
     const reply = sent.find(s => s.sent_at_ms >= row.received_at_ms - 60_000 && (
       (id && (s.in_reply_to === id || (s.refs ?? "").includes(id))) ||
-      (!own && s.recipients.split(" ").includes(to) && (sameSubject(s.subject) === sameSubject(row.subject) || s.recipients.split(" ").length <= 3))));
+      (target && s.recipients.split(" ").includes(target.to) && (sameSubject(s.subject) === sameSubject(row.subject) || s.recipients.split(" ").length <= 3))));
     if (reply) { await markAnswered(db, row.id, reply.sent_at_ms, "svar"); answered++; }
   }
   return answered;
