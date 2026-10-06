@@ -5,10 +5,12 @@ import { LYS_CSS, LYS_FONTS_URL, lysArt } from "../lys";
 // Requested: "Det bør være den samme styling og det samme design" - one source for the website, the member area and admin.
 
 describe("Hjerterum Lys", () => {
-  it("is light by default, follows dark mode and keeps still for those who ask", () => {
+  it("is light by default, follows dark mode and keeps still", () => {
     expect(LYS_CSS).toContain("--lys-bg:#f7f3ee");
     expect(LYS_CSS).toContain("prefers-color-scheme:dark");
-    expect(LYS_CSS).toMatch(/prefers-reduced-motion:reduce\)\{[^}]*animation:none/);
+    // Requested: "Fjern animationen" - the geometry stands still and pages do not fade in.
+    expect(LYS_CSS).not.toMatch(/animation|@keyframes/);
+    expect(lysArt()).not.toContain("arc");
   });
 
   it("keeps the sand and cream palette readable: text meets 4.5:1 in light and dark", () => {

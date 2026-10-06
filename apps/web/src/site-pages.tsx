@@ -96,12 +96,12 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
   return <main className="page-shell site-page">
     {header}
     <section className="lys-intro site-intro">
-      <div className="lys-rise">
+      <div>
         {parent && <a className="site-back" href={parent.path}>← {parent.card.title}</a>}
         <p className="lys-kicker">{page.kicker}</p>
         <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
       </div>
-      <div className="site-intro-side lys-rise d2">
+      <div className="site-intro-side">
         {page.image && <img className="site-intro-image" src={page.image.src} alt={page.image.alt} />}
         <p>{page.lead}</p>
       </div>
@@ -140,10 +140,10 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     {header}
     <section className="lys-hero">
       <div>
-        <p className="lys-kicker lys-rise">Et rum for det menneskelige</p>
-        <h1 className="lys-title site-home-title lys-rise d2">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
-        <p className="lys-hero-lead lys-rise d3">Hjerterum er et varmt fællesskab for dig, der søger fordybelse, nye perspektiver og oplevelser med andre mennesker. Her er plads til både nysgerrighed, ro og det, der ikke kan planlægges.</p>
-        <p className="lys-hero-actions lys-rise d4"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
+        <p className="lys-kicker">Et rum for det menneskelige</p>
+        <h1 className="lys-title site-home-title">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
+        <p className="lys-hero-lead">Hjerterum er et varmt fællesskab for dig, der søger fordybelse, nye perspektiver og oplevelser med andre mennesker. Her er plads til både nysgerrighed, ro og det, der ikke kan planlægges.</p>
+        <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
       </div>
       <div className="lys-hero-art"><LysArt />{soon}</div>
     </section>

@@ -1,3 +1,4 @@
+import type { EventFileView } from "../event-files.js";
 import type { D1Database } from "../db.js";
 import { complete } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -288,12 +289,21 @@ export const DESK_STYLE = `
 .price{background:var(--soft);border-radius:12px;padding:12px 14px}.price strong{font-size:22px}.warn{color:#9a3412}.mw{width:100%;min-height:220px;font:13px/1.45 ui-monospace,monospace}
 .teachers li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.teachers li:first-child{border-top:0}`;
 
-export function deskSection(base: string, data: { review: ReviewItem[]; drafts: DraftRow[]; teachers: FixedTeacher[]; notice: string; aiReady: boolean }): string {
+/** The photo and files a member put on an event waiting for approval, for the board to look at. */
+const reviewFiles = (base: string, files: EventFileView[]) => {
+  if (!files.length) return "";
+  const cover = files.find(f => f.kind === "cover");
+  const others = files.filter(f => f.kind === "file");
+  return `<div class="small">${cover ? `<a href="${base}/arrangementer/fil/${cover.id}" target="_blank" rel="noopener"><img src="${base}/arrangementer/fil/${cover.id}" alt="Eventets foto" style="display:block;max-width:240px;border-radius:12px;margin:6px 0"></a>` : ""}${others.length ? `<span class="muted">Filer:</span> ${others.map(f => `<a href="${base}/arrangementer/fil/${f.id}">${esc(f.filename)}</a>`).join(" · ")}` : ""}</div>`;
+};
+
+export function deskSection(base: string, data: { review: ReviewItem[]; drafts: DraftRow[]; teachers: FixedTeacher[]; notice: string; aiReady: boolean; files?: Map<number, EventFileView[]> }): string {
   const review = data.review.length ? `<ul class="rev">${data.review.map(e => `<li>
 <div><span class="tag">${e.review_status === "pending" ? "Venter på Saga" : "Til bestyrelsen"}</span><strong>${esc(e.title)}</strong></div>
 <span class="small muted">${esc(WHEN.format(e.starts_at_ms))} · ${esc(e.teacher_name)} (${esc(e.teacher_email)}) · ${esc(TYPE_LABEL[e.booking_type] ?? e.booking_type)}${e.ticket_price_minor ? ` · ${e.ticket_price_minor / 100} kr.` : ""}</span>
 ${e.review_note ? `<span class="small">Saga: ${esc(e.review_note)}</span>` : ""}
 <details><summary class="small">Se teksten</summary><p class="small" style="white-space:pre-wrap">${esc(e.description ?? "")}</p></details>
+${reviewFiles(base, data.files?.get(e.id) ?? [])}
 <form method="post" action="${base}/arrangementer/godkend" class="acts"><input type="hidden" name="id" value="${e.id}"><input name="note" placeholder="Bemærkning (valgfri)" aria-label="Bemærkning">
 <button name="decision" value="approve">Godkend</button><button name="decision" value="reject" class="ghost">Afvis</button></form></li>`).join("")}</ul>`
     : `<p class="muted small">Ingen medlems-events venter på godkendelse.</p>`;
