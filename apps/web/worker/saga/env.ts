@@ -35,10 +35,10 @@ export interface SagaEnv {
   BOARD_RECORDINGS?: RecordingBucket;
   /** Member events' cover photos and files; the cockpit shows them to the board when it approves an event. */
   EVENT_MEDIA?: EventMediaBucket;
-  /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). Set by
-   * the chair as a secret; without it the cockpit says it is not set up and lets no one in. */
+  /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). No longer used by default: the shared login is off
+   * ("Du må gerne fjerne fælles password") and only opens again if COCKPIT_SHARED_LOGIN is "on". */
   COCKPIT_PASSWORD?: string;
-  /** "off" closes the shared password login: only Saga's personal links let members in. */
+  /** The shared password login is OFF unless this is "on" (an emergency door; the password must be set too): Saga's personal links are the way in. */
   COCKPIT_SHARED_LOGIN?: string;
   /** The cockpit's address, for links in Telegram (e.g. https://cockpit.hjerterum.info). */
   COCKPIT_URL?: string;

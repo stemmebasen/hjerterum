@@ -73,7 +73,9 @@ export const OWNER = "111", BOARD = "-100222";
 export function sagaEnv(db: D1Database, extra: Partial<SagaEnv> = {}): SagaEnv {
   return { DB: db, SAGA_TELEGRAM_BOT_TOKEN: "bot-token", SAGA_TELEGRAM_WEBHOOK_SECRET: "hook-secret", SAGA_TELEGRAM_BOT_USERNAME: "HjerterumSagaBot",
     SAGA_BOARD_CHAT_ID: BOARD, SAGA_OWNER_TELEGRAM_ID: OWNER, SAGA_LIVA_SECRET: "liva-secret", AI_API_KEY: "ai-key", AI_MODEL: "test-model",
-    ELEVENLABS_API_KEY: "el-key", SAGA_BOARD_POSTING: "on", ...extra };
+    ELEVENLABS_API_KEY: "el-key", SAGA_BOARD_POSTING: "on", ...extra,
+    // The shared login is off unless switched on; tests that give a password want it, unless they say otherwise.
+    ...(extra.COCKPIT_PASSWORD && extra.COCKPIT_SHARED_LOGIN === undefined ? { COCKPIT_SHARED_LOGIN: "on" } : {}) };
 }
 export const deps = (fetcher: typeof fetch, now = Date.parse("2026-09-23T10:00:00Z")): SagaDeps => ({ fetcher, now: () => now });
 
