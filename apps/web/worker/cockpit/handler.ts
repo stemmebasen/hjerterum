@@ -103,8 +103,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   const secure = url.protocol === "https:";
   const now = deps.now();
   // Requested: the account locked to the member once identified - "1." (cockpit/personalLogin.ts). The
-  // shared password stays until COCKPIT_SHARED_LOGIN is "off"; Saga's personal link always works.
-  const shared = Boolean(env.COCKPIT_PASSWORD) && env.COCKPIT_SHARED_LOGIN !== "off";
+  // shared password is OFF unless COCKPIT_SHARED_LOGIN is "on" (requested: "Du må gerne fjerne fælles password") - Saga's personal link is the way in.
+  const shared = Boolean(env.COCKPIT_PASSWORD) && env.COCKPIT_SHARED_LOGIN === "on";
   const botLink = env.SAGA_TELEGRAM_BOT_USERNAME && env.SAGA_TELEGRAM_BOT_TOKEN ? `https://t.me/${env.SAGA_TELEGRAM_BOT_USERNAME}?start=login` : null;
   const login = (message: string, status: number) => html(loginPage(base, message, shared, botLink), status);
   if (path === "/logo.png" && request.method === "GET") return logoResponse();
@@ -153,7 +153,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   const saved = jar.get(WHO_COOKIE) ?? null;
   // A personal login is that member, and stays so; with the shared password you say who you are - once per login
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
-  const bound = personal ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
+  const bound = personal || !shared ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
   const who = personal ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);

@@ -106,3 +106,43 @@ describe("a personal login from Saga", () => {
     expect(await shared.text()).toContain("Fælles adgangskode");
   });
 });
+
+// Requested: "Du må gerne fjerne fælles password" - the shared password no longer lets anyone in unless it is switched on on purpose.
+describe("the shared password", () => {
+  const ORIGIN = "https://admin.hjerterum.example";
+  const NOW = Date.parse("2026-10-06T16:30:00Z");
+
+  async function opened(extra: Record<string, string>) {
+    const db = testDatabase();
+    const services = fakeServices();
+    const { COCKPIT_SHARED_LOGIN: _unset, ...env } = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, init: { cookie?: string; form?: Record<string, string> } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
+      method: init.form ? "POST" : "GET", body: init.form ? new URLSearchParams(init.form) : null,
+      headers: { ...(init.form ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), { ...env, ...extra }, deps(services.fetcher, NOW));
+    return { call, db };
+  }
+
+  it("is off by default: no password form, a right password gets nothing, and an old shared login stops working", async () => {
+    const { call } = await opened({});
+    const page = await (await call("/login")).text();
+    expect(page).not.toContain('name="password"');
+    expect(page).toContain("Få dit login fra Saga på Telegram");
+    const attempt = await call("/login", { form: { password: "hjerte-2026" } });
+    expect(attempt.status).toBe(503);
+    expect(attempt.headers.get("set-cookie") ?? "").not.toContain("hjerterum_cockpit=");
+    // A cookie made while the shared login was on opens nothing now.
+    const on = await opened({ COCKPIT_SHARED_LOGIN: "on" });
+    const session = ((await on.call("/login", { form: { password: "hjerte-2026" } })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    expect((await on.call("/", { cookie: session })).status).not.toBe(401);
+    expect((await call("/", { cookie: session })).status).toBe(401);
+    expect((await call("/", { cookie: await memberCookie(session, "Jacob Hauge") })).status).toBe(401);
+  });
+
+  it("comes back only when it is switched on on purpose", async () => {
+    const { call } = await opened({ COCKPIT_SHARED_LOGIN: "on" });
+    expect(await (await call("/login")).text()).toContain('name="password"');
+    expect((await call("/login", { form: { password: "hjerte-2026" } })).status).toBe(303);
+    const off = await opened({ COCKPIT_SHARED_LOGIN: "off" });
+    expect(await (await off.call("/login")).text()).not.toContain('name="password"');
+  });
+});

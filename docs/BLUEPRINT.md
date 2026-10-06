@@ -128,6 +128,11 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - **To add a power:** a line in `POWERS`; `may("...")` where it is used; `audit(...)` if it touches others; a test. The log page lists the powers automatically.
 - Open governance choice: who may read the log. Today only the chair; the board could be given a read-only view later.
 
+### The shared cockpit password is off (2026-10-06)
+
+- "Du må gerne fjerne fælles password": the cockpit no longer takes the shared password. The login page shows only "Få dit login fra Saga på Telegram"; the way in is Saga's personal link (given to someone who is in the board's group now). A shared login made earlier stops working.
+- It is an emergency door only: set `COCKPIT_SHARED_LOGIN=on` (with `COCKPIT_PASSWORD` set) to open it again. Delete the `COCKPIT_PASSWORD` secret in Cloudflare when you are sure it will not be needed.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.
