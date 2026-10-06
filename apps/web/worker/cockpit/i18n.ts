@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { RECORDER_SCRIPT_EN } from "./recorder.js";
 
 /** Requested: "Der bør vær en engelsk oversættelses knap - Douglas taler engelsk" - "Ja byg det sådan": a language
  * chosen once per member. In English the cockpit's own words (menus, buttons, headings, notices) are English; the board's
@@ -174,7 +175,14 @@ export const EN: Record<string, string> = {
   "Bed Saga om et resumé af samarbejdet": "Ask Saga for a summary of the collaboration", "Betalende medlemmer": "Paying members", "Til stede": "Present", "Fraværende": "Absent",
   "Tak - din godkendelse er noteret.": "Thank you - your approval is noted.", "Tak - formanden har fået din rettelse.": "Thank you - the chair has received your correction.",
   "Gratis medlemskab": "Free membership", "Konti i alt": "Accounts in total", "Konti med medlemskab": "Accounts with membership", "Venter på opsigelse": "Awaiting cancellation",
-    "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt.": "Saga could not translate the minutes right now. Try again shortly."
+    "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt.": "Saga could not translate the minutes right now. Try again shortly.",
+  // The meeting recorder (cockpit/recorder.ts).
+  "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
+  "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",
+  "Optager": "Recording", "Pause": "Pause",
+  "Optagelsen bruger enhedens mikrofon: læg telefonen eller computeren midt på bordet, og hold siden åben og skærmen tændt, mens I optager. Når I trykker stop, skriver Saga referatet ud fra optagelsen og dagsordenen.":
+    "The recording uses the device's microphone: put the phone or computer in the middle of the table, and keep the page open and the screen on while you record. When you press stop, Saga writes the minutes from the recording and the agenda.",
+  "Hold siden åben og skærmen tændt - lukker du siden eller låser telefonen, stopper optagelsen.": "Keep the page open and the screen on - if you close the page or lock the phone, the recording stops."
 };
 
 const MONTHS_DA = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
@@ -230,7 +238,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
 ];
 
 /** Saga's chat script: its few fixed messages. */
-const SCRIPT: Array<[string, string]> = [["Saga tænker …", "Saga is thinking …"], ["Du er logget ud. Genindlæs siden.", "You are logged out. Reload the page."],
+const SCRIPT: Array<[string, string]> = [...RECORDER_SCRIPT_EN, ["Saga tænker …", "Saga is thinking …"], ["Du er logget ud. Genindlæs siden.", "You are logged out. Reload the page."],
   ["Ingen forbindelse. Prøv igen.", "No connection. Try again."], ["Saga kunne ikke svare lige nu.", "Saga could not answer right now."]];
 
 const unescape = (s: string) => s.replace(/&(amp|lt|gt|quot|#39);/g, (_, e: string) => ({ amp: "&", lt: "<", gt: ">", quot: "\"", "#39": "'" })[e]!);
