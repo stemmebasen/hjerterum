@@ -598,6 +598,14 @@ describe("each member's task list", () => {
     expect(page).toContain("Lav event-mail");
     expect(page.slice(0, page.indexOf("Hele bestyrelsen"))).not.toContain("Book lokale");
     expect(page).toContain('href="/cockpit/opgaver" class="on"');
+    // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - they are under the initials (Profil), not in the menu bar.
+    const menu = page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"));
+    expect(menu).toContain("/cockpit/arrangementer");
+    expect(menu).not.toContain("/cockpit/medlemmer");
+    expect(menu).not.toContain("/cockpit/statistik");
+    const profile = await (await call("/cockpit/profil", { cookie: as("Gitta") })).text();
+    expect(profile).toContain('href="/cockpit/medlemmer"');
+    expect(profile).toContain('href="/cockpit/statistik"');
 
     // Checked off: it folds into "Klaret" and leaves the front page.
     const key = /name="id" value="([^"]+)"/.exec(page)![1]!.replace(/&amp;/g, "&").replace(/&#39;/g, "'");

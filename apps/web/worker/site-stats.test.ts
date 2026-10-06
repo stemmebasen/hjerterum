@@ -221,7 +221,9 @@ describe("admin → Statistik", () => {
     expect(html).toMatch(/data-kpi="enquiries">0</);
     expect(html).toContain('aria-current="page">7 dage');
     for (const text of ["Mest besøgte sider", "Indgangssider", "Kilder", "Kampagner (UTM)", "Enheder", "Lande", "instagram.com", "nyhedsbrev · oktober", "Sverige",
-      "<span>/medlemskab</span><small>Bliv en del af Hjerterum</small>", 'href="/statistik" class="on"', "slettes efter 6 måneder"]) expect(html).toContain(text);
+      "<span>/medlemskab</span><small>Bliv en del af Hjerterum</small>", "slettes efter 6 måneder"]) expect(html).toContain(text);
+    // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - not in the menu bar, but reached under the initials.
+    expect(html.slice(html.indexOf('<nav class="desk"'), html.indexOf("</nav>"))).not.toContain("/statistik");
     expect(html).not.toContain("Tællingen er ikke slået til");
     const off = await handleCockpitRequest(new Request("https://admin.hjerterum.info/statistik?dage=90", { headers: { cookie } }),
       sagaEnv(testDatabase(), { COCKPIT_PASSWORD: "hjerte-2026" }), deps(fakeServices().fetcher, NOW));
