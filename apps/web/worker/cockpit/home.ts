@@ -54,16 +54,16 @@ export function heldFact(held: number, base = ""): string {
   if (held < 20) return "";
   const over = heldOver(held).toLocaleString("da-DK");
   const sentence = `Hjerterum har haft over ${over} events siden start.`;
-  return `<a class="fact" href="${base}/arrangementer" title="${esc(sentence)}" aria-label="${esc(sentence)}"><span class="sub">Hjerterum har haft over</span>
+  return `<a class="tile fact" href="${base}/arrangementer" title="${esc(sentence)}" aria-label="${esc(sentence)}"><span class="label">Hjerterum har haft over</span>
 <b>${over}</b><span class="sub">events siden start</span></a>`;
 }
 
 export const HOME_STYLE = `
-.fact{width:156px;aspect-ratio:1;display:grid;align-content:center;justify-items:center;gap:2px;padding:12px;border-radius:18px;background:var(--lys-clay);
-text-decoration:none;color:var(--ink);text-align:center}.fact:hover{filter:brightness(.98)}
-.fact b{font:400 32px/1.05 var(--serif);letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}.fact b span{font-size:.6em;vertical-align:.45em;margin-left:1px}
-.fact .sub{font-size:11.5px;line-height:1.3;color:var(--muted)}
-.tiles.with-fact{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
+.tile.fact{background:var(--lys-clay);border-color:transparent;box-shadow:none}.tile.fact:hover{filter:brightness(.98)}
+.tile.fact .label{color:var(--lys-terra)}.tile.fact b{font:400 36px/1.1 var(--serif);letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}
+.tile.fact .sub{color:var(--muted)}.tile.fact .label{white-space:nowrap}
+@media (max-width:1180px){.tile.fact .label{font-size:11px;letter-spacing:-.01em}}
+.tiles.with-fact{grid-template-columns:repeat(5,minmax(0,1fr))}
 .home{gap:26px}
 .items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
@@ -84,8 +84,8 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .mood{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:4px 11px;border-radius:999px;background:var(--tint);color:var(--accent);margin-bottom:10px}
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media (max-width:900px){.tiles,.tiles.with-fact{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.fact{width:auto;aspect-ratio:auto;min-height:118px}}
-@media (max-width:760px){.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}}
+@media (max-width:900px){.tiles,.tiles.with-fact{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
+@media (max-width:760px){.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
 `;
 
 const MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" });
