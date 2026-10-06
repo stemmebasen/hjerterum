@@ -118,6 +118,7 @@ This document is the primary product and migration specification for the new Hje
 - A personal login link from Saga is given only to a Telegram account that has written in the board's group **and is in the group right now** (Saga asks Telegram, `getChatMember`). The chair's own account always counts. If Telegram cannot say, Saga asks them to try again - nothing is given.
 - Once an hour Saga checks everyone she knows from the group; whoever has left is signed out of every device (shown as "Adgang lukket" on Administratorer) and cannot get a new link. Nothing happens if Telegram cannot answer.
 - The chair's own pages (Administratorer, Samtaler med Saga, forgetting others' memories) need the chair's personal login: with the shared password anyone can pick any name.
+- The link opens in Telegram's own browser, whose cookies stay there - so a member was signed in "in Telegram" and had to ask again in Safari/Chrome (reported 2026-10-06). Saga therefore sends an eight-digit **code** with the link (`<code>0000 0000</code>`, tap to copy). It is typed on the login page (`POST /login/kode`) in whichever browser the member uses, and that browser is kept signed in for 180 days. The code sits on the link's row (`cockpit_login_links.code_hash`, keyed hash with the bot token, migration 0045): one use, the same 15 minutes, and using the code uses the link up and the other way round. Guessing is stopped after 10 wrong codes from one address or 20 from anywhere per quarter of an hour.
 
 ### The chair's powers - one foundation (2026-10-06)
 

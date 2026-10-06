@@ -107,6 +107,71 @@ describe("a personal login from Saga", () => {
   });
 });
 
+// Reported: "Det er underligt, at jeg skal logge ind via Telegram forfra hver gang ... Det er som om, jeg bliver logget ind i Telegrams egen browser."
+// The link opens in Telegram's own browser, whose cookies stay there - so Saga also sends a code, typed on the login page in the usual browser.
+describe("a login code from Saga", () => {
+  const codeIn = (text: string) => { const m = /<code>(\d{4}) (\d{4})<\/code>/.exec(text); return m ? `${m[1]}${m[2]}` : null; };
+  const kode = (call: Awaited<ReturnType<typeof setup>>["call"], code: string, now = NOW) => {
+    const form = new FormData(); form.append("code", code);
+    return call("/login/kode", { method: "POST", body: form }, now);
+  };
+
+  it("is sent with the link, logs in whichever browser it is typed in - once - and uses the link up too", async () => {
+    const { call, linkFor, cookiesOf } = await setup();
+    const { sent, path } = await linkFor(202);
+    const code = codeIn(sent.text)!;
+    expect(code).toMatch(/^\d{8}$/);
+    expect((sent as unknown as { parse_mode?: string }).parse_mode).toBe("HTML");
+    expect(sent.text).toContain("Telegrams egen browser");
+    expect(sent.text).toContain("admin.hjerterum.info");
+
+    const login = await (await call("/")).text();
+    expect(login).toContain('action="/login/kode"');
+    expect(login).toContain("Telegrams egen browser");
+
+    // Typed with the space as it was written, it logs in as Gitta, and the cookie lasts half a year.
+    const typed = await kode(call, `${code.slice(0, 4)} ${code.slice(4)}`);
+    expect(typed.status).toBe(303);
+    expect(typed.headers.get("location")).toBe("/");
+    expect(typed.headers.get("set-cookie")).toContain("Max-Age=15552000");
+    const gitta = cookiesOf(typed);
+    expect(await (await call("/", { cookie: gitta })).text()).toContain("Hej Gitta");
+    // Once: the code and the link beside it are both used up.
+    expect((await kode(call, code)).status).toBe(401);
+    expect((await call(path!, { method: "POST" })).status).toBe(410);
+  });
+
+  it("is used up by the link too, runs out after 15 minutes and is not the code of another login", async () => {
+    const { call, linkFor } = await setup();
+    const first = await linkFor(202);
+    await call(first.path!, { method: "POST" });
+    expect((await kode(call, codeIn(first.sent.text)!)).status).toBe(401);
+    const late = await linkFor(201);
+    expect((await kode(call, codeIn(late.sent.text)!, NOW + 16 * 60_000)).status).toBe(401);
+    // A made-up code and a code of the wrong length open nothing and say so.
+    const wrong = await kode(call, "00000000");
+    expect(wrong.status).toBe(401);
+    expect(wrong.headers.get("set-cookie") ?? "").not.toContain("hjerterum_cockpit_person=");
+    expect(await wrong.text()).toContain("Koden passer ikke");
+    expect(await (await kode(call, "123")).text()).toContain("Koden er otte cifre");
+  });
+
+  it("cannot be guessed: ten wrong codes from one address, or twenty from anywhere, stop the guessing - even for the right code", async () => {
+    const { call, linkFor, env, services } = await setup();
+    const { sent } = await linkFor(202);
+    const code = codeIn(sent.text)!;
+    for (let i = 0; i < 10; i++) expect((await kode(call, String(10_000_000 + i))).status).toBe(401);
+    expect((await kode(call, code)).status).toBe(429);
+
+    const from = (address: string, text: string) => {
+      const form = new FormData(); form.append("code", text);
+      return handleCockpitRequest(new Request(ORIGIN + "/login/kode", { method: "POST", body: form, headers: { origin: ORIGIN, "cf-connecting-ip": address } }), env, deps(services.fetcher, NOW));
+    };
+    for (let i = 0; i < 10; i++) expect((await from(`198.51.100.${i}`, String(20_000_000 + i))).status).toBe(401);
+    expect((await from("203.0.113.9", code)).status).toBe(429);
+  });
+});
+
 // Requested: "Du må gerne fjerne fælles password" - the shared password no longer lets anyone in unless it is switched on on purpose.
 describe("the shared password", () => {
   const ORIGIN = "https://admin.hjerterum.example";
