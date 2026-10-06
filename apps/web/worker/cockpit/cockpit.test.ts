@@ -285,6 +285,11 @@ describe("the board cockpit", () => {
     expect(page).toContain('<input type="checkbox" data-rec-consent>');
     expect(page).toContain('<button type="button" data-rec-start disabled>● Start optagelse</button>');
     expect(page).toContain("hjerterum-recorder");
+    expect(page).toContain("Lydfilen slettes 14 dage efter, at referatet er lagt op.");
+    // The stability safeguards: the level, the check before the meeting, the warnings.
+    expect(page).toContain("data-rec-check");
+    expect(page).toContain("data-rec-level");
+    expect(page).toContain('data-rec-warns role="alert"');
     expect(await (await call(`/cockpit/moder/${later!.id}`, { cookie: session })).text()).not.toContain("data-recorder");
     // On the list of meetings: for the meeting planned today.
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`data-date="2026-10-01" data-meeting="${today!.id}"`);
@@ -313,6 +318,9 @@ describe("the board cockpit", () => {
     expect(english).toContain("Stop and make the minutes");
     expect(english).toContain("The microphone was cut off (for example because the screen locked).");
     expect(english).toContain("This browser cannot record here.");
+    expect(english).toContain("I cannot hear any sound right now. Is the microphone covered or switched off?");
+    expect(english).toContain("The audio file is deleted 14 days after the minutes are put up.");
+    expect(english).toContain("Check the microphone");
     expect(english).not.toContain("Mikrofonen");
   });
 
