@@ -2,6 +2,7 @@ import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
+import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { planFromBooking, planInstants, todayKey, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
@@ -45,6 +46,10 @@ type Booking = {
   bookingType?: "standard" | "reduced" | "free";
   reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
   reviewNote?: string | null;
+  /** The cover photo's address once the event is approved. */
+  imageUrl?: string | null;
+  /** The photo and files the member may open: all of the organiser's own, the registered member's event files. */
+  files?: EventFile[];
   handlingFeeKr?: number;
   registrationStatus?: "pending" | "confirmed" | "cancelled" | null;
   status?: string;
@@ -274,19 +279,33 @@ function MemberEvents({
   reload: () => Promise<void>;
 }) {
   const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
+  const [cover, setCover] = useState<File | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   const [payout, setPayout] = useState<{
     configured: boolean;
+    uploads?: boolean;
     account: { status: string; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   } | null>(null);
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
 
   useEffect(() => {
     setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard") : EMPTY_PLAN);
+    setCover(null);
+    setExtraFiles([]);
   }, [editing]);
+  // The files already on the event being edited, as the calendar last reported them (so a removal shows at once).
+  const existingFiles = editing ? bookings.find((booking) => booking.id === editing.id)?.files ?? [] : [];
+
+  async function removeExistingFile(file: EventFile) {
+    if (!editing || !window.confirm("Vil du fjerne “" + file.filename + "” fra eventet?")) return;
+    const response = await apiFetch(clerk, `/api/room-bookings/${editing.id}/files/${file.id}`, { method: "DELETE" });
+    setMessage(response.ok ? "Filen er fjernet." : "Filen kunne ikke fjernes.");
+    if (response.ok) await reload();
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -321,6 +340,8 @@ function MemberEvents({
     setMessage("");
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const fileIssues = fileProblems(cover, extraFiles, existingFiles.filter((file) => file.kind === "file").length);
+    if (fileIssues.length) { setMessage(fileIssues[0]!); setSaving(false); return; }
     try {
       const response = await apiFetch(
         clerk,
@@ -344,10 +365,16 @@ function MemberEvents({
         const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
         throw new Error(body.error || "event_save_failed");
       }
+      const saved = await response.json().catch(() => ({})) as { id?: number };
+      const bookingId = editing ? editing.id : saved.id;
+      const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
       formElement.reset();
       setPlan(EMPTY_PLAN);
+      setCover(null);
+      setExtraFiles([]);
       setEditing(null);
-      setMessage(editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.");
+      setMessage((editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.")
+        + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : ""));
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
@@ -416,6 +443,8 @@ function MemberEvents({
                     : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
                 </label>
               </div>
+              <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
+                onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
               <div className="workspace-actions">
                 <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
@@ -431,6 +460,7 @@ function MemberEvents({
             <div className="workspace-list">
               {bookings.map((booking) => (
                 <article key={booking.id}>
+                  {booking.files?.find((file) => file.kind === "cover") && <AuthImage clerk={clerk} file={booking.files.find((file) => file.kind === "cover")!} alt="" />}
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
                   <span className="member-event-review">{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
@@ -510,9 +540,10 @@ function MemberCalendar({
             const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
             return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
               host={booking?.teacherName || external?.host || null} location={external?.location || "Hjerterum"}
-              imageUrl={external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
+              imageUrl={booking?.imageUrl || external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
                   {booking ? <>
                     <p className="member-event-price">{booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
+              {booking.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
               {booking.isOwner ? (
                 <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
               ) : (

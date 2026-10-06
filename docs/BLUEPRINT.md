@@ -137,6 +137,13 @@ This document is the primary product and migration specification for the new Hje
 - The concrete prior agreement on AI event approval is being recovered. The current Worker booking path does not yet apply AI moderation or the fixed-teacher approval exception. Do not describe these as implemented.
 - External calendar providers and their read/write capabilities, visibility of circle meetings, booking permissions, recurring-series behaviour, applicable approval exemptions and venue-payment policies must follow recovered/confirmed product rules; this checkpoint does not invent those decisions.
 
+### Members create their own events (2026-10-05)
+
+- Mine events (`/member-portal/events`): the member picks one date in a month picker (an event is never overnight, so it ends by midnight at the latest), then start and end in half hours (2-10 hours). The chosen day is shown as a timeline next to the picker: approved events, the membership calendar's events, and other members' waiting events as "Optaget" (never by title), with the 18.30 evening line. A taken time, a weekday reduced/free rent across 18.30, a past time or a bad length is named and blocks the button; the first free two hours are suggested. `GET /api/room-bookings/day?date=` feeds the day.
+- The room's price is shown for each kind of rent (standard, reduced, free) for the chosen time, from the calculator's own rules (`worker/beregner/quote.ts`).
+- Photo and files (requested; the photo rules follow the booking form): one cover photo (jpg, png, webp or gif, up to 8 MB) and up to five other files (pdf, Word, Excel, PowerPoint, OpenDocument, text or pictures, up to 10 MB). What a file is comes from its first bytes. The photo is public once the event is approved; a new photo on an approved event is looked at again. The other files are for the organiser, the confirmed attendees and the board (the cockpit shows them when it approves an event). The bytes are in R2 (`EVENT_MEDIA`), the rows in `room_booking_files`; uploads are off until that binding exists.
+- Decided, not built yet: paid events charge the attendee's card at once (the card used for dues) and the organiser's room rent on the day of the event, from the same card. Nobody can book the room or sign up for an event while their membership payment is behind. Stripe is not connected on staging, so a ticket price above 0 kr. is refused with a clear message until it is.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.

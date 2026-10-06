@@ -658,3 +658,42 @@ describe("the front page's lead", () => {
     expect(lead("Det **vigtigste** er budgettet.")).toBe("Det **vigtigste** er budgettet.");
   });
 });
+
+// Requested: a member's event photo and files are for the board to see when it approves the event.
+describe("the board looks at a member's event photo and files", () => {
+  it("shows them on the approval list, streams them to the board only, and 404s for an unknown file", async () => {
+    const { db, env, call, login } = await setup();
+    const objects = new Map<string, ArrayBuffer>();
+    env.EVENT_MEDIA = {
+      put: async (key, value) => { objects.set(key, value); },
+      get: async key => objects.has(key) ? { body: new Response(objects.get(key)!).body!, httpMetadata: {} } : null,
+      delete: async key => { objects.delete(key); }
+    };
+    await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, description, starts_at_ms, ends_at_ms, fee_minor, ticket_price_minor, payout_clerk_user_id, created_at_ms, updated_at_ms, review_status)
+      VALUES ('user_a', 'Mette', 'mette@example.com', 'Lydbad', 'Et roligt event', ?, ?, 0, 0, 'user_a', 1, 1, 'needs_board')`).bind(NOW + 86_400_000, NOW + 90_000_000).run();
+    const bookingId = Number((await db.prepare("SELECT id FROM room_bookings").first<{ id: number }>())!.id);
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+    const pdf = new TextEncoder().encode("%PDF-1.7\n");
+    const { storeEventFile } = await import("../event-files.js");
+    const cover = await storeEventFile(db, env.EVENT_MEDIA, { bookingId, userId: "user_a", kind: "cover", name: "forside.jpg", bytes: jpeg.buffer, now: NOW });
+    const program = await storeEventFile(db, env.EVENT_MEDIA, { bookingId, userId: "user_a", kind: "file", name: "program.pdf", bytes: pdf.buffer, now: NOW });
+    if (!cover.ok || !program.ok) throw new Error("not stored");
+
+    const session = await login();
+    const as = await memberCookies(session);
+    const page = await (await call("/cockpit/arrangementer", { cookie: as("Lisbeth") })).text();
+    expect(page).toContain(`/cockpit/arrangementer/fil/${cover.file.id}`);
+    expect(page).toContain("program.pdf");
+
+    const photo = await call(`/cockpit/arrangementer/fil/${cover.file.id}`, { cookie: as("Lisbeth") });
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get("content-type")).toBe("image/jpeg");
+    expect(photo.headers.get("content-disposition")).toContain("inline");
+    expect(photo.headers.get("x-content-type-options")).toBe("nosniff");
+    const file = await call(`/cockpit/arrangementer/fil/${program.file.id}`, { cookie: as("Lisbeth") });
+    expect(file.headers.get("content-disposition")).toContain("attachment");
+
+    expect((await call(`/cockpit/arrangementer/fil/${cover.file.id}`)).status).toBe(401);
+    expect((await call("/cockpit/arrangementer/fil/9999", { cookie: as("Lisbeth") })).status).toBe(404);
+  });
+});

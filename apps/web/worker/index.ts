@@ -37,6 +37,10 @@ import {
 } from "./room-bookings.js";
 import { verifyStripeWebhook } from "./stripe.js";
 import { listDayItems } from "./room-day.js";
+import {
+  coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
+  type EventFileView, type EventMediaBucket, type FileKind
+} from "./event-files.js";
 import { getExternalEvents } from "./external-events.js";
 
 interface Env {
@@ -48,6 +52,8 @@ interface Env {
   STRIPE_MEMBER_WEBHOOK_SECRET?: string;
   STRIPE_EVENT_WEBHOOK_SECRET?: string;
   DB?: D1Database;
+  /** R2 bucket for events' cover photos and files (worker/event-files.ts). */
+  EVENT_MEDIA?: EventMediaBucket;
   ASSETS: {
     fetch(request: Request): Promise<Response>;
   };
@@ -162,8 +168,10 @@ async function publicRoomBookings(env: Env): Promise<Response> {
 
   try {
     const rows = await listUpcomingPublicRoomBookings(env.DB);
+    const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
     return json(
       rows.map((row) => ({
+        imageUrl: files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null,
         id: row.id,
         teacherName: row.teacher_name,
         teacherEmail: row.teacher_email,
@@ -412,8 +420,12 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
   try {
     const rows = await listMemberCalendarBookings(env.DB, user.userId);
     const handlingFeeMinor = await getHandlingFeeMinor(env.DB);
+    const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
     return json(rows.map((row) => ({
       ...roomBookingView(row),
+      // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
+      imageUrl: (row.review_status ?? "approved") === "approved" ? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
+      files: row.clerk_user_id === user.userId ? files.get(row.id) ?? [] : row.is_attending === 1 ? files.get(row.id) ?? [] : [],
       handlingFeeKr: row.ticket_price_minor > 0 ? handlingFeeMinor / 100 : 0,
       attendeeCount: row.attendee_count,
       isAttending: row.is_attending === 1,
@@ -423,6 +435,74 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
   } catch {
     return json({ error: "database_query_failed" }, { status: 503 });
   }
+}
+
+const FILE_ROUTE_ERRORS: Record<string, number> = { empty_file: 400, file_too_large: 413, file_type: 415, too_many_files: 409 };
+
+async function ownedScheduledBooking(db: D1Database, userId: string, bookingId: number) {
+  return db.prepare("SELECT id, review_status, teacher_email FROM room_bookings WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled'")
+    .bind(bookingId, userId).first<{ id: number; review_status: string | null; teacher_email: string }>();
+}
+
+/** Uploads one cover photo or file to the member's own event. A new photo on an approved event is looked at again. */
+async function uploadEventFile(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  const membership = await requireActiveMembershipForUser(env, user.userId);
+  if (isResponse(membership)) return membership;
+  const booking = await ownedScheduledBooking(env.DB, user.userId, bookingId);
+  if (!booking) return json({ error: "booking_not_found" }, { status: 404 });
+  const form = await request.formData().catch(() => null);
+  const file = form?.get("file");
+  const kind = form?.get("kind") === "cover" ? "cover" : form?.get("kind") === "file" ? "file" : null;
+  if (!form || !kind || !file || typeof file === "string") return json({ error: "invalid_form" }, { status: 400 });
+  const upload = file as File;
+  if (upload.size > 11 * 1024 * 1024) return json({ error: "file_too_large" }, { status: 413 });
+  const stored = await storeEventFile(env.DB, env.EVENT_MEDIA, { bookingId, userId: user.userId, kind: kind as FileKind, name: upload.name, bytes: await upload.arrayBuffer(), now: Date.now() });
+  if (!stored.ok) return json({ error: stored.error }, { status: FILE_ROUTE_ERRORS[stored.error] ?? 400 });
+  let reviewReset = false;
+  if (kind === "cover" && (booking.review_status ?? "approved") === "approved" && !(await isFixedTeacher(env.DB, booking.teacher_email))) {
+    await env.DB.prepare("UPDATE room_bookings SET review_status = 'pending', review_note = NULL, reviewed_by = NULL, reviewed_at_ms = NULL, updated_at_ms = ? WHERE id = ?").bind(Date.now(), bookingId).run();
+    reviewReset = true;
+  }
+  return json({ file: stored.file, reviewReset }, { status: 201 });
+}
+
+async function deleteEventFile(request: Request, env: Env, bookingId: number, fileId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  if (!(await ownedScheduledBooking(env.DB, user.userId, bookingId))) return json({ error: "booking_not_found" }, { status: 404 });
+  const removed = await removeEventFile(env.DB, env.EVENT_MEDIA, bookingId, fileId);
+  return removed.removed ? json({ ok: true }) : json({ error: "file_not_found" }, { status: 404 });
+}
+
+/** A cover photo is public once its event is approved; anything else is for the organiser or, for files, the registered. */
+async function downloadEventFile(request: Request, env: Env, fileId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const target = await fileForDownload(env.DB, fileId);
+  if (!target) return json({ error: "file_not_found" }, { status: 404 });
+  const open = coverIsPublic(target);
+  if (!open) {
+    const user = await requireUser(request, env);
+    if (isResponse(user)) return user;
+    const allowed = user.userId === target.owner_id || (target.kind === "file" && target.booking_status === "scheduled" && await isConfirmedAttendee(env.DB, target.room_booking_id, user.userId));
+    if (!allowed) return json({ error: "file_not_found" }, { status: 404 });
+  }
+  const object = await env.EVENT_MEDIA.get(target.r2_key);
+  if (!object) return json({ error: "file_not_found" }, { status: 404 });
+  const name = encodeURIComponent(target.filename);
+  return new Response(object.body, { headers: {
+    "content-type": target.content_type,
+    "content-disposition": `${target.kind === "cover" ? "inline" : "attachment"}; filename*=UTF-8''${name}`,
+    "cache-control": open ? "public, max-age=3600" : "private, no-store",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "default-src 'none'; sandbox"
+  } });
 }
 
 /** What is on a given day: the room's bookings and the membership calendar's events, for picking a free time. */
@@ -449,11 +529,11 @@ async function payoutAccount(request: Request, env: Env): Promise<Response> {
   const membership = await requireActiveMembershipForUser(env, user.userId);
   if (isResponse(membership)) return membership;
   if (!env.STRIPE_SECRET_KEY || !env.STRIPE_EVENT_WEBHOOK_SECRET || !env.APP_BASE_URL) {
-    return json({ configured: false, account: null });
+    return json({ configured: false, uploads: Boolean(env.EVENT_MEDIA), account: null });
   }
   try {
     const account = await getPayoutAccount(env.DB, env.STRIPE_SECRET_KEY, user.userId);
-    return json({ configured: true, account });
+    return json({ configured: true, uploads: Boolean(env.EVENT_MEDIA), account });
   } catch (error) {
     const code = error instanceof Error ? error.message : "payout_lookup_failed";
     return json({ error: code }, { status: 503 });
@@ -633,6 +713,18 @@ export default {
     }
     if (request.method === "DELETE" && attendanceId !== null) {
       return unattendBooking(request, env, attendanceId);
+    }
+    const eventFileDownloadId = parseRouteId(url.pathname, /^\/api\/event-files\/(\d+)$/);
+    if (request.method === "GET" && eventFileDownloadId !== null) {
+      return downloadEventFile(request, env, eventFileDownloadId);
+    }
+    const eventFilesId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/files$/);
+    if (request.method === "POST" && eventFilesId !== null) {
+      return uploadEventFile(request, env, eventFilesId);
+    }
+    const eventFileMatch = /^\/api\/room-bookings\/(\d+)\/files\/(\d+)$/.exec(url.pathname);
+    if (request.method === "DELETE" && eventFileMatch) {
+      return deleteEventFile(request, env, Number(eventFileMatch[1]), Number(eventFileMatch[2]));
     }
     const bookingId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)$/);
     if (request.method === "PUT" && bookingId !== null) {
