@@ -457,6 +457,9 @@ describe("the board cockpit", () => {
     const board = today.slice(today.indexOf("Hvad bevæger sig"));
     expect(board).toMatch(/class="is-done">[\s\S]*?✓<\/span> Dirigent for generalforsamlingen<span class="when">· klaret 1\. okt\.<\/span>/);
     expect(board).not.toContain("Arkiv (");
+    // Requested: "Afkrydsede to-dos bør være i bunden" - the checked task stands under the open one, though it came first in the minutes.
+    expect(board.indexOf("Lav skabelon til nyhedsbrev")).toBeGreaterThan(-1);
+    expect(board.indexOf("Dirigent for generalforsamlingen")).toBeGreaterThan(board.indexOf("Lav skabelon til nyhedsbrev"));
     for (const red of ["#c0265e", "#dc2626", "#e11d48"]) expect(today).not.toContain(red);
     const { handleCockpitRequest } = await import("./handler.js");
     const later = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: await memberCookie(session, "Gitta") } }), env, deps(services.fetcher, NOW + 8 * 86_400_000))).text();
@@ -464,6 +467,35 @@ describe("the board cockpit", () => {
     expect(laterBoard).toContain("Arkiv (1)");
     expect(laterBoard.split("Arkiv (1)")[0]).not.toContain("Dirigent for generalforsamlingen");
     expect(laterBoard.split("Arkiv (1)")[0]).toContain("Lav skabelon til nyhedsbrev");
+  });
+
+  // Requested: "Og vi er sikre på, at to dos forsvinder en uge efter, at den er blevet klaret? Afkrydsede to-dos bør være i bunden,
+  // og allernederst bør der stå, at opgaver, der er klaret, automatisk forsvinder efter syv dage."
+  it("keeps a checked-off to-do under the open ones for seven days, says so at the bottom, and then lets it go", async () => {
+    const { env, db, services, call, form, login } = await setup();
+    const gitta = await memberCookie(await login(), "Gitta");
+    for (const text of ["Ring til udlejeren", "Køb kaffe"]) await call("/cockpit/opgaver/ny", { method: "POST", cookie: gitta, body: form({ text, due: "", owner: "Gitta" }) });
+    const id = (await db.prepare("SELECT id FROM cockpit_todos WHERE text = 'Ring til udlejeren'").first<{ id: number }>())!.id;
+    await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: gitta, body: form({ kind: "punkt", id: String(id), done: "1" }) });
+    const { handleCockpitRequest } = await import("./handler.js");
+    const at = async (offsetDays: number) => {
+      const page = await (await handleCockpitRequest(new Request(`${ORIGIN}/cockpit/opgaver`, { headers: { cookie: gitta } }), env, deps(services.fetcher, NOW + offsetDays * 86_400_000))).text();
+      return page.slice(page.indexOf("Dine to-do's"), page.indexOf('<div class="card"><h2>Skriv en opgave'));
+    };
+    const note = 'Opgaver, der er klaret, forsvinder automatisk efter syv dage.</p></div>';
+    const fresh = await at(0);
+    expect(fresh.indexOf("Køb kaffe")).toBeGreaterThan(-1);
+    expect(fresh.indexOf("Ring til udlejeren")).toBeGreaterThan(fresh.indexOf("Køb kaffe"));
+    expect(fresh).toContain('<details class="done-list" open><summary>Klaret de sidste 7 dage (1)');
+    expect(fresh.endsWith(note)).toBe(true);
+    expect(await at(6.9)).toContain("Ring til udlejeren");
+    const later = await at(7.1);
+    expect(later).not.toContain("Ring til udlejeren");
+    expect(later).not.toContain("done-list");
+    expect(later).toContain("Køb kaffe");
+    expect(later.endsWith(note)).toBe(true);
+    // It never comes back as open, either.
+    expect(await (await call("/cockpit/", { cookie: gitta })).text()).not.toContain("Ring til udlejeren");
   });
 
   // Requested: "make sure that there are no duplicates in the to-dos. Right now, it's quite a mess, and I can't delete them."
