@@ -115,7 +115,10 @@ export const EN: Record<string, string> = {
   "Hele bestyrelsens opgaver fra referaterne den seneste måned - de nyeste øverst.": "The whole board's tasks from the minutes in the last month - newest first.",
   "Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.":
     "Tasks from the minutes, and the ones you or others in the board write to you - newest first. Tap the square when one is done.",
-  "Slet punktet": "Delete the item", "Slet": "Delete", "Fx ring til udlejer om nøgler": "E.g. call the landlord about keys", "Klaret": "Done", "Opgaver, der er klaret, forsvinder automatisk efter syv dage.": "Tasks that are done disappear automatically after seven days.", "Vis kun": "Show only", "Dine to-do's": "Your to-dos",
+  "Slet punktet": "Delete the item", "Slet": "Delete", "Fx ring til udlejer om nøgler": "E.g. call the landlord about keys", "Klaret": "Done", "Opgaver, der er klaret, forsvinder automatisk efter syv dage.": "Tasks that are done disappear automatically after seven days.", "Vis kun": "Show only", "Dine to-do's": "Your to-dos", "Hvad har du ansvar for?": "What are you responsible for?",
+  "Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.": "Write it in your own words, so Saga knows what to tell you about and who to point to when something comes in. You can always edit it under your profile.",
+  "Mine ansvarsområder": "My areas of responsibility", "Skriv med dine egne ord, hvad du har ansvar for i Hjerterum. Så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind.": "Write in your own words what you are responsible for in Hjerterum. Then Saga knows what to tell you about and who to point to when something comes in.",
+  "Gemt. Saga kender dem nu.": "Saved. Saga knows them now.", "Fx lokaler og nøgler, økonomi, nyhedsbrev": "E.g. rooms and keys, finances, newsletter",
   "Tilføj": "Add", "Gem": "Save",
   // Votes
   "GODKENDT": "APPROVED", "Træk forslaget tilbage": "Withdraw the proposal", "Jeg ønsker at drøfte dette på et møde": "I want to discuss this at a meeting", "Fortryd: drøft på et møde": "Undo: discuss at a meeting",

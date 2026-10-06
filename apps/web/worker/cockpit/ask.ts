@@ -8,7 +8,7 @@ import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
-import { allDecisions, allTasks, approvedMinutes, boardPicture, openFor, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
+import { allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { MEMBERSHIP_FACTS } from "./membership.js";
@@ -156,10 +156,10 @@ async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: s
  * the board, for the question asked - in the cockpit and when the chair asks her in Telegram. */
 export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Database, question: string): Promise<string> {
   const now = deps.now();
-  const [minutes, { picture }, list, chat, members, house, doc, mail, site] = await Promise.all([approvedMinutes(db), boardPicture(db, now), meetings(db),
+  const [minutes, { picture }, list, chat, members, house, doc, mail, site, board, written] = await Promise.all([approvedMinutes(db), boardPicture(db, now), meetings(db),
     env.SAGA_BOARD_CHAT_ID ? recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 60 * DAY, 400) : Promise.resolve([]), memberNumbers(db), events(db, deps, now, question),
     env.GOOGLE_MINUTES_DOC_ID ? minutesDocText(env, deps).then(text => trimMinutesDoc(text.trim(), 25_000)).catch(() => "") : Promise.resolve(""),
-    teamMail(db, now, question), siteForSaga(db, question)]);
+    teamMail(db, now, question), siteForSaga(db, question), boardMembers(env, db), responsibilities(db)]);
   const d = picture?.document;
   const parts = [
     `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}`,
@@ -170,6 +170,8 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
+    // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked".
+    `ANSVARSOMRÅDER I BESTYRELSEN (hvad hver især har skrevet, at de har ansvar for - brug dem, når du skal sige, hvem noget angår, eller hvem der bør have besked):\n${responsibilitiesForSaga(board.names, written)}`,
     `MEDLEMSTAL:\n${members}`,
     // Requested: "Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber".
     `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
