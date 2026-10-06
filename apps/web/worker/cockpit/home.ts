@@ -134,7 +134,9 @@ export function homePage(base: string, data: HomeData): string {
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
-  const fact = heldFact(data.eventsHeld ?? 0, base);
+  // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
+  const SHOW_HELD_FACT = false;
+  const fact = SHOW_HELD_FACT ? heldFact(data.eventsHeld ?? 0, base) : "";
   const tiles = `<section class="tiles${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>

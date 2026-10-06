@@ -223,6 +223,10 @@ describe("the board cockpit", () => {
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
     expect(front).toContain('<span>Huset</span>');
+    // Requested: back to the first Lys design (3 Oct) - four boxes, no event-count box, the earlier colours.
+    expect(front).not.toContain('class="tile fact"');
+    expect(front).toContain("--lys-bg:#fbfaf8");
+    expect(front).not.toContain("--lys-bg:#f7f3ee");
     // Requested: "Lad Saga poppe op efter et minut" - the chat opens by itself once per session, 60 seconds after the page opens (timing tried in a browser).
     expect(front).toContain('sessionStorage.getItem("saga-popped")');
     expect(front).toContain("open(true,true)},60000)");
