@@ -71,7 +71,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
-.welcome .personal{font-size:19px;line-height:1.45;color:var(--ink);margin:2px 0 0}.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
+.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
 .tile:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.tile .label{font-size:12.5px;font-weight:650;color:var(--muted)}
@@ -125,21 +125,12 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
   });
 }
 
-/** Requested: "Sikr at hvert medlem får en helt personlig admin visning med bl.a. personlige todos og personlige hilsener".
- * The greeting's second line says what waits on this member, in this member's own numbers - not the board's. */
-export function personalLines(d: { open: number; dueToday: number; toSign: number }): string[] {
-  return [d.open ? `Der venter ${d.open} ting på dig${d.dueToday ? `, og ${d.dueToday === 1 ? "én" : d.dueToday} har frist i dag` : ""}.` : "Intet venter på dig lige nu.",
-    ...(d.toSign ? [`Du har ${d.toSign} ${d.toSign === 1 ? "referat" : "referater"} til godkendelse.`] : [])];
-}
-
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
   const open = data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
-  const dueToday = [...data.todos.map(t => t.due), ...data.tasks.map(t => t.due)].filter(due => due === data.today).length;
-  const ownLine = data.who ? `<p class="personal">${personalLines({ open, dueToday, toSign: data.toSign.length }).map(line => `<span>${esc(line)}</span>`).join(" ")}</p>` : "";
-  const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>${ownLine}
+  const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;

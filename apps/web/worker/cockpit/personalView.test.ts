@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
-import { personalLines } from "./home.js";
 import { memberDoneForSaga, sagaItemsFor } from "./data.js";
-import { translateHtml } from "./i18n.js";
 import { addressedTo, itemKey, parsePicture } from "../saga/picture.js";
 import { draftOverview, overviewStale } from "../saga/saga.js";
 import { OVERVIEW_SYSTEM } from "../saga/prompts.js";
@@ -98,23 +96,20 @@ describe("what Saga has for each member", () => {
     expect((await db.prepare("SELECT COUNT(*) AS n FROM cockpit_saga_done").first<{ n: number }>())!.n).toBe(1);
   });
 
-  it("greets each member with their own numbers and the responsibilities they wrote", async () => {
+  it("greets each member by name and keeps the responsibilities under Profil, not on the front page", async () => {
     const { call, as } = await setup();
     await call("/profil/ansvar", { cookie: await as("Gitta Hansen"), form: { text: "Events og nyhedsbrev", back: "/" } });
     await call("/opgaver/ny", { cookie: await as("Gitta Hansen"), form: { text: "Køb kaffe", due: "2026-10-06", owner: "Gitta Hansen" } });
     const gitta = await (await call("/", { cookie: await as("Gitta Hansen") })).text();
     expect(gitta).toContain("Hej Gitta");
-    expect(gitta).toContain('<p class="personal"><span>Der venter 3 ting på dig, og én har frist i dag.</span></p>');
+    // Requested: "Der venter 6 ting på dig." behøver der ikke at stå i toppen - the tile "Dine opgaver" and the list say it.
+    expect(gitta).not.toContain("ting på dig");
+    expect(gitta).not.toContain('class="personal"');
+    expect(gitta).toContain("Dine opgaver");
     // Requested: the responsibilities are not on the front page but under Profil.
     expect(gitta).not.toContain("Dine ansvarsområder");
     expect(gitta).not.toContain("Hvad har du ansvar for?");
     expect(await (await call("/profil", { cookie: await as("Gitta Hansen") })).text()).toContain(">Events og nyhedsbrev</textarea>");
-    expect(await (await call("/", { cookie: await as("Lisbeth") })).text()).toContain('<p class="personal"><span>Der venter 2 ting på dig.</span></p>');
-    expect(personalLines({ open: 0, dueToday: 0, toSign: 0 })).toEqual(["Intet venter på dig lige nu."]);
-    expect(personalLines({ open: 1, dueToday: 0, toSign: 2 })).toEqual(["Der venter 1 ting på dig.", "Du har 2 referater til godkendelse."]);
-    const english = translateHtml(`<p class="personal">${personalLines({ open: 3, dueToday: 1, toSign: 1 }).map(l => `<span>${l}</span>`).join(" ")}</p>`);
-    expect(english).toContain("3 things are waiting for you, and one is due today.");
-    expect(english).toContain("You have 1 set of minutes waiting for your approval.");
   });
 });
 
