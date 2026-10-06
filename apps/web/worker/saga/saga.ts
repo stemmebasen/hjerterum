@@ -4,6 +4,7 @@ import { scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledTranslations } from "../cockpit/translate.js";
+import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
 import { complete } from "./ai.js";
@@ -408,6 +409,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Whoever has left the board's group loses the cockpit (cockpit/personalLogin.ts).
   await scheduledBoardAccess(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_access_failed", error instanceof Error ? error.message : error));
+  // Requested: the audio of a meeting is deleted once the minutes are made (saga/recordingRetention.ts).
+  await scheduledRecordingCleanup(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_recording_cleanup_failed", error instanceof Error ? error.message : error));
   // Requested: "Douglas taler engelsk" - Saga's front-page texts in English, when someone reads in English (weekdays).
   await scheduledTranslations(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_translations_failed", error instanceof Error ? error.message : error));

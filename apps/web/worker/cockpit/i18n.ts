@@ -179,7 +179,8 @@ export const EN: Record<string, string> = {
   // The meeting recorder (cockpit/recorder.ts).
   "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
   "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",
-  "Optager": "Recording", "Pause": "Pause",
+  "Optager": "Recording", "Pause": "Pause", "Tjek mikrofonen": "Check the microphone",
+  "Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.": "The audio file is deleted 14 days after the minutes are put up. The minutes and the transcript are kept.",
   "Optagelsen bruger enhedens mikrofon: læg telefonen eller computeren midt på bordet, og hold siden åben og skærmen tændt, mens I optager. Når I trykker stop, skriver Saga referatet ud fra optagelsen og dagsordenen.":
     "The recording uses the device's microphone: put the phone or computer in the middle of the table, and keep the page open and the screen on while you record. When you press stop, Saga writes the minutes from the recording and the agenda.",
   "Hold siden åben og skærmen tændt - lukker du siden eller låser telefonen, stopper optagelsen.": "Keep the page open and the screen on - if you close the page or lock the phone, the recording stops."
