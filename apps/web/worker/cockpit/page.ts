@@ -40,7 +40,7 @@ nav.desk a:hover{background:var(--soft)}nav.desk a.on{background:var(--card);box
 .avatar{width:38px;height:38px;border-radius:50%;background:var(--lys-clay);color:var(--lys-clay-ink);display:grid;place-items:center;font-weight:600;font-size:13px;text-decoration:none}
 .avatar:hover{filter:brightness(.97)}
 .logout{margin:0}.logout button{background:none;border:0;box-shadow:none;color:var(--muted);font-size:13.5px;font-weight:500;padding:6px 8px;min-height:0;cursor:pointer}.logout button:hover{color:var(--ink);filter:none}
-@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:1060px){.brand b{display:none}nav.desk a{padding:8px 10px}}
+@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:1060px){.brand b{display:none}nav.desk a{padding:8px 10px}}@media (max-width:840px){nav.desk a{padding:8px 8px}.top{gap:14px}}
 nav.tabs{display:none}
 main{max-width:1220px;margin:0 auto;padding:44px 28px 88px;display:grid;gap:20px}
 h1{font:400 clamp(38px,4.8vw,58px)/1.05 var(--serif);margin:0;letter-spacing:-.02em}h2{font:400 24px/1.2 var(--serif);margin:0 0 14px;letter-spacing:-.01em}
@@ -125,7 +125,9 @@ export function layout(base: string, title: string, body: string, options: { sec
   const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Arrangementer"], ["/statistik", "Statistik"]];
   const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
   const here = parent[options.section ?? ""] ?? options.section;
-  const desk = places.map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
+  // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - still there under your initials (Profil), and on the phone's Huset.
+  const tucked = ["/medlemmer", "/statistik"];
+  const desk = places.filter(([path]) => !tucked.includes(path!)).map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
   // On a phone the five labels must fit side by side.
   const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Huset" };
   // The phone's tab bar keeps five places; Posthus, Medlemmer and Statistik are on Overblik and under the initials.
