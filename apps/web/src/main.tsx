@@ -266,7 +266,7 @@ function PublicHome() {
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
   return <SiteHome
     header={<SiteHeader />}
-    soon={soon.length > 0 && <div className="lys-soon lys-rise d4">
+    soon={soon.length > 0 && <div className="lys-soon">
       <p className="lys-kicker">Lige om lidt i Hjerterum</p>
       <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
       <a className="lys-link" href="/events">Hele kalenderen →</a>
