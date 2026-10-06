@@ -100,7 +100,8 @@ describe("the board cockpit", () => {
       topics: [{ title: "Reduceret medlemskab", status: "drøftes", who: ["Lisbeth"], waitsOnJacob: false, note: "Forslag til GF" }],
       document: { latestMeeting: "17/9", missingMinutes: [], dates: [{ date: "2026-10-14", what: "Generalforsamling" }], figures: [], decisions: [{ topic: "Prøveperiode", text: "Gratis prøveperiode til 15. oktober", date: "17/9", replaces: "" }],
         openThreads: [], proposals: [], tasks: [{ who: "Lisbeth", what: "Skriv forslag om reduceret medlemskab", due: "14/10", since: "1/10" }, { who: "Lisbeth", what: "Gammel opgave fra før", due: "", since: "17/9" }], nextAgenda: [] },
-      forJacob: [{ key: "", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" }] };
+      forJacob: [{ key: "", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" },
+        { key: "", kind: "spørgsmål", text: "Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch.", source: "telegram", from: "Gitta", since: "" }] };
     await saveOverview(db, picture.summary, NOW, { data: JSON.stringify(picture), docHash: "x" });
     const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Beslutninger\n- Budgettet er vedtaget\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Alle - Del opslaget - ingen frist aftalt" }, NOW);
@@ -122,6 +123,11 @@ describe("the board cockpit", () => {
     const chair = await (await call("/cockpit/", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     expect(chair).toContain("Svar på: Skal vi svare Thomas Emil?");
     expect(chair).toContain("Skal vi svare Thomas Emil?");
+    // Requested: "Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" /
+    // "Fra Telegram gruppen" - no full stop from Saga's wording, no "gruppen · Gitta".
+    expect(chair).toContain('<li>Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch<span class="ctx">Fra Telegram gruppen</span></li>');
+    expect(chair).not.toContain("Fra gruppen");
+    expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Jacob Hauge") })).text()).toContain("Fra Telegram gruppen</div>");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
     expect(decisions).toContain("Budgettet er vedtaget");
     expect(decisions).toContain("Gratis prøveperiode til 15. oktober");
@@ -217,6 +223,8 @@ describe("the board cockpit", () => {
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
     expect(front).toContain('<span>Huset</span>');
+    // Requested: "Man skal kunne logge ud af sin admin" - the log-out button sits in the header on every page, not only under Profil.
+    expect(front).toContain('<form method="post" action="/cockpit/logout" class="logout"><button>Log ud</button></form>');
     const more = await (await call("/cockpit/mere", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     for (const text of ["/cockpit/status", "/cockpit/arkiv", "Logget ind som Jacob Hauge", 'action="/cockpit/logout"']) expect(more).toContain(text);
     const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
@@ -398,6 +406,8 @@ describe("the board cockpit", () => {
     expect(important).toContain("Lokaleleje");
     // "Ved hver mail skal der stå hvor længe afsenderen har ventet på svar."
     expect(important).toContain('<span class="wait">Ventet 1 time</span>');
+    // Quiet: no coloured pills, and a small "Besvaret" button.
+    expect(important).not.toMatch(/class="kind"[^>]*>[^<]*<\/span><span class="line"/);
     expect(important).not.toContain("Ugens tilbud");
     expect(await (await go("/")).text()).toContain("1 vigtig mail</strong> venter på svar i team@");
     const form = new FormData(); form.append("id", String(rent)); form.append("done", "1");
@@ -688,5 +698,100 @@ describe("the front page's lead", () => {
     expect(lead("**Bestyrelsen**\n- Referatet er godkendt.\n\n**Medlemmer**\n- Ca. 165 medlemmer.")).toBe("");
     expect(lead("**Bestyrelsen:**\nEn rolig uge med god energi.\n- Punkt")).toBe("En rolig uge med god energi.");
     expect(lead("Det **vigtigste** er budgettet.")).toBe("Det **vigtigste** er budgettet.");
+  });
+});
+
+// Requested: a member's event photo and files are for the board to see when it approves the event.
+describe("the board looks at a member's event photo and files", () => {
+  it("shows them on the approval list, streams them to the board only, and 404s for an unknown file", async () => {
+    const { db, env, call, login } = await setup();
+    const objects = new Map<string, ArrayBuffer>();
+    env.EVENT_MEDIA = {
+      put: async (key, value) => { objects.set(key, value); },
+      get: async key => objects.has(key) ? { body: new Response(objects.get(key)!).body!, httpMetadata: {} } : null,
+      delete: async key => { objects.delete(key); }
+    };
+    await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, description, starts_at_ms, ends_at_ms, fee_minor, ticket_price_minor, payout_clerk_user_id, created_at_ms, updated_at_ms, review_status)
+      VALUES ('user_a', 'Mette', 'mette@example.com', 'Lydbad', 'Et roligt event', ?, ?, 0, 0, 'user_a', 1, 1, 'needs_board')`).bind(NOW + 86_400_000, NOW + 90_000_000).run();
+    const bookingId = Number((await db.prepare("SELECT id FROM room_bookings").first<{ id: number }>())!.id);
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+    const pdf = new TextEncoder().encode("%PDF-1.7\n");
+    const { storeEventFile } = await import("../event-files.js");
+    const cover = await storeEventFile(db, env.EVENT_MEDIA, { bookingId, userId: "user_a", kind: "cover", name: "forside.jpg", bytes: jpeg.buffer, now: NOW });
+    const program = await storeEventFile(db, env.EVENT_MEDIA, { bookingId, userId: "user_a", kind: "file", name: "program.pdf", bytes: pdf.buffer, now: NOW });
+    if (!cover.ok || !program.ok) throw new Error("not stored");
+
+    const session = await login();
+    const as = await memberCookies(session);
+    const page = await (await call("/cockpit/arrangementer", { cookie: as("Lisbeth") })).text();
+    expect(page).toContain(`/cockpit/arrangementer/fil/${cover.file.id}`);
+    expect(page).toContain("program.pdf");
+
+    const photo = await call(`/cockpit/arrangementer/fil/${cover.file.id}`, { cookie: as("Lisbeth") });
+    expect(photo.status).toBe(200);
+    expect(photo.headers.get("content-type")).toBe("image/jpeg");
+    expect(photo.headers.get("content-disposition")).toContain("inline");
+    expect(photo.headers.get("x-content-type-options")).toBe("nosniff");
+    const file = await call(`/cockpit/arrangementer/fil/${program.file.id}`, { cookie: as("Lisbeth") });
+    expect(file.headers.get("content-disposition")).toContain("attachment");
+
+    expect((await call(`/cockpit/arrangementer/fil/${cover.file.id}`)).status).toBe(401);
+    expect((await call("/cockpit/arrangementer/fil/9999", { cookie: as("Lisbeth") })).status).toBe(404);
+  });
+});
+
+// Requested by the chair as super admin: "what active admin members are there" - on a page only the chair opens.
+describe("Administratorer", () => {
+  it("is for the chair only: she sees the board and the admin e-mails, the others are told no", async () => {
+    const { call, login, env } = await setup({ ALLOWED_EMAILS: "jacob@example.dk" });
+    env.CLERK_SECRET_KEY = "";
+    const session = await login();
+    const as = await memberCookies(session);
+    const chair = await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") });
+    expect(chair.status).toBe(200);
+    const page = await chair.text();
+    expect(page).toContain("<h1>Administratorer</h1>");
+    for (const name of ["Jacob Hauge", "Lisbeth", "Gitta"]) expect(page).toContain(name);
+    expect(page).toContain("formand");
+    expect(page).toContain("jacob@example.dk");
+    expect(page).toContain("Clerk er ikke koblet");
+    const other = await call("/cockpit/administratorer", { cookie: as("Lisbeth") });
+    expect(other.status).toBe(403);
+    expect(await other.text()).toContain("kun for formanden");
+    expect((await call("/cockpit/administratorer")).status).toBe(401);
+    // The link is on Medlemmer, for the chair only.
+    expect(await (await call("/cockpit/medlemmer", { cookie: as("Jacob Hauge") })).text()).toContain("/administratorer");
+    expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
+  });
+});
+
+// Requested by the chair as super admin: "Lad mig også se chatudskrift".
+describe("Samtaler med Saga", () => {
+  it("is for the chair only, shows what each member asked and what Saga answered, and is announced in the chat window", async () => {
+    const { call, login, db } = await setup();
+    await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES ('Lisbeth', 'Hvad koster en leje <b>?', 'Se **priserne**.', ?)").bind(NOW - 3600_000).run();
+    await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES ('Gitta', 'Hvornår er næste møde?', 'Den 15. oktober.', ?)").bind(NOW - 7200_000).run();
+    const session = await login();
+    const as = await memberCookies(session);
+    const chair = await call("/cockpit/samtaler", { cookie: as("Jacob Hauge") });
+    expect(chair.status).toBe(200);
+    const page = await chair.text();
+    expect(page).toContain("<h1>Samtaler med Saga</h1>");
+    expect(page).toContain("Hvad koster en leje &lt;b&gt;?");
+    expect(page).toContain("Se <strong>priserne</strong>.");
+    expect(page).toContain("Den 15. oktober.");
+    const gitta = await (await call("/cockpit/samtaler?medlem=Gitta", { cookie: as("Jacob Hauge") })).text();
+    expect(gitta).toContain("Den 15. oktober.");
+    expect(gitta).not.toContain("Se <strong>priserne</strong>.");
+    const download = await call("/cockpit/samtaler?udskrift=1", { cookie: as("Jacob Hauge") });
+    expect(download.headers.get("content-disposition")).toContain("samtaler-med-saga.txt");
+    expect(await download.text()).toContain("Lisbeth: Hvad koster en leje <b>?");
+    const other = await call("/cockpit/samtaler", { cookie: as("Lisbeth") });
+    expect(other.status).toBe(403);
+    expect(await other.text()).not.toContain("Den 15. oktober.");
+    expect((await call("/cockpit/samtaler")).status).toBe(401);
+    // The chair finds it from Administratorer; everyone is told in the chat window that the chair can read along.
+    expect(await (await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") })).text()).toContain('href="/cockpit/samtaler"');
+    expect(await (await call("/cockpit/", { cookie: as("Lisbeth") })).text()).toContain("formanden kan læse samtalen");
   });
 });

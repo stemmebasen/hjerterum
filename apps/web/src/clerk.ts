@@ -1,3 +1,5 @@
+import { CLERK_LOCALIZATION } from "./clerk-localization";
+
 export type ClerkSession = {
   getToken(options?: { skipCache?: boolean }): Promise<string | null>;
 };
@@ -89,6 +91,7 @@ async function initializeClerk(): Promise<ClerkBrowser | null> {
   if (!window.Clerk) throw new Error("clerk_global_missing");
   await window.Clerk.load({
     ui: { ClerkUI: window.__internal_ClerkUICtor },
+    localization: CLERK_LOCALIZATION,
     appearance: { variables: {
       fontFamily: "Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif",
       colorPrimary: "var(--profile-button)",

@@ -1,3 +1,5 @@
+import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
+import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import type { D1Database } from "../db.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -27,6 +29,7 @@ import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteD
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
+import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
@@ -392,12 +395,29 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
 
   // Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - the
   // platform's own members, as MembershipWorks shows them (memberPages.ts, member-admin.ts).
+  // Requested by the chair as super admin: which admin members there are and who is active (cockpit/admins.ts). Chair only.
+  if (path === "/administratorer" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
+    return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
+  }
+  // Requested by the chair: "Lad mig også se chatudskrift" - what the board's members asked Saga (cockpit/samtaler.ts). Chair only.
+  if (path === "/samtaler" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    const member = (url.searchParams.get("medlem") ?? "").slice(0, 80);
+    const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    const transcript = await sagaTranscript(db, { who: member || undefined, q });
+    if (url.searchParams.get("udskrift")) return new Response(transcriptText(transcript.conversations, now), { headers: { ...HEADERS, "content-type": "text/plain; charset=utf-8", "content-disposition": 'attachment; filename="samtaler-med-saga.txt"' } });
+    return html(samtalerPage(base, who, { transcript, member, q, nowMs: now }));
+  }
   if (path === "/medlemmer" && request.method === "GET") {
     const q = (url.searchParams.get("q") ?? "").slice(0, 100);
     const asked = url.searchParams.get("status") ?? "alle";
     const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
     const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
-    return html(membersListPage(base, who, { members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+    return html(membersListPage(base, who, { chair: Boolean(who && members.chair && who === members.chair), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
   }
   if (path === "/medlemmer/giv" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
@@ -569,6 +589,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     return redirect(`${base}/beslutninger?besked=${ok ? "tilbage" : "afgjort"}`);
   }
 
+  // A member's event photo or file, for the board to look at before approving (worker/event-files.ts).
+  const eventFile = /^\/arrangementer\/fil\/(\d+)$/.exec(path);
+  if (eventFile && request.method === "GET") {
+    const target = env.EVENT_MEDIA ? await fileForDownload(db, Number(eventFile[1])) : null;
+    const object = target && env.EVENT_MEDIA ? await env.EVENT_MEDIA.get(target.r2_key) : null;
+    if (!target || !object) return html(notFound(base, who), 404);
+    return new Response(object.body, { headers: { "content-type": target.content_type,
+      "content-disposition": `${target.kind === "cover" ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(target.filename)}`,
+      "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; img-src 'self'; sandbox" } });
+  }
+
   if (path === "/arrangementer" && request.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
     const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;
@@ -579,7 +610,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       eventsForReview(db, now), openDrafts(db), fixedTeachers(db)]);
     const NOTICES: Record<string, string> = { godkendt: "Eventet er godkendt og vises nu offentligt.", afvist: "Eventet er afvist og vises ikke.", fast: "Listen over faste undervisere er opdateret.",
       fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
-    const desk = deskSection(base, { review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
+    const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
+    const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
   }
 
