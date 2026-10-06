@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import config from "../config-entry.js";
 import { handleCockpitRequest } from "./handler.js";
+import { translateHtml } from "./i18n.js";
+import { recorderCard } from "./recorder.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPosted, queueMinutes, saveBoardMessage, saveOverview, updateMinutes } from "../saga/store.js";
 import { itemKey } from "../saga/picture.js";
@@ -264,6 +266,54 @@ describe("the board cockpit", () => {
     expect(after).toContain("Saga skriver referatet");
     expect(after).not.toContain("Optagelse af dette møde");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<option value="2026-09-17">torsdag den 17. september 2026 · saga skriver referatet</option>');
+  });
+
+  // Requested: "Er det muligt at bygge en optag lyd-funktion ind, som kan optage møderne?" - the recorder is on the meeting's page; what it records goes
+  // the same way as an uploaded file: R2, Saga's transcription, the minutes.
+  it("has a recorder on the page of a meeting that is being held, and takes what it records like any uploaded recording", async () => {
+    const { db, call, form, login, recordings } = await setup();
+    const session = await login();
+    await call("/cockpit/moder", { method: "POST", cookie: session, body: form({ meeting_date: "2026-10-01", start_time: "13:30", agenda: "Økonomi" }) });
+    await call("/cockpit/moder", { method: "POST", cookie: session, body: form({ meeting_date: "2026-10-22", agenda: "Eventuelt" }) });
+    const today = await db.prepare("SELECT id FROM board_meetings WHERE meeting_date = '2026-10-01'").first<{ id: number }>();
+    const later = await db.prepare("SELECT id FROM board_meetings WHERE meeting_date = '2026-10-22'").first<{ id: number }>();
+
+    const page = await (await call(`/cockpit/moder/${today!.id}`, { cookie: session })).text();
+    expect(page).toContain(`data-recorder data-action="/cockpit/upload" data-date="2026-10-01" data-meeting="${today!.id}"`);
+    expect(page).toContain("Optag mødet her");
+    // Nothing starts without the tick that everyone knows the meeting is recorded.
+    expect(page).toContain('<input type="checkbox" data-rec-consent>');
+    expect(page).toContain('<button type="button" data-rec-start disabled>● Start optagelse</button>');
+    expect(page).toContain("hjerterum-recorder");
+    expect(await (await call(`/cockpit/moder/${later!.id}`, { cookie: session })).text()).not.toContain("data-recorder");
+    // On the list of meetings: for the meeting planned today.
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`data-date="2026-10-01" data-meeting="${today!.id}"`);
+
+    // What the recorder sends: a webm (Chrome, Firefox) or m4a (Safari) file, with the meeting it was recorded for.
+    const sent = await call("/cockpit/upload", { method: "POST", cookie: session,
+      body: form({ recording: new File([new Uint8Array([26, 69, 223, 163])], "moede-2026-10-01.webm", { type: "audio/webm" }), meeting_choice: "2026-10-01", meeting_id: String(today!.id) }) });
+    expect(sent.headers.get("location")).toBe(`/cockpit/moder/${today!.id}?upload=1`);
+    expect(await db.prepare("SELECT source, file_name, mime_type, meeting_date, status FROM board_minutes").first()).toEqual({ source: "upload", file_name: "moede-2026-10-01.webm", mime_type: "audio/webm", meeting_date: "2026-10-01", status: "queued" });
+    const [key] = [...recordings.stored.keys()];
+    expect(key).toMatch(/^cockpit\/2026-10-01\/[0-9a-f-]+\.webm$/);
+    expect(recordings.stored.get(key!)?.type).toBe("audio/webm");
+    // Queued: the recorder is gone from the page, as the upload form is.
+    expect(await (await call(`/cockpit/moder/${today!.id}?upload=1`, { cookie: session })).text()).not.toContain("data-recorder");
+    // With no meeting planned for the day, the recording is just for the day.
+    const alone = await call("/cockpit/upload", { method: "POST", cookie: session,
+      body: form({ recording: new File([new Uint8Array([0, 0, 0, 24])], "moede-2026-09-30.m4a", { type: "audio/mp4" }), meeting_date: "2026-09-30" }) });
+    expect(alone.headers.get("location")).toBe("/cockpit/moder?upload=1");
+  });
+
+  it("has the recorder in English too - the page and the messages in its script", () => {
+    const english = translateHtml(recorderCard("", { date: "2026-10-01", meetingId: 4 }));
+    expect(english).toContain("Record the meeting here");
+    expect(english).toContain("Everyone taking part knows the meeting is being recorded.");
+    expect(english).toContain("● Start recording");
+    expect(english).toContain("Stop and make the minutes");
+    expect(english).toContain("The microphone was cut off (for example because the screen locked).");
+    expect(english).toContain("This browser cannot record here.");
+    expect(english).not.toContain("Mikrofonen");
   });
 
   // Requested: "Og så laves der et dokument pr referat - ok? Her skal vi lave et pænt layout og alt med dagsorden i toppen."

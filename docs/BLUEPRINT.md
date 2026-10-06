@@ -194,6 +194,14 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - The calendar carries only the host's name, so mails and phone numbers come from elsewhere, looked up by the exact name (not case): the website's teacher register, bookings, the fixed teachers, mails to team@ (sender), members and the MembershipWorks import (`contactsByName`). The list says "Mangler kontakt" only when none of them knows anything - the same places the teacher's own page looks. The board's saved contact always wins over what is found.
 - Forslag til kontakt (`/arrangementer/undervisere/forslag`, linked from the list when someone lacks contact): for each teacher, the mail or phone number they lack is looked for in the senders of mails to team@ (a phone number only from the text of mails the teacher wrote), the website's teacher register, members and the MembershipWorks import - by first and last name, ignoring capitals, accents, æ/ø and middle initials (`looseKey`). Two teachers with the same first and last name are left out. Nothing is saved by itself: each suggestion shows where it was found and is accepted (**Brug**, fills only what is empty) or declined (**Nej tak**, kept in `cockpit_teacher_declined` so it does not return). No AI is involved - every value is one that stands in the data.
 
+### Recording the meetings (2026-10-06)
+
+- Upload, transcription (ElevenLabs, speakers told apart), minutes along the agenda, approval and the ping to the board already existed for an uploaded file. New: **Optag mødet her** on a meeting's page (when it is held or today) and on Møder, which records with the device's microphone in the browser (`cockpit/recorder.ts`, MediaRecorder) and sends the file to the same `POST /upload`.
+- Consent first: the start button is off until the member has ticked that everyone taking part knows the meeting is recorded.
+- 32 kbit/s voice (Opus in Chrome/Firefox, AAC in Safari): about 14 MB an hour; the recorder stops and sends at 55 MB (Saga's limit is 60 MB). Pause/resume, a timer, and the screen is kept awake (Wake Lock).
+- Nothing is lost with the page: the recording is also written to the browser's IndexedDB every 10 seconds. A closed page, a crash, no network or a logged-out session leaves it there; the page then offers *Send nu*, *Hent filen* and *Slet*. If the microphone is cut off (a phone that locks its screen), what exists is kept and not sent by itself.
+- Only the device's microphone is recorded. A meeting on Meet/Zoom is heard only through a speaker the microphone can pick up.
+
 ### Payments
 
 - Payment happens at signup/booking according to the agreed flow.

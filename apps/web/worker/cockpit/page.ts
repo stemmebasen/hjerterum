@@ -1,4 +1,5 @@
 import { markdownToHtml } from "../saga/markdown.js";
+import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { APPROVED_BADGE, VOTES_STYLE, type VoteBlocks } from "./votes.js";
 import { DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
@@ -444,7 +445,7 @@ ${foundMeetings(base, data.found, data.today)}</div>
 <div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
 <td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
 <td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
-<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? uploadForm(base, data.past, data.today) : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
+<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
 }
 
 export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
@@ -452,7 +453,7 @@ export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedM
   const held = m.meeting_date <= data.today;
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
-${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
+${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p></form>` : ""}`;
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
