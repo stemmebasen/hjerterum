@@ -29,6 +29,7 @@ import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
+import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
@@ -649,6 +650,24 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/arrangementer/undervisere" && request.method === "GET") {
     const sort = teacherSort(url.searchParams.get("sorter"));
     return html(teachersPage(base, { teachers: await listTeachers(db, now, sort), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), sort, nowMs: now, who }));
+  }
+  // "Ja" to suggestions for teachers' mail and phone, accepted one by one (cockpit/teacherSuggestions.ts).
+  if (path === "/arrangementer/undervisere/forslag") {
+    const SUGGESTION_NOTICE: Record<string, string> = { brugt: "Gemt som underviserens kontakt.", afvist: "Forslaget er afvist og kommer ikke igen." };
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      const key = teacherKey(String(form?.get("key") ?? "")), kind = String(form?.get("kind") ?? ""), value = String(form?.get("value") ?? "");
+      const teacher = key ? (await listTeachers(db, now)).find(t => t.key === key) : undefined;
+      if (!teacher) return redirect(`${base}/arrangementer/undervisere/forslag`);
+      const accept = form?.get("action") === "accept";
+      const done = accept ? await acceptSuggestion(db, teacher, kind, value, who, now) : await declineSuggestion(db, key, kind, value, who, now);
+      return redirect(`${base}/arrangementer/undervisere/forslag${done ? `?besked=${accept ? "brugt" : "afvist"}` : ""}`);
+    }
+    if (request.method === "GET") {
+      const teachers = await listTeachers(db, now);
+      return html(suggestionsPage(base, { suggestions: await contactSuggestions(db, teachers), missing: teachers.filter(t => !t.hasContact).length, notice: SUGGESTION_NOTICE[url.searchParams.get("besked") ?? ""] ?? "", who }));
+    }
   }
   const teacherPath = /^\/arrangementer\/undervisere\/([^/]+)$/.exec(path);
   if (teacherPath) {
