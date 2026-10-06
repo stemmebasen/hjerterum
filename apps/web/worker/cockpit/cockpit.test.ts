@@ -808,6 +808,10 @@ describe("Samtaler med Saga", () => {
     expect((await call("/cockpit/samtaler")).status).toBe(401);
     // The chair finds it from Administratorer; everyone is told in the chat window that the chair can read along.
     expect(await (await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") })).text()).toContain('href="/cockpit/samtaler"');
-    expect(await (await call("/cockpit/", { cookie: as("Lisbeth") })).text()).toContain("formanden kan læse samtalen");
+    // Requested: the chat window says only "Chat med Saga".
+    const widget = await (await call("/cockpit/", { cookie: as("Lisbeth") })).text();
+    expect(widget).toContain("<strong>Chat med Saga</strong>");
+    expect(widget).not.toContain("Bestyrelsens assistent");
+    expect(widget).not.toContain("kan læse samtalen");
   });
 });

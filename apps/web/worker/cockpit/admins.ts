@@ -117,7 +117,7 @@ export function adminsPage(base: string, who: string | null, d: { cockpit: Cockp
   return layout(base, "Administratorer", `<main class="adm"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Administratorer</h1>
 <p>Hvem der har adgang til admin, og hvem der har været aktive de seneste ${ACTIVE_DAYS} dage. Kun for formanden.</p></div>
 <section class="panel"><header><h2>Bestyrelsen i cockpittet<span class="count">${active(d.cockpit)} aktive af ${d.cockpit.length}</span></h2><p>Alle, der har skrevet i bestyrelsens gruppe. "Login aktiveret" er første gang, de brugte deres personlige link fra Saga. "Sidst set" er sidste gang, de brugte et link, spurgte Saga eller arbejdede med en opgave. Det fælles password viser ikke, hvem der er inde.</p></header>${cockpit}</section>
-<section class="panel"><header><h2>Samtaler med Saga</h2><p>Det, bestyrelsens medlemmer har spurgt Saga om, og hvad hun svarede. Medlemmerne kan se i chatten, at du kan læse med.</p></header><a class="more" href="${base}/samtaler">Se samtalerne →</a></section>
+<section class="panel"><header><h2>Samtaler med Saga</h2><p>Det, bestyrelsens medlemmer har spurgt Saga om, og hvad hun svarede.</p></header><a class="more" href="${base}/samtaler">Se samtalerne →</a></section>
 <section class="panel"><header><h2>Admin i medlemsområdet<span class="count">${active(d.area)} aktive af ${d.area.length}</span></h2><p>E-mails, der må åbne admin-siderne på medlem.hjerterum.info. Login og sidste login hentes hos Clerk.</p></header>${area}</section></main>`,
     { section: "/medlemmer", who, style: ADMINS_STYLE });
 }

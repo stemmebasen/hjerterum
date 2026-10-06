@@ -190,7 +190,7 @@ const SAGA_STYLE = `
 .saga{position:fixed;right:18px;bottom:18px;z-index:21;width:min(400px,calc(100vw - 24px));height:min(600px,calc(100vh - 36px));background:var(--card);border:1px solid var(--line);
 border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
 .saga[hidden]{display:none!important}.saga-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.saga-top div{flex:1;line-height:1.25}
-.saga-top button{padding:4px 10px}.saga-log{flex:1;overflow-y:auto;padding:14px;display:grid;gap:10px;align-content:start}
+.saga-top strong{font-size:13px;letter-spacing:.14em;text-transform:uppercase}.saga-top button{padding:4px 10px}.saga-log{flex:1;overflow-y:auto;padding:14px;display:grid;gap:10px;align-content:start}
 .saga-msg{padding:9px 12px;border-radius:12px;max-width:92%;word-break:break-word}.saga-msg p{margin:0 0 6px}.saga-msg p:last-child{margin:0}.saga-msg ul{margin:4px 0;padding-left:18px}
 .saga-msg h1,.saga-msg h2,.saga-msg h3{font-size:14px;margin:6px 0 4px}.saga-a{background:var(--soft)}.saga-u{background:var(--accent);color:var(--accent-ink);justify-self:end;white-space:pre-wrap}
 .saga-wait{color:var(--muted);font-style:italic}.saga-err{color:var(--warn)}.saga-ideas{display:flex;flex-wrap:wrap;gap:6px}
@@ -207,7 +207,7 @@ function sagaChat(base: string, who: string | null): string {
   // Requested: "Hej \"navn\"🙂 Jeg er Saga. Spørg mig f. eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemsskab."
   const first = who?.trim().split(/\s+/)[0] ?? "";
   return `<style>${SAGA_STYLE}</style><button type="button" class="saga-fab" id="saga-open" aria-expanded="false" aria-controls="saga">Spørg Saga</button>
-<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · formanden kan læse samtalen</span></div>
+<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Chat med Saga</strong></div>
 <button type="button" class="ghost" id="saga-new" title="Start en ny samtale">Ny samtale</button><button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
 <div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej${first ? ` ${esc(first)}` : ""} 🙂 Jeg er Saga. Spørg mig f.eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab.</div>
 <div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>
