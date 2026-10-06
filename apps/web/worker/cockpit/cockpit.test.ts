@@ -6,7 +6,7 @@ import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPos
 import { itemKey } from "../saga/picture.js";
 import { STATUTES } from "./statutes.js";
 import { sitePage } from "../../site/redirects.js";
-import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies, personalCookie } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
 
 // Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -763,7 +763,8 @@ describe("Administratorer", () => {
     env.CLERK_SECRET_KEY = "";
     const session = await login();
     const as = await memberCookies(session);
-    const chair = await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") });
+    const chairCookie = await personalCookie("Jacob Hauge", NOW - 1000);
+    const chair = await call("/cockpit/administratorer", { cookie: chairCookie });
     expect(chair.status).toBe(200);
     const page = await chair.text();
     expect(page).toContain("<h1>Administratorer</h1>");
@@ -776,13 +777,20 @@ describe("Administratorer", () => {
     expect(await other.text()).toContain("kun for formanden");
     expect((await call("/cockpit/administratorer")).status).toBe(401);
     // The link is on Medlemmer, for the chair only.
-    expect(await (await call("/cockpit/medlemmer", { cookie: as("Jacob Hauge") })).text()).toContain("/administratorer");
+    expect(await (await call("/cockpit/medlemmer", { cookie: chairCookie })).text()).toContain("/administratorer");
     expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
     // Medlemmer is tucked away from the menu, so the chair finds Administratorer and Samtaler on Profil - and the others do not.
-    const chairProfile = await (await call("/cockpit/profil", { cookie: as("Jacob Hauge") })).text();
+    const chairProfile = await (await call("/cockpit/profil", { cookie: chairCookie })).text();
     expect(chairProfile).toContain('<a href="/cockpit/administratorer">Administratorer →</a>');
     expect(chairProfile).toContain('<a href="/cockpit/samtaler">Samtaler med Saga →</a>');
     expect(await (await call("/cockpit/profil", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
+    // With the shared password anyone can pick the chair's name - so the name alone opens nothing of hers.
+    const picked = await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") });
+    expect(picked.status).toBe(403);
+    expect(await picked.text()).toContain("kræver dit personlige login");
+    expect((await call("/cockpit/samtaler", { cookie: as("Jacob Hauge") })).status).toBe(403);
+    expect(await (await call("/cockpit/medlemmer", { cookie: as("Jacob Hauge") })).text()).not.toContain("/administratorer");
+    expect(await (await call("/cockpit/profil", { cookie: as("Jacob Hauge") })).text()).not.toContain("/administratorer");
   });
 });
 
@@ -794,17 +802,18 @@ describe("Samtaler med Saga", () => {
     await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES ('Gitta', 'Hvornår er næste møde?', 'Den 15. oktober.', ?)").bind(NOW - 7200_000).run();
     const session = await login();
     const as = await memberCookies(session);
-    const chair = await call("/cockpit/samtaler", { cookie: as("Jacob Hauge") });
+    const chairCookie = await personalCookie("Jacob Hauge", NOW - 1000);
+    const chair = await call("/cockpit/samtaler", { cookie: chairCookie });
     expect(chair.status).toBe(200);
     const page = await chair.text();
     expect(page).toContain("<h1>Samtaler med Saga</h1>");
     expect(page).toContain("Hvad koster en leje &lt;b&gt;?");
     expect(page).toContain("Se <strong>priserne</strong>.");
     expect(page).toContain("Den 15. oktober.");
-    const gitta = await (await call("/cockpit/samtaler?medlem=Gitta", { cookie: as("Jacob Hauge") })).text();
+    const gitta = await (await call("/cockpit/samtaler?medlem=Gitta", { cookie: chairCookie })).text();
     expect(gitta).toContain("Den 15. oktober.");
     expect(gitta).not.toContain("Se <strong>priserne</strong>.");
-    const download = await call("/cockpit/samtaler?udskrift=1", { cookie: as("Jacob Hauge") });
+    const download = await call("/cockpit/samtaler?udskrift=1", { cookie: chairCookie });
     expect(download.headers.get("content-disposition")).toContain("samtaler-med-saga.txt");
     expect(await download.text()).toContain("Lisbeth: Hvad koster en leje <b>?");
     const other = await call("/cockpit/samtaler", { cookie: as("Lisbeth") });
@@ -812,7 +821,7 @@ describe("Samtaler med Saga", () => {
     expect(await other.text()).not.toContain("Den 15. oktober.");
     expect((await call("/cockpit/samtaler")).status).toBe(401);
     // The chair finds it from Administratorer; everyone is told in the chat window that the chair can read along.
-    expect(await (await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") })).text()).toContain('href="/cockpit/samtaler"');
+    expect(await (await call("/cockpit/administratorer", { cookie: chairCookie })).text()).toContain('href="/cockpit/samtaler"');
     // Requested: the chat window says only "Chat med Saga".
     const widget = await (await call("/cockpit/", { cookie: as("Lisbeth") })).text();
     expect(widget).toContain("<strong>Chat med Saga</strong>");

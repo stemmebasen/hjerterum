@@ -1,3 +1,4 @@
+import { personSessionValue } from "../cockpit/auth.js";
 import { sessionMemberValue } from "../cockpit/auth.js";
 import { DatabaseSync } from "node:sqlite";
 import type { D1Database, D1PreparedStatement } from "../db.js";
@@ -81,4 +82,9 @@ export async function memberCookie(session: string, name: string, password = "hj
 export async function memberCookies(session: string, names = ["Jacob Hauge", "Lisbeth", "Gitta", "Douglas", "Douglas Smith"]): Promise<(name: string) => string> {
   const made = new Map(await Promise.all(names.map(async n => [n, await memberCookie(session, n)] as const)));
   return name => made.get(name) ?? "";
+}
+
+/** A personal login from Saga's link (cockpit/auth.ts PERSON_COOKIE): who the member is does not depend on what they pick - unlike the shared password. */
+export async function personalCookie(name: string, nowMs: number, botToken = "bot-token"): Promise<string> {
+  return `hjerterum_cockpit_person=${await personSessionValue(botToken, name, nowMs)}`;
 }

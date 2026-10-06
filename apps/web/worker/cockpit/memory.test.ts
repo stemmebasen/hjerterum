@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { allMemories, applyMemory, forget, MAX_BOARD_MEMORIES, memorySection, remember } from "./memory.js";
 import { COCKPIT_SYSTEM } from "../saga/prompts.js";
-import { BOARD, deps, fakeServices, memberCookie, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, memberCookie, OWNER, personalCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { saveBoardMessage } from "../saga/store.js";
 
 // Requested by the chair: "Og vigtigt at Saga lærer af vores samtaler!" and "Hvis Saga tager fejl, så fortæl hende det".
@@ -113,10 +113,14 @@ describe("Saga learning in the cockpit", () => {
     const [house, lisbeths] = (await allMemories(db)).sort((a, b) => a.id - b.id).map(m => m.id);
     await call("/hukommelse/glem", { cookie: await as("Gitta"), form: { id: String(house) } });
     expect(await allMemories(db)).toHaveLength(2);
-    const chair = await (await call("/hukommelse", { cookie: await as("Jacob Hauge") })).text();
-    expect(chair).toContain("Lisbeth vil have korte svar");
-    await call("/hukommelse/glem", { cookie: await as("Jacob Hauge"), form: { id: String(lisbeths) } });
+    // The chair's name picked with the shared password is just a member; with her personal login she sees and can forget everything.
+    expect(await (await call("/hukommelse", { cookie: await as("Jacob Hauge") })).text()).not.toContain("Lisbeth vil have korte svar");
     await call("/hukommelse/glem", { cookie: await as("Jacob Hauge"), form: { id: String(house) } });
+    expect(await allMemories(db)).toHaveLength(2);
+    const chairCookie = await personalCookie("Jacob Hauge", NOW - 1000);
+    expect(await (await call("/hukommelse", { cookie: chairCookie })).text()).toContain("Lisbeth vil have korte svar");
+    await call("/hukommelse/glem", { cookie: chairCookie, form: { id: String(lisbeths) } });
+    await call("/hukommelse/glem", { cookie: chairCookie, form: { id: String(house) } });
     expect(await allMemories(db)).toHaveLength(0);
     expect((await call("/hukommelse")).status).toBe(401);
   });

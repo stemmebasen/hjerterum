@@ -334,7 +334,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   }
 
   const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: Boolean(who && members.chair && who === members.chair),
+  // The chair's own pages (who the board's members are and what they asked Saga) need the personal login from Saga: with the shared
+  // password anyone can pick any name, so the name alone proves nothing.
+  const chairOnly = () => html(problem(base, who, members.chair && who === members.chair
+    ? "Siden er kun for formanden og kræver dit personlige login: skriv /login til Saga på Telegram, og åbn linket." : "Siden er kun for formanden."), 403);
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: chairSignedIn,
     responsibilities: who ? (await responsibilities(db)).get(who) ?? "" : "", saved: url.searchParams.get("ansvar") === "gemt" }));
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" (data.ts responsibilities).
   if (path === "/profil/ansvar" && request.method === "POST") {
@@ -412,14 +416,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested by the chair as super admin: which admin members there are and who is active (cockpit/admins.ts). Chair only.
   if (path === "/administratorer" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    if (!chairSignedIn) return chairOnly();
     const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
     return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
   }
   // Requested by the chair: "Lad mig også se chatudskrift" - what the board's members asked Saga (cockpit/samtaler.ts). Chair only.
   if (path === "/samtaler" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    if (!chairSignedIn) return chairOnly();
     const member = (url.searchParams.get("medlem") ?? "").slice(0, 80);
     const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
     const transcript = await sagaTranscript(db, { who: member || undefined, q });
@@ -431,7 +435,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const asked = url.searchParams.get("status") ?? "alle";
     const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
     const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
-    return html(membersListPage(base, who, { chair: Boolean(who && members.chair && who === members.chair), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+    return html(membersListPage(base, who, { chair: chairSignedIn, members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
   }
   if (path === "/medlemmer/giv" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
@@ -727,12 +731,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested: "Og vigtigt at Saga lærer af vores samtaler!" - what she remembers, for everyone to see (cockpit/memory.ts).
   if (path === "/hukommelse" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
-    return html(memoryPage(base, who, { memories: await allMemories(db), isChair: Boolean(members.chair && who === members.chair) }));
+    return html(memoryPage(base, who, { memories: await allMemories(db), isChair: chairSignedIn }));
   }
   if (path === "/hukommelse/glem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const id = Number((await request.formData().catch(() => null))?.get("id") ?? 0);
-    if (Number.isSafeInteger(id) && id > 0) await forget(db, id, who, Boolean(members.chair && who === members.chair));
+    if (Number.isSafeInteger(id) && id > 0) await forget(db, id, who, chairSignedIn);
     return redirect(`${base}/hukommelse`);
   }
   if (path === "/saga" && request.method === "POST") {
