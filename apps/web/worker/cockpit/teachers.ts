@@ -16,9 +16,13 @@ export const teacherKey = (name: string) => name.normalize("NFC").toLocaleLowerC
 export type TeacherRow = { key: string; name: string; events: number; first: number | null; last: number | null; upcoming: number; bookings: number; fixed: boolean; hasContact: boolean };
 export type TeacherRecord = { key: string; name: string; email: string | null; phone: string | null; website: string | null; note: string | null; summary: string | null; summary_at_ms: number | null; summary_by: string | null; updated_by: string | null; updated_at_ms: number };
 
-/** Every teacher the system knows, the active ones first. */
-export async function listTeachers(db: D1Database, nowMs: number): Promise<TeacherRow[]> {
-  const [calendar, bookings, fixed, records] = await Promise.all([
+/** Requested: "Kan man vælge mellem flest events og alfabetisk?" */
+export type TeacherSort = "events" | "navn";
+export const teacherSort = (value: string | null | undefined): TeacherSort => value === "navn" ? "navn" : "events";
+
+/** Every teacher the system knows, the active ones first, each group by number of events (the default) or by name. */
+export async function listTeachers(db: D1Database, nowMs: number, sort: TeacherSort = "events"): Promise<TeacherRow[]> {
+  const [calendar, bookings, fixed, records, contacts] = await Promise.all([
     db.prepare(`SELECT MIN(host) AS name, COUNT(*) AS n, MIN(starts_at_ms) AS first, MAX(starts_at_ms) AS last, SUM(CASE WHEN starts_at_ms >= ? THEN 1 ELSE 0 END) AS upcoming
       FROM house_events WHERE host IS NOT NULL AND TRIM(host) <> '' AND removed_at_ms IS NULL GROUP BY LOWER(TRIM(host))`).bind(nowMs)
       .all<{ name: string; n: number; first: number; last: number; upcoming: number }>().then(r => r.results ?? []).catch(() => []),
@@ -26,7 +30,8 @@ export async function listTeachers(db: D1Database, nowMs: number): Promise<Teach
       FROM room_bookings WHERE status = 'scheduled' GROUP BY LOWER(TRIM(teacher_name))`).bind(nowMs)
       .all<{ name: string; n: number; first: number; last: number; upcoming: number }>().then(r => r.results ?? []).catch(() => []),
     db.prepare("SELECT name FROM fixed_teachers").all<{ name: string }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT key, name, email, phone FROM cockpit_teachers").all<{ key: string; name: string; email: string | null; phone: string | null }>().then(r => r.results ?? []).catch(() => [])
+    db.prepare("SELECT key, name, email, phone FROM cockpit_teachers").all<{ key: string; name: string; email: string | null; phone: string | null }>().then(r => r.results ?? []).catch(() => []),
+    contactsByName(db)
   ]);
   const all = new Map<string, TeacherRow>();
   const get = (name: string) => {
@@ -37,11 +42,15 @@ export async function listTeachers(db: D1Database, nowMs: number): Promise<Teach
   };
   const span = (row: TeacherRow, first: number, last: number) => { row.first = row.first === null ? first : Math.min(row.first, first); row.last = row.last === null ? last : Math.max(row.last, last); };
   for (const c of calendar) { const row = get(c.name); row.events += c.n; row.upcoming += c.upcoming; span(row, c.first, c.last); }
-  for (const b of bookings) { const row = get(b.name); row.bookings += b.n; row.events += b.n; row.upcoming += b.upcoming; span(row, b.first, b.last); row.hasContact = true; }
-  for (const f of fixed) { const row = get(f.name); row.fixed = true; row.hasContact = true; }
+  for (const b of bookings) { const row = get(b.name); row.bookings += b.n; row.events += b.n; row.upcoming += b.upcoming; span(row, b.first, b.last); }
+  for (const f of fixed) get(f.name).fixed = true;
   for (const r of records) { const row = get(r.name); if (r.email || r.phone) row.hasContact = true; }
+  // "Hvordan finder systemet ikke selv e-mails?" - the list looks where the teacher's own page looks, so "Mangler kontakt" only stands when nothing is known.
+  for (const row of all.values()) if (contacts.get(row.key)?.length) row.hasContact = true;
   const active = (r: TeacherRow) => isActive(r, nowMs);
-  return [...all.values()].filter(r => r.key).sort((a, b) => Number(active(b)) - Number(active(a)) || (b.last ?? 0) - (a.last ?? 0) || a.name.localeCompare(b.name, "da"));
+  const byName = (a: TeacherRow, b: TeacherRow) => a.name.localeCompare(b.name, "da");
+  const order = sort === "navn" ? byName : (a: TeacherRow, b: TeacherRow) => b.events - a.events || (b.last ?? 0) - (a.last ?? 0) || byName(a, b);
+  return [...all.values()].filter(r => r.key).sort((a, b) => Number(active(b)) - Number(active(a)) || order(a, b));
 }
 
 /** Active: a fixed teacher, something coming, or something in the last year. */
@@ -49,33 +58,47 @@ export const isActive = (r: TeacherRow, nowMs: number) => r.fixed || r.upcoming 
 
 export type KnownContact = { kind: "mail" | "telefon"; value: string; from: string };
 
-/** What the system already knows about how to reach the teacher - by the exact name only. */
-export async function knownContacts(db: D1Database, name: string): Promise<KnownContact[]> {
-  const key = teacherKey(name);
-  const [register, bookings, fixed, mails, members, imported] = await Promise.all([
-    db.prepare("SELECT email, phone FROM teachers WHERE LOWER(TRIM(name)) = LOWER(?) LIMIT 3").bind(name.trim()).all<{ email: string | null; phone: string | null }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT DISTINCT teacher_email AS email FROM room_bookings WHERE LOWER(TRIM(teacher_name)) = LOWER(?)").bind(name.trim()).all<{ email: string }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT email FROM fixed_teachers WHERE LOWER(TRIM(name)) = LOWER(?)").bind(name.trim()).all<{ email: string }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT DISTINCT sender FROM board_mail WHERE LOWER(sender) LIKE ? LIMIT 20").bind(`%${name.trim().toLowerCase().replace(/[%_]/g, "")}%`).all<{ sender: string }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT email, phone FROM members WHERE LOWER(TRIM(full_name)) = LOWER(?) LIMIT 3").bind(name.trim()).all<{ email: string; phone: string | null }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT normalized_email AS email FROM external_memberships WHERE LOWER(TRIM(full_name)) = LOWER(?) LIMIT 3").bind(name.trim()).all<{ email: string }>().then(r => r.results ?? []).catch(() => [])
-  ]);
-  const out: KnownContact[] = [];
-  const add = (kind: KnownContact["kind"], value: string | null | undefined, from: string) => {
-    const v = (value ?? "").trim();
-    if (v && !out.some(c => c.kind === kind && c.value.toLowerCase() === v.toLowerCase())) out.push({ kind, value: v, from });
+/** Every name the system knows as a teacher, lower-cased the way SQLite does it. */
+const TEACHER_NAMES = `SELECT LOWER(TRIM(host)) FROM house_events WHERE host IS NOT NULL AND removed_at_ms IS NULL
+  UNION SELECT LOWER(TRIM(teacher_name)) FROM room_bookings UNION SELECT LOWER(TRIM(name)) FROM fixed_teachers UNION SELECT LOWER(TRIM(name)) FROM cockpit_teachers`;
+
+/** What the system already knows about how to reach the teachers - by the exact name only (not case): the website's register, bookings, the fixed
+ * teachers, mails to team@ and the members. All teachers at once for the list, or just one (`only`) for the teacher's own page. The calendar
+ * itself carries only the host's name, so a mail or a phone number has to come from one of the others. */
+export async function contactsByName(db: D1Database, only?: string): Promise<Map<string, KnownContact[]>> {
+  const one = only?.trim();
+  const rows = <T>(select: string, column: string, tail = "") => {
+    const statement = db.prepare(`${select} WHERE ${one ? `LOWER(TRIM(${column})) = LOWER(?)` : `LOWER(TRIM(${column})) IN (${TEACHER_NAMES})`}${tail}`);
+    return (one ? statement.bind(one) : statement).all<T>().then(r => r.results ?? []).catch(() => [] as T[]);
   };
-  for (const t of register) { add("mail", t.email, "hjemmesidens underviserregister"); add("telefon", t.phone, "hjemmesidens underviserregister"); }
-  for (const b of bookings) add("mail", b.email, "booking i det nye system");
-  for (const f of fixed) add("mail", f.email, "listen over faste undervisere");
-  for (const m of mails) {
-    const shown = m.sender.replace(/<[^>]*>/, "").replace(/"/g, "").trim();
-    if (teacherKey(shown) === key) add("mail", /<([^>]+)>/.exec(m.sender)?.[1] ?? null, "mail til team@");
-  }
-  for (const m of members) { add("mail", m.email, "medlem på hjemmesiden"); add("telefon", m.phone, "medlem på hjemmesiden"); }
-  for (const m of imported) add("mail", m.email, "medlem i MembershipWorks");
+  const like = one ? `%${one.toLowerCase().replace(/[%_]/g, "")}%` : null;
+  const [register, bookings, fixed, mails, members, imported] = await Promise.all([
+    rows<{ name: string; email: string | null; phone: string | null }>("SELECT name, email, phone FROM teachers", "name", one ? " LIMIT 3" : ""),
+    rows<{ name: string; email: string | null }>("SELECT DISTINCT teacher_name AS name, teacher_email AS email FROM room_bookings", "teacher_name"),
+    rows<{ name: string; email: string | null }>("SELECT name, email FROM fixed_teachers", "name"),
+    (like ? db.prepare("SELECT DISTINCT sender FROM board_mail WHERE LOWER(sender) LIKE ? LIMIT 20").bind(like) : db.prepare("SELECT DISTINCT sender FROM board_mail LIMIT 5000"))
+      .all<{ sender: string }>().then(r => r.results ?? []).catch(() => []),
+    rows<{ name: string; email: string | null; phone: string | null }>("SELECT full_name AS name, email, phone FROM members", "full_name", one ? " LIMIT 3" : ""),
+    rows<{ name: string; email: string | null }>("SELECT full_name AS name, normalized_email AS email FROM external_memberships", "full_name", one ? " LIMIT 3" : "")
+  ]);
+  const out = new Map<string, KnownContact[]>();
+  const add = (name: string, kind: KnownContact["kind"], value: string | null | undefined, from: string) => {
+    const v = (value ?? "").trim();
+    if (!v) return;
+    const key = teacherKey(name), list = out.get(key) ?? [];
+    if (!list.some(c => c.kind === kind && c.value.toLowerCase() === v.toLowerCase())) list.push({ kind, value: v, from });
+    out.set(key, list);
+  };
+  for (const t of register) { add(t.name, "mail", t.email, "hjemmesidens underviserregister"); add(t.name, "telefon", t.phone, "hjemmesidens underviserregister"); }
+  for (const b of bookings) add(b.name, "mail", b.email, "booking i det nye system");
+  for (const f of fixed) add(f.name, "mail", f.email, "listen over faste undervisere");
+  for (const m of mails) add(m.sender.replace(/<[^>]*>/, "").replace(/"/g, "").trim(), "mail", /<([^>]+)>/.exec(m.sender)?.[1] ?? null, "mail til team@");
+  for (const m of members) { add(m.name, "mail", m.email, "medlem på hjemmesiden"); add(m.name, "telefon", m.phone, "medlem på hjemmesiden"); }
+  for (const m of imported) add(m.name, "mail", m.email, "medlem i MembershipWorks");
   return out;
 }
+
+export const knownContacts = async (db: D1Database, name: string): Promise<KnownContact[]> => (await contactsByName(db, name)).get(teacherKey(name)) ?? [];
 
 export const teacherRecord = (db: D1Database, key: string) => db.prepare("SELECT * FROM cockpit_teachers WHERE key = ?").bind(key).first<TeacherRecord>().catch(() => null);
 
@@ -150,11 +173,12 @@ const STYLE = `
 .tl a{font-weight:600}.tl .meta{font-size:13px;color:var(--muted);grid-column:1}.tl .badges{grid-row:1/span 2;grid-column:2;display:flex;gap:6px;align-items:center}
 .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent)}.badge.dim{background:var(--soft);color:var(--muted)}
 form.search{display:flex;gap:8px;flex-wrap:wrap}form.search input{flex:1 1 220px}.contact{display:grid;gap:10px}.contact label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.sorting{display:flex;gap:6px;align-items:center;margin:10px 0 0}.sorting a{padding:3px 12px;border-radius:999px;background:var(--soft);color:var(--muted);font-weight:600;text-decoration:none}.sorting a.on{background:var(--tint);color:var(--accent)}
 .known li{font-size:14px}.summary ul{margin:6px 0;padding-left:18px}.evlist li{font-size:14px}`;
 
 const year = (ms: number | null) => ms ? String(new Date(ms).getUTCFullYear()) : "";
 
-export function teachersPage(base: string, data: { teachers: TeacherRow[]; query: string; nowMs: number; who: string | null }): string {
+export function teachersPage(base: string, data: { teachers: TeacherRow[]; query: string; sort: TeacherSort; nowMs: number; who: string | null }): string {
   const q = teacherKey(data.query);
   const shown = q ? data.teachers.filter(t => t.key.includes(q)) : data.teachers;
   const item = (t: TeacherRow) => `<li><a href="${base}/arrangementer/undervisere/${encodeURIComponent(t.key)}">${esc(t.name)}</a>
@@ -163,7 +187,8 @@ export function teachersPage(base: string, data: { teachers: TeacherRow[]; query
   const active = shown.filter(t => isActive(t, data.nowMs)), earlier = shown.filter(t => !isActive(t, data.nowMs));
   return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Arrangementer</a></p><h1>Undervisere</h1>
 <p class="muted">Alle, der har undervist eller holdt arrangementer i Hjerterum - samlet automatisk fra kalenderen (siden 2019), bookingerne i det nye system og listen over faste undervisere.</p>
-<form class="search" method="get" action="${base}/arrangementer/undervisere"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg på navn" aria-label="Søg på navn"><button>Søg</button></form>
+<form class="search" method="get" action="${base}/arrangementer/undervisere"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg på navn" aria-label="Søg på navn">${data.sort === "navn" ? `<input type="hidden" name="sorter" value="navn">` : ""}<button>Søg</button></form>
+<p class="sorting small" role="group" aria-label="Sortér"><span class="muted">Sortér:</span> ${(["events", "navn"] as const).map(s => `<a href="${base}/arrangementer/undervisere?${new URLSearchParams({ ...(data.query ? { q: data.query } : {}), sorter: s })}"${data.sort === s ? ` class="on" aria-current="true"` : ""}>${s === "events" ? "Flest events" : "A–Å"}</a>`).join("")}</p>
 <div class="card"><h2>Aktive <span class="pill">${active.length}</span></h2><p class="small muted">Kommende arrangementer eller aktive det seneste år.</p>${active.length ? `<ul class="tl">${active.map(item).join("")}</ul>` : `<p class="muted">Ingen.</p>`}</div>
 ${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}</main>`,
   { section: "/arrangementer", who: data.who, style: STYLE });

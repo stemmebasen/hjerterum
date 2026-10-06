@@ -29,7 +29,7 @@ import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
-import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teachersPage } from "./teachers.js";
+import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
@@ -647,7 +647,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
 
   // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).
   if (path === "/arrangementer/undervisere" && request.method === "GET") {
-    return html(teachersPage(base, { teachers: await listTeachers(db, now), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), nowMs: now, who }));
+    const sort = teacherSort(url.searchParams.get("sorter"));
+    return html(teachersPage(base, { teachers: await listTeachers(db, now, sort), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), sort, nowMs: now, who }));
   }
   const teacherPath = /^\/arrangementer\/undervisere\/([^/]+)$/.exec(path);
   if (teacherPath) {
