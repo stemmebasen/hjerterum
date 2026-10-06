@@ -33,5 +33,14 @@ describe("Saga's greeting and what she knows about membership", () => {
     expect(system).toContain("tribes@holistisk.org");
     expect(system).toContain("betaling dér er ikke åbnet endnu");
     expect(system).toContain("Svar på det sprog, spørgsmålet er stillet på");
+    // Requested: "Dette er alt for tungt. Her skal hun blot svare varmt og uformel og med et glimt i øjet" (e.g. to "Hvem er jeg?").
+    expect(system).toContain("TONEN ER DET VIGTIGSTE");
+    expect(system).toContain("varm, uformel og lidt drilsk, med et glimt i øjet");
+    expect(system).toContain("Du er Hjerterums skønne formand, Jacob Hauge");
+    expect(system).toContain("ingen interne henvisninger som [T1]");
+    expect(system).toContain("Tilbyd højst én ting ad gangen");
+    // No promise that only the asker sees the answer - the chair can read the conversations.
+    expect(system).not.toContain("Svaret ses kun af den, der spørger");
+    expect(system).not.toContain("Højst 12 linjer, Markdown med punktform, hvor det hjælper");
   });
 });
