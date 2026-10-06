@@ -185,7 +185,7 @@ function sagaChat(base: string, who: string | null): string {
   // Requested: "Hej \"navn\"🙂 Jeg er Saga. Spørg mig f. eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemsskab."
   const first = who?.trim().split(/\s+/)[0] ?? "";
   return `<style>${SAGA_STYLE}</style><button type="button" class="saga-fab" id="saga-open" aria-expanded="false" aria-controls="saga">Spørg Saga</button>
-<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · svaret ses kun af dig</span></div>
+<section class="saga" id="saga" hidden aria-label="Spørg Saga"><div class="saga-top"><div><strong>Saga</strong><br><span class="small muted">Bestyrelsens assistent · formanden kan læse samtalen</span></div>
 <button type="button" class="ghost" id="saga-new" title="Start en ny samtale">Ny samtale</button><button type="button" class="ghost" id="saga-close" aria-label="Luk">Luk</button></div>
 <div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej${first ? ` ${esc(first)}` : ""} 🙂 Jeg er Saga. Spørg mig f.eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab.</div>
 <div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>

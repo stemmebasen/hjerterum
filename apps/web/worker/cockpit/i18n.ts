@@ -39,7 +39,7 @@ export const EN: Record<string, string> = {
     "Close a member's access: their login ends on all devices, and they must ask Saga for a new link.",
   "Sprog / Language": "Language / Sprog", "Dansk": "Dansk", "English": "English",
   // Saga's chat
-  "Spørg Saga": "Ask Saga", "Bestyrelsens assistent · svaret ses kun af dig": "The board's assistant · only you see the answer", "Ny samtale": "New conversation",
+  "Spørg Saga": "Ask Saga", "Bestyrelsens assistent · formanden kan læse samtalen": "The board's assistant · the chair can read the conversation", "Ny samtale": "New conversation",
   "Start en ny samtale": "Start a new conversation", "Luk": "Close", "Send": "Send", "Skriv dit spørgsmål": "Write your question", "Dit spørgsmål": "Your question",
   "Hjælp mig med at opsætte event": "Help me set up an event", "Hvad er mine to-do's?": "What are my to-dos?", "Hvilke beslutninger har vi truffet om medlemskab?": "What have we decided about membership?",
   "Hvilke sager hænger lige nu?": "Which matters are pending right now?", "Hvilke arrangementer er der de næste to uger?": "Which events are on in the next two weeks?",

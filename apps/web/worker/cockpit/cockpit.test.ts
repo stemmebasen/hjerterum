@@ -724,3 +724,34 @@ describe("Administratorer", () => {
     expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
   });
 });
+
+// Requested by the chair as super admin: "Lad mig også se chatudskrift".
+describe("Samtaler med Saga", () => {
+  it("is for the chair only, shows what each member asked and what Saga answered, and is announced in the chat window", async () => {
+    const { call, login, db } = await setup();
+    await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES ('Lisbeth', 'Hvad koster en leje <b>?', 'Se **priserne**.', ?)").bind(NOW - 3600_000).run();
+    await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES ('Gitta', 'Hvornår er næste møde?', 'Den 15. oktober.', ?)").bind(NOW - 7200_000).run();
+    const session = await login();
+    const as = await memberCookies(session);
+    const chair = await call("/cockpit/samtaler", { cookie: as("Jacob Hauge") });
+    expect(chair.status).toBe(200);
+    const page = await chair.text();
+    expect(page).toContain("<h1>Samtaler med Saga</h1>");
+    expect(page).toContain("Hvad koster en leje &lt;b&gt;?");
+    expect(page).toContain("Se <strong>priserne</strong>.");
+    expect(page).toContain("Den 15. oktober.");
+    const gitta = await (await call("/cockpit/samtaler?medlem=Gitta", { cookie: as("Jacob Hauge") })).text();
+    expect(gitta).toContain("Den 15. oktober.");
+    expect(gitta).not.toContain("Se <strong>priserne</strong>.");
+    const download = await call("/cockpit/samtaler?udskrift=1", { cookie: as("Jacob Hauge") });
+    expect(download.headers.get("content-disposition")).toContain("samtaler-med-saga.txt");
+    expect(await download.text()).toContain("Lisbeth: Hvad koster en leje <b>?");
+    const other = await call("/cockpit/samtaler", { cookie: as("Lisbeth") });
+    expect(other.status).toBe(403);
+    expect(await other.text()).not.toContain("Den 15. oktober.");
+    expect((await call("/cockpit/samtaler")).status).toBe(401);
+    // The chair finds it from Administratorer; everyone is told in the chat window that the chair can read along.
+    expect(await (await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") })).text()).toContain('href="/cockpit/samtaler"');
+    expect(await (await call("/cockpit/", { cookie: as("Lisbeth") })).text()).toContain("formanden kan læse samtalen");
+  });
+});
