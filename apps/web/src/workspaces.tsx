@@ -342,11 +342,12 @@ function MemberEvents({
       setMessage(
         code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
+        code === "payments_not_configured" ? "Betalte events kan ikke oprettes endnu, fordi betalingen ikke er koblet til. Sæt billetprisen til 0 kr., så oprettes eventet som gratis." :
         code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :
         code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "En booking er mindst 2 og højst 10 timer." :
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
-        "Eventet kunne ikke gemmes. Tjek tiderne og prøv igen."
+        "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til hjerterum@holistisk.org, hvis det bliver ved."
       );
     } finally {
       setSaving(false);
@@ -396,10 +397,10 @@ function MemberEvents({
                 <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
                 <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
               </div>
-              <label>Lejetype (som i prisberegneren på holistisk.org/lejepriser)
+              <label>Lejetype
                 <select name="bookingType" defaultValue={editing?.bookingType ?? "standard"}>
-                  <option value="standard">Standard - fast pakkepris, ingen medlemsrabat</option>
-                  <option value="reduced">Reduceret pris - medlemmer betaler mindre end ikke-medlemmer</option>
+                  <option value="standard">Standard - fast pris, ingen medlemsrabat</option>
+                  <option value="reduced">Reduceret - medlemmer betaler mindre</option>
                   <option value="free">Gratis leje - medlemmer deltager gratis</option>
                 </select>
                 <small>2-10 timer. Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30.</small>
@@ -407,8 +408,10 @@ function MemberEvents({
               <div className="workspace-form-row">
                 <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
                 <label>Billetpris pr. deltager
-                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} />
-                  <small>0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling.</small>
+                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
+                  <small>{payout?.configured === false
+                    ? "Betalte events kan oprettes, når betalingen er koblet til. Indtil da er billetprisen 0 kr. (gratis)."
+                    : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
                 </label>
               </div>
               <div className="workspace-actions">
