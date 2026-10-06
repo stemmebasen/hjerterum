@@ -181,17 +181,17 @@ function MemberOverview({ member, calendar }: { member: Member | null; calendar:
   return (
     <section className="lys-page member-overview">
       <div className="lys-intro">
-        <div className="lys-rise">
+        <div>
           <p className="lys-kicker">Dit Hjerterum</p>
           <h1 className="lys-title">{firstName ? "Hej " + firstName + "." : "Velkommen."}<em>Godt at se dig.</em></h1>
         </div>
-        <div className="member-overview-side lys-rise d2">
+        <div className="member-overview-side">
           <LysArt size="mini" />
           <p>Her har du dit medlemskab, dine tilmeldinger og dine egne events samlet ét sted.</p>
         </div>
       </div>
       {member && (
-        <div className="lys-tiles lys-rise d3">
+        <div className="lys-tiles">
           <div className="lys-tile"><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
             <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/medlemskab">betaling →</a></>}</small></div>
           {benefits && <div className="lys-tile"><span>Tilmeldt</span><b>{registrations.length}</b>
@@ -200,7 +200,7 @@ function MemberOverview({ member, calendar }: { member: Member | null; calendar:
             <small>{awaiting ? awaiting + " afventer godkendelse" : owned.length ? "alle behandlet" : "ingen endnu"}</small></div>}
         </div>
       )}
-      <div className="lys-grid lys-rise d4">
+      <div className="lys-grid">
         {benefits ? (
           <>
             <article className="lys-card">
