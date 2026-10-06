@@ -159,7 +159,7 @@ export const EN: Record<string, string> = {
   "Saga læser arrangementerne, mails til team@, bestyrelsens gruppe og referaterne - hun finder ikke på noget.": "Saga reads the events, mails to team@, the board's group and the minutes - she does not invent anything.",
   "Søg på navn": "Search by name", "Tidligere": "Earlier",
   "Posthus": "Mailbox", "Indbakke": "Inbox", "Vigtige mails, der stadig er ubesvarede": "Important mails still unanswered", "Besvaret": "Answered",
-  "Ingen ubesvarede henvendelser.": "No unanswered enquiries.", "Ingen mails endnu.": "No mails yet.",
+  "Ingen ubesvarede henvendelser.": "No unanswered enquiries.", "Saga tjekker team@ for svar. Har du svaret fra en anden mail eller telefonen, så tryk Besvaret.": "Saga checks team@ for answers. If you answered from another mail or the phone, press Answered.", "Svar kan ikke følges": "Answer cannot be followed", "Intet nyt de seneste to uger.": "Nothing new in the last two weeks.", "Ingen mails endnu.": "No mails yet.",
   "Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.": "Hjerterum's shared mail (team@). On top the important mails still waiting for an answer - below, the whole inbox.",
   "Henvendelser om lokaler, undervisning, arrangementer, medlemskab og samarbejde - fundet af Saga. Tryk Besvaret, når nogen har svaret.": "Enquiries about rooms, teaching, events, membership and collaboration - found by Saga. Press Answered when someone has replied.",
   // Found when going through the pages in English
@@ -217,7 +217,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^arrangementer siden (\d{4})$/, (_, year) => `events since ${year}`],
   [/^Det første i kalenderen var i (\S+) (\d{4}) - og huset er fyldt med liv hver uge\.$/, (_, m, y) => `The first in the calendar was in ${MONTH_NAMES_EN[m as string] ?? m} ${y} - and the house is full of life every week.`],
   [/^Ventet (under en time|\d+ (?:time|timer|dag|dage|uger))$/, (_, t) => `Waited ${t.replace("under en time", "under an hour").replace(/timer?$/, m => m === "time" ? "hour" : "hours").replace(/dage?$/, m => m === "dag" ? "day" : "days").replace("uger", "weeks")}`],
-  [/^Vis alle (\d+) mails$/, "Show all $1 mails"], [/^Se mailen: /, "See the mail: "],
+  [/^Vis alle (\d+) mails$/, "Show all $1 mails"], [/^Ældre end to uger \((\d+)\)$/, "Older than two weeks ($1)"], [/^Se mailen: /, "See the mail: "],
   [/^Møde (?=\d)/, "Meeting "], [/ · har referat$/, " · has minutes"], [/ · fast underviser$/, " · regular teacher"], [/^Fra (?=\d)/, "From "], [/^Skrevet af /, "Written by "],
   [/^Fra MembershipWorks · opdateret (.+)$/, "From MembershipWorks · updated $1"],
   [/^Tallene fra MembershipWorks, senest (.+?)\. Kun tal - aldrig navne eller kontaktoplysninger\.$/, "The figures from MembershipWorks, latest $1. Figures only - never names or contact details."],

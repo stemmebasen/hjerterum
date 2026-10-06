@@ -398,6 +398,8 @@ describe("the board cockpit", () => {
     expect(important).toContain("Lokaleleje");
     // "Ved hver mail skal der stå hvor længe afsenderen har ventet på svar."
     expect(important).toContain('<span class="wait">Ventet 1 time</span>');
+    // Quiet: no coloured pills, and a small "Besvaret" button.
+    expect(important).not.toMatch(/class="kind"[^>]*>[^<]*<\/span><span class="line"/);
     expect(important).not.toContain("Ugens tilbud");
     expect(await (await go("/")).text()).toContain("1 vigtig mail</strong> venter på svar i team@");
     const form = new FormData(); form.append("id", String(rent)); form.append("done", "1");
