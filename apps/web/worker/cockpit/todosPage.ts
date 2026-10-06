@@ -13,7 +13,7 @@ export const TODOS_STYLE = `
 .todo.is-done .what{color:var(--muted);text-decoration:line-through}.todo .x{border:0;background:transparent;color:var(--faint);padding:2px 6px;min-height:0;font-size:18px}
 .add{display:grid;gap:10px;grid-template-columns:1fr 160px 180px auto;align-items:end}.add label{margin:0}
 @media (max-width:760px){.add{grid-template-columns:1fr 1fr}.add label:first-child,.add button{grid-column:1/-1}}
-details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin-top:6px}
+details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin-top:6px}.done-note{margin:14px 0 0}
 .who{display:inline-flex;align-items:center;font-size:12.5px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.3;
 background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,var(--c) 82%,var(--ink));border:0;min-height:0;cursor:pointer}
 .who[aria-pressed=true]{background:var(--c);color:#fff}.who-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
@@ -111,10 +111,13 @@ export function todosPage(base: string, data: TodosData): string {
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
-${done.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}</div>`;
+${done.length ? `<details class="done-list" open><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}
+<p class="small muted done-note">Opgaver, der er klaret, forsvinder automatisk efter syv dage.</p></div>`;
   const everyone = data.everyone ?? [], checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
   const checkOf = (t: Task) => checks.get(taskKey(t));
+  // Requested: "Afkrydsede to-dos bør være i bunden" - what is checked off stands under what is still open, in the order it came.
   const current = everyone.filter(t => { const c = checkOf(t); return !c || now - c.at <= SEVEN_DAYS; });
+  current.sort((a, b) => Number(Boolean(checkOf(a))) - Number(Boolean(checkOf(b))));
   const archived = everyone.filter(t => { const c = checkOf(t); return c && now - c.at > SEVEN_DAYS; });
   const DONE_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
   const move = (t: Task) => { const who = t.who.trim() || EVERYONE, c = checkOf(t);
