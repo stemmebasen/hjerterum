@@ -1,4 +1,5 @@
 import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
+import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import type { D1Database } from "../db.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -399,6 +400,16 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
     const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
     return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
+  }
+  // Requested by the chair: "Lad mig også se chatudskrift" - what the board's members asked Saga (cockpit/samtaler.ts). Chair only.
+  if (path === "/samtaler" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!(members.chair && who === members.chair)) return html(problem(base, who, "Siden er kun for formanden."), 403);
+    const member = (url.searchParams.get("medlem") ?? "").slice(0, 80);
+    const q = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+    const transcript = await sagaTranscript(db, { who: member || undefined, q });
+    if (url.searchParams.get("udskrift")) return new Response(transcriptText(transcript.conversations, now), { headers: { ...HEADERS, "content-type": "text/plain; charset=utf-8", "content-disposition": 'attachment; filename="samtaler-med-saga.txt"' } });
+    return html(samtalerPage(base, who, { transcript, member, q, nowMs: now }));
   }
   if (path === "/medlemmer" && request.method === "GET") {
     const q = (url.searchParams.get("q") ?? "").slice(0, 100);

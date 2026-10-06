@@ -140,6 +140,7 @@ This document is the primary product and migration specification for the new Hje
 ### Administratorer (2026-10-06)
 
 - The chair, as super admin, sees who has admin access and who is active: cockpit → Medlemmer → Administratorer (`/administratorer`, chair only; others get 403). Two lists: the board in the cockpit (everyone who has written in the board's group, with when they last used a personal login link, asked Saga or worked a task; "Adgang lukket" after the chair closed it) and the admin e-mails of the member area (`ALLOWED_EMAILS`, each looked up at Clerk for name and last sign-in). Active means seen within 30 days. The shared cockpit password does not say who is who, so it counts for no one. Read-only.
+- The chair can also read what the board's members asked Saga and what she answered: Administratorer → Samtaler med Saga (`/samtaler`, chair only; others get 403). It reads `cockpit_questions` (cockpit and Matrix, kept 90 days), groups one person's questions less than 30 minutes apart into a conversation, filters by member and word, and downloads as plain text (`?udskrift=1`). Saga's chat window says "formanden kan læse samtalen" so no one asks under a false promise of privacy.
 
 ### Payments
 
