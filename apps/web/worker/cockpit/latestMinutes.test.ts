@@ -3,7 +3,7 @@ import { homePage } from "./home.js";
 
 // Requested: "\"Referatet godkendes med bemærkning om fejl i tidligere referat.\" er ikke vigtigt nok til at stå på forsiden.
 // Overskriften bør være sådan: Vigtigste punkter fra sidste møde / Torsdag den 1. oktober 2026 (Husk at godkende referatet)".
-const page = (unsigned: boolean) => homePage("", { who: "Jacob", isChair: true, today: "2026-10-02", toSign: unsigned ? [{ id: 7 }] : [], tasks: [], todos: [], forChair: [], next: null, found: [],
+const page = (unsigned: boolean) => homePage("", { who: "Jacob", isChair: true, today: "2026-10-02", toSign: unsigned ? [{ id: 7 }] : [], tasks: [], todos: [], forMe: [], next: null, found: [],
   picture: null, summary: null, at: null, events: [], eventsMonth: 0, progress: { working: 0, waiting: 0 }, boardNow: null,
   latest: { id: 7, date: "2026-10-01", approved: 0, members: 5, decisions: ["Referatet godkendes med bemærkning om fejl i tidligere referat.", "Dagsordenen godkendt",
     "Lisbeth er dirigent for generalforsamlingen, medmindre en anden melder sig.", "Der anbefales op til fire suppleanter på generalforsamlingen."] } } as never);
@@ -34,7 +34,7 @@ describe("tasks as instructions", () => {
     expect(imperative("Tjekker nøgler")).toBe("Tjek nøgler");
     expect(imperative("Billeder til GF")).toBe("Billeder til GF");
     expect(imperative("Send mail")).toBe("Send mail");
-    const html = homePage("", { who: "Jacob", isChair: false, today: "2026-10-02", toSign: [], todos: [], forChair: [], next: null, found: [], picture: null, summary: null, at: null,
+    const html = homePage("", { who: "Jacob", isChair: false, today: "2026-10-02", toSign: [], todos: [], forMe: [], next: null, found: [], picture: null, summary: null, at: null,
       events: [], eventsMonth: 0, progress: { working: 0, waiting: 0 }, latest: null, boardNow: null,
       tasks: [{ who: "Jacob", what: "ser på automatisk opsætning af nyhedsbrev i nyt system", due: "", meeting: "2026-10-01", source: "referat" },
         { who: "Jacob", what: "sender preview-link til nyt system til Douglas", due: "", meeting: "2026-10-01", source: "referat" }] } as never);

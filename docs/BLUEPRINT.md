@@ -101,6 +101,12 @@ This document is the primary product and migration specification for the new Hje
 - Each board member writes what they are responsible for, in their own words (at most 600 characters): asked on their front page until it is written (inline form), editable under Profil (`/profil`, `POST /profil/ansvar`; an empty save changes nothing). Stored in `cockpit_responsibilities`.
 - Saga reads them: her knowledge for the cockpit chat and Matrix has an "ANSVARSOMRÅDER I BESTYRELSEN" section, listing who has not written yet, so she can say who a matter concerns and who should be told.
 
+### Each member's own front page (2026-10-06)
+
+- Saga's overview now has two lists: `forJacob` (what waits on the chair, unchanged, shared with Matrix) and `forMembers` (`to`: first names, or `"alle"`, for what concerns other board members or the whole board). She is given ANSVARSOMRÅDER and what each member has ticked off, and told to write `["alle"]` rather than guess. An overview saved before this field existed is made again once.
+- Each member's front page and Opgaver show their own list: the chair's `forJacob` (chair only) plus the `forMembers` items written to them by name or to all, minus what they have ticked off. Ticking is per member (`cockpit_saga_done`); the chair's own list is still ticked through `board_owner_done` so Matrix follows.
+- Under "Hej <name>" a line in the member's own numbers ("Der venter 3 ting på dig, og én har frist i dag. Du har 1 referat til godkendelse."), and the responsibilities they wrote, with a link to edit.
+
 ### Public site
 
 - Preserve useful Hjerterum content and established URLs where appropriate.

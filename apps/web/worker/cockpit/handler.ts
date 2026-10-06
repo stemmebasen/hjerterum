@@ -1,6 +1,7 @@
 import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import type { D1Database } from "../db.js";
+import type { BoardPicture } from "../saga/picture.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
@@ -10,7 +11,7 @@ import { cookie, loginBlocked, passwordMatches, PERSON_COOKIE, PERSON_DAYS, pers
 import { linkMember, signedOutAfter, signOutMember, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, removeTaskFor, responsibilities, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addTodo, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -144,6 +145,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   const personal = person && person.issuedMs > await signedOutAfter(db, person.member) ? person.member : null;
   if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) return login("", shared || botLink ? 401 : 503);
   const members = await boardMembers(env, db);
+  // What Saga has for this member: the chair's own list (the chair only), and what she wrote to them by name or to all.
+  const sagaFor = async (picture: BoardPicture | null) => !who ? [] : [
+    ...(who === members.chair ? currentForChair(picture?.forJacob ?? []) : []), ...currentForChair(await sagaItemsFor(db, picture, who))];
   const saved = jar.get(WHO_COOKIE) ?? null;
   // A personal login is that member, and stays so; with the shared password you say who you are - once per login
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
@@ -180,7 +184,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const approvals = latest ? (await signoffs(db, latest.id)).filter(x => x.status === "approved").length : 0;
     // Saga's own texts in English, when she has translated them.
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
-    return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forChair: isChair ? currentForChair(picture?.forJacob ?? []) : [], needsResponsibilities: Boolean(who) && !(await responsibilities(db)).has(who!),
+    const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
+    return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities, ...(ownResponsibilities ? { responsibilities: ownResponsibilities } : {}),
       next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -527,13 +532,21 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       // several places (the minutes, the minutes document, Saga's list, your own); "also" carries the others.
       const lines = [[field("kind", 10), field("id", 400)], ...String(form?.get("also") ?? "").split(/\r?\n/).map(entry => entry.trim()).filter(Boolean).slice(0, 12)
         .map(entry => { const at = entry.indexOf(":"); return [entry.slice(0, at), entry.slice(at + 1, at + 401)]; })].filter(([kind, id]) => kind && id);
-      const sagaItem = async (id: string) => (who === members.chair ? ((await boardPicture(db, now)).picture?.forJacob ?? []).find(f => f.key === id) : undefined);
+      // The chair's own list is the one Matrix shows too (chairTasks.ts); what Saga wrote to a member by name, or to all, is ticked off per member.
+      const me = who;
+      const markSaga = async (id: string) => {
+        const { picture } = await boardPicture(db, now);
+        const own = me === members.chair ? (picture?.forJacob ?? []).find(f => f.key === id) : undefined;
+        if (own) return markOwnerDone(db, own.key, own.text, now);
+        const item = (await sagaItemsFor(db, picture, me)).find(f => f.key === id);
+        if (item) await markMemberDone(db, me, item.key, item.text, now);
+      };
       if (path === "/opgaver/afkryds") {
         const done = field("done", 1) === "1";
         for (const [kind, id] of lines) {
           if (kind === "punkt") { if (/^\d+$/.test(id!)) await setTodoDone(db, Number(id), who, done, now); }
           // Saga's questions and tasks for the chair - the same list Matrix shows him (chairTasks.ts).
-          else if (kind === "saga") { const item = done ? await sagaItem(id!) : undefined; if (item) await markOwnerDone(db, item.key, item.text, now); }
+          else if (kind === "saga") { if (done) await markSaga(id!); }
           else if (kind === "opgave") await setTaskChecked(db, who, id!, done, now);
         }
         return redirect(`${base}/opgaver`);
@@ -542,7 +555,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (path === "/opgaver/fjern" || path === "/opgaver/slet") {
         for (const [kind, id] of path === "/opgaver/slet" ? [["punkt", field("id", 12)]] : lines) {
           if (kind === "punkt") { if (/^\d+$/.test(id!)) await removeTodo(db, Number(id), who); }
-          else if (kind === "saga") { const item = await sagaItem(id!); if (item) await markOwnerDone(db, item.key, item.text, now); }
+          else if (kind === "saga") await markSaga(id!);
           else if (kind === "opgave") await removeTaskFor(db, who, id!, now);
         }
         return redirect(`${base}/opgaver`);
@@ -554,7 +567,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const sentTo = url.searchParams.get("til");
     const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
-    const saga = who === members.chair ? currentForChair(picture?.forJacob ?? []) : [];
+    const saga = await sagaFor(picture);
     return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,
       votes: await awaitingVote(db, who, now) }));
   }
