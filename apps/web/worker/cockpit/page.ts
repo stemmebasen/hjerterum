@@ -214,8 +214,12 @@ const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify({t:Date.no
 document.getElementById("saga-new").onclick=()=>{history=[];try{sessionStorage.removeItem("saga-chat")}catch(e){}log.querySelectorAll(".saga-msg:not(:first-child)").forEach(m=>m.remove());q.focus()};
 const add=(cls,content,isHtml)=>{const d=document.createElement("div");d.className="saga-msg "+cls;if(isHtml)d.innerHTML=content;else d.textContent=content;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
 for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.content:t.html||t.content,t.role!=="user");
-const open=v=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v)q.focus()};
+const open=(v,quiet)=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v){try{sessionStorage.setItem("saga-popped","1")}catch(e){}if(!quiet)q.focus()}};
 fab.onclick=()=>open(true);document.getElementById("saga-close").onclick=()=>open(false);
+// Requested: "Lad Saga poppe op efter et minut". Once per browser session, a minute after the page opens, the chat opens by itself -
+// without taking the cursor, and not while someone is writing in a field or has already used Saga.
+try{if(!sessionStorage.getItem("saga-popped"))setTimeout(()=>{const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a!==q;
+if(!box.hidden||history.length||typing||sessionStorage.getItem("saga-popped"))return;open(true,true)},60000)}catch(e){}
 let busy=false;
 async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga tænker …");
 const sent=history.slice(-6).map(t=>({role:t.role,content:t.content}));
