@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { imperative, mergeSame, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
+import { imperative, mergeSame, SAGA_SOURCE, TASKS_SINCE, taskDay, withoutStop, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
@@ -99,7 +99,6 @@ const inDays = (n: number) => n <= 0 ? "i dag" : n === 1 ? "i morgen" : `om ${n}
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
 const inline = (text: string) => esc(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-const SOURCE: Record<string, string> = { telegram: "Fra gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
 
 /** A meeting's formalities - approving its agenda or the minutes before it. */
 const FORMALITY = /^(?:godkendelse af (?:dagsorden|referat)|(?:dagsorden(?:en)?|referat(?:et)?)(?: fra [^.]*)? (?:godkendes|godkendt|blev godkendt|er godkendt|vedtages|vedtaget))/i;
@@ -155,7 +154,7 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
     ...mergeSame<{ text: string; html: string }>([
       ...data.tasks.filter(t => t.source !== "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
       ...data.tasks.filter(t => t.source === "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">Fra referatet ${esc(/^\d{4}-/.test(t.meeting) ? shortDay(t.meeting) : t.meeting)}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
-      ...(data.isChair ? data.forChair.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(f.text)}<span class="ctx">${esc(SOURCE[f.source] ?? "")}${f.from ? ` · ${esc(f.from)}` : ""}</span></li>`)(f) })) : []),
+      ...(data.isChair ? data.forChair.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(withoutStop(f.text))}<span class="ctx">${esc(SAGA_SOURCE[f.source] ?? "")}</span></li>`)(f) })) : []),
       ...data.todos.map(t => ({ text: t.text, html: (t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`)(t) })),
     ], line => line.text).map(group => group.item.html)
   ];

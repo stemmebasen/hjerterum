@@ -355,6 +355,7 @@ p { line-height: 1.7; }
 }
 .workspace-form label {
   display: grid;
+  align-content: start;
   gap: 8px;
   font-size: .9rem;
   font-weight: 650;
@@ -375,6 +376,7 @@ p { line-height: 1.7; }
 .workspace-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  align-items: start;
   gap: 12px;
 }
 .workspace-form .pill-button {

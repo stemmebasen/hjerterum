@@ -67,23 +67,14 @@ const BLOCKS = `
 .lys-link{font-weight:600;font-size:14px;text-decoration:none;color:var(--lys-accent)}
 @media (max-width:760px){.lys-page{padding:28px 18px 64px}.lys-intro{grid-template-columns:1fr;gap:8px}.lys-intro>p{margin-top:8px}.lys-tiles{grid-template-columns:1fr 1fr}.lys-tile>b{font-size:22px}}`;
 
-/** Living geometry: three circles in Hjerterum's colours drifting slowly around one another - circles that meet. Requested:
- * "Kan du fjerne prikkerne i animationen" - no dots orbiting the rings. */
+/** Geometry: three circles in Hjerterum's colours that meet - circles that overlap. Requested: "Kan du fjerne prikkerne i
+ * animationen" - no dots on the rings - and later "Fjern animationen": nothing moves, in the art or when a page appears. */
 const ART = `
 .lys-art{width:100%;max-width:500px;aspect-ratio:1;display:block;margin-left:auto;overflow:visible}
-.lys-art .blob{mix-blend-mode:multiply;opacity:.92}.lys-art .o1,.lys-art .o2,.lys-art .o3,.lys-art .breathe,.lys-art .arc{transform-origin:250px 250px}
-.lys-art .o1{animation:lys-orbit 26s linear infinite}.lys-art .o2{animation:lys-orbit 34s linear infinite reverse}.lys-art .o3{animation:lys-orbit 42s linear infinite}
-.lys-art .breathe{animation:lys-breathe 9s ease-in-out infinite alternate}.lys-art .ring{fill:none;stroke:var(--lys-ink)}
+.lys-art .blob{mix-blend-mode:multiply;opacity:.92}.lys-art .ring{fill:none;stroke:var(--lys-ink)}
 .lys-art .r1{stroke-opacity:.12}.lys-art .r2{stroke-opacity:.08}
-.lys-art .arc{fill:none;stroke:var(--lys-sand);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:70 1500;animation:lys-orbit 16s linear infinite}
-
-.lys-art.mini{width:150px;height:150px;flex:none;margin:-20px 0 -10px}.lys-art.mini .o1{animation-duration:60s}.lys-art.mini .o2{animation-duration:80s}
-.lys-art.mini .o3{animation-duration:100s}.lys-art.mini .arc{animation-duration:40s}
-@keyframes lys-orbit{to{transform:rotate(360deg)}}@keyframes lys-breathe{from{transform:scale(.97)}to{transform:scale(1.04)}}
-.lys-rise{opacity:0;transform:translateY(14px);animation:lys-rise .9s cubic-bezier(.2,.7,.2,1) forwards}.lys-rise.d2{animation-delay:.12s}.lys-rise.d3{animation-delay:.24s}.lys-rise.d4{animation-delay:.36s}
-@keyframes lys-rise{to{opacity:1;transform:none}}
+.lys-art.mini{width:150px;height:150px;flex:none;margin:-20px 0 -10px}
 @media (prefers-color-scheme:dark){.lys-art .blob{mix-blend-mode:screen;opacity:.75}}
-@media (prefers-reduced-motion:reduce){.lys-art *,.lys-rise{animation:none!important}.lys-rise{opacity:1;transform:none}}
 @media (max-width:760px){.lys-art{max-width:340px;margin:0 auto}.lys-art.mini{display:none}}`;
 
 export const LYS_CSS = TOKENS + TOP + BLOCKS + ART;
@@ -91,8 +82,6 @@ export const LYS_CSS = TOKENS + TOP + BLOCKS + ART;
 /** The geometry as inline SVG (a constant: nothing from outside goes into it). */
 export function lysArt(size: "hero" | "mini" = "hero"): string {
   return `<svg class="lys-art${size === "mini" ? " mini" : ""}" viewBox="0 0 500 500" aria-hidden="true" focusable="false">
-<g class="breathe"><g class="o1"><circle class="blob" cx="205" cy="215" r="150" fill="var(--lys-blob-1)"/></g>
-<g class="o2"><circle class="blob" cx="300" cy="225" r="140" fill="var(--lys-blob-2)"/></g>
-<g class="o3"><circle class="blob" cx="250" cy="300" r="132" fill="var(--lys-blob-3)"/></g></g>
-<circle class="ring r1" cx="250" cy="250" r="214"/><circle class="ring r2" cx="250" cy="250" r="238"/><circle class="arc" cx="250" cy="250" r="238"/></svg>`;
+<circle class="blob" cx="205" cy="215" r="150" fill="var(--lys-blob-1)"/><circle class="blob" cx="300" cy="225" r="140" fill="var(--lys-blob-2)"/><circle class="blob" cx="250" cy="300" r="132" fill="var(--lys-blob-3)"/>
+<circle class="ring r1" cx="250" cy="250" r="214"/><circle class="ring r2" cx="250" cy="250" r="238"/></svg>`;
 }
