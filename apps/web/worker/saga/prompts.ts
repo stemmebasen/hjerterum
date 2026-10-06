@@ -122,7 +122,13 @@ export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til 
   + "\"tasks\": [{\"who\", \"what\", \"due\", \"since\"}] åbne opgaver for alle (ikke meldt færdige på et senere møde), med mødedatoen i since, højst 20; "
   + "\"nextAgenda\": [forslag til punkter på næste dagsorden: udsatte punkter og opfølgninger, der mangler], højst 6},\n"
   + "\"forJacob\": samlet liste over spørgsmål og opgaver til Jacob selv (han er formand) fra gruppen, dokumentet og mailen, vigtigste først, højst 10: "
-  + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom, \"since\": datoen det blev rejst (mødedatoen, når det kommer fra dokumentet)}]. Jacobs egne åbne opgaver fra referaterne hører med her.}\n"
+  + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom, \"since\": datoen det blev rejst (mødedatoen, når det kommer fra dokumentet)}]. Jacobs egne åbne opgaver fra referaterne hører med her. Er et spørgsmål eller en opgave en fælles sag for hele bestyrelsen (fx hvem der skal spørges som suppleant, eller hvordan noget afgøres), hører den i forMembers, ikke her,\n"
+  // Requested ("Hvorfor får de andre ikke denne besked?"): what concerns the other board members goes to them, by what each has written
+  // that they are responsible for (ANSVARSOMRÅDER nedenfor) - or to all.
+  + "\"forMembers\": spørgsmål og opgaver, der angår andre i bestyrelsen end Jacob, eller alle, højst 12: "
+  + "[{\"to\": [fornavne på dem, det angår - ud fra hvem der er spurgt eller nævnt, og ud fra ANSVARSOMRÅDER nedenfor - eller [\"alle\"], når det er en fælles sag for hele bestyrelsen, Jacob inklusive], "
+  + "\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad de skal svare på eller gøre, kort og konkret og uden punktum til sidst, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom, \"since\": datoen det blev rejst}]. "
+  + "Opgaver fra referaterne, der allerede står med et navn, behøver ikke stå her. Gæt ikke: kan du ikke se, hvem det angår, så skriv [\"alle\"]}\n"
   + "Kun det, der faktisk står i materialet; et felt uden indhold er en tom liste. Datoer og navne præcist som i materialet. "
   + "Tag ikke noget med i forJacob, som Jacob allerede har markeret som klaret (listen nedenfor), medmindre der er kommet noget nyt i sagen.";
 
@@ -183,6 +189,12 @@ export function boardContext(messages: BoardMessage[], minutes: Minutes[], archi
 /** What the chair has already marked as done, so it is not raised again. */
 export function doneContext(done: Array<{ text: string }>): string {
   return done.length ? "\n\nJACOB HAR MARKERET SOM KLARET:\n" + done.map(d => `- ${d.text}`).join("\n") : "";
+}
+
+/** Who is responsible for what, and what each has ticked off, so the overview can send a matter to the right person and not bring back what is done. */
+export function membersContext(responsibilities: string, done: Array<{ member: string; text: string }>): string {
+  return `\n\nANSVARSOMRÅDER (det enkelte bestyrelsesmedlem har selv skrevet dem):\n${responsibilities}`
+    + (done.length ? "\n\nMEDLEMMERNE HAR MARKERET SOM KLARET (tag det ikke med igen, medmindre der er kommet noget nyt):\n" + done.map(d => `- ${d.member}: ${d.text}`).join("\n") : "");
 }
 
 export function mailContext(mails: Array<{ sender: string; subject: string; received_at_ms: number }>): string {

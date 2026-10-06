@@ -11,7 +11,7 @@ import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from 
 import { markdownToHtml, section } from "./markdown.js";
 import { transcribe } from "./transcribe.js";
 import { docHash, parsePicture, trimMinutesDoc } from "./picture.js";
-import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
+import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, membersContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
   saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, serviceStatus, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
@@ -19,6 +19,7 @@ import {
 import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
+import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
 
 const DAY = 86_400_000;
@@ -150,7 +151,7 @@ export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: 
   if (!(await recentBoardMessages(db, board(env), since, 1)).length && !(await recentMail(db, since, 1)).length && !(await recentMinutes(db, 1)).length) return;
   const read = doc ?? await readArchive(env, deps);
   const done = await ownerDone(db, deps.now() - 60 * DAY);
-  const messages = [{ role: "system" as const, content: OVERVIEW_SYSTEM }, { role: "user" as const, content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}` }];
+  const messages = [{ role: "system" as const, content: OVERVIEW_SYSTEM }, { role: "user" as const, content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}${membersContext(responsibilitiesForSaga((await boardMembers(env, db)).names, await responsibilities(db)), await memberDoneForSaga(db, deps.now() - 60 * DAY))}` }];
   let answer = await complete(env, deps, messages);
   let picture = parsePicture(answer);
   // Reported: the cockpit greeted with "```json {" - the answer was cut off mid-JSON (too long) and kept as

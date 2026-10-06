@@ -22,7 +22,16 @@ export type BoardPicture = {
     nextAgenda: string[];
   };
   forJacob: Array<{ key: string; kind: "spørgsmål" | "opgave"; text: string; source: Source; from: string; since: string }>;
+  /** Requested ("Hvorfor får de andre ikke denne besked?"): what concerns other board members - or all of them ("alle") - by the
+   * responsibilities each has written. `to` holds first names, or "alle". */
+  forMembers: Array<{ key: string; to: string[]; kind: "spørgsmål" | "opgave"; text: string; source: Source; from: string; since: string }>;
 };
+
+/** Whether an item written for these names concerns the member: everyone ("alle"), or the member's first name. */
+export function addressedTo(to: string[], member: string): boolean {
+  const first = (name: string) => name.trim().split(/\s+/)[0]?.toLocaleLowerCase("da-DK") ?? "";
+  return to.some(name => first(name) === "alle" || first(name) === first(member));
+}
 
 const STATUSES: readonly TopicStatus[] = ["besluttet", "drøftes", "afventer", "på vej"];
 const SOURCES: readonly Source[] = ["telegram", "dokument", "mail"];
@@ -78,7 +87,12 @@ export function parsePicture(answer: string): BoardPicture | null {
     forJacob: list(data.forJacob, 15).map(f => ({
       key: "", kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: str(f.text, 300),
       source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40)
-    })).filter(f => f.text).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key))
+    })).filter(f => f.text).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key)),
+    forMembers: list(data.forMembers, 15).map(f => ({
+      key: "", to: (Array.isArray(f.to) ? f.to : typeof f.to === "string" ? [f.to] : []).map(n => str(n, 60)).filter(Boolean).slice(0, 8),
+      kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: str(f.text, 300),
+      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40)
+    })).filter(f => f.text && f.to.length).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key))
   };
 }
 

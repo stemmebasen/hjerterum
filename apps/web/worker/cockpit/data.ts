@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import type { SagaEnv } from "../saga/env.js";
 import { section } from "../saga/markdown.js";
-import { groupActivity, parsePicture, telegramLink, type BoardPicture } from "../saga/picture.js";
+import { addressedTo, groupActivity, parsePicture, telegramLink, type BoardPicture } from "../saga/picture.js";
 import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, type Minutes } from "../saga/store.js";
 
 /** What the board cockpit shows, read from Saga's own tables: her picture of the board, the minutes
@@ -252,6 +252,25 @@ export async function todosFor(db: D1Database, owner: string): Promise<Todo[]> {
   const rows = await db.prepare("SELECT id, owner, text, due, created_by, created_at_ms, done_at_ms FROM cockpit_todos WHERE owner IN (?, 'Alle') ORDER BY done_at_ms IS NOT NULL, COALESCE(due, '9999') , created_at_ms DESC LIMIT 300")
     .bind(owner).all<Todo>();
   return rows.results ?? [];
+}
+
+/** Saga's questions and tasks for one board member (not the chair's own list from the overview): those written to them by name,
+ * and those for all of them, minus what they have ticked off. Same shape as the chair's list. */
+export async function sagaItemsFor(db: D1Database, picture: BoardPicture | null, member: string): Promise<BoardPicture["forJacob"]> {
+  const mine = (picture?.forMembers ?? []).filter(f => addressedTo(f.to, member));
+  if (!mine.length) return [];
+  const done = new Set((await db.prepare("SELECT item_key FROM cockpit_saga_done WHERE member = ?").bind(member).all<{ item_key: string }>().then(r => r.results ?? []).catch(() => [])).map(r => r.item_key));
+  return mine.filter(f => !done.has(f.key)).map(({ key, kind, text, source, from, since }) => ({ key, kind, text, source, from, since }));
+}
+
+export async function markMemberDone(db: D1Database, member: string, key: string, text: string, nowMs: number): Promise<void> {
+  await db.prepare("INSERT INTO cockpit_saga_done (member, item_key, text, done_at_ms) VALUES (?, ?, ?, ?) ON CONFLICT(member, item_key) DO UPDATE SET done_at_ms = excluded.done_at_ms")
+    .bind(member, key, text.slice(0, 300), nowMs).run();
+}
+
+/** What the members have ticked off lately, for Saga: "Gitta: Svar kommunen". */
+export async function memberDoneForSaga(db: D1Database, sinceMs: number): Promise<Array<{ member: string; text: string }>> {
+  return db.prepare("SELECT member, text FROM cockpit_saga_done WHERE done_at_ms >= ? ORDER BY done_at_ms DESC LIMIT 60").bind(sinceMs).all<{ member: string; text: string }>().then(r => r.results ?? []).catch(() => []);
 }
 
 /** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - what each board member is responsible
