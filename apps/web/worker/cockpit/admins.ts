@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
-import { boardMembers } from "./data.js";
+import { boardMembers, responsibilities } from "./data.js";
 import { MEMBER_PAGES_STYLE } from "./memberPages.js";
 import { esc, layout } from "./page.js";
 
@@ -12,7 +12,13 @@ import { esc, layout } from "./page.js";
 const DAY = 86_400_000;
 export const ACTIVE_DAYS = 30;
 
-export type CockpitAdmin = { name: string; chair: boolean; lastSeenMs: number | null; closedMs: number | null; state: AdminState };
+export type CockpitAdmin = { name: string; chair: boolean; lastSeenMs: number | null; closedMs: number | null; state: AdminState;
+  /** The first time they opened the cockpit with their own personal link (their account is "activated"), or null. */
+  activatedMs: number | null;
+  /** What they wrote under Profil that they are responsible for, or null. */
+  responsibilities: string | null;
+  /** How many questions they have asked Saga (kept 90 days), for the link to their conversations. */
+  sagaQuestions: number };
 export type AdminState = "active" | "quiet" | "never" | "closed";
 export type MemberAreaAdmin = { email: string; name: string | null; lastSeenMs: number | null; state: AdminState | "unknown"; note: string | null };
 
@@ -27,7 +33,7 @@ export function stateOf(lastSeenMs: number | null, closedMs: number | null, nowM
  * link, asking Saga, writing or ticking off a to-do or a task. */
 export async function cockpitAdmins(env: SagaEnv, db: D1Database, nowMs: number): Promise<CockpitAdmin[]> {
   const { names, chair } = await boardMembers(env, db);
-  const [seen, closed, lastLink] = await Promise.all([
+  const [seen, closed, lastLink, firstLink, written, asked] = await Promise.all([
     db.prepare(`SELECT member, MAX(at) AS at FROM (
         SELECT member, used_at_ms AS at FROM cockpit_login_links WHERE used_at_ms IS NOT NULL
         UNION ALL SELECT asked_by, created_at_ms FROM cockpit_questions WHERE asked_by IS NOT NULL
@@ -36,8 +42,13 @@ export async function cockpitAdmins(env: SagaEnv, db: D1Database, nowMs: number)
         UNION ALL SELECT owner, done_at_ms FROM cockpit_task_checks
       ) GROUP BY member`).all<{ member: string; at: number }>().then(r => r.results ?? []).catch(() => []),
     db.prepare("SELECT member, after_ms FROM cockpit_signouts").all<{ member: string; after_ms: number }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT member, MAX(used_at_ms) AS at FROM cockpit_login_links WHERE used_at_ms IS NOT NULL GROUP BY member").all<{ member: string; at: number }>().then(r => r.results ?? []).catch(() => [])
+    db.prepare("SELECT member, MAX(used_at_ms) AS at FROM cockpit_login_links WHERE used_at_ms IS NOT NULL GROUP BY member").all<{ member: string; at: number }>().then(r => r.results ?? []).catch(() => []),
+    db.prepare("SELECT member, MIN(used_at_ms) AS at FROM cockpit_login_links WHERE used_at_ms IS NOT NULL GROUP BY member").all<{ member: string; at: number }>().then(r => r.results ?? []).catch(() => []),
+    responsibilities(db),
+    db.prepare("SELECT asked_by AS member, COUNT(*) AS n FROM cockpit_questions WHERE asked_by IS NOT NULL GROUP BY asked_by").all<{ member: string; n: number }>().then(r => r.results ?? []).catch(() => [])
   ]);
+  const firstBy = new Map(firstLink.map(r => [r.member, Number(r.at)]));
+  const askedBy = new Map(asked.map(r => [r.member, Number(r.n)]));
   const seenBy = new Map(seen.map(r => [r.member, Number(r.at)]));
   const linkBy = new Map(lastLink.map(r => [r.member, Number(r.at)]));
   const closedBy = new Map(closed.map(r => [r.member, Number(r.after_ms)]));
@@ -46,7 +57,8 @@ export async function cockpitAdmins(env: SagaEnv, db: D1Database, nowMs: number)
     const after = closedBy.get(name);
     // Closing a member's access ends every personal login from before then; a link used afterwards opens it again.
     const closedMs = after !== undefined && (linkBy.get(name) ?? 0) <= after ? after : null;
-    return { name, chair: name === chair, lastSeenMs, closedMs, state: stateOf(lastSeenMs, closedMs, nowMs) };
+    return { name, chair: name === chair, lastSeenMs, closedMs, state: stateOf(lastSeenMs, closedMs, nowMs),
+      activatedMs: firstBy.get(name) ?? null, responsibilities: written.get(name) ?? null, sagaQuestions: askedBy.get(name) ?? 0 };
   });
   return list.sort((a, b) => Number(b.chair) - Number(a.chair) || (b.lastSeenMs ?? 0) - (a.lastSeenMs ?? 0) || a.name.localeCompare(b.name, "da"));
 }
@@ -91,15 +103,20 @@ export const ADMINS_STYLE = `${MEMBER_PAGES_STYLE}
 
 export function adminsPage(base: string, who: string | null, d: { cockpit: CockpitAdmin[]; area: MemberAreaAdmin[]; nowMs: number }): string {
   const active = (list: Array<{ state: AdminState | "unknown" }>) => list.filter(a => a.state === "active").length;
-  const cockpit = d.cockpit.length ? `<table class="rows m-list"><tr><th>Navn</th><th>Status</th><th>Sidst set</th></tr>${d.cockpit.map(a => `<tr><td data-label="Navn">${esc(a.name)}${a.chair ? '<span class="chair">formand</span>' : ""}</td>
-<td data-label="Status">${badge(a.state)}</td><td data-label="Sidst set" class="when">${a.closedMs !== null ? `Lukket ${esc(DAY_ONLY.format(a.closedMs))}` : a.lastSeenMs !== null ? esc(WHEN.format(a.lastSeenMs)) : "-"}</td></tr>`).join("")}</table>`
+  // Requested: "Kan jeg nu se detaljer om de andre medlemmer, såsom om de har aktiveret deres konto og chatudskrift?" - whether each has
+  // activated their login (used their personal link), what they wrote that they are responsible for, and their talks with Saga.
+  const cockpit = d.cockpit.length ? `<table class="rows m-list"><tr><th>Navn</th><th>Status</th><th>Sidst set</th><th>Ansvarsområder</th><th>Saga-samtaler</th></tr>${d.cockpit.map(a => `<tr><td data-label="Navn">${esc(a.name)}${a.chair ? '<span class="chair">formand</span>' : ""}
+<small>${a.activatedMs !== null ? `Login aktiveret ${esc(DAY_ONLY.format(a.activatedMs))}` : "Har ikke aktiveret sit login endnu"}</small></td>
+<td data-label="Status">${badge(a.state)}</td><td data-label="Sidst set" class="when">${a.closedMs !== null ? `Lukket ${esc(DAY_ONLY.format(a.closedMs))}` : a.lastSeenMs !== null ? esc(WHEN.format(a.lastSeenMs)) : "-"}</td>
+<td data-label="Ansvarsområder">${a.responsibilities ? esc(a.responsibilities.replace(/\s*\n\s*/g, " · ")) : '<span class="muted">Ikke skrevet endnu</span>'}</td>
+<td data-label="Saga-samtaler">${a.sagaQuestions ? `<a href="${base}/samtaler?medlem=${encodeURIComponent(a.name)}">${a.sagaQuestions} spørgsmål →</a>` : "-"}</td></tr>`).join("")}</table>`
     : `<p class="empty">Cockpittet kender endnu ingen i bestyrelsen. De kommer til, når de skriver i bestyrelsens gruppe.</p>`;
   const area = d.area.length ? `<table class="rows m-list"><tr><th>E-mail</th><th>Status</th><th>Sidst logget ind</th></tr>${d.area.map(a => `<tr><td data-label="E-mail">${esc(a.email)}${a.name ? `<small>${esc(a.name)}</small>` : ""}${a.note ? `<small>${esc(a.note)}</small>` : ""}</td>
 <td data-label="Status">${badge(a.state)}</td><td data-label="Sidst logget ind" class="when">${a.lastSeenMs !== null ? esc(WHEN.format(a.lastSeenMs)) : "-"}</td></tr>`).join("")}</table>`
     : `<p class="empty">Ingen e-mails har adgang til admin i medlemsområdet. Listen sættes som <code>ALLOWED_EMAILS</code>.</p>`;
   return layout(base, "Administratorer", `<main class="adm"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Administratorer</h1>
 <p>Hvem der har adgang til admin, og hvem der har været aktive de seneste ${ACTIVE_DAYS} dage. Kun for formanden.</p></div>
-<section class="panel"><header><h2>Bestyrelsen i cockpittet<span class="count">${active(d.cockpit)} aktive af ${d.cockpit.length}</span></h2><p>Alle, der har skrevet i bestyrelsens gruppe. "Sidst set" er sidste gang, de brugte et personligt link, spurgte Saga eller arbejdede med en opgave. Det fælles password viser ikke, hvem der er inde.</p></header>${cockpit}</section>
+<section class="panel"><header><h2>Bestyrelsen i cockpittet<span class="count">${active(d.cockpit)} aktive af ${d.cockpit.length}</span></h2><p>Alle, der har skrevet i bestyrelsens gruppe. "Login aktiveret" er første gang, de brugte deres personlige link fra Saga. "Sidst set" er sidste gang, de brugte et link, spurgte Saga eller arbejdede med en opgave. Det fælles password viser ikke, hvem der er inde.</p></header>${cockpit}</section>
 <section class="panel"><header><h2>Samtaler med Saga</h2><p>Det, bestyrelsens medlemmer har spurgt Saga om, og hvad hun svarede. Medlemmerne kan se i chatten, at du kan læse med.</p></header><a class="more" href="${base}/samtaler">Se samtalerne →</a></section>
 <section class="panel"><header><h2>Admin i medlemsområdet<span class="count">${active(d.area)} aktive af ${d.area.length}</span></h2><p>E-mails, der må åbne admin-siderne på medlem.hjerterum.info. Login og sidste login hentes hos Clerk.</p></header>${area}</section></main>`,
     { section: "/medlemmer", who, style: ADMINS_STYLE });

@@ -333,7 +333,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   }
 
   const chairSignedIn = Boolean(personal && members.chair && personal === members.chair);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"),
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: chairSignedIn ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: Boolean(who && members.chair && who === members.chair),
     responsibilities: who ? (await responsibilities(db)).get(who) ?? "" : "", saved: url.searchParams.get("ansvar") === "gemt" }));
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" (data.ts responsibilities).
   if (path === "/profil/ansvar" && request.method === "POST") {

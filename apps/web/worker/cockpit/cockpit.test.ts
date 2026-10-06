@@ -770,6 +770,11 @@ describe("Administratorer", () => {
     // The link is on Medlemmer, for the chair only.
     expect(await (await call("/cockpit/medlemmer", { cookie: as("Jacob Hauge") })).text()).toContain("/administratorer");
     expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
+    // Medlemmer is tucked away from the menu, so the chair finds Administratorer and Samtaler on Profil - and the others do not.
+    const chairProfile = await (await call("/cockpit/profil", { cookie: as("Jacob Hauge") })).text();
+    expect(chairProfile).toContain('<a href="/cockpit/administratorer">Administratorer →</a>');
+    expect(chairProfile).toContain('<a href="/cockpit/samtaler">Samtaler med Saga →</a>');
+    expect(await (await call("/cockpit/profil", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
   });
 });
 
