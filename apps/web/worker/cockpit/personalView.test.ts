@@ -105,7 +105,10 @@ describe("what Saga has for each member", () => {
     const gitta = await (await call("/", { cookie: await as("Gitta Hansen") })).text();
     expect(gitta).toContain("Hej Gitta");
     expect(gitta).toContain('<p class="personal"><span>Der venter 3 ting på dig, og én har frist i dag.</span></p>');
-    expect(gitta).toContain("Dine ansvarsområder: Events og nyhedsbrev");
+    // Requested: the responsibilities are not on the front page but under Profil.
+    expect(gitta).not.toContain("Dine ansvarsområder");
+    expect(gitta).not.toContain("Hvad har du ansvar for?");
+    expect(await (await call("/profil", { cookie: await as("Gitta Hansen") })).text()).toContain(">Events og nyhedsbrev</textarea>");
     expect(await (await call("/", { cookie: await as("Lisbeth") })).text()).toContain('<p class="personal"><span>Der venter 2 ting på dig.</span></p>');
     expect(personalLines({ open: 0, dueToday: 0, toSign: 0 })).toEqual(["Intet venter på dig lige nu."]);
     expect(personalLines({ open: 1, dueToday: 0, toSign: 2 })).toEqual(["Der venter 1 ting på dig.", "Du har 2 referater til godkendelse."]);

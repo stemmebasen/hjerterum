@@ -21,8 +21,6 @@ export type HomeData = {
   forMe: BoardPicture["forJacob"];
   /** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - asked on the front page until it is written. */
   needsResponsibilities?: boolean;
-  /** What this member wrote that they are responsible for (shown quietly under the greeting). */
-  responsibilities?: string;
   next: Meeting | null; found: Array<{ date: string; what: string }>;
   latest: { id: number; date: string; decisions: string[]; approved: number; members: number } | null;
   picture: BoardPicture | null; summary: string | null; at: number | null;
@@ -48,26 +46,21 @@ export function heldOver(held: number): number {
   return Math.floor((held - 1) / step) * step;
 }
 
-/** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then a band of its own,
- * and then: "Fylder nu alt for meget... Læg den et andet sted og lad den fylde meget mindre - måske som en kvadratisk
- * kasse". A small square at the end of the key figures: the number, and since when; the whole sentence on hover. */
-/** Corrected: "Det første i kalenderen var i januar 2016" - the calendar Saga has reaches back only to 2019, but Hjerterum began in January 2016. */
-const HJERTERUM_BEGAN_MS = Date.UTC(2016, 0, 15);
-export function heldFact(held: number, sinceMs: number | null = null, base = ""): string {
+/** Requested: "Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?" - then a band of its own, then
+ * "Læg den et andet sted og lad den fylde meget mindre - måske som en kvadratisk kasse", and finally the wording
+ * "Hjerterum har haft over 3600 events siden start" - "Glem Vidste du". A small square at the end of the key figures; the
+ * number is rounded down so "over" is always true. */
+export function heldFact(held: number, base = ""): string {
   if (held < 20) return "";
   const over = heldOver(held).toLocaleString("da-DK");
-  const began = Math.min(sinceMs ?? HJERTERUM_BEGAN_MS, HJERTERUM_BEGAN_MS);
-  const since = new Intl.DateTimeFormat("da-DK", { month: "long", year: "numeric", timeZone: "Europe/Copenhagen" }).format(began);
-  const year = new Intl.DateTimeFormat("da-DK", { year: "numeric", timeZone: "Europe/Copenhagen" }).format(began);
-  const sentence = `Vidste du? Hjerterum har afholdt over ${over} arrangementer siden ${since}.`;
-  return `<a class="fact" href="${base}/arrangementer" title="${esc(sentence)}" aria-label="${esc(sentence)}"><span class="kicker">Vidste du</span>
-<b>${over}<span>+</span></b><span class="sub">arrangementer siden ${esc(year)}</span></a>`;
+  const sentence = `Hjerterum har haft over ${over} events siden start.`;
+  return `<a class="fact" href="${base}/arrangementer" title="${esc(sentence)}" aria-label="${esc(sentence)}"><span class="sub">Hjerterum har haft over</span>
+<b>${over}</b><span class="sub">events siden start</span></a>`;
 }
 
 export const HOME_STYLE = `
-.fact{width:132px;aspect-ratio:1;display:grid;align-content:center;justify-items:center;gap:2px;padding:12px;border-radius:18px;background:var(--lys-clay);
+.fact{width:156px;aspect-ratio:1;display:grid;align-content:center;justify-items:center;gap:2px;padding:12px;border-radius:18px;background:var(--lys-clay);
 text-decoration:none;color:var(--ink);text-align:center}.fact:hover{filter:brightness(.98)}
-.fact .kicker{font-size:10.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--lys-terra)}
 .fact b{font:400 32px/1.05 var(--serif);letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}.fact b span{font-size:.6em;vertical-align:.45em;margin-left:1px}
 .fact .sub{font-size:11.5px;line-height:1.3;color:var(--muted)}
 .tiles.with-fact{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
@@ -78,7 +71,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
-.welcome .personal{font-size:19px;line-height:1.45;color:var(--ink);margin:2px 0 0}.welcome .ansvar-line{margin:0}.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
+.welcome .personal{font-size:19px;line-height:1.45;color:var(--ink);margin:2px 0 0}.welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
 .tile:hover{border-color:color-mix(in srgb,var(--accent) 40%,var(--line))}.tile .label{font-size:12.5px;font-weight:650;color:var(--muted)}
@@ -145,13 +138,12 @@ export function homePage(base: string, data: HomeData): string {
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const dueToday = [...data.todos.map(t => t.due), ...data.tasks.map(t => t.due)].filter(due => due === data.today).length;
-  const ownLine = data.who ? `<p class="personal">${personalLines({ open, dueToday, toSign: data.toSign.length }).map(line => `<span>${esc(line)}</span>`).join(" ")}</p>${data.responsibilities
-    ? `<p class="small muted ansvar-line">Dine ansvarsområder: ${esc(data.responsibilities.replace(/\s*\n\s*/g, " · "))} <a href="${base}/profil#ansvar">Ret</a></p>` : ""}` : "";
+  const ownLine = data.who ? `<p class="personal">${personalLines({ open, dueToday, toSign: data.toSign.length }).map(line => `<span>${esc(line)}</span>`).join(" ")}</p>` : "";
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>${ownLine}
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
-  const fact = heldFact(data.eventsHeld ?? 0, data.eventsSince ?? null, base);
+  const fact = heldFact(data.eventsHeld ?? 0, base);
   const tiles = `<section class="tiles${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>
@@ -178,7 +170,7 @@ ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for 
 
   const m = data.next;
   const agenda = m ? m.agenda.split("\n").filter(Boolean) : [];
-  const meeting = `<article class="panel"><header><h2>Næste møde</h2><p>Hvornår, hvor og hvad der er på dagsordenen.</p></header>
+  const meeting = `<article class="panel"><header><h2>Næste teammøde</h2><p>Hvornår, hvor og hvad der er på dagsordenen.</p></header>
 ${m ? `<div class="when"><div class="date"><span>${esc(MONTH.format(new Date(`${m.meeting_date}T12:00:00Z`)).replace(".", ""))}</span><b>${Number(m.meeting_date.slice(8))}</b></div>
 <div><strong>${esc(longDay(m.meeting_date).replace(/\s\d{4}$/, ""))}</strong><div class="muted small">${[m.start_time ? `kl. ${esc(m.start_time)}` : "", m.place ? esc(m.place) : "", inDays(days!)].filter(Boolean).join(" · ")}</div></div></div>
 ${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 5).map(a => `<li>${esc(a)}</li>`).join("")}</ol>${agenda.length > 5 ? `<p class="small muted">og ${agenda.length - 5} punkter mere</p>` : ""}` : `<p class="small muted" style="margin-top:12px">Ingen dagsorden endnu.</p>`}

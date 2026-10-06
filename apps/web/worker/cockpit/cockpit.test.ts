@@ -108,7 +108,7 @@ describe("the board cockpit", () => {
     await decideMinutes(db, minutesId, "approved", NOW);
     const lisbeth = await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(lisbeth).toContain("Hej Lisbeth");
-    const mine = lisbeth.slice(lisbeth.indexOf("<h2>Til dig"), lisbeth.indexOf("<h2>Næste møde"));
+    const mine = lisbeth.slice(lisbeth.indexOf("<h2>Til dig"), lisbeth.indexOf("<h2>Næste teammøde"));
     expect(mine).toContain("Skriv forslag om reduceret medlemskab");
     expect(mine.match(/Skriv forslag om reduceret medlemskab/g)).toHaveLength(1);
     expect(mine).toContain("Del opslaget");
@@ -518,7 +518,7 @@ describe("the board cockpit", () => {
     expect(mine.match(/Thomas Emil/g)).toHaveLength(1);
     expect(mine).toContain("Book salen til julefesten");
     const front = await (await call("/cockpit/", { cookie: jacob })).text();
-    expect(front.slice(front.indexOf("<h2>Til dig"), front.indexOf("<h2>Næste møde")).match(/Thomas Emil/g)).toHaveLength(1);
+    expect(front.slice(front.indexOf("<h2>Til dig"), front.indexOf("<h2>Næste teammøde")).match(/Thomas Emil/g)).toHaveLength(1);
 
     // Removing the one line takes its twins too: the minutes task, the document's and Saga's item.
     const line = /<form method="post" action="\/cockpit\/opgaver\/fjern"><input type="hidden" name="kind" value="([^"]+)"><input type="hidden" name="id" value="([^"]+)"><input type="hidden" name="also" value="([^"]+)">/.exec(mine)!;
@@ -679,23 +679,23 @@ describe("Saga sets meetings from the chat", () => {
 });
 
 describe("the front page's fun fact", () => {
-  // Requested: "Det kunne være sjovt, hvis der et sted står: Vidste du at Hjerterum har afholdt over xxx arrangementer siden vi startede?"
-  it("rounds down so \"over\" is always true, and says nothing about a handful", async () => {
+  // Requested: "Omformulering: Hjerterum har haft over 3600 events siden start. Glem Vidste du".
+  it("rounds down so \"over\" is always true, reads as the sentence without \"Vidste du\", and says nothing about a handful", async () => {
     const { heldFact } = await import("./home.js");
-    // Then: "Fylder nu alt for meget... Læg den et andet sted og lad den fylde meget mindre - måske som en kvadratisk kasse".
-    const box = heldFact(3651, Date.parse("2019-05-01T16:00:00Z"));
+    const box = heldFact(3651);
     expect(box).toContain('<a class="fact" href="/arrangementer"');
-    expect(box).toContain("<b>3.600<span>+</span></b>");
-    // Corrected: Hjerterum began in January 2016, before the calendar Saga has.
-    expect(box).toContain("arrangementer siden 2016");
-    expect(box).toContain('title="Vidste du? Hjerterum har afholdt over 3.600 arrangementer siden januar 2016."');
-    expect(heldFact(3600)).toContain("over 3.500 arrangementer");
-    expect(heldFact(57)).toContain("over 50 arrangementer");
+    expect(box).toContain("<span class=\"sub\">Hjerterum har haft over</span>\n<b>3.600</b><span class=\"sub\">events siden start</span>");
+    expect(box).toContain('title="Hjerterum har haft over 3.600 events siden start."');
+    expect(box).not.toContain("Vidste du");
+    expect(box).not.toContain("kicker");
+    expect(heldFact(3600)).toContain("over 3.500 events");
+    expect(heldFact(57)).toContain("over 50 events");
     expect(heldFact(5)).toBe("");
     const { translateHtml } = await import("./i18n.js");
     const english = translateHtml(box);
-    expect(english).toContain("events since 2016");
-    expect(english).toContain('title="Did you know? Hjerterum has held more than 3,600 events since January 2016."');
+    expect(english).toContain("Hjerterum has had over");
+    expect(english).toContain("events since the start");
+    expect(english).toContain('title="Hjerterum has had more than 3,600 events since the start."');
   });
 });
 
