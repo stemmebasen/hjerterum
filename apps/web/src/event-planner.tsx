@@ -1,0 +1,185 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { apiFetch, type ClerkBrowser } from "./clerk";
+import {
+  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES,
+  busyDuring, clockOf, danishClock, dateKey, endMinutes, endOptions, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
+  monthGrid, monthTitle, planProblem, priceText, quoteFor, startOptions, todayKey, weekdayOf,
+  type DayEntry, type Plan, type RentType
+} from "./event-planner-logic";
+
+/** The member's choice of day, time and kind of rent for an event: a date picker, what is on the chosen day, the times as
+ * choices, and the room's price for each kind of rent (requested). */
+
+const HOUR_PX = 30;
+const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
+const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
+const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
+
+export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onProblem }: {
+  clerk: ClerkBrowser;
+  plan: Plan;
+  onChange: (next: Plan) => void;
+  /** Days that already have something in the calendar; they get a dot. */
+  markedDates: Set<string>;
+  /** Tells the form what, if anything, is wrong with the chosen day and time. */
+  onProblem?: (problem: string | null) => void;
+  /** The booking being edited: it does not count as busy against itself. */
+  ignore?: { startsAt: string; endsAt: string } | null;
+}) {
+  const today = todayKey();
+  const [view, setView] = useState(() => {
+    const base = plan.date ? new Date(`${plan.date}T12:00:00`) : new Date();
+    return { year: base.getFullYear(), month: base.getMonth() };
+  });
+  const [entries, setEntries] = useState<DayEntry[]>([]);
+  const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const touched = useRef(false);
+
+  useEffect(() => {
+    if (!plan.date) { setEntries([]); setStatus("idle"); return; }
+    let live = true;
+    setStatus("loading");
+    void apiFetch(clerk, `/api/room-bookings/day?date=${plan.date}`)
+      .then(async (response) => {
+        if (!live) return;
+        if (!response.ok) { setStatus("error"); return; }
+        const body = await response.json() as { items?: DayEntry[] };
+        setEntries(body.items ?? []);
+        setStatus("ready");
+      })
+      .catch(() => { if (live) setStatus("error"); });
+    return () => { live = false; };
+  }, [clerk, plan.date]);
+
+  const shown = useMemo(() => entries.filter((entry) => !(ignore && entry.own
+    && Date.parse(entry.startsAt) === Date.parse(ignore.startsAt) && Date.parse(entry.endsAt) === Date.parse(ignore.endsAt))), [entries, ignore]);
+
+  // A freshly chosen day: if the suggested time is taken, move to the first free two hours - until the member has chosen a time.
+  useEffect(() => {
+    if (status !== "ready" || touched.current || !plan.date) return;
+    const from = minutesOf(plan.start), to = endMinutes(plan.end);
+    if (!busyDuring(shown, plan.date, from, to).length) return;
+    const free = firstFreeStart(shown, plan.date);
+    if (free) onChange({ ...plan, start: free, end: clockOf(minutesOf(free) + MIN_MINUTES) });
+  }, [status, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const problem = status === "error" ? null : planProblem(plan, shown);
+  useEffect(() => { onProblem?.(status === "loading" ? (plan.date ? "loading" : "no_date") : problem); }, [problem, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  const from = minutesOf(plan.start), to = endMinutes(plan.end);
+  const chosenOk = plan.date && Number.isFinite(from) && Number.isFinite(to);
+  const duration = chosenOk ? to - from : 0;
+
+  function pickDate(date: string) {
+    touched.current = false;
+    onChange({ ...plan, date });
+  }
+  function setStart(start: string) {
+    touched.current = true;
+    const length = Math.max(MIN_MINUTES, duration || MIN_MINUTES);
+    const begin = minutesOf(start);
+    const end = Math.min(begin + length, LAST_HOUR * 60);
+    onChange({ ...plan, start, end: end === 24 * 60 ? "24:00" : clockOf(end) });
+  }
+  function setEnd(end: string) { touched.current = true; onChange({ ...plan, end }); }
+  function clickTrack(event: React.MouseEvent<HTMLDivElement>) {
+    if (!plan.date) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const raw = FIRST_HOUR * 60 + Math.round(((event.clientY - rect.top) / HOUR_PX) * 2) * 30;
+    setStart(clockOf(Math.max(FIRST_HOUR * 60, Math.min(raw, LAST_HOUR * 60 - MIN_MINUTES))));
+  }
+  function move(delta: number) {
+    const next = new Date(view.year, view.month + delta, 1);
+    setView({ year: next.getFullYear(), month: next.getMonth() });
+  }
+
+  const viewingNow = view.year === new Date().getFullYear() && view.month === new Date().getMonth();
+  const endChoices = endOptions(plan.start);
+
+  return (
+    <fieldset className="planner">
+      <legend>Dato og tid</legend>
+      <div className="planner-top">
+        <div className="planner-cal" role="group" aria-label="Vælg dato">
+          <div className="planner-cal-head">
+            <button type="button" className="planner-nav" onClick={() => move(-1)} disabled={viewingNow} aria-label="Forrige måned">‹</button>
+            <strong>{monthTitle(view.year, view.month)}</strong>
+            <button type="button" className="planner-nav" onClick={() => move(1)} aria-label="Næste måned">›</button>
+          </div>
+          <div className="planner-weekdays" aria-hidden="true">{WEEKDAYS.map((d) => <span key={d}>{d}</span>)}</div>
+          {monthGrid(view.year, view.month).map((week) => (
+            <div className="planner-week" key={week[0]!.date}>
+              {week.map((cell) => {
+                const past = cell.date < today;
+                const cls = ["planner-day", !cell.inMonth && "out", cell.date === today && "today", cell.date === plan.date && "on", markedDates.has(cell.date) && "has"].filter(Boolean).join(" ");
+                return <button type="button" key={cell.date} className={cls} disabled={past} aria-pressed={cell.date === plan.date}
+                  aria-label={longDay(cell.date) + (markedDates.has(cell.date) ? ", der er allerede noget i kalenderen" : "")} onClick={() => pickDate(cell.date)}>{Number(cell.date.slice(8))}</button>;
+              })}
+            </div>
+          ))}
+          <p className="planner-key"><span className="planner-dot" /> Der er allerede noget i kalenderen</p>
+        </div>
+
+        <div className="planner-dayview">
+          {!plan.date ? (
+            <><h3>Vælg en dato</h3><p className="lys-sub">Så kan du se, hvad der sker i salen den dag, og vælge et tidspunkt, der er ledigt.</p></>
+          ) : (
+            <>
+              <h3>{longDay(plan.date)}</h3>
+              <p className="lys-sub" role="status">{status === "loading" ? "Henter dagen …" : status === "error" ? "Dagen kunne ikke hentes. Du kan stadig vælge tid." : shown.length ? `${shown.length} ting i salen den dag. Tryk på et ledigt tidspunkt for at vælge start.` : "Salen er ledig hele dagen. Tryk på et tidspunkt for at vælge start."}</p>
+              <div className="planner-track" style={{ height: TRACK_HEIGHT }} onClick={clickTrack} aria-hidden="true">
+                {Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => <span className="planner-hour" key={i} style={{ top: i * HOUR_PX }}>{String(FIRST_HOUR + i).padStart(2, "0")}</span>)}
+                {EVENING_FROM > FIRST_HOUR * 60 && <div className="planner-evening" style={{ top: topOf(EVENING_FROM) }}><span>18.30 · aftentakst</span></div>}
+                {shown.map((entry, index) => {
+                  const range = entryMinutes(entry, plan.date);
+                  if (!range) return null;
+                  const top = topOf(range.from), bottom = topOf(range.to);
+                  const cls = ["planner-block", entry.own && "mine", entry.waiting && "waiting", entry.external && "external"].filter(Boolean).join(" ");
+                  return <div key={index} className={cls} style={{ top, height: Math.max(bottom - top, 14) }}>
+                    <b>{entry.label}</b> <span>{danishClock(range.from)}–{danishClock(range.to)}</span>
+                  </div>;
+                })}
+                {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}>
+                  <b>Dit event</b> <span>{danishClock(from)}–{danishClock(to)}</span>
+                </div>}
+              </div>
+              <ul className="planner-sr">{shown.map((entry, index) => { const r = entryMinutes(entry, plan.date); return r ? <li key={index}>{entry.label}, {danishClock(r.from)} til {danishClock(r.to)}</li> : null; })}</ul>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="workspace-form-row planner-times">
+        <label>Starter
+          <select value={plan.start} disabled={!plan.date} onChange={(e) => setStart(e.target.value)}>
+            {startOptions().map((t) => <option key={t} value={t}>{danishClock(minutesOf(t))}</option>)}
+          </select>
+        </label>
+        <label>Slutter
+          <select value={plan.end} disabled={!plan.date} onChange={(e) => setEnd(e.target.value)}>
+            {endChoices.map((t) => <option key={t} value={t}>{danishClock(endMinutes(t))}</option>)}
+          </select>
+          <small>{chosenOk && duration >= MIN_MINUTES ? `${hoursText(duration)} i salen. Et event slutter senest kl. 24.00.` : "Mindst 2 og højst 10 timer, i halve timer."}</small>
+        </label>
+      </div>
+      {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}
+
+      <div className="planner-types" role="radiogroup" aria-label="Lejetype">
+        {RENT_TYPES.map((type) => {
+          const quote = plan.date ? quoteFor(plan.date, plan.start, plan.end, type.id) : null;
+          const crosses = Boolean(plan.date) && quote === null && type.id !== "standard" && weekdayOf(plan.date) > 0 && weekdayOf(plan.date) < 6 && chosenOk && duration >= MIN_MINUTES;
+          const selected = plan.type === type.id;
+          return (
+            <label key={type.id} className={"planner-type" + (selected ? " on" : "")}>
+              <input type="radio" name="rentType" value={type.id} checked={selected} onChange={() => onChange({ ...plan, type: type.id as RentType })} />
+              <span className="planner-type-name">{type.name}</span>
+              <span className="planner-type-text">{type.text}</span>
+              <b className="planner-type-price">{plan.date ? (crosses ? "Ikke hen over 18.30" : priceText(quote)) : "Vælg dato"}</b>
+              {selected && quote && <span className="planner-type-lines">{quote.lines.join(" ")}</span>}
+            </label>
+          );
+        })}
+      </div>
+      <p className="lys-sub">Prisen er for lejen af salen og er inkl. moms.</p>
+    </fieldset>
+  );
+}

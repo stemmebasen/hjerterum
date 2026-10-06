@@ -1,6 +1,8 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
+import { EventPlanner } from "./event-planner";
+import { planFromBooking, planInstants, todayKey, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
@@ -256,17 +258,23 @@ function localDateTimeInput(value: string): string {
   return local.toISOString().slice(0, 16);
 }
 
+const EMPTY_PLAN: Plan = { date: "", start: "10:00", end: "12:00", type: "standard" };
+
 function MemberEvents({
   clerk,
   member,
   bookings,
+  markedDates,
   reload
 }: {
   clerk: ClerkBrowser;
   member: Member | null;
   bookings: Booking[];
+  markedDates: Set<string>;
   reload: () => Promise<void>;
 }) {
+  const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
+  const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
@@ -275,6 +283,10 @@ function MemberEvents({
     account: { status: string; chargesEnabled: boolean; payoutsEnabled: boolean } | null;
   } | null>(null);
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
+
+  useEffect(() => {
+    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard") : EMPTY_PLAN);
+  }, [editing]);
 
   useEffect(() => {
     let mounted = true;
@@ -321,11 +333,10 @@ function MemberEvents({
             teacherEmail: member.email,
             title: String(form.get("title") || ""),
             description: String(form.get("description") || ""),
-            startsAt: new Date(String(form.get("startsAt"))).toISOString(),
-            endsAt: new Date(String(form.get("endsAt"))).toISOString(),
+            ...planInstants(plan),
             maxAttendees: Number(form.get("maxAttendees")) || null,
             ticketPriceKr: Number(form.get("ticketPriceKr")) || 0,
-            bookingType: String(form.get("bookingType") || "standard")
+            bookingType: plan.type
           })
         }
       );
@@ -334,6 +345,7 @@ function MemberEvents({
         throw new Error(body.error || "event_save_failed");
       }
       formElement.reset();
+      setPlan(EMPTY_PLAN);
       setEditing(null);
       setMessage(editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.");
       await reload();
@@ -393,21 +405,11 @@ function MemberEvents({
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new"}>
               <label>Titel<input name="title" defaultValue={editing?.title ?? ""} required /></label>
               <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? ""} /></label>
-              <div className="workspace-form-row">
-                <label>Starter<input name="startsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.startsAt) : ""} required /></label>
-                <label>Slutter<input name="endsAt" type="datetime-local" defaultValue={editing ? localDateTimeInput(editing.endsAt) : ""} required /></label>
-              </div>
-              <label>Lejetype
-                <select name="bookingType" defaultValue={editing?.bookingType ?? "standard"}>
-                  <option value="standard">Standard - fast pris, ingen medlemsrabat</option>
-                  <option value="reduced">Reduceret - medlemmer betaler mindre</option>
-                  <option value="free">Gratis leje - medlemmer deltager gratis</option>
-                </select>
-                <small>2-10 timer. Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30.</small>
-              </label>
-              <div className="workspace-form-row">
-                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" defaultValue={editing?.maxAttendees ?? ""} /></label>
-                <label>Billetpris pr. deltager
+              <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
+                ignore={editing ? { startsAt: editing.startsAt, endsAt: editing.endsAt } : null} onProblem={setPlanProblemCode} />
+              <div className="workspace-form-row event-numbers">
+                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? ""} /></label>
+                <label>Billetpris pr. deltager (kr.)
                   <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
                   <small>{payout?.configured === false
                     ? "Betalte events kan oprettes, når betalingen er koblet til. Indtil da er billetprisen 0 kr. (gratis)."
@@ -415,7 +417,7 @@ function MemberEvents({
                 </label>
               </div>
               <div className="workspace-actions">
-                <button className="pill-button dark" disabled={saving}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
+                <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
               </div>
               {message && <p className="workspace-message" role="status">{message}</p>}
@@ -786,6 +788,7 @@ export function MemberWorkspace({
 
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
+  const markedDates = new Set([...calendar, ...externalEvents].map((entry) => todayKey(new Date(entry.startsAt))));
   return (
     <main className="workspace-shell profile-workspace">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
@@ -799,7 +802,7 @@ export function MemberWorkspace({
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : normalized === "/member-portal/events" ? (
-          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} reload={loadCalendar} />
+          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
