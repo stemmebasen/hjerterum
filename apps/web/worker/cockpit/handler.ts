@@ -1,5 +1,6 @@
 import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
+import { allMemories, forget, memoryPage } from "./memory.js";
 import type { D1Database } from "../db.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { minutesDocText, minutesDocUrl, MAX_RECORDING_BYTES } from "../saga/drive.js";
@@ -723,6 +724,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   }
 
   // Saga in the corner of every page: the answer goes only to the one asking.
+  // Requested: "Og vigtigt at Saga lærer af vores samtaler!" - what she remembers, for everyone to see (cockpit/memory.ts).
+  if (path === "/hukommelse" && request.method === "GET") {
+    if (!who) return redirect(`${base}/hvem`);
+    return html(memoryPage(base, who, { memories: await allMemories(db), isChair: Boolean(members.chair && who === members.chair) }));
+  }
+  if (path === "/hukommelse/glem" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number((await request.formData().catch(() => null))?.get("id") ?? 0);
+    if (Number.isSafeInteger(id) && id > 0) await forget(db, id, who, Boolean(members.chair && who === members.chair));
+    return redirect(`${base}/hukommelse`);
+  }
   if (path === "/saga" && request.method === "POST") {
     const input = askInput(await request.json().catch(() => null));
     if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);

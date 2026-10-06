@@ -10,6 +10,7 @@ import { parseMembershipWorksRss } from "../external-events.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
+import { applyMemory, memorySection } from "./memory.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { MEMBERSHIP_FACTS } from "./membership.js";
 import { siteForSaga } from "./site.js";
@@ -200,9 +201,9 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
   const items: PersonalItem[] = who ? await personalItems(db, who, deps.now()).catch(() => []) : [];
   const mine = who ? personalSection(who, items) : "";
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser cockpittet på engelsk - svar på engelsk)" : ""}: ${input.question}` }];
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}${await memorySection(db, who)}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser cockpittet på engelsk - svar på engelsk)" : ""}: ${input.question}` }];
   const now = deps.now();
-  const answer = await applyPersonal(db, await applyMeeting(db, await complete(env, deps, messages), who, now, base), who, items, now, base);
+  const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, await complete(env, deps, messages), who, now, base), who, items, now, base), who, now);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
