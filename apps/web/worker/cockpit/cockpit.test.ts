@@ -100,7 +100,8 @@ describe("the board cockpit", () => {
       topics: [{ title: "Reduceret medlemskab", status: "drøftes", who: ["Lisbeth"], waitsOnJacob: false, note: "Forslag til GF" }],
       document: { latestMeeting: "17/9", missingMinutes: [], dates: [{ date: "2026-10-14", what: "Generalforsamling" }], figures: [], decisions: [{ topic: "Prøveperiode", text: "Gratis prøveperiode til 15. oktober", date: "17/9", replaces: "" }],
         openThreads: [], proposals: [], tasks: [{ who: "Lisbeth", what: "Skriv forslag om reduceret medlemskab", due: "14/10", since: "1/10" }, { who: "Lisbeth", what: "Gammel opgave fra før", due: "", since: "17/9" }], nextAgenda: [] },
-      forJacob: [{ key: "", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" }] };
+      forJacob: [{ key: "", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" },
+        { key: "", kind: "spørgsmål", text: "Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch.", source: "telegram", from: "Gitta", since: "" }] };
     await saveOverview(db, picture.summary, NOW, { data: JSON.stringify(picture), docHash: "x" });
     const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Beslutninger\n- Budgettet er vedtaget\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober\n- Alle - Del opslaget - ingen frist aftalt" }, NOW);
@@ -122,6 +123,11 @@ describe("the board cockpit", () => {
     const chair = await (await call("/cockpit/", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
     expect(chair).toContain("Svar på: Skal vi svare Thomas Emil?");
     expect(chair).toContain("Skal vi svare Thomas Emil?");
+    // Requested: "Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" /
+    // "Fra Telegram gruppen" - no full stop from Saga's wording, no "gruppen · Gitta".
+    expect(chair).toContain('<li>Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch<span class="ctx">Fra Telegram gruppen</span></li>');
+    expect(chair).not.toContain("Fra gruppen");
+    expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Jacob Hauge") })).text()).toContain("Fra Telegram gruppen</div>");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
     expect(decisions).toContain("Budgettet er vedtaget");
     expect(decisions).toContain("Gratis prøveperiode til 15. oktober");
