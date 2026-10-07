@@ -8,7 +8,8 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
  * the chair has approved, the meetings and agendas written in the cockpit, and the decisions and
  * tasks in them. Drafts waiting for the chair's approval are counted, never shown. */
 
-export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string };
+export type MeetingKind = "team" | "andet";
+export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
 export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
@@ -46,19 +47,19 @@ export const DEFAULT_PLACE = "Hjerterum, Guldsmedgade 26B, 8000 Aarhus";
 const PLACE = `COALESCE(NULLIF(TRIM(place), ''), '${DEFAULT_PLACE}') AS place`;
 
 export async function meetings(db: D1Database): Promise<Meeting[]> {
-  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
+  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
   return rows.results ?? [];
 }
 
 export const meetingOn = (db: D1Database, day: string) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
 
 export const meeting = (db: D1Database, id: number) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^\d{2}:\d{2}$/;
 /** `agenda` is left out when the form does not carry it: the points of the agenda are added and deleted one by one (addAgendaPoints, removeAgendaPoint). */
-export type MeetingInput = { date: string; time: string; place: string; agenda?: string };
+export type MeetingInput = { date: string; time: string; place: string; agenda?: string; kind?: MeetingKind };
 
 /** One point of an agenda: one line, no numbering or bullet, at most 200 characters - never running text. */
 export const cleanPoint = (text: string) => text.replace(/\s+/g, " ").trim().replace(/^(\d+[.)]|[-*•])\s+/, "").slice(0, 200);
@@ -70,24 +71,38 @@ export function meetingInput(form: FormData): MeetingInput | null {
   const time = String(form.get("start_time") ?? "").trim();
   if (!ISO_DAY.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return null;
   return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
+    ...(form.get("kind") === "team" || form.get("kind") === "andet" ? { kind: form.get("kind") as MeetingKind } : {}),
     ...(form.has("agenda") ? { agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(cleanPoint).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) } : {}) };
 }
 
 export async function saveMeeting(db: D1Database, input: MeetingInput, who: string, nowMs: number, id?: number): Promise<number> {
   if (id) {
-    if (input.agenda === undefined) {
-      await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-        .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null, id).run();
-    } else {
-      await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-        .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, who || null, id).run();
-    }
+    // What the form leaves out stays as it was: the agenda (its points are added and deleted one by one) and the kind of meeting.
+    const sets = ["meeting_date = ?", "start_time = ?", "place = ?", "updated_at_ms = ?", "updated_by = ?"], values: Array<string | number | null> = [input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null];
+    if (input.agenda !== undefined) { sets.push("agenda = ?"); values.push(input.agenda); }
+    if (input.kind) { sets.push("kind = ?"); values.push(input.kind); }
+    await db.prepare(`UPDATE board_meetings SET ${sets.join(", ")} WHERE id = ?`).bind(...values, id).run();
     return id;
   }
-  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, created_at_ms, updated_at_ms, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", nowMs, nowMs, who || null).run();
+  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, kind, created_at_ms, updated_at_ms, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
 }
+
+/** Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde." */
+export async function setMeetingKind(db: D1Database, id: number, kind: MeetingKind, who: string, nowMs: number): Promise<boolean> {
+  if (kind !== "team" && kind !== "andet") return false;
+  const result = await db.prepare("UPDATE board_meetings SET kind = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(kind, nowMs, who || null, id).run();
+  return Number(result.meta?.changes ?? 0) === 1;
+}
+
+/** What the board's own words say about a meeting Saga found: the weekly meeting (team- or bestyrelsesmøde) is a team meeting, a general assembly or an info meeting is not; otherwise "" - then the board says. */
+export const guessKind = (what: string): MeetingKind | "" =>
+  /team|bestyrelsesmøde/i.test(what) ? "team" : /generalforsamling|infomøde|workshop|fest\b|kursus|arrangement|åbent hus/i.test(what) ? "andet" : "";
+
+/** The next team meeting: the earliest meeting from today on that is said to be one. */
+export const nextTeamMeeting = (list: Meeting[], today: string): Meeting | null =>
+  list.filter(m => m.kind === "team" && m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
 
 /** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted. Returns how many were added. */
 export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
@@ -111,6 +126,7 @@ export async function removeAgendaPoint(db: D1Database, id: number, text: string
   const points = agendaPoints(m.agenda), at = points.findIndex(p => p === point);
   if (at < 0) return false;
   points.splice(at, 1);
+  // Deleting takes no AI call. What Saga suggested may come again in her next suggestion - that is how she makes a fresh one.
   await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
     .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== point).join("\n"), nowMs, who || null, id).run();
   return true;

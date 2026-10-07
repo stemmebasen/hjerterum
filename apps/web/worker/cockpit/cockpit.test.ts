@@ -221,7 +221,7 @@ describe("the board cockpit", () => {
       "Forslag til næste dagsorden", "<strong>Generalforsamlingen</strong>", "Ugeopsummering", "Lokaleleje er på vej", "om 13 dage", "Underskriv lejekontrakten"]) expect(page).toContain(text);
     expect(page).not.toContain("Godkend budgettet");
     // Saga found a board meeting that is not in the calendar yet; the others see "venter på formanden".
-    expect(front).toContain("/cockpit/moder?dato=2026-10-08&amp;forslag=1#nyt");
+    expect(front).toContain("/cockpit/moder?dato=2026-10-08&amp;art=team#nyt");
     expect(page).not.toContain("Godkend</button>");
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
@@ -241,12 +241,15 @@ describe("the board cockpit", () => {
     expect(lisbeth).not.toContain("venter på formanden");
     expect(await (await call("/cockpit/status", { cookie: await memberCookie(session, "Lisbeth") })).text()).toContain("venter på formanden");
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
-    const plan = await (await call("/cockpit/moder?dato=2026-10-08&forslag=1", { cookie: session })).text();
+    const plan = await (await call("/cockpit/moder?dato=2026-10-08&art=team", { cookie: session })).text();
     expect(plan).toContain('value="2026-10-08"');
-    // Requested: "Der skal altså ikke være fri tekst": no text field for the agenda - Saga's suggestion is a tick box that puts her points on the agenda.
+    // Requested: "Der skal altså ikke være fri tekst": no text field for the agenda. And: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde": the form asks which kind -
+    // a found meeting that says "Teammøde" has it filled in. No grey tick box: round choices.
     expect(plan).not.toContain('name="agenda"');
-    expect(plan).toContain('<input type="checkbox" name="saga_forslag" value="1" checked> Tag Sagas forslag med som punkter på dagsordenen (2)');
-    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<input type="checkbox" name="saga_forslag" value="1"> Tag Sagas forslag med som punkter på dagsordenen (2)');
+    expect(plan).not.toContain('name="saga_forslag"');
+    expect(plan).toContain('<label class="pick"><input type="radio" name="kind" value="team" required checked> Teammøde</label>');
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<label class="pick"><input type="radio" name="kind" value="team" required> Teammøde</label>');
+    expect(await (await call("/cockpit/moder?dato=2026-10-08&art=andet", { cookie: session })).text()).toContain('<input type="radio" name="kind" value="andet" checked> Andet møde');
   });
 
   it("uploads a recording to the meeting it belongs to", async () => {

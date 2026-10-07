@@ -162,7 +162,7 @@ describe("digital votes in the board", () => {
     expect(await (await call("/opgaver", { cookie: as("Gitta") })).text()).toContain("Stem om: Vi holder åbent hus i november");
 
     // Saga's agenda suggestion sees it.
-    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "" }, "Jacob Hauge", NOW);
+    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", NOW);
     await call(`/moder/${meetingId}/forslag`, { method: "POST", cookie: as("Jacob Hauge") });
     expect(agendaPrompt).toContain("Vi holder åbent hus i november (forslag fra Lisbeth)");
     expect(agendaPrompt).toContain("ØNSKES DRØFTET PÅ ET MØDE af Gitta");
@@ -185,7 +185,7 @@ describe("digital votes in the board", () => {
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
     const as = await memberCookies(session);
-    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "" }, "Jacob Hauge", NOW);
+    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", NOW);
 
     // The form asks how: digital (the default) or at the next meeting - which one's date is named.
     const formPage = await (await call("/beslutninger", { cookie: as("Lisbeth") })).text();
