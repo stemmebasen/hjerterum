@@ -12,7 +12,7 @@ import { esc, layout } from "./page.js";
  * "is this the chair?" on its own. */
 
 export const POWERS = {
-  "admins.read": { label: "Se, hvem der er administratorer, og hvordan de bruger cockpittet", needs: "personal" },
+  "admins.read": { label: "Se, hvem der er administratorer, og hvordan de bruger admin", needs: "personal" },
   "conversations.read": { label: "Læse medlemmernes samtaler med Saga", needs: "personal" },
   "memory.forget_any": { label: "Se og glemme alt, hvad Saga har lært af andre", needs: "personal" },
   "access.close": { label: "Lukke et medlems adgang på alle enheder", needs: "personal" },
@@ -73,7 +73,7 @@ export const AUTHORITY_STYLE = `
 export function auditPage(base: string, who: string | null, rows: AuditRow[]): string {
   const label = (power: string) => (POWERS as Record<string, { label: string }>)[power]?.label ?? power;
   return layout(base, "Formandens log", `<main class="log"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/profil">← Profil</a></p><h1>Formandens log</h1>
-<p>Det følsomme, formanden har gjort i cockpittet: læst andres samtaler med Saga, lukket adgang, forbundet mailen og glemt det, andre har lært hende. Kun for formanden.</p></div>
+<p>Det følsomme, formanden har gjort i admin: læst andres samtaler med Saga, lukket adgang, forbundet mailen og glemt det, andre har lært hende. Kun for formanden.</p></div>
 <section class="panel"><header><h2>Seneste</h2></header>${rows.length ? `<ul>${rows.map(r => `<li><span class="at">${esc(WHEN.format(r.at_ms))}</span><span>${esc(label(r.power))}${r.detail ? `<small>${esc(r.detail)}</small>` : ""}</span></li>`).join("")}</ul>` : `<p class="empty">Intet endnu.</p>`}</section>
 <section class="panel"><header><h2>Det formanden må</h2><p>Det, der kræver personligt login, åbner kun for formanden, når hun er logget ind med sit eget link fra Saga.</p></header>
 <ul>${Object.values(POWERS).map(p => `<li><span class="at">${p.needs === "personal" ? "Personligt login" : "Navnet er nok"}</span><span>${esc(p.label)}</span></li>`).join("")}</ul></section></main>`,

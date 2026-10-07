@@ -11,7 +11,7 @@ import { englishReaders, translateHtml } from "./i18n.js";
  * cockpit in English - in Saga's weekday round, never at the weekend - and kept by the Danish text's hash. A page shows the
  * kept English, or the Danish while there is none. A whole minutes document is translated only when a reader asks for it. */
 
-const SYSTEM = "You translate texts from the board cockpit of Hjerterum, a Danish association in Aarhus, from Danish into natural, warm, plain English. "
+const SYSTEM = "You translate texts from the board's admin site of Hjerterum, a Danish association in Aarhus, from Danish into natural, warm, plain English. "
   + "Translate faithfully: add, drop or explain nothing; keep names, places, amounts, dates and Markdown as they are. "
   + "Hjerterum stays Hjerterum. Answer ONLY with JSON: {\"texts\":[\"...\"]} - the same number of texts in the same order.";
 const DOC_SYSTEM = "You translate the minutes of a board meeting of Hjerterum, a Danish association in Aarhus, from Danish into clear English. "

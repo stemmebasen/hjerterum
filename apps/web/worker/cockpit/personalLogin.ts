@@ -93,16 +93,16 @@ export async function signOutMember(db: D1Database, member: string, nowMs: numbe
 export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Database, chatId: string, telegramId: string): Promise<void> {
   const telegram = telegramClient(env, deps);
   const member = await memberByTelegram(env, db, telegramId);
-  if (!member) { await telegram.sendMessage(chatId, "Login til cockpittet er kun for Hjerterums bestyrelse. Er du med i bestyrelsen, så skriv først en besked i bestyrelsens gruppe, og prøv igen."); return; }
+  if (!member) { await telegram.sendMessage(chatId, "Login til admin er kun for Hjerterums bestyrelse. Er du med i bestyrelsen, så skriv først en besked i bestyrelsens gruppe, og prøv igen."); return; }
   // Only someone who is in the group right now: a member who was taken out loses access even though their old messages are still there.
   const present = await stillOnBoard(env, deps, telegramId);
-  if (present === false) { await closeIfOpen(db, member, deps.now()); await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til cockpittet. Er det en fejl, så skriv til formanden."); return; }
+  if (present === false) { await closeIfOpen(db, member, deps.now()); await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
   if (present === null) { await telegram.sendMessage(chatId, "Jeg kan ikke tjekke lige nu, om du er med i bestyrelsens gruppe. Prøv igen om lidt."); return; }
-  if (!env.COCKPIT_URL) { await telegram.sendMessage(chatId, "Cockpittet har ikke fået sin adresse endnu. Prøv igen senere."); return; }
+  if (!env.COCKPIT_URL) { await telegram.sendMessage(chatId, "Admin har ikke fået sin adresse endnu. Prøv igen senere."); return; }
   const { token, code } = await createLoginLink(db, env.SAGA_TELEGRAM_BOT_TOKEN ?? "", member, telegramId, deps.now());
   const address = env.COCKPIT_URL.replace(/\/+$/, "");
   // Requested after: "Det er som om, jeg bliver logget ind i Telegrams egen browser." The link logs in Telegram's browser; the code logs in the usual one.
-  await telegram.sendMessage(chatId, `Hej ${escapeHtml(member.split(/\s+/)[0] ?? "")}. Her er dit personlige login til bestyrelsens cockpit. Det virker én gang inden for ${LINK_MINUTES} minutter - del det ikke.\n\n`
+  await telegram.sendMessage(chatId, `Hej ${escapeHtml(member.split(/\s+/)[0] ?? "")}. Her er dit personlige login til bestyrelsens admin. Det virker én gang inden for ${LINK_MINUTES} minutter - del det ikke.\n\n`
     + `Åbn linket:\n${address}/login/link/${token}\n\n`
     + `Åbner det i Telegrams egen browser, og vil du logge ind i din almindelige browser (Safari, Chrome ...)? Gå så til ${address.replace(/^https?:\/\//, "")} og skriv koden:\n<code>${code.slice(0, 4)} ${code.slice(4)}</code>`, { html: true });
 }

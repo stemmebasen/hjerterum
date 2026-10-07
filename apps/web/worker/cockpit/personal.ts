@@ -55,7 +55,7 @@ export async function applyPersonal(db: D1Database, answer: string, who: string 
     const due = field(raw, "frist");
     const item = items.find(i => i.ref === ref);
     results.push(await (async () => {
-      if (!who) return "✗ Vælg hvem du er i cockpittet, før Saga kan rette i din liste.";
+      if (!who) return "✗ Vælg hvem du er i admin, før Saga kan rette i din liste.";
       if (action === "ny") {
         if (!text) return "✗ Den nye opgave mangler en tekst.";
         await addTodo(db, { owner: who, text, due: DAY.test(due) ? due : null, createdBy: who }, nowMs);

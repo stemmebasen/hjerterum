@@ -71,7 +71,7 @@ describe("the cockpit in English", () => {
 
     // Saga answers in English.
     await call("/saga", { method: "POST", json: true, cookie: douglas, body: JSON.stringify({ question: "Hvad koster et medlemskab?", history: [] }) });
-    expect(lastUser).toContain("Douglas spørger (læser cockpittet på engelsk - svar på engelsk)");
+    expect(lastUser).toContain("Douglas spørger (læser admin på engelsk - svar på engelsk)");
     expect(lastSystem).toContain("Svar på det sprog");
 
     // The minutes stay Danish as written, with "Read in English".

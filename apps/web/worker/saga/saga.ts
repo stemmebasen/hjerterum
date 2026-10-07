@@ -266,13 +266,13 @@ export async function publishMinutes(env: SagaEnv, deps: SagaDeps, id: number, n
   const stored = await approveMinutes(env, deps, id, true, { quiet: true });
   const link = cockpitLink(env, `/referat/${id}`);
   const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), item.draft_markdown,
-    `${note} Det er lagt op${link ? `: ${link}` : " i cockpittet"}, og bestyrelsen godkender det dér. ${stored} Svar på denne besked for at rette referatet.`);
+    `${note} Det er lagt op${link ? `: ${link}` : " i admin"}, og bestyrelsen godkender det dér. ${stored} Svar på denne besked for at rette referatet.`);
   await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
   // Requested: "Referatet er ikke endnu gengivet/inkluderet på forsiden" - Saga's picture of the board
   // (the front page's "Lige nu") is written again at once from the new minutes.
   if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL".
-  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} klar til godkendelse:\n${link || "Se det i cockpittet."}`);
+  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} klar til godkendelse:\n${link || "Se det i admin."}`);
 }
 
 /** Minutes drafted before they went up on their own (they waited for the chair) are put up now. */
@@ -313,7 +313,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), draft,
       `Rettet og lagt op${link ? `: ${link}` : ""}. Bestyrelsen godkender den rettede udgave. Svar på denne besked for at rette igen.`);
     await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
-    await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i cockpittet."}`);
+    await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i admin."}`);
     return;
   }
   const draft = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM },

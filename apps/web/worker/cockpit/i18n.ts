@@ -48,7 +48,7 @@ export const EN: Record<string, string> = {
   "Log ind": "Log in", "Fælles adgangskode": "Shared password", "Eller med den fælles adgangskode": "Or with the shared password", "Få dit login fra Saga på Telegram": "Get your login from Saga on Telegram",
   "Saga sender dig et personligt link, der logger dig ind som dig. Det virker én gang inden for 15 minutter. Du kan også skrive /login til hende.":
     "Saga sends you a personal link that logs you in as you. It works once within 15 minutes. You can also write /login to her.",
-  "Bestyrelsens cockpit med møder, referater og beslutninger.": "The board's cockpit with meetings, minutes and decisions.", "Du logger ind som": "You are logging in as",
+  "Bestyrelsens admin med møder, referater og beslutninger.": "The board's admin with meetings, minutes and decisions.", "Du logger ind som": "You are logging in as",
   "Linket er brugt eller udløbet. Skriv /login til Saga på Telegram for et nyt.": "The link is used or expired. Write /login to Saga on Telegram for a new one.", "Til login": "To login",
   "Hvem er du?": "Who are you?", "Så viser overblikket dine egne opgaver. Du vælger én gang: valget gælder, til du logger ud.": "Then the overview shows your own tasks. You choose once: it holds until you log out.",
   "Dit navn": "Your name", "Fortsæt": "Continue",
@@ -176,6 +176,11 @@ export const EN: Record<string, string> = {
   "Tak - din godkendelse er noteret.": "Thank you - your approval is noted.", "Tak - formanden har fået din rettelse.": "Thank you - the chair has received your correction.",
   "Gratis medlemskab": "Free membership", "Konti i alt": "Accounts in total", "Konti med medlemskab": "Accounts with membership", "Venter på opsigelse": "Awaiting cancellation",
     "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt.": "Saga could not translate the minutes right now. Try again shortly.",
+  // The login code (cockpit/personalLogin.ts) - the login page is also read in English.
+  "Saga sender dig et personligt link og en kode. Begge virker én gang inden for 15 minutter. Du kan også skrive /login til hende.": "Saga sends you a personal link and a code. Both work once, within 15 minutes. You can also write /login to her.",
+  "Har du en kode fra Saga?": "Do you have a code from Saga?", "Log ind med kode": "Log in with the code",
+  "Åbner linket i Telegrams egen browser, bliver du kun logget ind dér. Skriv i stedet koden her, i den browser du plejer at bruge til admin.": "If the link opens in Telegram's own browser, you are only logged in there. Write the code here instead, in the browser you usually use for admin.",
+  "Står du i Telegrams egen browser? Så bliver du kun logget ind her. Vil du være det i din almindelige browser, så tryk ikke - gå til admin-siden dér, og skriv koden fra Saga.": "Are you in Telegram's own browser? Then you are only logged in here. If you want to be logged in in your usual browser, do not press - go to the admin page there and write the code from Saga.",
   // The meeting recorder (cockpit/recorder.ts).
   "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
   "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",

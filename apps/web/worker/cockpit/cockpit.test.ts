@@ -310,6 +310,32 @@ describe("the board cockpit", () => {
     expect(alone.headers.get("location")).toBe("/cockpit/moder?upload=1");
   });
 
+  // Requested: "Let's just call it admin instead of cockpit from now on" - what people read says admin (the code and the old addresses keep the old name).
+  it("calls itself admin in everything a member reads - Danish and English", async () => {
+    const { db, call, form } = await setup();
+    const chair = await personalCookie("Jacob Hauge", NOW);
+    await call("/cockpit/moder", { method: "POST", cookie: chair, body: form({ meeting_date: "2026-10-22", agenda: "Eventuelt" }) });
+    const meeting = await db.prepare("SELECT id FROM board_meetings").first<{ id: number }>();
+    const text = (page: string) => page.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]*>/g, " ");
+    const seen: string[] = [];
+    for (const path of ["", "/moder", `/moder/${meeting!.id}`, "/opgaver", "/beslutninger", "/posthus", "/mere", "/profil", "/administratorer", "/samtaler", "/formand/log", "/arrangementer", "/arrangementer/undervisere", "/medlemmer", "/statistik", "/hukommelse"]) {
+      const response = await call(`/cockpit${path}`, { cookie: chair });
+      expect(response.status, path).toBe(200);
+      seen.push(text(await response.text()));
+    }
+    expect(seen.filter(t => /cockpit/i.test(t))).toEqual([]);
+    expect(seen.join(" ")).toContain("Hjerterum admin v");
+    // The login page, and the same page for someone who reads English.
+    const login = text(await (await call("/cockpit")).text());
+    expect(login).toContain("Bestyrelsens admin med møder, referater og beslutninger.");
+    expect(translateHtml(await (await call("/cockpit")).text())).toContain("The board's admin with meetings, minutes and decisions.");
+    const english = text(translateHtml(await (await call("/cockpit")).text()));
+    expect(english).not.toMatch(/cockpit/i);
+    // The code form on the login page is translated as well.
+    expect(english).toContain("Do you have a code from Saga?");
+    expect(english).toContain("Log in with the code");
+  });
+
   it("has the recorder in English too - the page and the messages in its script", () => {
     const english = translateHtml(recorderCard("", { date: "2026-10-01", meetingId: 4 }));
     expect(english).toContain("Record the meeting here");
@@ -508,7 +534,7 @@ describe("the board cockpit", () => {
     expect(page).toContain("Klaret de sidste 7 dage (1)");
     // Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet".
     const { COCKPIT_VERSION } = await import("./page.js");
-    expect(page).toContain(`Hjerterum cockpit v${COCKPIT_VERSION}`);
+    expect(page).toContain(`Hjerterum admin v${COCKPIT_VERSION}`);
   });
 
   // Requested: "når et bestyrelsesmedlem har løst en opgave og klikket flueben, så skal der være et flueben + dato ud for
