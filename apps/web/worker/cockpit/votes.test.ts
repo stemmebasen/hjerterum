@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { outcome } from "./votes.js";
+import { withMeetingProposals } from "./agenda.js";
+import { translateHtml } from "./i18n.js";
 import { saveMeeting } from "./data.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
@@ -39,9 +41,12 @@ describe("digital votes in the board", () => {
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
     const as = await memberCookies(session);
 
-    // The form is the first card, above what is up for vote and the decisions - with or without a proposal.
+    // The form is the first thing on the page, above what is up for vote and the decisions - with or without a proposal. Requested: "'Opret forslag' fylder for meget nu.
+    // Kan den være en fold-ud bjælke i højre side?" - a tab on the right edge, closed until pressed.
     const empty = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
-    expect(empty).toContain('<div class="card propose" id="nyt">');
+    expect(empty).toContain('<aside class="drawer" id="nyt" aria-label="Opret forslag"><button type="button" class="tab" aria-expanded="false" aria-controls="nyt-panel">');
+    expect(empty).toContain('if(location.hash==="#nyt")set(true)');
+    expect(empty).not.toContain('class="card propose"');
     expect(empty.indexOf('id="nyt"')).toBeLessThan(empty.indexOf("<h2>Besluttet</h2>"));
     expect(await (await call("/", { cookie: as("Gitta") })).text()).not.toContain('id="forslag"');
     // A quick button on every member's front page, whether or not a proposal is open.
@@ -165,5 +170,138 @@ describe("digital votes in the board", () => {
     // Pressed again, it is taken back.
     expect((await call("/afstemninger/droeft", { method: "POST", cookie: as("Gitta"), body: form({ id: "1" }) })).headers.get("location")).toContain("besked=ikkedroeft");
     expect(await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text()).not.toContain("Ønskes drøftet på et møde af");
+  });
+
+  // Requested: "Når man stiller et forslag skal man kunne vælge om man ønsker digital afstemning eller afstemning på næste møde. Hvis næste møde forslår Saga det som punkt på næste dagsorden."
+  it("lets the proposer choose between a digital vote and a vote at the next meeting, and puts the latter on Saga's agenda", async () => {
+    const db = testDatabase();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
+    let agendaPrompt = "";
+    const services = fakeServices({ ai: system => { agendaPrompt = system; return '{"items":["Godkendelse af dagsorden","Eventuelt"]}'; } });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
+      ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
+    const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
+    const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const as = await memberCookies(session);
+    const meetingId = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "" }, "Jacob Hauge", NOW);
+
+    // The form asks how: digital (the default) or at the next meeting - which one's date is named.
+    const formPage = await (await call("/beslutninger", { cookie: as("Lisbeth") })).text();
+    expect(formPage).toContain('<input type="radio" name="mode" value="digital" checked>');
+    expect(formPage).toContain('<input type="radio" name="mode" value="moede">');
+    expect(formPage).toContain("Saga foreslår det som punkt på dagsordenen til mødet");
+
+    const made = await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi hæver prisen på Lydbad", text: "Salen koster mere.", days: "7", mode: "moede" }) });
+    expect(made.headers.get("location")).toBe("/beslutninger?besked=nymoede#p1");
+    expect(await db.prepare("SELECT mode, status FROM board_proposals WHERE id = 1").first()).toEqual({ mode: "moede", status: "open" });
+
+    // Not a to-do to vote on, no vote buttons, no deadline - it stands under "Til næste møde" on Beslutninger and on the front page.
+    for (const who of ["Jacob Hauge", "Lisbeth", "Gitta"]) {
+      expect(await (await call("/opgaver", { cookie: as(who) })).text(), who).not.toContain("Stem om:");
+      const front = await (await call("/", { cookie: as(who) })).text();
+      expect(front, who).toContain('<section class="panel votes-panel" id="moede">');
+      expect(front, who).toContain('<a href="/beslutninger#p1">Vi hæver prisen på Lydbad</a>');
+      expect(front, who).not.toContain('id="forslag"');
+    }
+    const page = await (await call("/beslutninger?besked=nymoede", { cookie: as("Gitta") })).text();
+    expect(page).toContain('<div class="card" id="moede"><h2>Til næste møde');
+    expect(page).toContain("Forslaget er stillet til næste møde");
+    expect(page).toContain("stemmes om på næste møde");
+    expect(page).not.toContain('id="afstemning"');
+    expect(page).not.toContain("Stem for");
+    expect(await (await call("/afstemninger/stem", { method: "POST", cookie: as("Gitta"), body: form({ id: "1", vote: "for" }) })).headers.get("location")).toContain("besked=afgjort");
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM board_votes").first()).toEqual({ n: 0 });
+
+    // No deadline closes it: weeks later it is still open.
+    const later = await handleCockpitRequest(new Request(ORIGIN + "/beslutninger", { headers: { cookie: as("Gitta") } }), env, deps(services.fetcher, NOW + 20 * DAY));
+    expect(await later.text()).toContain('id="moede"');
+    expect(await db.prepare("SELECT status FROM board_proposals WHERE id = 1").first()).toEqual({ status: "open" });
+
+    // Saga's suggestion for the agenda knows it - and has it on the list even when the model leaves it out.
+    await call("/afstemninger/ny", { method: "POST", cookie: as("Gitta"), body: form({ title: "Vi holder åbent hus i november", text: "", days: "7" }) });
+    const suggested = await call(`/moder/${meetingId}/forslag`, { method: "POST", cookie: as("Jacob Hauge") });
+    expect(suggested.status).toBeLessThan(400);
+    const suggestion = await suggested.text();
+    expect(agendaPrompt).toContain("Vi hæver prisen på Lydbad (forslag fra Lisbeth): AFSTEMNING PÅ NÆSTE MØDE");
+    expect(agendaPrompt).toContain("Vi holder åbent hus i november (forslag fra Gitta): Til afstemning");
+    expect(agendaPrompt).not.toContain("Vi holder åbent hus i november (forslag fra Gitta): AFSTEMNING PÅ NÆSTE MØDE");
+    expect(suggestion).toContain("Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)");
+    expect(suggestion).not.toContain("Afstemning: Vi holder åbent hus");
+
+    // After the meeting a board member notes the outcome: voted in at the meeting, with the laurel - and on the list of decisions, marked as from the meeting.
+    const decided = await call("/afstemninger/moede", { method: "POST", cookie: as("Jacob Hauge"), body: form({ id: "1", result: "adopted" }) });
+    expect(decided.headers.get("location")).toBe("/beslutninger?besked=moedevedtaget#p1");
+    expect(await db.prepare("SELECT status FROM board_proposals WHERE id = 1").first()).toEqual({ status: "adopted" });
+    expect((await call("/afstemninger/moede", { method: "POST", cookie: as("Jacob Hauge"), body: form({ id: "1", result: "rejected" }) })).headers.get("location")).toContain("besked=afgjort");
+    // A digital proposal cannot be decided that way.
+    expect((await call("/afstemninger/moede", { method: "POST", cookie: as("Jacob Hauge"), body: form({ id: "2", result: "adopted" }) })).headers.get("location")).toContain("besked=afgjort");
+    const after = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
+    expect(after).toContain('<article class="prop adopted" id="p1"><div class="seal"><svg class="laurel"');
+    expect(after).toContain("vedtaget på mødet");
+    expect(after).toContain('href="#p1">Møde</a>');
+    expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain("Vedtaget på mødet");
+  });
+
+  // Requested: "Laurbær designet skal også vises på historiske beslutninger"
+  it("shows the laurel on every historic decision - the votes with the badge too", async () => {
+    const db = testDatabase();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth"].entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
+    // A vote voted in a month ago (no longer on the front page), and one decision from the minutes.
+    await db.prepare("INSERT INTO board_proposals (title, text, created_by, members, status, deadline_ms, decided_at_ms, created_at_ms) VALUES ('Vi bytter kalender', '', 'Lisbeth', 2, 'adopted', ?, ?, ?)").bind(NOW - 29 * DAY, NOW - 30 * DAY, NOW - 40 * DAY).run();
+    await db.prepare("INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms) VALUES ('upload', 'f1', 'm.m4a', 'approved', '2026-09-10', ?, 1, 1)")
+      .bind("# Referat\n## Beslutninger\n- Medlemskab koster 99 kr. om måneden").run();
+    const services = fakeServices({ ai: () => "Svar." });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, cookie: string) => handleCockpitRequest(new Request(ORIGIN + path, { headers: { cookie } }), env, deps(services.fetcher, NOW));
+    const form = new FormData(); form.append("password", "hjerte-2026");
+    const session = ((await handleCockpitRequest(new Request(ORIGIN + "/login", { method: "POST", body: form, headers: { origin: ORIGIN } }), env, deps(services.fetcher, NOW))).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const as = await memberCookies(session);
+    const page = await (await call("/beslutninger", as("Lisbeth"))).text();
+    const row = page.slice(page.indexOf('<table id="list"'), page.indexOf('</table>'));
+    expect(row).toContain('<div class="dec"><span class="seal"><svg class="laurel"');
+    expect(row).toMatch(/<div class="said"><span class="approved-badge">[^]*GODKENDT<\/span>Vi bytter kalender<\/div>/);
+    // The decision from the minutes wears the laurel too, without the badge of a vote.
+    expect(row).toMatch(/<div class="said">Medlemskab koster 99 kr\. om måneden<\/div>/);
+    expect(row.match(/<svg class="laurel"/g)).toHaveLength(2);
+    // The vote is old: not in the card of the last week, but folded among the decided votes - and still on the list of decisions with its laurel.
+    expect(page).not.toContain('id="vedtaget"');
+  });
+});
+
+describe("a proposal for the next meeting on Saga's agenda", () => {
+  it("adds it before Eventuelt when the model left it out, and leaves it when it is already there", () => {
+    const wanted = [{ title: "Vi hæver prisen på Lydbad", created_by: "Lisbeth Nielsen" }];
+    expect(withMeetingProposals(["Godkendelse af dagsorden", "Eventuelt"], wanted)).toEqual(["Godkendelse af dagsorden", "Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)", "Eventuelt"]);
+    expect(withMeetingProposals(["Godkendelse af dagsorden", "Afstemning: vi hæver  prisen på lydbad (Lisbeth)", "Eventuelt"], wanted)).toHaveLength(3);
+    expect(withMeetingProposals(["Punkt"], wanted)).toEqual(["Punkt", "Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)"]);
+    // Twelve points at most: the proposal pushes out the last of the others, and Eventuelt stays last.
+    const twelve = Array.from({ length: 11 }, (_, i) => `Punkt ${i + 1}`).concat("Eventuelt");
+    const out = withMeetingProposals(twelve, wanted);
+    expect(out).toHaveLength(12);
+    expect(out[10]).toContain("Afstemning: Vi hæver prisen på Lydbad");
+    expect(out[11]).toBe("Eventuelt");
+  });
+});
+
+describe("English for the proposal at the next meeting", () => {
+  it("has the form, the card and the notes in English", () => {
+    const en = translateHtml(`<button class="tab"><i>+</i>Opret forslag</button><label><b>På næste møde</b><span>Saga foreslår det som punkt på dagsordenen til mødet tor. 15. okt.</span></label>
+<h2>Til næste møde</h2><p>Forslag, der stemmes om på det næste bestyrelsesmøde (tor. 15. okt.). Saga foreslår dem som punkter på dagsordenen.</p>
+<div class="who">Stillet af Lisbeth 2. okt. · stemmes om på næste møde (tor. 15. okt.) - Saga sætter det på dagsordenen</div><div class="who">Stillet af Lisbeth 2. okt. · vedtaget på mødet 15. okt.</div>
+<button>Vedtaget på mødet</button><span>Når mødet har stemt:</span>`);
+    expect(en).toContain("<i>+</i>Create proposal</button>");
+    expect(en).toContain("<b>At the next meeting</b>");
+    expect(en).toContain("Saga suggests it as an item on the agenda for the meeting");
+    expect(en).toContain("<h2>For the next meeting</h2>");
+    expect(en).toContain("Proposals to be voted on at the next board meeting (");
+    expect(en).toContain("voted on at the next meeting (");
+    expect(en).toContain("Saga puts it on the agenda</div>");
+    expect(en).toContain("Proposed by Lisbeth");
+    expect(en).toContain("adopted at the meeting 15 Oct");
+    expect(en).toContain("<button>Adopted at the meeting</button><span>When the meeting has voted:</span>");
+    expect(en).not.toMatch(/stemmes|Saga sætter|på mødet|Opret/);
   });
 });

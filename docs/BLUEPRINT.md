@@ -194,7 +194,7 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 
 ### Proposals: easier to write, and on everyone's front page (2026-10-07)
 
-- "Opret forslag til afstemning" is the first card on Beslutninger (`#nyt`), tinted with the accent, then what is up for vote, then the decisions; the decided votes are folded away at the bottom.
+- "Opret forslag til afstemning" was the first card on Beslutninger (`#nyt`) - now a fold-out tab, see below - then what is up for vote, then the decisions; the decided votes are folded away at the bottom.
 - Every open proposal is on **every member's front page**, right under the four boxes, in an accent-tinted card ("Forslag til afstemning", `frontVotes` in `cockpit/votes.ts`): the title (a link to the proposal), who made it, the deadline and the majority needed, the bar and the count so far, and the vote buttons - a pill says "Du mangler at stemme" until the member has voted. A vote from the front page comes back to the card (`back=forside`). The card is gone when no proposal is open. The "Stem om: ..." line stays on the to-do lists.
 
 ### A proposal that is voted in looks the part (2026-10-07)
@@ -202,6 +202,14 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Du må gerne få det til at se lidt højtideligt ud, når et forslag er stemt ind. Start et forslag enten med et badge eller en laurbær": an adopted proposal starts with a **gold laurel wreath** around a check mark (`laurel()` in `cockpit/votes.ts`, drawn from leaves along a circle) and the gold **GODKENDT** badge, in a gold-edged card (`--gold`, light and dark; the bar of votes is gold too). The same gold badge sits in the decisions list.
 - For a week after the vote it also stands open: in "Vedtaget" on **every member's front page** (above the open proposals) and in "Vedtaget den seneste uge" on Beslutninger; after that it moves to the folded "Afgjorte afstemninger" (and stays in "Besluttet").
 - A quick **"+ Stil et forslag"** button in the front page's header (to `/beslutninger#nyt`) for every member.
+
+### A proposal: digital vote or at the next meeting; laurel on old decisions; the form folds out (2026-10-07)
+
+- "Når man stiller et forslag skal man kunne vælge om man ønsker digital afstemning eller afstemning på næste møde": the form asks **how** - *Digital afstemning* (the default; the deadline field shows) or *På næste møde*. `board_proposals.mode` is `digital` or `moede` (migration 0047).
+- A proposal for the meeting is **not voted on here**: no vote buttons, no "Stem om:" to-do, no deadline and no auto-settling (`settle`/`settleDue`/`awaitingVote` skip `moede`). It stands under **"Til næste møde"** on Beslutninger and on every member's front page, with the next meeting's date. After the meeting any board member presses *Vedtaget på mødet* or *Ikke vedtaget* (`decideAtMeeting`, `POST /afstemninger/moede`); a vote adopted that way gets the laurel and the gold badge like any other, and is marked "Møde" as its source in Besluttet. The proposer can still withdraw it.
+- "Hvis næste møde forslår Saga det som punkt på næste dagsorden": `votesForSaga` marks it `AFSTEMNING PÅ NÆSTE MØDE`, the agenda prompt (`agenda.ts`) says it must be an item, and `withMeetingProposals` adds "Afstemning: ... (stillet af ...)" before *Eventuelt* when the model left it out (the cap of 12 yields to it) - so it is always on her suggestion.
+- "Laurbær designet skal også vises på historiske beslutninger": every row in **Besluttet** wears the gold laurel (`.dec`), votes also the GODKENDT badge; the decisions from the minutes get the laurel without the badge.
+- "'Opret forslag' fylder for meget nu. Kan den være en fold-ud bjælke i højre side?": the form is a **tab on the right edge** of Beslutninger (`<aside class="drawer" id="nyt">`) that folds the form out over the page - closed by default, `Esc` or the tab closes it, `/beslutninger#nyt` (the front page's "+ Stil et forslag") opens it. On a phone the tab sits lower on the edge and the opened form is a sheet under the header. Without JavaScript the form is simply shown.
 
 ### Naming: admin, not cockpit (2026-10-07)
 
