@@ -218,8 +218,27 @@ export async function unsignedFor(db: D1Database, member: string, nowMs: number)
 export type Todo = { id: number; owner: string; text: string; due: string | null; created_by: string; created_at_ms: number; done_at_ms: number | null };
 
 /** Where Saga found an item for the chair, as the line under it says. Requested: the front page should read "Svar på: Hvem skal
- * spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" / "Fra Telegram gruppen". */
-export const SAGA_SOURCE: Record<string, string> = { telegram: "Fra Telegram gruppen", dokument: "Fra referatdokumentet", mail: "Fra team@" };
+ * spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" / "Fra Telegram gruppen".
+ * What was agreed at a meeting (the minutes or the minutes document) says when instead - see `agreedLabel`. */
+export const SAGA_SOURCE: Record<string, string> = { telegram: "Fra Telegram gruppen", mail: "Fra team@" };
+
+const SHORT_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+/** A meeting's day as YYYY-MM-DD, from the minutes' "2026-10-01" or the minutes document's "17/9" or "17/9/26" (no year: this year); "" if it is neither. */
+export function meetingDayIso(text: string | null | undefined): string {
+  const t = (text ?? "").trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  const short = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/.exec(t);
+  if (!short) return "";
+  const year = short[3] ? (short[3].length === 2 ? `20${short[3]}` : short[3]) : TASKS_SINCE.slice(0, 4);
+  return `${year}-${short[2]!.padStart(2, "0")}-${short[1]!.padStart(2, "0")}`;
+}
+/** Requested: "Her bliver det for upræcist med referatdokumentet. Kan der ikke stå 'Aftalt på mødet d. dato'" - under what came out of a meeting. */
+export function agreedLabel(meeting: string | null | undefined): string {
+  const day = meetingDayIso(meeting);
+  return day ? `Aftalt på mødet d. ${SHORT_DAY.format(new Date(`${day}T12:00:00Z`))}` : "Aftalt på et møde";
+}
+/** The line under one of Saga's items: where she found it, or - from the minutes document - when it was agreed. */
+export const sagaSource = (item: { source: string; since?: string }, fallback = "") => item.source === "dokument" ? agreedLabel(item.since) : SAGA_SOURCE[item.source] ?? fallback;
 
 /** Saga's wording without the full stop she ends it with. */
 export const withoutStop = (text: string) => text.replace(/\s*\.\s*$/, "").trim();
@@ -379,13 +398,7 @@ export async function setTaskChecked(db: D1Database, owner: string, key: string,
 export const TASKS_SINCE = "2026-10-01";
 const SINCE_MS = Date.parse(`${TASKS_SINCE}T00:00:00+02:00`);
 /** A task's day as YYYY-MM-DD: the minutes' meeting date, or the minutes document's "17/9" (this year). */
-export function taskDay(task: Task): string {
-  if (/^\d{4}-\d{2}-\d{2}/.test(task.meeting)) return task.meeting.slice(0, 10);
-  const short = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/.exec(task.meeting.trim());
-  if (!short) return "";
-  const year = short[3] ? (short[3].length === 2 ? `20${short[3]}` : short[3]) : TASKS_SINCE.slice(0, 4);
-  return `${year}-${short[2]!.padStart(2, "0")}-${short[1]!.padStart(2, "0")}`;
-}
+export const taskDay = (task: Task): string => meetingDayIso(task.meeting);
 export function currentTasks(tasks: Task[]): Task[] {
   return tasks.map(task => ({ task, day: taskDay(task) })).filter(t => t.day >= TASKS_SINCE)
     .sort((a, b) => b.day.localeCompare(a.day)).map(t => t.task);

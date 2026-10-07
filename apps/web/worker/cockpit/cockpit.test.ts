@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import config from "../config-entry.js";
 import { handleCockpitRequest } from "./handler.js";
+import { agreedLabel, sagaSource } from "./data.js";
 import { translateHtml } from "./i18n.js";
 import { recorderCard } from "./recorder.js";
 import { processNextMinutes } from "../saga/saga.js";
@@ -311,6 +312,38 @@ describe("the board cockpit", () => {
   });
 
   // Requested: "Let's just call it admin instead of cockpit from now on" - what people read says admin (the code and the old addresses keep the old name).
+  // Requested: "Send preview-link til nyt system til Douglas / Fra referatdokumentet - Her bliver det for upræcist med referatdokumentet.
+  // Kan der ikke stå 'Aftalt på mødet d. dato'".
+  it("says when a task was agreed at a meeting, not which document it came from", async () => {
+    const { db, call } = await setup();
+    const chair = await personalCookie("Jacob Hauge", NOW);
+    const picture = { summary: "Roligt.", temperature: { level: "god", why: "" }, topics: [],
+      document: { latestMeeting: "1/10", missingMinutes: [], dates: [], figures: [], decisions: [], openThreads: [], proposals: [], tasks: [{ who: "Jacob", what: "Send preview-link til nyt system til Douglas", due: "", since: "1/10" }], nextAgenda: [] },
+      forJacob: [{ key: "k1", kind: "opgave", text: "Send preview-link til nyt system til Douglas", source: "dokument", from: "", since: "1/10" },
+        { key: "k2", kind: "opgave", text: "Bestil nøgler til den nye leder", source: "dokument", from: "", since: "" },
+        { key: "k3", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" },
+        { key: "k4", kind: "opgave", text: "Besvar mailen fra Karítas", source: "mail", from: "", since: "" }], forMembers: [] };
+    await saveOverview(db, picture.summary, NOW, { data: JSON.stringify(picture), docHash: "x" });
+    const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
+    await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Opgaver\n- Jacob - Ring til udlejer - 12. oktober" }, NOW);
+    await decideMinutes(db, minutesId, "approved", NOW);
+    for (const path of ["/cockpit/", "/cockpit/opgaver"]) {
+      const page = await (await call(path, { cookie: chair })).text();
+      expect(page, path).toContain("Aftalt på mødet d. 1. okt. 2026");
+      expect(page, path).toContain("Fra Telegram gruppen");
+      expect(page, path).toContain("Fra team@");
+      expect(page, path).not.toMatch(/Fra referatdokumentet|Fra referatet/);
+      // An item from the minutes document without a date is not shown at all (as before).
+      expect(page, path).not.toContain("Bestil nøgler");
+    }
+    expect([agreedLabel("2026-10-01"), agreedLabel("17/9"), agreedLabel("17/9/26"), agreedLabel("sidste møde"), agreedLabel(""), agreedLabel(undefined)])
+      .toEqual(["Aftalt på mødet d. 1. okt. 2026", "Aftalt på mødet d. 17. sep. 2026", "Aftalt på mødet d. 17. sep. 2026", "Aftalt på et møde", "Aftalt på et møde", "Aftalt på et møde"]);
+    expect([sagaSource({ source: "dokument", since: "1/10" }), sagaSource({ source: "dokument" }), sagaSource({ source: "telegram" }), sagaSource({ source: "mail" })])
+      .toEqual(["Aftalt på mødet d. 1. okt. 2026", "Aftalt på et møde", "Fra Telegram gruppen", "Fra team@"]);
+    expect(translateHtml('<span class="ctx">Aftalt på mødet d. 1. okt. 2026</span><span class="ctx">Aftalt på et møde</span>'))
+      .toBe('<span class="ctx">Agreed at the meeting on 1 Oct 2026</span><span class="ctx">Agreed at a meeting</span>');
+  });
+
   it("calls itself admin in everything a member reads - Danish and English", async () => {
     const { db, call, form } = await setup();
     const chair = await personalCookie("Jacob Hauge", NOW);

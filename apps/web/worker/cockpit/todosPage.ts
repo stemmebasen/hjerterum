@@ -1,4 +1,4 @@
-import { EVERYONE, imperative, mergeSame, SAGA_SOURCE, taskKey, type Task, type Todo } from "./data.js";
+import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 
@@ -67,7 +67,7 @@ const removeButton = (base: string, kind: Kind, id: string, also: string[]) =>
   `<form method="post" action="${base}/opgaver/fjern"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}">${alsoField(also)}<button class="x" aria-label="Fjern fra din liste" title="Fjern fra din liste">×</button></form>`;
 function taskItem(base: string, task: Task, done: boolean, also: string[] = []): string {
   return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done, also)}<div class="what">${esc(sharp(task.what))}${dueLabel(task.due)}
-<div class="small muted">${task.source === "dokument" ? "Fra referatdokumentet" : "Fra referatet"}${task.meeting ? ` ${esc(shortDay(task.meeting))}` : ""}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also)}</li>`;
+<div class="small muted">${esc(agreedLabel(task.meeting))}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also)}</li>`;
 }
 
 function todoItem(base: string, todo: Todo, who: string, also: string[] = []): string {
@@ -89,7 +89,7 @@ export function todosPage(base: string, data: TodosData): string {
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
   type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
   const sagaLine = (f: NonNullable<TodosData["saga"]>[number]): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
-<div class="small muted">${esc(SAGA_SOURCE[f.source] ?? "Fra Saga")}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
+<div class="small muted">${esc(sagaSource(f, "Fra Saga"))}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
   // Requested: "make sure that there are no duplicates in the to-dos" - the approved minutes' wording first, then the
   // minutes document's, Saga's and your own; the same task is one line, and checking or removing it takes all of them.
   const lines: Line[] = [
