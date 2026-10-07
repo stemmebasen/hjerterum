@@ -12,6 +12,8 @@ import { esc, layout, shortDay } from "./page.js";
 const DAY = 86_400_000;
 export type Vote = "for" | "imod" | "undlader";
 export const VOTES: readonly Vote[] = ["for", "imod", "undlader"];
+/** The label of a vote button: on a phone "Undlad at stemme" is shortened to "Undlad", so that the three votes stand in one row. */
+const voteLabel = (v: Vote) => v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : `Undlad<span class="more"> at stemme</span>`;
 /** Requested: "vælge om man ønsker digital afstemning eller afstemning på næste møde": 'digital' is voted on the page; 'moede' is voted at the next meeting. */
 export type Mode = "digital" | "moede";
 export type Proposal = { id: number; title: string; text: string; created_by: string; members: number; mode: Mode; status: "open" | "adopted" | "rejected" | "withdrawn"; deadline_ms: number; decided_at_ms: number | null; created_at_ms: number };
@@ -209,6 +211,13 @@ transition:transform .28s ease,opacity .2s;transform-origin:right center}
 .votes-panel .count{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-left:8px;vertical-align:3px}
 .votes-panel .prop{border-top:1px solid color-mix(in srgb,var(--accent) 22%,var(--line))}.votes-panel .prop h3 a{color:var(--ink);text-decoration:none}.votes-panel .prop h3 a:hover{color:var(--accent)}
 .votes-panel .prop .state.todo{background:var(--accent);color:var(--accent-ink)}
+/* Requested: "Knapperne er ret store og virker massive på mobil": on a phone the three votes stand in one row, smaller; "drøft på et møde" and "træk tilbage" are quiet text lines under them. */
+@media (max-width:760px){
+.prop .acts .more{display:none}
+.prop .acts{display:flex;flex-wrap:wrap;gap:6px}
+.prop .acts button{flex:1 1 auto;min-height:38px;padding:7px 10px;font-size:14px;line-height:1.2;font-weight:650;justify-content:center}
+.prop .acts button[formaction]{flex:1 1 100%;min-height:32px;padding:4px 2px;font-size:13px;font-weight:600;border:0;background:transparent;color:var(--muted);justify-content:flex-start;text-decoration:underline;text-underline-offset:3px}
+.prop .acts button[formaction]:hover{color:var(--accent);border:0}}
 @media (prefers-color-scheme:dark){.prop .state.adopted{background:#163824;color:#8fd6a5}.prop .talk{background:#3a2c10;color:#f3c66b}}
 ${APPROVED_STYLE}`;
 
@@ -237,7 +246,7 @@ ${p.discuss.length ? `<div class="talk">💬 Ønskes drøftet på et møde af ${
     : p.status === "open" && meeting ? `<form method="post" action="${base}/afstemninger/moede" class="acts"><input type="hidden" name="id" value="${p.id}">
 <span class="notevote">Når mødet har stemt:</span><button name="result" value="adopted" onclick="return confirm('Notér forslaget som vedtaget på mødet?')">Vedtaget på mødet</button><button name="result" value="rejected" class="ghost" onclick="return confirm('Notér forslaget som ikke vedtaget på mødet?')">Ikke vedtaget</button>${withdraw}</form>`
     : p.status === "open" ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}">
-${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}
+${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${voteLabel(v)}</button>`).join("")}
 ${talkButton}${withdraw}</form>${mine ? `<div class="who">Du har stemt ${mine}. Du kan ændre din stemme, indtil forslaget er afgjort.</div>` : ""}`
     : (p.status === "adopted" || p.status === "rejected") && !meeting ? `<form method="post" action="${base}/afstemninger/droeft" class="acts"><input type="hidden" name="id" value="${p.id}">${talkButton}</form>` : "";
   const body = `${adopted ? `<h3>${esc(p.title)}</h3>` : `<h3>${label}${esc(p.title)}</h3>`}
@@ -308,7 +317,7 @@ ${forMeeting.map(p => `<article class="prop" id="m${p.id}"><h3><span class="stat
 <div class="bar" role="img" aria-label="${esc(tally(p))}"><i class="y" style="width:${pct(n("for"))}"></i><i class="n" style="width:${pct(n("imod"))}"></i><i class="a" style="width:${pct(n("undlader"))}"></i></div>
 <div class="pmeta">${esc(tally(p))}</div>
 ${who ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="back" value="forside">
-${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}</form>` : ""}</article>`;
+${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${voteLabel(v)}</button>`).join("")}</form>` : ""}</article>`;
   };
   return `${adoptedCard}<section class="panel votes-panel" id="forslag"><header><h2>Forslag til afstemning<span class="count">${open.length}</span></h2><p>Stem her - eller læs hele forslaget under Beslutninger.</p></header>
 ${open.map(item).join("")}<a class="more" href="${base}/beslutninger#nyt">Stil et nyt forslag →</a></section>${meetingCard}`;

@@ -66,6 +66,13 @@ describe("digital votes in the board", () => {
       expect(front, who).toContain("Stillet af Lisbeth");
       expect(front, who).toContain('<input type="hidden" name="back" value="forside">');
       expect(front, who).toContain("Du mangler at stemme");
+      // Requested: "Forslag til afstemning skal længere ned på forside - over medlemmer": not right under the boxes, but in the column of Dine opgaver, before the members and before the next meeting.
+      expect(front.indexOf('id="forslag"'), who).toBeGreaterThan(front.indexOf('id="dine-opgaver"'));
+      expect(front.indexOf('id="forslag"'), who).toBeLessThan(front.indexOf("<h2>Næste teammøde</h2>"));
+      expect(front.indexOf('id="forslag"'), who).toBeGreaterThan(front.indexOf('<div class="panels">'));
+      // Requested: "Knapperne er ret store og virker massive på mobil": the votes are one row of smaller buttons on a phone, "Undlad at stemme" shortened to "Undlad".
+      expect(front, who).toContain('Undlad<span class="more"> at stemme</span></button>');
+      expect(front, who).toContain(".prop .acts .more{display:none}");
     }
     const voted = await call("/afstemninger/stem", { method: "POST", cookie: as("Lisbeth"), body: form({ id: "1", vote: "for", back: "forside" }) });
     expect(voted.headers.get("location")).toBe("/#forslag");
@@ -326,6 +333,7 @@ describe("English for the proposal at the next meeting", () => {
 <div class="who">Stillet af Lisbeth 2. okt. · stemmes om på næste møde (tor. 15. okt.) - Saga sætter det på dagsordenen</div><div class="who">Stillet af Lisbeth 2. okt. · vedtaget på mødet 15. okt.</div>
 <button>Vedtaget på mødet</button><span>Når mødet har stemt:</span><div class="small muted">Referatet: 1 af 2 har godkendt</div>`);
     expect(en).toContain("<i>+</i>Create proposal</button>");
+    expect(translateHtml('<button>Undlad<span class="more"> at stemme</span></button>')).toContain('<button>Abstain<span class="more"> </span></button>');
     expect(en).toContain("Minutes: 1 of 2 have approved");
     expect(en).toContain("<b>At the next meeting</b>");
     expect(en).toContain("Saga suggests it as an item on the agenda for the meeting");
