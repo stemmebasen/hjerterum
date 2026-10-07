@@ -610,7 +610,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", nymoede: "Forslaget er stillet til næste møde. Saga foreslår det som punkt på dagsordenen.",
       moedevedtaget: "Noteret: forslaget er vedtaget på mødet.", moedeafvist: "Noteret: forslaget blev ikke vedtaget på mødet.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage.",
-      aftale: "Flyttet til de uformelle aftaler.", beslutning: "Flyttet til beslutningerne." };
+      aftale: "Flyttet til aftaler og anbefalinger.", beslutning: "Flyttet til beslutningerne." };
     // The minutes the board signs off in the admin: how many have approved each. The minutes from the document have no sign-off, so no entry.
     const counts = await approvalCounts(db);
     const approvals = { members: members.names.length, approved: new Map(minutes.filter(m => m.source !== "document").map(m => [m.id, counts.get(m.id) ?? 0] as const)) };

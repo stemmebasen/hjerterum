@@ -12,7 +12,7 @@ const IDENTITY = `Du er ${SAGA_NAME}, Hjerterums bestyrelsesassistent. Du skrive
   + "kan du nævne det som noget, der drøftes nu, men det ændrer ikke en beslutning, før et nyere referat gør det. "
   // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
   + "En beslutning er truffet af bestyrelsen og gælder, når den er truffet, også før referatet er godkendt af alle. En uformel aftale (afsnittet Aftaler i et referat, fx at nogle holder møde om opgavefordeling) "
-  + "er mellem enkelte personer og er ikke en beslutning i bestyrelsen: kald den en aftale, aldrig en beslutning.";
+  + "er mellem enkelte personer, og en anbefaling eller et forslag er ikke afgjort: ingen af dem er en beslutning i bestyrelsen - kald dem aftaler eller anbefalinger, aldrig beslutninger.";
 
 /** Hjerterum's minutes template. */
 export const MINUTES_SYSTEM = IDENTITY + `
@@ -28,10 +28,10 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 - Beslutning: <præcis beslutning, eller "Ingen beslutning">
 
 ## Beslutninger
-- <hver beslutning i én linje: det bestyrelsen har besluttet - regler, priser, beløb, budget, kontrakter, poster, datoer>
+- <hver beslutning i én linje: kun det, bestyrelsen har afgjort - regler, priser, beløb, budget, kontrakter, poster, datoer>
 
 ## Aftaler
-- <hver uformel aftale i én linje: det, nogle enkelte personer har aftalt at gøre sammen eller hver for sig, uden at bestyrelsen har besluttet noget - fx at nogle holder møde om en opgave. Ingen: skriv "Ingen aftaler">
+- <hver uformel aftale eller anbefaling i én linje: det, nogle enkelte personer har aftalt at gøre sammen eller hver for sig (fx at nogle holder møde om en opgave), og det, der er anbefalet, foreslået, bakket op eller skal undersøges, uden at bestyrelsen har afgjort det. Ingen: skriv "Ingen aftaler">
 
 ## Opgaver
 - <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
@@ -39,7 +39,7 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
 
-Regler: kun det, der faktisk blev sagt. En beslutning må aldrig stå som aftale: er du i tvivl, så skriv den under Beslutninger. Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.`;
+Regler: kun det, der faktisk blev sagt. Skriv kun noget under Beslutninger, når bestyrelsen har afgjort det: en anbefaling ("der anbefales ..."), et forslag til generalforsamlingen, en opbakning eller noget, der skal undersøges, er ikke afgjort og står under Aftaler. Og "Beslutning:" ved et punkt skal være en afgørelse - er der kun en anbefaling eller en idé, så skriv "Ingen beslutning". Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.`;
 
 // Requested: "Vi skal også have indsat de sidste 10 referater ind i det nye system".
 export const IMPORT_SYSTEM = IDENTITY + `
@@ -63,7 +63,7 @@ Skabelon:
 - <hver beslutning i én linje>
 
 ## Aftaler
-- <hver uformel aftale mellem enkelte personer i én linje, eller "Ingen aftaler">
+- <hver uformel aftale mellem enkelte personer, anbefaling eller forslag, der ikke er afgjort, i én linje, eller "Ingen aftaler">
 
 ## Opgaver
 - <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
