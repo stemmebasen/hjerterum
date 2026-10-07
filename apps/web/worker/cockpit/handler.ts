@@ -14,7 +14,7 @@ import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCo
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addAgendaPoints, addTodo, approvalCounts, nextTeamMeeting, setMeetingKind, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -249,7 +249,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", kind: url.searchParams.get("art") === "team" ? "team" : url.searchParams.get("art") === "andet" ? "andet" : "" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
 
-  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag\/dokument|\/forslag|\/punkt\/slet|\/punkt|\/art)?$/.exec(path);
+  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag\/dokument|\/forslag|\/punkt\/slet|\/punkt\/ret|\/punkt)?$/.exec(path);
   if (meetingPath) {
     const id = Number(meetingPath[1]), action = meetingPath[2] ?? "";
     const found = await meeting(db, id);
@@ -257,15 +257,6 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const back = (code = "") => redirect(`${base}/moder/${id}${code ? `?forslag=${code}` : ""}#dagsorden`);
     // Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde.": her suggestions are for a meeting that is said to be a team meeting - no other.
     if (request.method === "POST" && (action === "/forslag" || action === "/forslag/dokument") && found.kind !== "team") return back("ikketeam");
-    if (request.method === "POST" && action === "/art") {
-      const kind = String((await request.formData().catch(() => null))?.get("kind") ?? "");
-      if (kind === "team" || kind === "andet") {
-        await setMeetingKind(db, id, kind, who ?? "", now);
-        // A team meeting that is the next one gets her suggestion from the minutes document at once (no AI) - the AI's comes in her morning round, or when asked.
-        if (kind === "team" && nextTeamMeeting(await meetings(db), today)?.id === id && !found.agenda_saga?.trim()) await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
-      }
-      return back();
-    }
     if (request.method === "POST" && action === "/forslag") {
       // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges." - and: "Sagas forslag ... i punktform i bunden ... slette hver med et kryds": her points go onto the agenda.
       if (!env.AI_API_KEY || !env.AI_MODEL) return back("ingenai");
@@ -284,6 +275,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       await addAgendaPoints(db, id, [String((await request.formData().catch(() => null))?.get("text") ?? "")], who ?? "", now);
       return back();
     }
+    if (request.method === "POST" && action === "/punkt/ret") {
+      // Requested: "en let måde at redigere et punkt på. Måske en lille blå blyant til venstre for krydset."
+      const form = await request.formData().catch(() => null);
+      await editAgendaPoint(db, id, String(form?.get("old") ?? ""), String(form?.get("text") ?? ""), who ?? "", now);
+      return back();
+    }
     if (request.method === "POST" && action === "/punkt/slet") {
       await removeAgendaPoint(db, id, String((await request.formData().catch(() => null))?.get("text") ?? ""), who ?? "", now);
       return back();
@@ -292,12 +289,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
       if (input) await saveMeeting(db, input, who ?? "", now, id);
+      // Ticked as a team meeting just now, and it is the next one: her suggestion from the minutes document is on the agenda at once (no AI) - the AI's comes in her morning round, or when asked.
+      if (input?.kind === "team" && found.kind !== "team" && !found.agenda_saga?.trim() && nextTeamMeeting(await meetings(db), today)?.id === id)
+        await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
-      : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sig først, at det er et teammøde." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
+      : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
       : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
     return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));

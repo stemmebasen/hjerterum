@@ -71,7 +71,8 @@ export function meetingInput(form: FormData): MeetingInput | null {
   const time = String(form.get("start_time") ?? "").trim();
   if (!ISO_DAY.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return null;
   return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
-    ...(form.get("kind") === "team" || form.get("kind") === "andet" ? { kind: form.get("kind") as MeetingKind } : {}),
+    // A ticked "Teammøde" sends kind=team; an unticked one sends nothing, so the form says it carried the box (kind_sent) - then it is "andet". A form without the box leaves the kind alone.
+    ...(form.get("kind") === "team" || form.get("kind") === "andet" ? { kind: form.get("kind") as MeetingKind } : form.has("kind_sent") ? { kind: "andet" as const } : {}),
     ...(form.has("agenda") ? { agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(cleanPoint).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) } : {}) };
 }
 
@@ -87,13 +88,6 @@ export async function saveMeeting(db: D1Database, input: MeetingInput, who: stri
   const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, kind, created_at_ms, updated_at_ms, updated_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
-}
-
-/** Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde." */
-export async function setMeetingKind(db: D1Database, id: number, kind: MeetingKind, who: string, nowMs: number): Promise<boolean> {
-  if (kind !== "team" && kind !== "andet") return false;
-  const result = await db.prepare("UPDATE board_meetings SET kind = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(kind, nowMs, who || null, id).run();
-  return Number(result.meta?.changes ?? 0) === 1;
 }
 
 /** What the board's own words say about a meeting Saga found: the weekly meeting (team- or bestyrelsesmøde) is a team meeting, a general assembly or an info meeting is not; otherwise "" - then the board says. */
@@ -116,6 +110,22 @@ export async function addAgendaPoints(db: D1Database, id: number, texts: string[
   }
   if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), nowMs, who || null, id).run();
   return added;
+}
+
+/** Edits one point of the agenda in place (the pencil): the new text takes the old one's place. A point of Saga's that a member has rewritten is theirs now - it loses her mark.
+ * False when the old point is not there, the new text is empty, or another point already says the same. */
+export async function editAgendaPoint(db: D1Database, id: number, oldText: string, newText: string, who: string, nowMs: number): Promise<boolean> {
+  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  const before = cleanPoint(oldText), after = cleanPoint(newText);
+  if (!m || !before || !after) return false;
+  const points = agendaPoints(m.agenda), at = points.findIndex(p => p === before);
+  if (at < 0) return false;
+  if (after === before) return true;
+  if (points.some((p, i) => i !== at && p.toLowerCase() === after.toLowerCase())) return false;
+  points[at] = after;
+  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== before).join("\n"), nowMs, who || null, id).run();
+  return true;
 }
 
 /** Deletes one point of the agenda (the cross). False when it is not there. */
