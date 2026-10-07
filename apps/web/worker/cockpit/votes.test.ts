@@ -25,6 +25,55 @@ describe("digital votes in the board", () => {
     expect(outcome({ members: 4, deadline_ms: NOW + DAY }, ballots("for", "for", "for"), NOW)).toBe("adopted");
   });
 
+  // Requested: "Der, hvor man skriver forslag, skal være lidt tydeligere på siden. Den skal i hvert fald ikke ligge i bunden. Derudover skal forslaget fremgå på alles
+  // forside, eventuelt i en lidt anden farve, som dog passer til farveskemaet."
+  it("has the form for a proposal first on Beslutninger, and shows an open proposal on everyone's front page where they can vote", async () => {
+    const db = testDatabase();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
+    const services = fakeServices({ ai: () => "Svar." });
+    const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
+    const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
+      ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
+    const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
+    const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const as = await memberCookies(session);
+
+    // The form is the first card, above what is up for vote and the decisions - with or without a proposal.
+    const empty = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
+    expect(empty).toContain('<div class="card propose" id="nyt">');
+    expect(empty.indexOf('id="nyt"')).toBeLessThan(empty.indexOf("<h2>Besluttet</h2>"));
+    expect(await (await call("/", { cookie: as("Gitta") })).text()).not.toContain('id="forslag"');
+
+    await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi åbner salen om søndagen", text: "", days: "7" }) });
+    const page = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
+    expect(page.indexOf('id="nyt"')).toBeLessThan(page.indexOf('id="afstemning"'));
+    expect(page.indexOf('id="afstemning"')).toBeLessThan(page.indexOf("<h2>Besluttet</h2>"));
+    expect(page.indexOf("Stem for")).toBeLessThan(page.indexOf("<h2>Besluttet</h2>"));
+
+    // On everyone's front page, in the accent-tinted card, with the vote buttons that bring the member back to the card.
+    for (const who of ["Jacob Hauge", "Lisbeth", "Gitta"]) {
+      const front = await (await call("/", { cookie: as(who) })).text();
+      expect(front, who).toContain('<section class="panel votes-panel" id="forslag">');
+      expect(front, who).toContain('<a href="/beslutninger#p1">Vi åbner salen om søndagen</a>');
+      expect(front, who).toContain("Stillet af Lisbeth");
+      expect(front, who).toContain('<input type="hidden" name="back" value="forside">');
+      expect(front, who).toContain("Du mangler at stemme");
+    }
+    const voted = await call("/afstemninger/stem", { method: "POST", cookie: as("Lisbeth"), body: form({ id: "1", vote: "for", back: "forside" }) });
+    expect(voted.headers.get("location")).toBe("/#forslag");
+    const lisbeth = await (await call("/", { cookie: as("Lisbeth") })).text();
+    const card = lisbeth.slice(lisbeth.indexOf('id="forslag"'), lisbeth.indexOf('id="forslag"') + 3000);
+    expect(card).not.toContain("Du mangler at stemme");
+    expect(card).toContain('<button name="vote" value="for" class="" aria-pressed="true">Stem for</button>');
+    expect(card).toContain("1 for, 0 imod, 0 undlader sig af 3");
+    expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain("Du mangler at stemme");
+    // From Beslutninger a vote still goes back to Beslutninger.
+    expect((await call("/afstemninger/stem", { method: "POST", cookie: as("Gitta"), body: form({ id: "1", vote: "for" }) })).headers.get("location")).toBe("/beslutninger?besked=stemt#p1");
+    // Decided: gone from the front page.
+    expect(await (await call("/", { cookie: as("Jacob Hauge") })).text()).not.toContain('id="forslag"');
+  });
+
   it("puts a new proposal on every member's to-do until they have voted, and adopts it at a majority", async () => {
     const db = testDatabase();
     for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())

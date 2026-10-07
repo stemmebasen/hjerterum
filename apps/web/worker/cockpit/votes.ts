@@ -120,13 +120,22 @@ export const APPROVED_STYLE = `.approved-badge{display:inline-flex;align-items:c
 color:#fff;background:linear-gradient(135deg,#1f9d55,#127a3f);box-shadow:0 2px 10px rgb(18 122 63 / .35),inset 0 1px 0 rgb(255 255 255 / .25);margin-right:9px;vertical-align:2px;white-space:nowrap}`;
 
 export const VOTES_STYLE = `
-.prop{border-top:1px solid var(--line);padding:16px 0;display:grid;gap:8px}.prop:first-child{border-top:0;padding-top:4px}.prop h3{margin:0;font-size:17px}
+.prop{border-top:1px solid var(--line);padding:16px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.prop h3{overflow-wrap:anywhere}.prop:first-child{border-top:0;padding-top:4px}.prop h3{margin:0;font-size:17px;font-weight:650;line-height:1.35;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
 .prop .state{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-right:8px;vertical-align:2px}
 .prop .state.adopted{background:#e6f4ea;color:#1e6b35}.prop .state.rejected,.prop .state.withdrawn{background:var(--soft);color:var(--muted)}
 .prop .bar{height:8px;border-radius:999px;background:var(--soft);overflow:hidden;display:flex}.prop .bar i{display:block;height:100%}.prop .bar .y{background:var(--accent)}.prop .bar .n{background:#a16207}.prop .bar .a{background:var(--line)}
-.prop .acts{display:flex;gap:8px;flex-wrap:wrap}.prop .acts button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}.prop .who{font-size:13px;color:var(--muted)}
+.prop .acts{display:flex;gap:8px;flex-wrap:wrap}.prop .acts button[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:2px}.prop .who,.prop .pmeta{font-size:13px;color:var(--muted)}
 .prop .talk{display:inline-flex;align-items:center;gap:6px;width:fit-content;font-size:12.5px;font-weight:600;padding:3px 10px;border-radius:999px;background:#fdf3e1;color:#8a5a00}
 .newprop{display:grid;gap:10px}.newprop label{display:grid;gap:4px}
+/* Requested: "Der, hvor man skriver forslag, skal være lidt tydeligere på siden. Den skal i hvert fald ikke ligge i bunden." and "forslaget skal fremgå på alles forside,
+   eventuelt i en lidt anden farve, som dog passer til farveskemaet": the form is first on Beslutninger, and the open proposals are in an accent-tinted card on the front page. */
+.card.propose,.votes-panel{background:color-mix(in srgb,var(--accent) 7%,var(--card));border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
+.card.propose h2,.votes-panel h2{color:var(--accent)}.card.propose .lead{margin:-6px 0 14px;color:var(--muted)}
+.newprop .row{display:grid;gap:12px;grid-template-columns:1fr auto;align-items:end}.newprop .row p{margin:0}.newprop .go{padding-inline:28px}
+@media (max-width:620px){.newprop .row{grid-template-columns:1fr}}
+.votes-panel .count{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-left:8px;vertical-align:3px}
+.votes-panel .prop{border-top:1px solid color-mix(in srgb,var(--accent) 22%,var(--line))}.votes-panel .prop h3 a{color:var(--ink);text-decoration:none}.votes-panel .prop h3 a:hover{color:var(--accent)}
+.votes-panel .prop .state.todo{background:var(--accent);color:var(--accent-ink)}
 @media (prefers-color-scheme:dark){.prop .state.adopted{background:#163824;color:#8fd6a5}.prop .talk{background:#3a2c10;color:#f3c66b}}
 ${APPROVED_STYLE}`;
 
@@ -158,14 +167,34 @@ export function voteBlocks(base: string, data: { list: ProposalView[]; who: stri
   return {
     intro: `Et forslag er vedtaget ved flertal: mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for.`,
     open: open.length ? `<div class="card" id="afstemning"><h2>Til afstemning <span class="pill">${open.length}</span></h2>${open.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : "",
-    create: `<div class="card" id="nyt"><h2>Opret forslag til afstemning</h2>${data.who ? `<form class="newprop" method="post" action="${base}/afstemninger/ny">
+    create: `<div class="card propose" id="nyt"><h2>Opret forslag til afstemning</h2>${data.who ? `<p class="lead">Skriv forslaget her. Det står på alles forside og to-do, til de har stemt.</p><form class="newprop" method="post" action="${base}/afstemninger/ny">
 <label>Forslag<input name="title" required maxlength="200" placeholder="Fx Vi forlænger den gratis prøveperiode til 1. december"></label>
-<label>Begrundelse (valgfri)<textarea name="text" rows="3" maxlength="4000"></textarea></label>
-<label>Frist<select name="days"><option value="3">3 dage</option><option value="7" selected>7 dage</option><option value="14">14 dage</option></select></label>
-<p style="margin:0"><button>Stil forslaget</button></p>
-<p class="small muted" style="margin:0">Alle har forslaget på deres to-do, til de har stemt. Vil nogen hellere tage det op på et møde, kan de trykke <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p></form>` : `<p class="muted"><a href="${base}/hvem">Vælg hvem du er</a> for at stille et forslag.</p>`}${open.length ? "" : `<p class="muted small" style="margin:10px 0 0">Ingen forslag til afstemning lige nu.</p>`}</div>`,
+<label>Begrundelse (valgfri)<textarea name="text" rows="2" maxlength="4000"></textarea></label>
+<div class="row"><label>Frist<select name="days"><option value="3">3 dage</option><option value="7" selected>7 dage</option><option value="14">14 dage</option></select></label>
+<p><button class="go">Stil forslaget</button></p></div>
+<p class="small muted" style="margin:0">Vil nogen hellere tage det op på et møde, kan de trykke <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p></form>` : `<p class="muted"><a href="${base}/hvem">Vælg hvem du er</a> for at stille et forslag.</p>`}</div>`,
     closed: closed.length ? `<div class="card"><details><summary><h2 style="display:inline">Afgjorte afstemninger (${closed.length})</h2></summary>${closed.map(p => proposalHtml(base, p, data.who)).join("")}</details></div>` : ""
   };
+}
+
+/** Requested: "forslaget skal fremgå på alles forside, eventuelt i en lidt anden farve, som dog passer til farveskemaet": every open proposal on every member's front page, in a card
+ * tinted with the accent, with the count so far and the vote buttons (a vote from here comes back here). Nothing when no proposal is open. */
+export function frontVotes(base: string, list: ProposalView[], who: string | null): string {
+  const open = list.filter(p => p.status === "open");
+  if (!open.length) return "";
+  const item = (p: ProposalView) => {
+    const mine = who ? p.ballots.find(b => b.voter === who)?.vote : undefined;
+    const n = (v: Vote) => p.ballots.filter(b => b.vote === v).length, pct = (k: number) => `${Math.round(100 * k / p.members)}%`;
+    const needed = Math.floor(p.members / 2) + 1;
+    return `<article class="prop" id="f${p.id}"><h3>${who && !mine ? `<span class="state todo">Du mangler at stemme</span>` : `<span class="state">${STATUS.open}</span>`}<a href="${base}/beslutninger#p${p.id}">${esc(p.title)}</a></h3>
+<div class="pmeta">Stillet af ${esc(p.created_by)} · frist ${esc(shortDay(isoDay(p.deadline_ms)))} · vedtaget ved ${needed} stemmer for</div>
+<div class="bar" role="img" aria-label="${esc(tally(p))}"><i class="y" style="width:${pct(n("for"))}"></i><i class="n" style="width:${pct(n("imod"))}"></i><i class="a" style="width:${pct(n("undlader"))}"></i></div>
+<div class="pmeta">${esc(tally(p))}</div>
+${who ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="back" value="forside">
+${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}</form>` : ""}</article>`;
+  };
+  return `<section class="panel votes-panel" id="forslag"><header><h2>Forslag til afstemning<span class="count">${open.length}</span></h2><p>Stem her - eller læs hele forslaget under Beslutninger.</p></header>
+${open.map(item).join("")}<a class="more" href="${base}/beslutninger#nyt">Stil et nyt forslag →</a></section>`;
 }
 
 /** On the to-do and the front page: "Stem om …". */
