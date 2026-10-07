@@ -5,6 +5,7 @@ import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
+import { removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
 import { complete } from "./ai.js";
@@ -409,6 +410,11 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Whoever has left the board's group loses the cockpit (cockpit/personalLogin.ts).
   await scheduledBoardAccess(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_access_failed", error instanceof Error ? error.message : error));
+  // Requested: "Please also delete duplicates when it comes to to-dos." - once a day, the to-dos that stand on a list twice are deleted (cockpit/data.ts).
+  if (await claimJob(env.DB, "cockpit_todo_duplicates", Math.floor(deps.now() / DAY), deps.now()).catch(() => false)) {
+    await removeDuplicateTodos(env.DB).then(n => { if (n) console.info("cockpit_todo_duplicates_removed", n); })
+      .catch(error => console.warn("cockpit_todo_duplicates_failed", error instanceof Error ? error.message : error));
+  }
   // Requested: the audio of a meeting is deleted once the minutes are made (saga/recordingRetention.ts).
   await scheduledRecordingCleanup(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_recording_cleanup_failed", error instanceof Error ? error.message : error));

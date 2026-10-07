@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import config from "../config-entry.js";
 import { handleCockpitRequest } from "./handler.js";
-import { agreedLabel, sagaSource } from "./data.js";
+import { addTodo, agreedLabel, removeDuplicateTodos, sagaSource, uniqueTasks } from "./data.js";
 import { translateHtml } from "./i18n.js";
 import { recorderCard } from "./recorder.js";
 import { processNextMinutes } from "../saga/saga.js";
@@ -128,7 +128,7 @@ describe("the board cockpit", () => {
     expect(chair).toContain("Skal vi svare Thomas Emil?");
     // Requested: "Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" /
     // "Fra Telegram gruppen" - no full stop from Saga's wording, no "gruppen · Gitta".
-    expect(chair).toContain('<li>Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch<span class="ctx">Fra Telegram gruppen</span></li>');
+    expect(chair).toContain('<div class="what">Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch\n<div class="small muted">Fra Telegram gruppen</div></div>');
     expect(chair).not.toContain("Fra gruppen");
     expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Jacob Hauge") })).text()).toContain("Fra Telegram gruppen</div>");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
@@ -342,6 +342,68 @@ describe("the board cockpit", () => {
       .toEqual(["Aftalt på mødet d. 1. okt. 2026", "Aftalt på et møde", "Fra Telegram gruppen", "Fra team@"]);
     expect(translateHtml('<span class="ctx">Aftalt på mødet d. 1. okt. 2026</span><span class="ctx">Aftalt på et møde</span>'))
       .toBe('<span class="ctx">Agreed at the meeting on 1 Oct 2026</span><span class="ctx">Agreed at a meeting</span>');
+  });
+
+  // Requested: "Gør det også muligt at sætte et flueben ved ens opgaver fra forsiden, til venstre for opgaven." - "Altså helt samme styling som på opgavesiden."
+  it("lets a member check off (or remove) their tasks on the front page, with the same line as on Opgaver", async () => {
+    const { call, form } = await setup();
+    const chair = await personalCookie("Jacob Hauge", NOW);
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie: chair, body: form({ text: "Ring til udlejeren", due: "", owner: "Jacob Hauge" }) });
+    await call("/cockpit/opgaver/ny", { method: "POST", cookie: chair, body: form({ text: "Bestil nøgler til lageret", due: "", owner: "Jacob Hauge" }) });
+    const front = await (await call("/cockpit/", { cookie: chair })).text();
+    const panel = front.slice(front.indexOf('id="dine-opgaver"'));
+    // The checkbox stands to the left of the text, in the same markup as Opgaver, and brings the member back to the panel.
+    expect(panel).toMatch(/<li class="todo"><form method="post" action="\/cockpit\/opgaver\/afkryds">[^]*?<input type="hidden" name="back" value="forside">\s*<button class="check"[^]*?<div class="what">Ring til udlejeren/);
+    expect(panel).toContain('<ul class="plain">');
+    const todos = [...panel.matchAll(/name="kind" value="punkt"><input type="hidden" name="id" value="(\d+)">/g)].map(m => m[1]!);
+    expect(todos.length).toBeGreaterThanOrEqual(2);
+    const opgaver = await (await call("/cockpit/opgaver", { cookie: chair })).text();
+    expect(opgaver).not.toContain('name="back"');
+
+    const checked = await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: chair, body: form({ kind: "punkt", id: todos[0]!, done: "1", back: "forside" }) });
+    expect(checked.headers.get("location")).toBe("/cockpit/#dine-opgaver");
+    const after = await (await call("/cockpit/", { cookie: chair })).text();
+    expect(after.slice(after.indexOf('id="dine-opgaver"'))).not.toContain("Ring til udlejeren");
+    expect(await (await call("/cockpit/opgaver", { cookie: chair })).text()).toMatch(/Klaret de sidste 7 dage \(1\)[^]*Ring til udlejeren/);
+    // From Opgaver itself the page stays there, and an unknown "back" goes nowhere new.
+    expect((await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: chair, body: form({ kind: "punkt", id: todos[0]!, done: "0" }) })).headers.get("location")).toBe("/cockpit/opgaver");
+    expect((await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: chair, body: form({ kind: "punkt", id: todos[0]!, done: "1", back: "https://evil.example/" }) })).headers.get("location")).toBe("/cockpit/opgaver");
+    // Removing from the front page also returns there.
+    const removed = await call("/cockpit/opgaver/fjern", { method: "POST", cookie: chair, body: form({ kind: "punkt", id: todos[1]!, back: "forside" }) });
+    expect(removed.headers.get("location")).toBe("/cockpit/#dine-opgaver");
+  });
+
+  // Requested: "Please also delete duplicates when it comes to to-dos."
+  it("keeps a to-do from standing twice: not written again, deleted when it is, and shown once on the shared list", async () => {
+    const { db, call, form } = await setup();
+    const chair = await personalCookie("Jacob Hauge", NOW);
+    const mine = { owner: "Jacob Hauge", due: null, createdBy: "Jacob Hauge" };
+    expect(await addTodo(db, { ...mine, text: "Ring til udlejer" }, NOW)).toBe(true);
+    expect(await addTodo(db, { ...mine, text: "  ring til   udlejer. " }, NOW)).toBe(false);
+    expect(await addTodo(db, { ...mine, owner: "Gitta", text: "Ring til udlejer" }, NOW)).toBe(true);
+    expect(await addTodo(db, { ...mine, text: "Ring til udlejer om nøgler" }, NOW)).toBe(true);
+    // From the page: the second try says so, and nothing is written.
+    const again = await call("/cockpit/opgaver/ny", { method: "POST", cookie: chair, body: form({ text: "RING TIL UDLEJER", due: "", owner: "Jacob Hauge" }) });
+    expect(again.headers.get("location")).toBe("/cockpit/opgaver?dublet=1");
+    expect(await (await call("/cockpit/opgaver?dublet=1", { cookie: chair })).text()).toContain("Den opgave står allerede på listen.");
+    expect((await db.prepare("SELECT COUNT(*) AS n FROM cockpit_todos").first<{ n: number }>())?.n).toBe(3);
+
+    // Twice on a list already (written before this): the newer ones are deleted, the oldest stays, what is checked off and other lists are left alone.
+    const put = (owner: string, text: string, at: number, done: number | null) => db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms, done_at_ms) VALUES (?, ?, NULL, 'Jacob Hauge', ?, ?)").bind(owner, text, at, done).run();
+    await put("Lisbeth", "Skriv nyhedsbrevet", NOW - 3000, null);
+    await put("Lisbeth", "skriv nyhedsbrevet!", NOW - 2000, null);
+    await put("Lisbeth", "Skriv nyhedsbrevet", NOW - 1000, null);
+    await put("Lisbeth", "Skriv nyhedsbrevet", NOW - 4000, NOW - 500);
+    await put("Frederik", "Skriv nyhedsbrevet", NOW - 3000, null);
+    expect(await removeDuplicateTodos(db)).toBe(2);
+    expect((await db.prepare("SELECT owner, created_at_ms, done_at_ms FROM cockpit_todos WHERE text LIKE '%nyhedsbrev%' ORDER BY owner, created_at_ms").all()).results).toEqual([
+      { owner: "Frederik", created_at_ms: NOW - 3000, done_at_ms: null }, { owner: "Lisbeth", created_at_ms: NOW - 4000, done_at_ms: NOW - 500 }, { owner: "Lisbeth", created_at_ms: NOW - 3000, done_at_ms: null }]);
+    expect(await removeDuplicateTodos(db)).toBe(0);
+
+    // The shared list shows a person's task once, even when the minutes and the minutes document both have it.
+    const task = (who: string, what: string, source: "referat" | "dokument") => ({ who, what, due: "", meeting: "2026-10-01", source });
+    expect(uniqueTasks([task("Lisbeth", "Skriv forslag om reduceret medlemskab", "referat"), task("Lisbeth", "Skriv et forslag om reduceret medlemskab", "dokument"), task("Gitta", "Skriv forslag om reduceret medlemskab", "referat"), task("Lisbeth", "Bestil nøgler til lageret", "referat")]).map(t => `${t.who}: ${t.what}`))
+      .toEqual(["Lisbeth: Skriv forslag om reduceret medlemskab", "Gitta: Skriv forslag om reduceret medlemskab", "Lisbeth: Bestil nøgler til lageret"]);
   });
 
   it("calls itself admin in everything a member reads - Danish and English", async () => {

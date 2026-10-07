@@ -1,4 +1,4 @@
-import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, type Task, type Todo } from "./data.js";
+import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, uniqueTasks, type Task, type Todo } from "./data.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 
@@ -10,6 +10,7 @@ export const TODOS_STYLE = `
 .todo{display:flex;gap:12px;align-items:flex-start}.todo form{margin:0}.todo .what{flex:1;min-width:0}
 .check{width:26px;height:26px;min-height:26px;padding:0;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--ink);flex:none;display:grid;place-items:center;font-size:15px;line-height:1}
 .check:hover{border-color:var(--accent-ink);filter:none}.check.done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+ul.plain .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
 .todo.is-done .what{color:var(--muted);text-decoration:line-through}.todo .x{border:0;background:transparent;color:var(--faint);padding:2px 6px;min-height:0;font-size:18px}
 .add{display:grid;gap:10px;grid-template-columns:1fr 160px 180px auto;align-items:end}.add label{margin:0}
 @media (max-width:760px){.add{grid-template-columns:1fr 1fr}.add label:first-child,.add button{grid-column:1/-1}}
@@ -37,8 +38,11 @@ export type TodosData = { who: string; members: string[]; tasks: Task[]; checked
 type Kind = "opgave" | "punkt" | "saga";
 /** The same task's other lines (kind:id), checked or removed with the one shown. */
 const alsoField = (also: string[]) => also.length ? `<input type="hidden" name="also" value="${esc(also.join("\n"))}">` : "";
-const box = (base: string, kind: Kind, id: string, done: boolean, also: string[] = []) =>
-  `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">${alsoField(also)}
+/** Where the page goes after a press: Opgaver, or - from the front page - back to "Dine opgaver" there. */
+export type Back = "forside" | undefined;
+const backField = (back: Back) => back ? `<input type="hidden" name="back" value="${back}">` : "";
+const box = (base: string, kind: Kind, id: string, done: boolean, also: string[] = [], back?: Back) =>
+  `<form method="post" action="${base}/opgaver/afkryds"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}"><input type="hidden" name="done" value="${done ? "0" : "1"}">${alsoField(also)}${backField(back)}
 <button class="check${done ? " done" : ""}" aria-label="${done ? "Markér som ikke klaret" : "Markér som klaret"}" title="${done ? "Fortryd" : "Klaret"}">${done ? "✓" : ""}</button></form>`;
 
 const sentence = (text: string) => text.charAt(0).toLocaleUpperCase("da-DK") + text.slice(1);
@@ -63,18 +67,36 @@ const dueLabel = (due: string | null | undefined) => due ? ` <span class="pill">
 
 /** Requested: "I can't delete them." Every line on your own list can be removed - your own items are deleted; a task
  * from the minutes or from Saga leaves your list (the minutes themselves are not changed). */
-const removeButton = (base: string, kind: Kind, id: string, also: string[]) =>
-  `<form method="post" action="${base}/opgaver/fjern"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}">${alsoField(also)}<button class="x" aria-label="Fjern fra din liste" title="Fjern fra din liste">×</button></form>`;
-function taskItem(base: string, task: Task, done: boolean, also: string[] = []): string {
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done, also)}<div class="what">${esc(sharp(task.what))}${dueLabel(task.due)}
-<div class="small muted">${esc(agreedLabel(task.meeting))}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also)}</li>`;
+const removeButton = (base: string, kind: Kind, id: string, also: string[], back?: Back) =>
+  `<form method="post" action="${base}/opgaver/fjern"><input type="hidden" name="kind" value="${kind}"><input type="hidden" name="id" value="${esc(id)}">${alsoField(also)}${backField(back)}<button class="x" aria-label="Fjern fra din liste" title="Fjern fra din liste">×</button></form>`;
+function taskItem(base: string, task: Task, done: boolean, also: string[] = [], back?: Back): string {
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "opgave", taskKey(task), done, also, back)}<div class="what">${esc(sharp(task.what))}${dueLabel(task.due)}
+<div class="small muted">${esc(agreedLabel(task.meeting))}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also, back)}</li>`;
 }
 
-function todoItem(base: string, todo: Todo, who: string, also: string[] = []): string {
+function todoItem(base: string, todo: Todo, who: string, also: string[] = [], back?: Back): string {
   const done = todo.done_at_ms !== null;
-  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done, also)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
+  return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done, also, back)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
 <div class="small muted">${todo.owner === EVERYONE ? `Til alle · ${todo.created_by === who ? "skrevet af dig" : `fra ${esc(todo.created_by)}`}` : todo.created_by === who ? "Skrevet af dig" : `Fra ${esc(todo.created_by)}`}</div></div>
-${removeButton(base, "punkt", String(todo.id), also)}</li>`;
+${removeButton(base, "punkt", String(todo.id), also, back)}</li>`;
+}
+
+type SagaItem = { key: string; kind: string; text: string; source: string; since?: string; from?: string | null };
+
+/** The open lines of "Dine opgaver", the same on Opgaver and on the front page ("Gør det også muligt at sætte et flueben ved ens opgaver fra forsiden ...
+ * Altså helt samme styling som på opgavesiden"): the tasks from the minutes (the approved minutes' wording first, then the minutes document's), what Saga
+ * has for this member, and the member's own items. The same task from several places is one line - checking or removing it takes all of them. */
+export function openLines(base: string, d: { who: string; tasks: Task[]; todos: Todo[]; saga: SagaItem[]; back?: Back }): string[] {
+  type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
+  const sagaLine = (f: SagaItem): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also, d.back)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
+<div class="small muted">${esc(sagaSource(f, "Fra Saga"))}</div></div>${removeButton(base, "saga", f.key, also, d.back)}</li>` });
+  const lines: Line[] = [
+    ...d.tasks.filter(t => t.source !== "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),
+    ...d.tasks.filter(t => t.source === "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),
+    ...d.saga.map(sagaLine),
+    ...d.todos.map((t): Line => ({ kind: "punkt", id: String(t.id), text: t.text, render: also => todoItem(base, t, d.who, also, d.back) })),
+  ];
+  return mergeSame(lines, l => l.text).map(({ item, twins }) => item.render(twins.map(t => `${t.kind}:${t.id}`)));
 }
 
 const SEVEN_DAYS = 7 * 86_400_000;
@@ -87,18 +109,7 @@ export function todosPage(base: string, data: TodosData): string {
   const openTasks = data.tasks.filter(t => !data.checked.has(taskKey(t)) && !removed.has(taskKey(t)));
   const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
-  type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
-  const sagaLine = (f: NonNullable<TodosData["saga"]>[number]): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
-<div class="small muted">${esc(sagaSource(f, "Fra Saga"))}</div></div>${removeButton(base, "saga", f.key, also)}</li>` });
-  // Requested: "make sure that there are no duplicates in the to-dos" - the approved minutes' wording first, then the
-  // minutes document's, Saga's and your own; the same task is one line, and checking or removing it takes all of them.
-  const lines: Line[] = [
-    ...openTasks.filter(t => t.source !== "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also) })),
-    ...openTasks.filter(t => t.source === "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also) })),
-    ...(data.saga ?? []).map(sagaLine),
-    ...openTodos.map((t): Line => ({ kind: "punkt", id: String(t.id), text: t.text, render: also => todoItem(base, t, data.who, also) })),
-  ];
-  const merged = mergeSame(lines, l => l.text).map(({ item, twins }) => item.render(twins.map(t => `${t.kind}:${t.id}`)));
+  const merged = openLines(base, { who: data.who, tasks: openTasks, todos: openTodos, saga: data.saga ?? [] });
   const open = [...(data.votes ?? []).map(p => voteTodo(base, p)), ...merged];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
@@ -113,7 +124,7 @@ export function todosPage(base: string, data: TodosData): string {
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
 ${done.length ? `<details class="done-list" open><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}
 <p class="small muted done-note">Opgaver, der er klaret, forsvinder automatisk efter syv dage.</p></div>`;
-  const everyone = data.everyone ?? [], checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
+  const everyone = uniqueTasks(data.everyone ?? []), checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
   const checkOf = (t: Task) => checks.get(taskKey(t));
   // Requested: "Afkrydsede to-dos bør være i bunden" - what is checked off stands under what is still open, in the order it came.
   const current = everyone.filter(t => { const c = checkOf(t); return !c || now - c.at <= SEVEN_DAYS; });
