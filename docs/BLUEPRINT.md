@@ -221,6 +221,10 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Forslag til afstemning skal længere ned på forside - over medlemmer": the proposals (and "Vedtaget" and "Til næste møde") stand in the left column of the front page, **after "Dine opgaver" and the latest minutes and right above "Medlemmer"** - no longer right under the four boxes. The "Stem om: ..." line stays in "Dine opgaver", so a member who still has to vote sees it first.
 - "Knapperne er ret store og virker massive på mobil": on a phone every button is a little smaller (42 px, 14.5 px text); the three votes stand in **one row**, "Undlad at stemme" shortened to "Undlad" (`voteLabel` in `cockpit/votes.ts`; the text node pair "Undlad" + "at stemme" is translated); "Jeg ønsker at drøfte dette på et møde" and "Træk forslaget tilbage" are quiet underlined text lines under them.
 
+### Saga's chat does not pop up on a phone (2026-10-07)
+
+- "Chat skal ikke poppe op på mobiler": the chat still opens by itself a minute after the page opens, once per browser session ("Lad Saga poppe op efter et minut") - but **only on a wide screen**. Below 760 px (a phone) the chat fills the whole screen, so there it opens only when someone presses "Spørg Saga" (`matchMedia("(max-width:760px)")` in `sagaChat`, `cockpit/page.ts`).
+
 ### The meeting page: roles, order, who made a point, the morning message (2026-10-07)
 
 - "På denne side bør det fremgå tydeligt, at man er ved at redigere mødet.": a banner **"Rediger møde"** (pencil, accent pill) above the date, and the page title says it too (`.editing-banner`).

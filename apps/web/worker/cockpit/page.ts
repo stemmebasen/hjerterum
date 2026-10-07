@@ -273,7 +273,8 @@ const open=(v,quiet)=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expande
 fab.onclick=()=>open(true);document.getElementById("saga-close").onclick=()=>open(false);
 // Requested: "Lad Saga poppe op efter et minut". Once per browser session, a minute after the page opens, the chat opens by itself -
 // without taking the cursor, and not while someone is writing in a field or has already used Saga.
-try{if(!sessionStorage.getItem("saga-popped"))setTimeout(()=>{const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a!==q;
+// Requested: "Chat skal ikke poppe op på mobiler": on a phone the chat fills the whole screen, so there it only opens when someone presses "Spørg Saga".
+try{if(!sessionStorage.getItem("saga-popped")&&!matchMedia("(max-width:760px)").matches)setTimeout(()=>{const a=document.activeElement,typing=a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a!==q;
 if(!box.hidden||history.length||typing||sessionStorage.getItem("saga-popped"))return;open(true,true)},60000)}catch(e){}
 let busy=false;
 async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga tænker …");

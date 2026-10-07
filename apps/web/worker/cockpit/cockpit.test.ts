@@ -233,6 +233,8 @@ describe("the board cockpit", () => {
     // Requested: "Lad Saga poppe op efter et minut" - the chat opens by itself once per session, 60 seconds after the page opens (timing tried in a browser).
     expect(front).toContain('sessionStorage.getItem("saga-popped")');
     expect(front).toContain("open(true,true)},60000)");
+    // Requested: "Chat skal ikke poppe op på mobiler" - on a phone the chat fills the screen, so it opens only when "Spørg Saga" is pressed.
+    expect(front).toContain('!matchMedia("(max-width:760px)").matches)setTimeout(');
     // Requested: "Man skal kunne logge ud af sin admin" - the log-out button sits in the header on every page, not only under Profil.
     expect(front).toContain('<form method="post" action="/cockpit/logout" class="logout"><button>Log ud</button></form>');
     const more = await (await call("/cockpit/mere", { cookie: await memberCookie(session, "Jacob Hauge") })).text();
