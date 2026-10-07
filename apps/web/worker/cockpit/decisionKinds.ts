@@ -4,9 +4,11 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { allDecisions, approvedMinutes, boardPicture, type Decision } from "./data.js";
 
 /** Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler, som for eksempel: De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling."
- * A point from the minutes is a decision of the board or an informal agreement between a few people. New minutes keep them apart (the section "Aftaler"); for the rest Saga sorts them
- * once, and any board member can move a point - what is stored here wins. A decision is valid when it is taken, so a point is a decision unless it is clearly an agreement: what Saga
- * cannot read, or is not asked about, stays a decision. */
+ * A point from the minutes is a decision of the board, or it is not (yet) one: an informal agreement between a few people, a recommendation, a proposal, a backing, something to look into
+ * ("aftale" in the table; the page calls them "Aftaler og anbefalinger"). New minutes keep them apart (the section "Aftaler"); for the rest Saga sorts them once by what the point says, and any
+ * board member can move a point - what is stored here wins. A decision is valid when it is taken, whatever the state of the minutes - but a recommendation is not a decision.
+ * Requested: "lige nu står en linje som 'Der anbefales op til fire suppleanter på generalforsamlingen.' sådan beslutning med laurbær". What Saga cannot read, or is not asked about, stays
+ * where it stood in the minutes until she can. */
 
 export type Kind = "beslutning" | "aftale";
 export type Kinds = Map<string, { kind: Kind; by: string }>;
@@ -41,16 +43,18 @@ export function withKinds(list: Decision[], kinds: Kinds): Decision[] {
 export const unsorted = (list: Decision[], kinds: Kinds): string[] =>
   [...new Set(list.filter(d => d.source !== "afstemning" && d.kind !== "aftale" && !kinds.has(decisionKey(d.text))).map(d => d.text))];
 
-const SYSTEM = "Du sorterer punkter fra bestyrelsens referater i foreningen Hjerterum i to slags. "
-  + "\"beslutning\": en beslutning truffet af bestyrelsen, som binder foreningen eller ændrer noget - regler, priser og beløb, budget, kontrakter, ansættelser, hvem der har en post eller rolle, datoer for generalforsamling eller andre fælles frister, at noget indføres, afskaffes, godkendes eller sendes ud på foreningens vegne. "
-  + "\"aftale\": en uformel aftale eller et praktisk arrangement mellem enkelte personer, som ikke er en beslutning i bestyrelsen - at nogle mødes eller holder møde, taler sammen, kigger på noget, forbereder et oplæg, melder tilbage. "
-  + "Eksempel: \"De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling\" er en aftale. "
-  + "En beslutning må aldrig fejlagtigt kaldes uformel: er du det mindste i tvivl, er det en beslutning. Brug kun ordene i punktet. "
+const SYSTEM = "Du sorterer punkter fra bestyrelsens referater i foreningen Hjerterum i to slags efter ordlyden. "
+  + "\"beslutning\": bestyrelsen har truffet en afgørelse, som binder foreningen eller ændrer noget - noget besluttes, vedtages, godkendes, indføres, etableres, sættes til et beløb eller en dato, nogen får en post eller rolle, et budget eller en kontrakt er aftalt. "
+  + "\"aftale\": alt, der ikke er afgjort som en beslutning: en uformel aftale mellem enkelte personer (nogle holder møde, taler sammen, kigger på noget, forbereder eller sender noget), "
+  + "en anbefaling, et forslag eller en idé, en opbakning eller stemning (\"der var opbakning til\"), noget der skal undersøges eller overvejes, og noget der først skal afgøres senere, fx af generalforsamlingen. "
+  + "Eksempler på aftale: \"De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling\"; \"Der anbefales op til fire suppleanter på generalforsamlingen\" (en anbefaling er ikke afgjort); \"Regler og vedtægter undersøges først\". "
+  + "Eksempel på beslutning: \"Minimumsdonationen sættes til 50 kr.\". "
+  + "Vælg efter hvad punktet siger, ikke efter hvor det står: begge fejl er forkerte - at kalde en anbefaling for en beslutning, og at kalde en afgørelse for uformel. Brug kun ordene i punktet. "
   + "Svar KUN med JSON: {\"items\":[{\"n\":<punktets nummer>,\"kind\":\"beslutning\"|\"aftale\"}]} med ét svar for hvert punkt.";
 
-/** Saga sorts what has not been sorted - at most 60 points in one request. A point she does not answer for, or an answer she cannot read, is left alone (and stays a decision). */
+/** Saga sorts what has not been sorted - at most 100 points in one request. A point she does not answer for, or an answer she cannot read, is left alone (and stays a decision). */
 export async function classifyDecisions(env: SagaEnv, deps: SagaDeps, db: D1Database, texts: string[]): Promise<number> {
-  const todo = [...new Set(texts.map(t => t.replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 60);
+  const todo = [...new Set(texts.map(t => t.replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 100);
   if (!todo.length) return 0;
   const answer = await complete(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: todo.map((t, i) => `${i + 1}. ${t}`).join("\n") }]);
   let items: unknown = null;
