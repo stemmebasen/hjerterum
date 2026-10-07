@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { SagaEnv } from "../saga/env.js";
-import { section } from "../saga/markdown.js";
+import { section, strictSection } from "../saga/markdown.js";
 import { addressedTo, groupActivity, parsePicture, telegramLink, type BoardPicture } from "../saga/picture.js";
 import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, type Minutes } from "../saga/store.js";
 
@@ -10,7 +10,7 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
 
 export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
-export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean };
+export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
 export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
 
 const MINUTES = "id, source, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
@@ -146,6 +146,12 @@ export function minutesDecisions(minutes: ApprovedMinutes): Decision[] {
     .map(text => ({ text, date: minutes.meeting_date ?? "", topic: "", source: "referat" as const, minutesId: minutes.id }));
 }
 
+/** Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler": the section "## Aftaler" of the minutes - what was agreed informally, not decided by the board. */
+export function minutesAgreements(minutes: ApprovedMinutes): Decision[] {
+  return bullets(strictSection(minutes.draft_markdown ?? "", /^aftaler$/i)).filter(line => !/^ingen aftaler/i.test(line))
+    .map(text => ({ text, date: minutes.meeting_date ?? "", topic: "", source: "referat" as const, minutesId: minutes.id, kind: "aftale" as const }));
+}
+
 /** Every task: from the approved minutes, and the ones Saga found in the minutes document. */
 export function allTasks(minutes: ApprovedMinutes[], picture: BoardPicture | null): Task[] {
   const seen = new Set<string>(), out: Task[] = [];
@@ -162,11 +168,11 @@ export function allTasks(minutes: ApprovedMinutes[], picture: BoardPicture | nul
   return out;
 }
 
-/** Every decision, newest first: the approved minutes', then those Saga found in the document. */
+/** Every decision and informal agreement, newest first: the approved minutes', then those Saga found in the document (sort them with `withKinds`, decisionKinds.ts). */
 export function allDecisions(minutes: ApprovedMinutes[], picture: BoardPicture | null): Decision[] {
   const seen = new Set<string>(), out: Decision[] = [];
   const add = (decision: Decision) => { const key = decision.text.toLowerCase().replace(/\s+/g, " "); if (!seen.has(key)) { seen.add(key); out.push(decision); } };
-  for (const m of minutes) for (const decision of minutesDecisions(m)) add(decision);
+  for (const m of minutes) for (const decision of [...minutesDecisions(m), ...minutesAgreements(m)]) add(decision);
   for (const d of picture?.document.decisions ?? []) add({ text: d.text, date: d.date, topic: d.topic, source: "dokument", minutesId: null });
   return out;
 }

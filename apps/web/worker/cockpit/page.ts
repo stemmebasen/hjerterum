@@ -1,7 +1,7 @@
 import { markdownToHtml } from "../saga/markdown.js";
 import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
-import { APPROVED_BADGE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
+import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
 import { agreedLabel, DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
@@ -487,16 +487,27 @@ ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</
 /** Every decision on the list wears the laurel: a decision is valid when it is taken - whether the minutes have been approved by the whole board is another matter, and never
  * changes how the decision is shown. For minutes made in the admin that are still waiting, the source column says so on its own line (`approvals`: how many have approved, per minutes -
  * one entry for each minutes made in the admin; the minutes document's have none).
- * Requested: "bare fordi referatet ikke er godkendt, betyder det jo ikke, at vi ikke har truffet gyldige beslutninger. Så det skal vi være meget opmærksomme på." */
-export function decisionsPage(base: string, decisions: Decision[], who: string | null, votes?: VoteBlocks & { notice: string }, approvals?: { members: number; approved: Map<number, number> }): string {
+ * Requested: "bare fordi referatet ikke er godkendt, betyder det jo ikke, at vi ikke har truffet gyldige beslutninger. Så det skal vi være meget opmærksomme på."
+ * Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler, som for eksempel: De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling": the points
+ * that are informal agreements (`kind: "aftale"`, decisionKinds.ts) stand in a card of their own - no laurel - and each point can be moved to the other list by a board member. */
+export function decisionsPage(base: string, decisions: Decision[], who: string | null, votes?: VoteBlocks & { notice: string }, approvals?: { members: number; approved: Map<number, number> }, sorting = false): string {
   const pending = (d: Decision) => { const n = d.minutesId !== null ? approvals?.approved.get(d.minutesId) : undefined; return n !== undefined && approvals !== undefined && !(approvals.members > 0 && n >= approvals.members) ? n : null; };
+  const decided = decisions.filter(d => d.kind !== "aftale"), agreed = decisions.filter(d => d.kind === "aftale");
+  const source = (d: Decision) => d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`;
+  const move = (d: Decision, to: "aftale" | "beslutning") => who && d.source !== "afstemning"
+    ? `<form class="move" method="post" action="${base}/beslutninger/art"><input type="hidden" name="text" value="${esc(d.text)}"><input type="hidden" name="kind" value="${to}"><button class="linkbtn">${to === "aftale" ? "Gør til aftale" : "Gør til beslutning"}</button></form>` : "";
+  const row = (d: Decision) => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
+<td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${source(d)}${approvals && pending(d) !== null ? `<div class="small muted">Referatet: ${pending(d)} af ${approvals.members} har godkendt</div>` : ""}</td><td class="act">${move(d, "aftale")}</td></tr>`;
+  const agreement = (d: Decision) => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
+<td data-label="Aftale"><div class="dec"><span class="handshake" aria-hidden="true">${HANDSHAKE}</span><div class="said">${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${source(d)}${d.kindBy ? `<div class="small muted">Sorteret af ${esc(d.kindBy)}</div>` : ""}</td><td class="act">${move(d, "beslutning")}</td></tr>`;
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1>${votes ? `<p class="muted">Bestyrelsens beslutninger fra referaterne og de digitale afstemninger. ${votes.intro}</p>
-${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}<div class="card"><h2>Besluttet</h2><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
-${decisions.length ? `<table id="list" class="rows decisions"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>${approvals && pending(d) !== null ? `<div class="small muted">Referatet: ${pending(d)} af ${approvals.members} har godkendt</div>` : ""}` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
-    : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${votes ? votes.closed : ""}</main>
+${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}${sorting ? `<p class="notice">Saga sorterer beslutninger og uformelle aftaler - genindlæs siden om lidt.</p>` : ""}<div class="card"><h2>Besluttet</h2><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
+${decided.length ? `<table id="list" class="rows decisions"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th><th></th></tr>${decided.map(row).join("")}</table>`
+    : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${agreed.length ? `<div class="card" id="aftaler"><h2>Uformelle aftaler <span class="pill">${agreed.length}</span></h2>
+<p class="small muted" style="margin:-6px 0 8px">Aftaler mellem enkelte personer - ikke beslutninger i bestyrelsen. Er en af dem i virkeligheden en beslutning, så tryk <em>Gør til beslutning</em>.</p>
+<table id="agreements" class="rows decisions"><tr><th>Dato</th><th>Aftale</th><th>Kilde</th><th></th></tr>${agreed.map(agreement).join("")}</table></div>` : ""}${votes ? votes.closed : ""}</main>
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
-document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
+document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr,#agreements tr").forEach(r=>{if(r.querySelector("th"))return;r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
 }
 
 export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; history: Array<{ day: string; label: string; text: string }>; docUrl: string | null; docError: string | null; who: string | null }): string {

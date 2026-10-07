@@ -17,6 +17,7 @@ import { siteForSaga } from "./site.js";
 import { applyPersonal, personalItems, personalSection, type PersonalItem } from "./personal.js";
 import { STATUTES } from "./statutes.js";
 import { votesForSaga } from "./votes.js";
+import { decisionKinds, withKinds } from "./decisionKinds.js";
 import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
 
 /** Requested: "Saga skal også være tilgængelig i chat (højre bund), så man kan spørge hende om alt fra
@@ -162,11 +163,14 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     env.GOOGLE_MINUTES_DOC_ID ? minutesDocText(env, deps).then(text => trimMinutesDoc(text.trim(), 25_000)).catch(() => "") : Promise.resolve(""),
     teamMail(db, now, question), siteForSaga(db, question), boardMembers(env, db), responsibilities(db)]);
   const d = picture?.document;
+  const sorted = withKinds(allDecisions(minutes, picture), await decisionKinds(db));
   const parts = [
     `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}`,
     `VEDTÆGTER:\n${STATUTES}`,
     `FORENINGSRET (lovgrundlaget for foreninger med begrænset ansvar):\n${LAW}`,
-    `BESLUTNINGER (nyeste først):\n${allDecisions(minutes, picture).slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
+    `BESLUTNINGER (nyeste først - truffet af bestyrelsen):\n${sorted.filter(x => x.kind !== "aftale").slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
+    // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
+    `UFORMELLE AFTALER (aftalt mellem enkelte personer - ikke beslutninger i bestyrelsen; kald dem aftaler, aldrig beslutninger):\n${sorted.filter(x => x.kind === "aftale").slice(0, 30).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
     `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}` : ""}${m.place ? `, ${m.place}` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),

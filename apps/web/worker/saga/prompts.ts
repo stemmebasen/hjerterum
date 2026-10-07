@@ -9,7 +9,10 @@ const IDENTITY = `Du er ${SAGA_NAME}, Hjerterums bestyrelsesassistent. Du skrive
   // Requested: "Og sørg for seneste referat altid er nyeste sandhed om Hjerterum og bestyrelsesarbejdet".
   + "Det seneste godkendte referat er den gældende sandhed om Hjerterum og bestyrelsesarbejdet: siger kilderne noget forskelligt, gælder det nyeste referat "
   + "frem for ældre referater, referatdokumentets ældre møder, ugeopsummeringer og chatten. Er noget skrevet i chatten efter det seneste referat, "
-  + "kan du nævne det som noget, der drøftes nu, men det ændrer ikke en beslutning, før et nyere referat gør det.";
+  + "kan du nævne det som noget, der drøftes nu, men det ændrer ikke en beslutning, før et nyere referat gør det. "
+  // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
+  + "En beslutning er truffet af bestyrelsen og gælder, når den er truffet, også før referatet er godkendt af alle. En uformel aftale (afsnittet Aftaler i et referat, fx at nogle holder møde om opgavefordeling) "
+  + "er mellem enkelte personer og er ikke en beslutning i bestyrelsen: kald den en aftale, aldrig en beslutning.";
 
 /** Hjerterum's minutes template. */
 export const MINUTES_SYSTEM = IDENTITY + `
@@ -25,7 +28,10 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 - Beslutning: <præcis beslutning, eller "Ingen beslutning">
 
 ## Beslutninger
-- <hver beslutning i én linje>
+- <hver beslutning i én linje: det bestyrelsen har besluttet - regler, priser, beløb, budget, kontrakter, poster, datoer>
+
+## Aftaler
+- <hver uformel aftale i én linje: det, nogle enkelte personer har aftalt at gøre sammen eller hver for sig, uden at bestyrelsen har besluttet noget - fx at nogle holder møde om en opgave. Ingen: skriv "Ingen aftaler">
 
 ## Opgaver
 - <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
@@ -33,7 +39,7 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
 
-Regler: kun det, der faktisk blev sagt. Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.`;
+Regler: kun det, der faktisk blev sagt. En beslutning må aldrig stå som aftale: er du i tvivl, så skriv den under Beslutninger. Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.`;
 
 // Requested: "Vi skal også have indsat de sidste 10 referater ind i det nye system".
 export const IMPORT_SYSTEM = IDENTITY + `
@@ -56,6 +62,9 @@ Skabelon:
 ## Beslutninger
 - <hver beslutning i én linje>
 
+## Aftaler
+- <hver uformel aftale mellem enkelte personer i én linje, eller "Ingen aftaler">
+
 ## Opgaver
 - <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
 
@@ -63,7 +72,7 @@ Skabelon:
 <dato og sted, eller "Ikke aftalt">
 
 Regler: brug bestyrelsens egne ord så tæt som muligt og på samme sprog som referatet. Tilføj, gæt eller udelad intet indhold - kun opstillingen ændres.
-"Beslutning:" og tydelige "Aftalt:"/"Konklusion:" er beslutninger; "Opfølgning:", "Ansvar:" og "Næste skridt:" med et navn er opgaver. Navne præcis som i teksten.`;
+"Beslutning:" og tydelige "Konklusion:" er beslutninger; "Aftalt:" er en beslutning, når bestyrelsen har aftalt det, men en aftale (under ## Aftaler), når det er enkelte personer, der aftaler noget indbyrdes - fx at nogle holder møde; i tvivl er det en beslutning. "Opfølgning:", "Ansvar:" og "Næste skridt:" med et navn er opgaver. Navne præcis som i teksten.`;
 
 // Requested: "Der skal ved hvert punkt være mulighed for hvert medlem af indsende rettelse - herefter vil
 // Saga omskrive punktet. Hun skal spørge hvis hun er usikker på hvad der menes."

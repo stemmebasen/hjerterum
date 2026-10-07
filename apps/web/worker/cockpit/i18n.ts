@@ -192,6 +192,8 @@ export const EN: Record<string, string> = {
   "Til næste møde": "For the next meeting", "Når mødet har stemt:": "When the meeting has voted:", "Vedtaget på mødet": "Adopted at the meeting", "Møde": "Meeting",
   "Forslaget er stillet til næste møde. Saga foreslår det som punkt på dagsordenen.": "The proposal is made for the next meeting. Saga suggests it as an item on the agenda.",
   "Noteret: forslaget er vedtaget på mødet.": "Noted: the proposal was adopted at the meeting.", "Noteret: forslaget blev ikke vedtaget på mødet.": "Noted: the proposal was not adopted at the meeting.",
+  // Decisions and informal agreements (cockpit/decisionKinds.ts).
+  "Uformelle aftaler": "Informal agreements", "Aftale": "Agreement", "Aftaler": "Agreements", "Aftaler mellem enkelte personer - ikke beslutninger i bestyrelsen. Er en af dem i virkeligheden en beslutning, så tryk": "Agreements between a few people - not decisions of the board. If one of them is really a decision, press", "Gør til aftale": "Make it an agreement", "Gør til beslutning": "Make it a decision", "Saga sorterer beslutninger og uformelle aftaler - genindlæs siden om lidt.": "Saga is sorting decisions and informal agreements - reload the page in a moment.", "Flyttet til de uformelle aftaler.": "Moved to the informal agreements.", "Flyttet til beslutningerne.": "Moved to the decisions.", "Uformelt aftalt - ikke beslutninger i bestyrelsen.": "Agreed informally - not decisions of the board.",
   // The meeting recorder (cockpit/recorder.ts).
   "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
   "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",
@@ -221,6 +223,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/\b(\d{1,2})\. (jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?(?![a-zæøå])/gi, (_, n, m) => `${n} ${MONTHS_EN[month(m)]!.slice(0, 3)}`],
   [/\b(man|tir|ons|tor|fre|lør|søn)\. (?=\d)/g, (_, d) => `${SHORT_DAYS[d]} `],
   [/\bkl\. (?=\d)/g, "at "],
+  [/^Sorteret af /, "Sorted by "],
   [/^Referatet: (\d+) af (\d+) har godkendt$/, "Minutes: $1 of $2 have approved"],
   [/^Saga foreslår det som punkt på dagsordenen til mødet (.+?)\.?$/, "Saga suggests it as an item on the agenda for the meeting $1."],
   [/^Forslag, der stemmes om på det næste bestyrelsesmøde(?: (\(.+?\)))?\. Saga foreslår dem som punkter på dagsordenen\.$/, (_, d) => `Proposals to be voted on at the next board meeting${d ? ` ${d}` : ""}. Saga suggests them as items on the agenda.`],
