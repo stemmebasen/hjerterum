@@ -161,7 +161,7 @@ background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 11%,var(--card))
 /* Requested: "Laurbær designet skal også vises på historiske beslutninger": the laurel stands on what is approved (a vote adopted by the board, minutes every member has approved) - a vote also the gold badge; the text is centred beside it. */
 .dec{display:flex;gap:12px;align-items:center}.dec .seal{flex:none;width:34px;height:34px;color:var(--gold)}.dec .seal svg{display:block}.dec .said{min-width:0}
 @media (max-width:760px){.dec .seal.none{display:none}}
-table.decisions td{vertical-align:middle}table.decisions td[data-label="Dato"]{white-space:nowrap}`;
+table.decisions td{vertical-align:middle}table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}`;
 
 export const VOTES_STYLE = `
 .prop{border-top:1px solid var(--line);padding:16px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.prop h3{overflow-wrap:anywhere}.prop:first-child{border-top:0;padding-top:4px}.prop h3{margin:0;font-size:17px;font-weight:650;line-height:1.35;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
