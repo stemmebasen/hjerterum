@@ -73,6 +73,9 @@ ol.agenda.points li{counter-increment:point;display:flex;align-items:center;gap:
 ol.agenda.points li::before{content:counter(point);font-weight:650;color:var(--faint);min-width:1.3em}ol.agenda.points .t{flex:1;min-width:0;overflow-wrap:anywhere}
 .saga-mark{white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}.saga-mark.inline{margin-left:6px}
 ol.agenda.points .saga-mark{flex:none;white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}
+ol.agenda.points li{flex-wrap:wrap}ol.agenda.points .editpoint{display:none;flex:1 1 240px;gap:8px;margin:0;align-items:center}ol.agenda.points .editpoint input[name=text]{flex:1;min-width:0}
+ol.agenda.points .editpoint button{flex:none;min-height:40px;padding:8px 16px;font-size:14px}ol.agenda.points li.editing .editpoint{display:flex}ol.agenda.points li.editing .t,ol.agenda.points li.editing .saga-mark,ol.agenda.points li.editing .pencil,ol.agenda.points li.editing form.cross{display:none}
+button.pencil{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--accent);border:1.5px solid var(--line);display:grid;place-items:center;flex:none}button.pencil:hover{border-color:var(--accent);filter:none}
 form.cross{margin:0}form.cross button{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--muted);border:1.5px solid var(--line);font-size:22px;font-weight:400;line-height:1;display:grid;place-items:center;padding-bottom:2px}
 form.cross button:hover{color:var(--warn);border-color:var(--warn);filter:none}
 form.addpoint{display:flex;gap:8px;margin:10px 0 0}form.addpoint input{flex:1;min-width:0}form.addpoint button{flex:none}
@@ -82,7 +85,6 @@ form.addpoint{display:flex;gap:8px;margin:10px 0 0}form.addpoint input{flex:1;mi
 label.pick{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:14.5px;font-weight:600;cursor:pointer}
 label.pick input{appearance:auto;-webkit-appearance:radio;width:18px;height:18px;min-height:0;margin:0;padding:0;border:0;background:none;box-shadow:none;accent-color:var(--accent)}
 label.pick:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,var(--card))}
-.kind-ask{padding:14px 16px;border-radius:14px;background:var(--tint);margin:0 0 14px}.kind-ask p{margin:0 0 10px}.kind-ask .picks form{margin:0}
 .kind-tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 10px;border-radius:999px;background:var(--soft);color:var(--muted);margin-left:8px;vertical-align:2px}.kind-tag.team{background:var(--tint);color:var(--accent)}
 .doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:12px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
 form.stack{display:grid;gap:12px}label{display:grid;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)}
@@ -313,12 +315,14 @@ export function whoPage(base: string, names: string[], current: string | null): 
 const taskLine = (task: Task) => `<li>${task.who ? `<strong>${esc(task.who)}</strong> · ` : ""}${esc(task.what)}${task.due ? ` <span class="pill">${esc(task.due)}</span>` : ""}
 ${task.meeting ? `<div class="small muted">${esc(agreedLabel(task.meeting))}</div>` : ""}</li>`;
 
-const KIND_TAG: Record<string, string> = { team: `<span class="kind-tag team">Teammøde</span>`, andet: `<span class="kind-tag">Andet møde</span>` };
+/** The pencil beside the cross of an agenda point: a small blue pencil that opens the point for editing in place. */
+const PENCIL = `<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16l-3.8.8L4 13z"/><path d="M11.5 5.5l3 3"/></svg>`;
+const KIND_TAG: Record<string, string> = { team: `<span class="kind-tag team">Teammøde</span>` };
 function meetingSummary(base: string, m: Meeting): string {
   const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean));
   return `<p><strong>${esc(longDay(m.meeting_date))}</strong>${m.start_time ? ` kl. ${esc(m.start_time)}` : ""}${m.place ? ` · ${esc(m.place)}` : ""}${m.kind ? KIND_TAG[m.kind] : ""}</p>
 ${items.length ? `<ol class="agenda">${items.map(item => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : ""}</li>`).join("")}</ol>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
-<p class="small"><a href="${base}/moder/${m.id}">Ret dagsorden</a>${m.kind ? "" : ` · <a href="${base}/moder/${m.id}#slags">Sig, hvilken slags møde det er</a> <span class="muted">(Saga foreslår kun punkter til teammøder)</span>`}</p>`;
+<p style="margin:10px 0 0"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a></p>`;
 }
 
 const md = (text: string) => /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(text))?.[1] ?? "";
@@ -463,9 +467,8 @@ export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: Pa
   prefill: { date: string; kind: "" | "team" | "andet" }; today: string; who: string | null; notice: string; uploads: boolean }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
 <label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
-<fieldset class="picks-set"><legend class="picks">Hvilken slags møde er det?</legend><div class="picks"><label class="pick"><input type="radio" name="kind" value="team" required${data.prefill.kind === "team" ? " checked" : ""}> Teammøde</label>
-<label class="pick"><input type="radio" name="kind" value="andet"${data.prefill.kind === "andet" ? " checked" : ""}> Andet møde</label></div>
-<p class="small muted" style="margin:6px 0 0">Saga foreslår kun punkter til teammøder - fx ikke til en generalforsamling.</p></fieldset>
+<div><label class="pick"><input type="checkbox" name="kind" value="team"${data.prefill.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
+<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
 <p class="small muted" style="margin:0">Dagsordenens punkter tilføjes ét ad gangen på mødets side.</p>
 <div class="actions"><button>Gem møde</button></div></form>`;
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
@@ -491,11 +494,11 @@ ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ?
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
-${m.kind ? "" : `<div class="kind-ask" id="slags"><p><strong>Hvilken slags møde er det?</strong> Saga foreslår kun punkter til teammøder - sig først, hvad det er.</p><div class="picks">
-<form method="post" action="${base}/moder/${m.id}/art"><input type="hidden" name="kind" value="team"><button>Det er et teammøde</button></form>
-<form method="post" action="${base}/moder/${m.id}/art"><input type="hidden" name="kind" value="andet"><button class="ghost">Det er et andet møde</button></form></div></div>`}
-${points.length ? `<ol class="agenda points">${points.map(p => `<li><span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : ""}<form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form></li>`).join("")}</ol>`
+${points.length ? `<ol class="agenda points">${points.map(p => `<li><span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : ""}<button type="button" class="pencil" data-edit aria-label="Ret punktet: ${esc(p)}" title="Ret punktet">${PENCIL}</button><form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form>
+<form class="editpoint" method="post" action="${base}/moder/${m.id}/punkt/ret"><input type="hidden" name="old" value="${esc(p)}"><input name="text" value="${esc(p)}" required maxlength="200" autocomplete="off" aria-label="Ret punktet"><button>Gem</button><button type="button" class="ghost" data-cancel>Annullér</button></form></li>`).join("")}</ol>`
     : `<p class="muted small">Ingen punkter endnu.</p>`}
+<script>document.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const li=b.closest("li");li.classList.add("editing");const i=li.querySelector(".editpoint input[name=text]");i.focus();i.select()}));
+document.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>b.closest("li").classList.remove("editing")))</script><noscript><style>ol.agenda.points .editpoint{display:flex}ol.agenda.points .pencil{display:none}</style></noscript>
 <form class="addpoint" method="post" action="${base}/moder/${m.id}/punkt"><input name="text" required maxlength="200" autocomplete="off" placeholder="Nyt punkt, fx Økonomi" aria-label="Nyt punkt"><button>Tilføj punkt</button></form>
 ${!held && m.kind === "team" && (data.suggestion.length || data.aiReady) ? `<div class="suggest-row">${data.suggestion.length ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${data.suggestion.length} ${data.suggestion.length === 1 ? "punkt" : "punkter"})</button></form>` : ""}
 ${data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button></form>` : ""}</div>
@@ -504,8 +507,8 @@ ${data.aiReady ? `<p class="small muted">Saga laver selv forslag til næste team
 <h3 style="margin:18px 0 8px" id="detaljer">Dato, tid og sted</h3>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
-<fieldset class="picks-set"><legend class="picks">Slags møde</legend><div class="picks"><label class="pick"><input type="radio" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label>
-<label class="pick"><input type="radio" name="kind" value="andet"${m.kind === "andet" ? " checked" : ""}> Andet møde</label></div></fieldset>
+<div><label class="pick"><input type="checkbox" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
+<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
 <div class="actions"><button class="ghost">Gem dato, tid og sted</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>

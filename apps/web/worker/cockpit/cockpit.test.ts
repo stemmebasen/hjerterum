@@ -243,13 +243,13 @@ describe("the board cockpit", () => {
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
     const plan = await (await call("/cockpit/moder?dato=2026-10-08&art=team", { cookie: session })).text();
     expect(plan).toContain('value="2026-10-08"');
-    // Requested: "Der skal altså ikke være fri tekst": no text field for the agenda. And: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde": the form asks which kind -
-    // a found meeting that says "Teammøde" has it filled in. No grey tick box: round choices.
+    // Requested: "Der skal altså ikke være fri tekst": no text field for the agenda. And: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde" - "først, når man har afkrydset
+    // teammøde, kommer Sagas forslag": one tick box "Teammøde" (a found meeting that says so has it ticked), in a round pill - not the wide grey box the page's input style would make of it.
     expect(plan).not.toContain('name="agenda"');
     expect(plan).not.toContain('name="saga_forslag"');
-    expect(plan).toContain('<label class="pick"><input type="radio" name="kind" value="team" required checked> Teammøde</label>');
-    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<label class="pick"><input type="radio" name="kind" value="team" required> Teammøde</label>');
-    expect(await (await call("/cockpit/moder?dato=2026-10-08&art=andet", { cookie: session })).text()).toContain('<input type="radio" name="kind" value="andet" checked> Andet møde');
+    expect(plan).toContain('<label class="pick"><input type="checkbox" name="kind" value="team" checked> Teammøde</label><input type="hidden" name="kind_sent" value="1">');
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<label class="pick"><input type="checkbox" name="kind" value="team"> Teammøde</label>');
+    expect(await (await call("/cockpit/moder?dato=2026-10-08&art=andet", { cookie: session })).text()).toContain('<input type="checkbox" name="kind" value="team"> Teammøde');
   });
 
   it("uploads a recording to the meeting it belongs to", async () => {
