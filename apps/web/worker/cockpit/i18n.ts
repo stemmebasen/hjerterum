@@ -56,7 +56,7 @@ export const EN: Record<string, string> = {
   "Her er det vigtigste i bestyrelsen lige nu.": "Here is what matters most in the board right now.", "Næste møde": "Next meeting", "Dine opgaver": "Your tasks", "Til godkendelse": "To approve",
   "Godkend referatet": "Approve the summary", "Til dig": "For you", "Det, der venter på dig - fra referaterne, bestyrelsen og Saga.": "What is waiting for you - from the summaries, the board and Saga.",
   "for at se dine opgaver.": "to see your tasks.", "Intet venter på dig lige nu.": "Nothing is waiting for you right now.", "Stil et forslag til afstemning →": "Make a proposal for a vote →",
-  "Hvornår, hvor og hvad der er på dagsordenen.": "When, where and what is on the agenda.", "Ingen dagsorden endnu.": "No agenda yet.", "Åbn mødet og dagsordenen →": "Open the meeting and the agenda →",
+  "Hvornår, hvor og hvad der er på dagsordenen.": "When, where and what is on the agenda.", "Hvornår og hvor.": "When and where.", "Optag et møde": "Record a meeting", "Ingen dagsorden endnu.": "No agenda yet.", "Åbn mødet og dagsordenen →": "Open the meeting and the agenda →",
   "Intet møde er sat i kalenderen, men Saga har set": "No meeting is in the calendar, but Saga has seen", "Sæt det i kalenderen →": "Put it in the calendar →",
   "Intet møde er sat i kalenderen.": "No meeting is in the calendar.", "Planlæg et møde →": "Plan a meeting →", "Vigtigste punkter fra sidste møde": "Key points from the last meeting",
   "Husk at godkende referatet": "Remember to approve the summary", "Ingen beslutninger i referatet.": "No decisions in the summary.", "har godkendt": "have approved",

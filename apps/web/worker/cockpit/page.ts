@@ -71,6 +71,10 @@ ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::mar
 /* Requested: "Indram punkterne så de er klart adskilt fra møde-overskrift og underopskrift" and "Vi skal også benytte samfoldede afsnit på siden generelt": the points of an agenda stand in a frame of their own,
    and what is beyond the first few is folded under a button (details.fold). */
 .agenda-box{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:12px 16px 12px 12px;margin:10px 0 0}.agenda-box ol.agenda{padding-left:26px}
+/* Requested: "Record a meeting and Plan a meeting should be quite folded when you enter the page, and bring them up right next to each other vertically": a card that is folded until it is opened. */
+details.foldcard{padding:0}details.foldcard>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none;padding:20px 28px}details.foldcard>summary::before,details.foldcard[open]>summary::before{content:none}
+details.foldcard>summary h2{margin:0}details.foldcard>summary::after{content:"▾";color:var(--faint);font-size:14px}details.foldcard[open]>summary::after{content:"▴"}details.foldcard>summary:hover h2{color:var(--accent)}
+details.foldcard>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:var(--radius)}details.foldcard>.fold-body{padding:0 28px 26px}
 details.fold{margin:12px 0 0;border-top:0;padding:0}details.fold>summary::before,details.fold[open]>summary::before{content:none}details.fold>summary{display:inline-flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:14px;font-weight:600;min-height:38px}
 details.fold>summary::-webkit-details-marker{display:none}details.fold>summary::after{content:"▾";color:var(--faint);font-size:12px}details.fold[open]>summary::after{content:"▴"}
 details.fold>summary:hover{border-color:var(--accent)}details.fold>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}details.fold>.fold-body{margin-top:12px}
@@ -352,6 +356,11 @@ export function fold(open: string, close: string, body: string, count?: number):
   return `<details class="fold"><summary><span class="fold-more">${open}</span><span class="fold-less">${close}</span>${count ? ` <span class="pill">${count}</span>` : ""}</summary><div class="fold-body">${body}</div></details>`;
 }
 
+/** A card that stays folded - its title is the button - until it is opened (or a link to its id is followed). */
+function foldCard(id: string, title: string, body: string, open: boolean): string {
+  return `<details class="card foldcard" id="${id}"${open ? " open" : ""}><summary><h2>${title}</h2></summary><div class="fold-body">${body}</div></details>`;
+}
+
 function meetingSummary(base: string, m: Meeting, members: string[] = []): string {
   const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
   const point = (item: string) => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : authors[item] && members.length ? ` ${personChip(members, authors[item]!)}` : ""}</li>`;
@@ -516,10 +525,11 @@ ${roleSelects(data.members, null)}
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
 <div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m, data.members)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
 ${foundMeetings(base, data.found, data.today)}</div>
-<div class="stack-cards"><div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div>
+<div class="stack-cards">${foldCard("nyt", "Planlæg et møde", form, Boolean(data.prefill.date || data.prefill.kind))}
+${foldCard("upload", "Optag et møde", data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`, false)}
 <p class="notice info-note"><strong>Påmindelse om mødet:</strong> Om morgenen på mødedagen (fra kl. 8) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen. Det sker for teammøder, der har punkter på dagsordenen.</p></div></div>
-<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `${pastTable(data.past.slice(0, SHOWN))}${data.past.length > SHOWN ? fold("Klik her for at se alle møder", "Skjul de ældre møder", pastTable(data.past.slice(SHOWN)), data.past.length - SHOWN) : ""}` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
-<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who, style: WHO_CHIP_STYLE });
+<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `${pastTable(data.past.slice(0, SHOWN))}${data.past.length > SHOWN ? fold("Klik her for at se alle møder", "Skjul de ældre møder", pastTable(data.past.slice(SHOWN)), data.past.length - SHOWN) : ""}` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div></div>
+<script>{const open=()=>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));if(h&&h.tagName==="DETAILS"){h.open=true;h.scrollIntoView()}};open();addEventListener("hashchange",open)}</script></main>`, { section: "/moder", who: data.who, style: WHO_CHIP_STYLE });
 }
 
 export function meetingPage(base: string, m: Meeting, data: { members: string[]; minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
