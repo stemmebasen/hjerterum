@@ -13,6 +13,10 @@ import { allDecisions, approvedMinutes, boardPicture, type Decision } from "./da
 export type Kind = "beslutning" | "aftale";
 export type Kinds = Map<string, { kind: Kind; by: string }>;
 
+/** What says itself that nothing was decided, or that something is only recommended - no need to ask anyone: "Der blev ikke truffet beslutning om ...", "Ingen beslutning", "... ikke vedtaget",
+ * "Der anbefales ...". Requested, as examples of lines that are not decisions: "Der anbefales op til fire suppleanter på generalforsamlingen." and "Der blev ikke truffet beslutning om at udsætte fundraisingfestivalen." */
+export const undecided = (text: string) => /\bingen (?:beslutning|afgørelse)\b|\bikke (?:blevet )?(?:truffet|taget|besluttet|vedtaget|afgjort)\b|\banbefal(?:es|er|et)\b/i.test(text);
+
 export const decisionKey = (text: string) => text.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 300);
 
 export async function decisionKinds(db: D1Database): Promise<Kinds> {
@@ -30,24 +34,29 @@ export async function setDecisionKind(db: D1Database, text: string, kind: Kind, 
   return true;
 }
 
-/** Each point with its kind: the table first, then the section of the minutes it stood in; a vote is always a decision. */
+/** Each point with its kind: what a board member chose first; then what says itself that nothing was decided (`undecided`) - over Saga's guess; then Saga's sorting; then the section of the minutes
+ * it stood in. A vote is always a decision. */
 export function withKinds(list: Decision[], kinds: Kinds): Decision[] {
   return list.map(d => {
     if (d.source === "afstemning") return { ...d, kind: "beslutning" as const };
     const stored = kinds.get(decisionKey(d.text));
+    if (stored && stored.by !== "Saga") return { ...d, kind: stored.kind, kindBy: stored.by };
+    if (undecided(d.text)) return { ...d, kind: "aftale" as const };
     return { ...d, kind: stored?.kind ?? d.kind ?? "beslutning", ...(stored ? { kindBy: stored.by } : {}) };
   });
 }
 
-/** The points Saga has not sorted: not a vote, not already in the section "Aftaler", and not in the table. */
+/** The points Saga has not sorted: not a vote, not already in the section "Aftaler", not obviously undecided, and not in the table. */
 export const unsorted = (list: Decision[], kinds: Kinds): string[] =>
-  [...new Set(list.filter(d => d.source !== "afstemning" && d.kind !== "aftale" && !kinds.has(decisionKey(d.text))).map(d => d.text))];
+  [...new Set(list.filter(d => d.source !== "afstemning" && d.kind !== "aftale" && !undecided(d.text) && !kinds.has(decisionKey(d.text))).map(d => d.text))];
 
 const SYSTEM = "Du sorterer punkter fra bestyrelsens referater i foreningen Hjerterum i to slags efter ordlyden. "
   + "\"beslutning\": bestyrelsen har truffet en afgørelse, som binder foreningen eller ændrer noget - noget besluttes, vedtages, godkendes, indføres, etableres, sættes til et beløb eller en dato, nogen får en post eller rolle, et budget eller en kontrakt er aftalt. "
   + "\"aftale\": alt, der ikke er afgjort som en beslutning: en uformel aftale mellem enkelte personer (nogle holder møde, taler sammen, kigger på noget, forbereder eller sender noget), "
   + "en anbefaling, et forslag eller en idé, en opbakning eller stemning (\"der var opbakning til\"), noget der skal undersøges eller overvejes, og noget der først skal afgøres senere, fx af generalforsamlingen. "
-  + "Eksempler på aftale: \"De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling\"; \"Der anbefales op til fire suppleanter på generalforsamlingen\" (en anbefaling er ikke afgjort); \"Regler og vedtægter undersøges først\". "
+  + "Et punkt, der siger, at noget IKKE er besluttet, er aldrig en beslutning, og det er en melding om, hvad en enkelt person vil eller gør, heller ikke. "
+  + "Eksempler på aftale (altså ikke en beslutning): \"De tre ansatte (Lisbeth, Gitta, Frederik) holder møde om opgavefordeling\"; \"Der anbefales op til fire suppleanter på generalforsamlingen\" (en anbefaling er ikke afgjort); "
+  + "\"Gitta genopstiller til bestyrelsen\" (en melding fra en enkelt person); \"Der blev ikke truffet beslutning om at udsætte fundraisingfestivalen\" (der blev netop ikke besluttet noget); \"Regler og vedtægter undersøges først\". "
   + "Eksempel på beslutning: \"Minimumsdonationen sættes til 50 kr.\". "
   + "Vælg efter hvad punktet siger, ikke efter hvor det står: begge fejl er forkerte - at kalde en anbefaling for en beslutning, og at kalde en afgørelse for uformel. Brug kun ordene i punktet. "
   + "Svar KUN med JSON: {\"items\":[{\"n\":<punktets nummer>,\"kind\":\"beslutning\"|\"aftale\"}]} med ét svar for hvert punkt.";
