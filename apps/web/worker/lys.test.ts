@@ -27,12 +27,17 @@ describe("Hjerterum Lys", () => {
     expect(indexHtml.replaceAll("&amp;", "&")).toContain(LYS_FONTS_URL);
   });
 
-  it("dresses the board's cockpit in the same design", async () => {
+  // Requested: "Can you try to revert just the colors and the design styling back to before October 3rd?" - "Just here" - "Wow, I like that a lot better":
+  // the board's admin keeps its own blue design (cobalt, Bricolage Grotesque, glass header, soft glow) while the website and the member area are Lys.
+  it("gives the board's admin its own blue design, not the shared Lys one", async () => {
     const { layout } = await import("./cockpit/page.js");
     const html = layout("", "Overblik", "<main><h1>Overblik</h1></main>", { section: "/", who: "Jacob Hauge" });
-    expect(html).toContain(LYS_FONTS_URL.replaceAll("&", "&amp;"));
-    expect(html).toContain("--lys-bg:#fbfaf8");
-    expect(html).toContain("<b>Hjerterum</b>");
-    expect(html).not.toMatch(/Bricolage|#2446d8|--glow/);
+    expect(html).toContain("family=Bricolage+Grotesque");
+    expect(html).not.toContain(LYS_FONTS_URL.replaceAll("&", "&amp;"));
+    expect(html).toContain("--accent:#2446d8");
+    expect(html).toContain("--glow-1:");
+    expect(html).toContain('<span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span>');
+    expect(html).toContain('<meta name="theme-color" content="#eef1f4"');
   });
+
 });
