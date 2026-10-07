@@ -270,6 +270,8 @@ describe("digital votes in the board", () => {
     expect(row.match(/<svg class="laurel"/g)).toHaveLength(1);
     // The text stands level with the laurel.
     expect(page).toMatch(/\.dec\{display:flex;gap:12px;align-items:center\}/);
+    // The right column (the source and "x af n har godkendt") keeps its text on one line.
+    expect(page).toContain('table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}');
     // One of two approves: still none. Both: the laurel, and the line is gone.
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Jacob Hauge', 'approved', NULL, 1)").run();
     expect(await (await call("/beslutninger", as("Lisbeth"))).text()).toContain("1 af 2 har godkendt");
