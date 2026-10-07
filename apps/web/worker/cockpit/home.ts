@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
+import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
@@ -17,7 +17,7 @@ import { openLines, TODOS_STYLE } from "./todosPage.js";
 export type HomeData = {
   who: string | null; isChair: boolean; today: string;
   toSign: ApprovedMinutes[];
-  tasks: Task[]; todos: Array<{ text: string; due: string | null; created_by: string }>;
+  tasks: Task[]; todos: Todo[];
   /** What Saga has for this member: the chair's own list (chair only) and what she wrote to them or to all. */
   forMe: BoardPicture["forJacob"];
   /** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - asked on the front page until it is written. */
