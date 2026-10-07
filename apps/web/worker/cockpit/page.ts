@@ -67,6 +67,15 @@ ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12p
 ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px;color:var(--ink)}
 ul.plain li>a:only-child::after{content:"→";color:var(--faint);font-size:16px;line-height:1;font-weight:400}ul.plain li>a:only-child:hover{color:var(--accent)}
 ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::marker{color:var(--faint);font-weight:600}
+/* Requested: "oplæg til dagsorden ... i punktform, så man kan oprette et punkt. Der skal altså ikke være fri tekst ... Sagas forslag ... slette hver med et kryds": one row per point, a cross on each. */
+ol.agenda.points{padding:0;list-style:none;counter-reset:point;display:grid;gap:6px;margin:0 0 4px}
+ol.agenda.points li{counter-increment:point;display:flex;align-items:center;gap:10px;margin:0;padding:7px 8px 7px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+ol.agenda.points li::before{content:counter(point);font-weight:650;color:var(--faint);min-width:1.3em}ol.agenda.points .t{flex:1;min-width:0;overflow-wrap:anywhere}
+ol.agenda.points .saga-mark{flex:none;white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}
+form.cross{margin:0}form.cross button{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--muted);border:1.5px solid var(--line);font-size:22px;font-weight:400;line-height:1;display:grid;place-items:center;padding-bottom:2px}
+form.cross button:hover{color:var(--warn);border-color:var(--warn);filter:none}
+form.addpoint{display:flex;gap:8px;margin:10px 0 0}form.addpoint input{flex:1;min-width:0}form.addpoint button{flex:none}
+.suggest-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:14px}.suggest-row form{margin:0}
 .doc h1{font-size:20px}.doc h2{font-size:16px;margin-top:18px}.doc h3{font-size:12px}.doc ul{padding-left:20px}.doc p{margin:6px 0}
 form.stack{display:grid;gap:12px}label{display:grid;gap:6px;font-size:13.5px;font-weight:600;color:var(--muted)}
 input,textarea,select{font:inherit;font-size:16px;font-weight:400;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:11px 14px;width:100%;min-height:46px}
@@ -313,10 +322,6 @@ const STATUS_CLASS: Record<string, string> = { besluttet: "good", "på vej": "go
 const chip = (status: string) => `<span class="chip ${STATUS_CLASS[status] ?? ""}">${esc(status)}</span>`;
 const block = <T>(title: string, items: T[], line: (item: T) => string, empty = "") => items.length || empty
   ? `<div class="block"><h3>${title}</h3>${items.length ? `<ul class="plain">${items.map(item => `<li>${line(item)}</li>`).join("")}</ul>` : `<p class="muted small">${empty}</p>`}</div>` : "";
-const agendaFill = (items: string[]) => items.length
-  ? `<button type="button" class="ghost" data-fill="${esc(JSON.stringify(items))}">Indsæt Sagas forslag (${items.length} punkt${items.length === 1 ? "" : "er"})</button>` : "";
-const FILL_SCRIPT = `<script>document.querySelectorAll("[data-fill]").forEach(b=>b.addEventListener("click",()=>{const t=b.form.querySelector("textarea");const add=JSON.parse(b.dataset.fill).filter(x=>!t.value.includes(x));t.value=(t.value.trim()?t.value.trim()+"\\n":"")+add.join("\\n");t.focus()}))</script>`;
-
 export type MinutesState = "working" | "waiting" | "failed";
 const STATE_TEXT: Record<MinutesState, string> = { working: "Saga skriver referatet", waiting: "Lægges op om lidt", failed: "Referatet kunne ikke laves - upload igen" };
 
@@ -449,8 +454,9 @@ export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: Pa
   prefill: { date: string; agenda: boolean }; today: string; who: string | null; notice: string; uploads: boolean }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
 <label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
-<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda" placeholder="Godkendelse af referat&#10;Økonomi&#10;Eventuelt">${data.prefill.agenda ? esc(data.suggestion.join("\n")) : ""}</textarea></label>
-<div class="actions">${data.prefill.agenda ? "" : agendaFill(data.suggestion)}<button>Gem møde</button></div></form>`;
+${data.suggestion.length ? `<label class="check"><input type="checkbox" name="saga_forslag" value="1"${data.prefill.agenda ? " checked" : ""}> Tag Sagas forslag med som punkter på dagsordenen (${data.suggestion.length})</label>` : ""}
+<p class="small muted" style="margin:0">Dagsordenens punkter tilføjes ét ad gangen på mødets side.</p>
+<div class="actions"><button>Gem møde</button></div></form>`;
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
     : row.inDocument ? `<a href="${base}/arkiv#${esc(row.date)}">I referatdokumentet</a>` : row.meeting ? `<a href="${base}/moder/${row.meeting.id}#upload">Upload optagelse</a>` : `<span class="muted">Mangler</span>`;
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
@@ -460,28 +466,34 @@ ${foundMeetings(base, data.found, data.today)}</div>
 <div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
 <td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
 <td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
-<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who: data.who });
+<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who });
 }
 
 export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
   who: string | null, notice: string): string {
   const held = m.meeting_date <= data.today;
+  const points = m.agenda.split("\n").map(l => l.trim()).filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").map(l => l.trim()).filter(Boolean));
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
   return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
-${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card"><h2>Dagsorden</h2>
+${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card" id="dagsorden"><h2>Dagsorden</h2>
+${points.length ? `<ol class="agenda points">${points.map(p => `<li><span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : ""}<form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form></li>`).join("")}</ol>`
+    : `<p class="muted small">Ingen punkter endnu.</p>`}
+<form class="addpoint" method="post" action="${base}/moder/${m.id}/punkt"><input name="text" required maxlength="200" autocomplete="off" placeholder="Nyt punkt, fx Økonomi" aria-label="Nyt punkt"><button>Tilføj punkt</button></form>
+${!held && (data.suggestion.length || data.aiReady) ? `<div class="suggest-row">${data.suggestion.length ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${data.suggestion.length} ${data.suggestion.length === 1 ? "punkt" : "punkter"})</button></form>` : ""}
+${data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button></form>` : ""}</div>
+${data.aiReady ? `<p class="small muted">Saga læser referaterne, hængepartierne, gruppen og team@ og lægger sine forslag som punkter nederst. Slet dem, du ikke vil have, med krydset.</p>
+<script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}` : ""}
+<h3 style="margin:18px 0 8px">Dato, tid og sted</h3>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
-<label>Dagsorden (ét punkt pr. linje)<textarea name="agenda">${esc(m.agenda)}</textarea></label><div class="actions">${held ? "" : agendaFill(data.suggestion)}<button>Gem</button></div></form>
-${!held && data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button>
-<span class="small muted"> Hun læser referaterne, hængepartierne, gruppen og team@ - forslaget gemmes først, når du trykker Gem.</span></form>
-<script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}
+<div class="actions"><button class="ghost">Gem dato, tid og sted</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
-<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });
+<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>`, { section: "/moder", who });
 }
 
 /** Every decision on the list wears the laurel: a decision is valid when it is taken - whether the minutes have been approved by the whole board is another matter, and never

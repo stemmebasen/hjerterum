@@ -8,7 +8,7 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
  * the chair has approved, the meetings and agendas written in the cockpit, and the decisions and
  * tasks in them. Drafts waiting for the chair's approval are counted, never shown. */
 
-export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null };
+export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
 export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
@@ -46,18 +46,23 @@ export const DEFAULT_PLACE = "Hjerterum, Guldsmedgade 26B, 8000 Aarhus";
 const PLACE = `COALESCE(NULLIF(TRIM(place), ''), '${DEFAULT_PLACE}') AS place`;
 
 export async function meetings(db: D1Database): Promise<Meeting[]> {
-  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
+  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
   return rows.results ?? [];
 }
 
 export const meetingOn = (db: D1Database, day: string) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
 
 export const meeting = (db: D1Database, id: number) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^\d{2}:\d{2}$/;
-export type MeetingInput = { date: string; time: string; place: string; agenda: string };
+/** `agenda` is left out when the form does not carry it: the points of the agenda are added and deleted one by one (addAgendaPoints, removeAgendaPoint). */
+export type MeetingInput = { date: string; time: string; place: string; agenda?: string };
+
+/** One point of an agenda: one line, no numbering or bullet, at most 200 characters - never running text. */
+export const cleanPoint = (text: string) => text.replace(/\s+/g, " ").trim().replace(/^(\d+[.)]|[-*•])\s+/, "").slice(0, 200);
+export const agendaPoints = (agenda: string | null | undefined) => (agenda ?? "").split("\n").map(line => line.trim()).filter(Boolean);
 
 /** A meeting as written in the cockpit form; null when the date is not a real day. */
 export function meetingInput(form: FormData): MeetingInput | null {
@@ -65,18 +70,50 @@ export function meetingInput(form: FormData): MeetingInput | null {
   const time = String(form.get("start_time") ?? "").trim();
   if (!ISO_DAY.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return null;
   return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
-    agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(line => line.trim().replace(/^(\d+[.)]|[-*•])\s+/, "")).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) };
+    ...(form.has("agenda") ? { agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(cleanPoint).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) } : {}) };
 }
 
 export async function saveMeeting(db: D1Database, input: MeetingInput, who: string, nowMs: number, id?: number): Promise<number> {
   if (id) {
-    await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-      .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, who || null, id).run();
+    if (input.agenda === undefined) {
+      await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+        .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null, id).run();
+    } else {
+      await db.prepare("UPDATE board_meetings SET meeting_date = ?, start_time = ?, place = ?, agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+        .bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, who || null, id).run();
+    }
     return id;
   }
   const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, created_at_ms, updated_at_ms, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda, nowMs, nowMs, who || null).run();
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
+}
+
+/** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted. Returns how many were added. */
+export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
+  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  if (!m) return 0;
+  const points = agendaPoints(m.agenda), saga = agendaPoints(m.agenda_saga), seen = new Set(points.map(p => p.toLowerCase()));
+  let added = 0;
+  for (const text of texts.map(cleanPoint).filter(Boolean)) {
+    if (points.length >= 40 || seen.has(text.toLowerCase())) continue;
+    seen.add(text.toLowerCase()); points.push(text); if (fromSaga) saga.push(text); added++;
+  }
+  if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), nowMs, who || null, id).run();
+  return added;
+}
+
+/** Deletes one point of the agenda (the cross). False when it is not there. */
+export async function removeAgendaPoint(db: D1Database, id: number, text: string, who: string, nowMs: number): Promise<boolean> {
+  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  const point = cleanPoint(text);
+  if (!m || !point) return false;
+  const points = agendaPoints(m.agenda), at = points.findIndex(p => p === point);
+  if (at < 0) return false;
+  points.splice(at, 1);
+  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== point).join("\n"), nowMs, who || null, id).run();
+  return true;
 }
 
 export async function deleteMeeting(db: D1Database, id: number): Promise<void> {

@@ -243,8 +243,10 @@ describe("the board cockpit", () => {
     expect(lisbeth).not.toContain("Underskriv lejekontrakten");
     const plan = await (await call("/cockpit/moder?dato=2026-10-08&forslag=1", { cookie: session })).text();
     expect(plan).toContain('value="2026-10-08"');
-    expect(plan).toContain("Opfølgning på skiltet\nLokaleleje</textarea>");
-    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain("Indsæt Sagas forslag (2 punkter)");
+    // Requested: "Der skal altså ikke være fri tekst": no text field for the agenda - Saga's suggestion is a tick box that puts her points on the agenda.
+    expect(plan).not.toContain('name="agenda"');
+    expect(plan).toContain('<input type="checkbox" name="saga_forslag" value="1" checked> Tag Sagas forslag med som punkter på dagsordenen (2)');
+    expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain('<input type="checkbox" name="saga_forslag" value="1"> Tag Sagas forslag med som punkter på dagsordenen (2)');
   });
 
   it("uploads a recording to the meeting it belongs to", async () => {
