@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { addTodo, DEFAULT_PLACE, meeting, saveMeeting } from "./data.js";
-import { scheduledAgendaSuggestion } from "./agenda.js";
+import { agendaReadyText, scheduledAgendaReminder, scheduledAgendaSuggestion } from "./agenda.js";
+import { claimJob, recentBoardMessages } from "../saga/store.js";
+import { BOARD } from "../saga/test-support.js";
 import { translateHtml } from "./i18n.js";
 import { deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
@@ -34,7 +36,7 @@ describe("a meeting's agenda and place", () => {
 
   it("lets Saga suggest the agenda on demand - as points at the bottom, each with a cross - for a team meeting, and defaults the place to Hjerterum", async () => {
     let asked = "";
-    const { db, call, form, login } = setup((system, user) => { asked = system + user; return '{"items":["Godkendelse af dagsorden","1. Generalforsamling 14. okt.: roller","Eventuelt"]}'; });
+    const { db, call, form, login, env, services } = setup((system, user) => { asked = system + user; return '{"items":["Godkendelse af dagsorden","1. Generalforsamling 14. okt.: roller","Eventuelt"]}'; });
     const cookie = await login();
     const id = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", NOW);
     expect((await meeting(db, id))?.place).toBe(DEFAULT_PLACE);
@@ -43,6 +45,10 @@ describe("a meeting's agenda and place", () => {
     expect(page).toContain("Bed Saga om forslag til dagsorden");
     expect(page).toContain(`value="${DEFAULT_PLACE}"`);
     expect(page).toContain("Ingen punkter endnu.");
+    // Requested: "På denne side bør det fremgå tydeligt, at man er ved at redigere mødet.": a banner above the date, and the title says it too.
+    expect(page).toContain('<p class="editing-banner"><svg');
+    expect(page).toMatch(/<p class="editing-banner">[^]*Rediger møde<\/p><h1>torsdag den 15\. oktober 2026<\/h1>/);
+    expect(page).toContain("<title>Rediger møde");
     expect(page).toContain('<span class="kind-tag team">Teammøde</span>');
     expect(page).not.toContain('id="slags"');
     // Requested: "Der skal altså ikke være fri tekst": no text field for the whole agenda - one point at a time.
@@ -59,7 +65,8 @@ describe("a meeting's agenda and place", () => {
     expect(withSaga).toContain("Saga har lagt 3 punkter nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.");
     expect(withSaga.match(/<span class="saga-mark">Sagas forslag<\/span>/g)).toHaveLength(3);
     expect(withSaga.match(/<form class="cross"/g)).toHaveLength(3);
-    expect(withSaga).toContain(`<li><span class="t">Generalforsamling 14. okt.: roller</span><span class="saga-mark">Sagas forslag</span><button type="button" class="pencil" data-edit aria-label="Ret punktet: Generalforsamling 14. okt.: roller" title="Ret punktet">`);
+    expect(withSaga).toContain(`<li data-point="Generalforsamling 14. okt.: roller"><button type="button" class="grip" aria-label="Flyt punktet: Generalforsamling 14. okt.: roller"`);
+    expect(withSaga).toMatch(/<span class="t">Generalforsamling 14\. okt\.: roller<\/span><span class="saga-mark">Sagas forslag<\/span><button type="button" class="pencil" data-edit aria-label="Ret punktet: Generalforsamling 14\. okt\.: roller" title="Ret punktet">/);
     expect(withSaga).toContain(`<form class="cross" method="post" action="/moder/${id}/punkt/slet"><input type="hidden" name="text" value="Generalforsamling 14. okt.: roller"><button aria-label="Fjern punktet: Generalforsamling 14. okt.: roller" title="Fjern punktet">×</button></form>`);
     // Requested: "en let måde at redigere et punkt på. Måske en lille blå blyant til venstre for krydset": the pencil stands before the cross and opens the point for editing in place.
     expect(withSaga.indexOf('class="pencil" data-edit aria-label="Ret punktet: Generalforsamling')).toBeLessThan(withSaga.indexOf('<form class="cross" method="post" action="/moder/' + id + '/punkt/slet"><input type="hidden" name="text" value="Generalforsamling'));
@@ -86,6 +93,27 @@ describe("a meeting's agenda and place", () => {
     expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller og dirigent", "Økonomi og budget for efteråret", "x".repeat(200)]);
     await edit("Økonomi og budget for efteråret", "Økonomi, budget og husleje");
     expect((await meeting(db, id))?.agenda.split("\n")[2]).toBe("Økonomi, budget og husleje");
+    // Requested: "flytte punkterne op og ned. Helst drag and drop": each point has a grip (with two points or more), the list says where to send the new order, and the order is saved - the points
+    // that were not given keep their old order after the given ones, and an unknown point is ignored.
+    const moved = await (await call(`/moder/${id}`, { cookie })).text();
+    expect(moved).toContain(`<ol class="agenda points" data-order="/moder/${id}/punkt/raekkefolge">`);
+    expect(moved.match(/<button type="button" class="grip"/g)).toHaveLength(4);
+    expect(moved).toContain('<li data-point="Godkendelse af dagsorden"><button type="button" class="grip" aria-label="Flyt punktet: Godkendelse af dagsorden"');
+    const reorder = (points: string[], headers: Record<string, string> = {}) => handleCockpitRequest(new Request(`${ORIGIN}/moder/${id}/punkt/raekkefolge`, { method: "POST", headers: { origin: ORIGIN, cookie, ...headers },
+      body: (() => { const f = new FormData(); for (const p of points) f.append("p", p); return f; })() }), env, deps(services.fetcher, NOW));
+    // The scripts of the page run: each is valid JavaScript (a "\\n" lost in a template once made the whole drag-and-drop script a syntax error, which only a browser showed).
+    const scripts = [...moved.matchAll(/<script>([^]*?)<\/script>/g)].map(m => m[1]!);
+    expect(scripts.length).toBeGreaterThan(1);
+    for (const code of scripts) expect(() => new Function(code), code.slice(0, 80)).not.toThrow();
+    const dropped = await reorder(["Økonomi, budget og husleje", "Godkendelse af dagsorden"], { "x-requested-with": "fetch" });
+    expect(dropped.status).toBe(204);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Økonomi, budget og husleje", "Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller og dirigent", "x".repeat(200)]);
+    expect((await meeting(db, id))?.agenda_saga).toBe("Godkendelse af dagsorden");
+    expect((await reorder(["Findes ikke", "x".repeat(200), "Godkendelse af dagsorden"])).headers.get("location")).toBe(`/moder/${id}#dagsorden`);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["x".repeat(200), "Godkendelse af dagsorden", "Økonomi, budget og husleje", "Generalforsamling 14. okt.: roller og dirigent"]);
+    expect((await reorder([])).status).toBe(303);
+    expect((await meeting(db, id))?.agenda.split("\n")).toHaveLength(4);
+    expect((await handleCockpitRequest(new Request(`${ORIGIN}/moder/999/punkt/raekkefolge`, { method: "POST", headers: { origin: ORIGIN, cookie }, body: new FormData() }), env, deps(services.fetcher, NOW))).status).toBe(404);
     // Deleting a point that is not there changes nothing; the date, time and place are saved without touching the agenda or the kind.
     await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, body: form({ text: "Findes ikke" }) });
     await call(`/moder/${id}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", start_time: "14:00", place: "" }) });
@@ -218,6 +246,143 @@ describe("a meeting's agenda and place", () => {
     expect(card).not.toContain("Valg af dirigent");
     expect(card).toContain(`href="/moder/${team}"`);
     expect(front).toContain(`<a class="tile" href="/moder/${other}"><span class="label">Næste møde</span>`);
+  });
+
+  // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx. Og det ville være fint, hvis hun kan sende et direkte link til dagsordenen."
+  it("writes to the group on the morning of a team meeting - the agenda is ready, the time and a direct link - once, and only when it should", async () => {
+    const MORNING = Date.parse("2026-10-15T06:30:00Z"); // 08:30 in Copenhagen, the day of the meeting
+    const mk = async (extra: Record<string, unknown> = {}, meetingFields: Partial<{ date: string; time: string; agenda: string; kind: "team" | "andet" }> = {}) => {
+      const db = testDatabase();
+      const services = fakeServices({});
+      const env = sagaEnv(db, { COCKPIT_URL: "https://admin.hjerterum.info", ...extra });
+      const id = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "Julefest: valg af dato\nLokaleleje", kind: "team", ...meetingFields }, "Jacob Hauge", NOW);
+      const run = (at = MORNING, fetcher: typeof fetch = services.fetcher) => scheduledAgendaReminder(env, deps(fetcher, at), db, (key, slot) => claimJob(db, key, slot, at));
+      return { db, services, env, id, run };
+    };
+    const { db, services, id, run, env } = await mk();
+    // Before eight: not yet.
+    expect(await run(Date.parse("2026-10-15T05:30:00Z"))).toBe(false);
+    expect(services.telegram("sendMessage")).toHaveLength(0);
+    // From eight: one message to the board's group - agenda ready, how many points, the time and place, and the link straight to the agenda. Nothing from the AI.
+    expect(await run()).toBe(true);
+    const sent = services.telegram("sendMessage");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.body).toMatchObject({ chat_id: BOARD });
+    const text = String((sent[0]!.body as { text: string }).text);
+    expect(text).toBe(`God morgen 🙂 Dagsordenen til dagens teammøde er klar (2 punkter), og vi ses kl. 13:30 - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje\n\nSe dagsordenen her: https://admin.hjerterum.info/moder/${id}#dagsorden`);
+    expect(text).toBe(agendaReadyText(env, (await meeting(db, id))!));
+    expect(services.calls.some(c => c.url.includes("chat/completions"))).toBe(false);
+    expect((await recentBoardMessages(db, BOARD, 0)).some(m => m.from_assistant && m.text === text)).toBe(true);
+    // Once: not again, however often her round runs - and not after the meeting has begun.
+    expect(await run(MORNING + 3_600_000)).toBe(false);
+    expect(services.telegram("sendMessage")).toHaveLength(1);
+
+    // Only a team meeting, today, with points on the agenda, before it begins (12:00 when it has no time), and when she may write in the group.
+    for (const [name, make, at] of [
+      ["a meeting that is not a team meeting", { kind: "andet" as const }, MORNING], ["a meeting whose kind is not said", { kind: undefined }, MORNING], ["an empty agenda", { agenda: "" }, MORNING],
+      ["another day", { date: "2026-10-16" }, MORNING], ["after it has begun", {}, Date.parse("2026-10-15T11:45:00Z")], ["no time, after twelve", { time: "" }, Date.parse("2026-10-15T10:30:00Z")]] as const) {
+      const t = await mk({}, make as never);
+      expect(await t.run(at), name).toBe(false);
+      expect(t.services.telegram("sendMessage"), name).toHaveLength(0);
+    }
+    const listening = await mk({ SAGA_BOARD_POSTING: "" });
+    expect(await listening.run()).toBe(false);
+    expect(listening.services.telegram("sendMessage")).toHaveLength(0);
+    // No time on the meeting: "i dag". No address of the admin: no link, but the message still goes.
+    const plain = await mk({ COCKPIT_URL: "" }, { time: "" });
+    expect(await plain.run()).toBe(true);
+    expect(String((plain.services.telegram("sendMessage")[0]!.body as { text: string }).text)).toBe(`God morgen 🙂 Dagsordenen til dagens teammøde er klar (2 punkter), og vi ses i dag - ${DEFAULT_PLACE}.\n\n1. Julefest: valg af dato\n2. Lokaleleje`);
+    // Leader and moderator are in it when they are chosen; a long agenda is cut after twelve points.
+    const roles = await mk({}, { agenda: Array.from({ length: 14 }, (_, i) => `Punkt ${i + 1}`).join("\n") });
+    await roles.db.prepare("UPDATE board_meetings SET leader = 'Frederik Madsen', moderator = 'Lisbeth' WHERE id = ?").bind(roles.id).run();
+    expect(await roles.run()).toBe(true);
+    const long = String((roles.services.telegram("sendMessage")[0]!.body as { text: string }).text);
+    expect(long).toContain("(14 punkter)");
+    expect(long).toContain(`.\nMødeleder: Frederik · Ordstyrer: Lisbeth\n\n1. Punkt 1\n`);
+    expect(long).toContain("12. Punkt 12\n... og 2 punkter mere\n\nSe dagsordenen her:");
+    expect(long).not.toContain("13. Punkt 13");
+    // A send that fails is tried again in her next round.
+    const flaky = await mk();
+    let down = true;
+    const fetcher = ((url: string, init?: RequestInit) => down && String(url).endsWith("/sendMessage") ? Promise.reject(new Error("telegram down")) : flaky.services.fetcher(url, init)) as typeof fetch;
+    await expect(flaky.run(MORNING, fetcher)).rejects.toThrow("telegram down");
+    down = false;
+    expect(await flaky.run(MORNING + 60_000, fetcher)).toBe(true);
+    expect(flaky.services.telegram("sendMessage")).toHaveLength(1);
+  });
+
+  // Requested: "kan vi skrive et bestyrelsesmedlems navn, hvis det er ham, der har oprettet punktet, og bruge samme farvekode som under opgaver?"
+  it("names the member who made a point, in the colour the member has under Opgaver - and Saga's points keep her mark", async () => {
+    const { db, call, form, login } = setup(() => "{}");
+    const cookie = await login();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
+      await (await import("../saga/store.js")).saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
+    const id = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "Et gammelt punkt", kind: "team" }, "Jacob Hauge", NOW);
+    const lisbeth = await memberCookie(((await call("/login", { method: "POST", body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() })).headers.get("set-cookie") ?? "").split(";")[0]!, "Lisbeth");
+    await call(`/moder/${id}/punkt`, { method: "POST", cookie: lisbeth, body: form({ text: "Julefest: valg af dato" }) });
+    await call(`/moder/${id}/punkt`, { method: "POST", cookie, body: form({ text: "Økonomi" }) });
+    await (await import("./data.js")).addAgendaPoints(db, id, ["Lokaleleje"], "Saga", NOW, true);
+    expect((await meeting(db, id))?.agenda_authors).toBe(JSON.stringify({ "Julefest: valg af dato": "Lisbeth", "Økonomi": "Jacob Hauge" }));
+    const page = await (await call(`/moder/${id}`, { cookie })).text();
+    const li = (point: string) => page.slice(page.indexOf(`<li data-point="${point}"`), page.indexOf("</li>", page.indexOf(`<li data-point="${point}"`)));
+    const colour = (html: string) => /class="who" style="--c:(#[0-9a-f]{6})"/.exec(html)?.[1];
+    expect(li("Julefest: valg af dato")).toMatch(/<span class="who" style="--c:#[0-9a-f]{6}">Lisbeth<\/span>/);
+    expect(li("Økonomi")).toMatch(/<span class="who" style="--c:#[0-9a-f]{6}">Jacob<\/span>/);
+    expect(li("Lokaleleje")).toContain('<span class="saga-mark">Sagas forslag</span>');
+    expect(li("Lokaleleje")).not.toContain('class="who"');
+    expect(li("Et gammelt punkt")).not.toMatch(/class="who"|saga-mark/);
+    // The same colour as the member has under Opgaver.
+    const tasks = await (await call("/opgaver", { cookie })).text();
+    await db.prepare("INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms) VALUES ('upload', 'f1', 'm.m4a', 'approved', '2026-10-01', ?, 1, 1)")
+      .bind("# Referat\n## Opgaver\n- Lisbeth - Skriv forslag - ingen frist aftalt\n- Jacob - Ring til udlejer - ingen frist aftalt").run();
+    const withTasks = await (await call("/opgaver", { cookie })).text();
+    expect(tasks).not.toContain("Skriv forslag");
+    expect(colour(/<li data-who="Lisbeth"[^]*?<\/li>/.exec(withTasks)?.[0] ?? "")).toBe(colour(li("Julefest: valg af dato")));
+    expect(colour(/<li data-who="Jacob"[^]*?<\/li>/.exec(withTasks)?.[0] ?? "")).toBe(colour(li("Økonomi")));
+    expect(colour(li("Julefest: valg af dato"))).not.toBe(colour(li("Økonomi")));
+    // The overview of the meetings shows them too.
+    const overview = await (await call("/moder", { cookie })).text();
+    expect(overview).toMatch(/<li>Julefest: valg af dato <span class="who" style="--c:#[0-9a-f]{6}">Lisbeth<\/span><\/li>/);
+    // Edited: the one who made it stays; a point of Saga's that a member rewrites is the member's.
+    await call(`/moder/${id}/punkt/ret`, { method: "POST", cookie, body: form({ old: "Julefest: valg af dato", text: "Julefest: dato og sted" }) });
+    await call(`/moder/${id}/punkt/ret`, { method: "POST", cookie: lisbeth, body: form({ old: "Lokaleleje", text: "Lokaleleje i foråret" }) });
+    expect((await meeting(db, id))?.agenda_authors).toBe(JSON.stringify({ "Økonomi": "Jacob Hauge", "Julefest: dato og sted": "Lisbeth", "Lokaleleje i foråret": "Lisbeth" }));
+    await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, body: form({ text: "Økonomi" }) });
+    expect(JSON.parse((await meeting(db, id))?.agenda_authors ?? "{}")).toEqual({ "Julefest: dato og sted": "Lisbeth", "Lokaleleje i foråret": "Lisbeth" });
+  });
+
+  // Requested: "Der skal i øvrigt kunne vælges en Mødeleder og Ordstyrer." and "Noter under boksen »Planlæg et møde« i et infofelt, at Saga sender dagsordenen og en påmindelse om mødet om morgenen på dagen."
+  it("lets the board pick a leader and a moderator among the board, and says under the planning box that Saga writes in the morning", async () => {
+    const { db, call, form, login } = setup(() => "{}");
+    const cookie = await login();
+    for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
+      await (await import("../saga/store.js")).saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
+    const plan = await (await call("/moder", { cookie })).text();
+    expect(plan).toContain('<label>Mødeleder<select name="leader"><option value="">Ikke valgt</option><option value="Gitta">Gitta</option><option value="Jacob Hauge">Jacob Hauge</option><option value="Lisbeth">Lisbeth</option></select></label>');
+    expect(plan).toContain('<label>Ordstyrer<select name="moderator">');
+    // The note under the box.
+    expect(plan).toMatch(/<div class="card" id="nyt"><h2>Planlæg et møde<\/h2>[^]*?<\/div>\s*<p class="notice info-note"><strong>Påmindelse om mødet:<\/strong> Om morgenen på mødedagen \(fra kl\. 8\) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen\./);
+    const made = await call("/moder", { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", start_time: "13:30", kind: "team", kind_sent: "1", leader: "Gitta", moderator: "Lisbeth" }) });
+    const id = Number(/\/moder\/(\d+)/.exec(made.headers.get("location") ?? "")?.[1]);
+    expect(await db.prepare("SELECT leader, moderator FROM board_meetings WHERE id = ?").bind(id).first()).toEqual({ leader: "Gitta", moderator: "Lisbeth" });
+    const page = await (await call(`/moder/${id}`, { cookie })).text();
+    expect(page).toContain('<option value="Gitta" selected>Gitta</option>');
+    expect(page).toContain('<option value="Lisbeth" selected>Lisbeth</option>');
+    expect(page).toContain("Mødeleder: Gitta · Ordstyrer: Lisbeth");
+    expect(await (await call("/moder", { cookie })).text()).toContain("Mødeleder: Gitta · Ordstyrer: Lisbeth");
+    expect(await (await call("/", { cookie })).text()).toContain("Mødeleder: Gitta · Ordstyrer: Lisbeth");
+    // Someone who is not on the board cannot be picked; a form without the fields leaves them; "Ikke valgt" clears them.
+    await call(`/moder/${id}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", leader: "Fremmed Person", moderator: "Jacob Hauge" }) });
+    expect(await db.prepare("SELECT leader, moderator FROM board_meetings WHERE id = ?").bind(id).first()).toEqual({ leader: null, moderator: "Jacob Hauge" });
+    await call(`/moder/${id}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", start_time: "14:00" }) });
+    expect(await db.prepare("SELECT leader, moderator FROM board_meetings WHERE id = ?").bind(id).first()).toEqual({ leader: null, moderator: "Jacob Hauge" });
+    await call(`/moder/${id}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", leader: "", moderator: "" }) });
+    expect(await db.prepare("SELECT leader, moderator FROM board_meetings WHERE id = ?").bind(id).first()).toEqual({ leader: null, moderator: null });
+    // A name that has left the group stays chosen until someone changes it.
+    await db.prepare("UPDATE board_meetings SET leader = 'Gammel Ven' WHERE id = ?").bind(id).run();
+    expect(await (await call(`/moder/${id}`, { cookie })).text()).toContain('<option value="Gammel Ven" selected>Gammel Ven</option>');
+    await call(`/moder/${id}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", leader: "Gammel Ven", moderator: "" }) });
+    expect((await meeting(db, id))?.leader).toBe("Gammel Ven");
   });
 
   // Requested: "Presets" - Jacob's five questions in Saga's chat, and "Hvad er mine to-do's?" answered for the one asking.

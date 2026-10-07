@@ -14,7 +14,7 @@ import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCo
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -166,6 +166,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   const personal = person && person.issuedMs > await signedOutAfter(db, person.member) ? person.member : null;
   if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) return login("", shared || botLink ? 401 : 503);
   const members = await boardMembers(env, db);
+  // A leader or moderator is someone on the board - or who the meeting already has (a name that has left the group stays until someone changes it).
+  const onlyBoard = (input: { leader?: string; moderator?: string }, existing: { leader?: string | null; moderator?: string | null } | null) => {
+    if (input.leader && !members.names.includes(input.leader) && input.leader !== existing?.leader) input.leader = "";
+    if (input.moderator && !members.names.includes(input.moderator) && input.moderator !== existing?.moderator) input.moderator = "";
+  };
   // What Saga has for this member: the chair's own list (the chair only), and what she wrote to them by name or to all.
   const sagaFor = async (picture: BoardPicture | null) => !who ? [] : [
     ...(who === members.chair ? currentForChair(picture?.forJacob ?? []) : []), ...currentForChair(await sagaItemsFor(db, picture, who))];
@@ -230,6 +235,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
       if (!input) return redirect(`${base}/moder`);
+      onlyBoard(input, null);
       const id = await saveMeeting(db, input, who ?? "", now);
       // Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde": only a team meeting gets her points - the next one at once, from the minutes document.
       if (input.kind === "team" && nextTeamMeeting(await meetings(db), today)?.id === id) await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
@@ -244,12 +250,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
     const asked = url.searchParams.get("dato") ?? "";
     const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : "";
-    return html(meetingsPage(base, { upcoming, past,
+    return html(meetingsPage(base, { members: members.names, upcoming, past,
       found: sagaMeetings(picture, list, today), suggestion: picture?.document.nextAgenda ?? [],
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", kind: url.searchParams.get("art") === "team" ? "team" : url.searchParams.get("art") === "andet" ? "andet" : "" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
 
-  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag\/dokument|\/forslag|\/punkt\/slet|\/punkt\/ret|\/punkt)?$/.exec(path);
+  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag\/dokument|\/forslag|\/punkt\/slet|\/punkt\/ret|\/punkt\/raekkefolge|\/punkt)?$/.exec(path);
   if (meetingPath) {
     const id = Number(meetingPath[1]), action = meetingPath[2] ?? "";
     const found = await meeting(db, id);
@@ -275,6 +281,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       await addAgendaPoints(db, id, [String((await request.formData().catch(() => null))?.get("text") ?? "")], who ?? "", now);
       return back();
     }
+    if (request.method === "POST" && action === "/punkt/raekkefolge") {
+      // Requested: "flytte punkterne op og ned. Helst drag and drop": the page sends the points in their new order (one field "p" for each); a drop answers 204, a plain form goes back to the agenda.
+      const form = await request.formData().catch(() => null);
+      await reorderAgendaPoints(db, id, form ? form.getAll("p").map(String) : [], who ?? "", now);
+      return request.headers.get("x-requested-with") === "fetch" ? new Response(null, { status: 204 }) : back();
+    }
     if (request.method === "POST" && action === "/punkt/ret") {
       // Requested: "en let måde at redigere et punkt på. Måske en lille blå blyant til venstre for krydset."
       const form = await request.formData().catch(() => null);
@@ -288,7 +300,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST" && action === "/slet") { await deleteMeeting(db, id); return redirect(`${base}/moder`); }
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
-      if (input) await saveMeeting(db, input, who ?? "", now, id);
+      if (input) { onlyBoard(input, found); await saveMeeting(db, input, who ?? "", now, id); }
       // Ticked as a team meeting just now, and it is the next one: her suggestion from the minutes document is on the agenda at once (no AI) - the AI's comes in her morning round, or when asked.
       if (input?.kind === "team" && found.kind !== "team" && !found.agenda_saga?.trim() && nextTeamMeeting(await meetings(db), today)?.id === id)
         await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
@@ -299,7 +311,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
       : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
       : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
-    return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
+    return html(meetingPage(base, found, { members: members.names, minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
   }
 

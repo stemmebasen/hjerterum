@@ -34,7 +34,7 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 - <hver uformel aftale eller anbefaling i én linje: det, nogle enkelte personer har aftalt at gøre sammen eller hver for sig (fx at nogle holder møde om en opgave), og det, der er anbefalet, foreslået, bakket op eller skal undersøges, uden at bestyrelsen har afgjort det. Ingen: skriv "Ingen aftaler">
 
 ## Opgaver
-- <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
+- <hvem: fornavn(e) på dem, der skal gøre det, eller "Alle" - aldrig et emne> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
 
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
@@ -66,7 +66,7 @@ Skabelon:
 - <hver uformel aftale mellem enkelte personer, anbefaling eller forslag, der ikke er afgjort, i én linje, eller "Ingen aftaler">
 
 ## Opgaver
-- <hvem> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
+- <hvem: fornavn(e) på dem, der skal gøre det, eller "Alle" - aldrig et emne> - <hvad, i bydeform: \"Send …\", \"Se på …\", ikke \"Sender …\"> - <hvornår, eller "ingen frist aftalt">
 
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
@@ -128,7 +128,7 @@ export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til 
   + "\"decisions\": [{\"topic\", \"text\", \"date\", \"replaces\"}] de gældende beslutninger, nyeste først, højst 12: er en beslutning senere ændret (fx en dato eller en pris), vises kun den nye, og den gamle står kort i replaces; "
   + "\"openThreads\": [{\"text\", \"since\", \"status\": \"udsat\" | \"afventer\" | \"ingen opfølgning\"}] punkter, der er udsat, venter på noget, eller hvor en aftalt opfølgning aldrig er nævnt igen på et senere møde, ældste først, højst 10; "
   + "\"proposals\": [{\"text\", \"by\"}] forslag og idéer, der er rejst men ikke besluttet, højst 8; "
-  + "\"tasks\": [{\"who\", \"what\", \"due\", \"since\"}] åbne opgaver for alle (ikke meldt færdige på et senere møde), med mødedatoen i since, højst 20; "
+  + "\"tasks\": [{\"who\" (fornavn(e) på dem, der skal gøre det, eller \"Alle\" - aldrig et emne), \"what\", \"due\", \"since\"}] åbne opgaver for alle (ikke meldt færdige på et senere møde), med mødedatoen i since, højst 20; "
   + "\"nextAgenda\": [forslag til punkter på næste dagsorden: udsatte punkter og opfølgninger, der mangler], højst 6},\n"
   + "\"forJacob\": samlet liste over spørgsmål og opgaver til Jacob selv (han er formand) fra gruppen, dokumentet og mailen, vigtigste først, højst 10: "
   + "[{\"kind\": \"spørgsmål\" | \"opgave\", \"text\": hvad han skal svare på eller gøre, kort og konkret, \"source\": \"telegram\" | \"dokument\" | \"mail\", \"from\": fornavn på den der spørger, eller tom, \"since\": datoen det blev rejst (mødedatoen, når det kommer fra dokumentet)}]. Jacobs egne åbne opgaver fra referaterne hører med her. Er et spørgsmål eller en opgave en fælles sag for hele bestyrelsen (fx hvem der skal spørges som suppleant, eller hvordan noget afgøres), hører den i forMembers, ikke her,\n"

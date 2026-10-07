@@ -1,8 +1,10 @@
 import type { D1Database } from "../db.js";
 import { complete } from "../saga/ai.js";
-import type { SagaDeps, SagaEnv } from "../saga/env.js";
+import { postsToBoard, SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
+import { saveBoardMessage } from "../saga/store.js";
+import { telegramClient } from "../saga/telegram.js";
 import { boardKnowledge } from "./ask.js";
-import { addAgendaPoints, boardPicture, meetings, nextTeamMeeting, type Meeting } from "./data.js";
+import { addAgendaPoints, agendaPoints, boardPicture, meetings, nextTeamMeeting, rolesLine, type Meeting } from "./data.js";
 import { proposals } from "./votes.js";
 
 /** Requested (on a meeting's page): "Her bør Sagas forslag til dagsorden også kunne trigges." Saga reads what
@@ -59,4 +61,39 @@ export async function suggestForTeamMeeting(env: SagaEnv, deps: SagaDeps, db: D1
   const fresh = await db.prepare("SELECT agenda FROM board_meetings WHERE id = ?").bind(meeting.id).first<{ agenda: string }>();
   added += await addAgendaPoints(db, meeting.id, await suggestAgenda(env, deps, db, { ...meeting, agenda: fresh?.agenda ?? meeting.agenda }), "Saga", now, true);
   return added;
+}
+
+/** Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx. Og det ville være fint, hvis hun kan sende et direkte link til dagsordenen."
+ * The words are fixed - no AI - and the link goes straight to the agenda on the meeting's page. */
+export function agendaReadyText(env: SagaEnv, meeting: Meeting): string {
+  const points = agendaPoints(meeting.agenda), shown = points.slice(0, 12);
+  const link = env.COCKPIT_URL ? `${env.COCKPIT_URL.replace(/\/+$/, "")}/moder/${meeting.id}#dagsorden` : "";
+  const list = `${shown.map((p, i) => `${i + 1}. ${p}`).join("\n")}${points.length > shown.length ? `\n... og ${points.length - shown.length} punkter mere` : ""}`;
+  return `God morgen 🙂 Dagsordenen til dagens teammøde er klar (${points.length} ${points.length === 1 ? "punkt" : "punkter"}), og vi ses ${meeting.start_time ? `kl. ${meeting.start_time}` : "i dag"}${meeting.place ? ` - ${meeting.place}` : ""}.${rolesLine(meeting) ? `\n${rolesLine(meeting)}` : ""}\n\n${list}${link ? `\n\nSe dagsordenen her: ${link}` : ""}`;
+}
+
+/** In Saga's round: on the day of a team meeting, from 08:00 and until it begins (12:00 when it has no time), once - and only when the agenda has points. She writes in the board's group only when she
+ * is allowed to (SAGA_BOARD_POSTING); a send that fails is tried again in the next round. Returns whether she wrote. */
+export async function scheduledAgendaReminder(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<boolean> {
+  if (!postsToBoard(env) || !env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return false;
+  const now = deps.now();
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(now).map(p => [p.type, p.value]));
+  const minutes = Number(parts.hour) * 60 + Number(parts.minute);
+  if (minutes < 8 * 60) return false;
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
+  const meeting = (await meetings(db)).find(m => m.kind === "team" && m.meeting_date === today);
+  if (!meeting || !agendaPoints(meeting.agenda).length) return false;
+  const start = /^(\d{2}):(\d{2})$/.exec(meeting.start_time ?? "");
+  if (minutes >= (start ? Number(start[1]) * 60 + Number(start[2]) : 12 * 60)) return false;
+  const key = `cockpit_agenda_ready_${meeting.id}`;
+  if (!(await claim(key, 0))) return false;
+  try {
+    const text = agendaReadyText(env, meeting);
+    const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text);
+    await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text, sentAtMs: now, fromAssistant: true });
+    return true;
+  } catch (error) {
+    await db.prepare("DELETE FROM job_claims WHERE job_key = ? AND scheduled_for_ms = 0").bind(key).run().catch(() => undefined);
+    throw error;
+  }
 }
