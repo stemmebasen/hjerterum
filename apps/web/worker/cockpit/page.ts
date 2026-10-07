@@ -20,14 +20,16 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 export const COCKPIT_STYLE = `
-/* Requested: "It still looks like a quite weird and old design, and I don't like the green ... Take a look at
-   my page for inspiration - jacobhauge.com". The same system: cool paper, white cards, deep ink, one cobalt
-   accent, Bricolage Grotesque, tight bold headings, pill buttons, a glass header and a soft glow. */
-:root{--bg:#eef1f4;--card:#fff;--ink:#16202e;--muted:#5a6675;--faint:#7d8896;--line:#dce2e9;--accent:#2446d8;--accent-2:#1b37b5;--accent-ink:#fff;--soft:#f1f4f8;--tint:#e8edfd;
---good:#2446d8;--warn:#a4501a;--warn-soft:#fbefe4;--shadow:0 1px 2px rgba(22,32,46,.04),0 10px 30px -18px rgba(22,32,46,.18);--radius:20px;--nav-h:66px;
---glow-1:rgb(36 70 216 / .16);--glow-2:rgb(124 92 255 / .13);--glow-3:rgb(40 190 225 / .12);--serif:var(--font);--lys-terra:var(--accent);--lys-clay:var(--tint);--lys-clay-ink:var(--accent);--lys-sage:var(--tint);--lys-sage-ink:var(--accent);--font:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#121821;--card:#1a222d;--ink:#e8edf3;--muted:#9aa6b4;--faint:#748191;--line:#2a3441;--accent:#7c93ff;--accent-2:#9aabff;--accent-ink:#0e1522;--soft:#212a36;--tint:#1f2a4a;
---good:#7c93ff;--warn:#f0a86e;--warn-soft:#2e2219;--shadow:none;--glow-1:rgb(61 91 255 / .26);--glow-2:rgb(139 107 255 / .20);--glow-3:rgb(43 179 217 / .16)}}
+/* Requested: "It still looks like a quite weird and old design, and I don't like the green ... Take a look at my page for inspiration -
+   jacobhauge.com" (2 October); "Can you try to revert just the colors and the design styling back to before October 3rd?" - "Just here" (7 October);
+   then "the blue is a bit cold ... a little warmer and more yellowish" - "Lad os bruge natblå".
+   The system: Bricolage Grotesque, tight bold headings, pill buttons, a glass header and a soft glow, one cobalt accent. By day it sits on warm cream
+   paper with a golden glow; at night it is the deep night blue (no brown). */
+:root{--bg:#f6f1e7;--card:#fffdf9;--ink:#241f19;--muted:#675e52;--faint:#8b8173;--line:#e8dfcd;--accent:#2c47cf;--accent-2:#1f36a6;--accent-ink:#fff;--soft:#f2ebdc;--tint:#ebe9f7;
+--good:#2c47cf;--warn:#a4501a;--warn-soft:#fbe9d6;--shadow:0 1px 2px rgba(60,45,20,.05),0 10px 30px -18px rgba(60,45,20,.22);--radius:20px;--nav-h:66px;
+--glow-1:rgb(240 180 60 / .26);--glow-2:rgb(236 128 104 / .16);--glow-3:rgb(255 214 150 / .26);--serif:var(--font);--lys-terra:var(--accent);--lys-clay:var(--tint);--lys-clay-ink:var(--accent);--lys-sage:var(--tint);--lys-sage-ink:var(--accent);--font:"Bricolage Grotesque",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#10151f;--card:#18202c;--ink:#eaeef5;--muted:#a2adbd;--faint:#76849a;--line:#27313f;--accent:#8da0ff;--accent-2:#b0bdff;--accent-ink:#0e1530;--soft:#1f2836;--tint:#1e2848;
+--good:#8da0ff;--warn:#f0a86e;--warn-soft:#2e2219;--shadow:none;--glow-1:rgb(240 185 80 / .12);--glow-2:rgb(141 160 255 / .22);--glow-3:rgb(90 190 220 / .10)}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 .lys-art{display:none}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 var(--font);font-optical-sizing:auto;-webkit-font-smoothing:antialiased;overflow-x:clip;position:relative;isolation:isolate}
@@ -144,7 +146,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#121821" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10151f" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${BRICOLAGE_FONT_URL.replace(/&/g, "&amp;")}">
 <title>${esc(title)} · Hjerterum bestyrelse</title><style>${LYS_CSS}${COCKPIT_STYLE}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="" width="44" height="44"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>

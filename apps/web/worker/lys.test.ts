@@ -29,15 +29,16 @@ describe("Hjerterum Lys", () => {
 
   // Requested: "Can you try to revert just the colors and the design styling back to before October 3rd?" - "Just here" - "Wow, I like that a lot better":
   // the board's admin keeps its own blue design (cobalt, Bricolage Grotesque, glass header, soft glow) while the website and the member area are Lys.
-  it("gives the board's admin its own blue design, not the shared Lys one", async () => {
+  it("gives the board's admin its own design - warm cream by day, night blue at night - not the shared Lys one", async () => {
     const { layout } = await import("./cockpit/page.js");
     const html = layout("", "Overblik", "<main><h1>Overblik</h1></main>", { section: "/", who: "Jacob Hauge" });
     expect(html).toContain("family=Bricolage+Grotesque");
     expect(html).not.toContain(LYS_FONTS_URL.replaceAll("&", "&amp;"));
-    expect(html).toContain("--accent:#2446d8");
+    expect(html).toContain("--accent:#2c47cf");
+    expect(html).toContain("--bg:#10151f");
     expect(html).toContain("--glow-1:");
     expect(html).toContain('<span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span>');
-    expect(html).toContain('<meta name="theme-color" content="#eef1f4"');
+    expect(html).toContain('<meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10151f"');
   });
 
 });
