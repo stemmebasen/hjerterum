@@ -2,7 +2,7 @@ import { markdownToHtml } from "../saga/markdown.js";
 import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { APPROVED_BADGE, VOTES_STYLE, type VoteBlocks } from "./votes.js";
-import { DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
+import { agreedLabel, DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
 /** The admin's own typeface (the blue design from before 3 October): Bricolage Grotesque. */
@@ -288,7 +288,7 @@ export function whoPage(base: string, names: string[], current: string | null): 
 }
 
 const taskLine = (task: Task) => `<li>${task.who ? `<strong>${esc(task.who)}</strong> · ` : ""}${esc(task.what)}${task.due ? ` <span class="pill">${esc(task.due)}</span>` : ""}
-${task.meeting ? `<div class="small muted">${task.source === "referat" ? "Fra referatet" : "Fra referatdokumentet"} ${esc(/^\d{4}-/.test(task.meeting) ? shortDay(task.meeting) : task.meeting)}</div>` : ""}</li>`;
+${task.meeting ? `<div class="small muted">${esc(agreedLabel(task.meeting))}</div>` : ""}</li>`;
 
 function meetingSummary(base: string, m: Meeting): string {
   const items = m.agenda.split("\n").filter(Boolean);
