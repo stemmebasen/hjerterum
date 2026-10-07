@@ -37,7 +37,7 @@ describe("folded sections", () => {
 
   it("shows the five latest held meetings and folds the rest under 'Klik her for at se alle møder'", () => {
     const page = meetings([], past(9));
-    const section = page.slice(page.indexOf("<h2>Holdte møder</h2>"), page.indexOf('id="upload"'));
+    const section = page.slice(page.indexOf("<h2>Holdte møder</h2>"), page.indexOf("</main>"));
     const [open, rest] = section.split('<details class="fold">') as [string, string];
     expect(open.match(/<tr><td data-label="Dato">/g)).toHaveLength(SHOWN);
     expect(open).toContain("28. sep");
@@ -79,6 +79,29 @@ describe("folded sections", () => {
     expect(archive).toContain("Klik her for at se alle referater");
     expect(archive).toContain("Klik her for at se alle tidligere referater");
     expect(archive.match(/<details class="fold">/g)).toHaveLength(2);
+  });
+
+  // Requested: "Record a meeting and Plan a meeting should be quite folded when you enter the page, and bring them up right next to each other vertically."
+  it("keeps 'Planlæg et møde' and 'Optag et møde' folded when you enter Møder, one right under the other", () => {
+    const page = meetings([], past(2));
+    expect(page).toContain('<details class="card foldcard" id="nyt"><summary><h2>Planlæg et møde</h2></summary>');
+    expect(page).toContain('<details class="card foldcard" id="upload"><summary><h2>Optag et møde</h2></summary>');
+    expect(page).not.toMatch(/id="(?:nyt|upload)" open/);
+    // Next to each other at the top: the plan card, the record card, the note - and only then the held meetings.
+    const at = (text: string) => page.indexOf(text);
+    expect(at('id="nyt"')).toBeLessThan(at('id="upload"'));
+    expect(at('id="upload"')).toBeLessThan(at('class="notice info-note"'));
+    expect(at('class="notice info-note"')).toBeLessThan(at("<h2>Holdte møder</h2>"));
+    expect(page.slice(at('id="nyt"'), at('id="upload"'))).not.toContain("<h2>Holdte møder</h2>");
+    // A link to #nyt or #upload (the front page, "Sæt i kalenderen") opens the card.
+    expect(page).toContain('if(h&&h.tagName==="DETAILS"){h.open=true;h.scrollIntoView()}');
+    // A date or kind in the link (from "Sæt i kalenderen") opens the plan card at once.
+    const prefilled = meetingsPage(BASE, { members: [], upcoming: [], past: [], found: [], suggestion: [], prefill: { date: "2026-10-20", kind: "team" }, today: "2026-10-07", who: "Jacob Hauge", notice: "", uploads: false });
+    expect(prefilled).toContain('id="nyt" open');
+    expect(prefilled).not.toContain('id="upload" open');
+    const en = translateHtml(page);
+    expect(en).toContain("<h2>Plan a meeting</h2>");
+    expect(en).toContain("<h2>Record a meeting</h2>");
   });
 
   it("has the buttons in English", () => {

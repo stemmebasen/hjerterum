@@ -549,9 +549,12 @@ describe("the board cockpit", () => {
     expect(home).toContain("<h2>Medlemmer</h2>");
     expect(home).toContain("169");
     expect(home).toContain("345.144 kr.");
-    // "Betaling stoppet" is not relevant; every kind of membership is.
-    expect(home).not.toContain("Betaling stoppet");
-    for (const plan of ["Standard (222 kr./md.", "Reduceret pris", "Støtte", "Gratis medlemskab", "Reduced price, engelsk", "Generøst"]) expect(home).toContain(plan);
+    // "Betaling stoppet" is not relevant; every kind of membership is - on the page of the figures. Requested: "we don't give these figures" on the front page.
+    const plans = ["Standard (222 kr./md.", "Reduceret pris", "Støtte", "Gratis medlemskab", "Reduced price, engelsk", "Generøst"];
+    for (const plan of plans) expect(home).not.toContain(plan);
+    const figures = await (await call("/cockpit/medlemmer/tal", { cookie })).text();
+    expect(figures).not.toContain("Betaling stoppet");
+    for (const plan of plans) expect(figures).toContain(plan);
     const { boardKnowledge } = await import("./ask.js");
     expect(await boardKnowledge(env, deps(ai.fetcher, NOW), db, "Hvor mange betalende medlemmer har vi?")).toContain("169 betalende");
     const upload = new FormData();
@@ -572,7 +575,13 @@ describe("the board cockpit", () => {
     // The newest date leads; the change since the screenshot before is shown.
     const page = await (await call("/cockpit/medlemmer/tal", { cookie })).text();
     expect(page).toContain("Udvikling");
-    expect(await (await call("/cockpit/", { cookie })).text()).toContain("169");
+    // Requested: "we don't give these figures": the front page has the four figures and the way on - the share of each kind of membership is only on the page of the figures.
+    const front = await (await call("/cockpit/", { cookie })).text();
+    expect(front).toContain("169");
+    expect(front).toContain("Alle tal og opdatering →");
+    expect(front).not.toContain('aria-label="Medlemstyper"');
+    expect(page).toContain('aria-label="Medlemstyper"');
+    expect(page).toContain("Standard");
   });
 
   // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".

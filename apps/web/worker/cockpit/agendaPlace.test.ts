@@ -306,14 +306,21 @@ describe("a meeting's agenda and place", () => {
     expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4", "Punkt 5"]);
   });
 
-  it("shows the next team meeting on the front page - Saga's points among them - and the next meeting of any kind in the box", async () => {
+  // Requested: "On the front page, we don't show any items for the coming meeting, but simply just tell about the meeting."
+  it("tells about the next team meeting on the front page - when, where, who leads it - without its agenda, and shows the next meeting of any kind in the box", async () => {
     const { db, call, login } = setup(() => "{}");
     const cookie = await login();
     const other = await saveMeeting(db, { date: "2026-10-14", time: "", place: "", agenda: "Valg af dirigent", kind: "andet" }, "Jacob Hauge", NOW);
     const team = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "Julefest: valg af dato", kind: "team" }, "Jacob Hauge", NOW);
     const front = await (await call("/", { cookie })).text();
     const card = front.slice(front.indexOf("<h2>Næste teammøde</h2>"), front.indexOf("<h2>Næste teammøde</h2>") + 1500);
-    expect(card).toContain("Julefest: valg af dato");
+    expect(card).toContain("torsdag den 15. oktober");
+    expect(card).toContain("kl. 13:30");
+    expect(card).toContain("Hvornår og hvor.");
+    // No points of the agenda - the meeting's page has them.
+    expect(card).not.toContain("Julefest: valg af dato");
+    expect(card).not.toContain('class="agenda"');
+    expect(card).not.toContain("dagsorden endnu");
     expect(card).not.toContain("Valg af dirigent");
     expect(card).toContain(`href="/moder/${team}"`);
     expect(front).toContain(`<a class="tile" href="/moder/${other}"><span class="label">Næste møde</span>`);
@@ -432,7 +439,7 @@ describe("a meeting's agenda and place", () => {
     expect(plan).toContain('<label>Mødeleder<select name="leader"><option value="">Ikke valgt</option><option value="Gitta">Gitta</option><option value="Jacob Hauge">Jacob Hauge</option><option value="Lisbeth">Lisbeth</option></select></label>');
     expect(plan).toContain('<label>Ordstyrer<select name="moderator">');
     // The note under the box.
-    expect(plan).toMatch(/<div class="card" id="nyt"><h2>Planlæg et møde<\/h2>[^]*?<\/div>\s*<p class="notice info-note"><strong>Påmindelse om mødet:<\/strong> Om morgenen på mødedagen \(fra kl\. 8\) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen\./);
+    expect(plan).toMatch(/<details class="card foldcard" id="nyt"><summary><h2>Planlæg et møde<\/h2>[^]*?<\/details>\s*<details class="card foldcard" id="upload"><summary><h2>Optag et møde<\/h2>[^]*?<\/details>\s*<p class="notice info-note"><strong>Påmindelse om mødet:<\/strong> Om morgenen på mødedagen \(fra kl\. 8\) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen\./);
     const made = await call("/moder", { method: "POST", cookie, body: form({ meeting_date: "2026-10-22", start_time: "13:30", kind: "team", kind_sent: "1", leader: "Gitta", moderator: "Lisbeth" }) });
     const id = Number(/\/moder\/(\d+)/.exec(made.headers.get("location") ?? "")?.[1]);
     expect(await db.prepare("SELECT leader, moderator FROM board_meetings WHERE id = ?").bind(id).first()).toEqual({ leader: "Gitta", moderator: "Lisbeth" });

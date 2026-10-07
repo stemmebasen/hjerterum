@@ -114,8 +114,8 @@ export const MEMBERS_STYLE = `
 .drop input{max-width:320px;background:var(--card)}.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 `;
 
-/** The front page's "Medlemmer" panel. */
-export function membersPanel(base: string, rows: MemberStats[], link = true): string {
+/** The "Medlemmer" panel. Requested: "we don't give these figures" - the front page (`front`) has the four figures and the way to the rest; the share of each kind of membership is on the page of the figures. */
+export function membersPanel(base: string, rows: MemberStats[], front = true): string {
   const [now, before] = rows;
   const head = `<header><h2>Medlemmer</h2><p>Fra MembershipWorks${now ? ` · opdateret ${esc(shortDay(now.taken_on))}` : ""}.</p></header>`;
   if (!now) return `<article class="panel">${head}<p class="empty">Ingen medlemstal endnu.</p><a class="more" href="${base}/medlemmer/tal">Upload et skærmbillede →</a></article>`;
@@ -128,8 +128,8 @@ export function membersPanel(base: string, rows: MemberStats[], link = true): st
 <div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>medlemskontingent (årligt)</span></div>
 <div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
-${top.length ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
-${link ? `<a class="more" href="${base}/medlemmer/tal">Alle tal og opdatering →</a>` : ""}</article>`;
+${top.length && !front ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
+${front ? `<a class="more" href="${base}/medlemmer/tal">Alle tal og opdatering →</a>` : ""}</article>`;
 }
 
 function numbersForm(base: string, input: StatsInput, note: string): string {
