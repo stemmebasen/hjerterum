@@ -480,12 +480,16 @@ ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</
 <div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });
 }
 
-export function decisionsPage(base: string, decisions: Decision[], who: string | null, votes?: VoteBlocks & { notice: string }): string {
+/** The laurel stands only by what is really approved: a vote the board has adopted, and a decision from minutes every board member has approved (`approvals`: how many have, per minutes).
+ * Requested: "Jeg forstår ikke, at der er et badge ved godkendelserne i referatet, da det ikke er alle, der har godkendt det". */
+export function decisionsPage(base: string, decisions: Decision[], who: string | null, votes?: VoteBlocks & { notice: string }, approvals?: { members: number; approved: Map<number, number> }): string {
+  const signed = (d: Decision) => d.minutesId !== null ? approvals?.approved.get(d.minutesId) : undefined;
+  const mark = (d: Decision) => d.source === "afstemning" || (approvals !== undefined && approvals.members > 0 && (signed(d) ?? 0) >= approvals.members) ? laurel(34) : "";
   // Requested: "Beslutninger og Afstemninger skal merges" - one page: what is up for vote, what has been decided, a new proposal.
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1>${votes ? `<p class="muted">Bestyrelsens beslutninger fra referaterne og de digitale afstemninger. ${votes.intro}</p>
 ${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}<div class="card"><h2>Besluttet</h2><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
-${decisions.length ? `<table id="list" class="rows"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
+${decisions.length ? `<table id="list" class="rows decisions"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
+<td data-label="Beslutning"><div class="dec"><span class="seal${mark(d) ? "" : " none"}">${mark(d)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>${approvals && signed(d) !== undefined && !mark(d) ? `<div class="small muted">${signed(d)} af ${approvals.members} har godkendt</div>` : ""}` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${votes ? votes.closed : ""}</main>
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
 document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });

@@ -201,6 +201,12 @@ export async function signoffs(db: D1Database, minutesId: number): Promise<Signo
   return rows.results ?? [];
 }
 
+/** How many board members have approved each minutes (only the ones that were approved, not corrections) - for the decisions list, where a laurel stands only by what the whole board has approved. */
+export async function approvalCounts(db: D1Database): Promise<Map<number, number>> {
+  const rows = (await db.prepare("SELECT minutes_id, COUNT(*) AS n FROM board_minutes_signoffs WHERE status = 'approved' GROUP BY minutes_id").all<{ minutes_id: number; n: number }>().catch(() => ({ results: [] as Array<{ minutes_id: number; n: number }> }))).results ?? [];
+  return new Map(rows.map(r => [r.minutes_id, r.n]));
+}
+
 export async function signOff(db: D1Database, minutesId: number, member: string, status: Signoff["status"], comment: string | null, nowMs: number): Promise<void> {
   await db.prepare(`INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(minutes_id, member) DO UPDATE SET status = excluded.status, comment = excluded.comment, at_ms = excluded.at_ms`).bind(minutesId, member, status, comment, nowMs).run();
