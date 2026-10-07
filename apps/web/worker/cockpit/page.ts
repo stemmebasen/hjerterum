@@ -1,8 +1,9 @@
 import { markdownToHtml } from "../saga/markdown.js";
 import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
+import { personChip, WHO_CHIP_STYLE } from "./todosPage.js";
 import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
-import { agreedLabel, DEFAULT_PLACE, guessKind, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
+import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, rolesLine, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
 /** The admin's own typeface (the blue design from before 3 October): Bricolage Grotesque. */
@@ -71,14 +72,20 @@ ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::mar
 ol.agenda.points{padding:0;list-style:none;counter-reset:point;display:grid;gap:6px;margin:0 0 4px}
 ol.agenda.points li{counter-increment:point;display:flex;align-items:center;gap:10px;margin:0;padding:7px 8px 7px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
 ol.agenda.points li::before{content:counter(point);font-weight:650;color:var(--faint);min-width:1.3em}ol.agenda.points .t{flex:1;min-width:0;overflow-wrap:anywhere}
-.saga-mark{white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}.saga-mark.inline{margin-left:6px}
+ol.agenda.points .who{cursor:default;flex:none}.saga-mark{white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}.saga-mark.inline{margin-left:6px}
 ol.agenda.points .saga-mark{flex:none;white-space:nowrap;font-size:11.5px;font-weight:700;line-height:1.4;padding:2px 10px;border-radius:999px;background:var(--tint);color:var(--accent)}
 ol.agenda.points li{flex-wrap:wrap}ol.agenda.points .editpoint{display:none;flex:1 1 240px;gap:8px;margin:0;align-items:center}ol.agenda.points .editpoint input[name=text]{flex:1;min-width:0}
-ol.agenda.points .editpoint button{flex:none;min-height:40px;padding:8px 16px;font-size:14px}ol.agenda.points li.editing .editpoint{display:flex}ol.agenda.points li.editing .t,ol.agenda.points li.editing .saga-mark,ol.agenda.points li.editing .pencil,ol.agenda.points li.editing form.cross{display:none}
+ol.agenda.points .editpoint button{flex:none;min-height:40px;padding:8px 16px;font-size:14px}ol.agenda.points li.editing .editpoint{display:flex}ol.agenda.points li.editing .grip,ol.agenda.points li.editing .t,ol.agenda.points li.editing .saga-mark,ol.agenda.points li.editing .pencil,ol.agenda.points li.editing form.cross{display:none}
+@media (max-width:560px){ol.agenda.points li{row-gap:8px}ol.agenda.points .t{flex:1 1 calc(100% - 90px)}ol.agenda.points .t+*{margin-left:0}}
+button.grip{order:-1;flex:none;width:22px;height:32px;min-height:0;margin-left:-6px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--faint);display:grid;place-items:center;cursor:grab;touch-action:none}
+button.grip:hover,button.grip:focus-visible{color:var(--accent);filter:none}ol.agenda.points li.dragging{border-color:var(--accent);box-shadow:0 8px 22px rgb(0 0 0 / .18);background:color-mix(in srgb,var(--accent) 6%,var(--card));position:relative;z-index:2}
+ol.agenda.points li.dragging button.grip{cursor:grabbing}
 button.pencil{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--accent);border:1.5px solid var(--line);display:grid;place-items:center;flex:none}button.pencil:hover{border-color:var(--accent);filter:none}
+.editing-banner{display:inline-flex;align-items:center;gap:8px;margin:0 0 6px;padding:5px 14px 5px 11px;border-radius:999px;background:var(--tint);color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 form.cross{margin:0}form.cross button{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--muted);border:1.5px solid var(--line);font-size:22px;font-weight:400;line-height:1;display:grid;place-items:center;padding-bottom:2px}
 form.cross button:hover{color:var(--warn);border-color:var(--warn);filter:none}
 form.addpoint{display:flex;gap:8px;margin:10px 0 0}form.addpoint input{flex:1;min-width:0}form.addpoint button{flex:none}
+.stack-cards{display:grid;gap:14px;align-content:start}.info-note{margin:0;font-size:14px;line-height:1.5}
 .suggest-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:14px}.suggest-row form{margin:0}
 /* A choice of one (Planlæg et møde, a meeting's kind): round radios in pills - never the wide grey box the page's input style would make of them. */
 .picks{display:flex;flex-wrap:wrap;gap:8px}.picks legend{padding:0;margin:0 0 6px;font-size:13.5px;font-weight:600;color:var(--muted)}fieldset.picks-set{border:0;margin:0;padding:0}
@@ -315,13 +322,25 @@ export function whoPage(base: string, names: string[], current: string | null): 
 const taskLine = (task: Task) => `<li>${task.who ? `<strong>${esc(task.who)}</strong> · ` : ""}${esc(task.what)}${task.due ? ` <span class="pill">${esc(task.due)}</span>` : ""}
 ${task.meeting ? `<div class="small muted">${esc(agreedLabel(task.meeting))}</div>` : ""}</li>`;
 
+/** Requested: "Der skal i øvrigt kunne vælges en Mødeleder og Ordstyrer.": two choices among the board - a name that has left the group stays in the list while it is chosen. */
+function roleSelects(members: string[], m: Pick<Meeting, "leader" | "moderator"> | null): string {
+  const one = (name: string, label: string, chosen: string | null | undefined) => {
+    const names = [...members, ...(chosen && !members.includes(chosen) ? [chosen] : [])];
+    return `<label>${label}<select name="${name}"><option value="">Ikke valgt</option>${names.map(n => `<option value="${esc(n)}"${n === chosen ? " selected" : ""}>${esc(n)}</option>`).join("")}</select></label>`;
+  };
+  return `<div class="row">${one("leader", "Mødeleder", m?.leader)}${one("moderator", "Ordstyrer", m?.moderator)}</div>`;
+}
+
 /** The pencil beside the cross of an agenda point: a small blue pencil that opens the point for editing in place. */
 const PENCIL = `<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l3 3L7 16l-3.8.8L4 13z"/><path d="M11.5 5.5l3 3"/></svg>`;
+/** The grip at the left of an agenda point: six dots - take hold here to move the point. */
+const GRIP = `<svg viewBox="0 0 12 18" width="12" height="18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/></svg>`;
 const KIND_TAG: Record<string, string> = { team: `<span class="kind-tag team">Teammøde</span>` };
-function meetingSummary(base: string, m: Meeting): string {
-  const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean));
+function meetingSummary(base: string, m: Meeting, members: string[] = []): string {
+  const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
   return `<p><strong>${esc(longDay(m.meeting_date))}</strong>${m.start_time ? ` kl. ${esc(m.start_time)}` : ""}${m.place ? ` · ${esc(m.place)}` : ""}${m.kind ? KIND_TAG[m.kind] : ""}</p>
-${items.length ? `<ol class="agenda">${items.map(item => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : ""}</li>`).join("")}</ol>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
+${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 8px">${esc(rolesLine(m))}</p>` : ""}
+${items.length ? `<ol class="agenda">${items.map(item => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : authors[item] && members.length ? ` ${personChip(members, authors[item]!)}` : ""}</li>`).join("")}</ol>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
 <p style="margin:10px 0 0"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a></p>`;
 }
 
@@ -463,10 +482,11 @@ ${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date
 <script>document.querySelectorAll("[data-other]").forEach(s=>s.addEventListener("change",()=>{s.form.querySelector("[data-other-date]").hidden=s.value!=="anden"}))</script>`;
 }
 
-export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
+export function meetingsPage(base: string, data: { members: string[]; upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
   prefill: { date: string; kind: "" | "team" | "andet" }; today: string; who: string | null; notice: string; uploads: boolean }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
 <label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
+${roleSelects(data.members, null)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${data.prefill.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
 <p class="small muted" style="margin:0">Dagsordenens punkter tilføjes ét ad gangen på mødets side.</p>
@@ -474,45 +494,60 @@ export function meetingsPage(base: string, data: { upcoming: Meeting[]; past: Pa
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
     : row.inDocument ? `<a href="${base}/arkiv#${esc(row.date)}">I referatdokumentet</a>` : row.meeting ? `<a href="${base}/moder/${row.meeting.id}#upload">Upload optagelse</a>` : `<span class="muted">Mangler</span>`;
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
-<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
+<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m, data.members)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
 ${foundMeetings(base, data.found, data.today)}</div>
-<div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div></div>
+<div class="stack-cards"><div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div>
+<p class="notice info-note"><strong>Påmindelse om mødet:</strong> Om morgenen på mødedagen (fra kl. 8) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen. Det sker for teammøder, der har punkter på dagsordenen.</p></div></div>
 <div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
 <td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
 <td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
-<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who });
+<div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who, style: WHO_CHIP_STYLE });
 }
 
-export function meetingPage(base: string, m: Meeting, data: { minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
+export function meetingPage(base: string, m: Meeting, data: { members: string[]; minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean },
   who: string | null, notice: string): string {
   const held = m.meeting_date <= data.today;
+  const authors = agendaAuthors(m.agenda_authors);
   const points = m.agenda.split("\n").map(l => l.trim()).filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").map(l => l.trim()).filter(Boolean));
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
-  return layout(base, `Møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><h1>${esc(longDay(m.meeting_date))}</h1>
+  return layout(base, `Rediger møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><p class="editing-banner">${PENCIL}Rediger møde</p><h1>${esc(longDay(m.meeting_date))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
-${points.length ? `<ol class="agenda points">${points.map(p => `<li><span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : ""}<button type="button" class="pencil" data-edit aria-label="Ret punktet: ${esc(p)}" title="Ret punktet">${PENCIL}</button><form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form>
+${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 10px">${esc(rolesLine(m))}</p>` : ""}
+${points.length ? `<ol class="agenda points" data-order="${base}/moder/${m.id}/punkt/raekkefolge">${points.map(p => `<li data-point="${esc(p)}">${points.length > 1 ? `<button type="button" class="grip" aria-label="Flyt punktet: ${esc(p)}" title="Træk for at flytte punktet - eller brug pil op og ned">${GRIP}</button>` : ""}<span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : authors[p] ? personChip(data.members, authors[p]!) : ""}<button type="button" class="pencil" data-edit aria-label="Ret punktet: ${esc(p)}" title="Ret punktet">${PENCIL}</button><form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form>
 <form class="editpoint" method="post" action="${base}/moder/${m.id}/punkt/ret"><input type="hidden" name="old" value="${esc(p)}"><input name="text" value="${esc(p)}" required maxlength="200" autocomplete="off" aria-label="Ret punktet"><button>Gem</button><button type="button" class="ghost" data-cancel>Annullér</button></form></li>`).join("")}</ol>`
     : `<p class="muted small">Ingen punkter endnu.</p>`}
-<script>document.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const li=b.closest("li");li.classList.add("editing");const i=li.querySelector(".editpoint input[name=text]");i.focus();i.select()}));
+<script>(()=>{const list=document.querySelector("ol.agenda.points[data-order]");if(!list)return;
+const items=()=>[...list.querySelectorAll("li[data-point]")],order=()=>items().map(li=>li.dataset.point).join("\\n");
+const save=()=>{const f=new FormData();items().forEach(li=>f.append("p",li.dataset.point));fetch(list.dataset.order,{method:"POST",body:f,headers:{"x-requested-with":"fetch"},credentials:"same-origin"}).then(r=>{if(!r.ok)location.reload()}).catch(()=>location.reload())};
+list.querySelectorAll(".grip").forEach(g=>{
+g.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse"&&e.button!==0)return;e.preventDefault();const li=g.closest("li"),was=order();li.classList.add("dragging");
+const move=ev=>{let before=null;for(const x of items()){if(x===li)continue;const r=x.getBoundingClientRect();if(ev.clientY<r.top+r.height/2){before=x;break}}
+if(before){if(li.nextElementSibling!==before)list.insertBefore(li,before)}else if(list.lastElementChild!==li)list.appendChild(li)};
+const done=()=>{document.removeEventListener("pointermove",move);document.removeEventListener("pointerup",done);document.removeEventListener("pointercancel",done);li.classList.remove("dragging");if(order()!==was)save()};
+document.addEventListener("pointermove",move);document.addEventListener("pointerup",done);document.addEventListener("pointercancel",done)});
+g.addEventListener("keydown",e=>{if(e.key!=="ArrowUp"&&e.key!=="ArrowDown")return;e.preventDefault();const li=g.closest("li"),other=e.key==="ArrowUp"?li.previousElementSibling:li.nextElementSibling;if(!other)return;
+if(e.key==="ArrowUp")list.insertBefore(li,other);else list.insertBefore(other,li);g.focus();save()})})})();
+document.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const li=b.closest("li");li.classList.add("editing");const i=li.querySelector(".editpoint input[name=text]");i.focus();i.select()}));
 document.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>b.closest("li").classList.remove("editing")))</script><noscript><style>ol.agenda.points .editpoint{display:flex}ol.agenda.points .pencil{display:none}</style></noscript>
 <form class="addpoint" method="post" action="${base}/moder/${m.id}/punkt"><input name="text" required maxlength="200" autocomplete="off" placeholder="Nyt punkt, fx Økonomi" aria-label="Nyt punkt"><button>Tilføj punkt</button></form>
 ${!held && m.kind === "team" && (data.suggestion.length || data.aiReady) ? `<div class="suggest-row">${data.suggestion.length ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${data.suggestion.length} ${data.suggestion.length === 1 ? "punkt" : "punkter"})</button></form>` : ""}
 ${data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button></form>` : ""}</div>
 ${data.aiReady ? `<p class="small muted">Saga laver selv forslag til næste teammøde hver morgen, og de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>
 <script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}` : ""}
-<h3 style="margin:18px 0 8px" id="detaljer">Dato, tid og sted</h3>
+<h3 style="margin:18px 0 8px" id="detaljer">Dato, tid, sted og roller</h3>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
+${roleSelects(data.members, m)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
-<div class="actions"><button class="ghost">Gem dato, tid og sted</button></div></form>
+<div class="actions"><button class="ghost">Gem ændringer</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
-<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>`, { section: "/moder", who });
+<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>`, { section: "/moder", who, style: WHO_CHIP_STYLE });
 }
 
 /** Every decision on the list wears the laurel: a decision is valid when it is taken - whether the minutes have been approved by the whole board is another matter, and never

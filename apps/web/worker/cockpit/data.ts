@@ -9,7 +9,7 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
  * tasks in them. Drafts waiting for the chair's approval are counted, never shown. */
 
 export type MeetingKind = "team" | "andet";
-export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null };
+export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null; leader?: string | null; moderator?: string | null; agenda_authors?: string };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
 export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
@@ -47,19 +47,19 @@ export const DEFAULT_PLACE = "Hjerterum, Guldsmedgade 26B, 8000 Aarhus";
 const PLACE = `COALESCE(NULLIF(TRIM(place), ''), '${DEFAULT_PLACE}') AS place`;
 
 export async function meetings(db: D1Database): Promise<Meeting[]> {
-  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
+  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
   return rows.results ?? [];
 }
 
 export const meetingOn = (db: D1Database, day: string) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
 
 export const meeting = (db: D1Database, id: number) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, kind, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^\d{2}:\d{2}$/;
 /** `agenda` is left out when the form does not carry it: the points of the agenda are added and deleted one by one (addAgendaPoints, removeAgendaPoint). */
-export type MeetingInput = { date: string; time: string; place: string; agenda?: string; kind?: MeetingKind };
+export type MeetingInput = { date: string; time: string; place: string; agenda?: string; kind?: MeetingKind; leader?: string; moderator?: string };
 
 /** One point of an agenda: one line, no numbering or bullet, at most 200 characters - never running text. */
 export const cleanPoint = (text: string) => text.replace(/\s+/g, " ").trim().replace(/^(\d+[.)]|[-*•])\s+/, "").slice(0, 200);
@@ -73,6 +73,8 @@ export function meetingInput(form: FormData): MeetingInput | null {
   return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
     // A ticked "Teammøde" sends kind=team; an unticked one sends nothing, so the form says it carried the box (kind_sent) - then it is "andet". A form without the box leaves the kind alone.
     ...(form.get("kind") === "team" || form.get("kind") === "andet" ? { kind: form.get("kind") as MeetingKind } : form.has("kind_sent") ? { kind: "andet" as const } : {}),
+    // Requested: "Der skal i øvrigt kunne vælges en Mødeleder og Ordstyrer.": a name from the board, or "" for none; left out, they stay as they were.
+    ...(form.has("leader") ? { leader: String(form.get("leader") ?? "").trim().slice(0, 100) } : {}), ...(form.has("moderator") ? { moderator: String(form.get("moderator") ?? "").trim().slice(0, 100) } : {}),
     ...(form.has("agenda") ? { agenda: String(form.get("agenda") ?? "").replace(/\r\n/g, "\n").split("\n").map(cleanPoint).filter(Boolean).slice(0, 40).join("\n").slice(0, 8000) } : {}) };
 }
 
@@ -82,11 +84,13 @@ export async function saveMeeting(db: D1Database, input: MeetingInput, who: stri
     const sets = ["meeting_date = ?", "start_time = ?", "place = ?", "updated_at_ms = ?", "updated_by = ?"], values: Array<string | number | null> = [input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null];
     if (input.agenda !== undefined) { sets.push("agenda = ?"); values.push(input.agenda); }
     if (input.kind) { sets.push("kind = ?"); values.push(input.kind); }
+    if (input.leader !== undefined) { sets.push("leader = ?"); values.push(input.leader || null); }
+    if (input.moderator !== undefined) { sets.push("moderator = ?"); values.push(input.moderator || null); }
     await db.prepare(`UPDATE board_meetings SET ${sets.join(", ")} WHERE id = ?`).bind(...values, id).run();
     return id;
   }
-  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, kind, created_at_ms, updated_at_ms, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, nowMs, nowMs, who || null).run();
+  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, kind, leader, moderator, created_at_ms, updated_at_ms, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, input.leader || null, input.moderator || null, nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
 }
 
@@ -94,28 +98,43 @@ export async function saveMeeting(db: D1Database, input: MeetingInput, who: stri
 export const guessKind = (what: string): MeetingKind | "" =>
   /team|bestyrelsesmøde/i.test(what) ? "team" : /generalforsamling|infomøde|workshop|fest\b|kursus|arrangement|åbent hus/i.test(what) ? "andet" : "";
 
+/** "Mødeleder: Frederik · Ordstyrer: Lisbeth" - first names; "" when no one is picked. */
+export function rolesLine(m: Pick<Meeting, "leader" | "moderator">): string {
+  const first = (name: string | null | undefined) => (name ?? "").trim().split(/\s+/)[0] ?? "";
+  return [first(m.leader) && `Mødeleder: ${first(m.leader)}`, first(m.moderator) && `Ordstyrer: ${first(m.moderator)}`].filter(Boolean).join(" · ");
+}
+
 /** The next team meeting: the earliest meeting from today on that is said to be one. */
 export const nextTeamMeeting = (list: Meeting[], today: string): Meeting | null =>
   list.filter(m => m.kind === "team" && m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
 
+/** Who made each point of an agenda: {"point": "name"}. A point of Saga's is in `agenda_saga` instead; an old point has no author. */
+export function agendaAuthors(raw: string | null | undefined): Record<string, string> {
+  try {
+    const data = JSON.parse(raw || "{}") as unknown;
+    return data && typeof data === "object" && !Array.isArray(data) ? Object.fromEntries(Object.entries(data as Record<string, unknown>).filter((e): e is [string, string] => typeof e[1] === "string" && e[1] !== "")) : {};
+  } catch { return {}; }
+}
+
 /** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted. Returns how many were added. */
 export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
-  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
   if (!m) return 0;
-  const points = agendaPoints(m.agenda), saga = agendaPoints(m.agenda_saga), seen = new Set(points.map(p => p.toLowerCase()));
+  const points = agendaPoints(m.agenda), saga = agendaPoints(m.agenda_saga), authors = agendaAuthors(m.agenda_authors), seen = new Set(points.map(p => p.toLowerCase()));
   let added = 0;
   for (const text of texts.map(cleanPoint).filter(Boolean)) {
     if (points.length >= 40 || seen.has(text.toLowerCase())) continue;
-    seen.add(text.toLowerCase()); points.push(text); if (fromSaga) saga.push(text); added++;
+    seen.add(text.toLowerCase()); points.push(text); added++;
+    if (fromSaga) saga.push(text); else if (who) authors[text] = who;
   }
-  if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), nowMs, who || null, id).run();
+  if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
   return added;
 }
 
 /** Edits one point of the agenda in place (the pencil): the new text takes the old one's place. A point of Saga's that a member has rewritten is theirs now - it loses her mark.
  * False when the old point is not there, the new text is empty, or another point already says the same. */
 export async function editAgendaPoint(db: D1Database, id: number, oldText: string, newText: string, who: string, nowMs: number): Promise<boolean> {
-  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
   const before = cleanPoint(oldText), after = cleanPoint(newText);
   if (!m || !before || !after) return false;
   const points = agendaPoints(m.agenda), at = points.findIndex(p => p === before);
@@ -123,22 +142,40 @@ export async function editAgendaPoint(db: D1Database, id: number, oldText: strin
   if (after === before) return true;
   if (points.some((p, i) => i !== at && p.toLowerCase() === after.toLowerCase())) return false;
   points[at] = after;
-  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== before).join("\n"), nowMs, who || null, id).run();
+  // The one who made the point stays its maker; a point of Saga's that a member rewrote is the member's now.
+  const authors = agendaAuthors(m.agenda_authors), maker = authors[before] ?? (agendaPoints(m.agenda_saga).includes(before) ? who : "");
+  delete authors[before];
+  if (maker) authors[after] = maker;
+  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== before).join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
+  return true;
+}
+
+/** Requested: "man skal i øvrigt også kunne flytte punkterne op og ned. Helst drag and drop." The points in the order the board gave them. A point that has been added or deleted meanwhile does not break it:
+ * the ones given and still there come first, in the given order; the ones that were not given follow in their old order. False when nothing changed. */
+export async function reorderAgendaPoints(db: D1Database, id: number, order: string[], who: string, nowMs: number): Promise<boolean> {
+  const m = await db.prepare("SELECT agenda FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string }>();
+  if (!m) return false;
+  const current = agendaPoints(m.agenda), given = [...new Set(order.map(cleanPoint).filter(p => current.includes(p)))];
+  const next = [...given, ...current.filter(p => !given.includes(p))];
+  if (next.join("\n") === current.join("\n")) return false;
+  await db.prepare("UPDATE board_meetings SET agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(next.join("\n"), nowMs, who || null, id).run();
   return true;
 }
 
 /** Deletes one point of the agenda (the cross). False when it is not there. */
 export async function removeAgendaPoint(db: D1Database, id: number, text: string, who: string, nowMs: number): Promise<boolean> {
-  const m = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
   const point = cleanPoint(text);
   if (!m || !point) return false;
   const points = agendaPoints(m.agenda), at = points.findIndex(p => p === point);
   if (at < 0) return false;
   points.splice(at, 1);
+  const authors = agendaAuthors(m.agenda_authors);
+  delete authors[point];
   // Deleting takes no AI call. What Saga suggested may come again in her next suggestion - that is how she makes a fresh one.
-  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
-    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== point).join("\n"), nowMs, who || null, id).run();
+  await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?")
+    .bind(points.join("\n"), agendaPoints(m.agenda_saga).filter(p => p !== point).join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
   return true;
 }
 
@@ -195,12 +232,25 @@ export function sagaMeetings(picture: BoardPicture | null, list: Meeting[], toda
 
 const bullets = (text: string) => text.split(/\r?\n/).map(line => /^\s*[-*]\s+(.*)$/.exec(line)?.[1]?.trim() ?? "").filter(Boolean);
 
+const GROUPS = /^(?:alle|alle sammen|bestyrelsen|hele bestyrelsen|teamet|de ansatte|de tre ansatte|begge|ansatte)$/i;
+/** Whether a task's "hvem" is people: first names (a surname may follow), a few of them ("Lisbeth, Gitta og Frederik"), "Alle" or a group - and not a topic ("Fast fremtidig rengøringsordning"). Empty is for everyone. */
+export function looksLikeWho(text: string): boolean {
+  const who = text.trim();
+  if (!who) return true;
+  // A capitalised word is a name unless it ends like a common noun ("-ordning", "-else", "-hed", "-skab", "-tion" ...): "Rengøringsordning" is a topic, "Henning" is not.
+  return who.split(/\s*(?:,|&|\/|\bog\b|\bsamt\b)\s*/i).filter(Boolean).every(part => GROUPS.test(part) || (/^\p{Lu}[\p{L}'’.-]*(?: \p{Lu}[\p{L}'’.-]*){0,2}$/u.test(part) && !/(?:ordning|else|hed|skab|tion|plan|møde|system|forslag|arrangement|aftale|event|fest)$/i.test(part)));
+}
+/** A task whose "hvem" is really a topic is for everyone - and the topic stays in the text: "Alle: Fast fremtidig rengøringsordning: tages op igen", not a person called "Fast fremtidig rengøringsordning". */
+export function sensibleWho<T extends { who: string; what: string }>(task: T): T {
+  return looksLikeWho(task.who) ? task : { ...task, who: "", what: [task.who.trim(), task.what].filter(Boolean).join(": ") };
+}
+
 /** "- <hvem> - <hvad> - <hvornår>", as Saga writes the tasks in her minutes. */
 export function minutesTasks(minutes: ApprovedMinutes): Task[] {
   return bullets(section(minutes.draft_markdown ?? "", /opgaver/i)).map(line => {
     const parts = line.split(/\s+[-–—]\s+/);
     const [who, what, due] = parts.length >= 3 ? [parts[0]!, parts.slice(1, -1).join(" - "), parts.at(-1)!] : parts.length === 2 ? [parts[0]!, parts[1]!, ""] : ["", line, ""];
-    return { who: who.trim(), what: what.trim(), due: /ingen frist/i.test(due) ? "" : due.trim(), meeting: minutes.meeting_date ?? "", source: "referat" as const };
+    return sensibleWho({ who: who.trim(), what: what.trim(), due: /ingen frist/i.test(due) ? "" : due.trim(), meeting: minutes.meeting_date ?? "", source: "referat" as const });
   }).filter(task => task.what);
 }
 
@@ -223,7 +273,8 @@ export function allTasks(minutes: ApprovedMinutes[], picture: BoardPicture | nul
   // The document's own reading of a task the approved minutes already hold is not shown twice.
   const norm = (text: string) => text.toLocaleLowerCase("da-DK").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
   const fromMinutes = [...out];
-  for (const t of picture?.document.tasks ?? []) {
+  for (const raw of picture?.document.tasks ?? []) {
+    const t = sensibleWho({ ...raw, who: raw.who ?? "" });
     const what = norm(t.what);
     if (fromMinutes.some(m => norm(m.who) === norm(t.who) && (norm(m.what).includes(what) || what.includes(norm(m.what))))) continue;
     add({ who: t.who, what: t.what, due: t.due, meeting: t.since, source: "dokument" });

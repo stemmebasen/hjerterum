@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { guessKind, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
+import { guessKind, rolesLine, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
@@ -167,7 +167,7 @@ ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for 
   const meeting = `<article class="panel"><header><h2>Næste teammøde</h2><p>Hvornår, hvor og hvad der er på dagsordenen.</p></header>
 ${m ? `<div class="when"><div class="date"><span>${esc(MONTH.format(new Date(`${m.meeting_date}T12:00:00Z`)).replace(".", ""))}</span><b>${Number(m.meeting_date.slice(8))}</b></div>
 <div><strong>${esc(longDay(m.meeting_date).replace(/\s\d{4}$/, ""))}</strong><div class="muted small">${[m.start_time ? `kl. ${esc(m.start_time)}` : "", m.place ? esc(m.place) : "", inDays(daysUntil(m.meeting_date, data.today))].filter(Boolean).join(" · ")}</div></div></div>
-${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 5).map(a => `<li>${esc(a)}</li>`).join("")}</ol>${agenda.length > 5 ? `<p class="small muted">og ${agenda.length - 5} punkter mere</p>` : ""}` : `<p class="small muted" style="margin-top:12px">Ingen dagsorden endnu.</p>`}
+${rolesLine(m) ? `<p class="small muted" style="margin:10px 0 0">${esc(rolesLine(m))}</p>` : ""}${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 5).map(a => `<li>${esc(a)}</li>`).join("")}</ol>${agenda.length > 5 ? `<p class="small muted">og ${agenda.length - 5} punkter mere</p>` : ""}` : `<p class="small muted" style="margin-top:12px">Ingen dagsorden endnu.</p>`}
 <a class="more" href="${base}/moder/${m.id}">Åbn mødet og dagsordenen →</a>`
     : data.found.length ? `<p class="empty">Intet møde er sat i kalenderen, men Saga har set <strong>${esc(longDay(data.found[0]!.date))}</strong> nævnt${data.found[0]!.what ? ` (${esc(data.found[0]!.what)})` : ""}.</p>
 <a class="more" href="${base}/moder?dato=${esc(data.found[0]!.date)}${guessKind(data.found[0]!.what) ? `&amp;art=${guessKind(data.found[0]!.what)}` : ""}#nyt">Sæt det i kalenderen →</a>`

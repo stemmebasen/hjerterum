@@ -6,6 +6,10 @@ import { voteTodo, type Proposal } from "./votes.js";
  * er tildelt en. Man kan også selv skrive ind." The tasks the minutes give you, your own items and the
  * ones another member wrote to you - each checked off with one press; what is done folds away. */
 
+/** The chip of a person - the same colour for the same person under Opgaver and on a meeting's agenda. */
+export const WHO_CHIP_STYLE = `.who{display:inline-flex;align-items:center;font-size:12.5px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.3;
+background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,var(--c) 82%,var(--ink));border:0;min-height:0;cursor:pointer}
+.who[aria-pressed=true]{background:var(--c);color:#fff}`;
 export const TODOS_STYLE = `
 .todo{display:flex;gap:12px;align-items:flex-start}.todo form{margin:0}.todo .what{flex:1;min-width:0}
 .check{width:26px;height:26px;min-height:26px;padding:0;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--ink);flex:none;display:grid;place-items:center;font-size:15px;line-height:1}
@@ -15,9 +19,7 @@ ul.plain .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
 .add{display:grid;gap:10px;grid-template-columns:1fr 160px 180px auto;align-items:end}.add label{margin:0}
 @media (max-width:760px){.add{grid-template-columns:1fr 1fr}.add label:first-child,.add button{grid-column:1/-1}}
 details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin-top:6px}.done-note{margin:14px 0 0}
-.who{display:inline-flex;align-items:center;font-size:12.5px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.3;
-background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,var(--c) 82%,var(--ink));border:0;min-height:0;cursor:pointer}
-.who[aria-pressed=true]{background:var(--c);color:#fff}.who-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+${WHO_CHIP_STYLE}.who-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
 ul.moves{list-style:none;margin:0;padding:0;display:grid}ul.moves li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline;padding:11px 0;border-top:1px solid var(--line)}
 ul.moves li:first-child{border-top:0}ul.moves li.is-done>span:last-child{color:var(--muted)}ul.moves .tick{color:var(--accent);font-weight:800}ul.moves .who{cursor:default}ul.moves .when{font-size:12.5px;color:var(--faint);white-space:nowrap;margin-left:6px}
 @media (max-width:760px){ul.moves li{grid-template-columns:1fr;gap:4px}ul.moves .who{justify-self:start}}
@@ -63,6 +65,11 @@ function setPalette(members: string[]): void {
 const hue = (name: string) => name === EVERYONE || /,|\bog\b/.test(name) ? SHARED
   : palette.get(first(name)) ?? HUES[[...first(name)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % HUES.length]!;
 const chip = (name: string, tag = "span", extra = "") => `<${tag} class="who" style="--c:${hue(name)}"${extra}>${esc(name)}</${tag}>`;
+/** A member's chip, by first name, in the colour the member has under Opgaver (the colours go by the board's names, sorted). */
+export function personChip(members: string[], name: string): string {
+  setPalette(members);
+  return chip(name.trim().split(/\s+/)[0] ?? name);
+}
 const dueLabel = (due: string | null | undefined) => due ? ` <span class="pill">${esc(/^\d{4}-\d{2}-\d{2}$/.test(due) ? shortDay(due) : due)}</span>` : "";
 
 /** Requested: "I can't delete them." Every line on your own list can be removed - your own items are deleted; a task

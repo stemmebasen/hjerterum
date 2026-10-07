@@ -5,7 +5,7 @@ import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
-import { scheduledAgendaSuggestion } from "../cockpit/agenda.js";
+import { scheduledAgendaReminder, scheduledAgendaSuggestion } from "../cockpit/agenda.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
@@ -429,6 +429,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Sagas forslag til næste teammøde skal fremgå, når man kommer ind på siden ... genereres én gang i døgnet" (cockpit/agenda.ts).
   await scheduledAgendaSuggestion(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_agenda_suggest_failed", error instanceof Error ? error.message : error));
+  // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx" - with a link (cockpit/agenda.ts).
+  await scheduledAgendaReminder(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("cockpit_agenda_reminder_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
   await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));
