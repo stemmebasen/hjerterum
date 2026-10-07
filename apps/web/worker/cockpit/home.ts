@@ -1,5 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
+import { guessKind, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
@@ -22,7 +22,7 @@ export type HomeData = {
   forMe: BoardPicture["forJacob"];
   /** Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - asked on the front page until it is written. */
   needsResponsibilities?: boolean;
-  next: Meeting | null; found: Array<{ date: string; what: string }>;
+  next: Meeting | null; nextTeam?: Meeting | null; found: Array<{ date: string; what: string }>;
   latest: { id: number; date: string; decisions: string[]; approved: number; members: number } | null;
   picture: BoardPicture | null; summary: string | null; at: number | null;
   events: HouseEvent[]; eventsMonth: number;
@@ -162,15 +162,15 @@ ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for 
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
 <a class="more" href="${base}/beslutninger#nyt">Stil et forslag til afstemning →</a></article>`;
 
-  const m = data.next;
+  const m = data.nextTeam !== undefined ? data.nextTeam : data.next;
   const agenda = m ? m.agenda.split("\n").filter(Boolean) : [];
   const meeting = `<article class="panel"><header><h2>Næste teammøde</h2><p>Hvornår, hvor og hvad der er på dagsordenen.</p></header>
 ${m ? `<div class="when"><div class="date"><span>${esc(MONTH.format(new Date(`${m.meeting_date}T12:00:00Z`)).replace(".", ""))}</span><b>${Number(m.meeting_date.slice(8))}</b></div>
-<div><strong>${esc(longDay(m.meeting_date).replace(/\s\d{4}$/, ""))}</strong><div class="muted small">${[m.start_time ? `kl. ${esc(m.start_time)}` : "", m.place ? esc(m.place) : "", inDays(days!)].filter(Boolean).join(" · ")}</div></div></div>
+<div><strong>${esc(longDay(m.meeting_date).replace(/\s\d{4}$/, ""))}</strong><div class="muted small">${[m.start_time ? `kl. ${esc(m.start_time)}` : "", m.place ? esc(m.place) : "", inDays(daysUntil(m.meeting_date, data.today))].filter(Boolean).join(" · ")}</div></div></div>
 ${agenda.length ? `<ol class="agenda" style="margin-top:14px">${agenda.slice(0, 5).map(a => `<li>${esc(a)}</li>`).join("")}</ol>${agenda.length > 5 ? `<p class="small muted">og ${agenda.length - 5} punkter mere</p>` : ""}` : `<p class="small muted" style="margin-top:12px">Ingen dagsorden endnu.</p>`}
 <a class="more" href="${base}/moder/${m.id}">Åbn mødet og dagsordenen →</a>`
     : data.found.length ? `<p class="empty">Intet møde er sat i kalenderen, men Saga har set <strong>${esc(longDay(data.found[0]!.date))}</strong> nævnt${data.found[0]!.what ? ` (${esc(data.found[0]!.what)})` : ""}.</p>
-<a class="more" href="${base}/moder?dato=${esc(data.found[0]!.date)}&amp;forslag=1#nyt">Sæt det i kalenderen →</a>`
+<a class="more" href="${base}/moder?dato=${esc(data.found[0]!.date)}${guessKind(data.found[0]!.what) ? `&amp;art=${guessKind(data.found[0]!.what)}` : ""}#nyt">Sæt det i kalenderen →</a>`
     : `<p class="empty">Intet møde er sat i kalenderen.</p><a class="more" href="${base}/moder#nyt">Planlæg et møde →</a>`}</article>`;
 
   // Requested: "\"Referatet godkendes med bemærkning om fejl i tidligere referat.\" er ikke vigtigt nok til at stå på

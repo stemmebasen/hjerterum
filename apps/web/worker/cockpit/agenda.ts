@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { complete } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { boardKnowledge } from "./ask.js";
-import type { Meeting } from "./data.js";
+import { addAgendaPoints, boardPicture, meetings, nextTeamMeeting, type Meeting } from "./data.js";
 import { proposals } from "./votes.js";
 
 /** Requested (on a meeting's page): "Her bør Sagas forslag til dagsorden også kunne trigges." Saga reads what
@@ -19,7 +19,7 @@ const SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum. Fo
   + 'Svar KUN med JSON: {"items":["...","..."]}.';
 
 export async function suggestAgenda(env: SagaEnv, deps: SagaDeps, db: D1Database, meeting: Meeting): Promise<string[]> {
-  const question = `Forslag til dagsorden til bestyrelsesmødet ${meeting.meeting_date}${meeting.agenda.trim() ? ` (allerede på dagsordenen: ${meeting.agenda.split("\n").join("; ")})` : ""}`;
+  const question = `Forslag til dagsorden til teammødet ${meeting.meeting_date}${meeting.agenda.trim() ? ` (allerede på dagsordenen: ${meeting.agenda.split("\n").join("; ")})` : ""}`;
   const answer = await complete(env, deps, [{ role: "system", content: `${SYSTEM}\n\n${await boardKnowledge(env, deps, db, question)}` }, { role: "user", content: question }]);
   let items: unknown = null;
   try { items = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { items?: unknown } | null)?.items; } catch { items = null; }
@@ -37,4 +37,26 @@ export function withMeetingProposals(items: string[], forMeeting: Array<{ title:
   const last = items.length && /^eventuelt\b/i.test(items[items.length - 1]!) ? items.pop()! : null;
   const added = missing.map(p => `Afstemning: ${p.title} (stillet af ${p.created_by.split(/\s+/)[0]})`.slice(0, 200));
   return [...items.slice(0, Math.max(0, 12 - added.length - (last ? 1 : 0))), ...added, ...(last ? [last] : [])];
+}
+
+/** Requested: "Seriens [Sagas] forslag til næste teammøde skal fremgå, når man kommer ind på siden. Disse forslag skal genereres én gang i døgnet." Saga's points for the next team meeting: her own suggestion
+ * from the minutes document (no AI) and what she makes of the material (one AI call), put on the agenda as her points - once a day, from five in the morning, for the next meeting that is said to be a
+ * team meeting, and never for another. A point deleted with the cross is gone (it takes no AI call) and may come again in a later suggestion - that is the point of a fresh one every day. Returns how many points were added. */
+export async function scheduledAgendaSuggestion(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<number> {
+  if (!env.AI_API_KEY || !env.AI_MODEL) return 0;
+  const now = deps.now();
+  if (Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(now)) < 5) return 0;
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
+  const next = nextTeamMeeting(await meetings(db), today);
+  if (!next || !(await claim(`cockpit_agenda_suggest_${next.id}`, Math.floor(now / 86_400_000)))) return 0;
+  return suggestForTeamMeeting(env, deps, db, next);
+}
+
+/** The points for one team meeting: the document's suggestion, then the AI's - the second is left out when it fails, the first still stands. */
+export async function suggestForTeamMeeting(env: SagaEnv, deps: SagaDeps, db: D1Database, meeting: Meeting): Promise<number> {
+  const now = deps.now();
+  let added = await addAgendaPoints(db, meeting.id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
+  const fresh = await db.prepare("SELECT agenda FROM board_meetings WHERE id = ?").bind(meeting.id).first<{ agenda: string }>();
+  added += await addAgendaPoints(db, meeting.id, await suggestAgenda(env, deps, db, { ...meeting, agenda: fresh?.agenda ?? meeting.agenda }), "Saga", now, true);
+  return added;
 }
