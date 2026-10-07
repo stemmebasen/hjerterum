@@ -201,10 +201,14 @@ ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>`
 <form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? memoryCard(base) : ""}${options.chair ? adminsCard(base) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
+/* Requested: "der er rigtig meget blåt på siden, så jeg tænker, om du ikke kan finde en alternativ farve til chatwidgetten, som passer til temaet": Saga has her own warm
+   coral, from the glow of the page (--glow-2). Only her tokens change - the buttons, the messages and the links inside her panel follow. */
 const SAGA_STYLE = `
+.saga,.saga-fab{--accent:#c4523a;--accent-2:#a8412c;--accent-ink:#fff;--tint:#fbe6df}
+@media (prefers-color-scheme:dark){.saga,.saga-fab{--accent:#f2a58e;--accent-2:#f7bba8;--accent-ink:#2a140d;--tint:#33211c}}
 .saga-fab{position:fixed;right:18px;bottom:18px;z-index:20;border-radius:999px;padding:12px 18px;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;gap:8px;align-items:center}
 .saga-fab::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent-ink);opacity:.85}
-.saga{position:fixed;right:18px;bottom:18px;z-index:21;width:min(400px,calc(100vw - 24px));height:min(600px,calc(100vh - 36px));background:var(--card);border:1px solid var(--line);
+.saga{position:fixed;right:18px;bottom:18px;z-index:45;width:min(400px,calc(100vw - 24px));height:min(600px,calc(100vh - 36px));background:var(--card);border:1px solid var(--line);
 border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-direction:column;overflow:hidden}
 .saga[hidden]{display:none!important}.saga-top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.saga-top div{flex:1;line-height:1.25}
 .saga-hint{margin:0;padding:8px 14px 0;font-size:12.5px;line-height:1.4}.saga-top strong{font-size:13px;letter-spacing:.14em;text-transform:uppercase}.saga-top button{padding:4px 10px}.saga-log{flex:1;overflow-y:auto;padding:14px;display:grid;gap:10px;align-content:start}
@@ -213,7 +217,7 @@ border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);display:flex;flex-dire
 .saga-wait{color:var(--muted);font-style:italic}.saga-err{color:var(--warn)}.saga-ideas{display:flex;flex-wrap:wrap;gap:6px}
 .saga-ideas button{background:transparent;color:var(--accent);border:1px solid var(--line);font-weight:500;font-size:13px;padding:6px 10px;text-align:left}
 .saga form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}.saga textarea{min-height:44px;max-height:140px;resize:none;flex:1}
-@media (max-width:760px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;z-index:30}.saga-fab{right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));padding:11px 16px}}
+@media (max-width:760px){.saga{right:0;bottom:0;width:100vw;height:100dvh;border-radius:0;z-index:46}.saga-fab{right:14px;bottom:calc(var(--nav-h) + 14px + env(safe-area-inset-bottom));padding:11px 16px}}
 @media print{.saga,.saga-fab{display:none!important}}`;
 
 // Requested: "Presets" - Jacob's five.

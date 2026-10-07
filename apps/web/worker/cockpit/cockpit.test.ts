@@ -494,6 +494,11 @@ describe("the board cockpit", () => {
     await updateMinutes(db, drafted, { status: "drafted", draft: "# Referat\n## Beslutninger\n- Udkast ikke godkendt endnu" }, NOW);
     const page = await (await call("/cockpit/", { cookie: session })).text();
     expect(page).toContain("Spørg Saga");
+    // Requested: "der er rigtig meget blåt på siden ... en alternativ farve til chatwidgetten": Saga has her own warm coral, scoped to the widget.
+    expect(page).toContain(".saga,.saga-fab{--accent:#c4523a;");
+    // Her panel lies above the fold-out tab of the proposals (z-index 40), also as a full-screen sheet on a phone.
+    expect(page).toContain("bottom:18px;z-index:45;");
+    expect(page).toContain("border-radius:0;z-index:46}");
     expect(page).toContain('"/cockpit/saga"');
     const response = await ask({ question: "Hvornår skal forslag til GF være inde?" });
     expect(response.status).toBe(200);
