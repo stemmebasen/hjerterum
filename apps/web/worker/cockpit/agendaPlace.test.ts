@@ -207,10 +207,13 @@ describe("a meeting's agenda and place", () => {
 
     // Before five in the morning: not yet. Then once - for the next team meeting only, not for the one whose kind is unknown (it is earlier).
     expect(await run(Date.parse("2026-10-08T01:00:00Z"))).toBe(0);
-    expect(await run(MORNING)).toBe(4);
+    expect(await run(MORNING)).toBe(3);
     expect(calls).toBe(1);
     expect(prompt).toContain("teammødet 2026-10-15");
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lokaleleje", "Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
+    // Requested: "Hun bør prioritere de fem vigtigste.": she is told how many places she has, and she sees the document's points to choose among.
+    expect(prompt).toContain("Du har kun plads til 5 punkter, så vælg de 5 vigtigste");
+    expect(prompt).toContain("Referatets forslag til næste dagsorden (vælg blandt dem og resten af materialet, ikke alle): Lokaleleje");
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
     expect((await meeting(db, unknown))?.agenda).toBe("");
     // The same day: nothing more, no AI call.
     expect(await run(MORNING + 3_600_000)).toBe(0);
@@ -222,17 +225,65 @@ describe("a meeting's agenda and place", () => {
     const before = calls;
     await call(`/moder/${next}/punkt/slet`, { method: "POST", cookie, now: MORNING, body: form({ text: "Julefest: valg af dato" }) });
     expect(calls).toBe(before);
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lokaleleje", "Godkendelse af dagsorden", "Eventuelt"]);
-    expect((await meeting(db, next))?.agenda_saga).toBe("Lokaleleje\nGodkendelse af dagsorden\nEventuelt");
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Eventuelt"]);
+    expect((await meeting(db, next))?.agenda_saga).toBe("Godkendelse af dagsorden\nEventuelt");
     const tomorrow = Date.parse("2026-10-09T06:30:00Z");
     expect(await run(tomorrow)).toBe(1);
     expect(calls).toBe(before + 1);
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lokaleleje", "Godkendelse af dagsorden", "Eventuelt", "Julefest: valg af dato"]);
+    expect(prompt).toContain("Du har kun plads til 3 punkter, så vælg de 3 vigtigste");
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Eventuelt", "Julefest: valg af dato"]);
     // No AI set up, or no team meeting ahead: nothing happens.
     const idle = setup(() => "{}", MORNING);
     await saveMeeting(idle.db, { date: "2026-10-15", time: "", place: "", agenda: "" }, "Jacob Hauge", MORNING);
     expect(await scheduledAgendaSuggestion(idle.env, deps(idle.services.fetcher, MORNING), idle.db, claim)).toBe(0);
     expect(await scheduledAgendaSuggestion({ ...env, AI_API_KEY: "" }, deps(services.fetcher, MORNING + 2 * 86_400_000), db, claim)).toBe(0);
+  });
+
+  // Requested: "det er alt for voldsomt med så mange forslag. Hun bør prioritere de fem vigtigste."
+  it("keeps Saga to five points at a time - the document's first five, a refusal to ask for more, and a place freed by the cross", async () => {
+    let calls = 0, prompt = "";
+    const MORNING = Date.parse("2026-10-08T06:30:00Z");
+    const eight = Array.from({ length: 8 }, (_, i) => `Punkt ${i + 1}`);
+    const { db, env, services, call, form, login } = setup((system, user) => { calls++; prompt = system + user; return '{"items":["Ny A","Ny B","Ny C"]}'; }, MORNING);
+    await overview(db, eight);
+    const cookie = await login();
+    const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", start_time: "13:30", kind: "team", kind_sent: "1" }) });
+    const id = Number(/\/moder\/(\d+)/.exec(planned.headers.get("location") ?? "")?.[1]);
+    // Eight in the document, five on the agenda - and no button for the three left, since she has no room.
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(eight.slice(0, 5));
+    expect((await meeting(db, id))?.agenda_saga?.split("\n")).toHaveLength(5);
+    const page = await (await call(`/moder/${id}`, { cookie, now: MORNING })).text();
+    expect(page).not.toContain("Tilføj Sagas forslag fra dokumentet");
+    // The button and her morning round both stand down: five of hers are there, so no AI call is made.
+    expect((await call(`/moder/${id}/forslag`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=fuld#dagsorden`);
+    expect((await call(`/moder/${id}/forslag/dokument`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=0#dagsorden`);
+    expect(await (await call(`/moder/${id}?forslag=fuld`, { cookie, now: MORNING })).text()).toContain("Saga har allerede fem forslag på dagsordenen - flere ad gangen er for mange. Slet et med krydset, så finder hun et nyt.");
+    const claim = async () => true;
+    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING), db, claim)).toBe(0);
+    expect(calls).toBe(0);
+    // A point of the board's own does not count against her five; one deleted with the cross frees a place - and she is asked for exactly one.
+    await call(`/moder/${id}/punkt`, { method: "POST", cookie, now: MORNING, body: form({ text: "Lisbeths punkt" }) });
+    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING + 1000), db, claim)).toBe(0);
+    expect(calls).toBe(0);
+    await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, now: MORNING, body: form({ text: "Punkt 2" }) });
+    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING + 2000), db, claim)).toBe(1);
+    expect(calls).toBe(1);
+    expect(prompt).toContain("Du har kun plads til 1 punkt, så vælg de vigtigste");
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Lisbeths punkt", "Ny A"]);
+    expect((await meeting(db, id))?.agenda_saga?.split("\n")).toEqual(["Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Ny A"]);
+  });
+
+  it("falls back on the document's first points when Saga's AI cannot answer - still no more than five", async () => {
+    const MORNING = Date.parse("2026-10-08T06:30:00Z");
+    const { db, env, services, form, login, call } = setup(() => "ikke json", MORNING);
+    await overview(db, Array.from({ length: 8 }, (_, i) => `Punkt ${i + 1}`));
+    const cookie = await login();
+    // Planned as an ordinary meeting first, ticked as a team meeting later (nothing was seeded), then the morning round with a broken AI.
+    const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", kind: "andet", kind_sent: "1" }) });
+    const id = Number(/\/moder\/(\d+)/.exec(planned.headers.get("location") ?? "")?.[1]);
+    await db.prepare("UPDATE board_meetings SET kind = 'team' WHERE id = ?").bind(id).run();
+    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING), db, async () => true)).toBe(5);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4", "Punkt 5"]);
   });
 
   it("shows the next team meeting on the front page - Saga's points among them - and the next meeting of any kind in the box", async () => {

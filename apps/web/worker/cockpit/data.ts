@@ -116,16 +116,26 @@ export function agendaAuthors(raw: string | null | undefined): Record<string, st
   } catch { return {}; }
 }
 
-/** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted. Returns how many were added. */
+/** Requested: "det er alt for voldsomt med så mange forslag. Hun bør prioritere de fem vigtigste.": Saga never has more than this many points on one agenda at a time. */
+export const SAGA_POINTS = 5;
+
+/** How many more points Saga may put on this agenda: five at a time, counting hers that are still there. One deleted with the cross, or rewritten by a member, is no longer hers and frees a place; the board's own points do not count. */
+export function sagaRoom(m: { agenda: string; agenda_saga?: string }): number {
+  const points = new Set(agendaPoints(m.agenda));
+  return Math.max(0, SAGA_POINTS - agendaPoints(m.agenda_saga ?? "").filter(p => points.has(p)).length);
+}
+
+/** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted - and stops at the five she may have (`sagaRoom`). Returns how many were added. */
 export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
   const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
   if (!m) return 0;
   const points = agendaPoints(m.agenda), saga = agendaPoints(m.agenda_saga), authors = agendaAuthors(m.agenda_authors), seen = new Set(points.map(p => p.toLowerCase()));
-  let added = 0;
+  let added = 0, room = fromSaga ? sagaRoom(m) : Infinity;
   for (const text of texts.map(cleanPoint).filter(Boolean)) {
+    if (room <= 0) break;
     if (points.length >= 40 || seen.has(text.toLowerCase())) continue;
     seen.add(text.toLowerCase()); points.push(text); added++;
-    if (fromSaga) saga.push(text); else if (who) authors[text] = who;
+    if (fromSaga) { saga.push(text); room--; } else if (who) authors[text] = who;
   }
   if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
   return added;

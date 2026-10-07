@@ -317,12 +317,17 @@ describe("a proposal for the next meeting on Saga's agenda", () => {
     expect(withMeetingProposals(["Godkendelse af dagsorden", "Eventuelt"], wanted)).toEqual(["Godkendelse af dagsorden", "Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)", "Eventuelt"]);
     expect(withMeetingProposals(["Godkendelse af dagsorden", "Afstemning: vi hæver  prisen på lydbad (Lisbeth)", "Eventuelt"], wanted)).toHaveLength(3);
     expect(withMeetingProposals(["Punkt"], wanted)).toEqual(["Punkt", "Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)"]);
-    // Twelve points at most: the proposal pushes out the last of the others, and Eventuelt stays last.
-    const twelve = Array.from({ length: 11 }, (_, i) => `Punkt ${i + 1}`).concat("Eventuelt");
-    const out = withMeetingProposals(twelve, wanted);
-    expect(out).toHaveLength(12);
-    expect(out[10]).toContain("Afstemning: Vi hæver prisen på Lydbad");
-    expect(out[11]).toBe("Eventuelt");
+    // Five points at most (Saga's limit): the proposal pushes out the last of the others, and Eventuelt stays last.
+    const five = Array.from({ length: 4 }, (_, i) => `Punkt ${i + 1}`).concat("Eventuelt");
+    const out = withMeetingProposals(five, wanted);
+    expect(out).toHaveLength(5);
+    expect(out[3]).toContain("Afstemning: Vi hæver prisen på Lydbad");
+    expect(out[4]).toBe("Eventuelt");
+    // Already on the agenda (from an earlier suggestion): not added again.
+    expect(withMeetingProposals(["Punkt 1"], wanted, 5, ["Afstemning: Vi hæver prisen på Lydbad (stillet af Lisbeth)"])).toEqual(["Punkt 1"]);
+    // More proposals than room: the proposals win over the model's points.
+    const many = [{ title: "A", created_by: "X Y" }, { title: "B", created_by: "X Y" }, { title: "C", created_by: "X Y" }];
+    expect(withMeetingProposals(["Punkt 1", "Punkt 2"], many, 2)).toEqual(["Afstemning: A (stillet af X)", "Afstemning: B (stillet af X)"]);
   });
 });
 

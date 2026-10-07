@@ -3,7 +3,7 @@ import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { personChip, WHO_CHIP_STYLE } from "./todosPage.js";
 import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
-import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, rolesLine, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
+import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, rolesLine, sagaRoom, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
 /** The admin's own typeface (the blue design from before 3 October): Bricolage Grotesque. */
@@ -511,6 +511,8 @@ export function meetingPage(base: string, m: Meeting, data: { members: string[];
   const held = m.meeting_date <= data.today;
   const authors = agendaAuthors(m.agenda_authors);
   const points = m.agenda.split("\n").map(l => l.trim()).filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").map(l => l.trim()).filter(Boolean));
+  // The document's suggestion that is not on the agenda yet - and only as many as Saga has room for (five of hers at a time).
+  const offered = Math.min(data.suggestion.filter(p => !points.includes(p)).length, sagaRoom(m));
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
@@ -536,7 +538,7 @@ if(e.key==="ArrowUp")list.insertBefore(li,other);else list.insertBefore(other,li
 document.querySelectorAll("[data-edit]").forEach(b=>b.addEventListener("click",()=>{const li=b.closest("li");li.classList.add("editing");const i=li.querySelector(".editpoint input[name=text]");i.focus();i.select()}));
 document.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click",()=>b.closest("li").classList.remove("editing")))</script><noscript><style>ol.agenda.points .editpoint{display:flex}ol.agenda.points .pencil{display:none}</style></noscript>
 <form class="addpoint" method="post" action="${base}/moder/${m.id}/punkt"><input name="text" required maxlength="200" autocomplete="off" placeholder="Nyt punkt, fx Økonomi" aria-label="Nyt punkt"><button>Tilføj punkt</button></form>
-${!held && m.kind === "team" && (data.suggestion.length || data.aiReady) ? `<div class="suggest-row">${data.suggestion.length ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${data.suggestion.length} ${data.suggestion.length === 1 ? "punkt" : "punkter"})</button></form>` : ""}
+${!held && m.kind === "team" && (offered || data.aiReady) ? `<div class="suggest-row">${offered ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${offered} ${offered === 1 ? "punkt" : "punkter"})</button></form>` : ""}
 ${data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button></form>` : ""}</div>
 ${data.aiReady ? `<p class="small muted">Saga laver selv forslag til næste teammøde hver morgen, og de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>
 <script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}` : ""}
