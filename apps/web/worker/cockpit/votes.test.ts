@@ -44,6 +44,8 @@ describe("digital votes in the board", () => {
     expect(empty).toContain('<div class="card propose" id="nyt">');
     expect(empty.indexOf('id="nyt"')).toBeLessThan(empty.indexOf("<h2>Besluttet</h2>"));
     expect(await (await call("/", { cookie: as("Gitta") })).text()).not.toContain('id="forslag"');
+    // A quick button on every member's front page, whether or not a proposal is open.
+    expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain('<a class="button propose-btn" href="/beslutninger#nyt">+ Stil et forslag</a>');
 
     await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi åbner salen om søndagen", text: "", days: "7" }) });
     const page = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
@@ -70,8 +72,20 @@ describe("digital votes in the board", () => {
     expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain("Du mangler at stemme");
     // From Beslutninger a vote still goes back to Beslutninger.
     expect((await call("/afstemninger/stem", { method: "POST", cookie: as("Gitta"), body: form({ id: "1", vote: "for" }) })).headers.get("location")).toBe("/beslutninger?besked=stemt#p1");
-    // Decided: gone from the front page.
-    expect(await (await call("/", { cookie: as("Jacob Hauge") })).text()).not.toContain('id="forslag"');
+    // Decided: the open card is gone from the front page, and what was voted in stands there for a week in a gold-edged card with a laurel.
+    const done = await (await call("/", { cookie: as("Jacob Hauge") })).text();
+    expect(done).not.toContain('id="forslag"');
+    expect(done).toContain('<section class="panel adopted-panel" id="vedtaget">');
+    expect(done).toContain('<svg class="laurel"');
+    expect(done).toContain('<a href="/beslutninger#p1">Vi åbner salen om søndagen</a>');
+    expect(done).toContain("GODKENDT</span>");
+    // Requested: "Du må gerne få det til at se lidt højtideligt ud, når et forslag er stemt ind. Start et forslag enten med et badge eller en laurbær." - on Beslutninger too.
+    const decided = await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text();
+    expect(decided).toContain('<article class="prop adopted" id="p1"><div class="seal"><svg class="laurel"');
+    expect(decided).toMatch(/<div class="pbody"><span class="approved-badge">[^]*GODKENDT<\/span><h3>Vi åbner salen om søndagen<\/h3>/);
+    // After a week the front page no longer announces it.
+    const later = await handleCockpitRequest(new Request(ORIGIN + "/", { headers: { cookie: as("Jacob Hauge") } }), env, deps(services.fetcher, NOW + 8 * DAY));
+    expect(await later.text()).not.toContain('id="vedtaget"');
   });
 
   it("puts a new proposal on every member's to-do until they have voted, and adopts it at a majority", async () => {
@@ -112,7 +126,7 @@ describe("digital votes in the board", () => {
     const decisions = await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text();
     expect(decisions).toContain("Vi forlænger prøveperioden til 1. december");
     expect(decisions).toContain('href="#p1">Afstemning</a>');
-    expect(decisions).toContain('<article class="prop" id="p1">');
+    expect(decisions).toContain('<article class="prop adopted" id="p1">');
     const late = await call("/afstemninger/stem", { method: "POST", cookie: as("Jacob Hauge"), body: form({ id: "1", vote: "imod" }) });
     expect(late.headers.get("location")).toContain("besked=afgjort");
     // Requested: "Giv det et flot badge \"GODKENDT\" ved godkendelse".

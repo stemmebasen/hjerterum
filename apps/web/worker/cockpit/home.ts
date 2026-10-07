@@ -39,6 +39,7 @@ export type HomeData = {
   votes?: Proposal[];
   /** Every open proposal, for the card on everyone's front page (cockpit/votes.ts). */
   proposals?: ProposalView[];
+  nowMs?: number;
   /** Requested: "Douglas taler engelsk" - Saga's own texts in English when she has translated them (cockpit/translate.ts). */
   tr?: ((danish: string) => string) | undefined;
 };
@@ -74,6 +75,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
+.welcome .propose-btn{flex:none;align-self:flex-end;margin-bottom:6px}
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
@@ -88,7 +90,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 @media (max-width:900px){.tiles,.tiles.with-fact{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
-@media (max-width:760px){.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
+@media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome .propose-btn{align-self:flex-start;margin-top:4px}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
 `;
 
 const MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" });
@@ -134,7 +136,8 @@ export function homePage(base: string, data: HomeData): string {
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
-${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>${lysArt("mini")}</section>`;
+${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
+${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a>` : ""}${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
   // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
@@ -202,6 +205,6 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - until the member has written them.
   const ask = data.needsResponsibilities ? `<section class="panel ask-ansvar" id="ansvar"><header><h2>Hvad har du ansvar for?</h2><p>Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.</p></header>${responsibilitiesForm(base, "", "/")}</section>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${frontVotes(base, data.proposals ?? [], data.who)}${ask}${enquiryNote}${reviewNote}${working}
+  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs)}${ask}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE });
 }

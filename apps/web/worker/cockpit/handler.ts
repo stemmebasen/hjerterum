@@ -194,7 +194,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
-    const [eventsToReview, boardNow, votes, openProposals, held] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).then(list => list.filter(p => p.status === "open")).catch(() => []),
+    const [eventsToReview, boardNow, votes, openProposals, held] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).catch(() => []),
       db.prepare("SELECT COUNT(*) AS n, MIN(starts_at_ms) AS first FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number; first: number | null }>().catch(() => null)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
@@ -206,7 +206,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
-      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals,
+      next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
@@ -608,7 +608,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
     return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who,
-      { ...voteBlocks(base, { list, who, members: members.names.length }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+      { ...voteBlocks(base, { list, who, members: members.names.length, nowMs: now }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
   }
   // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger/ny" && request.method === "POST") {

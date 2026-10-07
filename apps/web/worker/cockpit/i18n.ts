@@ -183,7 +183,7 @@ export const EN: Record<string, string> = {
   "Står du i Telegrams egen browser? Så bliver du kun logget ind her. Vil du være det i din almindelige browser, så tryk ikke - gå til admin-siden dér, og skriv koden fra Saga.": "Are you in Telegram's own browser? Then you are only logged in here. If you want to be logged in in your usual browser, do not press - go to the admin page there and write the code from Saga.",
   // The proposals on everyone's front page and the clearer form (cockpit/votes.ts).
   "Forslag til afstemning": "Proposals for a vote", "Stem her - eller læs hele forslaget under Beslutninger.": "Vote here - or read the whole proposal under Decisions.", "Du mangler at stemme": "You still need to vote",
-  "Stil et nyt forslag →": "Make a new proposal →", "Skriv forslaget her. Det står på alles forside og to-do, til de har stemt.": "Write the proposal here. It stands on everyone's front page and to-do list until they have voted.",
+  "Vedtaget": "Adopted", "Stemt ind af bestyrelsen den seneste uge.": "Voted in by the board in the last week.", "Vedtaget den seneste uge": "Adopted in the last week", "Stil et nyt forslag →": "Make a new proposal →", "+ Stil et forslag": "+ Make a proposal", "Skriv forslaget her. Det står på alles forside og to-do, til de har stemt.": "Write the proposal here. It stands on everyone's front page and to-do list until they have voted.",
   // The meeting recorder (cockpit/recorder.ts).
   "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
   "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",
@@ -213,7 +213,7 @@ const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/\b(\d{1,2})\. (jan|feb|mar|apr|maj|jun|jul|aug|sep|okt|nov|dec)\.?(?![a-zæøå])/gi, (_, n, m) => `${n} ${MONTHS_EN[month(m)]!.slice(0, 3)}`],
   [/\b(man|tir|ons|tor|fre|lør|søn)\. (?=\d)/g, (_, d) => `${SHORT_DAYS[d]} `],
   [/\bkl\. (?=\d)/g, "at "],
-  [/^Stillet af /, "Proposed by "], [/^Aftalt på mødet d\. /, "Agreed at the meeting on "], [/^Aftalt på et møde$/, "Agreed at a meeting"], [/ · frist /g, " · deadline "], [/ · vedtaget ved (\d+) stemmer for/g, " · adopted with $1 votes for"], [/ · afgjort /g, " · decided "],
+  [/^Stillet af /, "Proposed by "], [/^Vedtaget (?=\d)/, "Adopted "], [/^Aftalt på mødet d\. /, "Agreed at the meeting on "], [/^Aftalt på et møde$/, "Agreed at a meeting"], [/ · frist /g, " · deadline "], [/ · vedtaget ved (\d+) stemmer for/g, " · adopted with $1 votes for"], [/ · afgjort /g, " · decided "],
   [/\b(\d+) for, (\d+) imod, (\d+) undlader sig af (\d+)/g, "$1 for, $2 against, $3 abstain of $4"], [/: imod\b/g, ": against"], [/: undlader\b/g, ": abstain"],
   [/^Du har stemt (for|imod|undlader)\. Du kan ændre din stemme, indtil forslaget er afgjort\.$/, (_, v) => `You voted ${v === "for" ? "for" : v === "imod" ? "against" : "abstain"}. You can change your vote until the proposal is decided.`],
   [/^💬 Ønskes drøftet på et møde af /, "💬 Wished discussed at a meeting by "],
