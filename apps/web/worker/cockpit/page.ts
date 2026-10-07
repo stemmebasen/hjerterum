@@ -122,6 +122,7 @@ details summary .pill{margin-left:4px}.card>ul:not(.plain){padding-left:20px;mar
 .empty{color:var(--muted);margin:0}
 main>h1+p{margin-top:-6px}.ver{margin:18px 0 0;font-size:12px;color:var(--faint);text-align:center}
 @media (max-width:760px){
+  button,.button{min-height:42px;padding:10px 18px;font-size:14.5px}
   nav.desk,.me .who-name{display:none}.top{padding:10px 16px}.brand-mark{width:34px;height:34px}.brand-mark img{width:34px;height:34px}.avatar{width:34px;height:34px}
   nav.tabs{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:15;height:calc(var(--nav-h) + env(safe-area-inset-bottom));padding:6px 4px env(safe-area-inset-bottom);
     background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-top:1px solid var(--line)}

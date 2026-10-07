@@ -125,7 +125,7 @@ export const EN: Record<string, string> = {
   "GODKENDT": "APPROVED", "Træk forslaget tilbage": "Withdraw the proposal", "Jeg ønsker at drøfte dette på et møde": "I want to discuss this at a meeting", "Fortryd: drøft på et møde": "Undo: discuss at a meeting",
   "Opret forslag til afstemning": "Create a proposal for a vote", "Forslag": "Proposal", "Begrundelse (valgfri)": "Reasoning (optional)", "3 dage": "3 days", "7 dage": "7 days", "14 dage": "14 days",
   "Stil forslaget": "Make the proposal", "for at stille et forslag.": "to make a proposal.", "Ingen forslag til afstemning lige nu.": "No proposals to vote on right now.", "Afgjort": "Decided",
-  "Til afstemning": "Up for vote", "Godkendt": "Approved", "Ikke vedtaget": "Not adopted", "Trukket tilbage": "Withdrawn", "Stem for": "Vote for", "Stem imod": "Vote against", "Undlad at stemme": "Abstain",
+  "Til afstemning": "Up for vote", "Godkendt": "Approved", "Ikke vedtaget": "Not adopted", "Trukket tilbage": "Withdrawn", "Stem for": "Vote for", "Stem imod": "Vote against", "Undlad at stemme": "Abstain", "Undlad": "Abstain", "at stemme": "",
   "Fx Vi åbner salen om søndagen": "E.g. We open the hall on Sundays",
   "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.": "The proposal is made. The whole board now has it on their to-do.", "Din stemme er registreret.": "Your vote is registered.",
   "Forslaget er allerede afgjort.": "The proposal is already decided.", "Forslaget er trukket tilbage.": "The proposal is withdrawn.",

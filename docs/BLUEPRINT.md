@@ -216,6 +216,11 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 
 - "Der er rigtig meget blåt på siden ... en alternativ farve til chatwidgetten, som passer til temaet": the "Spørg Saga" button and her panel are **coral** (from the page's rose glow) - `#c4523a` by day, a soft `#f2a58e` at night - instead of the cobalt. Only the tokens change, scoped to `.saga` and `.saga-fab` (`SAGA_STYLE` in `cockpit/page.ts`), so her buttons, her ideas and the bubbles for what you write follow along; the rest of the admin stays cobalt.
 
+### The front page: proposals further down, smaller buttons on a phone (2026-10-07)
+
+- "Forslag til afstemning skal længere ned på forside - over medlemmer": the proposals (and "Vedtaget" and "Til næste møde") stand in the left column of the front page, **after "Dine opgaver" and the latest minutes and right above "Medlemmer"** - no longer right under the four boxes. The "Stem om: ..." line stays in "Dine opgaver", so a member who still has to vote sees it first.
+- "Knapperne er ret store og virker massive på mobil": on a phone every button is a little smaller (42 px, 14.5 px text); the three votes stand in **one row**, "Undlad at stemme" shortened to "Undlad" (`voteLabel` in `cockpit/votes.ts`; the text node pair "Undlad" + "at stemme" is translated); "Jeg ønsker at drøfte dette på et møde" and "Træk forslaget tilbage" are quiet underlined text lines under them.
+
 ### The meeting page: roles, order, who made a point, the morning message (2026-10-07)
 
 - "På denne side bør det fremgå tydeligt, at man er ved at redigere mødet.": a banner **"Rediger møde"** (pencil, accent pill) above the date, and the page title says it too (`.editing-banner`).
