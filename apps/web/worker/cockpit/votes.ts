@@ -114,10 +114,35 @@ const STATUS: Record<Proposal["status"], string> = { open: "Til afstemning", ado
 const isoDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
 const tally = (p: ProposalView) => { const n = (v: Vote) => p.ballots.filter(b => b.vote === v).length; return `${n("for")} for, ${n("imod")} imod, ${n("undlader")} undlader sig af ${p.members}`; };
 
-/** The seal on an adopted proposal (also on Beslutninger). */
+/** Requested: "Du må gerne få det til at se lidt højtideligt ud, når et forslag er stemt ind. Start et forslag enten med et badge eller en laurbær." A laurel wreath in gold
+ * around a check mark, drawn from leaves along a circle (two branches, mirrored); the colour is `--gold` (APPROVED_STYLE). */
+export function laurel(size = 56): string {
+  const leaves: string[] = [];
+  const leaf = (x: number, y: number, deg: number) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="3.5" ry="8.4" transform="rotate(${deg.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})"/>`;
+  for (let i = 0; i < 8; i++) {
+    const a = (112 + 148 * (i / 7)) * Math.PI / 180, x = 50 + 35 * Math.cos(a), y = 53 + 35 * Math.sin(a), deg = a * 180 / Math.PI - 22;
+    leaves.push(leaf(x, y, deg), leaf(100 - x, y, -deg));
+  }
+  return `<svg class="laurel" viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true" focusable="false"><g fill="currentColor" opacity=".92">${leaves.join("")}</g>
+<path d="M35 53l10.5 11.5L66 41" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/** The seal on an adopted proposal (also on Beslutninger): a gold badge. */
 export const APPROVED_BADGE = `<span class="approved-badge"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>GODKENDT</span>`;
-export const APPROVED_STYLE = `.approved-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;letter-spacing:.09em;padding:4px 11px 4px 9px;border-radius:999px;
-color:#fff;background:linear-gradient(135deg,#1f9d55,#127a3f);box-shadow:0 2px 10px rgb(18 122 63 / .35),inset 0 1px 0 rgb(255 255 255 / .25);margin-right:9px;vertical-align:2px;white-space:nowrap}`;
+export const APPROVED_STYLE = `
+:root{--gold:#a8741a;--gold-ink:#2b1d05;--gold-soft:#f6ecd2}@media (prefers-color-scheme:dark){:root{--gold:#e3bb5e;--gold-ink:#2b1d05;--gold-soft:#2c2412}}
+.approved-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;letter-spacing:.1em;padding:4px 11px 4px 9px;border-radius:999px;
+color:var(--gold-ink);background:linear-gradient(135deg,#f0cf7a,#d6a63c);box-shadow:0 2px 10px rgb(168 116 26 / .3),inset 0 1px 0 rgb(255 255 255 / .45);margin-right:9px;vertical-align:2px;white-space:nowrap}
+/* A proposal that has been voted in: a laurel in gold, a gold-edged card, the title in a firm hand. */
+.prop.adopted{grid-template-columns:auto minmax(0,1fr);column-gap:18px;align-items:start;padding:20px 22px;margin:12px 0;border:1px solid color-mix(in srgb,var(--gold) 50%,var(--line));border-radius:18px;
+background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 11%,var(--card)),var(--card) 70%);box-shadow:0 1px 0 color-mix(in srgb,#fff 40%,transparent) inset}
+.prop.adopted:first-child{padding-top:20px}.prop.adopted .seal{color:var(--gold);padding-top:2px}.prop.adopted .pbody{display:grid;gap:8px;min-width:0}
+.prop.adopted .approved-badge{justify-self:start;margin-right:0}
+.prop.adopted .ribbon{font-size:11.5px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--gold)}
+.prop.adopted h3{font-size:19px}.prop.adopted .bar .y{background:var(--gold)}
+.adopted-panel{border-color:color-mix(in srgb,var(--gold) 50%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 12%,var(--card)),var(--card) 80%)}.adopted-panel h2{color:var(--gold)}
+.adopted-panel .prop.adopted{border:0;background:none;box-shadow:none;border-radius:0;padding:10px 0 4px;margin:0}.adopted-panel .prop.adopted h3 a{color:var(--ink);text-decoration:none}.adopted-panel .prop.adopted h3 a:hover{color:var(--gold)}
+@media (max-width:520px){.prop.adopted{grid-template-columns:1fr;row-gap:6px}.prop.adopted .seal svg{width:46px;height:46px}}`;
 
 export const VOTES_STYLE = `
 .prop{border-top:1px solid var(--line);padding:16px 0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.prop h3{overflow-wrap:anywhere}.prop:first-child{border-top:0;padding-top:4px}.prop h3{margin:0;font-size:17px;font-weight:650;line-height:1.35;letter-spacing:-.01em;text-transform:none;color:var(--ink)}
@@ -146,7 +171,8 @@ function proposalHtml(base: string, p: ProposalView, who: string | null): string
   const talk = !!who && p.discuss.includes(who);
   const talkButton = `<button name="discuss" value="1" class="ghost" formaction="${base}/afstemninger/droeft" aria-pressed="${talk}">${talk ? "Fortryd: drøft på et møde" : "Jeg ønsker at drøfte dette på et møde"}</button>`;
   // Requested: "Giv det et flot badge \"GODKENDT\" ved godkendelse".
-  return `<article class="prop" id="p${p.id}"><h3>${p.status === "adopted" ? APPROVED_BADGE : `<span class="state ${p.status}">${STATUS[p.status]}</span>`}${esc(p.title)}</h3>
+  const adopted = p.status === "adopted";
+  const body = `${adopted ? `<h3>${esc(p.title)}</h3>` : `<h3><span class="state ${p.status}">${STATUS[p.status]}</span>${esc(p.title)}</h3>`}
 ${p.text ? `<p style="margin:0;white-space:pre-wrap">${esc(p.text)}</p>` : ""}
 <div class="who">Stillet af ${esc(p.created_by)} ${esc(shortDay(isoDay(p.created_at_ms)))}${p.status === "open" ? ` · frist ${esc(shortDay(isoDay(p.deadline_ms)))} · vedtaget ved ${needed} stemmer for` : p.decided_at_ms ? ` · afgjort ${esc(shortDay(isoDay(p.decided_at_ms)))}` : ""}</div>
 <div class="bar" role="img" aria-label="${esc(tally(p))}"><i class="y" style="width:${pct(n("for"))}"></i><i class="n" style="width:${pct(n("imod"))}"></i><i class="a" style="width:${pct(n("undlader"))}"></i></div>
@@ -155,18 +181,24 @@ ${p.discuss.length ? `<div class="talk">💬 Ønskes drøftet på et møde af ${
 ${p.status === "open" && who ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}">
 ${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}
 ${talkButton}${p.created_by === who ? `<button name="withdraw" value="1" class="ghost" formaction="${base}/afstemninger/tilbage">Træk forslaget tilbage</button>` : ""}</form>${mine ? `<div class="who">Du har stemt ${mine}. Du kan ændre din stemme, indtil forslaget er afgjort.</div>` : ""}`
-  : p.status === "adopted" || p.status === "rejected" ? who ? `<form method="post" action="${base}/afstemninger/droeft" class="acts"><input type="hidden" name="id" value="${p.id}">${talkButton}</form>` : "" : ""}</article>`;
+  : p.status === "adopted" || p.status === "rejected" ? who ? `<form method="post" action="${base}/afstemninger/droeft" class="acts"><input type="hidden" name="id" value="${p.id}">${talkButton}</form>` : "" : ""}`;
+  return adopted ? `<article class="prop adopted" id="p${p.id}"><div class="seal">${laurel(64)}</div><div class="pbody">${APPROVED_BADGE}${body}</div></article>` : `<article class="prop" id="p${p.id}">${body}</article>`;
 }
 
 /** Requested: "Beslutninger og Afstemninger skal merges" - the votes are part of the page Beslutninger (page.ts decisionsPage):
  * the open proposals first, the board's decisions, a new proposal, and the decided votes folded away. */
 export type VoteBlocks = { intro: string; open: string; create: string; closed: string };
-export function voteBlocks(base: string, data: { list: ProposalView[]; who: string | null; members: number }): VoteBlocks {
-  const open = data.list.filter(p => p.status === "open"), closed = data.list.filter(p => p.status !== "open");
+export function voteBlocks(base: string, data: { list: ProposalView[]; who: string | null; members: number; nowMs?: number }): VoteBlocks {
+  const now = data.nowMs ?? Date.now();
+  const open = data.list.filter(p => p.status === "open");
+  // What was voted in during the last week stands open in a gold-edged card; the rest of the decided votes are folded away.
+  const fresh = data.list.filter(p => p.status === "adopted" && p.decided_at_ms !== null && now - p.decided_at_ms <= 7 * DAY);
+  const closed = data.list.filter(p => p.status !== "open" && !fresh.includes(p));
   const needed = Math.floor(Math.max(1, data.members) / 2) + 1;
   return {
     intro: `Et forslag er vedtaget ved flertal: mindst ${needed} af ${data.members || "bestyrelsens"} stemmer for.`,
-    open: open.length ? `<div class="card" id="afstemning"><h2>Til afstemning <span class="pill">${open.length}</span></h2>${open.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : "",
+    open: `${open.length ? `<div class="card" id="afstemning"><h2>Til afstemning <span class="pill">${open.length}</span></h2>${open.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : ""}${fresh.length
+      ? `<div class="card adopted-panel" id="vedtaget"><h2>Vedtaget den seneste uge</h2>${fresh.map(p => proposalHtml(base, p, data.who)).join("")}</div>` : ""}`,
     create: `<div class="card propose" id="nyt"><h2>Opret forslag til afstemning</h2>${data.who ? `<p class="lead">Skriv forslaget her. Det står på alles forside og to-do, til de har stemt.</p><form class="newprop" method="post" action="${base}/afstemninger/ny">
 <label>Forslag<input name="title" required maxlength="200" placeholder="Fx Vi forlænger den gratis prøveperiode til 1. december"></label>
 <label>Begrundelse (valgfri)<textarea name="text" rows="2" maxlength="4000"></textarea></label>
@@ -179,9 +211,14 @@ export function voteBlocks(base: string, data: { list: ProposalView[]; who: stri
 
 /** Requested: "forslaget skal fremgå på alles forside, eventuelt i en lidt anden farve, som dog passer til farveskemaet": every open proposal on every member's front page, in a card
  * tinted with the accent, with the count so far and the vote buttons (a vote from here comes back here). Nothing when no proposal is open. */
-export function frontVotes(base: string, list: ProposalView[], who: string | null): string {
+export function frontVotes(base: string, list: ProposalView[], who: string | null, nowMs: number = Date.now()): string {
   const open = list.filter(p => p.status === "open");
-  if (!open.length) return "";
+  // Requested: "Du må gerne få det til at se lidt højtideligt ud, når et forslag er stemt ind": for a week, what the board has voted in stands in a gold-edged card with a laurel.
+  const fresh = list.filter(p => p.status === "adopted" && p.decided_at_ms !== null && nowMs - p.decided_at_ms <= 7 * DAY);
+  const adoptedCard = fresh.length ? `<section class="panel adopted-panel" id="vedtaget"><header><h2>Vedtaget</h2><p>Stemt ind af bestyrelsen den seneste uge.</p></header>
+${fresh.map(p => `<article class="prop adopted" id="v${p.id}"><div class="seal">${laurel(64)}</div><div class="pbody">${APPROVED_BADGE}<h3><a href="${base}/beslutninger#p${p.id}">${esc(p.title)}</a></h3>
+<div class="pmeta">Vedtaget ${esc(shortDay(isoDay(p.decided_at_ms!)))} · ${esc(tally(p))}</div></div></article>`).join("")}</section>` : "";
+  if (!open.length) return adoptedCard;
   const item = (p: ProposalView) => {
     const mine = who ? p.ballots.find(b => b.voter === who)?.vote : undefined;
     const n = (v: Vote) => p.ballots.filter(b => b.vote === v).length, pct = (k: number) => `${Math.round(100 * k / p.members)}%`;
@@ -193,7 +230,7 @@ export function frontVotes(base: string, list: ProposalView[], who: string | nul
 ${who ? `<form method="post" action="${base}/afstemninger/stem" class="acts"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="back" value="forside">
 ${VOTES.map(v => `<button name="vote" value="${v}" class="${mine === v ? "" : "ghost"}" aria-pressed="${mine === v}">${v === "for" ? "Stem for" : v === "imod" ? "Stem imod" : "Undlad at stemme"}</button>`).join("")}</form>` : ""}</article>`;
   };
-  return `<section class="panel votes-panel" id="forslag"><header><h2>Forslag til afstemning<span class="count">${open.length}</span></h2><p>Stem her - eller læs hele forslaget under Beslutninger.</p></header>
+  return `${adoptedCard}<section class="panel votes-panel" id="forslag"><header><h2>Forslag til afstemning<span class="count">${open.length}</span></h2><p>Stem her - eller læs hele forslaget under Beslutninger.</p></header>
 ${open.map(item).join("")}<a class="more" href="${base}/beslutninger#nyt">Stil et nyt forslag →</a></section>`;
 }
 

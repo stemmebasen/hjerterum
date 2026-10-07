@@ -197,6 +197,12 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Opret forslag til afstemning" is the first card on Beslutninger (`#nyt`), tinted with the accent, then what is up for vote, then the decisions; the decided votes are folded away at the bottom.
 - Every open proposal is on **every member's front page**, right under the four boxes, in an accent-tinted card ("Forslag til afstemning", `frontVotes` in `cockpit/votes.ts`): the title (a link to the proposal), who made it, the deadline and the majority needed, the bar and the count so far, and the vote buttons - a pill says "Du mangler at stemme" until the member has voted. A vote from the front page comes back to the card (`back=forside`). The card is gone when no proposal is open. The "Stem om: ..." line stays on the to-do lists.
 
+### A proposal that is voted in looks the part (2026-10-07)
+
+- "Du må gerne få det til at se lidt højtideligt ud, når et forslag er stemt ind. Start et forslag enten med et badge eller en laurbær": an adopted proposal starts with a **gold laurel wreath** around a check mark (`laurel()` in `cockpit/votes.ts`, drawn from leaves along a circle) and the gold **GODKENDT** badge, in a gold-edged card (`--gold`, light and dark; the bar of votes is gold too). The same gold badge sits in the decisions list.
+- For a week after the vote it also stands open: in "Vedtaget" on **every member's front page** (above the open proposals) and in "Vedtaget den seneste uge" on Beslutninger; after that it moves to the folded "Afgjorte afstemninger" (and stays in "Besluttet").
+- A quick **"+ Stil et forslag"** button in the front page's header (to `/beslutninger#nyt`) for every member.
+
 ### Naming: admin, not cockpit (2026-10-07)
 
 - "Let's just call it admin instead of cockpit from now on": the board's site is called **admin** (admin.hjerterum.info) in everything people read - the pages, Saga's messages and answers, the English version, these docs. What is not renamed, because renaming it would break things: the code (`worker/cockpit/`, `handleCockpitRequest`), the database tables (`cockpit_*`), the secrets and settings (`COCKPIT_PASSWORD`, `COCKPIT_URL`, `COCKPIT_SHARED_LOGIN`), the cookies (`hjerterum_cockpit_*`), the old addresses (`cockpit.<domain>`, `/cockpit`, which still work) and the targets Matrix is sent (`cockpit:posthus` ...).
