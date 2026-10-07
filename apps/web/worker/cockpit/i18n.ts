@@ -181,6 +181,9 @@ export const EN: Record<string, string> = {
   "Har du en kode fra Saga?": "Do you have a code from Saga?", "Log ind med kode": "Log in with the code",
   "Åbner linket i Telegrams egen browser, bliver du kun logget ind dér. Skriv i stedet koden her, i den browser du plejer at bruge til admin.": "If the link opens in Telegram's own browser, you are only logged in there. Write the code here instead, in the browser you usually use for admin.",
   "Står du i Telegrams egen browser? Så bliver du kun logget ind her. Vil du være det i din almindelige browser, så tryk ikke - gå til admin-siden dér, og skriv koden fra Saga.": "Are you in Telegram's own browser? Then you are only logged in here. If you want to be logged in in your usual browser, do not press - go to the admin page there and write the code from Saga.",
+  // The proposals on everyone's front page and the clearer form (cockpit/votes.ts).
+  "Forslag til afstemning": "Proposals for a vote", "Stem her - eller læs hele forslaget under Beslutninger.": "Vote here - or read the whole proposal under Decisions.", "Du mangler at stemme": "You still need to vote",
+  "Stil et nyt forslag →": "Make a new proposal →", "Skriv forslaget her. Det står på alles forside og to-do, til de har stemt.": "Write the proposal here. It stands on everyone's front page and to-do list until they have voted.",
   // The meeting recorder (cockpit/recorder.ts).
   "Optag mødet her": "Record the meeting here", "Alle, der deltager, ved, at mødet bliver optaget.": "Everyone taking part knows the meeting is being recorded.",
   "● Start optagelse": "● Start recording", "Stop og lav referat": "Stop and make the minutes", "Sender optagelsen …": "Sending the recording …", "Send nu": "Send now", "Hent filen": "Download the file",
