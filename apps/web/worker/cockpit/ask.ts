@@ -177,7 +177,7 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     // Requested: "Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber".
     `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
     // Requested: "Opret forslag til afstemning" - the board's digital votes.
-    `DIGITALE AFSTEMNINGER I BESTYRELSEN (vedtaget ved flertal af bestyrelsen):\n${await votesForSaga(db, now)}`,
+    `AFSTEMNINGER I BESTYRELSEN (digitale, vedtaget ved flertal af bestyrelsen - og forslag, der stemmes om på næste møde):\n${await votesForSaga(db, now)}`,
     // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
     `LEJE AF SALEN - PRISER OG REGLER (Hjerterums prisberegner):\n${ROOM_RENTAL_RULES}`,
     // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig".

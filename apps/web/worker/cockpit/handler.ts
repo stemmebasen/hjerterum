@@ -28,7 +28,7 @@ import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveS
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
-import { awaitingVote, castVote, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
+import { awaitingVote, castVote, decideAtMeeting, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
 import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
@@ -604,19 +604,30 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.
   if (path === "/afstemninger" && request.method === "GET") return redirect(`${base}/beslutninger${url.search}`);
   if (path === "/beslutninger" && request.method === "GET") {
-    const [{ picture }, minutes, voted, list] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db), proposals(db, now)]);
-    const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
+    const [{ picture }, minutes, voted, list, planned] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db), proposals(db, now), meetings(db)]);
+    const nextMeeting = planned.filter(m => m.meeting_date >= today).map(m => m.meeting_date).sort()[0] ?? null;
+    const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", nymoede: "Forslaget er stillet til næste møde. Saga foreslår det som punkt på dagsordenen.",
+      moedevedtaget: "Noteret: forslaget er vedtaget på mødet.", moedeafvist: "Noteret: forslaget blev ikke vedtaget på mødet.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
     return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who,
-      { ...voteBlocks(base, { list, who, members: members.names.length, nowMs: now }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+      { ...voteBlocks(base, { list, who, members: members.names.length, nowMs: now, nextMeeting }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
   }
   // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger/ny" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
+    const mode = String(form?.get("mode") ?? "digital") === "moede" ? "moede" : "digital";
     const id = await createProposal(db, { title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), days: Number(form?.get("days") ?? 7), who,
-      members: Math.max(members.names.length, 1) }, now);
-    return redirect(`${base}/beslutninger${id ? `?besked=ny#p${id}` : ""}`);
+      members: Math.max(members.names.length, 1), mode }, now);
+    return redirect(`${base}/beslutninger${id ? `?besked=${mode === "moede" ? "nymoede" : "ny"}#p${id}` : ""}`);
+  }
+  // Requested: "vælge om man ønsker digital afstemning eller afstemning på næste møde": a proposal for the meeting is noted as decided by a board member afterwards.
+  if (path === "/afstemninger/moede" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id")), result = String(form?.get("result") ?? "") === "adopted" ? "adopted" : "rejected";
+    const ok = Number.isSafeInteger(id) && id > 0 && await decideAtMeeting(db, id, result, now);
+    return redirect(`${base}/beslutninger?besked=${ok ? (result === "adopted" ? "moedevedtaget" : "moedeafvist") : "afgjort"}#p${id}`);
   }
   if (path === "/afstemninger/stem" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);

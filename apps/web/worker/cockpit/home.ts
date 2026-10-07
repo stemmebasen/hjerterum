@@ -205,6 +205,6 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - until the member has written them.
   const ask = data.needsResponsibilities ? `<section class="panel ask-ansvar" id="ansvar"><header><h2>Hvad har du ansvar for?</h2><p>Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.</p></header>${responsibilitiesForm(base, "", "/")}</section>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs)}${ask}${enquiryNote}${reviewNote}${working}
+  return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs, data.next?.meeting_date)}${ask}${enquiryNote}${reviewNote}${working}
 <div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE });
 }

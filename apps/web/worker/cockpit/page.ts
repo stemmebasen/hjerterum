@@ -1,7 +1,7 @@
 import { markdownToHtml } from "../saga/markdown.js";
 import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
-import { APPROVED_BADGE, VOTES_STYLE, type VoteBlocks } from "./votes.js";
+import { APPROVED_BADGE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
 import { agreedLabel, DEFAULT_PLACE, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
@@ -485,7 +485,7 @@ export function decisionsPage(base: string, decisions: Decision[], who: string |
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1>${votes ? `<p class="muted">Bestyrelsens beslutninger fra referaterne og de digitale afstemninger. ${votes.intro}</p>
 ${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}<div class="card"><h2>Besluttet</h2><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
 ${decisions.length ? `<table id="list" class="rows"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td data-label="Beslutning">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">Afstemning</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
+<td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${votes ? votes.closed : ""}</main>
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
 document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
