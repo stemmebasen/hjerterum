@@ -4,7 +4,7 @@ import { outcome } from "./votes.js";
 import { withMeetingProposals } from "./agenda.js";
 import { translateHtml } from "./i18n.js";
 import { saveMeeting } from "./data.js";
-import { saveBoardMessage } from "../saga/store.js";
+import { saveBoardMessage, saveOverview } from "../saga/store.js";
 import { BOARD, deps, fakeServices, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
 // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\". Her er ideen: Man kan komme med et
@@ -245,8 +245,8 @@ describe("digital votes in the board", () => {
   });
 
   // Requested: "Laurbær designet skal også vises på historiske beslutninger" and "Jeg forstår ikke, at der er et badge ved godkendelserne i referatet, da det ikke er alle, der har godkendt det":
-  // the laurel stands only by what is approved.
-  it("shows the laurel on the historic decisions that are approved - a vote adopted, minutes every member has approved - and says how many have approved the rest", async () => {
+  // the laurel stands only by what is approved - and "Men der er da mange beslutninger, som er godkendt. Hvorfor er der ikke laurbær her?": what is filed in the minutes document was approved at the time.
+  it("shows the laurel on the decisions that are approved - a vote adopted, the minutes document's, minutes every member has approved - and says how many have approved the minutes still waiting", async () => {
     const db = testDatabase();
     for (const [i, name] of ["Jacob Hauge", "Lisbeth"].entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
@@ -254,6 +254,11 @@ describe("digital votes in the board", () => {
     await db.prepare("INSERT INTO board_proposals (title, text, created_by, members, status, deadline_ms, decided_at_ms, created_at_ms) VALUES ('Vi bytter kalender', '', 'Lisbeth', 2, 'adopted', ?, ?, ?)").bind(NOW - 29 * DAY, NOW - 30 * DAY, NOW - 40 * DAY).run();
     await db.prepare("INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms) VALUES ('upload', 'f1', 'm.m4a', 'approved', '2026-09-10', ?, 1, 1)")
       .bind("# Referat\n## Beslutninger\n- Medlemskab koster 99 kr. om måneden").run();
+    // The minutes document's: filed minutes (no sign-off in the admin - the board approved them at the time) and the decisions in force Saga read from it.
+    await db.prepare("INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms) VALUES ('document', 'd1', 'doc', 'approved', '2026-09-03', ?, 1, 1)")
+      .bind("# Referat\n## Beslutninger\n- Open Scene holdes hver torsdag").run();
+    await saveOverview(db, "Resumé.", NOW, { docHash: "x", data: JSON.stringify({ summary: "Resumé.", temperature: { level: "god", why: "" }, topics: [], forJacob: [], forMembers: [],
+      document: { latestMeeting: "", missingMinutes: [], dates: [], figures: [], openThreads: [], proposals: [], tasks: [], nextAgenda: [], decisions: [{ topic: "Prøveperiode", text: "Gratis prøveperiode til 15. oktober", date: "1/9", replaces: "" }] } }) });
     const services = fakeServices({ ai: () => "Svar." });
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const call = (path: string, cookie: string) => handleCockpitRequest(new Request(ORIGIN + path, { headers: { cookie } }), env, deps(services.fetcher, NOW));
@@ -264,10 +269,14 @@ describe("digital votes in the board", () => {
     const row = page.slice(page.indexOf('<table id="list"'), page.indexOf('</table>'));
     expect(row).toContain('<div class="dec"><span class="seal"><svg class="laurel"');
     expect(row).toMatch(/<div class="said"><span class="approved-badge">[^]*GODKENDT<\/span>Vi bytter kalender<\/div>/);
-    // The decision from the minutes is not approved by the whole board (none of the two has): no laurel, and it says how many have.
+    // The minutes made in the admin are not approved by the whole board (none of the two has): no laurel, and it says how many have.
     expect(row).toMatch(/<div class="dec"><span class="seal none"><\/span><div class="said">Medlemskab koster 99 kr\. om måneden<\/div>/);
     expect(row).toContain("0 af 2 har godkendt");
-    expect(row.match(/<svg class="laurel"/g)).toHaveLength(1);
+    // What is filed in the minutes document was approved at the time: the laurel, and no count (there is no sign-off in the admin).
+    expect(row).toMatch(/<div class="dec"><span class="seal"><svg class="laurel"[^]*?<\/span><div class="said">Open Scene holdes hver torsdag<\/div>/);
+    expect(row).toMatch(/<div class="dec"><span class="seal"><svg class="laurel"[^]*?<\/span><div class="said"><strong>Prøveperiode:<\/strong> Gratis prøveperiode til 15\. oktober<\/div>/);
+    expect(row.match(/har godkendt/g)).toHaveLength(1);
+    expect(row.match(/<svg class="laurel"/g)).toHaveLength(3);
     // The text stands level with the laurel.
     expect(page).toMatch(/\.dec\{display:flex;gap:12px;align-items:center\}/);
     // The right column (the source and "x af n har godkendt") keeps its text on one line.
@@ -278,11 +287,12 @@ describe("digital votes in the board", () => {
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Lisbeth', 'approved', NULL, 1)").run();
     const signed = await (await call("/beslutninger", as("Lisbeth"))).text();
     const signedRows = signed.slice(signed.indexOf('<table id="list"'), signed.indexOf('</table>'));
-    expect(signedRows.match(/<svg class="laurel"/g)).toHaveLength(2);
+    expect(signedRows.match(/<svg class="laurel"/g)).toHaveLength(4);
     expect(signedRows).not.toContain("har godkendt");
     // A correction is not an approval.
     await db.prepare("UPDATE board_minutes_signoffs SET status = 'correction' WHERE member = 'Lisbeth'").run();
-    expect((await (await call("/beslutninger", as("Lisbeth"))).text()).match(/<svg class="laurel"/g)?.length).toBe(2); // the vote's, in the list and the folded card
+    const corrected = await (await call("/beslutninger", as("Lisbeth"))).text();
+    expect(corrected.slice(corrected.indexOf('<table id="list"'), corrected.indexOf('</table>')).match(/<svg class="laurel"/g)).toHaveLength(3);
     // The vote is old: not in the card of the last week, but folded among the decided votes - and still on the list of decisions with its laurel.
     expect(page).not.toContain('id="vedtaget"');
   });
