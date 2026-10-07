@@ -223,7 +223,9 @@ describe("digital votes in the board", () => {
     await call("/afstemninger/ny", { method: "POST", cookie: as("Gitta"), body: form({ title: "Vi holder åbent hus i november", text: "", days: "7" }) });
     const suggested = await call(`/moder/${meetingId}/forslag`, { method: "POST", cookie: as("Jacob Hauge") });
     expect(suggested.status).toBeLessThan(400);
-    const suggestion = await suggested.text();
+    // Her points go onto the agenda, at the bottom, as points of their own.
+    const { meeting: loadMeeting } = await import("./data.js");
+    const suggestion = (await loadMeeting(db, meetingId))?.agenda ?? "";
     expect(agendaPrompt).toContain("Vi hæver prisen på Lydbad (forslag fra Lisbeth): AFSTEMNING PÅ NÆSTE MØDE");
     expect(agendaPrompt).toContain("Vi holder åbent hus i november (forslag fra Gitta): Til afstemning");
     expect(agendaPrompt).not.toContain("Vi holder åbent hus i november (forslag fra Gitta): AFSTEMNING PÅ NÆSTE MØDE");

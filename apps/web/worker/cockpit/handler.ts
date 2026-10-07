@@ -14,7 +14,7 @@ import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCo
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addTodo, approvalCounts, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addAgendaPoints, addTodo, approvalCounts, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -226,10 +226,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
 
   if (path === "/moder") {
     if (request.method === "POST") {
-      const input = meetingInput(await request.formData());
+      const form = await request.formData();
+      const input = meetingInput(form);
       if (!input) return redirect(`${base}/moder`);
       const id = await saveMeeting(db, input, who ?? "", now);
-      return redirect(`${base}/moder/${id}?gemt=1`);
+      // Requested: "Sagas forslag ... i punktform": her suggestion from the minutes document goes onto the agenda as points, to be deleted with the cross.
+      if (String(form.get("saga_forslag") ?? "") === "1") await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
+      return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const [list, minutes, { picture }, states, documentDays] = await Promise.all([meetings(db), approvedMinutes(db), boardPicture(db, now), minutesStatusByDate(db), meetingsInDocument(env, deps)]);
     const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
@@ -245,33 +248,45 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", agenda: url.searchParams.get("forslag") === "1" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
 
-  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag)?$/.exec(path);
+  const meetingPath = /^\/moder\/(\d+)(\/slet|\/forslag\/dokument|\/forslag|\/punkt\/slet|\/punkt)?$/.exec(path);
   if (meetingPath) {
-    const id = Number(meetingPath[1]);
+    const id = Number(meetingPath[1]), action = meetingPath[2] ?? "";
     const found = await meeting(db, id);
     if (!found) return html(notFound(base, who), 404);
-    if (request.method === "POST" && meetingPath[2] === "/forslag") {
-      // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges."
-      const [all, states] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db)]);
-      const page = (suggestion: string[], notice: string) => html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
-        suggestion, today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
-      if (!env.AI_API_KEY || !env.AI_MODEL) return page([], "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op).");
+    const back = (code = "") => redirect(`${base}/moder/${id}${code ? `?forslag=${code}` : ""}#dagsorden`);
+    if (request.method === "POST" && action === "/forslag") {
+      // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges." - and: "Sagas forslag ... i punktform i bunden ... slette hver med et kryds": her points go onto the agenda.
+      if (!env.AI_API_KEY || !env.AI_MODEL) return back("ingenai");
       try {
         const items = await suggestAgenda(env, deps, db, found);
-        return page(items, items.length ? "Sagas forslag er klar: tryk »Indsæt Sagas forslag«, ret til og tryk Gem." : "Saga fandt ikke noget at foreslå ud fra materialet.");
+        return back(String(await addAgendaPoints(db, id, items, "Saga", now, true)));
       } catch (error) {
         console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
-        return page([], "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt.");
+        return back("fejl");
       }
     }
-    if (request.method === "POST" && meetingPath[2]) { await deleteMeeting(db, id); return redirect(`${base}/moder`); }
+    if (request.method === "POST" && action === "/forslag/dokument") {
+      return back(String(await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true)));
+    }
+    if (request.method === "POST" && action === "/punkt") {
+      await addAgendaPoints(db, id, [String((await request.formData().catch(() => null))?.get("text") ?? "")], who ?? "", now);
+      return back();
+    }
+    if (request.method === "POST" && action === "/punkt/slet") {
+      await removeAgendaPoint(db, id, String((await request.formData().catch(() => null))?.get("text") ?? ""), who ?? "", now);
+      return back();
+    }
+    if (request.method === "POST" && action === "/slet") { await deleteMeeting(db, id); return redirect(`${base}/moder`); }
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
       if (input) await saveMeeting(db, input, who ?? "", now, id);
-      return redirect(`${base}/moder/${id}?gemt=1`);
+      return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
+    const forslag = /^(?:\d{1,2}|ingenai|fejl)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
-    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt." : "";
+    const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
+      : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
+      : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
     return html(meetingPage(base, found, { minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
   }
