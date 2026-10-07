@@ -36,12 +36,17 @@ describe("Saga's greeting and what she knows about membership", () => {
     // Requested: "Dette er alt for tungt. Her skal hun blot svare varmt og uformel og med et glimt i øjet" (e.g. to "Hvem er jeg?").
     expect(system).toContain("TONEN ER DET VIGTIGSTE");
     expect(system).toContain("varm, uformel og lidt drilsk, med et glimt i øjet");
-    expect(system).toContain("Du er Hjerterums skønne formand, Jacob Hauge");
+    // Reported: "Nu skriver hun hele tiden hr. formand. Det var ikke meningen. Hun skulle jo være kreativ." - the example sentence was copied word for word,
+    // so none is in the prompt now: the tone is described, and she is told to find her own words and never to hand out titles or nicknames.
+    expect(system).not.toMatch(/hr\. formand|skønne formand/i);
+    expect(system).toContain("VÆR KREATIV OG FIND PÅ NYE ORD HVER GANG");
+    expect(system).toContain("gentag aldrig en vending, et kælenavn, en titel eller en afslutning");
+    expect(system).toContain("Giv ikke medlemmerne faste tilnavne eller titler");
     expect(system).toContain("ingen interne henvisninger som [T1]");
     expect(system).toContain("Tilbyd højst én ting ad gangen");
     // Requested: "Saga er en uformel og kærlig medhjælper, og hun skal ikke svare i tunge paragraffer, medmindre hun eksplicit bliver bedt om dem".
     expect(system).toContain("UDTRYKKELIGT beder om paragraf, kilde eller dokumentation");
-    expect(system).toContain("eksemplet viser tonen, ikke ordene - hold det naturligt og ikke overdrevet");
+    expect(system).toContain("Hold det naturligt og ikke overdrevet");
     expect(system).toContain("nævner du kun, når medlemmet udtrykkeligt beder om dem");
     expect(system).not.toContain("Henvis til paragraf og stykke");
     expect(system).not.toContain("nævn loven og paragraffen, som de står der");
