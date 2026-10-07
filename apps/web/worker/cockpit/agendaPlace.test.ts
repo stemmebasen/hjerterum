@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { addTodo, DEFAULT_PLACE, meeting, saveMeeting } from "./data.js";
-import { agendaReadyText, scheduledAgendaReminder, scheduledAgendaSuggestion } from "./agenda.js";
+import { agendaReadyText, englishAgenda, scheduledAgendaReminder, scheduledAgendaSuggestion } from "./agenda.js";
+import { autoTranslated, translatePage, translations } from "./translate.js";
 import { claimJob, recentBoardMessages } from "../saga/store.js";
 import { BOARD } from "../saga/test-support.js";
 import { translateHtml } from "./i18n.js";
@@ -196,7 +197,11 @@ describe("a meeting's agenda and place", () => {
   it("makes Saga's suggestions for the next team meeting once a day, from the morning on, and and a point deleted with the cross takes no AI call and may come again in a fresh suggestion", async () => {
     const MORNING = Date.parse("2026-10-08T06:30:00Z"); // 08:30 in Copenhagen
     let calls = 0, prompt = "";
-    const { db, env, services, call, form, login } = setup((system, user) => { calls++; prompt = system + user; return '{"items":["Godkendelse af dagsorden","Julefest: valg af dato","Eventuelt"]}'; }, MORNING);
+    // Her points are made in English with the Danish ones: that is a translation request, not a suggestion - it is told apart and counted on its own.
+    let translated = 0;
+    const { db, env, services, call, form, login } = setup((system, user) => {
+      if (system.startsWith("You translate texts")) { translated++; return JSON.stringify({ texts: (JSON.parse(user) as { texts: string[] }).texts.map(t => `EN: ${t}`) }); }
+      calls++; prompt = system + user; return '{"items":["Godkendelse af dagsorden","Julefest: valg af dato","Eventuelt"]}'; }, MORNING);
     await overview(db, ["Lokaleleje"]);
     const cookie = await login();
     const next = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", MORNING);
@@ -215,9 +220,22 @@ describe("a meeting's agenda and place", () => {
     expect(prompt).toContain("Referatets forslag til næste dagsorden (vælg blandt dem og resten af materialet, ikke alle): Lokaleleje");
     expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
     expect((await meeting(db, unknown))?.agenda).toBe("");
-    // The same day: nothing more, no AI call.
+    // Requested: "Saga should come with suggestions in either Danish AND English depending on what language was picked": the English was made with the Danish points, in one request.
+    expect(translated).toBe(1);
+    expect([...(await translations(db, ["Julefest: valg af dato", "Godkendelse af dagsorden"])).values()].sort()).toEqual(["EN: Godkendelse af dagsorden", "EN: Julefest: valg af dato"]);
+    // A member who reads in English gets the meetings and a meeting's page translated, with Saga's points in English; one who reads Danish gets the Danish.
+    expect([autoTranslated("/moder"), autoTranslated(`/moder/${next}`), autoTranslated(`/moder/${next}/punkt`), autoTranslated("/moder/ny")]).toEqual([true, true, false, false]);
+    const danish = await (await call("/moder", { cookie, now: MORNING })).text();
+    expect(danish).toContain("Julefest: valg af dato");
+    const english = await translatePage(env, deps(services.fetcher, MORNING), db, danish);
+    expect(english).toContain("EN: Julefest: valg af dato");
+    expect(english).not.toContain(">Julefest: valg af dato<");
+    expect(english).toContain("Saga&#39;s suggestion".replace("&#39;", "'"));
+    const afterPage = translated;
+    // The same day: nothing more, no AI call - and nothing more to translate.
     expect(await run(MORNING + 3_600_000)).toBe(0);
     expect(calls).toBe(1);
+    expect(translated).toBe(afterPage);
     // They are there when you come in on the page - marked as hers - and the overview and the front page show them.
     expect(await (await call("/moder", { cookie, now: MORNING })).text()).toContain('<li>Julefest: valg af dato <span class="saga-mark inline">Sagas forslag</span></li>');
 
@@ -244,7 +262,9 @@ describe("a meeting's agenda and place", () => {
     let calls = 0, prompt = "";
     const MORNING = Date.parse("2026-10-08T06:30:00Z");
     const eight = Array.from({ length: 8 }, (_, i) => `Punkt ${i + 1}`);
-    const { db, env, services, call, form, login } = setup((system, user) => { calls++; prompt = system + user; return '{"items":["Ny A","Ny B","Ny C"]}'; }, MORNING);
+    const { db, env, services, call, form, login } = setup((system, user) => {
+      if (system.startsWith("You translate texts")) return JSON.stringify({ texts: (JSON.parse(user) as { texts: string[] }).texts.map(t => `EN: ${t}`) });
+      calls++; prompt = system + user; return '{"items":["Ny A","Ny B","Ny C"]}'; }, MORNING);
     await overview(db, eight);
     const cookie = await login();
     const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", start_time: "13:30", kind: "team", kind_sent: "1" }) });

@@ -27,7 +27,7 @@ import { currentForChair, homePage } from "./home.js";
 import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
-import { suggestAgenda } from "./agenda.js";
+import { englishLater, suggestAgenda } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, decideAtMeeting, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
@@ -43,7 +43,7 @@ import { claimJob, markOwnerDone, serviceStatus } from "../saga/store.js";
 import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } from "../saga/teamMail.js";
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
-import { AUTO_TRANSLATED, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
+import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
@@ -88,7 +88,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   // Requested: "I think that overview, tasks, and decisions should be automatically translated".
   const url = new URL(request.url);
   const path = (isCockpitHost(url.hostname) ? url.pathname : url.pathname.replace(/^\/cockpit/, "")) || "/";
-  if (env.DB && response.status === 200 && AUTO_TRANSLATED.has(path)) {
+  if (env.DB && response.status === 200 && autoTranslated(path)) {
     const english = await translatePage(env, deps, env.DB, page).catch(error => { console.warn("cockpit_page_translate_failed", error instanceof Error ? error.message : error); return null; });
     if (english) return new Response(english, { status: response.status, headers: response.headers });
   }
@@ -238,7 +238,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       onlyBoard(input, null);
       const id = await saveMeeting(db, input, who ?? "", now);
       // Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde": only a team meeting gets her points - the next one at once, from the minutes document.
-      if (input.kind === "team" && nextTeamMeeting(await meetings(db), today)?.id === id) await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
+      if (input.kind === "team" && nextTeamMeeting(await meetings(db), today)?.id === id) { await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true); englishLater(env, deps, db, id); }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const [list, minutes, { picture }, states, documentDays] = await Promise.all([meetings(db), approvedMinutes(db), boardPicture(db, now), minutesStatusByDate(db), meetingsInDocument(env, deps)]);
@@ -270,14 +270,18 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (!sagaRoom(found)) return back("fuld");
       try {
         const items = await suggestAgenda(env, deps, db, found, sagaRoom(found), (await boardPicture(db, now)).picture?.document.nextAgenda ?? []);
-        return back(String(await addAgendaPoints(db, id, items, "Saga", now, true)));
+        const added = await addAgendaPoints(db, id, items, "Saga", now, true);
+        englishLater(env, deps, db, id);
+        return back(String(added));
       } catch (error) {
         console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
         return back("fejl");
       }
     }
     if (request.method === "POST" && action === "/forslag/dokument") {
-      return back(String(await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true)));
+      const added = await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
+      englishLater(env, deps, db, id);
+      return back(String(added));
     }
     if (request.method === "POST" && action === "/punkt") {
       await addAgendaPoints(db, id, [String((await request.formData().catch(() => null))?.get("text") ?? "")], who ?? "", now);
@@ -304,8 +308,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       const input = meetingInput(await request.formData());
       if (input) { onlyBoard(input, found); await saveMeeting(db, input, who ?? "", now, id); }
       // Ticked as a team meeting just now, and it is the next one: her suggestion from the minutes document is on the agenda at once (no AI) - the AI's comes in her morning round, or when asked.
-      if (input?.kind === "team" && found.kind !== "team" && !found.agenda_saga?.trim() && nextTeamMeeting(await meetings(db), today)?.id === id)
+      if (input?.kind === "team" && found.kind !== "team" && !found.agenda_saga?.trim() && nextTeamMeeting(await meetings(db), today)?.id === id) {
         await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
+        englishLater(env, deps, db, id);
+      }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
@@ -366,9 +372,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse."
       : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt." : "";
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
-    // Requested: "Douglas taler engelsk" - the minutes stay Danish as written; "Read in English" has Saga translate them once.
+    // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
     const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
-    if (english) return html(layout(base, `Minutes ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));
+    if (english) return html(layout(base, `Summary ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
     const readEnglish = state.lang === "en" && minutes.draft_markdown ? `<form method="post" action="${base}/referat/${minutes.id}/engelsk" class="m-sign" style="margin-bottom:12px" onsubmit="const b=this.querySelector('button');b.disabled=true;b.textContent='Saga is translating … (up to a minute)'"><button>Read in English</button></form>` : "";
     const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;

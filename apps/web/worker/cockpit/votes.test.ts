@@ -339,7 +339,7 @@ describe("English for the proposal at the next meeting", () => {
 <button>Vedtaget på mødet</button><span>Når mødet har stemt:</span><div class="small muted">Referatet: 1 af 2 har godkendt</div>`);
     expect(en).toContain("<i>+</i>Create proposal</button>");
     expect(translateHtml('<button>Undlad<span class="more"> at stemme</span></button>')).toContain('<button>Abstain<span class="more"> </span></button>');
-    expect(en).toContain("Minutes: 1 of 2 have approved");
+    expect(en).toContain("Summary: 1 of 2 have approved");
     expect(en).toContain("<b>At the next meeting</b>");
     expect(en).toContain("Saga suggests it as an item on the agenda for the meeting");
     expect(en).toContain("<h2>For the next meeting</h2>");

@@ -5,6 +5,7 @@ import { saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { boardKnowledge } from "./ask.js";
 import { addAgendaPoints, agendaPoints, boardPicture, meetings, nextTeamMeeting, rolesLine, SAGA_POINTS, sagaRoom, type Meeting } from "./data.js";
+import { translateTexts, translations } from "./translate.js";
 import { proposals } from "./votes.js";
 
 /** Requested (on a meeting's page): "Her bør Sagas forslag til dagsorden også kunne trigges." Saga reads what
@@ -57,9 +58,31 @@ export async function scheduledAgendaSuggestion(env: SagaEnv, deps: SagaDeps, db
   if (Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(now)) < 5) return 0;
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
   const next = nextTeamMeeting(await meetings(db), today);
+  if (!next) return 0;
   // Five at a time: with her five still on the agenda there is nothing to choose, and no AI call.
-  if (!next || !sagaRoom(next) || !(await claim(`cockpit_agenda_suggest_${next.id}`, Math.floor(now / 86_400_000)))) return 0;
-  return suggestForTeamMeeting(env, deps, db, next);
+  const added = sagaRoom(next) && (await claim(`cockpit_agenda_suggest_${next.id}`, Math.floor(now / 86_400_000))) ? await suggestForTeamMeeting(env, deps, db, next) : 0;
+  // Her points from the document, the button or an earlier day have English too - tried again in the next hour when it fails.
+  const row = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(next.id).first<{ agenda: string; agenda_saga: string }>();
+  const points = sagaPointsOf(row);
+  if (points.length && (await translations(db, points)).size < new Set(points).size && (await claim(`cockpit_agenda_en_${next.id}`, Math.floor(now / 3_600_000)))) await englishAgenda(env, deps, db, next.id).catch(warnEnglish);
+  return added;
+}
+
+const warnEnglish = (error: unknown) => console.warn("cockpit_agenda_english_failed", error instanceof Error ? error.message : error);
+const sagaPointsOf = (row: { agenda: string; agenda_saga: string } | null) => row ? agendaPoints(row.agenda_saga).filter(p => agendaPoints(row.agenda).includes(p)) : [];
+
+/** Requested: "Saga should come with suggestions in either Danish AND English depending on what language was picked": her points are made in English with the Danish ones - kept by the Danish text's hash, in the same
+ * translations the pages use, so a member who reads in English sees them in English at once, and a Danish reader the Danish. Returns how many were translated. */
+export async function englishAgenda(env: SagaEnv, deps: SagaDeps, db: D1Database, meetingId: number): Promise<number> {
+  if (!env.AI_API_KEY || !env.AI_MODEL) return 0;
+  const row = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(meetingId).first<{ agenda: string; agenda_saga: string }>();
+  const points = sagaPointsOf(row);
+  return points.length ? translateTexts(env, deps, db, points) : 0;
+}
+
+/** After a request that put her points on the agenda: the English is made in the background (the round makes it within five minutes when there is no background to make it in). */
+export function englishLater(env: SagaEnv, deps: SagaDeps, db: D1Database, meetingId: number): void {
+  deps.waitUntil?.(englishAgenda(env, deps, db, meetingId).catch(warnEnglish));
 }
 
 /** Requested: "Hun bør prioritere de fem vigtigste.": Saga reads the minutes document's suggestion with the rest of the material and chooses the points that are missing up to five (one AI call) - what
@@ -71,14 +94,16 @@ export async function suggestForTeamMeeting(env: SagaEnv, deps: SagaDeps, db: D1
   const room = sagaRoom(current);
   if (!room) return 0;
   const document = (await boardPicture(db, now)).picture?.document.nextAgenda ?? [];
+  let added = 0;
   try {
-    return await addAgendaPoints(db, meeting.id, await suggestAgenda(env, deps, db, current, room, document), "Saga", now, true);
+    added = await addAgendaPoints(db, meeting.id, await suggestAgenda(env, deps, db, current, room, document), "Saga", now, true);
   } catch (error) {
-    const added = await addAgendaPoints(db, meeting.id, document, "Saga", now, true);
+    added = await addAgendaPoints(db, meeting.id, document, "Saga", now, true);
     if (!added) throw error;
     console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
-    return added;
   }
+  if (added) await englishAgenda(env, deps, db, meeting.id).catch(warnEnglish);
+  return added;
 }
 
 /** Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx. Og det ville være fint, hvis hun kan sende et direkte link til dagsordenen."

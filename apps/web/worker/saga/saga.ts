@@ -3,7 +3,7 @@ import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
-import { scheduledTranslations } from "../cockpit/translate.js";
+import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
 import { scheduledAgendaReminder, scheduledAgendaSuggestion } from "../cockpit/agenda.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
@@ -423,6 +423,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Douglas taler engelsk" - Saga's front-page texts in English, when someone reads in English (weekdays).
   await scheduledTranslations(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_translations_failed", error instanceof Error ? error.message : error));
+  // Requested: "She might as well make both a Danish and English summary" - the English one is made with the Danish one, whether or not anyone reads in English now (cockpit/translate.ts).
+  await scheduledEnglishSummaries(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("cockpit_english_summaries_failed", error instanceof Error ? error.message : error));
   // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler" - what is new in the minutes is sorted (cockpit/decisionKinds.ts).
   await scheduledDecisionKinds(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_decision_kinds_failed", error instanceof Error ? error.message : error));

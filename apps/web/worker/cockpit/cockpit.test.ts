@@ -430,7 +430,7 @@ describe("the board cockpit", () => {
     // The login page, and the same page for someone who reads English.
     const login = text(await (await call("/cockpit")).text());
     expect(login).toContain("Bestyrelsens admin med møder, referater og beslutninger.");
-    expect(translateHtml(await (await call("/cockpit")).text())).toContain("The board's admin with meetings, minutes and decisions.");
+    expect(translateHtml(await (await call("/cockpit")).text())).toContain("The board's admin with meetings, summaries and decisions.");
     const english = text(translateHtml(await (await call("/cockpit")).text()));
     expect(english).not.toMatch(/cockpit/i);
     // The code form on the login page is translated as well.
@@ -443,11 +443,13 @@ describe("the board cockpit", () => {
     expect(english).toContain("Record the meeting here");
     expect(english).toContain("Everyone taking part knows the meeting is being recorded.");
     expect(english).toContain("● Start recording");
-    expect(english).toContain("Stop and make the minutes");
+    // Requested: "Let's not call it \"Minutes\" - Call it summary all around".
+    expect(english).toContain("Stop and make the summary");
+    expect(english).not.toMatch(/\bminutes\b/i);
     expect(english).toContain("The microphone was cut off (for example because the screen locked).");
     expect(english).toContain("This browser cannot record here.");
     expect(english).toContain("I cannot hear any sound right now. Is the microphone covered or switched off?");
-    expect(english).toContain("The audio file is deleted 14 days after the minutes are put up.");
+    expect(english).toContain("The audio file is deleted 14 days after the summary is put up.");
     expect(english).toContain("Check the microphone");
     expect(english).not.toContain("Mikrofonen");
   });
