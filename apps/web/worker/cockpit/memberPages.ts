@@ -1,6 +1,6 @@
 import { membershipPlan, membershipPlans } from "../../membership.js";
 import { isoDay, planName, statusText, STATUS_FILTERS, type AdminMember, type MemberEvent, type MembershipWorksAccount, type StatusFilter, type TimelineEntry, type TurnoverGroup, type TurnoverRow } from "../member-admin.js";
-import { esc, layout } from "./page.js";
+import { esc, fold, layout, SHOWN } from "./page.js";
 
 /** Requested: "Hvad med "Medlemmer"-sektion i admin, hvor vi kan se medlemmer, profilinfo, status og historik?" - "Husk den
  * skal lægge sig op ad hvad MembershipWorks gør med medlemmer" - "Her kan du se den relevante info vi skal videreføre.
@@ -107,8 +107,9 @@ function timelineList(entries: TimelineEntry[]): string {
 }
 
 function eventList(title: string, events: MemberEvent[], empty: string): string {
-  return `<section class="panel"><header><h2>${title} <span class="pill">${events.length}</span></h2></header>${events.length ? `<ul class="items">${events.slice(0, 50).map(e => `<li>${esc(e.title)}
-<span class="ctx">${esc(TIME.format(e.startsAtMs))} · ${e.where === "kalender" ? "Hjerterums kalender" : "det nye system"}${e.status === "cancelled" ? " · aflyst" : ""}</span></li>`).join("")}</ul>${events.length > 50 ? `<p class="small muted">og ${events.length - 50} mere</p>` : ""}` : `<p class="empty">${empty}</p>`}</section>`;
+  const line = (e: MemberEvent) => `<li>${esc(e.title)}
+<span class="ctx">${esc(TIME.format(e.startsAtMs))} · ${e.where === "kalender" ? "Hjerterums kalender" : "det nye system"}${e.status === "cancelled" ? " · aflyst" : ""}</span></li>`;
+  return `<section class="panel"><header><h2>${title} <span class="pill">${events.length}</span></h2></header>${events.length ? `<ul class="items">${events.slice(0, SHOWN).map(line).join("")}</ul>${events.length > SHOWN ? fold("Klik her for at se alle", "Skjul de ældre", `<ul class="items">${events.slice(SHOWN, 50).map(line).join("")}</ul>${events.length > 50 ? `<p class="small muted">og ${events.length - 50} mere</p>` : ""}`, events.length - SHOWN) : ""}` : `<p class="empty">${empty}</p>`}</section>`;
 }
 
 function mwBox(a: MembershipWorksAccount, m: AdminMember, today: string): string {

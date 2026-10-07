@@ -1,5 +1,5 @@
 import type { EventStats, HouseEvent } from "./events.js";
-import { esc, layout } from "./page.js";
+import { esc, fold, layout, SHOWN } from "./page.js";
 import { DESK_STYLE } from "./eventDesk.js";
 
 /** Hjerterum's events in the cockpit: what is coming, the history since 2019, and a search. */
@@ -34,12 +34,12 @@ export function eventsPage(base: string, data: { stats: EventStats; coming: Hous
 <select name="aar" aria-label="År"><option value="">Alle år</option>${years.map(y => `<option${y === data.year ? " selected" : ""}>${y}</option>`).join("")}</select><button>Søg</button></form>`;
   const results = data.results ? `<div class="card"><h2>${data.results.length === 100 ? "Over 100" : data.results.length} arrangement${data.results.length === 1 ? "" : "er"}${data.query ? ` med "${esc(data.query)}"` : ""}${data.year ? ` i ${data.year}` : ""}</h2>
 ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join("")}</ul>` : `<p class="muted">Ingen arrangementer fundet.</p>`}</div>` : "";
-  const overview = data.results ? "" : `<h2 style="margin:8px 0 0">Kommende</h2>${data.coming.length ? `<div class="ev-cards">${data.coming.map(card).join("")}</div>` : `<p class="muted">Ingen kommende arrangementer i kalenderen.</p>`}
+  const overview = data.results ? "" : `<h2 style="margin:8px 0 0">Kommende</h2>${data.coming.length ? `<div class="ev-cards">${data.coming.slice(0, SHOWN).map(card).join("")}</div>${data.coming.length > SHOWN ? fold("Klik her for at se alle kommende arrangementer", "Skjul de senere arrangementer", `<div class="ev-cards">${data.coming.slice(SHOWN).map(card).join("")}</div>`, data.coming.length - SHOWN) : ""}` : `<p class="muted">Ingen kommende arrangementer i kalenderen.</p>`}
 <div class="grid"><div class="card"><h2>Arrangementer pr. år</h2><div class="ev-bars" role="img" aria-label="Antal arrangementer pr. år">${s.byYear.map(b => `<div class="ev-bar"><span>${esc(b.year)}</span><i style="width:${Math.round(b.n / max * 100)}%"></i><span>${b.n}${Number(b.year) === data.thisYear ? "*" : ""}</span></div>`).join("")}</div>
 <p class="small muted">* indtil nu, inkl. planlagte.</p></div>
-<div class="card"><h2>Mest aktive det seneste år</h2>${s.hosts.length ? `<table>${s.hosts.map(h => `<tr><td>${esc(h.host)}</td><td style="text-align:right">${h.n}</td></tr>`).join("")}</table>` : `<p class="muted small">Underviserne står ikke i kalenderen.</p>`}
-<h3>Kategorier</h3><table>${s.categories.map(c => `<tr><td>${esc(c.category)}</td><td style="text-align:right">${c.n}</td></tr>`).join("")}</table></div></div>
-<div class="card"><h2>Seneste afholdte</h2><ul class="plain ev-list">${data.recent.map(line).join("")}</ul></div>`;
+<div class="card"><h2>Mest aktive det seneste år</h2>${s.hosts.length ? `<table>${s.hosts.slice(0, SHOWN).map(h => `<tr><td>${esc(h.host)}</td><td style="text-align:right">${h.n}</td></tr>`).join("")}</table>${s.hosts.length > SHOWN ? fold("Klik her for at se flere", "Skjul de øvrige", `<table>${s.hosts.slice(SHOWN).map(h => `<tr><td>${esc(h.host)}</td><td style="text-align:right">${h.n}</td></tr>`).join("")}</table>`, s.hosts.length - SHOWN) : ""}` : `<p class="muted small">Underviserne står ikke i kalenderen.</p>`}
+<h3>Kategorier</h3><table>${s.categories.slice(0, SHOWN).map(c => `<tr><td>${esc(c.category)}</td><td style="text-align:right">${c.n}</td></tr>`).join("")}</table>${s.categories.length > SHOWN ? fold("Klik her for at se alle kategorier", "Skjul de øvrige kategorier", `<table>${s.categories.slice(SHOWN).map(c => `<tr><td>${esc(c.category)}</td><td style="text-align:right">${c.n}</td></tr>`).join("")}</table>`, s.categories.length - SHOWN) : ""}</div></div>
+<div class="card"><h2>Seneste afholdte</h2><ul class="plain ev-list">${data.recent.slice(0, SHOWN).map(line).join("")}</ul>${data.recent.length > SHOWN ? fold("Klik her for at se flere", "Skjul de ældre", `<ul class="plain ev-list">${data.recent.slice(SHOWN).map(line).join("")}</ul>`, data.recent.length - SHOWN) : ""}</div>`;
   return layout(base, "Arrangementer", `<main><h1>Arrangementer</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>

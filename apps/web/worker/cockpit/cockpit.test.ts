@@ -688,7 +688,9 @@ describe("the board cockpit", () => {
     const fresh = await at(0);
     expect(fresh.indexOf("Køb kaffe")).toBeGreaterThan(-1);
     expect(fresh.indexOf("Ring til udlejeren")).toBeGreaterThan(fresh.indexOf("Køb kaffe"));
-    expect(fresh).toContain('<details class="done-list" open><summary>Klaret de sidste 7 dage (1)');
+    // Requested: "Klarede opgaver er collapsed": the finished ones are folded away from the start.
+    expect(fresh).toContain('<details class="done-list"><summary>Klaret de sidste 7 dage (1)');
+    expect(fresh).not.toContain('class="done-list" open');
     expect(fresh.endsWith(note)).toBe(true);
     expect(await at(6.9)).toContain("Ring til udlejeren");
     const later = await at(7.1);
