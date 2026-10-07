@@ -33,3 +33,13 @@ export function section(markdown: string, title: RegExp): string {
   const end = rest.findIndex(line => level(line) > 0 && level(line) <= found.n);
   return (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
 }
+
+/** A "## " section whose whole heading is the title (and no other level): the points of a meeting ("### 4. Aftaler med ...") are never taken for it. */
+export function strictSection(markdown: string, title: RegExp): string {
+  const lines = markdown.split(/\r?\n/);
+  const start = lines.findIndex(line => /^##\s+/.test(line) && !/^###/.test(line) && title.test(line.replace(/^##\s+/, "").trim()));
+  if (start < 0) return "";
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex(line => /^#{1,2}\s+/.test(line));
+  return (end < 0 ? rest : rest.slice(0, end)).join("\n").trim();
+}

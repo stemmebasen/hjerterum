@@ -142,6 +142,9 @@ export function laurel(size = 56): string {
 <path d="M35 53l10.5 11.5L66 41" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 
+/** An informal agreement (Beslutninger): two hands - a quiet mark in the muted ink, where a decision has the gold laurel. */
+export const HANDSHAKE = `<svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l3.5-3.5a2.1 2.1 0 013 0l.6.6M21 12l-3.5-3.5a2.1 2.1 0 00-3 0L11 12"/><path d="M6.5 15.5l2 2a1.4 1.4 0 002-2M9 14l2.5 2.5a1.4 1.4 0 002-2L11 12l3-3M15 14.5l1.5 1.5a1.4 1.4 0 002-2L17 12"/></svg>`;
+
 /** The seal on an adopted proposal (also on Beslutninger): a gold badge. */
 export const APPROVED_BADGE = `<span class="approved-badge"><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>GODKENDT</span>`;
 export const APPROVED_STYLE = `
@@ -160,6 +163,9 @@ background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 11%,var(--card))
 @media (max-width:520px){.prop.adopted{grid-template-columns:1fr;row-gap:6px}.prop.adopted .seal svg{width:46px;height:46px}}
 /* Requested: "Laurbær designet skal også vises på historiske beslutninger": every decision wears the laurel (a decision is valid when it is taken, whatever the state of the minutes) - a vote also the gold badge; the text is centred beside it. */
 .dec{display:flex;gap:12px;align-items:center}.dec .seal{flex:none;width:34px;height:34px;color:var(--gold)}.dec .seal svg{display:block}.dec .said{min-width:0}
+.dec .handshake{flex:none;width:34px;height:34px;display:grid;place-items:center;color:var(--faint)}.dec .handshake svg{display:block}
+table.decisions td.act{text-align:right;white-space:nowrap;width:1%}form.move{margin:0}.linkbtn{background:none;border:0;padding:0;min-height:0;font-size:12.5px;font-weight:500;color:var(--faint);text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:0;display:inline}
+.linkbtn:hover{color:var(--accent);filter:none}@media (max-width:760px){table.decisions td.act{text-align:left;width:auto;padding-top:4px}}
 table.decisions td{vertical-align:middle}table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}`;
 
 export const VOTES_STYLE = `

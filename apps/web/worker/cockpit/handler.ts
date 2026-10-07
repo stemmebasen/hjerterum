@@ -9,6 +9,7 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
+import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsorted, withKinds } from "./decisionKinds.js";
 import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
@@ -38,7 +39,7 @@ import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraf
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
-import { markOwnerDone, serviceStatus } from "../saga/store.js";
+import { claimJob, markOwnerDone, serviceStatus } from "../saga/store.js";
 import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } from "../saga/teamMail.js";
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
@@ -207,7 +208,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
-      latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: minutesDecisions(latest).map(d => d.text), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
+      latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
 
   if (path === "/status" && request.method === "GET") {
@@ -220,7 +221,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const open = who ? await openFor(db, who, everyone) : { tasks: [], todos: [] };
     return html(statusPage(base, { who, isChair, toSign, mine: open.tasks, ownTodos: open.todos, everyone, forChair: isChair ? picture?.forJacob ?? [] : [],
       next, found: sagaMeetings(picture, list, today), picture, summary, at, progress, today, group, weekly: weekly ?? null, docUrl: minutesDocUrl(env),
-      recent: minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: minutesDecisions(m).map(d => d.text), tasks: minutesTasks(m).length })) }));
+      recent: await decisionKinds(db).then(kinds => minutes.slice(0, 3).map(m => ({ id: m.id, date: m.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(m).map(d => d.text), kinds), tasks: minutesTasks(m).length }))) }));
   }
 
   if (path === "/moder") {
@@ -608,12 +609,30 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const nextMeeting = planned.filter(m => m.meeting_date >= today).map(m => m.meeting_date).sort()[0] ?? null;
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", nymoede: "Forslaget er stillet til næste møde. Saga foreslår det som punkt på dagsordenen.",
       moedevedtaget: "Noteret: forslaget er vedtaget på mødet.", moedeafvist: "Noteret: forslaget blev ikke vedtaget på mødet.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
-      droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage." };
+      droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage.",
+      aftale: "Flyttet til de uformelle aftaler.", beslutning: "Flyttet til beslutningerne." };
     // The minutes the board signs off in the admin: how many have approved each. The minutes from the document have no sign-off, so no entry.
     const counts = await approvalCounts(db);
     const approvals = { members: members.names.length, approved: new Map(minutes.filter(m => m.source !== "document").map(m => [m.id, counts.get(m.id) ?? 0] as const)) };
-    return html(decisionsPage(base, [...voted, ...allDecisions(minutes, picture)], who,
-      { ...voteBlocks(base, { list, who, members: members.names.length, nowMs: now, nextMeeting }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }, approvals));
+    // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler": each point is a decision or an informal agreement - what Saga has not sorted yet she sorts now (in the
+    // background when she can, so the page does not wait), and until then it is a decision.
+    const raw = [...voted, ...allDecisions(minutes, picture)];
+    let kinds = await decisionKinds(db), sorting = false;
+    const todo = unsorted(withKinds(raw, kinds), kinds);
+    if (todo.length && env.AI_API_KEY && env.AI_MODEL && await claimJob(db, "cockpit_decision_kinds_view", Math.floor(now / 600_000), now).catch(() => false)) {
+      const work = classifyDecisions(env, deps, db, todo).catch(error => { console.warn("cockpit_decision_kinds_failed", error instanceof Error ? error.message : error); return 0; });
+      if (deps.waitUntil) { deps.waitUntil(work); sorting = true; } else { await work; kinds = await decisionKinds(db); }
+    }
+    return html(decisionsPage(base, withKinds(raw, kinds), who,
+      { ...voteBlocks(base, { list, who, members: members.names.length, nowMs: now, nextMeeting }), notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }, approvals, sorting));
+  }
+  // A board member moves a point between the decisions and the informal agreements (cockpit/decisionKinds.ts); it stays moved.
+  if (path === "/beslutninger/art" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const kind = String(form?.get("kind") ?? "") === "aftale" ? "aftale" : "beslutning";
+    const done = await setDecisionKind(db, String(form?.get("text") ?? "").slice(0, 600), kind, who, now);
+    return redirect(`${base}/beslutninger${done ? `?besked=${kind}#${kind === "aftale" ? "aftaler" : "list"}` : ""}`);
   }
   // Requested: "Vi skal også finde plads til et nyt punkt - \"Opret forslag til afstemning\"" (cockpit/votes.ts).
   if (path === "/afstemninger/ny" && request.method === "POST") {

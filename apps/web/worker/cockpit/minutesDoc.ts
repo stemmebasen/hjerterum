@@ -1,4 +1,4 @@
-import { markdownToHtml, section } from "../saga/markdown.js";
+import { markdownToHtml, section, strictSection } from "../saga/markdown.js";
 import { minutesTasks, type ApprovedMinutes, type Meeting, type Signoff } from "./data.js";
 import { esc, longDay } from "./page.js";
 import type { Correction } from "./corrections.js";
@@ -12,7 +12,7 @@ import type { Correction } from "./corrections.js";
 export type ParsedMinutes = {
   present: string; absent: string;
   points: Array<{ title: string; lines: Array<{ label: string; text: string }> }>;
-  decisions: string[]; next: string;
+  decisions: string[]; agreements: string[]; next: string;
 };
 
 const bullets = (text: string) => text.split(/\r?\n/).map(line => /^\s*[-*]\s+(.*)$/.exec(line)?.[1]?.trim() ?? "").filter(Boolean);
@@ -33,6 +33,8 @@ export function parseMinutes(markdown: string): ParsedMinutes | null {
   if (!points.length) return null;
   return { present: plain(field(markdown, "Til stede")), absent: plain(field(markdown, "Fraværende")), points,
     decisions: bullets(section(markdown, /beslutninger/i)).map(plain).filter(d => !/^ingen beslutning/i.test(d)),
+    // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
+    agreements: bullets(strictSection(markdown, /^aftaler$/i)).map(plain).filter(d => !/^ingen aftaler/i.test(d)),
     next: plain(section(markdown, /næste møde/i).replace(/^\s*[-*]\s+/gm, "").trim()) };
 }
 
@@ -94,6 +96,7 @@ ${agendaItems.length ? `<section class="m-agenda"><h2>Dagsorden</h2><ol>${agenda
 ${point.lines.map(line => /^beslutning/i.test(line.label) ? `<p class="m-decision${/^ingen beslutning/i.test(line.text) ? " m-none" : ""}"><span class="m-label">Beslutning</span>${esc(line.text)}</p>`
     : `<p>${line.label ? `<span class="m-label">${esc(line.label)}</span>` : ""}${esc(line.text)}</p>`).join("")}${pointFixes(base, minutes, i + 1, fix)}</div>`).join("")}</section>
 ${parsed.decisions.length ? `<section class="m-box"><h2>Beslutninger</h2><ul>${parsed.decisions.map(d => `<li>${esc(d)}</li>`).join("")}</ul></section>` : ""}
+${parsed.agreements.length ? `<section class="m-box"><h2>Aftaler</h2><p class="small muted" style="margin:0 0 4px">Uformelt aftalt - ikke beslutninger i bestyrelsen.</p><ul>${parsed.agreements.map(d => `<li>${esc(d)}</li>`).join("")}</ul></section>` : ""}
 ${tasks.length ? `<section><h2>Opgaver</h2><table class="m-tasks rows"><tr><th>Hvem</th><th>Hvad</th><th>Frist</th></tr>${tasks.map(t => `<tr><td data-label="Hvem">${esc(t.who || "-")}</td><td data-label="Hvad">${esc(t.what)}</td><td data-label="Frist">${esc(t.due || "-")}</td></tr>`).join("")}</table></section>` : ""}
 ${parsed.next ? `<section><h2>Næste møde</h2><p>${esc(parsed.next)}</p></section>` : ""}`
     : `${agenda.length ? `<section class="m-agenda"><h2>Dagsorden</h2><ol>${agenda.map(item => `<li>${esc(item)}</li>`).join("")}</ol></section>` : ""}<section class="doc">${fallbackHtml.replace(/<h1>[\s\S]*?<\/h1>/, "")}</section>`;
