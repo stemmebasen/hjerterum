@@ -323,9 +323,37 @@ export function responsibilitiesForSaga(names: string[], written: Map<string, st
   return lines.join("\n") || "(ingen i bestyrelsen er kendt endnu)";
 }
 
-export async function addTodo(db: D1Database, input: { owner: string; text: string; due: string | null; createdBy: string }, nowMs: number): Promise<void> {
+/** The words of a line without capitals, punctuation and spacing: "Ring til udlejer." and "ring  til udlejer" are the same. */
+const sameLine = (text: string) => text.toLocaleLowerCase("da-DK").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+
+/** Requested: "Please also delete duplicates when it comes to to-dos." A to-do that is already on the owner's list (the same words, still open) is not written again.
+ * Returns false when it was already there. */
+export async function addTodo(db: D1Database, input: { owner: string; text: string; due: string | null; createdBy: string }, nowMs: number): Promise<boolean> {
+  const open = await db.prepare("SELECT text FROM cockpit_todos WHERE owner = ? AND done_at_ms IS NULL").bind(input.owner).all<{ text: string }>().then(r => r.results ?? []);
+  if (open.some(t => sameLine(t.text) === sameLine(input.text))) return false;
   await db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms) VALUES (?, ?, ?, ?, ?)")
     .bind(input.owner, input.text, input.due, input.createdBy, nowMs).run();
+  return true;
+}
+
+/** The to-dos that are on a list twice - the same owner, the same words, both still open - are deleted: the oldest stays. What is checked off is not touched.
+ * Returns how many were deleted. */
+export async function removeDuplicateTodos(db: D1Database): Promise<number> {
+  const open = await db.prepare("SELECT id, owner, text FROM cockpit_todos WHERE done_at_ms IS NULL ORDER BY created_at_ms, id").all<{ id: number; owner: string; text: string }>().then(r => r.results ?? []);
+  const seen = new Set<string>(), extra: number[] = [];
+  for (const todo of open) {
+    const key = `${todo.owner}\n${sameLine(todo.text)}`;
+    if (seen.has(key)) extra.push(todo.id); else seen.add(key);
+  }
+  for (const id of extra) await db.prepare("DELETE FROM cockpit_todos WHERE id = ?").bind(id).run();
+  return extra.length;
+}
+
+/** One line per person and task: the same task from the minutes and from the minutes document (or twice in the same minutes) is shown once. */
+export function uniqueTasks(tasks: Task[]): Task[] {
+  const kept: Task[] = [];
+  for (const task of tasks) if (!kept.some(k => k.who.trim().toLocaleLowerCase("da-DK") === task.who.trim().toLocaleLowerCase("da-DK") && sameTask(k.what, task.what))) kept.push(task);
+  return kept;
 }
 
 /** Only the owner checks an item off (or back on), and only the one who wrote it removes it. */

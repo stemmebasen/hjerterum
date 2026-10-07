@@ -552,7 +552,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (path === "/opgaver/ny") {
         const text = field("text", 300), due = field("due", 10), owner = field("owner", 60) || who;
         if (!text || (members.names.length && !members.names.includes(owner) && owner !== who && owner !== "Alle")) return redirect(`${base}/opgaver`);
-        await addTodo(db, { owner, text, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, createdBy: who }, now);
+        const added = await addTodo(db, { owner, text, due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, createdBy: who }, now);
+        if (!added) return redirect(`${base}/opgaver?dublet=1`);
         return redirect(`${base}/opgaver?${owner === who ? "tilfojet=1" : owner === "Alle" ? "alle=1" : `til=${encodeURIComponent(owner)}`}`);
       }
       // Requested: "make sure that there are no duplicates in the to-dos" - one line can stand for the same task from
@@ -576,7 +577,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
           else if (kind === "saga") { if (done) await markSaga(id!); }
           else if (kind === "opgave") await setTaskChecked(db, who, id!, done, now);
         }
-        return redirect(`${base}/opgaver`);
+        // From the front page you go back to "Dine opgaver" there.
+        return redirect(field("back", 10) === "forside" ? `${base}/#dine-opgaver` : `${base}/opgaver`);
       }
       // Requested: "I can't delete them." Your own items are deleted; a task from the minutes or Saga leaves your list.
       if (path === "/opgaver/fjern" || path === "/opgaver/slet") {
@@ -585,14 +587,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
           else if (kind === "saga") await markSaga(id!);
           else if (kind === "opgave") await removeTaskFor(db, who, id!, now);
         }
-        return redirect(`${base}/opgaver`);
+        return redirect(field("back", 10) === "forside" ? `${base}/#dine-opgaver` : `${base}/opgaver`);
       }
       return html(notFound(base, who), 404);
     }
     if (path !== "/opgaver") return html(notFound(base, who), 404);
     const [{ picture }, minutes, checked, todos, removed] = await Promise.all([boardPicture(db, now), approvedMinutes(db), checkedTasks(db, who), todosFor(db, who), removedTasks(db, who)]);
     const sentTo = url.searchParams.get("til");
-    const notice = url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
+    const notice = url.searchParams.get("dublet") ? "Den opgave står allerede på listen." : url.searchParams.get("tilfojet") ? "Opgaven er skrevet på din liste." : url.searchParams.get("alle") ? "Opgaven er skrevet på hele bestyrelsens liste." : sentTo ? `Opgaven er skrevet på ${sentTo.slice(0, 60)}s liste.` : "";
     const all = currentTasks(allTasks(minutes, picture));
     const saga = await sagaFor(picture);
     return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,

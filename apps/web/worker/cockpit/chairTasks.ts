@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import type { SagaEnv } from "../saga/env.js";
 import { markOwnerDone } from "../saga/store.js";
-import { allTasks, approvedMinutes, imperative, boardMembers, boardPicture, openFor, setTaskChecked, setTodoDone, taskKey } from "./data.js";
+import { allTasks, approvedMinutes, imperative, mergeSame, boardMembers, boardPicture, openFor, setTaskChecked, setTodoDone, taskKey } from "./data.js";
 import { currentForChair } from "./home.js";
 
 /** Requested: "Det er vigtigt, at min adgang til cockpittet synkroniseres med Matrix, for det er basalt set de
@@ -33,7 +33,11 @@ async function chairList(env: SagaEnv, db: D1Database, nowMs: number) {
     ...open.todos.map(t => ({ key: `p${t.id}`, kind: "opgave" as const, text: t.text, source: "cockpit", from: t.created_by === chair ? null : t.created_by,
       since: new Date(t.created_at_ms).toISOString().slice(0, 10), done: () => setTodoDone(db, t.id, chair, true, nowMs) }))
   ];
-  return { chair, items };
+  // Requested: "Please also delete duplicates when it comes to to-dos." - the same task from the overview, the minutes and the chair's own list is one line in
+  // Matrix as well (the first of them is shown, and "klaret" takes all of them).
+  const merged = mergeSame(items, item => item.text).map(({ item, twins }) => twins.length
+    ? { ...item, done: async () => { await Promise.all([item, ...twins].map(i => i.done())); } } : item);
+  return { chair, items: merged };
 }
 
 export async function chairItems(env: SagaEnv, db: D1Database, nowMs: number): Promise<{ chair: string | null; items: ChairItem[] }> {

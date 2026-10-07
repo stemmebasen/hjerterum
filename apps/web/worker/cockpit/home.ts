@@ -1,10 +1,11 @@
 import type { BoardPicture } from "../saga/picture.js";
-import { agreedLabel, imperative, mergeSame, sagaSource, TASKS_SINCE, taskDay, withoutStop, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
+import { TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
 import { voteTodo, type Proposal } from "./votes.js";
 import { esc, layout, longDay, responsibilitiesForm, shortDay } from "./page.js";
+import { openLines, TODOS_STYLE } from "./todosPage.js";
 
 /** Requested: "det er vigtigt, at vi får et meget veltænkt og gennemtænkt overblik på forsiden, gerne med en
  * lille følgebeskrivelse" - "lav en moderne og pæn forside, som giver overblik over det vigtigste på alle de
@@ -147,17 +148,12 @@ ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er d
   const mine = [
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
-    // Requested: "make sure that there are no duplicates in the to-dos" - the same task from the minutes, the minutes
-    // document, Saga's list and your own items is one line here too (data.ts sameTask).
-    ...mergeSame<{ text: string; html: string }>([
-      ...data.tasks.filter(t => t.source !== "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">${esc(agreedLabel(t.meeting))}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
-      ...data.tasks.filter(t => t.source === "dokument").map(t => ({ text: t.what, html: (t => `<li>${esc(sentence(imperative(t.what)))}<span class="ctx">${esc(agreedLabel(t.meeting))}${t.due ? ` · frist ${esc(t.due)}` : ""}</span></li>`)(t) })),
-      ...(data.forMe.map(f => ({ text: f.text, html: (f => `<li>${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(withoutStop(f.text))}<span class="ctx">${esc(sagaSource(f))}</span></li>`)(f) }))),
-      ...data.todos.map(t => ({ text: t.text, html: (t => `<li>${esc(sentence(t.text))}${t.due ? ` · <span class="ctx" style="display:inline">frist ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}<span class="ctx">${t.created_by === data.who ? "Din egen opgave" : `Fra ${esc(t.created_by)}`}</span></li>`)(t) })),
-    ], line => line.text).map(group => group.item.html)
+    // The same lines as on Opgaver, with the same checkbox to the left ("helt samme styling som på opgavesiden"): the same task from the minutes,
+    // the minutes document, Saga's list and your own items is one line (data.ts sameTask), and checking it takes the page back here.
+    ...(data.who ? openLines(base, { who: data.who, tasks: data.tasks, todos: data.todos, saga: data.forMe, back: "forside" }) : [])
   ];
-  const yours = `<article class="panel"><header><h2>Dine opgaver</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
-${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="items">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
+  const yours = `<article class="panel" id="dine-opgaver"><header><h2>Dine opgaver</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
+${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="plain">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
 <a class="more" href="${base}/beslutninger#nyt">Stil et forslag til afstemning →</a></article>`;
 
@@ -205,5 +201,5 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - until the member has written them.
   const ask = data.needsResponsibilities ? `<section class="panel ask-ansvar" id="ansvar"><header><h2>Hvad har du ansvar for?</h2><p>Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.</p></header>${responsibilitiesForm(base, "", "/")}</section>` : "";
   return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${ask}${enquiryNote}${reviewNote}${working}
-<div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: HOME_STYLE + MEMBERS_STYLE });
+<div class="panels"><div>${yours}${minutes}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + HOME_STYLE + MEMBERS_STYLE });
 }
