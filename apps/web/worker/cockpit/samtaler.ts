@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { ADMINS_STYLE } from "./admins.js";
-import { esc, layout } from "./page.js";
+import { esc, fold, layout, SHOWN } from "./page.js";
 
 /** Requested by the chair, as super admin: "Lad mig også se chatudskrift" - what each admin member has asked Saga, and what
  * Saga answered. The questions are kept 90 days (ask.ts). Only the chair sees them, and the chat window says so. A run of
@@ -80,8 +80,9 @@ export function samtalerPage(base: string, who: string | null, d: { transcript: 
   const picks = `<nav class="chat-pick" aria-label="Medlem"><a href="${esc(link(""))}"${d.member ? "" : ' aria-current="page"'}>Alle<small>${total}</small></a>${t.askers.map(a =>
     `<a href="${esc(link(a.who))}"${a.who === d.member ? ' aria-current="page"' : ""}>${esc(a.who)}<small>${a.n}</small></a>`).join("")}</nav>`;
   const download = `${base}/samtaler?${new URLSearchParams({ ...(d.member ? { medlem: d.member } : {}), ...(d.q ? { q: d.q } : {}), udskrift: "1" })}`;
-  const list = t.conversations.map(c => `<section class="panel chat"><header><h2>${esc(c.who)}</h2><span>${esc(WHEN.format(c.startMs))} · ${c.turns.length} spørgsmål</span></header>
-${c.turns.map(turn => `<div class="turn"><div class="q">${esc(turn.question)}</div><div class="a">${answerHtml(turn.answer)}</div><span class="t">Kl. ${esc(CLOCK.format(turn.atMs))}${DAY_MONTH.format(turn.atMs) === DAY_MONTH.format(c.startMs) ? "" : ` · ${esc(DAY_MONTH.format(turn.atMs))}`}</span></div>`).join("")}</section>`).join("");
+  const chatOf = (c: Conversation) => `<section class="panel chat"><header><h2>${esc(c.who)}</h2><span>${esc(WHEN.format(c.startMs))} · ${c.turns.length} spørgsmål</span></header>
+${c.turns.map(turn => `<div class="turn"><div class="q">${esc(turn.question)}</div><div class="a">${answerHtml(turn.answer)}</div><span class="t">Kl. ${esc(CLOCK.format(turn.atMs))}${DAY_MONTH.format(turn.atMs) === DAY_MONTH.format(c.startMs) ? "" : ` · ${esc(DAY_MONTH.format(turn.atMs))}`}</span></div>`).join("")}</section>`;
+  const list = t.conversations.slice(0, SHOWN).map(chatOf).join("") + (t.conversations.length > SHOWN ? fold("Klik her for at se alle samtaler", "Skjul de ældre samtaler", t.conversations.slice(SHOWN).map(chatOf).join(""), t.conversations.length - SHOWN) : "");
   return layout(base, "Samtaler med Saga", `<main class="adm"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/administratorer">← Administratorer</a></p><h1>Samtaler med Saga</h1>
 <p>Det bestyrelsens medlemmer har spurgt Saga om i admin og i Matrix, og hvad hun svarede. Samtalerne gemmes i ${KEPT_DAYS} dage. Kun for formanden.</p></div>
 <form class="m-search" method="get" action="${base}/samtaler">${d.member ? `<input type="hidden" name="medlem" value="${esc(d.member)}">` : ""}<input type="search" name="q" value="${esc(d.q)}" placeholder="Søg i spørgsmål og svar" maxlength="80" aria-label="Søg"><button class="ghost">Søg</button>${t.turns ? `<a class="ghost" href="${esc(download)}" style="align-self:center">Hent udskrift (tekst)</a>` : ""}</form>

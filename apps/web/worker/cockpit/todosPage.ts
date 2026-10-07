@@ -10,6 +10,7 @@ import { voteTodo, type Proposal } from "./votes.js";
 export const WHO_CHIP_STYLE = `.who{display:inline-flex;align-items:center;font-size:12.5px;font-weight:650;padding:3px 10px;border-radius:999px;white-space:nowrap;line-height:1.3;
 background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,var(--c) 82%,var(--ink));border:0;min-height:0;cursor:pointer}
 .who[aria-pressed=true]{background:var(--c);color:#fff}`;
+// Requested: "Dine todos og Skriv en opgave er på samme række og i hver sin kolonne" (.todo-row): the list is the wider column, the form the narrower - one under the other on a narrow screen.
 export const TODOS_STYLE = `
 .todo{display:flex;gap:12px;align-items:flex-start}.todo form{margin:0}.todo .what{flex:1;min-width:0}
 .check{width:26px;height:26px;min-height:26px;padding:0;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--ink);flex:none;display:grid;place-items:center;font-size:15px;line-height:1}
@@ -19,6 +20,8 @@ ul.plain .ctx{display:block;font-size:12.5px;color:var(--faint);margin-top:2px}
 .add{display:grid;gap:10px;grid-template-columns:1fr 160px 180px auto;align-items:end}.add label{margin:0}
 @media (max-width:760px){.add{grid-template-columns:1fr 1fr}.add label:first-child,.add button{grid-column:1/-1}}
 details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;margin-top:6px}.done-note{margin:14px 0 0}
+.todo-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;align-items:start;margin:0 0 20px}.todo-row>.card{margin:0}.todo-row .add{grid-template-columns:1fr}
+@media (max-width:860px){.todo-row{grid-template-columns:1fr;gap:16px}}
 ${WHO_CHIP_STYLE}.who-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
 ul.moves{list-style:none;margin:0;padding:0;display:grid}ul.moves li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline;padding:11px 0;border-top:1px solid var(--line)}
 ul.moves li:first-child{border-top:0}ul.moves li.is-done>span:last-child{color:var(--muted)}ul.moves .tick{color:var(--accent);font-weight:800}ul.moves .who{cursor:default}ul.moves .when{font-size:12.5px;color:var(--faint);white-space:nowrap;margin-left:6px}
@@ -129,7 +132,7 @@ export function todosPage(base: string, data: TodosData): string {
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
-${done.length ? `<details class="done-list" open><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}
+${done.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}
 <p class="small muted done-note">Opgaver, der er klaret, forsvinder automatisk efter syv dage.</p></div>`;
   const everyone = uniqueTasks(data.everyone ?? []), checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
   const checkOf = (t: Task) => checks.get(taskKey(t));
@@ -140,13 +143,16 @@ ${done.length ? `<details class="done-list" open><summary>Klaret de sidste 7 dag
   const DONE_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
   const move = (t: Task) => { const who = t.who.trim() || EVERYONE, c = checkOf(t);
     return `<li data-who="${esc(who)}"${c ? ' class="is-done"' : ""}>${chip(who)}<span>${c ? '<span class="tick" aria-label="Klaret">✓</span> ' : ""}${esc(sharp(t.what))}${t.due && !c ? `<span class="when">· ${esc(/^\d{4}-\d{2}-\d{2}$/.test(t.due) ? shortDay(t.due) : t.due)}</span>` : ""}${c ? `<span class="when">· klaret ${esc(DONE_DAY.format(c.at))}${c.by && c.by !== who ? ` af ${esc(c.by.split(/\s+/)[0]!)}` : ""}</span>` : ""}</span></li>`; };
+  // Requested: "Hvad bevæger sig viser kun de aktive - resten er også foldet sammen": what is still open stands there; what was checked off in the last seven days and the archive are folded.
+  const active = current.filter(t => !checkOf(t)), finished = current.filter(t => checkOf(t));
   const people = [...new Set(everyone.map(t => t.who.trim() || EVERYONE))];
-  const board = everyone.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens opgaver fra referaterne den seneste måned - de nyeste øverst.</p>
+  const board = everyone.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens åbne opgaver fra referaterne - de nyeste øverst.</p>
 ${people.length > 1 ? `<div class="who-filter" role="group" aria-label="Vis kun">${people.map(p => chip(p, "button", ` type="button" aria-pressed="false" data-who="${esc(p)}"`)).join("")}</div>` : ""}
-<ul class="moves">${current.map(t => move(t)).join("")}</ul>
+${active.length ? `<ul class="moves">${active.map(t => move(t)).join("")}</ul>` : `<p class="muted">Intet er i gang lige nu.</p>`}
+${finished.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${finished.length})</summary><ul class="moves">${finished.map(t => move(t)).join("")}</ul></details>` : ""}
 ${archived.length ? `<details class="done-list"><summary>Arkiv (${archived.length})</summary><ul class="moves">${archived.map(t => move(t)).join("")}</ul></details>` : ""}</div>
 <script>document.querySelectorAll(".who-filter .who").forEach(b=>b.onclick=()=>{const on=b.getAttribute("aria-pressed")!=="true";document.querySelectorAll(".who-filter .who").forEach(x=>x.setAttribute("aria-pressed","false"));
 b.setAttribute("aria-pressed",String(on));document.querySelectorAll("ul.moves li").forEach(li=>{li.hidden=on&&li.dataset.who!==b.dataset.who})})</script>` : "";
   return layout(base, "Opgaver", `<main><h1>Dine opgaver</h1><p class="muted">Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${list}${add}${board}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}<div class="todo-row">${list}${add}</div>${board}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
 }

@@ -68,6 +68,13 @@ ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12p
 ul.plain li>a:only-child,ul.plain li>a:first-child:last-child{display:flex;justify-content:space-between;align-items:center;text-decoration:none;font-weight:600;min-height:28px;color:var(--ink)}
 ul.plain li>a:only-child::after{content:"→";color:var(--faint);font-size:16px;line-height:1;font-weight:400}ul.plain li>a:only-child:hover{color:var(--accent)}
 ol.agenda{margin:0;padding-left:22px}ol.agenda li{margin:4px 0}ol.agenda li::marker{color:var(--faint);font-weight:600}
+/* Requested: "Indram punkterne så de er klart adskilt fra møde-overskrift og underopskrift" and "Vi skal også benytte samfoldede afsnit på siden generelt": the points of an agenda stand in a frame of their own,
+   and what is beyond the first few is folded under a button (details.fold). */
+.agenda-box{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:12px 16px 12px 12px;margin:10px 0 0}.agenda-box ol.agenda{padding-left:26px}
+details.fold{margin:12px 0 0;border-top:0;padding:0}details.fold>summary::before,details.fold[open]>summary::before{content:none}details.fold>summary{display:inline-flex;align-items:center;gap:8px;cursor:pointer;list-style:none;padding:8px 16px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:14px;font-weight:600;min-height:38px}
+details.fold>summary::-webkit-details-marker{display:none}details.fold>summary::after{content:"▾";color:var(--faint);font-size:12px}details.fold[open]>summary::after{content:"▴"}
+details.fold>summary:hover{border-color:var(--accent)}details.fold>summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}details.fold>.fold-body{margin-top:12px}
+details.fold .fold-less,details.fold[open] .fold-more{display:none}details.fold[open] .fold-less{display:inline}
 /* Requested: "oplæg til dagsorden ... i punktform, så man kan oprette et punkt. Der skal altså ikke være fri tekst ... Sagas forslag ... slette hver med et kryds": one row per point, a cross on each. */
 ol.agenda.points{padding:0;list-style:none;counter-reset:point;display:grid;gap:6px;margin:0 0 4px}
 ol.agenda.points li{counter-increment:point;display:flex;align-items:center;gap:10px;margin:0;padding:7px 8px 7px 14px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
@@ -338,11 +345,19 @@ const PENCIL = `<svg viewBox="0 0 20 20" width="15" height="15" fill="none" stro
 /** The grip at the left of an agenda point: six dots - take hold here to move the point. */
 const GRIP = `<svg viewBox="0 0 12 18" width="12" height="18" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="9" r="1.5"/><circle cx="9" cy="9" r="1.5"/><circle cx="3" cy="15" r="1.5"/><circle cx="9" cy="15" r="1.5"/></svg>`;
 const KIND_TAG: Record<string, string> = { team: `<span class="kind-tag team">Teammøde</span>` };
+/** Requested: "Lad der kun blive vist fem punkter og sæt en knap: Klik her for detaljer" and "Vi skal også benytte samfoldede afsnit på siden generelt, ellers bliver det for voldsomt":
+ * the first five lines of a long list stand open, the rest is folded under a button that says how many there are. */
+export const SHOWN = 5;
+export function fold(open: string, close: string, body: string, count?: number): string {
+  return `<details class="fold"><summary><span class="fold-more">${open}</span><span class="fold-less">${close}</span>${count ? ` <span class="pill">${count}</span>` : ""}</summary><div class="fold-body">${body}</div></details>`;
+}
+
 function meetingSummary(base: string, m: Meeting, members: string[] = []): string {
   const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
+  const point = (item: string) => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : authors[item] && members.length ? ` ${personChip(members, authors[item]!)}` : ""}</li>`;
   return `<p><strong>${esc(longDay(m.meeting_date))}</strong>${m.start_time ? ` kl. ${esc(m.start_time)}` : ""}${m.place ? ` · ${esc(m.place)}` : ""}${m.kind ? KIND_TAG[m.kind] : ""}</p>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 8px">${esc(rolesLine(m))}</p>` : ""}
-${items.length ? `<ol class="agenda">${items.map(item => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : authors[item] && members.length ? ` ${personChip(members, authors[item]!)}` : ""}</li>`).join("")}</ol>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
+${items.length ? `<div class="agenda-box"><ol class="agenda">${items.slice(0, SHOWN).map(item => point(item)).join("")}</ol>${items.length > SHOWN ? fold("Klik her for detaljer", "Skjul detaljer", `<ol class="agenda" start="${SHOWN + 1}">${items.slice(SHOWN).map(item => point(item)).join("")}</ol>`, items.length - SHOWN) : ""}</div>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
 <p style="margin:10px 0 0"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a></p>`;
 }
 
@@ -495,14 +510,15 @@ ${roleSelects(data.members, null)}
 <div class="actions"><button>Gem møde</button></div></form>`;
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
     : row.inDocument ? `<a href="${base}/arkiv#${esc(row.date)}">I referatdokumentet</a>` : row.meeting ? `<a href="${base}/moder/${row.meeting.id}#upload">Upload optagelse</a>` : `<span class="muted">Mangler</span>`;
+  const pastTable = (rows: PastMeeting[]) => `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${rows.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
+<td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
+<td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>`;
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
 <div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m, data.members)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
 ${foundMeetings(base, data.found, data.today)}</div>
 <div class="stack-cards"><div class="card" id="nyt"><h2>Planlæg et møde</h2>${form}</div>
 <p class="notice info-note"><strong>Påmindelse om mødet:</strong> Om morgenen på mødedagen (fra kl. 8) skriver Saga i gruppen, at dagsordenen er klar, med punkterne, hvornår I ses og et link til dagsordenen. Det sker for teammøder, der har punkter på dagsordenen.</p></div></div>
-<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `<table class="rows"><tr><th>Dato</th><th>Dagsorden</th><th>Referat</th></tr>${data.past.map(row => `<tr><td data-label="Dato"><strong>${esc(shortDay(row.date))}</strong></td>
-<td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
-<td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
+<div class="grid"><div class="card"><h2>Holdte møder</h2>${data.past.length ? `${pastTable(data.past.slice(0, SHOWN))}${data.past.length > SHOWN ? fold("Klik her for at se alle møder", "Skjul de ældre møder", pastTable(data.past.slice(SHOWN)), data.past.length - SHOWN) : ""}` : `<p class="muted">Ingen holdte møder endnu.</p>`}</div>
 <div class="card" id="upload"><h2>Upload mødeoptagelse</h2>${data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`}</div></div></main>`, { section: "/moder", who: data.who, style: WHO_CHIP_STYLE });
 }
 
@@ -572,23 +588,29 @@ export function decisionsPage(base: string, decisions: Decision[], who: string |
 <td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${source(d)}${approvals && pending(d) !== null ? `<div class="small muted">Referatet: ${pending(d)} af ${approvals.members} har godkendt</div>` : ""}</td><td class="act">${move(d, "aftale")}</td></tr>`;
   const agreement = (d: Decision) => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
 <td data-label="Aftale"><div class="dec"><span class="handshake" aria-hidden="true">${HANDSHAKE}</span><div class="said">${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${source(d)}${d.kindBy ? `<div class="small muted">Sorteret af ${esc(d.kindBy)}</div>` : ""}</td><td class="act">${move(d, "beslutning")}</td></tr>`;
+  // Requested: "Lav lignende oprydning på /beslutninger": the latest five of each stand open, the older ones are folded under a button - a search opens them.
+  const decisionTable = (id: string, what: string, rows: string[]) => `<table id="${id}" class="rows decisions"><tr><th>Dato</th><th>${what}</th><th>Kilde</th><th class="act"></th></tr>${rows.join("")}</table>`;
   return layout(base, "Beslutninger", `<main class="sortable"><h1>Beslutninger og aftaler</h1>${votes ? `<p class="muted">Bestyrelsens beslutninger fra referaterne og de digitale afstemninger. ${votes.intro}</p>
 ${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}${sorting ? `<p class="notice">Saga sorterer beslutninger og aftaler - genindlæs siden om lidt.</p>` : ""}<div class="card"><div class="cardhead"><h2>Besluttet</h2>${sortToggle}</div><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
-${decided.length ? `<table id="list" class="rows decisions"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th><th class="act"></th></tr>${decided.map(row).join("")}</table>`
+${decided.length ? `${decisionTable("list", "Beslutning", decided.slice(0, SHOWN).map(row))}${decided.length > SHOWN ? fold("Klik her for at se alle beslutninger", "Skjul de ældre beslutninger", decisionTable("list-rest", "Beslutning", decided.slice(SHOWN).map(row)), decided.length - SHOWN) : ""}`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${agreed.length ? `<div class="card" id="aftaler"><div class="cardhead"><h2>Uformelle aftaler <span class="pill">${agreed.length}</span></h2>${sortToggle}</div>
-<p class="small muted" style="margin:-6px 0 8px">Aftaler mellem enkelte personer, anbefalinger, forslag og noter - alt det, der ikke er afgjort som en beslutning i bestyrelsen, og derfor uden laurbær. Er en af dem i virkeligheden en beslutning, så tryk <em>Ret sortering</em>.</p>
-<table id="agreements" class="rows decisions"><tr><th>Dato</th><th>Aftale</th><th>Kilde</th><th class="act"></th></tr>${agreed.map(agreement).join("")}</table></div>` : ""}${votes ? votes.closed : ""}</main>
+<p class="small muted" style="margin:2px 0 14px">Aftaler mellem enkelte personer, anbefalinger, forslag og noter - alt det, der ikke er afgjort som en beslutning i bestyrelsen, og derfor uden laurbær. Er en af dem i virkeligheden en beslutning, så tryk <em>Ret sortering</em>.</p>
+${decisionTable("agreements", "Aftale", agreed.slice(0, SHOWN).map(agreement))}${agreed.length > SHOWN ? fold("Klik her for at se alle aftaler", "Skjul de ældre aftaler", decisionTable("agreements-rest", "Aftale", agreed.slice(SHOWN).map(agreement)), agreed.length - SHOWN) : ""}</div>` : ""}${votes ? votes.closed : ""}</main>
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
 {const m=document.querySelector("main.sortable"),set=on=>{m.classList.toggle("sorting",on);document.querySelectorAll("[data-sorting]").forEach(b=>b.setAttribute("aria-pressed",String(on)));try{sessionStorage.setItem("sorting",on?"1":"")}catch(e){}};
 document.querySelectorAll("[data-sorting]").forEach(b=>b.addEventListener("click",()=>set(!m.classList.contains("sorting"))));try{if(sessionStorage.getItem("sorting"))set(true)}catch(e){}}
-document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr,#agreements tr").forEach(r=>{if(r.querySelector("th"))return;r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
+document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();if(q)document.querySelectorAll("main details.fold").forEach(d=>{d.open=true});document.querySelectorAll("table.decisions tr").forEach(r=>{if(r.querySelector("th"))return;r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
 }
+
+/** Requested: "Lav lignende oprydning på de resterende": the five newest minutes and days stand open, the older ones are folded under a button. */
+const minutesLineOf = (base: string) => (m: ApprovedMinutes) => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`;
+const historyDay = (h: { day: string; text: string }) => `<details id="${esc(h.day)}"><summary>${esc(longDay(h.day))}</summary><div style="white-space:pre-wrap" class="small">${esc(h.text)}</div></details>`;
 
 export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; history: Array<{ day: string; label: string; text: string }>; docUrl: string | null; docError: string | null; who: string | null }): string {
   return layout(base, "Arkiv", `<main><h1>Arkiv</h1><div class="grid"><div class="card"><h2>Referater fra Saga</h2>
-${data.minutes.length ? `<ul class="plain">${data.minutes.map(m => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`).join("")}</ul>` : `<p class="muted">Ingen endnu.</p>`}</div>
+${data.minutes.length ? `<ul class="plain">${data.minutes.slice(0, SHOWN).map(minutesLineOf(base)).join("")}</ul>${data.minutes.length > SHOWN ? fold("Klik her for at se alle referater", "Skjul de ældre referater", `<ul class="plain">${data.minutes.slice(SHOWN).map(minutesLineOf(base)).join("")}</ul>`, data.minutes.length - SHOWN) : ""}` : `<p class="muted">Ingen endnu.</p>`}</div>
 <div class="card"><h2>Tidligere referater</h2>${data.docUrl ? `<p class="small"><a href="${esc(data.docUrl)}" target="_blank" rel="noopener">Åbn referatdokumentet</a></p>` : ""}
-${data.docError ? `<p class="muted">${esc(data.docError)}</p>` : data.history.length ? data.history.map(h => `<details id="${esc(h.day)}"><summary>${esc(longDay(h.day))}</summary><div style="white-space:pre-wrap" class="small">${esc(h.text)}</div></details>`).join("")
+${data.docError ? `<p class="muted">${esc(data.docError)}</p>` : data.history.length ? `${data.history.slice(0, SHOWN).map(historyDay).join("")}${data.history.length > SHOWN ? fold("Klik her for at se alle tidligere referater", "Skjul de ældre", data.history.slice(SHOWN).map(historyDay).join(""), data.history.length - SHOWN) : ""}`
     : `<p class="muted">Ingen referater fundet i dokumentet.</p>`}</div></div></main>
 <script>const d=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(d&&d.tagName==="DETAILS"){d.open=true;d.scrollIntoView()}</script>`, { section: "/arkiv", who: data.who });
 }

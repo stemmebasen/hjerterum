@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import { complete } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
-import { esc, layout } from "./page.js";
+import { esc, fold, layout, SHOWN } from "./page.js";
 import { replyTarget } from "../saga/teamMail.js";
 
 /** Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for
@@ -203,10 +203,12 @@ ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/
 <p class="small muted" style="margin:0 0 10px">Saga tjekker team@ for svar. Har du svaret fra en anden mail eller telefonen, så tryk Besvaret.</p>
 ${data.open.length ? `${recent.length ? list(recent, true) : `<p class="muted small">Intet nyt de seneste to uger.</p>`}${older.length ? `<details class="older"><summary>Ældre end to uger (${older.length})</summary>${list(older, true)}</details>` : ""}` : `<p class="muted">Ingen ubesvarede henvendelser.</p>`}
 ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${data.handled.length})</summary>${list(data.handled, false)}</details>` : ""}${scan}</div>`;
+  // Requested: "Lav lignende oprydning på de resterende": the newest five mails stand open, the rest of the loaded ones are folded under a button.
+  const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
+<span class="subj">${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`;
   const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>
 <p class="small ${data.watchOk ? "muted" : "warn"}" style="margin:0 0 6px">${esc(data.watch)}</p>
-${data.inbox.length ? `<ul class="inbox">${data.inbox.map(m => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}
+${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
