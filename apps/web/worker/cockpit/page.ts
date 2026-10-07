@@ -484,19 +484,16 @@ ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</
 <div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>${FILL_SCRIPT}`, { section: "/moder", who });
 }
 
-/** The laurel stands on what is approved: a vote the board has adopted, and the decisions of the past - the minutes document's (`dokument`, and the minutes from it, which have no sign-off in
- * the admin because the board approved them at the time). Only minutes made in the admin that are still waiting wear none until every board member has approved them (`approvals`: how many
- * have, per minutes - one entry for each minutes made in the admin) and say how many have.
- * Requested: "Jeg forstår ikke, at der er et badge ved godkendelserne i referatet, da det ikke er alle, der har godkendt det" and "Men der er da mange beslutninger, som er godkendt. Hvorfor er der ikke laurbær her?" */
+/** Every decision on the list wears the laurel: a decision is valid when it is taken - whether the minutes have been approved by the whole board is another matter, and never
+ * changes how the decision is shown. For minutes made in the admin that are still waiting, the source column says so on its own line (`approvals`: how many have approved, per minutes -
+ * one entry for each minutes made in the admin; the minutes document's have none).
+ * Requested: "bare fordi referatet ikke er godkendt, betyder det jo ikke, at vi ikke har truffet gyldige beslutninger. Så det skal vi være meget opmærksomme på." */
 export function decisionsPage(base: string, decisions: Decision[], who: string | null, votes?: VoteBlocks & { notice: string }, approvals?: { members: number; approved: Map<number, number> }): string {
-  const signed = (d: Decision) => d.minutesId !== null ? approvals?.approved.get(d.minutesId) : undefined;
-  const waiting = (d: Decision) => { const n = signed(d); return n !== undefined && approvals !== undefined && !(approvals.members > 0 && n >= approvals.members); };
-  const mark = (d: Decision) => waiting(d) ? "" : laurel(34);
-  // Requested: "Beslutninger og Afstemninger skal merges" - one page: what is up for vote, what has been decided, a new proposal.
+  const pending = (d: Decision) => { const n = d.minutesId !== null ? approvals?.approved.get(d.minutesId) : undefined; return n !== undefined && approvals !== undefined && !(approvals.members > 0 && n >= approvals.members) ? n : null; };
   return layout(base, "Beslutninger", `<main><h1>Beslutninger</h1>${votes ? `<p class="muted">Bestyrelsens beslutninger fra referaterne og de digitale afstemninger. ${votes.intro}</p>
 ${votes.notice ? `<p class="notice">${esc(votes.notice)}</p>` : ""}${votes.create}${votes.open}` : ""}<div class="card"><h2>Besluttet</h2><label>Søg<input id="q" type="search" placeholder="Fx medlemskab, budget, Open"></label>
 ${decisions.length ? `<table id="list" class="rows decisions"><tr><th>Dato</th><th>Beslutning</th><th>Kilde</th></tr>${decisions.map(d => `<tr><td data-label="Dato">${esc(/^\d{4}-/.test(d.date) ? shortDay(d.date) : d.date || "-")}</td>
-<td data-label="Beslutning"><div class="dec"><span class="seal${mark(d) ? "" : " none"}">${mark(d)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>${approvals && waiting(d) ? `<div class="small muted">${signed(d)} af ${approvals.members} har godkendt</div>` : ""}` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
+<td data-label="Beslutning"><div class="dec"><span class="seal">${laurel(34)}</span><div class="said">${d.source === "afstemning" ? APPROVED_BADGE : ""}${d.topic ? `<strong>${esc(d.topic)}:</strong> ` : ""}${esc(d.text)}</div></div></td><td data-label="Kilde">${d.source === "afstemning" ? `<a href="#p${d.voteId ?? ""}">${d.atMeeting ? "Møde" : "Afstemning"}</a>` : d.minutesId ? `<a href="${base}/referat/${d.minutesId}">Referat</a>${approvals && pending(d) !== null ? `<div class="small muted">Referatet: ${pending(d)} af ${approvals.members} har godkendt</div>` : ""}` : `<span class="muted">Dokumentet</span>`}</td></tr>`).join("")}</table>`
     : `<p class="muted">Ingen beslutninger endnu.</p>`}</div>${votes ? votes.closed : ""}</main>
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
 document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll("#list tr").forEach((r,i)=>{if(i)r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
