@@ -158,9 +158,8 @@ background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 11%,var(--card))
 .adopted-panel{border-color:color-mix(in srgb,var(--gold) 50%,var(--line));background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 12%,var(--card)),var(--card) 80%)}.adopted-panel h2{color:var(--gold)}
 .adopted-panel .prop.adopted{border:0;background:none;box-shadow:none;border-radius:0;padding:10px 0 4px;margin:0}.adopted-panel .prop.adopted h3 a{color:var(--ink);text-decoration:none}.adopted-panel .prop.adopted h3 a:hover{color:var(--gold)}
 @media (max-width:520px){.prop.adopted{grid-template-columns:1fr;row-gap:6px}.prop.adopted .seal svg{width:46px;height:46px}}
-/* Requested: "Laurbær designet skal også vises på historiske beslutninger": the laurel stands on what is approved (a vote adopted by the board, minutes every member has approved) - a vote also the gold badge; the text is centred beside it. */
+/* Requested: "Laurbær designet skal også vises på historiske beslutninger": every decision wears the laurel (a decision is valid when it is taken, whatever the state of the minutes) - a vote also the gold badge; the text is centred beside it. */
 .dec{display:flex;gap:12px;align-items:center}.dec .seal{flex:none;width:34px;height:34px;color:var(--gold)}.dec .seal svg{display:block}.dec .said{min-width:0}
-@media (max-width:760px){.dec .seal.none{display:none}}
 table.decisions td{vertical-align:middle}table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}`;
 
 export const VOTES_STYLE = `

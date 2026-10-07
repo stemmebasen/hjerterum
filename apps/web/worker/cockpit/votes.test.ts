@@ -244,9 +244,10 @@ describe("digital votes in the board", () => {
     expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain("Vedtaget på mødet");
   });
 
-  // Requested: "Laurbær designet skal også vises på historiske beslutninger" and "Jeg forstår ikke, at der er et badge ved godkendelserne i referatet, da det ikke er alle, der har godkendt det":
-  // the laurel stands only by what is approved - and "Men der er da mange beslutninger, som er godkendt. Hvorfor er der ikke laurbær her?": what is filed in the minutes document was approved at the time.
-  it("shows the laurel on the decisions that are approved - a vote adopted, the minutes document's, minutes every member has approved - and says how many have approved the minutes still waiting", async () => {
+  // Requested: "Laurbær designet skal også vises på historiske beslutninger" - and, after the laurel was tied to the approval of the minutes: "bare fordi referatet ikke er godkendt, betyder
+  // det jo ikke, at vi ikke har truffet gyldige beslutninger. Så det skal vi være meget opmærksomme på." A decision is valid when it is taken: every decision wears the laurel, and how many
+  // have approved the minutes stands apart, on its own line.
+  it("shows the laurel on every decision, whether or not the minutes are approved, and says apart how many have approved the minutes that are still waiting", async () => {
     const db = testDatabase();
     for (const [i, name] of ["Jacob Hauge", "Lisbeth"].entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
@@ -269,30 +270,33 @@ describe("digital votes in the board", () => {
     const row = page.slice(page.indexOf('<table id="list"'), page.indexOf('</table>'));
     expect(row).toContain('<div class="dec"><span class="seal"><svg class="laurel"');
     expect(row).toMatch(/<div class="said"><span class="approved-badge">[^]*GODKENDT<\/span>Vi bytter kalender<\/div>/);
-    // The minutes made in the admin are not approved by the whole board (none of the two has): no laurel, and it says how many have.
-    expect(row).toMatch(/<div class="dec"><span class="seal none"><\/span><div class="said">Medlemskab koster 99 kr\. om måneden<\/div>/);
-    expect(row).toContain("0 af 2 har godkendt");
-    // What is filed in the minutes document was approved at the time: the laurel, and no count (there is no sign-off in the admin).
+    // The minutes made in the admin are not approved by the whole board (none of the two has) - the decision stands all the same, with the laurel; the minutes' own state is its own line.
+    expect(row).toMatch(/<div class="dec"><span class="seal"><svg class="laurel"[^]*?<\/span><div class="said">Medlemskab koster 99 kr\. om måneden<\/div>/);
+    expect(row).toContain("Referatet: 0 af 2 har godkendt");
+    // What is filed in the minutes document: the laurel too, and no count (there is no sign-off in the admin).
     expect(row).toMatch(/<div class="dec"><span class="seal"><svg class="laurel"[^]*?<\/span><div class="said">Open Scene holdes hver torsdag<\/div>/);
     expect(row).toMatch(/<div class="dec"><span class="seal"><svg class="laurel"[^]*?<\/span><div class="said"><strong>Prøveperiode:<\/strong> Gratis prøveperiode til 15\. oktober<\/div>/);
     expect(row.match(/har godkendt/g)).toHaveLength(1);
-    expect(row.match(/<svg class="laurel"/g)).toHaveLength(3);
+    expect(row).not.toContain("seal none");
+    expect(row.match(/<svg class="laurel"/g)).toHaveLength(4);
     // The text stands level with the laurel.
     expect(page).toMatch(/\.dec\{display:flex;gap:12px;align-items:center\}/);
     // The right column (the source and "x af n har godkendt") keeps its text on one line.
     expect(page).toContain('table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}');
-    // One of two approves: still none. Both: the laurel, and the line is gone.
+    // One of two approves: the line follows. Both: the line is gone.
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Jacob Hauge', 'approved', NULL, 1)").run();
-    expect(await (await call("/beslutninger", as("Lisbeth"))).text()).toContain("1 af 2 har godkendt");
+    expect(await (await call("/beslutninger", as("Lisbeth"))).text()).toContain("Referatet: 1 af 2 har godkendt");
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Lisbeth', 'approved', NULL, 1)").run();
     const signed = await (await call("/beslutninger", as("Lisbeth"))).text();
     const signedRows = signed.slice(signed.indexOf('<table id="list"'), signed.indexOf('</table>'));
     expect(signedRows.match(/<svg class="laurel"/g)).toHaveLength(4);
     expect(signedRows).not.toContain("har godkendt");
-    // A correction is not an approval.
+    // A correction is not an approval: the line is back - and the laurel was never away.
     await db.prepare("UPDATE board_minutes_signoffs SET status = 'correction' WHERE member = 'Lisbeth'").run();
     const corrected = await (await call("/beslutninger", as("Lisbeth"))).text();
-    expect(corrected.slice(corrected.indexOf('<table id="list"'), corrected.indexOf('</table>')).match(/<svg class="laurel"/g)).toHaveLength(3);
+    const correctedRows = corrected.slice(corrected.indexOf('<table id="list"'), corrected.indexOf('</table>'));
+    expect(correctedRows).toContain("Referatet: 1 af 2 har godkendt");
+    expect(correctedRows.match(/<svg class="laurel"/g)).toHaveLength(4);
     // The vote is old: not in the card of the last week, but folded among the decided votes - and still on the list of decisions with its laurel.
     expect(page).not.toContain('id="vedtaget"');
   });
@@ -318,9 +322,9 @@ describe("English for the proposal at the next meeting", () => {
     const en = translateHtml(`<button class="tab"><i>+</i>Opret forslag</button><label><b>På næste møde</b><span>Saga foreslår det som punkt på dagsordenen til mødet tor. 15. okt.</span></label>
 <h2>Til næste møde</h2><p>Forslag, der stemmes om på det næste bestyrelsesmøde (tor. 15. okt.). Saga foreslår dem som punkter på dagsordenen.</p>
 <div class="who">Stillet af Lisbeth 2. okt. · stemmes om på næste møde (tor. 15. okt.) - Saga sætter det på dagsordenen</div><div class="who">Stillet af Lisbeth 2. okt. · vedtaget på mødet 15. okt.</div>
-<button>Vedtaget på mødet</button><span>Når mødet har stemt:</span><div class="small muted">1 af 2 har godkendt</div>`);
+<button>Vedtaget på mødet</button><span>Når mødet har stemt:</span><div class="small muted">Referatet: 1 af 2 har godkendt</div>`);
     expect(en).toContain("<i>+</i>Create proposal</button>");
-    expect(en).toContain("1 of 2 have approved");
+    expect(en).toContain("Minutes: 1 of 2 have approved");
     expect(en).toContain("<b>At the next meeting</b>");
     expect(en).toContain("Saga suggests it as an item on the agenda for the meeting");
     expect(en).toContain("<h2>For the next meeting</h2>");
