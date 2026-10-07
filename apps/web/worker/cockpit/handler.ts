@@ -14,7 +14,7 @@ import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCo
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
-  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -266,8 +266,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST" && action === "/forslag") {
       // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges." - and: "Sagas forslag ... i punktform i bunden ... slette hver med et kryds": her points go onto the agenda.
       if (!env.AI_API_KEY || !env.AI_MODEL) return back("ingenai");
+      // Requested: "Hun bør prioritere de fem vigtigste.": five of hers at a time - with five on the agenda she has nothing to add, and no AI call is made.
+      if (!sagaRoom(found)) return back("fuld");
       try {
-        const items = await suggestAgenda(env, deps, db, found);
+        const items = await suggestAgenda(env, deps, db, found, sagaRoom(found), (await boardPicture(db, now)).picture?.document.nextAgenda ?? []);
         return back(String(await addAgendaPoints(db, id, items, "Saga", now, true)));
       } catch (error) {
         console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
@@ -306,10 +308,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
         await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
-    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
+    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
-      : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
+      : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "fuld" ? "Saga har allerede fem forslag på dagsordenen - flere ad gangen er for mange. Slet et med krydset, så finder hun et nyt." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
       : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
     return html(meetingPage(base, found, { members: members.names, minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
       suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
