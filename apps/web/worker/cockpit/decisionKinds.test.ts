@@ -77,7 +77,7 @@ describe("decisions and informal agreements", () => {
     expect(asked[0]).toContain(MEETING);
     expect(asked[0]).not.toContain(SECTION_AGREEMENT);
     // The informal agreements: a card of their own, no laurel, the section's own and Saga's - and who sorted it.
-    expect(page).toContain('<div class="card" id="aftaler"><h2>Uformelle aftaler');
+    expect(page).toContain('<div class="card" id="aftaler"><div class="cardhead"><h2>Uformelle aftaler');
     expect(agreements).toContain(MEETING);
     expect(agreements).toContain(SECTION_AGREEMENT);
     expect(agreements).not.toContain('class="laurel"');
@@ -92,9 +92,15 @@ describe("decisions and informal agreements", () => {
     expect(decisions).toContain("Referatet: 0 af 3 har godkendt");
     expect(await db.prepare("SELECT kind, decided_by FROM cockpit_decision_kinds WHERE key = ?").bind(decisionKey(MEETING)).first()).toEqual({ kind: "aftale", decided_by: "Saga" });
     expect(await db.prepare("SELECT COUNT(*) AS n FROM cockpit_decision_kinds").first()).toEqual({ n: 2 });
-    // Each row can be moved by a board member.
-    expect(decisions).toContain('<input type="hidden" name="kind" value="aftale"><button class="linkbtn">Ikke en beslutning</button>');
-    expect(agreements).toContain('<input type="hidden" name="kind" value="beslutning"><button class="linkbtn">Gør til beslutning</button>');
+    // Each row can be moved by a board member - but the buttons wait behind "Ret sortering": next to every laurel, "Ikke en beslutning" would read as a verdict on the decision.
+    expect(decisions).toContain('<input type="hidden" name="kind" value="aftale"><button class="linkbtn">Flyt til aftaler</button>');
+    expect(agreements).toContain('<input type="hidden" name="kind" value="beslutning"><button class="linkbtn">Flyt til beslutninger</button>');
+    expect(page).not.toContain("Ikke en beslutning");
+    expect(page).toContain('<main class="sortable">');
+    expect(page.match(/<button type="button" class="linkbtn sort-toggle" data-sorting/g)).toHaveLength(2); // one in each of the two cards
+    expect(page).toContain("main.sortable:not(.sorting) .act{display:none}");
+    expect(decisions).toContain('<th class="act"></th>');
+    expect(decisions.match(/<td class="act">/g)).toHaveLength(2);
 
     // Not asked again within ten minutes - and what was sorted stays sorted.
     await call("/beslutninger", { cookie: as("Lisbeth") });
@@ -190,12 +196,13 @@ describe("decisions and informal agreements", () => {
   });
 
   it("has the new texts in English", () => {
-    const en = translateHtml(`<h1>Beslutninger og aftaler</h1><h2>Uformelle aftaler <span class="pill">2</span></h2><p>Aftaler mellem enkelte personer, anbefalinger, forslag og noter - alt det, der ikke er afgjort som en beslutning i bestyrelsen, og derfor uden laurbær. Er en af dem i virkeligheden en beslutning, så tryk <em>Gør til beslutning</em>.</p>
-<th>Aftale</th><button>Ikke en beslutning</button><div class="small muted">Sorteret af Saga</div><p>Saga sorterer beslutninger og aftaler - genindlæs siden om lidt.</p><p>Flyttet til de uformelle aftaler.</p>`);
+    const en = translateHtml(`<h1>Beslutninger og aftaler</h1><h2>Uformelle aftaler <span class="pill">2</span></h2><p>Aftaler mellem enkelte personer, anbefalinger, forslag og noter - alt det, der ikke er afgjort som en beslutning i bestyrelsen, og derfor uden laurbær. Er en af dem i virkeligheden en beslutning, så tryk <em>Ret sortering</em>.</p>
+<th>Aftale</th><button>Flyt til aftaler</button><button>Flyt til beslutninger</button><button><span class="off">Ret sortering</span><span class="on">Færdig med at rette</span></button><div class="small muted">Sorteret af Saga</div><p>Saga sorterer beslutninger og aftaler - genindlæs siden om lidt.</p><p>Flyttet til de uformelle aftaler.</p>`);
     expect(en).toContain("<h1>Decisions and agreements</h1>");
     expect(en).toContain("<h2>Informal agreements <span");
-    expect(en).toContain("Agreements between a few people, recommendations, proposals and notes - everything that is not settled as a decision of the board, and so has no laurel. If one of them is really a decision, press <em>Make it a decision</em>.");
-    expect(en).toContain("<th>Agreement</th><button>Not a decision</button>");
+    expect(en).toContain("Agreements between a few people, recommendations, proposals and notes - everything that is not settled as a decision of the board, and so has no laurel. If one of them is really a decision, press <em>Correct the sorting</em>.");
+    expect(en).toContain("<th>Agreement</th><button>Move to agreements</button><button>Move to decisions</button>");
+    expect(en).toContain('<span class="off">Correct the sorting</span><span class="on">Done correcting</span>');
     expect(en).toContain("Sorted by Saga");
     expect(en).toContain("Saga is sorting decisions and agreements - reload the page in a moment.");
     expect(en).toContain("Moved to the informal agreements.");

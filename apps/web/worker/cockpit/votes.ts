@@ -164,6 +164,9 @@ background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 11%,var(--card))
 /* Requested: "Laurbær designet skal også vises på historiske beslutninger": every decision wears the laurel (a decision is valid when it is taken, whatever the state of the minutes) - a vote also the gold badge; the text is centred beside it. */
 .dec{display:flex;gap:12px;align-items:center}.dec .seal{flex:none;width:34px;height:34px;color:var(--gold)}.dec .seal svg{display:block}.dec .said{min-width:0}
 .dec .handshake{flex:none;width:34px;height:34px;display:grid;place-items:center;color:var(--faint)}.dec .handshake svg{display:block}
+.cardhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px}.cardhead h2{margin-bottom:0}.cardhead+*{margin-top:12px}
+main.sortable .sort-toggle .on,main.sortable.sorting .sort-toggle .off{display:none}main.sortable.sorting .sort-toggle .on{display:inline}main.sortable:not(.sorting) .act{display:none}
+.linkbtn[data-sorting]{font-size:13px}
 table.decisions td.act{text-align:right;white-space:nowrap;width:1%}form.move{margin:0}.linkbtn{background:none;border:0;padding:0;min-height:0;font-size:12.5px;font-weight:500;color:var(--faint);text-decoration:underline;text-underline-offset:3px;cursor:pointer;border-radius:0;display:inline}
 .linkbtn:hover{color:var(--accent);filter:none}@media (max-width:760px){table.decisions td.act{text-align:left;width:auto;padding-top:4px}}
 table.decisions td{vertical-align:middle}table.decisions td[data-label="Dato"],table.decisions td[data-label="Kilde"]{white-space:nowrap}`;
