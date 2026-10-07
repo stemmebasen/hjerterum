@@ -167,7 +167,7 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     `VEDTÆGTER:\n${STATUTES}`,
     `FORENINGSRET (lovgrundlaget for foreninger med begrænset ansvar):\n${LAW}`,
     `BESLUTNINGER (nyeste først):\n${allDecisions(minutes, picture).slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
-    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}` : ""}${m.place ? `, ${m.place}` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i cockpittet)"}`,
+    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}` : ""}${m.place ? `, ${m.place}` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
@@ -201,7 +201,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
   const items: PersonalItem[] = who ? await personalItems(db, who, deps.now()).catch(() => []) : [];
   const mine = who ? personalSection(who, items) : "";
-  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}${await memorySection(db, who)}\n\nLINKS I COCKPITTET: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser cockpittet på engelsk - svar på engelsk)" : ""}: ${input.question}` }];
+  const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}${await memorySection(db, who)}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk)" : ""}: ${input.question}` }];
   const now = deps.now();
   const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, await complete(env, deps, messages), who, now, base), who, items, now, base), who, now);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();

@@ -123,6 +123,8 @@ describe("a login code from Saga", () => {
     expect(code).toMatch(/^\d{8}$/);
     expect((sent as unknown as { parse_mode?: string }).parse_mode).toBe("HTML");
     expect(sent.text).toContain("Telegrams egen browser");
+    expect(sent.text).toContain("til bestyrelsens admin");
+    expect(sent.text).not.toMatch(/cockpit/i);
     expect(sent.text).toContain("admin.hjerterum.info");
 
     const login = await (await call("/")).text();

@@ -115,7 +115,7 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
 export const COCKPIT_VERSION = "1.15.0";
 export const COCKPIT_RELEASED = "2026-10-04";
-const versionLine = () => `<p class="ver">Hjerterum cockpit v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
+const versionLine = () => `<p class="ver">Hjerterum admin v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
   // The version sits quietly at the end of every page's main column.
@@ -256,9 +256,9 @@ export function loginPage(base: string, message: string, configured: boolean, te
   const password = configured ? `<form class="stack" method="post" action="${base}/login"><label>Fælles adgangskode<input type="password" name="password" autocomplete="current-password" required${personal ? "" : " autofocus"}></label>
 <button${personal ? ' class="ghost"' : ""}>Log ind</button></form>` : "";
   return layout(base, "Log ind", `<div class="center"><div class="card"><div class="mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="Hjerterum"></div><h1>Hjerterum bestyrelse</h1>
-<p class="muted">Bestyrelsens cockpit med møder, referater og beslutninger.</p>
+<p class="muted">Bestyrelsens admin med møder, referater og beslutninger.</p>
 ${message ? `<p class="notice warn">${esc(message)}</p>` : ""}${personal}${personal && password ? `<p class="small muted" style="margin:18px 0 6px">Eller med den fælles adgangskode</p>` : ""}${password}
-${personal || password ? "" : `<p class="notice warn">Cockpittet er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
+${personal || password ? "" : `<p class="notice warn">Admin er ikke sat op endnu: formanden mangler at vælge den fælles adgangskode.</p>`}</div></div>`);
 }
 
 /** Saga's personal link: one press logs in, so a link preview in Telegram never does. */
