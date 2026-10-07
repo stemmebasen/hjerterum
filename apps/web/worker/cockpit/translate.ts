@@ -9,13 +9,13 @@ import { englishReaders, translateHtml } from "./i18n.js";
 /** Requested: "Douglas taler engelsk" - "Ja byg det sådan". Saga's own short texts on the front page ("Bestyrelsen lige nu",
  * the overview's lead, the key points from the last meeting) are translated once, when they are new and someone reads the
  * cockpit in English - in Saga's weekday round, never at the weekend - and kept by the Danish text's hash. A page shows the
- * kept English, or the Danish while there is none. A whole minutes document is translated only when a reader asks for it. */
+ * kept English, or the Danish while there is none. A whole summary is translated when Saga has made it (scheduledEnglishSummaries) - and when a reader asks for it, if it has none. */
 
 const SYSTEM = "You translate texts from the board's admin site of Hjerterum, a Danish association in Aarhus, from Danish into natural, warm, plain English. "
   + "Translate faithfully: add, drop or explain nothing; keep names, places, amounts, dates and Markdown as they are. "
-  + "Hjerterum stays Hjerterum. Answer ONLY with JSON: {\"texts\":[\"...\"]} - the same number of texts in the same order.";
-const DOC_SYSTEM = "You translate the minutes of a board meeting of Hjerterum, a Danish association in Aarhus, from Danish into clear English. "
-  + "Translate faithfully and completely: add, drop or explain nothing; keep names, places, amounts and dates. Keep the Markdown structure (headings, lists, bold labels) exactly. "
+  + "Hjerterum stays Hjerterum. Always call a 'referat' a 'summary' - never 'minutes'. Answer ONLY with JSON: {\"texts\":[\"...\"]} - the same number of texts in the same order.";
+const DOC_SYSTEM = "You translate the summary (Danish: referat) of a board meeting of Hjerterum, a Danish association in Aarhus, from Danish into clear English. "
+  + "Translate faithfully and completely: add, drop or explain nothing; keep names, places, amounts and dates. Keep the Markdown structure (headings, lists, bold labels) exactly. Call it a 'summary' - never 'minutes' (so 'Referat af bestyrelsesmøde' becomes 'Summary of board meeting'). "
   + "Answer only with the translated Markdown.";
 
 async function hash(text: string): Promise<string> {
@@ -75,7 +75,7 @@ export async function scheduledTranslations(env: SagaEnv, deps: SagaDeps, db: D1
   await translateTexts(env, deps, db, texts);
 }
 
-/** A whole minutes document in English, kept; translated when a reader asks for it. */
+/** A whole summary in English, kept - made with the Danish one, or when a reader asks for it. */
 export async function translatedMinutes(db: D1Database, markdown: string): Promise<string | null> {
   return (await translations(db, [markdown])).get(markdown) ?? null;
 }
@@ -92,6 +92,8 @@ export async function translateMinutes(env: SagaEnv, deps: SagaDeps, db: D1Datab
 /** Requested: "I think that overview, tasks, and decisions should be automatically translated". The pages that are
  * translated whole for a member who reads in English. */
 export const AUTO_TRANSLATED = new Set(["/", "/status", "/opgaver", "/beslutninger"]);
+/** Requested: "Saga should come with suggestions in either Danish and English depending on what language was picked": the meetings and a meeting's page are translated too - Saga's points for the agenda are made in English with the Danish ones, so they are ready. */
+export const autoTranslated = (path: string) => AUTO_TRANSLATED.has(path) || /^\/moder(?:\/\d+)?$/.test(path);
 const AUTO_WAIT_MS = 20_000;
 
 const weekend = (nowMs: number) => ["Sat", "Sun"].includes(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short" }).format(nowMs));
@@ -116,4 +118,19 @@ export async function translatePage(env: SagaEnv, deps: SagaDeps, db: D1Database
     kept = await translations(db, texts);
   }
   return translateHtml(html, { kept });
+}
+
+/** Requested: "She might as well make both a Danish and English summary": in Saga's round, a summary (a draft or an approved one - the three newest) that has no English yet gets it - whether or not anyone reads in English
+ * now - so the English reader finds it made. It is made again when the Danish one is changed (the English is kept by the Danish text's hash). One summary per round; a failed one is tried again in the next hour. */
+export async function scheduledEnglishSummaries(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<number> {
+  if (!env.AI_API_KEY || !env.AI_MODEL) return 0;
+  const rows = await db.prepare("SELECT id, draft_markdown FROM board_minutes WHERE draft_markdown IS NOT NULL AND status IN ('drafted', 'approved') ORDER BY COALESCE(meeting_date, '') DESC, id DESC LIMIT 3")
+    .all<{ id: number; draft_markdown: string }>().then(r => r.results ?? []).catch(() => [] as Array<{ id: number; draft_markdown: string }>);
+  const have = await translations(db, rows.map(r => r.draft_markdown));
+  for (const row of rows) {
+    if (have.has(row.draft_markdown) || !(await claim(`cockpit_summary_en_${row.id}`, Math.floor(deps.now() / 3_600_000)))) continue;
+    await translateMinutes(env, deps, db, row.draft_markdown);
+    return 1;
+  }
+  return 0;
 }

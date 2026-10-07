@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { translateHtml, worthTranslating } from "./i18n.js";
-import { scheduledTranslations, translatePage } from "./translate.js";
+import { scheduledEnglishSummaries, scheduledTranslations, translatePage } from "./translate.js";
 import { processNextMinutes } from "../saga/saga.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
@@ -34,7 +34,7 @@ describe("the cockpit in English", () => {
     const db = testDatabase();
     let lastSystem = "", lastUser = "";
     const services = fakeServices({ ai: (system, user) => { lastSystem = system; lastUser = user;
-      if (system.startsWith("You translate the minutes")) return "# Minutes - board meeting 30 September 2026\n## Decisions\n- The budget is adopted";
+      if (system.startsWith("You translate the summary")) return "# Summary - board meeting 30 September 2026\n## Decisions\n- The budget is adopted";
       if (system.startsWith("You translate texts")) return JSON.stringify({ texts: (JSON.parse(user) as { texts: string[] }).texts.map(t => t === NOW_TEXT ? "Preparations for the general assembly are buzzing, and Lisbeth has the chairing in hand." : `EN: ${t}`) });
       return system.includes("referat") ? "# Referat - bestyrelsesmøde 30. september 2026\n## Beslutninger\n- Budgettet er vedtaget\n## Opgaver\n- Gitta - Lav event-mail - 15. oktober" : "The membership costs 222 DKK a month."; } });
     const stored = new Map<string, ArrayBuffer>();
@@ -71,7 +71,7 @@ describe("the cockpit in English", () => {
 
     // Saga answers in English.
     await call("/saga", { method: "POST", json: true, cookie: douglas, body: JSON.stringify({ question: "Hvad koster et medlemskab?", history: [] }) });
-    expect(lastUser).toContain("Douglas spørger (læser admin på engelsk - svar på engelsk)");
+    expect(lastUser).toContain('Douglas spørger (læser admin på engelsk - svar på engelsk, og kald et referat for "summary", aldrig "minutes")');
     expect(lastSystem).toContain("Svar på det sprog");
 
     // The minutes stay Danish as written, with "Read in English".
@@ -82,9 +82,19 @@ describe("the cockpit in English", () => {
       const before = await (await call(`/referat/${id}`, { cookie: douglas })).text();
       expect(before).toContain("Budgettet er vedtaget");
       expect(before).toContain(">Read in English</button>");
-      await call(`/referat/${id}/engelsk`, { method: "POST", cookie: douglas });
+      // Requested: "She might as well make both a Danish and English summary": Saga's round makes the English one - nobody has to press the button.
+      expect(await scheduledEnglishSummaries(env, deps(services.fetcher, NOW), db, async () => true)).toBe(1);
+      expect(await scheduledEnglishSummaries(env, deps(services.fetcher, NOW), db, async () => true)).toBe(0);
       const after = await (await call(`/referat/${id}`, { cookie: douglas })).text();
       expect(after).toContain("The budget is adopted");
+      expect(after).toContain("<title>Summary 2026-09-30");
+      expect(after).toContain("Saga&#39;s English version of the Danish summary".replace("&#39;", "'"));
+      expect(after).not.toContain(">Read in English</button>");
+      // A change in the Danish summary has no English until the round has made it again; a failed claim waits.
+      await db.prepare("UPDATE board_minutes SET draft_markdown = draft_markdown || char(10) || '- Gitta - Ny opgave' WHERE id = ?").bind(id).run();
+      expect(await scheduledEnglishSummaries(env, deps(services.fetcher, NOW), db, async () => false)).toBe(0);
+      expect(await scheduledEnglishSummaries(env, deps(services.fetcher, NOW), db, async () => true)).toBe(1);
+      expect(await scheduledEnglishSummaries({ ...env, AI_API_KEY: "" }, deps(services.fetcher, NOW), db, async () => true)).toBe(0);
       expect(after).toContain("Show the Danish original");
       expect(await (await call(`/referat/${id}?original=1`, { cookie: douglas })).text()).toContain("Budgettet er vedtaget");
     }

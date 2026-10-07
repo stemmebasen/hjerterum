@@ -194,8 +194,8 @@ ${body}${options.section === undefined ? "" : sagaChat(base, options.who ?? null
 function languageCard(base: string, lang: "da" | "en"): string {
   const choice = (value: "da" | "en", label: string) => `<button name="lang" value="${value}" class="${lang === value ? "" : "ghost"}" aria-pressed="${lang === value}" translate="no">${label}</button>`;
   return `<div class="card"><h2>Sprog / Language</h2><p class="small muted" translate="no">${lang === "en"
-    ? "Menus, buttons and Saga's short texts are in English, and Saga answers you in English. Minutes and decisions stay in Danish as written - each minutes has a Read in English button."
-    : "Vælg English, så er menuer, knapper og Sagas korte tekster på engelsk, og Saga svarer på engelsk. Referater og beslutninger forbliver på dansk som originalen."}</p>
+    ? "Menus, buttons, Saga's texts and suggestions and the summaries are in English, and Saga answers you in English. Saga writes every summary in both Danish and English - the Danish original is always one click away."
+    : "Vælg English, så er menuer, knapper, Sagas tekster og forslag og referaterne på engelsk, og Saga svarer på engelsk. Saga skriver hvert referat på både dansk og engelsk - den danske original er altid et klik væk."}</p>
 <form method="post" action="${base}/sprog" style="display:flex;gap:8px;margin:0">${choice("da", "Dansk")}${choice("en", "English")}</form></div>`;
 }
 

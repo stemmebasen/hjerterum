@@ -109,14 +109,14 @@ ${minutes.source === "document" ? `${minutes.transcript ? `<details class="m-ori
     : `<footer class="m-foot">Lagt op ${esc(DECIDED.format(minutes.created_at_ms))} · Skrevet af Saga ud fra mødeoptagelsen</footer>`}</article>${SAGA_THINKING}`;
 }
 
-/** Requested: "Douglas taler engelsk". The minutes in Saga's English translation, with the way back to the Danish original. */
+/** Requested: "Douglas taler engelsk". The summary in Saga's English version, with the way back to the Danish original. */
 export function englishMinutes(base: string, minutes: ApprovedMinutes, markdown: string): string {
   const body = (/<body>([\s\S]*)<\/body>/.exec(markdownToHtml(markdown))?.[1] ?? "").replace(/<h1>[\s\S]*?<\/h1>/, "");
   return `<div class="m-tools"><a href="${base}/moder">← Møder</a><span><a href="${base}/referat/${minutes.id}?original=1">Vis den danske original</a> · <button type="button" class="ghost" onclick="print()">Print / gem som PDF</button></span></div>
 <article class="minutes"><div class="m-head"><div class="m-org">Hjerterum · Bestyrelsen</div><h1>Referat af bestyrelsesmøde</h1>
 ${minutes.meeting_date ? `<dl class="m-facts"><div><dt>Dato</dt><dd>${esc(longDay(minutes.meeting_date))}</dd></div></dl>` : ""}</div>
 <section class="doc" translate="no">${body}</section>
-<footer class="m-foot">Translated by Saga from the Danish minutes - the Danish original is the valid version.</footer></article>`;
+<footer class="m-foot">Saga's English version of the Danish summary - the Danish original is the valid version.</footer></article>`;
 }
 
 /** Reported: "Det er svært at vide, når Saga er i gang med at tænke" - and a correction sent four times
