@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
-import { classifyDecisions, decisionKey, decisionKinds, scheduledDecisionKinds, withKinds } from "./decisionKinds.js";
+import { classifyDecisions, decisionKey, decisionKinds, scheduledDecisionKinds, undecided, withKinds } from "./decisionKinds.js";
 import { allDecisions, minutesAgreements, minutesDecisions, type ApprovedMinutes } from "./data.js";
 import { parseMinutes } from "./minutesDoc.js";
 import { translateHtml } from "./i18n.js";
@@ -77,7 +77,7 @@ describe("decisions and informal agreements", () => {
     expect(asked[0]).toContain(MEETING);
     expect(asked[0]).not.toContain(SECTION_AGREEMENT);
     // The informal agreements: a card of their own, no laurel, the section's own and Saga's - and who sorted it.
-    expect(page).toContain('<div class="card" id="aftaler"><h2>Aftaler og anbefalinger');
+    expect(page).toContain('<div class="card" id="aftaler"><h2>Uformelle aftaler');
     expect(agreements).toContain(MEETING);
     expect(agreements).toContain(SECTION_AGREEMENT);
     expect(agreements).not.toContain('class="laurel"');
@@ -113,7 +113,7 @@ describe("decisions and informal agreements", () => {
     const moved = await call("/beslutninger/art", { method: "POST", cookie: as("Gitta"), body: form({ text: REPORT, kind: "aftale" }) });
     expect(moved.headers.get("location")).toBe("/beslutninger?besked=aftale#aftaler");
     const page = await (await call("/beslutninger?besked=aftale", { cookie: as("Lisbeth") })).text();
-    expect(page).toContain("Flyttet til aftaler og anbefalinger.");
+    expect(page).toContain("Flyttet til de uformelle aftaler.");
     expect(table(page, "agreements")).toContain(REPORT);
     expect(table(page, "agreements")).toContain("Sorteret af Gitta");
     expect(table(page, "list")).not.toContain(REPORT);
@@ -123,8 +123,8 @@ describe("decisions and informal agreements", () => {
     expect(front).not.toContain(REPORT);
     // Saga's list of decisions has the donation and the meeting under the agreements, not under the decisions - and the report is an agreement now too.
     expect((await ask(as("Lisbeth"), "Hvad har vi besluttet?")).status).toBe(200);
-    const decisionsPart = knowledge.slice(knowledge.indexOf("BESLUTNINGER (nyeste først"), knowledge.indexOf("UFORMELLE AFTALER OG ANBEFALINGER ("));
-    const agreementsPart = knowledge.slice(knowledge.indexOf("UFORMELLE AFTALER OG ANBEFALINGER ("), knowledge.indexOf("MØDER OG DAGSORDENER"));
+    const decisionsPart = knowledge.slice(knowledge.indexOf("BESLUTNINGER (nyeste først"), knowledge.indexOf("UFORMELLE AFTALER ("));
+    const agreementsPart = knowledge.slice(knowledge.indexOf("UFORMELLE AFTALER ("), knowledge.indexOf("MØDER OG DAGSORDENER"));
     expect(decisionsPart).toContain(DONATION);
     expect(decisionsPart).not.toContain(MEETING);
     expect(decisionsPart).not.toContain(REPORT);
@@ -190,15 +190,56 @@ describe("decisions and informal agreements", () => {
   });
 
   it("has the new texts in English", () => {
-    const en = translateHtml(`<h2>Aftaler og anbefalinger <span class="pill">2</span></h2><p>Uformelle aftaler mellem enkelte personer, anbefalinger og forslag - ikke afgjort som beslutninger i bestyrelsen. Er en af dem i virkeligheden en beslutning, så tryk <em>Gør til beslutning</em>.</p>
-<th>Aftale eller anbefaling</th><button>Ikke en beslutning</button><div class="small muted">Sorteret af Saga</div><p>Saga sorterer beslutninger, aftaler og anbefalinger - genindlæs siden om lidt.</p><p>Flyttet til aftaler og anbefalinger.</p>`);
-    expect(en).toContain("<h2>Agreements and recommendations <span");
-    expect(en).toContain("Informal agreements between a few people, recommendations and proposals - not settled as decisions of the board. If one of them is really a decision, press <em>Make it a decision</em>.");
-    expect(en).toContain("<th>Agreement or recommendation</th><button>Not a decision</button>");
+    const en = translateHtml(`<h1>Beslutninger og aftaler</h1><h2>Uformelle aftaler <span class="pill">2</span></h2><p>Aftaler mellem enkelte personer, anbefalinger, forslag og noter - alt det, der ikke er afgjort som en beslutning i bestyrelsen, og derfor uden laurbær. Er en af dem i virkeligheden en beslutning, så tryk <em>Gør til beslutning</em>.</p>
+<th>Aftale</th><button>Ikke en beslutning</button><div class="small muted">Sorteret af Saga</div><p>Saga sorterer beslutninger og aftaler - genindlæs siden om lidt.</p><p>Flyttet til de uformelle aftaler.</p>`);
+    expect(en).toContain("<h1>Decisions and agreements</h1>");
+    expect(en).toContain("<h2>Informal agreements <span");
+    expect(en).toContain("Agreements between a few people, recommendations, proposals and notes - everything that is not settled as a decision of the board, and so has no laurel. If one of them is really a decision, press <em>Make it a decision</em>.");
+    expect(en).toContain("<th>Agreement</th><button>Not a decision</button>");
     expect(en).toContain("Sorted by Saga");
-    expect(en).toContain("Saga is sorting decisions, agreements and recommendations - reload the page in a moment.");
-    expect(en).toContain("Moved to agreements and recommendations.");
+    expect(en).toContain("Saga is sorting decisions and agreements - reload the page in a moment.");
+    expect(en).toContain("Moved to the informal agreements.");
     expect(en).not.toMatch(/anbefaling|aftaler|beslutning/i);
+  });
+
+  // Requested, as examples of lines that are not decisions: "Der anbefales op til fire suppleanter på generalforsamlingen.", "Gitta genopstiller til bestyrelsen.", "Der blev ikke truffet beslutning om at udsætte fundraisingfestivalen."
+  // and: "Måske kan H1'eren hedde 'Beslutninger og aftaler'. Og de uformelle aftaler skal ikke have laurbær."
+  it("puts what says itself that nothing was decided among the agreements at once, tells Saga the rest by example, and never gives an agreement the laurel", async () => {
+    const RECOMMENDED = "Der anbefales op til fire suppleanter på generalforsamlingen.";
+    const RESTANDING = "Gitta genopstiller til bestyrelsen.";
+    const NOT_DECIDED = "Der blev ikke truffet beslutning om at udsætte fundraisingfestivalen.";
+    // The words themselves: caught - but "ikke-medlemmer" and a decision about what is not allowed are decisions.
+    for (const text of [RECOMMENDED, NOT_DECIDED, "Ingen beslutning om budgettet", "Forslaget blev ikke vedtaget", "Bestyrelsen anbefaler at vente"]) expect(undecided(text), text).toBe(true);
+    for (const text of [DONATION, RESTANDING, "Det blev besluttet, at ikke-medlemmer betaler 50 kr.", "Anbefalingen fra revisor følges", "Fundraisingfestivalen udsættes til november"]) expect(undecided(text), text).toBe(false);
+
+    const db = await board();
+    await db.prepare("UPDATE board_minutes SET draft_markdown = ? WHERE id = 1").bind(`# Referat\n## Beslutninger\n- ${DONATION}\n- ${RECOMMENDED}\n- ${RESTANDING}\n- ${NOT_DECIDED}`).run();
+    let system = "", user = "";
+    // Saga answers "decision" for everything she is asked about - the lines that say themselves that nothing was decided are not asked, and stand among the agreements all the same.
+    const { call, form, login } = client(db, (s, u) => { system = s; user = u; return JSON.stringify({ items: u.split("\n").map(l => /^(\d+)\./.exec(l)?.[1]).filter(Boolean).map(n => ({ n: Number(n), kind: "beslutning" })) }); });
+    const as = await login();
+    const page = await (await call("/beslutninger", { cookie: as("Lisbeth") })).text();
+    expect(page).toContain("<h1>Beslutninger og aftaler</h1>");
+    expect(system).toContain("Gitta genopstiller til bestyrelsen");
+    expect(system).toContain("Der blev ikke truffet beslutning om at udsætte fundraisingfestivalen");
+    expect(user).toBe(`1. ${DONATION}\n2. ${RESTANDING}`);
+    const decisions = table(page, "list"), agreements = table(page, "agreements");
+    expect(agreements).toContain(RECOMMENDED);
+    expect(agreements).toContain(NOT_DECIDED);
+    // The informal agreements never have the laurel; the decisions all have it.
+    expect(agreements).not.toContain("laurel");
+    expect(agreements.match(/class="handshake"/g)).toHaveLength(2);
+    expect(decisions).toContain(DONATION);
+    expect(decisions).toContain(RESTANDING);
+    expect(decisions.match(/<svg class="laurel"/g)).toHaveLength(2);
+    // She called "Gitta genopstiller" a decision - a board member moves it, and it stays moved; and a member can also say that a recommendation is a decision after all.
+    await call("/beslutninger/art", { method: "POST", cookie: as("Gitta"), body: form({ text: RESTANDING, kind: "aftale" }) });
+    await call("/beslutninger/art", { method: "POST", cookie: as("Lisbeth"), body: form({ text: RECOMMENDED, kind: "beslutning" }) });
+    const moved = await (await call("/beslutninger", { cookie: as("Jacob Hauge") })).text();
+    expect(table(moved, "agreements")).toContain(RESTANDING);
+    expect(table(moved, "agreements")).not.toContain(RECOMMENDED);
+    expect(table(moved, "list")).toContain(RECOMMENDED);
+    expect(table(moved, "agreements")).not.toContain("laurel");
   });
 
   // Requested: "lige nu står en linje som 'Der anbefales op til fire suppleanter på generalforsamlingen.' sådan beslutning med laurbær"
