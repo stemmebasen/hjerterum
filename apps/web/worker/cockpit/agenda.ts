@@ -5,7 +5,7 @@ import { saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { boardKnowledge } from "./ask.js";
 import { addAgendaPoints, agendaPoints, boardPicture, meetings, nextTeamMeeting, rolesLine, SAGA_POINTS, sagaRoom, type Meeting } from "./data.js";
-import { translateTexts, translations } from "./translate.js";
+import { translateTexts } from "./translate.js";
 import { proposals } from "./votes.js";
 
 /** Requested (on a meeting's page): "Her bør Sagas forslag til dagsorden også kunne trigges." Saga reads what
@@ -47,25 +47,6 @@ export function withMeetingProposals(items: string[], forMeeting: Array<{ title:
   const added = missing.map(p => `Afstemning: ${p.title} (stillet af ${p.created_by.split(/\s+/)[0]})`.slice(0, 200)).slice(0, max);
   const room = Math.max(0, max - added.length);
   return [...items.slice(0, Math.max(0, room - (last && room > 0 ? 1 : 0))), ...added, ...(last && room > 0 ? [last] : [])];
-}
-
-/** Requested: "Seriens [Sagas] forslag til næste teammøde skal fremgå, når man kommer ind på siden. Disse forslag skal genereres én gang i døgnet." Saga's points for the next team meeting: her own suggestion
- * from the minutes document (no AI) and what she makes of the material (one AI call), put on the agenda as her points - once a day, from five in the morning, for the next meeting that is said to be a
- * team meeting, and never for another. A point deleted with the cross is gone (it takes no AI call) and may come again in a later suggestion - that is the point of a fresh one every day. Returns how many points were added. */
-export async function scheduledAgendaSuggestion(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<number> {
-  if (!env.AI_API_KEY || !env.AI_MODEL) return 0;
-  const now = deps.now();
-  if (Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(now)) < 5) return 0;
-  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
-  const next = nextTeamMeeting(await meetings(db), today);
-  if (!next) return 0;
-  // Five at a time: with her five still on the agenda there is nothing to choose, and no AI call.
-  const added = sagaRoom(next) && (await claim(`cockpit_agenda_suggest_${next.id}`, Math.floor(now / 86_400_000))) ? await suggestForTeamMeeting(env, deps, db, next) : 0;
-  // Her points from the document, the button or an earlier day have English too - tried again in the next hour when it fails.
-  const row = await db.prepare("SELECT agenda, agenda_saga FROM board_meetings WHERE id = ?").bind(next.id).first<{ agenda: string; agenda_saga: string }>();
-  const points = sagaPointsOf(row);
-  if (points.length && (await translations(db, points)).size < new Set(points).size && (await claim(`cockpit_agenda_en_${next.id}`, Math.floor(now / 3_600_000)))) await englishAgenda(env, deps, db, next.id).catch(warnEnglish);
-  return added;
 }
 
 const warnEnglish = (error: unknown) => console.warn("cockpit_agenda_english_failed", error instanceof Error ? error.message : error);

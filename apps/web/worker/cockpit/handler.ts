@@ -27,7 +27,7 @@ import { currentForChair, homePage } from "./home.js";
 import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
-import { englishLater, suggestAgenda } from "./agenda.js";
+import { englishLater, suggestForTeamMeeting } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, decideAtMeeting, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
@@ -237,8 +237,6 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (!input) return redirect(`${base}/moder`);
       onlyBoard(input, null);
       const id = await saveMeeting(db, input, who ?? "", now);
-      // Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde": only a team meeting gets her points - the next one at once, from the minutes document.
-      if (input.kind === "team" && nextTeamMeeting(await meetings(db), today)?.id === id) { await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true); englishLater(env, deps, db, id); }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const [list, minutes, { picture }, states, documentDays] = await Promise.all([meetings(db), approvedMinutes(db), boardPicture(db, now), minutesStatusByDate(db), meetingsInDocument(env, deps)]);
@@ -269,10 +267,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       // Requested: "Hun bør prioritere de fem vigtigste.": five of hers at a time - with five on the agenda she has nothing to add, and no AI call is made.
       if (!sagaRoom(found)) return back("fuld");
       try {
-        const items = await suggestAgenda(env, deps, db, found, sagaRoom(found), (await boardPicture(db, now)).picture?.document.nextAgenda ?? []);
-        const added = await addAgendaPoints(db, id, items, "Saga", now, true);
-        englishLater(env, deps, db, id);
-        return back(String(added));
+        return back(String(await suggestForTeamMeeting(env, deps, db, found)));
       } catch (error) {
         console.warn("cockpit_agenda_failed", error instanceof Error ? error.message : error);
         return back("fejl");
@@ -307,11 +302,6 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
       if (input) { onlyBoard(input, found); await saveMeeting(db, input, who ?? "", now, id); }
-      // Ticked as a team meeting just now, and it is the next one: her suggestion from the minutes document is on the agenda at once (no AI) - the AI's comes in her morning round, or when asked.
-      if (input?.kind === "team" && found.kind !== "team" && !found.agenda_saga?.trim() && nextTeamMeeting(await meetings(db), today)?.id === id) {
-        await addAgendaPoints(db, id, (await boardPicture(db, now)).picture?.document.nextAgenda ?? [], "Saga", now, true);
-        englishLater(env, deps, db, id);
-      }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;

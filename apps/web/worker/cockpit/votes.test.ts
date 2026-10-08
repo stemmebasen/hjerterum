@@ -151,7 +151,7 @@ describe("digital votes in the board", () => {
     for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
     let agendaPrompt = "";
-    const services = fakeServices({ ai: system => { agendaPrompt = system; return '{"items":["Godkendelse af dagsorden"]}'; } });
+    const services = fakeServices({ ai: system => { if (system.startsWith("You translate")) throw new Error("no translation"); agendaPrompt = system; return '{"items":["Godkendelse af dagsorden"]}'; } });
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
       ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));
@@ -185,7 +185,7 @@ describe("digital votes in the board", () => {
     for (const [i, name] of ["Jacob Hauge", "Lisbeth", "Gitta"].entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: i + 1, author: name, authorId: String(200 + i), text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
     let agendaPrompt = "";
-    const services = fakeServices({ ai: system => { agendaPrompt = system; return '{"items":["Godkendelse af dagsorden","Eventuelt"]}'; } });
+    const services = fakeServices({ ai: system => { if (system.startsWith("You translate")) throw new Error("no translation"); agendaPrompt = system; return '{"items":["Godkendelse af dagsorden","Eventuelt"]}'; } });
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
       ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(services.fetcher, NOW));

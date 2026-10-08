@@ -362,11 +362,13 @@ function foldCard(id: string, title: string, body: string, open: boolean): strin
 }
 
 function meetingSummary(base: string, m: Meeting, members: string[] = []): string {
-  const items = m.agenda.split("\n").filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
+  // Requested: "I do not want Sagas suggestions here in the overview": only the board's own points are shown; hers are on the meeting's page, under Rediger møde.
+  const saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
+  const all = m.agenda.split("\n").filter(Boolean), items = all.filter(item => !saga.has(item));
   const point = (item: string) => `<li>${esc(item)}${saga.has(item) ? ` <span class="saga-mark inline">Sagas forslag</span>` : authors[item] && members.length ? ` ${personChip(members, authors[item]!)}` : ""}</li>`;
   return `<p><strong>${esc(longDay(m.meeting_date))}</strong>${m.start_time ? ` kl. ${esc(m.start_time)}` : ""}${m.place ? ` · ${esc(m.place)}` : ""}${m.kind ? KIND_TAG[m.kind] : ""}</p>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 8px">${esc(rolesLine(m))}</p>` : ""}
-${items.length ? `<div class="agenda-box"><ol class="agenda">${items.slice(0, SHOWN).map(item => point(item)).join("")}</ol>${items.length > SHOWN ? fold("Klik her for detaljer", "Skjul detaljer", `<ol class="agenda" start="${SHOWN + 1}">${items.slice(SHOWN).map(item => point(item)).join("")}</ol>`, items.length - SHOWN) : ""}</div>` : `<p class="muted small">Ingen dagsorden endnu.</p>`}
+${items.length ? `<div class="agenda-box"><ol class="agenda">${items.slice(0, SHOWN).map(item => point(item)).join("")}</ol>${items.length > SHOWN ? fold("Klik her for detaljer", "Skjul detaljer", `<ol class="agenda" start="${SHOWN + 1}">${items.slice(SHOWN).map(item => point(item)).join("")}</ol>`, items.length - SHOWN) : ""}</div>` : `<p class="muted small">${all.length ? "Kun Sagas forslag endnu - du finder dem under Rediger møde." : "Ingen dagsorden endnu."}</p>`}
 <p style="margin:10px 0 0"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a></p>`;
 }
 
@@ -514,7 +516,7 @@ export function meetingsPage(base: string, data: { members: string[]; upcoming: 
 <label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, null)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${data.prefill.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
-<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
+<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>
 <p class="small muted" style="margin:0">Dagsordenens punkter tilføjes ét ad gangen på mødets side.</p>
 <div class="actions"><button>Gem møde</button></div></form>`;
   const status = (row: PastMeeting) => row.minutes ? `<a href="${base}/referat/${row.minutes.id}">Læs referat</a>` : row.state ? `<span class="${row.state === "failed" ? "warn" : "muted"}">${STATE_TEXT[row.state]}</span>`
@@ -566,14 +568,14 @@ document.querySelectorAll("[data-cancel]").forEach(b=>b.addEventListener("click"
 <form class="addpoint" method="post" action="${base}/moder/${m.id}/punkt"><input name="text" required maxlength="200" autocomplete="off" placeholder="Nyt punkt, fx Økonomi" aria-label="Nyt punkt"><button>Tilføj punkt</button></form>
 ${!held && m.kind === "team" && (offered || data.aiReady) ? `<div class="suggest-row">${offered ? `<form method="post" action="${base}/moder/${m.id}/forslag/dokument"><button class="ghost">Tilføj Sagas forslag fra dokumentet (${offered} ${offered === 1 ? "punkt" : "punkter"})</button></form>` : ""}
 ${data.aiReady ? `<form method="post" action="${base}/moder/${m.id}/forslag" id="agenda-ask"><button class="ghost">Bed Saga om forslag til dagsorden</button></form>` : ""}</div>
-${data.aiReady ? `<p class="small muted">Saga laver selv forslag til næste teammøde hver morgen, og de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>
+${data.aiReady ? `<p class="small muted">Saga laver kun forslag, når du beder hende om det - de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>
 <script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}` : ""}
 <h3 style="margin:18px 0 8px" id="detaljer">Dato, tid, sted og roller</h3>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, m)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
-<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p></div>
+<p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>
 <div class="actions"><button class="ghost">Gem ændringer</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
