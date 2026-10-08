@@ -221,6 +221,11 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Forslag til afstemning skal længere ned på forside - over medlemmer": the proposals (and "Vedtaget" and "Til næste møde") stand in the left column of the front page, **after "Dine opgaver" and the latest minutes and right above "Medlemmer"** - no longer right under the four boxes. The "Stem om: ..." line stays in "Dine opgaver", so a member who still has to vote sees it first.
 - "Knapperne er ret store og virker massive på mobil": on a phone every button is a little smaller (42 px, 14.5 px text); the three votes stand in **one row**, "Undlad at stemme" shortened to "Undlad" (`voteLabel` in `cockpit/votes.ts`; the text node pair "Undlad" + "at stemme" is translated); "Jeg ønsker at drøfte dette på et møde" and "Træk forslaget tilbage" are quiet underlined text lines under them.
 
+### The members card in the top row (2026-10-08)
+
+- "Lad os droppe medlems-count vinduet for nu, og i stedet have et card i toppen - et femte kort": the front page's "Medlemmer" panel is gone; the key figures on top have a fifth card, **Medlemmer** - the paying members, the change since the figures before (+2), "betalende medlemmer", "opdateret 6. okt. 2026. Læs mere" - the whole card leads to `/medlemmer/tal` (`membersTile` in `cockpit/members.ts`). The panel with the four figures is still the content of the page of the figures.
+- "Til godkendelse-kortet skal forsvinde, når man ikke har noget til godkendelse": that card is only there while a summary waits for the member; the row has four cards without it (they share the width: `grid-auto-flow:column`).
+
 ### Critical mail (2026-10-08)
 
 - "Holder hun også øje med mails om der er nogen der er kritiske og vi skal forholde os til hurtigst muligt" - "Bare mig nu": the scan of team@ (`cockpit/enquiries.ts`, the same AI call that sorts the enquiries) also judges **every** new mail for urgency - a complaint, a threat, a legal or official letter, a demand for payment, a warning about security or fraud, something acute in the house, a near deadline - with one line on why (`board_mail.urgent_why`, migration 0054). Newsletters, receipts, invoices and ordinary enquiries are not critical.
