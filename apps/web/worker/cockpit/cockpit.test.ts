@@ -546,9 +546,12 @@ describe("the board cockpit", () => {
     const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026" });
     const session = await login(), cookie = await memberCookie(session, "Lisbeth");
     const home = await (await call("/cockpit/", { cookie })).text();
-    expect(home).toContain("<h2>Medlemmer</h2>");
-    expect(home).toContain("169");
-    expect(home).toContain("345.144 kr.");
+    // Requested: "droppe medlems-count vinduet ... i stedet have et card i toppen - et femte kort": Medlemmer, the paying members, the change, when, and "Læs mere".
+    expect(home).not.toContain("<h2>Medlemmer</h2>");
+    expect(home).toMatch(/<a class="tile" href="\/cockpit\/medlemmer\/tal"><span class="label">Medlemmer<\/span><b>169(?:<span class="delta [^>]*>[^<]*<\/span>)?<\/b><span class="sub">betalende medlemmer<\/span>\s*<span class="sub wrap">opdateret [^<]*\. <span class="more-link">Læs mere<\/span>/);
+    // Requested: "Til godkendelse-kortet skal forsvinde, når man ikke har noget til godkendelse".
+    expect(home).not.toContain("Til godkendelse");
+    expect(home.match(/<a class="tile/g)).toHaveLength(4); // meeting, tasks, events and the members - the approval card only when something waits
     // "Betaling stoppet" is not relevant; every kind of membership is - on the page of the figures. Requested: "we don't give these figures" on the front page.
     const plans = ["Standard (222 kr./md.", "Reduceret pris", "Støtte", "Gratis medlemskab", "Reduced price, engelsk", "Generøst"];
     for (const plan of plans) expect(home).not.toContain(plan);
@@ -578,7 +581,6 @@ describe("the board cockpit", () => {
     // Requested: "we don't give these figures": the front page has the four figures and the way on - the share of each kind of membership is only on the page of the figures.
     const front = await (await call("/cockpit/", { cookie })).text();
     expect(front).toContain("169");
-    expect(front).toContain("Alle tal og opdatering →");
     expect(front).not.toContain('aria-label="Medlemstyper"');
     expect(page).toContain('aria-label="Medlemstyper"');
     expect(page).toContain("Standard");

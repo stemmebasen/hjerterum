@@ -114,6 +114,14 @@ export const MEMBERS_STYLE = `
 .drop input{max-width:320px;background:var(--card)}.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 `;
 
+/** Requested: "Lad os droppe medlems-count vinduet for nu, og i stedet have et card i toppen - et femte kort": the front page's fifth key figure - the paying members, the change since the figures before, when they were taken and the way to the rest. */
+export function membersTile(base: string, rows: MemberStats[]): string {
+  const [now, before] = rows;
+  if (!now) return `<a class="tile" href="${base}/medlemmer/tal"><span class="label">Medlemmer</span><b>–</b><span class="sub">Ingen medlemstal endnu</span></a>`;
+  return `<a class="tile" href="${base}/medlemmer/tal"><span class="label">Medlemmer</span><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span class="sub">betalende medlemmer</span>
+<span class="sub wrap">opdateret ${esc(shortDay(now.taken_on))}. <span class="more-link">Læs mere</span></span></a>`;
+}
+
 /** The "Medlemmer" panel. Requested: "we don't give these figures" - the front page (`front`) has the four figures and the way to the rest; the share of each kind of membership is on the page of the figures. */
 export function membersPanel(base: string, rows: MemberStats[], front = true): string {
   const [now, before] = rows;

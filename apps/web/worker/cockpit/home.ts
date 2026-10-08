@@ -1,7 +1,7 @@
 import type { BoardPicture } from "../saga/picture.js";
 import { guessKind, rolesLine, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
-import { membersPanel, MEMBERS_STYLE, type MemberStats } from "./members.js";
+import { membersTile, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
 import { frontVotes, VOTES_STYLE, voteTodo, type Proposal, type ProposalView } from "./votes.js";
 import { esc, layout, longDay, responsibilitiesForm, shortDay } from "./page.js";
@@ -67,7 +67,7 @@ export const HOME_STYLE = `
 .tile.fact .label{color:var(--lys-terra)}.tile.fact b{font:400 36px/1.1 var(--serif);letter-spacing:-.02em;color:var(--lys-terra);font-variant-numeric:tabular-nums}
 .tile.fact .sub{color:var(--muted)}.tile.fact .label{white-space:nowrap}
 @media (max-width:1180px){.tile.fact .label{font-size:11px;letter-spacing:-.01em}}
-.tiles.with-fact{grid-template-columns:repeat(5,minmax(0,1fr))}
+.tiles.with-fact,.tiles.with-members{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}.tile .sub.wrap{white-space:normal}.tile .more-link{text-decoration:underline;color:var(--accent);white-space:nowrap}
 .home{gap:26px}
 .items.hearts li{position:relative;padding-left:26px}.items.hearts li:first-child::before{top:calc(.62em - 4px)}.items.hearts li::before{content:"";position:absolute;left:0;top:calc(11px + .62em - 4px);width:14px;height:13px;background:var(--accent);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'%3E%3Cpath d='M12 21.6 10.3 20C4.2 14.5 0 10.8 0 6.3 0 2.7 2.8 0 6.4 0c2 0 4 1 5.6 2.5C13.6 1 15.6 0 17.6 0 21.2 0 24 2.7 24 6.3c0 4.5-4.2 8.2-10.3 13.7z'/%3E%3C/svg%3E") center/contain no-repeat;
@@ -89,7 +89,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .mood{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:4px 11px;border-radius:999px;background:var(--tint);color:var(--accent);margin-bottom:10px}
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-@media (max-width:900px){.tiles,.tiles.with-fact{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
+@media (max-width:900px){.tiles,.tiles.with-fact,.tiles.with-members{grid-template-columns:repeat(2,1fr);grid-auto-flow:row;grid-auto-columns:auto}.tiles.with-members .tile:last-child:nth-child(odd){grid-column:1/-1}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
 @media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome .propose-btn{align-self:flex-start;margin-top:4px}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
 `;
 
@@ -143,11 +143,11 @@ ${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ St
   // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
   const SHOW_HELD_FACT = false;
   const fact = SHOW_HELD_FACT ? heldFact(data.eventsHeld ?? 0, base) : "";
-  const tiles = `<section class="tiles${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
+  const tiles = `<section class="tiles with-members${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>
-<a class="tile${data.toSign.length ? " hot" : ""}" href="${base}${data.toSign[0] ? `/referat/${data.toSign[0].id}` : "/moder"}"><span class="label">Til godkendelse</span><b>${data.toSign.length}</b><span class="sub">${data.toSign.length ? plural(data.toSign.length, "referat", "referater") : "du er ajour"}</span></a>
-<a class="tile" href="${base}/arrangementer"><span class="label">Arrangementer</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${fact}</section>`;
+${data.toSign.length ? `<a class="tile hot" href="${base}/referat/${data.toSign[0]!.id}"><span class="label">Til godkendelse</span><b>${data.toSign.length}</b><span class="sub">${plural(data.toSign.length, "referat", "referater")}</span></a>` : ""}
+<a class="tile" href="${base}/arrangementer"><span class="label">Arrangementer</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${membersTile(base, data.memberStats ?? [])}${fact}</section>`;
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
@@ -206,5 +206,5 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - until the member has written them.
   const ask = data.needsResponsibilities ? `<section class="panel ask-ansvar" id="ansvar"><header><h2>Hvad har du ansvar for?</h2><p>Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.</p></header>${responsibilitiesForm(base, "", "/")}</section>` : "";
   return layout(base, "Overblik", `<main class="home">${welcome}${tiles}${ask}${enquiryNote}${reviewNote}${working}
-<div class="panels"><div>${yours}${minutes}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs, data.next?.meeting_date)}${membersPanel(base, data.memberStats ?? [])}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE });
+<div class="panels"><div>${yours}${minutes}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs, data.next?.meeting_date)}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE });
 }
