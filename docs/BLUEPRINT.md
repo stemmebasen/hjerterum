@@ -221,6 +221,11 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Forslag til afstemning skal længere ned på forside - over medlemmer": the proposals (and "Vedtaget" and "Til næste møde") stand in the left column of the front page, **after "Dine opgaver" and the latest minutes and right above "Medlemmer"** - no longer right under the four boxes. The "Stem om: ..." line stays in "Dine opgaver", so a member who still has to vote sees it first.
 - "Knapperne er ret store og virker massive på mobil": on a phone every button is a little smaller (42 px, 14.5 px text); the three votes stand in **one row**, "Undlad at stemme" shortened to "Undlad" (`voteLabel` in `cockpit/votes.ts`; the text node pair "Undlad" + "at stemme" is translated); "Jeg ønsker at drøfte dette på et møde" and "Træk forslaget tilbage" are quiet underlined text lines under them.
 
+### Saga suggests only when asked (2026-10-08)
+
+- "I do not want Sagas suggestions here in the overview. The suggestions can be called forth when you are editing the meeting, but I don't want them to take up so much space and to be implemented automatically.": **nothing is put on an agenda by itself any more** - not in Saga's morning round (`scheduledAgendaSuggestion` is gone), not when a meeting is planned or ticked as a team meeting. On a meeting's page ("Rediger møde") the two buttons are there: "Bed Saga om forslag til dagsorden" (`suggestForTeamMeeting`: the AI chooses up to five, the document's first points stand in if it fails) and "Tilføj Sagas forslag fra dokumentet". The limit of five, the English made with the Danish, the cross and the pencil are unchanged.
+- **The overview of the meetings** (and the front page's meeting box) shows only the board's own points; Saga's are left out. A meeting that has only hers says "Kun Sagas forslag endnu - du finder dem under Rediger møde." The morning message to the group still lists the whole agenda.
+
 ### Tidier front page, and folded cards on Møder (2026-10-07)
 
 - "On the front page, we don't show any items for the coming meeting, but simply just tell about the meeting": the front page's "Næste teammøde" card says **when and where** (date, time, place, how many days, leader and moderator) and has one link, "Åbn mødet og dagsordenen →". The points of the agenda are on the meeting's page only.

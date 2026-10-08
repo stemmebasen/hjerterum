@@ -5,7 +5,7 @@ import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
-import { scheduledAgendaReminder, scheduledAgendaSuggestion } from "../cockpit/agenda.js";
+import { scheduledAgendaReminder } from "../cockpit/agenda.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
@@ -429,9 +429,7 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler" - what is new in the minutes is sorted (cockpit/decisionKinds.ts).
   await scheduledDecisionKinds(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_decision_kinds_failed", error instanceof Error ? error.message : error));
-  // Requested: "Sagas forslag til næste teammøde skal fremgå, når man kommer ind på siden ... genereres én gang i døgnet" (cockpit/agenda.ts).
-  await scheduledAgendaSuggestion(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
-    .catch(error => console.warn("cockpit_agenda_suggest_failed", error instanceof Error ? error.message : error));
+  // Requested: "I do not want Sagas suggestions ... implemented automatically": she suggests agenda points only when someone asks on the meeting's page (cockpit/agenda.ts).
   // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx" - with a link (cockpit/agenda.ts).
   await scheduledAgendaReminder(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_agenda_reminder_failed", error instanceof Error ? error.message : error));

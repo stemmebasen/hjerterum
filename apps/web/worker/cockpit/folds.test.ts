@@ -8,7 +8,7 @@ import type { Decision, Meeting } from "./data.js";
 // "Lad der kun blive vist fem punkter og sæt en knap: Klik her for detaljer", "Holdte møder skal kun være de seneste 5, herefter: Klik her for at se alle møder, og resten foldes ud";
 // "Lav lignende oprydning på /beslutninger" and "samt på de resterende".
 const BASE = "/cockpit";
-const meetingOf = (id: number, agenda: string[]): Meeting => ({ id, meeting_date: "2026-10-15", start_time: "13:30", place: "Hjerterum", agenda: agenda.join("\n"), agenda_saga: agenda.slice(0, 2).join("\n"), updated_at_ms: 1, updated_by: null, kind: "team" });
+const meetingOf = (id: number, agenda: string[], sagas = 0): Meeting => ({ id, meeting_date: "2026-10-15", start_time: "13:30", place: "Hjerterum", agenda: agenda.join("\n"), agenda_saga: agenda.slice(0, sagas).join("\n"), updated_at_ms: 1, updated_by: null, kind: "team" });
 const points = (n: number) => Array.from({ length: n }, (_, i) => `Punkt ${i + 1}`);
 const past = (n: number): PastMeeting[] => Array.from({ length: n }, (_, i) => ({ date: `2026-09-${String(28 - i).padStart(2, "0")}`, meeting: null, minutes: null, state: null, inDocument: false }));
 const meetings = (upcoming: Meeting[], held: PastMeeting[]) => meetingsPage(BASE, { members: [], upcoming, past: held, found: [], suggestion: [], prefill: { date: "", kind: "" }, today: "2026-10-07", who: "Jacob Hauge", notice: "", uploads: false });
@@ -28,8 +28,12 @@ describe("folded sections", () => {
     expect(rest.match(/<li>/g)).toHaveLength(3);
     expect(rest).toContain('<span class="fold-more">Klik her for detaljer</span>');
     expect(rest).toContain('<span class="pill">3</span>');
-    // Saga's marks follow the points into the fold - and five or fewer needs no button.
-    expect(box).toContain("Sagas forslag");
+    // Requested: "I do not want Sagas suggestions here in the overview": her points are not in it - the board's own are.
+    const withHers = meetings([meetingOf(3, points(8), 2)], []);
+    expect(withHers).not.toContain("Sagas forslag</span>");
+    expect(withHers).not.toContain("Punkt 1<");
+    expect(withHers).toContain("Punkt 3");
+    expect(meetings([meetingOf(4, points(2), 2)], [])).toContain("Kun Sagas forslag endnu - du finder dem under Rediger møde.");
     const few = meetings([meetingOf(2, points(5))], []);
     expect(few).toContain('<div class="agenda-box">');
     expect(few).not.toContain("Klik her for detaljer");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { addTodo, DEFAULT_PLACE, meeting, saveMeeting } from "./data.js";
-import { agendaReadyText, englishAgenda, scheduledAgendaReminder, scheduledAgendaSuggestion } from "./agenda.js";
+import { agendaReadyText, englishAgenda, scheduledAgendaReminder, suggestForTeamMeeting } from "./agenda.js";
 import { autoTranslated, translatePage, translations } from "./translate.js";
 import { claimJob, recentBoardMessages } from "../saga/store.js";
 import { BOARD } from "../saga/test-support.js";
@@ -37,7 +37,7 @@ describe("a meeting's agenda and place", () => {
 
   it("lets Saga suggest the agenda on demand - as points at the bottom, each with a cross - for a team meeting, and defaults the place to Hjerterum", async () => {
     let asked = "";
-    const { db, call, form, login, env, services } = setup((system, user) => { asked = system + user; return '{"items":["Godkendelse af dagsorden","1. Generalforsamling 14. okt.: roller","Eventuelt"]}'; });
+    const { db, call, form, login, env, services } = setup((system, user) => { if (system.startsWith("You translate")) throw new Error("no translation here"); asked = system + user; return '{"items":["Godkendelse af dagsorden","1. Generalforsamling 14. okt.: roller","Eventuelt"]}'; });
     const cookie = await login();
     const id = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", NOW);
     expect((await meeting(db, id))?.place).toBe(DEFAULT_PLACE);
@@ -72,8 +72,8 @@ describe("a meeting's agenda and place", () => {
     // Requested: "en let måde at redigere et punkt på. Måske en lille blå blyant til venstre for krydset": the pencil stands before the cross and opens the point for editing in place.
     expect(withSaga.indexOf('class="pencil" data-edit aria-label="Ret punktet: Generalforsamling')).toBeLessThan(withSaga.indexOf('<form class="cross" method="post" action="/moder/' + id + '/punkt/slet"><input type="hidden" name="text" value="Generalforsamling'));
     expect(withSaga).toContain(`<form class="editpoint" method="post" action="/moder/${id}/punkt/ret"><input type="hidden" name="old" value="Generalforsamling 14. okt.: roller"><input name="text" value="Generalforsamling 14. okt.: roller" required maxlength="200"`);
-    // The overview of the meetings shows her points with the mark too.
-    expect(await (await call("/moder", { cookie })).text()).toContain('<li>Generalforsamling 14. okt.: roller <span class="saga-mark inline">Sagas forslag</span></li>');
+    // The overview of the meetings does not show her points.
+    expect(await (await call("/moder", { cookie })).text()).not.toContain("Generalforsamling 14. okt.: roller");
 
     // A cross deletes the point; a point of your own is one line - never running text - and stands without Saga's mark; the same point is not added twice.
     expect((await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, body: form({ text: "Eventuelt" }) })).headers.get("location")).toBe(`/moder/${id}#dagsorden`);
@@ -152,17 +152,17 @@ describe("a meeting's agenda and place", () => {
     expect(await (await call(`/moder/${plain}?forslag=ikketeam`, { cookie })).text()).toContain("Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem.");
     expect((await meeting(db, plain))?.agenda).toBe("");
 
-    // Ticked and saved: it is the next team meeting, so her suggestion from the minutes document is on the agenda at once (no AI) and her buttons are there.
+    // Ticked and saved: her buttons are there - nothing is put on the agenda by itself.
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", start_time: "13:30", place: "", kind: "team", kind_sent: "1" }) });
     expect((await meeting(db, plain))?.kind).toBe("team");
-    expect((await meeting(db, plain))?.agenda).toBe("Opfølgning på skiltet");
-    expect((await meeting(db, plain))?.agenda_saga).toBe("Opfølgning på skiltet");
+    expect((await meeting(db, plain))?.agenda).toBe("");
     expect(calls).toBe(0);
     const ticked = await (await call(`/moder/${plain}`, { cookie })).text();
     expect(ticked).toContain('<input type="checkbox" name="kind" value="team" checked> Teammøde');
     expect(ticked).toContain("Bed Saga om forslag til dagsorden");
     expect(await (await call("/moder", { cookie })).text()).toContain('<span class="kind-tag team">Teammøde</span>');
-    // Saving again with the box ticked does not add her points twice; a form without the box (an old link, a script) leaves the kind alone; unticked, it is not a team meeting.
+    // The document's button adds her point - once; a form without the box (an old link, a script) leaves the kind alone; unticked, it is not a team meeting.
+    await call(`/moder/${plain}/forslag/dokument`, { method: "POST", cookie });
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", kind: "team", kind_sent: "1" }) });
     expect((await meeting(db, plain))?.agenda).toBe("Opfølgning på skiltet");
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", start_time: "14:00" }) });
@@ -174,15 +174,18 @@ describe("a meeting's agenda and place", () => {
     expect(calls).toBe(0);
   });
 
-  it("puts Saga's suggestion from the minutes document on the agenda when a team meeting is planned - and nothing for another kind", async () => {
+  it("puts Saga's suggestion from the minutes document on the agenda only when asked - for a team meeting, never for another kind", async () => {
     const { db, call, form, login } = setup(() => "{}");
     await overview(db, ["Opfølgning på skiltet", "Lokaleleje"]);
     const cookie = await login();
     const id = (async (kind: string, date: string) => Number(/\/moder\/(\d+)/.exec((await call("/moder", { method: "POST", cookie, body: form({ meeting_date: date, start_time: "13:30", kind, kind_sent: "1" }) })).headers.get("location") ?? "")?.[1]));
     const team = await id("team", "2026-10-20");
-    expect((await meeting(db, team))?.agenda).toBe("Opfølgning på skiltet\nLokaleleje");
+    // Planning a team meeting puts nothing on its agenda by itself.
+    expect((await meeting(db, team))?.agenda).toBe("");
     expect((await meeting(db, team))?.kind).toBe("team");
-    // Another team meeting, later than the next one: not seeded. A meeting of another kind: never.
+    expect((await call(`/moder/${team}/forslag/dokument`, { method: "POST", cookie })).headers.get("location")).toBe(`/moder/${team}?forslag=2#dagsorden`);
+    expect((await meeting(db, team))?.agenda).toBe("Opfølgning på skiltet\nLokaleleje");
+    // Another team meeting, later than the next one, and a meeting of another kind: nothing until asked - and never for another kind.
     const later = await id("team", "2026-10-27"), other = await id("andet", "2026-10-18");
     expect((await meeting(db, later))?.agenda).toBe("");
     expect((await meeting(db, other))?.agenda).toBe("");
@@ -194,8 +197,9 @@ describe("a meeting's agenda and place", () => {
     expect(await (await call(`/moder/${later}?forslag=0`, { cookie })).text()).toContain("Saga fandt ikke noget nyt at foreslå ud fra materialet.");
   });
 
-  it("makes Saga's suggestions for the next team meeting once a day, from the morning on, and and a point deleted with the cross takes no AI call and may come again in a fresh suggestion", async () => {
-    const MORNING = Date.parse("2026-10-08T06:30:00Z"); // 08:30 in Copenhagen
+  // Requested: "I do not want Sagas suggestions here in the overview. The suggestions can be called forth when you are editing the meeting, but I don't want ... to be implemented automatically."
+  it("makes Saga's suggestions only when asked, shows them on the meeting's page and not in the overview, and a point deleted with the cross takes no AI call and may come again when asked", async () => {
+    const MORNING = Date.parse("2026-10-08T06:30:00Z");
     let calls = 0, prompt = "";
     // Her points are made in English with the Danish ones: that is a translation request, not a suggestion - it is told apart and counted on its own.
     let translated = 0;
@@ -204,57 +208,47 @@ describe("a meeting's agenda and place", () => {
       calls++; prompt = system + user; return '{"items":["Godkendelse af dagsorden","Julefest: valg af dato","Eventuelt"]}'; }, MORNING);
     await overview(db, ["Lokaleleje"]);
     const cookie = await login();
-    const next = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "", kind: "team" }, "Jacob Hauge", MORNING);
-    const unknown = await saveMeeting(db, { date: "2026-10-12", time: "", place: "", agenda: "" }, "Jacob Hauge", MORNING);
-    const claims = new Set<string>();
-    const claim = async (key: string, slot: number) => { const id = `${key}:${slot}`; if (claims.has(id)) return false; claims.add(id); return true; };
-    const run = (at: number) => scheduledAgendaSuggestion(env, deps(services.fetcher, at), db, claim);
+    const next = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "", agenda: "Lisbeths punkt", kind: "team" }, "Jacob Hauge", MORNING);
+    const ask = async () => suggestForTeamMeeting(env, deps(services.fetcher, MORNING), db, (await meeting(db, next))!);
 
-    // Before five in the morning: not yet. Then once - for the next team meeting only, not for the one whose kind is unknown (it is earlier).
-    expect(await run(Date.parse("2026-10-08T01:00:00Z"))).toBe(0);
-    expect(await run(MORNING)).toBe(3);
+    // Nothing happens by itself: planning, ticking Teammøde and the page being opened add nothing.
+    await call(`/moder/${next}`, { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", start_time: "13:30", kind: "team", kind_sent: "1" }) });
+    await call(`/moder/${next}`, { cookie, now: MORNING });
+    expect(calls).toBe(0);
+    expect((await meeting(db, next))?.agenda).toBe("Lisbeths punkt");
+
+    expect(await ask()).toBe(3);
     expect(calls).toBe(1);
     expect(prompt).toContain("teammødet 2026-10-15");
     // Requested: "Hun bør prioritere de fem vigtigste.": she is told how many places she has, and she sees the document's points to choose among.
     expect(prompt).toContain("Du har kun plads til 5 punkter, så vælg de 5 vigtigste");
     expect(prompt).toContain("Referatets forslag til næste dagsorden (vælg blandt dem og resten af materialet, ikke alle): Lokaleleje");
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
-    expect((await meeting(db, unknown))?.agenda).toBe("");
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lisbeths punkt", "Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
     // Requested: "Saga should come with suggestions in either Danish AND English depending on what language was picked": the English was made with the Danish points, in one request.
     expect(translated).toBe(1);
     expect([...(await translations(db, ["Julefest: valg af dato", "Godkendelse af dagsorden"])).values()].sort()).toEqual(["EN: Godkendelse af dagsorden", "EN: Julefest: valg af dato"]);
     // A member who reads in English gets the meetings and a meeting's page translated, with Saga's points in English; one who reads Danish gets the Danish.
     expect([autoTranslated("/moder"), autoTranslated(`/moder/${next}`), autoTranslated(`/moder/${next}/punkt`), autoTranslated("/moder/ny")]).toEqual([true, true, false, false]);
-    const danish = await (await call("/moder", { cookie, now: MORNING })).text();
+    const danish = await (await call(`/moder/${next}`, { cookie, now: MORNING })).text();
     expect(danish).toContain("Julefest: valg af dato");
     const english = await translatePage(env, deps(services.fetcher, MORNING), db, danish);
     expect(english).toContain("EN: Julefest: valg af dato");
     expect(english).not.toContain(">Julefest: valg af dato<");
-    expect(english).toContain("Saga&#39;s suggestion".replace("&#39;", "'"));
-    const afterPage = translated;
-    // The same day: nothing more, no AI call - and nothing more to translate.
-    expect(await run(MORNING + 3_600_000)).toBe(0);
-    expect(calls).toBe(1);
-    expect(translated).toBe(afterPage);
-    // They are there when you come in on the page - marked as hers - and the overview and the front page show them.
-    expect(await (await call("/moder", { cookie, now: MORNING })).text()).toContain('<li>Julefest: valg af dato <span class="saga-mark inline">Sagas forslag</span></li>');
+    // The overview shows the board's own points only - hers are not in it.
+    const overviewPage = await (await call("/moder", { cookie, now: MORNING })).text();
+    expect(overviewPage).toContain("Lisbeths punkt");
+    expect(overviewPage).not.toContain("Julefest: valg af dato");
+    expect(overviewPage).not.toContain("Sagas forslag</span></li>");
 
-    // The board deletes one with the cross: no AI call - and tomorrow's suggestion may bring it back, with what is new: she makes a fresh one every day.
+    // The board deletes one with the cross: no AI call - and asking again may bring it back, up to her five.
     const before = calls;
     await call(`/moder/${next}/punkt/slet`, { method: "POST", cookie, now: MORNING, body: form({ text: "Julefest: valg af dato" }) });
     expect(calls).toBe(before);
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Eventuelt"]);
     expect((await meeting(db, next))?.agenda_saga).toBe("Godkendelse af dagsorden\nEventuelt");
-    const tomorrow = Date.parse("2026-10-09T06:30:00Z");
-    expect(await run(tomorrow)).toBe(1);
+    expect(await ask()).toBe(1);
     expect(calls).toBe(before + 1);
     expect(prompt).toContain("Du har kun plads til 3 punkter, så vælg de 3 vigtigste");
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Eventuelt", "Julefest: valg af dato"]);
-    // No AI set up, or no team meeting ahead: nothing happens.
-    const idle = setup(() => "{}", MORNING);
-    await saveMeeting(idle.db, { date: "2026-10-15", time: "", place: "", agenda: "" }, "Jacob Hauge", MORNING);
-    expect(await scheduledAgendaSuggestion(idle.env, deps(idle.services.fetcher, MORNING), idle.db, claim)).toBe(0);
-    expect(await scheduledAgendaSuggestion({ ...env, AI_API_KEY: "" }, deps(services.fetcher, MORNING + 2 * 86_400_000), db, claim)).toBe(0);
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lisbeths punkt", "Godkendelse af dagsorden", "Eventuelt", "Julefest: valg af dato"]);
   });
 
   // Requested: "det er alt for voldsomt med så mange forslag. Hun bør prioritere de fem vigtigste."
@@ -269,24 +263,24 @@ describe("a meeting's agenda and place", () => {
     const cookie = await login();
     const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", start_time: "13:30", kind: "team", kind_sent: "1" }) });
     const id = Number(/\/moder\/(\d+)/.exec(planned.headers.get("location") ?? "")?.[1]);
-    // Eight in the document, five on the agenda - and no button for the three left, since she has no room.
+    // Planning adds nothing by itself. The document's button adds the first five of its eight - and is gone for the three left, since she has no room.
+    expect((await meeting(db, id))?.agenda).toBe("");
+    expect(await (await call(`/moder/${id}`, { cookie, now: MORNING })).text()).toContain("Tilføj Sagas forslag fra dokumentet (5 punkter)");
+    expect((await call(`/moder/${id}/forslag/dokument`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=5#dagsorden`);
     expect((await meeting(db, id))?.agenda.split("\n")).toEqual(eight.slice(0, 5));
     expect((await meeting(db, id))?.agenda_saga?.split("\n")).toHaveLength(5);
-    const page = await (await call(`/moder/${id}`, { cookie, now: MORNING })).text();
-    expect(page).not.toContain("Tilføj Sagas forslag fra dokumentet");
-    // The button and her morning round both stand down: five of hers are there, so no AI call is made.
+    expect(await (await call(`/moder/${id}`, { cookie, now: MORNING })).text()).not.toContain("Tilføj Sagas forslag fra dokumentet");
+    // Asked for more: five of hers are there, so no AI call is made.
     expect((await call(`/moder/${id}/forslag`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=fuld#dagsorden`);
     expect((await call(`/moder/${id}/forslag/dokument`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=0#dagsorden`);
     expect(await (await call(`/moder/${id}?forslag=fuld`, { cookie, now: MORNING })).text()).toContain("Saga har allerede fem forslag på dagsordenen - flere ad gangen er for mange. Slet et med krydset, så finder hun et nyt.");
-    const claim = async () => true;
-    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING), db, claim)).toBe(0);
     expect(calls).toBe(0);
     // A point of the board's own does not count against her five; one deleted with the cross frees a place - and she is asked for exactly one.
     await call(`/moder/${id}/punkt`, { method: "POST", cookie, now: MORNING, body: form({ text: "Lisbeths punkt" }) });
-    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING + 1000), db, claim)).toBe(0);
+    expect((await call(`/moder/${id}/forslag`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=fuld#dagsorden`);
     expect(calls).toBe(0);
     await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, now: MORNING, body: form({ text: "Punkt 2" }) });
-    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING + 2000), db, claim)).toBe(1);
+    expect(await suggestForTeamMeeting(env, deps(services.fetcher, MORNING + 2000), db, (await meeting(db, id))!)).toBe(1);
     expect(calls).toBe(1);
     expect(prompt).toContain("Du har kun plads til 1 punkt, så vælg de vigtigste");
     expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Lisbeths punkt", "Ny A"]);
@@ -298,11 +292,9 @@ describe("a meeting's agenda and place", () => {
     const { db, env, services, form, login, call } = setup(() => "ikke json", MORNING);
     await overview(db, Array.from({ length: 8 }, (_, i) => `Punkt ${i + 1}`));
     const cookie = await login();
-    // Planned as an ordinary meeting first, ticked as a team meeting later (nothing was seeded), then the morning round with a broken AI.
-    const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", kind: "andet", kind_sent: "1" }) });
+    const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", kind: "team", kind_sent: "1" }) });
     const id = Number(/\/moder\/(\d+)/.exec(planned.headers.get("location") ?? "")?.[1]);
-    await db.prepare("UPDATE board_meetings SET kind = 'team' WHERE id = ?").bind(id).run();
-    expect(await scheduledAgendaSuggestion(env, deps(services.fetcher, MORNING), db, async () => true)).toBe(5);
+    expect(await suggestForTeamMeeting(env, deps(services.fetcher, MORNING), db, (await meeting(db, id))!)).toBe(5);
     expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4", "Punkt 5"]);
   });
 
@@ -499,13 +491,13 @@ describe("a meeting's agenda and place", () => {
     expect(en).toContain("Saga has put 3 points at the bottom of the agenda. Delete the ones you do not want with the cross.");
     expect(en).toContain("<h3>Date, time and place</h3>");
     const kind = translateHtml(`<a class="button ghost">Rediger møde</a><button aria-label="Ret punktet: Økonomi" title="Ret punktet">x</button><button type="button" class="ghost">Annullér</button>
-<label>Teammøde</label><p class="small">Sæt kryd, hvis det er et teammøde - så foreslår Saga punkter til dagsordenen. Ellers gør hun ikke.</p><p>Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem.</p>
-<p>Saga laver selv forslag til næste teammøde hver morgen, og de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>`);
+<label>Teammøde</label><p class="small">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p><p>Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem.</p>
+<p>Saga laver kun forslag, når du beder hende om det - de står nederst som punkter. Slet dem, du ikke vil have, med krydset - det koster ingen AI.</p>`);
     expect(kind).toContain('<a class="button ghost">Edit meeting</a><button aria-label="Edit the point: Økonomi" title="Edit the point">x</button><button type="button" class="ghost">Cancel</button>');
     expect(kind).toContain("<label>Team meeting</label>");
-    expect(kind).toContain("Tick if it is a team meeting - then Saga suggests points for the agenda. Otherwise she does not.");
+    expect(kind).toContain("Tick this if it is a team meeting - then Saga can suggest points when you ask her to on the meeting's page.");
     expect(kind).toContain("Saga only suggests points for team meetings. Tick Team meeting under Date, time and place, and press Save.");
-    expect(kind).toContain("Saga makes suggestions for the next team meeting herself every morning");
+    expect(kind).toContain("Saga only makes suggestions when you ask her to");
     expect(kind).not.toMatch(/møde|Saga foreslår|Slet dem|Sæt kryd/);
   });
 });
