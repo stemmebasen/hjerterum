@@ -242,7 +242,7 @@ const STYLE = `
 /* Requested: "Besvar-knappen i højre side af hver mail skal erstattes af et flueben-tjek": a round check, empty until the mail is answered. */
 .enq form button.tick{width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;display:grid;place-items:center;font-size:17px;line-height:1;background:transparent;color:var(--faint);border:2px solid var(--line)}
 .enq form button.tick:hover{color:var(--accent);border-color:var(--accent)}.enq form button.tick.is-done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.enq form{margin:0;grid-row:1/span 2;grid-column:2}.enq form button{background:transparent;color:var(--muted);border:1px solid var(--line);padding:5px 13px;min-height:0;font-size:13px;font-weight:500;box-shadow:none}
+.enq form{margin:0;grid-row:1/span 2;grid-column:2}.enq .acts-col{grid-row:1/span 2;grid-column:2;display:flex;gap:12px;align-items:center}.enq .acts-col form{grid-row:auto;grid-column:auto}.enq .acts-col .labelform{margin:0}.enq .acts-col select{width:auto;min-width:110px;padding:6px 10px;min-height:0;font-size:13px}.enq .acts-col label{white-space:nowrap;color:var(--muted)}.enq form button{background:transparent;color:var(--muted);border:1px solid var(--line);padding:5px 13px;min-height:0;font-size:13px;font-weight:500;box-shadow:none}
 .enq form button:hover{color:var(--ink);border-color:var(--muted);filter:none}
 .enq details{border:0;padding:2px 0 0;grid-column:1}.enq details summary{font-size:13px;color:var(--faint);font-weight:400}
 .enq details p{margin:6px 0 0;font-size:14px;color:var(--muted);white-space:pre-wrap}.enq details .from{font-size:13px;color:var(--muted)}
@@ -273,7 +273,7 @@ function closedBy(e: Enquiry): string {
 
 const assignedTag = (to: string | null | undefined) => to ? `<span class="kind assigned" title="Tildelt ${esc(to)}">→ ${esc(to.split(/\s+/)[0] ?? to)}</span> ` : "";
 const assignForm = (base: string, id: number, to: string | null | undefined, members: string[]) => members.length
-  ? `<form class="labelform" method="post" action="${base}/posthus/tildel"><input type="hidden" name="id" value="${id}"><label>Giv til <select name="member" onchange="this.form.submit()"><option value="">Ingen</option>${members.map(m => `<option${to === m ? " selected" : ""}>${esc(m)}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
+  ? `<form class="labelform" method="post" action="${base}/posthus/tildel"><input type="hidden" name="id" value="${id}"><label>Tildel: <select name="member" onchange="this.form.submit()"><option value="">Ingen</option>${members.map(m => `<option${to === m ? " selected" : ""}>${esc(m)}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
 
 function item(base: string, e: Enquiry, open: boolean, nowMs: number, own: string, members: string[] = []): string {
   const mail = address(e.sender);
@@ -283,7 +283,7 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number, own: strin
   return `<li><div><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
 <span class="meta">${labelTag(e.label)}${assignedTag(e.assigned_to)}<span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
 <details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(cleanMailText(e.preview))}</p></details>
-${assignForm(base, e.id, e.assigned_to, members)}<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="tick${open ? "" : " is-done"}" title="${open ? "Besvaret" : "Fortryd"}" aria-label="${open ? "Marker som besvaret" : "Fortryd: åbn igen"}">✓</button></form></li>`;
+<div class="acts-col">${assignForm(base, e.id, e.assigned_to, members)}<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="tick${open ? "" : " is-done"}" title="${open ? "Besvaret" : "Fortryd"}" aria-label="${open ? "Marker som besvaret" : "Fortryd: åbn igen"}">✓</button></form></div></li>`;
 }
 
 /** Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks - øverst bruger vi den nuværende sektion til \"Vigtige mails,
