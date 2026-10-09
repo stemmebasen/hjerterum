@@ -10,7 +10,7 @@ import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
-import { complete } from "./ai.js";
+import { completeAs } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
@@ -108,7 +108,7 @@ export async function revisePost(env: SagaEnv, deps: SagaDeps, id: number, instr
   const db = requireDb(env);
   const draft = await getPostDraft(db, id);
   if (!draft || draft.status !== "pending") return;
-  const text = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM }, { role: "user", content: `TEKST:\n${draft.text}\n\nRETTELSE:\n${instruction}` }]);
+  const text = await completeAs("ret-tekst")(env, deps, [{ role: "system", content: REVISE_SYSTEM }, { role: "user", content: `TEKST:\n${draft.text}\n\nRETTELSE:\n${instruction}` }]);
   await updatePostDraft(db, id, { text });
   const telegram = telegramClient(env, deps);
   if (draft.approval_message_id) await telegram.editMessageReplyMarkup(owner(env), draft.approval_message_id).catch(() => undefined);
@@ -118,7 +118,7 @@ export async function revisePost(env: SagaEnv, deps: SagaDeps, id: number, instr
 
 /** Someone in the board chat asked Saga something: the answer is drafted for Jacob's approval. */
 export async function draftBoardReply(env: SagaEnv, deps: SagaDeps, question: string, author: string, replyTo: number): Promise<void> {
-  const answer = await complete(env, deps, [{ role: "system", content: REPLY_SYSTEM },
+  const answer = await completeAs("svar-gruppe")(env, deps, [{ role: "system", content: REPLY_SYSTEM },
     { role: "user", content: `${await context(env, deps)}\n\nSPØRGSMÅL FRA ${author}:\n${question}` }]);
   await proposePost(env, deps, "reply", answer, replyTo);
 }
@@ -127,7 +127,7 @@ export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, questio
   // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, all the minutes,
   // the group and team@'s mail).
   const db = requireDb(env);
-  const answer = await complete(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
+  const answer = await completeAs("privat-svar")(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
     { role: "user", content: `${await boardKnowledge(env, deps, db, question)}\n\nJACOB SPØRGER:\n${question}` }]);
   await telegramClient(env, deps).sendMessage(owner(env), answer);
 }
@@ -135,7 +135,7 @@ export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, questio
 export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<boolean> {
   const messages = await recentBoardMessages(requireDb(env), board(env), deps.now() - 7 * DAY);
   if (!messages.some(m => !m.from_assistant) && !(await recentMail(requireDb(env), deps.now() - 7 * DAY, 1)).length) return false;
-  const summary = await complete(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
+  const summary = await completeAs("ugeresume")(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
   if (postsToBoard(env)) { await proposePost(env, deps, "weekly_summary", summary); return true; }
   // Listening only: the summary is the chair's own, straight to him (and to Matrix).
   const db = requireDb(env);
@@ -157,12 +157,12 @@ export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: 
   const read = doc ?? await readArchive(env, deps);
   const done = await ownerDone(db, deps.now() - 60 * DAY);
   const messages = [{ role: "system" as const, content: OVERVIEW_SYSTEM }, { role: "user" as const, content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}${membersContext(responsibilitiesForSaga((await boardMembers(env, db)).names, await responsibilities(db)), await memberDoneForSaga(db, deps.now() - 60 * DAY))}` }];
-  let answer = await complete(env, deps, messages);
+  let answer = await completeAs("telegram-samtale")(env, deps, messages);
   let picture = parsePicture(answer);
   // Reported: the cockpit greeted with "```json {" - the answer was cut off mid-JSON (too long) and kept as
   // text. Once more, shorter; and a broken answer is never saved - the last good overview stands.
   if (!picture && looksLikeJson(answer)) {
-    answer = await complete(env, deps, [...messages, { role: "assistant", content: answer.slice(0, 2000) },
+    answer = await completeAs("telegram-samtale")(env, deps, [...messages, { role: "assistant", content: answer.slice(0, 2000) },
       { role: "user", content: "Dit svar blev for langt og blev afbrudt. Svar igen med præcis samme JSON-form, men kortere: højst 8 punkter i hver liste og korte tekster. Kun JSON." }]);
     picture = parsePicture(answer);
   }
@@ -231,7 +231,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     else audio = await telegramClient(env, deps).downloadFile(item.source_file_id);
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
-    const draft = await complete(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
+    const draft = await completeAs("referat")(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
         + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
@@ -308,7 +308,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
   if (!item || (item.status !== "drafted" && item.status !== "approved") || !item.draft_markdown) return;
   if (item.status === "approved") {
     // Already up: corrected in place, and the board's sign-offs start over.
-    const draft = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+    const draft = await completeAs("referat-ret")(env, deps, [{ role: "system", content: REVISE_SYSTEM },
       { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
     await updateMinutes(db, id, { draft }, deps.now());
     await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(id).run();
@@ -319,7 +319,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i admin."}`);
     return;
   }
-  const draft = await complete(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+  const draft = await completeAs("referat-ret")(env, deps, [{ role: "system", content: REVISE_SYSTEM },
     { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
   await updateMinutes(db, id, { draft }, deps.now());
   if (item.approval_message_id) await telegramClient(env, deps).editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);

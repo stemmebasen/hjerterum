@@ -1,4 +1,4 @@
-import { adminsPage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
+import { adminsPage, aiUsage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import { allMemories, forget, memoryPage } from "./memory.js";
 import { actorOf, audit, auditPage, can, denial, recentAudit, type Power } from "./authority.js";
@@ -485,8 +485,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/administratorer" && request.method === "GET") {
     if (!who) return redirect(`${base}/hvem`);
     if (!may("admins.read")) return denied("admins.read");
-    const [cockpit, area] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now)]);
-    return html(adminsPage(base, who, { cockpit, area, nowMs: now }));
+    const [cockpit, area, usage] = await Promise.all([cockpitAdmins(env, db, now), memberAreaAdmins(env, deps, now), aiUsage(db, now)]);
+    return html(adminsPage(base, who, { cockpit, area, nowMs: now, usage }));
   }
   // Requested by the chair: "Lad mig også se chatudskrift" - what the board's members asked Saga (cockpit/samtaler.ts). Chair only.
   if (path === "/samtaler" && request.method === "GET") {

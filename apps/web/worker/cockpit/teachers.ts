@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { esc, layout } from "./page.js";
 
@@ -159,7 +159,7 @@ export async function summarizeTeacher(env: SagaEnv, deps: SagaDeps, db: D1Datab
     `REFERATER, DER NÆVNER UNDERVISEREN:\n${minutes.map(m => `--- ${m.meeting_date ?? ""} ---\n${m.draft_markdown.split(/\r?\n/).filter(l => l.toLowerCase().includes(needle)).slice(0, 8).join("\n")}`).join("\n") || "(ingen)"}`,
     record?.note ? `BESTYRELSENS NOTE:\n${record.note}` : ""
   ].filter(Boolean).join("\n\n");
-  const summary = (await complete(env, deps, [{ role: "system", content: SUMMARY_SYSTEM }, { role: "user", content: input }])).trim().slice(0, 4000);
+  const summary = (await completeAs("underviser-resume")(env, deps, [{ role: "system", content: SUMMARY_SYSTEM }, { role: "user", content: input }])).trim().slice(0, 4000);
   if (!summary || /^\s*(?:```|\{)/.test(summary)) throw new Error("teacher_summary_unreadable");
   await db.prepare(`INSERT INTO cockpit_teachers (key, name, summary, summary_at_ms, summary_by, updated_at_ms) VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET summary = excluded.summary, summary_at_ms = excluded.summary_at_ms, summary_by = excluded.summary_by`).bind(teacherKey(name), name.trim(), summary, now, who, now).run();

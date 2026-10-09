@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import { postsToBoard, SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
@@ -29,7 +29,7 @@ export async function suggestAgenda(env: SagaEnv, deps: SagaDeps, db: D1Database
   const there = agendaPoints(meeting.agenda);
   const question = `Forslag til dagsorden til teammødet ${meeting.meeting_date}${there.length ? ` (allerede på dagsordenen: ${there.join("; ")})` : ""}`
     + (fromDocument.length ? `\nReferatets forslag til næste dagsorden (vælg blandt dem og resten af materialet, ikke alle): ${fromDocument.join("; ")}` : "");
-  const answer = await complete(env, deps, [{ role: "system", content: `${system(limit)}\n\n${await boardKnowledge(env, deps, db, question)}` }, { role: "user", content: question }]);
+  const answer = await completeAs("dagsorden")(env, deps, [{ role: "system", content: `${system(limit)}\n\n${await boardKnowledge(env, deps, db, question)}` }, { role: "user", content: question }]);
   let items: unknown = null;
   try { items = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { items?: unknown } | null)?.items; } catch { items = null; }
   if (!Array.isArray(items)) throw new Error("agenda_unreadable");
