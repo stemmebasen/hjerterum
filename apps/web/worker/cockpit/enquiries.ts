@@ -197,7 +197,8 @@ export async function enquiries(db: D1Database, nowMs: number, all = false, labe
     db.prepare(`SELECT COUNT(*) AS n FROM board_mail ${where}`).bind(...(label ? [label] : [])).first<{ n: number }>().catch(() => null),
     db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms, urgent_why FROM board_mail WHERE urgent_why IS NOT NULL AND handled_at_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 20")
       .bind(nowMs - 7 * DAY).all<BoardMailRow>().then(r => r.results ?? []).catch(() => [] as BoardMailRow[]),
-    db.prepare("SELECT COALESCE(label, '') AS label, COUNT(*) AS n FROM board_mail GROUP BY label").all<{ label: string; n: number }>().then(r => r.results ?? []).catch(() => [] as Array<{ label: string; n: number }>)]);
+    // Requested: "kun uåbnede mails og altid kun for de sidste 10 dage": the numbers on the chips count what is still open (not checked off, not answered) from the last ten days.
+    db.prepare("SELECT COALESCE(label, '') AS label, COUNT(*) AS n FROM board_mail WHERE received_at_ms >= ? AND handled_at_ms IS NULL AND answered_at_ms IS NULL GROUP BY label").bind(nowMs - 10 * DAY).all<{ label: string; n: number }>().then(r => r.results ?? []).catch(() => [] as Array<{ label: string; n: number }>)]);
   // Answered is what Saga saw in team@ (an answer in Sent, marked answered, put in "Besvarede") or someone pressing Besvaret.
   const closed = (e: Enquiry) => e.handled_at_ms !== null || (e.answered_at_ms ?? null) !== null;
   const mine = (e: { label?: string | null }) => !label || e.label === label;
