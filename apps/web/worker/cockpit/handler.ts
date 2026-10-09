@@ -24,7 +24,7 @@ import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { enquiries, postPage, openEnquiryCount, scanEnquiries, setHandled } from "./enquiries.js";
+import { enquiries, LABELS, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { englishLater, suggestForTeamMeeting } from "./agenda.js";
@@ -419,11 +419,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
-    const [data, watch, account] = await Promise.all([enquiries(db, now, all), mailWatch(db, now), may("mailbox.see") ? teamMailAccount(db) : Promise.resolve(null)]);
+    const label = (LABELS as readonly string[]).includes(url.searchParams.get("maerkat") ?? "") ? url.searchParams.get("maerkat")! : "";
+    const [data, watch, account] = await Promise.all([enquiries(db, now, all, label), mailWatch(db, now), may("mailbox.see") ? teamMailAccount(db) : Promise.resolve(null)]);
     const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken og undermapperne.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
       fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
-    return html(postPage(base, { who, ...data, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
+    return html(postPage(base, { who, ...data, label, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
       watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
       // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - logged in with the shared password the chair saw no card at all.
       // The chair always sees it; only connecting or disconnecting needs Saga's personal link (anyone could say they are the chair).
@@ -456,6 +457,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const id = Number(form?.get("id"));
     if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
     return redirect(`${base}/posthus`);
+  }
+  // Requested: "gøre det muligt at sortere under de forskellige mærkater": a member changes the label of a mail.
+  if (path === "/posthus/maerkat" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id")), back = String(form?.get("back") ?? "");
+    if (Number.isSafeInteger(id) && id > 0) await setLabel(db, id, String(form?.get("label") ?? ""));
+    return redirect(`${base}/posthus${(LABELS as readonly string[]).includes(back) ? `?maerkat=${encodeURIComponent(back)}` : ""}`);
   }
   if ((path === "/posthus/scan" || path === "/foresporgsler/scan") && request.method === "POST") {
     if (!env.AI_API_KEY || !env.AI_MODEL) return redirect(`${base}/posthus`);

@@ -12,7 +12,7 @@ describe("critical mail", () => {
   const setup = async (answer: (ids: number[]) => unknown[]) => {
     const db = testDatabase();
     let system = "";
-    const services = fakeServices({ ai: (sys, user) => { system = sys; return JSON.stringify({ items: answer((JSON.parse(user) as Array<{ id: number }>).map(m => m.id)) }); } });
+    const services = fakeServices({ ai: (sys, user) => { if (sys.includes("forespørgsel")) system = sys; return JSON.stringify({ items: answer((JSON.parse(user) as Array<{ id: number }>).map(m => m.id)) }); } });
     const env = sagaEnv(db, { COCKPIT_URL: "https://admin.hjerterum.info", COCKPIT_PASSWORD: "hjerte-2026" });
     const mail = (ref: string, subject: string, from = "Anna <anna@example.com>", at = NOW - 600_000) =>
       insertMail(db, { ref, sender: from, subject, receivedAtMs: at, preview: "Tekst", nowMs: NOW }).then(id => id!);
