@@ -48,6 +48,11 @@ export function itemKey(text: string): string {
   return (hash >>> 0).toString(36);
 }
 
+/** Requested: "Saga skal være meget sikker, hvis hun putter en opgave på - og det skal primært være fra referatet."
+ * A task (not a question) comes from the minutes; from the group chat or a mail it is kept only when Saga marked it sure -
+ * somebody plainly asked this person to do it, or it was agreed. */
+const certain = (f: { kind: string; source: string; sure: boolean }) => f.kind !== "opgave" || f.source === "dokument" || f.sure;
+
 /** The JSON object in the AI's answer (it may be wrapped in a code fence), or null. */
 function jsonObject(text: string): Record<string, unknown> | null {
   const start = text.indexOf("{"), end = text.lastIndexOf("}");
@@ -86,13 +91,13 @@ export function parsePicture(answer: string): BoardPicture | null {
     },
     forJacob: list(data.forJacob, 15).map(f => ({
       key: "", kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: str(f.text, 300),
-      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40)
-    })).filter(f => f.text).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key)),
+      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40), sure: f.sure === true
+    })).filter(f => f.text && certain(f)).map(({ sure: _sure, ...f }) => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key)),
     forMembers: list(data.forMembers, 15).map(f => ({
       key: "", to: (Array.isArray(f.to) ? f.to : typeof f.to === "string" ? [f.to] : []).map(n => str(n, 60)).filter(Boolean).slice(0, 8),
       kind: f.kind === "spørgsmål" ? "spørgsmål" as const : "opgave" as const, text: str(f.text, 300),
-      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40)
-    })).filter(f => f.text && f.to.length).map(f => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key))
+      source: SOURCES.includes(f.source as Source) ? f.source as Source : "telegram", from: str(f.from, 60), since: str(f.since, 40), sure: f.sure === true
+    })).filter(f => f.text && f.to.length && certain(f)).map(({ sure: _sure, ...f }) => ({ ...f, key: itemKey(f.text) })).filter(f => !seen.has(f.key) && seen.add(f.key))
   };
 }
 
