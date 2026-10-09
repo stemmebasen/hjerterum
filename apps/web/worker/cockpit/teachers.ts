@@ -1,3 +1,4 @@
+import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -154,7 +155,7 @@ export async function summarizeTeacher(env: SagaEnv, deps: SagaDeps, db: D1Datab
     `UNDERVISER: ${name}`, `I DAG: ${WHEN.format(now)}`,
     `ARRANGEMENTER (${events.length} i alt; pr. år: ${[...byYear].map(([y, n]) => `${y}: ${n}`).join(", ") || "ingen"}):\n${events.slice(0, 80).map(e => `- ${WHEN.format(e.starts_at_ms)}: ${e.title}${e.category ? ` [${e.category}]` : ""}${e.source === "nyt system" ? " (nyt system)" : ""}`).join("\n") || "(ingen)"}`,
     events.length ? `BESKRIVELSE AF DET SENESTE ARRANGEMENT:\n${(events[0]!.description ?? "").slice(0, 1200)}` : "",
-    `MAILS TIL TEAM@, DER NÆVNER UNDERVISEREN:\n${mails.map(m => `[${WHEN.format(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}\n  ${m.preview.replace(/\s+/g, " ").slice(0, 500)}`).join("\n") || "(ingen)"}`,
+    `MAILS TIL TEAM@, DER NÆVNER UNDERVISEREN:\n${mails.map(m => `[${WHEN.format(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}\n  ${cleanMailText(m.preview).slice(0, 500)}`).join("\n") || "(ingen)"}`,
     `BESTYRELSENS GRUPPE, BESKEDER DER NÆVNER UNDERVISEREN:\n${chat.map(m => `[${WHEN.format(m.sent_at_ms)}] ${m.author_name}: ${m.text.slice(0, 500)}`).join("\n") || "(ingen)"}`,
     `REFERATER, DER NÆVNER UNDERVISEREN:\n${minutes.map(m => `--- ${m.meeting_date ?? ""} ---\n${m.draft_markdown.split(/\r?\n/).filter(l => l.toLowerCase().includes(needle)).slice(0, 8).join("\n")}`).join("\n") || "(ingen)"}`,
     record?.note ? `BESTYRELSENS NOTE:\n${record.note}` : ""

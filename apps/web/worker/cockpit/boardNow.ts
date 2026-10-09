@@ -1,3 +1,4 @@
+import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -54,7 +55,7 @@ async function sources(env: SagaEnv, db: D1Database, nowMs: number): Promise<Sou
   const parts = [
     `I DAG: ${when(nowMs)}`,
     `TELEGRAM-GRUPPEN (seneste 3 døgn):\n${people.map(m => `[${when(m.sent_at_ms)}] ${m.author_name}: ${m.text.slice(0, 600)}`).join("\n") || "(ingen beskeder)"}`,
-    `MAILS TIL TEAM@ (seneste 2 døgn):\n${mails.map(m => `[${when(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.enquiry_summary ? ` (forespørgsel: ${m.enquiry_summary})` : ""}\n  ${m.preview.replace(/\s+/g, " ").slice(0, 300)}`).join("\n") || "(ingen)"}`,
+    `MAILS TIL TEAM@ (seneste 2 døgn):\n${mails.map(m => `[${when(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.enquiry_summary ? ` (forespørgsel: ${m.enquiry_summary})` : ""}\n  ${cleanMailText(m.preview).slice(0, 300)}`).join("\n") || "(ingen)"}`,
     minutes.length ? `MØDE INDEN FOR 48 TIMER - REFERAT:\n${minutes.map(m => `--- ${m.meeting_date} (${m.status === "approved" ? "godkendt" : "udkast"}) ---\n${m.draft_markdown.slice(0, 12_000)}`).join("\n\n")}`
       : meetings.length ? `MØDE INDEN FOR 48 TIMER (referatet er ikke klar endnu) - DAGSORDEN:\n${meetings.map(m => `--- ${m.meeting_date} ---\n${m.agenda || "(ingen dagsorden)"}`).join("\n")}` : "",
     `KLARET (afkrydset de sidste 14 dage):\n${done.map(d => `- [${when(d.at)}] ${d.text.slice(0, 200)}`).join("\n") || "(intet)"}`

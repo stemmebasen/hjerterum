@@ -40,9 +40,13 @@ describe("labels in Posthus", () => {
     const all = await (await call("/posthus")).text();
     expect(all).toContain('<a href="/posthus" aria-current="page">Alle<small>4</small></a>');
     for (const l of ["Medlem", "Økonomi", "Event", "Generel", "Automatisk"]) expect(all).toContain(`>${l}<small>`);
-    expect(all).toContain('<span class="kind label">Økonomi</span>');
+    // Each label has its own colour, on the chip and on the small tag of every mail.
+    expect(all).toContain('<span class="kind label lab-oekonomi">Økonomi</span>');
+    expect(all).toContain('<span class="kind label lab-medlem">Medlem</span>');
+    expect(all).toContain('class="lab-event"');
+    for (const colour of ["lab-medlem{--lc:", "lab-event{--lc:", "lab-oekonomi{--lc:", "lab-generel{--lc:", "lab-automatisk{--lc:"]) expect(all).toContain(colour);
     const money = await (await call("/posthus?maerkat=%C3%98konomi")).text();
-    expect(money).toContain('<a href="/posthus?maerkat=%C3%98konomi" aria-current="page">Økonomi<small>1</small></a>');
+    expect(money).toContain('<a href="/posthus?maerkat=%C3%98konomi" class="lab-oekonomi" aria-current="page">Økonomi<small>1</small></a>');
     expect(money).toContain("Faktura 1234");
     expect(money).not.toContain("Yoga i november");
     // A member changes one: it stays, also when Saga labels the rest again.

@@ -1,3 +1,4 @@
+import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -16,6 +17,9 @@ import { telegramClient } from "../saga/telegram.js";
 export const LABELS = ["Medlem", "Event", "Økonomi", "Generel", "Automatisk"] as const;
 export const LABEL_GUIDE = "Giv også HVER mail ét mærkat: Medlem (medlemskab, kontingent, medlemmer, opsigelse), Event (arrangementer, undervisere, kalenderen, leje af huset til events), Økonomi (fakturaer, betalinger, regnskab, bank, moms, priser, kvitteringer), "
   + "Generel (alt andet fra en person eller virksomhed) eller Automatisk (nyhedsbreve, notifikationer, reklame og automatiske beskeder fra systemer). ";
+/** Requested: "mærkaterne skal have forskellige farver, og der skal være et lille mærkat ved hver mail": one colour for each label, and the small tag on every mail that has one. */
+export const LABEL_CLASS: Record<(typeof LABELS)[number], string> = { Medlem: "lab-medlem", Event: "lab-event", Økonomi: "lab-oekonomi", Generel: "lab-generel", Automatisk: "lab-automatisk" };
+export const labelTag = (label: string | null | undefined): string => label && label in LABEL_CLASS ? `<span class="kind label ${LABEL_CLASS[label as keyof typeof LABEL_CLASS]}">${esc(label)}</span> ` : "";
 export const KINDS = ["Lokaleleje", "Undervisning og arrangementer", "Medlemskab", "Samarbejde", "Andet"] as const;
 export type Enquiry = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string; enquiry_summary: string | null; handled_at_ms: number | null; handled_by: string | null; label?: string | null;
   answered_at_ms?: number | null; answered_how?: string | null; reply_address?: string | null };
@@ -74,7 +78,7 @@ export async function labelUnlabelled(env: SagaEnv, deps: SagaDeps, db: D1Databa
     done += automatic.length;
     const rest = rows.filter(r => !isAutomatic(r));
     if (!rest.length) continue;
-    const text = await completeAs("mail-maerkater", "mid")(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rest.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 300) }))) }]);
+    const text = await completeAs("mail-maerkater", "mid")(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rest.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: cleanMailText(r.preview).slice(0, 300) }))) }]);
     const items = (() => { try { return (JSON.parse(/\{[\s\S]*\}/.exec(text)?.[0] ?? "{}") as { items?: unknown }).items; } catch { return null; } })();
     if (!Array.isArray(items)) throw new Error("mail_labels_unreadable");
     let batch = 0;
@@ -128,7 +132,7 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   const people = rows.filter(r => !isAutomatic(r));
   if (!people.length) return { scanned: automatic.length, found: 0 };
   const text = await completeAs("mail-scan", "mid")(env, deps, [{ role: "system", content: SYSTEM },
-    { role: "user", content: JSON.stringify(people.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 400) }))) }]);
+    { role: "user", content: JSON.stringify(people.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: cleanMailText(r.preview).slice(0, 400) }))) }]);
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
   const items = (() => { try { return (JSON.parse(json ?? "{}") as { items?: unknown }).items; } catch { return null; } })();
   if (!Array.isArray(items)) throw new Error("enquiry_scan_unreadable");
@@ -219,6 +223,9 @@ const STYLE = `
 .enq li:first-child{border-top:0;padding-top:0}.enq .line{font-weight:500;line-height:1.45}.enq .meta{font-size:13px;color:var(--muted);grid-column:1}
 .enq .kind,.enq .wait{display:inline;font-size:13px;font-weight:400;padding:0;background:none;color:var(--muted);margin:0}
 .enq .wait.late{color:var(--warn)}.enq .follow{color:var(--warn)}
+/* Requested: "Besvar-knappen i højre side af hver mail skal erstattes af et flueben-tjek": a round check, empty until the mail is answered. */
+.enq form button.tick{width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;display:grid;place-items:center;font-size:17px;line-height:1;background:transparent;color:var(--faint);border:2px solid var(--line)}
+.enq form button.tick:hover{color:var(--accent);border-color:var(--accent)}.enq form button.tick.is-done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .enq form{margin:0;grid-row:1/span 2;grid-column:2}.enq form button{background:transparent;color:var(--muted);border:1px solid var(--line);padding:5px 13px;min-height:0;font-size:13px;font-weight:500;box-shadow:none}
 .enq form button:hover{color:var(--ink);border-color:var(--muted);filter:none}
 .enq details{border:0;padding:2px 0 0;grid-column:1}.enq details summary{font-size:13px;color:var(--faint);font-weight:400}
@@ -231,8 +238,9 @@ const STYLE = `
 .inbox .from{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inbox .at{font-size:12.5px;color:var(--faint);white-space:nowrap}
 .inbox .subj{grid-column:1/-1;font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox .body{margin:10px 0 0;font-size:14px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}.mailbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 14px}.labels{display:flex;gap:8px;flex-wrap:wrap;flex:1}.labels a{padding:7px 14px;border-radius:999px;background:var(--soft);color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
-.labels a[aria-current]{background:var(--accent);color:var(--accent-ink)}.labels small{opacity:.75;font-weight:500;margin-left:5px}.mailbar input{max-width:240px}
-.inbox .kind.label{color:var(--accent);background:var(--tint);padding:1px 7px;border-radius:999px}.labelform{margin:10px 0 0}.labelform label{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600}.labelform select{width:auto}
+.lab-medlem{--lc:#4f6bd8}.lab-event{--lc:#2f9e7a}.lab-oekonomi{--lc:#c98a1b}.lab-generel{--lc:#7b8794}.lab-automatisk{--lc:#9a6bc4}
+.labels a[class]{background:color-mix(in srgb,var(--lc) 15%,transparent);color:color-mix(in srgb,var(--lc) 78%,var(--ink))}.labels a[aria-current]:not([class]){background:var(--accent);color:var(--accent-ink)}.labels a[class][aria-current]{background:var(--lc);color:#fff}.labels small{opacity:.75;font-weight:500;margin-left:5px}.mailbar input{max-width:240px}
+.inbox .kind.label,.enq .kind.label{padding:1px 8px;border-radius:999px;font-weight:700;background:color-mix(in srgb,var(--lc) 16%,transparent);color:color-mix(in srgb,var(--lc) 82%,var(--ink))}.labelform{margin:10px 0 0}.labelform label{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600}.labelform select{width:auto}
 .inbox .kind.urgent{color:var(--warn);background:var(--warn-soft);padding:1px 7px;border-radius:999px}.urgent-card{border-color:var(--warn)}.inbox .kind{font-size:11px;font-weight:700;color:var(--accent);margin-right:4px}
 @media (max-width:760px){.enq li{grid-template-columns:1fr}.enq form{grid-row:auto;grid-column:1;margin-top:4px}}
 `;
@@ -253,9 +261,9 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number, own: strin
   // Saga sees an answer by who it went to. A mail with no address to answer (a form that wrote none) cannot be followed.
   const followed = replyTarget({ reply_address: e.reply_address ?? null, sender: e.sender, preview: e.preview }, own) !== null;
   return `<li><div><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
-<span class="meta"><span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
-<details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(e.preview)}</p></details>
-<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="${open ? "" : "ghost"}">${open ? "Besvaret" : "Fortryd"}</button></form></li>`;
+<span class="meta">${labelTag(e.label)}<span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
+<details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(cleanMailText(e.preview))}</p></details>
+<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="tick${open ? "" : " is-done"}" title="${open ? "Besvaret" : "Fortryd"}" aria-label="${open ? "Marker som besvaret" : "Fortryd: åbn igen"}">✓</button></form></li>`;
 }
 
 /** Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks - øverst bruger vi den nuværende sektion til \"Vigtige mails,
@@ -292,7 +300,7 @@ ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/
   const recent = data.open.filter(e => data.nowMs - e.received_at_ms < 14 * DAY), older = data.open.filter(e => data.nowMs - e.received_at_ms >= 14 * DAY);
   const list = (rows: Enquiry[], open: boolean) => `<ul class="enq">${rows.map(e => item(base, e, open, data.nowMs, own)).join("")}</ul>`;
   const important = `<div class="card enq-card"><h2>Vigtige mails, der stadig er ubesvarede${data.open.length ? ` <span class="count">${data.open.length}</span>` : ""}</h2>
-<p class="small muted" style="margin:0 0 10px">Saga tjekker team@ for svar. Har du svaret fra en anden mail eller telefonen, så tryk Besvaret.</p>
+<p class="small muted" style="margin:0 0 10px">Saga tjekker team@ for svar. Har du svaret fra en anden mail eller telefonen, så tryk på fluebenet.</p>
 ${data.open.length ? `${recent.length ? list(recent, true) : `<p class="muted small">Intet nyt de seneste to uger.</p>`}${older.length ? `<details class="older"><summary>Ældre end to uger (${older.length})</summary>${list(older, true)}</details>` : ""}` : `<p class="muted">Ingen ubesvarede henvendelser.</p>`}
 ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${data.handled.length})</summary>${list(data.handled, false)}</details>` : ""}${scan}</div>`;
   // Requested: "Lav lignende oprydning på de resterende": the newest five mails stand open, the rest of the loaded ones are folded under a button.
@@ -300,11 +308,11 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const labelForm = (m: BoardMailRow) => data.who ? `<form class="labelform" method="post" action="${base}/posthus/maerkat"><input type="hidden" name="id" value="${m.id}"><input type="hidden" name="back" value="${esc(data.label ?? "")}">
 <label>Mærkat <select name="label" onchange="this.form.submit()"><option value="">Intet</option>${LABELS.map(l => `<option${m.label === l ? " selected" : ""}>${l}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
   const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${m.label ? `<span class="kind label">${esc(m.label)}</span> ` : ""}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}</details></li>`;
+<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(cleanMailText(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}</details></li>`;
   // Requested: "gøre det muligt at sortere under de forskellige mærkater" + "andre forslag for at gøre det mere overskueligt": the labels as chips with how many each has, and a search over what is on the page.
   const counts = data.labelCounts ?? {};
   const totalLabelled = Object.values(counts).reduce((a, b) => a + b, 0);
-  const chip = (value: string, text: string, n: number) => `<a href="${base}/posthus${value ? `?maerkat=${encodeURIComponent(value)}` : ""}"${(data.label ?? "") === value ? ' aria-current="page"' : ""}>${esc(text)}<small>${n}</small></a>`;
+  const chip = (value: string, text: string, n: number) => `<a href="${base}/posthus${value ? `?maerkat=${encodeURIComponent(value)}` : ""}"${value ? ` class="${LABEL_CLASS[value as keyof typeof LABEL_CLASS]}"` : ""}${(data.label ?? "") === value ? ' aria-current="page"' : ""}>${esc(text)}<small>${n}</small></a>`;
   const labelBar = `<div class="mailbar"><nav class="labels" aria-label="Mærkater">${chip("", "Alle", totalLabelled)}${LABELS.map(l => chip(l, l, counts[l] ?? 0)).join("")}</nav>
 <input type="search" id="pq" placeholder="Søg i afsender og emne" aria-label="Søg i mails"></div>
 <script>document.getElementById("pq")?.addEventListener("input",e=>{const q=e.target.value.toLowerCase();document.querySelectorAll(".inbox li,ul.enq li").forEach(li=>{li.hidden=q&&!li.textContent.toLowerCase().includes(q)});if(q)document.querySelectorAll("details.fold").forEach(d=>{d.open=true})})</script>`;
@@ -312,7 +320,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const urgentCard = data.urgent?.length ? `<div class="card urgent-card" id="kritiske"><h2>Kritiske mails <span class="count">${data.urgent.length}</span></h2>
 <p class="small muted" style="margin:0 0 8px">Saga vurderer, at de skal tages stilling til hurtigst muligt. Chefen får også besked på Telegram.</p>
 <ul class="inbox">${data.urgent.map(m => `<li><details open><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span><span class="subj">${esc(m.subject)}</span></summary>
-<p class="body"><strong>Hvorfor:</strong> ${esc(m.urgent_why ?? "")}</p><p class="body">${esc(m.preview)}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul></div>` : "";
+<p class="body"><strong>Hvorfor:</strong> ${esc(m.urgent_why ?? "")}</p><p class="body">${esc(cleanMailText(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul></div>` : "";
   const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>
 <p class="small ${data.watchOk ? "muted" : "warn"}" style="margin:0 0 6px">${esc(data.watch)}</p>
 ${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}

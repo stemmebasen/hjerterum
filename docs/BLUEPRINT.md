@@ -548,3 +548,9 @@ Still open:
 - Full public/member visual parity remains open.
 - Event signup payments, the 5% payout/admin-fee model, payment-linked cancellation policy,
   notifications and authenticated browser acceptance tests remain open before production cutover.
+
+## Natlig kopi, mærkatfarver, flueben og ren mailtekst
+
+- `worker/saga/backup.ts`: hver nat fra 03:00 (dansk tid) lægges én JSON-fil `hjerterum-kopi-ÅÅÅÅ-MM-DD.json` i Google Drive (`GOOGLE_DRIVE_BACKUP_FOLDER_ID`, ellers referatmappen); de seneste 30 gemmes. Login-links, kodeord og AI-forbrug er ikke med. Fejl vises på Status og giver én Telegram-besked i døgnet til formanden.
+- Posthus: hvert mærkat har sin farve (`LABEL_CLASS`) og vises som lille mærkat ved hver mail; "Besvaret" er erstattet af et rundt flueben.
+- `worker/saga/mailText.ts`: `cleanMailText` fjerner links, sporingsadresser og signaturer (fx avast) fra mailteksten, når den gemmes, vises og sendes til AI. Adresser (e-mail) bevares.

@@ -617,7 +617,9 @@ describe("the board cockpit", () => {
     expect(important).toContain("Lokaleleje");
     // "Ved hver mail skal der stå hvor længe afsenderen har ventet på svar."
     expect(important).toContain('<span class="wait">Ventet 1 time</span>');
-    // Quiet: no coloured pills, and a small "Besvaret" button.
+    // Quiet: no coloured pills, and a round check mark instead of a button with words (requested: "Besvar-knappen ... skal erstattes af et flueben-tjek").
+    expect(important).toContain('class="tick" title="Besvaret" aria-label="Marker som besvaret">✓</button>');
+    expect(important).not.toContain(">Besvaret</button>");
     expect(important).not.toMatch(/class="kind"[^>]*>[^<]*<\/span><span class="line"/);
     expect(important).not.toContain("Ugens tilbud");
     expect(await (await go("/")).text()).toContain("1 vigtig mail</strong> venter på svar i team@");
