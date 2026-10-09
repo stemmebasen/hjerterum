@@ -23,6 +23,8 @@ export interface SagaEnv {
   AI_API_KEY?: string;
   AI_BASE_URL?: string;
   AI_MODEL?: string;
+  /** Optional cheaper model for simple tasks (sorting, translation); the main model takes over when it fails. */
+  AI_CHEAP_MODEL?: string;
   ELEVENLABS_API_KEY?: string;
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_DRIVE_RECORDINGS_FOLDER_ID?: string;

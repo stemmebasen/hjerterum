@@ -23,6 +23,8 @@
         "SAGA_OWNER_TELEGRAM_ID": "8490500029",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
+        // Requested: "brug gerne den billige deep seek model hvorend det giver mening": simple tasks (sorting, translation) - the main model takes over if it fails.
+        "AI_CHEAP_MODEL": "deepseek-v4-flash",
         "GOOGLE_MINUTES_DOC_ID": "1fqEys6iYSXu5XG81EyT45YVfbhRjVlq86ERVbHn1Mzs",
         "COCKPIT_URL": "https://admin.hjerterum.info",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>",
@@ -47,7 +49,8 @@
       "vars": {
         "ENVIRONMENT": "production",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
-        "AI_MODEL": "vertex/claude-sonnet-5-5@eu"
+        "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
+        "AI_CHEAP_MODEL": "deepseek-v4-flash"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]

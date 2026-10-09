@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { recentBoardMessages } from "../saga/store.js";
 
@@ -83,7 +83,7 @@ export async function writeBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database
   const now = deps.now();
   const [input, last] = await Promise.all([sources(env, db, now), latestBoardNow(db)]);
   if (!force && last && input.newest <= last.newest) return false;
-  const text = nowText(await complete(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: input.text }]));
+  const text = nowText(await completeAs("lige-nu")(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: input.text }]));
   if (!text) { console.warn("saga_board_now_unreadable"); return false; }
   await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind(text, input.newest, now).run();
   await db.prepare("DELETE FROM board_now WHERE created_at_ms < ?").bind(now - 30 * DAY).run();

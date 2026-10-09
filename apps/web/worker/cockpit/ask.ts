@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete, type ChatMessage } from "../saga/ai.js";
+import { completeAs, type ChatMessage } from "../saga/ai.js";
 import { minutesDocText } from "../saga/drive.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
@@ -207,7 +207,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   const mine = who ? personalSection(who, items) : "";
   const messages: ChatMessage[] = [{ role: "system", content: `${COCKPIT_SYSTEM}\n\n${await boardKnowledge(env, deps, db, [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" "))}${mine}${await memorySection(db, who)}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder` }, ...input.history, { role: "user", content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` }];
   const now = deps.now();
-  const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, await complete(env, deps, messages), who, now, base), who, items, now, base), who, now);
+  const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, await completeAs("spoergsmaal")(env, deps, messages), who, now, base), who, items, now, base), who, now);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;

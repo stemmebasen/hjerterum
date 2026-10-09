@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { allDecisions, approvedMinutes, boardPicture, type Decision } from "./data.js";
 
@@ -65,7 +65,7 @@ const SYSTEM = "Du sorterer punkter fra bestyrelsens referater i foreningen Hjer
 export async function classifyDecisions(env: SagaEnv, deps: SagaDeps, db: D1Database, texts: string[]): Promise<number> {
   const todo = [...new Set(texts.map(t => t.replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 100);
   if (!todo.length) return 0;
-  const answer = await complete(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: todo.map((t, i) => `${i + 1}. ${t}`).join("\n") }]);
+  const answer = await completeAs("beslutningsart", true)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: todo.map((t, i) => `${i + 1}. ${t}`).join("\n") }]);
   let items: unknown = null;
   try { items = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { items?: unknown } | null)?.items; } catch { items = null; }
   if (!Array.isArray(items)) throw new Error("decision_kinds_unreadable");

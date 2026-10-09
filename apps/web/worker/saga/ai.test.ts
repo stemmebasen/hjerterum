@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { complete, REQUESTY_EU, SAGA_MODEL } from "./ai.js";
+import { complete, completeAs, REQUESTY_EU, SAGA_MODEL } from "./ai.js";
+import { testDatabase } from "./test-support.js";
+import { adminsPage, aiUsage } from "../cockpit/admins.js";
 
 // Requested: "Saga skal bruge Requesty API fremover".
 describe("Saga's AI provider", () => {
@@ -21,5 +23,58 @@ describe("Saga's AI provider", () => {
     await complete({ AI_API_KEY: "key", AI_MODEL: "deepseek-v4-flash" } as never, { fetcher, now: () => 0 }, [{ role: "user", content: "Hej" }]);
     expect(bodies[0]).toEqual({ model: "vertex/claude-sonnet-5-5@eu", messages: [{ role: "user", content: "Hej" }], max_tokens: 16000 });
     expect(bodies[1]).toMatchObject({ model: "deepseek-v4-flash", temperature: 0.2 });
+  });
+
+  // Requested: "We spend around $3 to $4 each day on AI calls ... save money" - "brug gerne den billige deep seek model hvorend det giver mening".
+  it("measures every call, sends the simple ones to the cheap model, and falls back on the main one when the cheap one fails", async () => {
+    const db = testDatabase();
+    const models: string[] = [];
+    let cheapWorks = true;
+    const fetcher: typeof fetch = async (_input, init) => {
+      const model = String(JSON.parse(String(init?.body)).model);
+      models.push(model);
+      if (model === "deepseek-v4-flash" && !cheapWorks) return new Response(JSON.stringify({ error: { message: "no such model" } }), { status: 404 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: "Hej" } }], usage: { prompt_tokens: 1200, completion_tokens: 30 } }));
+    };
+    const env = { AI_API_KEY: "key", AI_MODEL: SAGA_MODEL, AI_CHEAP_MODEL: "deepseek-v4-flash", DB: db } as never;
+    const now = () => 1_000;
+    const messages = [{ role: "user" as const, content: "Hej" }];
+    // A simple task goes to the cheap model; a big one stays on the main model.
+    await completeAs("oversaet-tekster", true)(env, { fetcher, now }, messages);
+    await completeAs("spoergsmaal")(env, { fetcher, now }, messages);
+    expect(models).toEqual(["deepseek-v4-flash", SAGA_MODEL]);
+    // The cheap model failing is no failure for the member: the main model answers, and the row says so.
+    cheapWorks = false;
+    expect(await completeAs("beslutningsart", true)(env, { fetcher, now }, messages)).toBe("Hej");
+    expect(models.slice(2)).toEqual(["deepseek-v4-flash", SAGA_MODEL]);
+    expect(await db.prepare("SELECT purpose, model, prompt_tokens, completion_tokens, ok, fallback FROM ai_usage ORDER BY id").all()).toMatchObject({ results: [
+      { purpose: "oversaet-tekster", model: "deepseek-v4-flash", prompt_tokens: 1200, completion_tokens: 30, ok: 1, fallback: 0 },
+      { purpose: "spoergsmaal", model: SAGA_MODEL, ok: 1, fallback: 0 },
+      { purpose: "beslutningsart", model: "deepseek-v4-flash", prompt_tokens: null, ok: 0, fallback: 0 },
+      { purpose: "beslutningsart", model: SAGA_MODEL, prompt_tokens: 1200, ok: 1, fallback: 1 }] });
+    // Without a cheap model nothing changes: the main model does everything.
+    const plain = { AI_API_KEY: "key", AI_MODEL: SAGA_MODEL } as never;
+    models.length = 0;
+    await completeAs("oversaet-tekster", true)(plain, { fetcher, now }, messages);
+    expect(models).toEqual([SAGA_MODEL]);
+  });
+
+  it("shows the chair what the calls were for - most tokens first - and what had to fall back", async () => {
+    const db = testDatabase();
+    const insert = (at: number, purpose: string, model: string, p: number | null, c: number | null, ok = 1, fb = 0) =>
+      db.prepare("INSERT INTO ai_usage (at_ms, purpose, model, prompt_tokens, completion_tokens, ok, fallback) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(at, purpose, model, p, c, ok, fb).run();
+    const now = 10 * 86_400_000;
+    await insert(now - 1000, "spoergsmaal", "main", 80_000, 900);
+    await insert(now - 2000, "spoergsmaal", "main", 70_000, 800);
+    await insert(now - 3000, "oversaet-tekster", "cheap", 500, 200);
+    await insert(now - 4000, "oversaet-tekster", "main", 500, 200, 1, 1);
+    await insert(now - 9 * 86_400_000, "gammel", "main", 1, 1);
+    const usage = await aiUsage(db, now);
+    expect(usage.week.map(r => [r.purpose, r.model, r.calls])).toEqual([["spoergsmaal", "main", 2], ["oversaet-tekster", "cheap", 1], ["oversaet-tekster", "main", 1]]);
+    expect(usage.day).toEqual({ calls: 4, tokens: 153_100 });
+    const page = adminsPage("", "Jacob Hauge", { cockpit: [], area: [], nowMs: now, usage });
+    expect(page).toContain("<h2>AI-forbrug<span class=\"count\">seneste døgn: 4 kald, 153 t. tokens</span></h2>");
+    expect(page.indexOf("spoergsmaal")).toBeLessThan(page.indexOf("oversaet-tekster"));
+    expect(page).toContain("1 gange skiftet til hovedmodellen");
   });
 });

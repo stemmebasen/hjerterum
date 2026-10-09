@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { esc, fold, layout, SHOWN } from "./page.js";
 import { replyTarget } from "../saga/teamMail.js";
@@ -61,7 +61,7 @@ export async function labelUnlabelled(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const rows = (await db.prepare("SELECT id, sender, subject, preview FROM board_mail WHERE label IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
       .bind(deps.now() - 90 * DAY, BATCH).all<Unscanned>()).results ?? [];
     if (!rows.length) break;
-    const text = await complete(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 400) }))) }]);
+    const text = await completeAs("mail-maerkater")(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 400) }))) }]);
     const items = (() => { try { return (JSON.parse(/\{[\s\S]*\}/.exec(text)?.[0] ?? "{}") as { items?: unknown }).items; } catch { return null; } })();
     if (!Array.isArray(items)) throw new Error("mail_labels_unreadable");
     let batch = 0;
@@ -109,7 +109,7 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   const rows = (await db.prepare("SELECT id, sender, subject, preview FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
     .bind(now - 30 * DAY, BATCH).all<Unscanned>()).results ?? [];
   if (!rows.length) return null;
-  const text = await complete(env, deps, [{ role: "system", content: SYSTEM },
+  const text = await completeAs("mail-scan")(env, deps, [{ role: "system", content: SYSTEM },
     { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 700) }))) }]);
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
   const items = (() => { try { return (JSON.parse(json ?? "{}") as { items?: unknown }).items; } catch { return null; } })();

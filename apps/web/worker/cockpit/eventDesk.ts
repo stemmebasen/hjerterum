@@ -1,6 +1,6 @@
 import type { EventFileView } from "../event-files.js";
 import type { D1Database } from "../db.js";
-import { complete } from "../saga/ai.js";
+import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { calculateRoomPriceQuote, roomBookingProblems, ROOM_RENTAL_RULES, type RoomBookingProblem, type RoomBookingType, type RoomPriceQuote } from "../../../../packages/core/src/legacy-room-pricing.js";
 import { createRoomBooking, normalizeCreateRoomBookingInput, type ReviewStatus } from "../room-bookings.js";
@@ -64,7 +64,7 @@ export async function reviewPendingEvents(env: SagaEnv, deps: SagaDeps, db: D1Da
   for (const row of rows) {
     let verdict: ReviewVerdict;
     try {
-      verdict = readVerdict(await complete(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
+      verdict = readVerdict(await completeAs("event-review")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
         titel: row.title, beskrivelse: (row.description ?? "").slice(0, 4000), arrangoer: row.teacher_name, start: WHEN.format(row.starts_at_ms), slut: WHEN.format(row.ends_at_ms),
         lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees }) }]));
     } catch (error) {
@@ -230,7 +230,7 @@ export async function draftEvent(env: SagaEnv, deps: SagaDeps, db: D1Database, r
     .map(e => `--- ${e.title}${e.category ? ` [${e.category}]` : ""} ---\n${e.description.slice(0, 500)}`).join("\n\n") || "(ingen)";
   const today = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)
     + ` (${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now)})`;
-  const answer = await complete(env, deps, [{ role: "system", content: DRAFT_SYSTEM(today, examples) }, { role: "user", content: request }]);
+  const answer = await completeAs("event-udkast")(env, deps, [{ role: "system", content: DRAFT_SYSTEM(today, examples) }, { role: "user", content: request }]);
   let parsed: unknown = null;
   try { parsed = JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null"); } catch { parsed = null; }
   if (!parsed) throw new Error("event_draft_unreadable");

@@ -1,4 +1,4 @@
-import { complete } from "./ai.js";
+import { completeAs } from "./ai.js";
 import { minutesDocText, minutesDocUrl } from "./drive.js";
 import type { SagaDeps, SagaEnv } from "./env.js";
 import { section } from "./markdown.js";
@@ -51,7 +51,7 @@ export async function importDocMinutes(env: SagaEnv, deps: SagaDeps): Promise<vo
     if (approved) continue;
     let answer: string;
     try {
-      answer = await complete(env, deps, [{ role: "system", content: IMPORT_SYSTEM },
+      answer = await completeAs("import-referat")(env, deps, [{ role: "system", content: IMPORT_SYSTEM },
         { role: "user", content: `Mødedato: ${meeting.day}\n\nFRA REFERATDOKUMENTET:\n${meeting.text.slice(0, 40_000)}` }]);
     } catch (error) {
       // The AI did not answer: the meeting is tried again at the next run.
