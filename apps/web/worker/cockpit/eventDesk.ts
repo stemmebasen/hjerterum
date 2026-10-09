@@ -64,7 +64,7 @@ export async function reviewPendingEvents(env: SagaEnv, deps: SagaDeps, db: D1Da
   for (const row of rows) {
     let verdict: ReviewVerdict;
     try {
-      verdict = readVerdict(await completeAs("event-review")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
+      verdict = readVerdict(await completeAs("event-review", "mid")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
         titel: row.title, beskrivelse: (row.description ?? "").slice(0, 4000), arrangoer: row.teacher_name, start: WHEN.format(row.starts_at_ms), slut: WHEN.format(row.ends_at_ms),
         lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees }) }]));
     } catch (error) {

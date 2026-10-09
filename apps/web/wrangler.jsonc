@@ -24,6 +24,7 @@
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
         "AI_CHEAP_MODEL": "deepseek-v4-flash",
+        "AI_MID_MODEL": "anthropic/claude-haiku-5-5",
         "GOOGLE_MINUTES_DOC_ID": "1fqEys6iYSXu5XG81EyT45YVfbhRjVlq86ERVbHn1Mzs",
         "COCKPIT_URL": "https://admin.hjerterum.info",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>",
@@ -49,7 +50,8 @@
         "ENVIRONMENT": "production",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
-        "AI_CHEAP_MODEL": "deepseek-v4-flash"
+        "AI_CHEAP_MODEL": "deepseek-v4-flash",
+        "AI_MID_MODEL": "anthropic/claude-haiku-5-5"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]
