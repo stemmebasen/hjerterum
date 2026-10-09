@@ -532,7 +532,7 @@ describe("the board's picture: the group, the document and what waits on the cha
       tasks: [{ who: "Mette", what: "Indkøbe kage", due: "fredag", since: "17/9 2026" }, { who: "x" }], nextAgenda: ["Medlemskab for bestyrelsen", ""] },
     forJacob: [{ kind: "spørgsmål", text: "Skal vi leje lokalet på Nørrebro?", source: "telegram", from: "Mette", since: "" },
       { kind: "opgave", text: "Underskriv lejekontrakten", source: "dokument", from: "" },
-      { kind: "opgave", text: "Svar kommunen om tilskud", source: "mail", from: "Kommunen" },
+      { kind: "opgave", text: "Svar kommunen om tilskud", source: "mail", from: "Kommunen", sure: true },
       { kind: "opgave", text: "Underskriv  lejekontrakten!", source: "dokument", from: "" }]
   };
   const google = async () => ({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }), GOOGLE_MINUTES_DOC_ID: "minutes-doc" });

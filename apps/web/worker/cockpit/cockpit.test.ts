@@ -329,7 +329,7 @@ describe("the board cockpit", () => {
       forJacob: [{ key: "k1", kind: "opgave", text: "Send preview-link til nyt system til Douglas", source: "dokument", from: "", since: "1/10" },
         { key: "k2", kind: "opgave", text: "Bestil nøgler til den nye leder", source: "dokument", from: "", since: "" },
         { key: "k3", kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" },
-        { key: "k4", kind: "opgave", text: "Besvar mailen fra Karítas", source: "mail", from: "", since: "" }], forMembers: [] };
+        { key: "k4", kind: "opgave", text: "Besvar mailen fra Karítas", source: "mail", from: "", since: "", sure: true }], forMembers: [] };
     await saveOverview(db, picture.summary, NOW, { data: JSON.stringify(picture), docHash: "x" });
     const minutesId = (await queueMinutes(db, { source: "telegram", fileId: "f1", fileName: "møde.m4a", mimeType: "audio/mp4", meetingDate: "2026-10-01", nowMs: NOW }))!;
     await updateMinutes(db, minutesId, { status: "drafted", draft: "# Referat\n## Opgaver\n- Jacob - Ring til udlejer - 12. oktober" }, NOW);

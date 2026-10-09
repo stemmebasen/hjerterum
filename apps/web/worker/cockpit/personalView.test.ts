@@ -20,8 +20,8 @@ const picture = {
   forJacob: [{ kind: "spørgsmål", text: "Skal vi svare Thomas Emil?", source: "telegram", from: "Blanka", since: "" }],
   forMembers: [
     { to: ["alle"], kind: "spørgsmål", text: `${SUPPLEANT}.`, source: "telegram", from: "Gitta", since: "" },
-    { to: ["Lisbeth"], kind: "opgave", text: "Send nøglen til rengøringen", source: "telegram", from: "Gitta", since: "" },
-    { to: ["Gitta Hansen", "Douglas"], kind: "opgave", text: "Skriv nyhedsbrevet", source: "telegram", from: "", since: "" },
+    { to: ["Lisbeth"], kind: "opgave", text: "Send nøglen til rengøringen", source: "telegram", from: "Gitta", since: "", sure: true },
+    { to: ["Gitta Hansen", "Douglas"], kind: "opgave", text: "Skriv nyhedsbrevet", source: "telegram", from: "", since: "", sure: true },
     { to: [], kind: "opgave", text: "Ingen modtager", source: "telegram", from: "", since: "" }
   ]
 };
