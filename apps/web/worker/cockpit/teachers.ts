@@ -14,7 +14,7 @@ import { esc, layout } from "./page.js";
 const DAY = 86_400_000;
 export const teacherKey = (name: string) => name.normalize("NFC").toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim();
 
-export type TeacherRow = { key: string; name: string; events: number; first: number | null; last: number | null; upcoming: number; bookings: number; fixed: boolean; hasContact: boolean };
+export type TeacherRow = { key: string; name: string; events: number; first: number | null; last: number | null; upcoming: number; bookings: number; fixed: boolean; hasContact: boolean; hidden?: boolean };
 export type TeacherRecord = { key: string; name: string; email: string | null; phone: string | null; website: string | null; note: string | null; summary: string | null; summary_at_ms: number | null; summary_by: string | null; updated_by: string | null; updated_at_ms: number };
 
 /** Requested: "Kan man vælge mellem flest events og alfabetisk?" */
@@ -23,7 +23,7 @@ export const teacherSort = (value: string | null | undefined): TeacherSort => va
 
 /** Every teacher the system knows, the active ones first, each group by number of events (the default) or by name. */
 export async function listTeachers(db: D1Database, nowMs: number, sort: TeacherSort = "events"): Promise<TeacherRow[]> {
-  const [calendar, bookings, fixed, records, contacts] = await Promise.all([
+  const [calendar, bookings, fixed, records, contacts, hidden] = await Promise.all([
     db.prepare(`SELECT MIN(host) AS name, COUNT(*) AS n, MIN(starts_at_ms) AS first, MAX(starts_at_ms) AS last, SUM(CASE WHEN starts_at_ms >= ? THEN 1 ELSE 0 END) AS upcoming
       FROM house_events WHERE host IS NOT NULL AND TRIM(host) <> '' AND removed_at_ms IS NULL GROUP BY LOWER(TRIM(host))`).bind(nowMs)
       .all<{ name: string; n: number; first: number; last: number; upcoming: number }>().then(r => r.results ?? []).catch(() => []),
@@ -32,7 +32,8 @@ export async function listTeachers(db: D1Database, nowMs: number, sort: TeacherS
       .all<{ name: string; n: number; first: number; last: number; upcoming: number }>().then(r => r.results ?? []).catch(() => []),
     db.prepare("SELECT name FROM fixed_teachers").all<{ name: string }>().then(r => r.results ?? []).catch(() => []),
     db.prepare("SELECT key, name, email, phone FROM cockpit_teachers").all<{ key: string; name: string; email: string | null; phone: string | null }>().then(r => r.results ?? []).catch(() => []),
-    contactsByName(db)
+    contactsByName(db),
+    db.prepare("SELECT key FROM cockpit_teachers_hidden").all<{ key: string }>().then(r => new Set((r.results ?? []).map(h => h.key))).catch(() => new Set<string>())
   ]);
   const all = new Map<string, TeacherRow>();
   const get = (name: string) => {
@@ -48,6 +49,7 @@ export async function listTeachers(db: D1Database, nowMs: number, sort: TeacherS
   for (const r of records) { const row = get(r.name); if (r.email || r.phone) row.hasContact = true; }
   // "Hvordan finder systemet ikke selv e-mails?" - the list looks where the teacher's own page looks, so "Mangler kontakt" only stands when nothing is known.
   for (const row of all.values()) if (contacts.get(row.key)?.length) row.hasContact = true;
+  for (const row of all.values()) row.hidden = hidden.has(row.key) && !row.fixed && row.upcoming === 0;
   const active = (r: TeacherRow) => isActive(r, nowMs);
   const byName = (a: TeacherRow, b: TeacherRow) => a.name.localeCompare(b.name, "da");
   const order = sort === "navn" ? byName : (a: TeacherRow, b: TeacherRow) => b.events - a.events || (b.last ?? 0) - (a.last ?? 0) || byName(a, b);
@@ -56,6 +58,13 @@ export async function listTeachers(db: D1Database, nowMs: number, sort: TeacherS
 
 /** Active: a fixed teacher, something coming, or something in the last year. */
 export const isActive = (r: TeacherRow, nowMs: number) => r.fixed || r.upcoming > 0 || (r.last ?? 0) >= nowMs - 365 * DAY;
+
+/** Requested (Gitta): "Der er nogle der mangler kontakt som bare skal slettes": a teacher with no contact is hidden from the list (and shown again from "Skjulte"). */
+export async function setTeacherHidden(db: D1Database, key: string, hide: boolean, who: string, nowMs: number): Promise<void> {
+  if (!key) return;
+  if (hide) await db.prepare("INSERT OR IGNORE INTO cockpit_teachers_hidden (key, hidden_by, hidden_at_ms) VALUES (?, ?, ?)").bind(key, who, nowMs).run();
+  else await db.prepare("DELETE FROM cockpit_teachers_hidden WHERE key = ?").bind(key).run();
+}
 
 export type KnownContact = { kind: "mail" | "telefon"; value: string; from: string };
 
@@ -169,7 +178,8 @@ export async function summarizeTeacher(env: SagaEnv, deps: SagaDeps, db: D1Datab
 
 // ---- Pages ----
 
-const STYLE = `
+const STYLE = `.tl li:has(.x-form){display:flex;gap:10px;align-items:center;flex-wrap:wrap}.x-form{margin:0 0 0 auto}.x-form .x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 8px;min-height:0;box-shadow:none}.x-form .x:hover{color:#9a3412}
+
 .tl{list-style:none;margin:0;padding:0}.tl li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}.tl li:first-child{border-top:0}
 .tl a{font-weight:600}.tl .meta{font-size:13px;color:var(--muted);grid-column:1}.tl .badges{grid-row:1/span 2;grid-column:2;display:flex;gap:6px;align-items:center}
 .badge{font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent)}.badge.dim{background:var(--soft);color:var(--muted)}
@@ -181,11 +191,12 @@ const year = (ms: number | null) => ms ? String(new Date(ms).getUTCFullYear()) :
 
 export function teachersPage(base: string, data: { teachers: TeacherRow[]; query: string; sort: TeacherSort; nowMs: number; who: string | null }): string {
   const q = teacherKey(data.query);
-  const shown = q ? data.teachers.filter(t => t.key.includes(q)) : data.teachers;
+  const hiddenRows = data.teachers.filter(t => t.hidden);
+  const shown = (q ? data.teachers.filter(t => t.key.includes(q)) : data.teachers).filter(t => !t.hidden);
   const item = (t: TeacherRow) => `<li><a href="${base}/arrangementer/undervisere/${encodeURIComponent(t.key)}">${esc(t.name)}</a>
 <span class="meta">${t.events} arrangement${t.events === 1 ? "" : "er"}${t.first ? ` · ${year(t.first)}${year(t.last) !== year(t.first) ? `-${year(t.last)}` : ""}` : ""}${t.upcoming ? ` · ${t.upcoming} kommende` : ""}</span>
-<span class="badges">${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span></li>`;
-  const missing = data.teachers.filter(t => !t.hasContact).length;
+<span class="badges">${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span>${!t.hasContact && !t.fixed && t.upcoming === 0 ? `<form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="1"><button class="x" aria-label="Fjern ${esc(t.name)} fra listen" title="Fjern fra listen">×</button></form>` : ""}</li>`;
+  const missing = data.teachers.filter(t => !t.hasContact && !t.hidden).length;
   const active = shown.filter(t => isActive(t, data.nowMs)), earlier = shown.filter(t => !isActive(t, data.nowMs));
   return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Arrangementer</a></p><h1>Undervisere</h1>
 <p class="muted">Alle, der har undervist eller holdt arrangementer i Hjerterum - samlet automatisk fra kalenderen (siden 2019), bookingerne i det nye system og listen over faste undervisere.</p>
@@ -193,7 +204,8 @@ export function teachersPage(base: string, data: { teachers: TeacherRow[]; query
 <p class="sorting small" role="group" aria-label="Sortér"><span class="muted">Sortér:</span> ${(["events", "navn"] as const).map(s => `<a href="${base}/arrangementer/undervisere?${new URLSearchParams({ ...(data.query ? { q: data.query } : {}), sorter: s })}"${data.sort === s ? ` class="on" aria-current="true"` : ""}>${s === "events" ? "Flest events" : "A–Å"}</a>`).join("")}</p>
 ${missing ? `<p class="small" style="margin:12px 0 0"><a href="${base}/arrangementer/undervisere/forslag">${missing} undervisere mangler kontakt - se forslag fra mails og medlemslister →</a></p>` : ""}
 <div class="card"><h2>Aktive <span class="pill">${active.length}</span></h2><p class="small muted">Kommende arrangementer eller aktive det seneste år.</p>${active.length ? `<ul class="tl">${active.map(item).join("")}</ul>` : `<p class="muted">Ingen.</p>`}</div>
-${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}</main>`,
+${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}
+${hiddenRows.length ? `<details class="card"><summary class="small muted">Fjernet fra listen (${hiddenRows.length})</summary><ul class="tl">${hiddenRows.map(t => `<li><span>${esc(t.name)}</span><form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="0"><button class="ghost">Sæt tilbage</button></form></li>`).join("")}</ul></details>` : ""}</main>`,
   { section: "/arrangementer", who: data.who, style: STYLE });
 }
 

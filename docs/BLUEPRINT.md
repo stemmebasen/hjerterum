@@ -565,3 +565,8 @@ Still open:
 - Ét fælles omslag-regelsæt (`event-files.ts`): kun jpg/png, præcis 1920 × 1005 px (Facebooks event-omslag), højst 8 MB. Serveren læser målene fra billedets header og afviser alt andet (`cover_size`).
 - Medlemmernes eventformular (`src/cover-crop.ts`) og Saga-udkastet i admin beskærer et større billede fra midten i browseren; et mindre billede afvises (aldrig forstørret).
 - Udkastets omslag (`cockpit_event_drafts.cover_*`, migration 0058) bliver eventets omslag, når udkastet oprettes. Udkast slettes med × på listen.
+
+## Undervisere og medlemstal (Gittas kommentarer)
+
+- Undervisere uden kontaktoplysninger, faste eller kommende events kan fjernes fra listen med × (`cockpit_teachers_hidden`, migration 0059). De skjules kun - kalenderens historik røres ikke - og kan sættes tilbage under "Fjernet fra listen".
+- Medlemstallene har en kort forklaring: de er skrevet af fra MembershipWorks' dashboard, og gratis, restance og opsagte er hver deres tal.
