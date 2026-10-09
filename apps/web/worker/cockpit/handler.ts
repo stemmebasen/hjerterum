@@ -31,7 +31,7 @@ import { englishLater, suggestForTeamMeeting } from "./agenda.js";
 import { latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, decideAtMeeting, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
-import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
+import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
@@ -776,6 +776,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       const teachers = await listTeachers(db, now);
       return html(suggestionsPage(base, { suggestions: await contactSuggestions(db, teachers), missing: teachers.filter(t => !t.hasContact).length, notice: SUGGESTION_NOTICE[url.searchParams.get("besked") ?? ""] ?? "", who }));
     }
+  }
+  if (path === "/arrangementer/undervisere/skjul" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    await setTeacherHidden(db, String(form?.get("key") ?? ""), form?.get("hide") === "1", who, now);
+    return redirect(`${base}/arrangementer/undervisere`);
   }
   const teacherPath = /^\/arrangementer\/undervisere\/([^/]+)$/.exec(path);
   if (teacherPath) {

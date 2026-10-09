@@ -136,6 +136,7 @@ export function membersPanel(base: string, rows: MemberStats[], front = true): s
 <div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>medlemskontingent (årligt)</span></div>
 <div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
+<p class="small muted" style="margin:10px 0 0">Tallene er skrevet af fra MembershipWorks' dashboard. Gratis medlemskab, restance og opsagte er hver deres tal.</p>
 ${top.length && !front ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}
 ${front ? `<a class="more" href="${base}/medlemmer/tal">Alle tal og opdatering →</a>` : ""}</article>`;
 }
