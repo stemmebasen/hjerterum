@@ -224,7 +224,7 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 ### A middle model (2026-10-09)
 
 - "Men er der ikke en mellemmodel ...?" - `anthropic/claude-haiku-5-5` (`AI_MID_MODEL`): a third tier between DeepSeek (simple tasks) and Sonnet 5.5 (everything the board reads as Saga's own words). `completeAs("purpose", "mid")` uses it, and the main model answers when it fails or is not set. It does: the agenda suggestion, "Bestyrelsen lige nu", the summaries of the teachers and the review of members' events.
-- **Not on it, until it is decided:** the mails of team@ (labels, urgency, enquiries - the biggest saving, since the scan runs every hour). The model name `anthropic/...` is Anthropic's own route, not the EU one (`vertex/...@eu`) the board chose for its data - private messages from outside should not go there without a decision. Moving them is one word in `enquiries.ts` (`"mail-scan"`, `"mail-maerkater"`).
+- **The mails of team@ are on it too** ("Alle 3 lyder fint"): the scan and the labelling (`mail-scan`, `mail-maerkater`) use the middle model. `anthropic/...` is Anthropic's own route, not the EU one (`vertex/...@eu`) chosen for the board's data - the chair accepted that for the mails. Two things cut the calls further: **mail from a system** (a no-reply or mailer-daemon sender, a notification or newsletter address, an "unsubscribe" footer - `isAutomatic`) is labelled *Automatisk* without any call (only sender and footer decide, so a real demand for payment from a person is still read), and the text sent per mail is **400 characters** (300 for labelling), not 700.
 
 ### Fewer automatic AI calls (2026-10-09)
 

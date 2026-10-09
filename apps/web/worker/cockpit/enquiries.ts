@@ -35,6 +35,14 @@ const SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum (et
 
 type Unscanned = { id: number; sender: string; subject: string; preview: string };
 
+/** Requested: "Spring de mails over, der åbenlyst ikke kræver AI": mail from a system, not a person - a no-reply sender, a mailer daemon, a notification or newsletter address, or a footer that says how to unsubscribe - is labelled "Automatisk" at once,
+ * without a call. Only the sender and the footer decide (not words like "faktura"), so a real demand for payment from a person is still read. */
+export function isAutomatic(mail: { sender: string; preview: string }): boolean {
+  const address = (/<([^>]+)>/.exec(mail.sender)?.[1] ?? mail.sender).toLowerCase();
+  return /^(?:no[-_.]?reply|do[-_.]?not[-_.]?reply|mailer-daemon|postmaster|bounces?|notifications?|newsletter|nyhedsbrev|marketing|mailer|automailer)(?:[+._-][^@]*)?@/.test(address)
+    || /\b(?:unsubscribe|afmeld dig|afmeld nyhedsbrev|afmeldelse fra nyhedsbrev)\b/i.test(mail.preview);
+}
+
 /** Reported: "Det er for let, at der kun er tre mails, der er ubesvarede" - with the subfolders Saga has many more mails
  * to read, 25 an hour would take a day. A scan reads up to four batches in a row. */
 const MAX_BATCHES = 4;
@@ -61,13 +69,18 @@ export async function labelUnlabelled(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const rows = (await db.prepare("SELECT id, sender, subject, preview FROM board_mail WHERE label IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
       .bind(deps.now() - 90 * DAY, BATCH).all<Unscanned>()).results ?? [];
     if (!rows.length) break;
-    const text = await completeAs("mail-maerkater")(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 400) }))) }]);
+    const automatic = rows.filter(isAutomatic);
+    for (const row of automatic) await db.prepare("UPDATE board_mail SET label = 'Automatisk' WHERE id = ? AND label IS NULL").bind(row.id).run();
+    done += automatic.length;
+    const rest = rows.filter(r => !isAutomatic(r));
+    if (!rest.length) continue;
+    const text = await completeAs("mail-maerkater", "mid")(env, deps, [{ role: "system", content: LABEL_SYSTEM }, { role: "user", content: JSON.stringify(rest.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 300) }))) }]);
     const items = (() => { try { return (JSON.parse(/\{[\s\S]*\}/.exec(text)?.[0] ?? "{}") as { items?: unknown }).items; } catch { return null; } })();
     if (!Array.isArray(items)) throw new Error("mail_labels_unreadable");
     let batch = 0;
     for (const raw of items) {
       const item = raw as { id?: unknown; label?: unknown };
-      if (!rows.some(r => r.id === Number(item.id)) || !LABELS.includes(item.label as (typeof LABELS)[number])) continue;
+      if (!rest.some(r => r.id === Number(item.id)) || !LABELS.includes(item.label as (typeof LABELS)[number])) continue;
       await db.prepare("UPDATE board_mail SET label = ? WHERE id = ? AND label IS NULL").bind(String(item.label), Number(item.id)).run();
       batch++;
     }
@@ -109,8 +122,13 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   const rows = (await db.prepare("SELECT id, sender, subject, preview FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT ?")
     .bind(now - 30 * DAY, BATCH).all<Unscanned>()).results ?? [];
   if (!rows.length) return null;
-  const text = await completeAs("mail-scan")(env, deps, [{ role: "system", content: SYSTEM },
-    { role: "user", content: JSON.stringify(rows.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 700) }))) }]);
+  // The automatic mails are done without a call; only the rest is read by Saga.
+  const automatic = rows.filter(isAutomatic);
+  for (const row of automatic) await db.prepare("UPDATE board_mail SET scanned_at_ms = ?, label = COALESCE(label, 'Automatisk') WHERE id = ?").bind(now, row.id).run();
+  const people = rows.filter(r => !isAutomatic(r));
+  if (!people.length) return { scanned: automatic.length, found: 0 };
+  const text = await completeAs("mail-scan", "mid")(env, deps, [{ role: "system", content: SYSTEM },
+    { role: "user", content: JSON.stringify(people.map(r => ({ id: r.id, from: r.sender, subject: r.subject, text: r.preview.slice(0, 400) }))) }]);
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
   const items = (() => { try { return (JSON.parse(json ?? "{}") as { items?: unknown }).items; } catch { return null; } })();
   if (!Array.isArray(items)) throw new Error("enquiry_scan_unreadable");
@@ -120,14 +138,14 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   for (const raw of items) {
     const item = raw as { id?: unknown; enquiry?: unknown; kind?: unknown; summary?: unknown; urgent?: unknown; why?: unknown; label?: unknown };
     const id = Number(item.id);
-    if (!rows.some(r => r.id === id)) continue;
+    if (!people.some(r => r.id === id)) continue;
     const kind = KINDS.includes(item.kind as (typeof KINDS)[number]) ? String(item.kind) : "Andet";
     labels.set(id, LABELS.includes(item.label as (typeof LABELS)[number]) ? String(item.label) : null);
     urgency.set(id, item.urgent === true ? (String(item.why ?? "").replace(/\s+/g, " ").trim().slice(0, 200) || "Saga vurderer, at den haster") : null);
     verdicts.set(id, item.enquiry === true ? { kind, summary: String(item.summary ?? "").replace(/\s+/g, " ").trim().slice(0, 200) } : null);
   }
-  let found = 0, scanned = 0;
-  for (const row of rows) {
+  let found = 0, scanned = automatic.length;
+  for (const row of people) {
     if (!verdicts.has(row.id)) continue; // not answered: read again next time
     scanned++;
     const verdict = verdicts.get(row.id)!;
