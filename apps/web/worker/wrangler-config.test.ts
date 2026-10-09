@@ -8,5 +8,6 @@ describe("wrangler.jsonc", () => {
     expect(() => JSON.parse(source)).not.toThrow();
     const config = JSON.parse(source) as { env?: Record<string, { vars?: Record<string, string> }> };
     expect(config.env?.staging?.vars?.AI_CHEAP_MODEL).toBe("deepseek-v4-flash");
+    expect(config.env?.staging?.vars?.AI_MID_MODEL).toBe("anthropic/claude-haiku-5-5");
   });
 });

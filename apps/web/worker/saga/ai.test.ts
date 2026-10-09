@@ -52,6 +52,12 @@ describe("Saga's AI provider", () => {
       { purpose: "spoergsmaal", model: SAGA_MODEL, ok: 1, fallback: 0 },
       { purpose: "beslutningsart", model: "deepseek-v4-flash", prompt_tokens: null, ok: 0, fallback: 0 },
       { purpose: "beslutningsart", model: SAGA_MODEL, prompt_tokens: 1200, ok: 1, fallback: 1 }] });
+    // The middle model: for tasks that need a good model but not the best - and the main model when it fails or is not set.
+    const mid = { AI_API_KEY: "key", AI_MODEL: SAGA_MODEL, AI_MID_MODEL: "anthropic/claude-haiku-5-5", DB: db } as never;
+    models.length = 0;
+    await completeAs("dagsorden", "mid")(mid, { fetcher, now }, messages);
+    await completeAs("beslutningsart", true)(mid, { fetcher, now }, messages);
+    expect(models).toEqual(["anthropic/claude-haiku-5-5", SAGA_MODEL]);
     // Without a cheap model nothing changes: the main model does everything.
     const plain = { AI_API_KEY: "key", AI_MODEL: SAGA_MODEL } as never;
     models.length = 0;

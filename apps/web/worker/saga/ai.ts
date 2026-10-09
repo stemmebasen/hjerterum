@@ -12,7 +12,7 @@ export const REQUESTY_EU = "https://router.eu.requesty.ai/v1";
  * has no Bedrock Frankfurt Sonnet 5.5; this one runs on Google Cloud in the EU, so the board's data stays there. */
 export const SAGA_MODEL = "vertex/claude-sonnet-5-5@eu";
 export const isClaude = (model: string) => /(?:^|\/)claude-/i.test(model);
-export type CompleteOptions = { purpose?: string; /** The task is simple (sorting, labels, translation): the cheap model does it when one is set, the main model when it fails. */ cheap?: boolean };
+export type CompleteOptions = { purpose?: string; /** `true`: a simple task (sorting, translation) - the cheap model does it when one is set. `"mid"`: a task that needs a good model but not the best - the middle model. The main model answers when the other fails or is not set. */ cheap?: boolean | "mid" };
 
 async function ask(env: SagaEnv, deps: SagaDeps, model: string, messages: ChatMessage[]): Promise<{ text: string; promptTokens: number | null; completionTokens: number | null }> {
   const base = (env.AI_BASE_URL || REQUESTY_EU).replace(/\/+$/, "");
@@ -42,12 +42,13 @@ export async function complete(env: SagaEnv, deps: SagaDeps, messages: ChatMessa
       .bind(deps.now(), purpose, model, tokens?.promptTokens ?? null, tokens?.completionTokens ?? null, ok ? 1 : 0, fallback ? 1 : 0).run().catch(() => undefined);
   };
   let fallback = false;
-  if (options.cheap && env.AI_CHEAP_MODEL && env.AI_CHEAP_MODEL !== env.AI_MODEL) {
+  const lighter = options.cheap === "mid" ? env.AI_MID_MODEL : options.cheap ? env.AI_CHEAP_MODEL : undefined;
+  if (lighter && lighter !== env.AI_MODEL) {
     try {
-      const answer = await ask(env, deps, env.AI_CHEAP_MODEL, messages);
-      await record(env.AI_CHEAP_MODEL, true, false, answer);
+      const answer = await ask(env, deps, lighter, messages);
+      await record(lighter, true, false, answer);
       return answer.text;
-    } catch { await record(env.AI_CHEAP_MODEL, false, false); fallback = true; }
+    } catch { await record(lighter, false, false); fallback = true; }
   }
   try {
     const answer = await ask(env, deps, env.AI_MODEL, messages);
@@ -57,4 +58,4 @@ export async function complete(env: SagaEnv, deps: SagaDeps, messages: ChatMessa
 }
 
 /** A call with what it is for - `completeAs("oversaet-tekster", true)(env, deps, messages)`. */
-export const completeAs = (purpose: string, cheap = false) => (env: SagaEnv, deps: SagaDeps, messages: ChatMessage[]) => complete(env, deps, messages, { purpose, cheap });
+export const completeAs = (purpose: string, cheap: boolean | "mid" = false) => (env: SagaEnv, deps: SagaDeps, messages: ChatMessage[]) => complete(env, deps, messages, { purpose, cheap });
