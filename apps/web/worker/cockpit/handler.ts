@@ -24,7 +24,7 @@ import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { enquiries, LABELS, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
+import { assignMail, enquiries, LABELS, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { englishLater, suggestForTeamMeeting } from "./agenda.js";
@@ -420,11 +420,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
     const label = (LABELS as readonly string[]).includes(url.searchParams.get("maerkat") ?? "") ? url.searchParams.get("maerkat")! : "";
-    const [data, watch, account] = await Promise.all([enquiries(db, now, all, label), mailWatch(db, now), may("mailbox.see") ? teamMailAccount(db) : Promise.resolve(null)]);
+    const [data, watch, account, board] = await Promise.all([enquiries(db, now, all, label), mailWatch(db, now), may("mailbox.see") ? teamMailAccount(db) : Promise.resolve(null), boardMembers(env, db)]);
     const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken og undermapperne.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
       fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
-    return html(postPage(base, { who, ...data, label, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
+    return html(postPage(base, { who, ...data, members: board.names, label, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
       watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
       // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - logged in with the shared password the chair saw no card at all.
       // The chair always sees it; only connecting or disconnecting needs Saga's personal link (anyone could say they are the chair).
@@ -459,6 +459,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     return redirect(`${base}/posthus`);
   }
   // Requested: "gøre det muligt at sortere under de forskellige mærkater": a member changes the label of a mail.
+  if (path === "/posthus/tildel" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = Number(form?.get("id")), member = String(form?.get("member") ?? "");
+    const names = (await boardMembers(env, db)).names;
+    if (Number.isSafeInteger(id) && id > 0 && (!member || names.includes(member))) await assignMail(db, id, member, who, now);
+    return redirect(`${base}/posthus`);
+  }
   if (path === "/posthus/maerkat" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);

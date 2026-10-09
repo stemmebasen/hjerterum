@@ -495,6 +495,8 @@ export function uniqueTasks(tasks: Task[]): Task[] {
 /** Only the owner checks an item off (or back on), and only the one who wrote it removes it. */
 export async function setTodoDone(db: D1Database, id: number, owner: string, done: boolean, nowMs: number): Promise<void> {
   await db.prepare("UPDATE cockpit_todos SET done_at_ms = ? WHERE id = ? AND owner IN (?, 'Alle')").bind(done ? nowMs : null, id, owner).run();
+  // A to-do made from a mail: checking it off answers the mail.
+  await db.prepare("UPDATE board_mail SET handled_at_ms = ?, handled_by = ? WHERE assigned_todo_id = ?").bind(done ? nowMs : null, done ? owner : null, id).run();
 }
 export async function removeTodo(db: D1Database, id: number, who: string): Promise<void> {
   await db.prepare("DELETE FROM cockpit_todos WHERE id = ? AND (created_by = ? OR owner = ?)").bind(id, who, who).run();

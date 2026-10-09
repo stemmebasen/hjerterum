@@ -554,3 +554,8 @@ Still open:
 - `worker/saga/backup.ts`: hver nat fra 03:00 (dansk tid) lægges én JSON-fil `hjerterum-kopi-ÅÅÅÅ-MM-DD.json` i Google Drive (`GOOGLE_DRIVE_BACKUP_FOLDER_ID`, ellers referatmappen); de seneste 30 gemmes. Login-links, kodeord og AI-forbrug er ikke med. Fejl vises på Status og giver én Telegram-besked i døgnet til formanden.
 - Posthus: hvert mærkat har sin farve (`LABEL_CLASS`) og vises som lille mærkat ved hver mail; "Besvaret" er erstattet af et rundt flueben.
 - `worker/saga/mailText.ts`: `cleanMailText` fjerner links, sporingsadresser og signaturer (fx avast) fra mailteksten, når den gemmes, vises og sendes til AI. Adresser (e-mail) bevares.
+
+## Mails til bestyrelsesmedlemmer
+
+- Posthus: "Giv til …" på hver mail (`assignMail`, migration 0057). Medlemmet får et kort punkt "Svar på mail fra <afsender>" på sin liste; fluebenet på punktet eller på mailen krydser begge af. Skifter man medlem, eller vælger "Ingen", fjernes det åbne punkt.
+- Saga lægger kun opgaver fra Telegram og mail på lister, når hun er helt sikker (`sure`); opgaver kommer primært fra referatet.
