@@ -221,6 +221,11 @@ The chair's powers will grow, so they live in one place: `worker/cockpit/authori
 - "Forslag til afstemning skal længere ned på forside - over medlemmer": the proposals (and "Vedtaget" and "Til næste møde") stand in the left column of the front page, **after "Dine opgaver" and the latest minutes and right above "Medlemmer"** - no longer right under the four boxes. The "Stem om: ..." line stays in "Dine opgaver", so a member who still has to vote sees it first.
 - "Knapperne er ret store og virker massive på mobil": on a phone every button is a little smaller (42 px, 14.5 px text); the three votes stand in **one row**, "Undlad at stemme" shortened to "Undlad" (`voteLabel` in `cockpit/votes.ts`; the text node pair "Undlad" + "at stemme" is translated); "Jeg ønsker at drøfte dette på et møde" and "Træk forslaget tilbage" are quiet underlined text lines under them.
 
+### Fewer automatic AI calls (2026-10-09)
+
+- "Lad os lave et kald en gang i timen i stedet for hvert kvarter" (the scan of team@: labels, urgency, enquiries) - back to **once an hour** on weekdays, and only when there is something new. A critical mail therefore waits up to an hour for Saga to see it (and none at the weekend).
+- "Bestyrelsen lige nu skal være max en gang om dagen" - "hver morgen kl. 7": it is written once a day, by the first round from **07:00 on a weekday** (a missed round is made up for until 10:00), and only when something is new - no more that day. Weekends are still left out (no automatic AI at the weekend); say if it should run on Saturdays and Sundays too. The chair's "force" in the code is unchanged.
+
 ### Measuring the AI, and a cheap model for the simple tasks (2026-10-09)
 
 - "We spend around $3 to $4 each day on AI calls ... a suggestion on how we can save money" - "Ja, det må du gerne. Og brug gerne den billige deep seek model hvorend det giver mening": **every AI call now says what it is for** (`completeAs("purpose", cheap)` in `saga/ai.ts`) and leaves a row in `ai_usage` (migration 0056): purpose, model, tokens in and out, whether it failed, whether the cheap model had to be replaced. The chair sees it on **Administratorer → AI-forbrug**: the last day and the last seven days by purpose and model, most tokens first. No price is shown - only tokens - because the provider's prices are not known to the code.

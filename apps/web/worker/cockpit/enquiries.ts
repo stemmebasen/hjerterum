@@ -138,13 +138,13 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   return { scanned, found };
 }
 
-/** The scheduled scan: every quarter of an hour on weekdays (a critical mail should not wait an hour), and only when there is something new. */
+/** The scheduled scan: once an hour on weekdays, and only when there is something new. Requested: "lad os lave et kald en gang i timen i stedet for hvert kvarter" (to save on the AI calls). */
 export async function scheduledEnquiryScan(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
   const weekday = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short" }).format(deps.now());
   if (weekday === "Sat" || weekday === "Sun") return;
   const waiting = await db.prepare("SELECT 1 AS hit FROM board_mail WHERE (scanned_at_ms IS NULL OR label IS NULL) AND received_at_ms >= ? LIMIT 1").bind(deps.now() - 30 * DAY).first<{ hit: number }>().catch(() => null);
-  if (!waiting || !(await claim("saga_enquiries", Math.floor(deps.now() / 900_000)))) return;
+  if (!waiting || !(await claim("saga_enquiries", Math.floor(deps.now() / 3_600_000)))) return;
   await scanEnquiries(env, deps, db);
 }
 
@@ -267,7 +267,7 @@ ${box.address ? `<p>${esc(box.address)} er forbundet. Saga læser indbakken og u
 export function postPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean;
   inbox: BoardMailRow[]; inboxTotal: number; urgent?: BoardMailRow[]; labelCounts?: Record<string, number>; label?: string; all: boolean; watch: string; watchOk: boolean; nowMs: number;
   mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null } | null }): string {
-  const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hvert kvarter på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
+  const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hver time på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
 ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;
   const own = data.mailbox?.address ?? "team@holistisk.org";

@@ -59,7 +59,7 @@ describe("critical mail", () => {
     expect(await tellChairAboutUrgentMail({ ...env, SAGA_OWNER_TELEGRAM_ID: "" }, deps(services.fetcher, NOW), db)).toBe(0);
   });
 
-  it("scans every quarter of an hour on weekdays, not at the weekend", async () => {
+  it("scans once an hour on weekdays, not at the weekend", async () => {
     const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: false })));
     await mail("m1", "Hej");
     const claimed = new Set<string>();
@@ -69,9 +69,9 @@ describe("critical mail", () => {
     const first = AI();
     expect(first).toBeGreaterThan(0);
     await mail("m2", "Hej igen");
-    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 5 * 60_000), db, claim); // the same quarter
+    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 20 * 60_000), db, claim); // the same hour
     expect(AI()).toBe(first);
-    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 16 * 60_000), db, claim); // the next
+    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 61 * 60_000), db, claim); // the next hour
     expect(AI()).toBeGreaterThan(first);
     const saturday = Date.parse("2026-10-10T10:00:00Z");
     const before = AI();

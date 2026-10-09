@@ -39,7 +39,7 @@ describe("Bestyrelsen lige nu", () => {
     expect(text.startsWith("ord0")).toBe(true);
   });
 
-  it("sums up the group, team@ and a meeting within 48 hours - hourly on weekdays, only when something is new", async () => {
+  it("sums up the group, team@ and a meeting within 48 hours - once a day on weekdays, only when something is new", async () => {
     const db = testDatabase();
     await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Gitta", authorId: "202", text: "Skal vi rykke julefesten?", sentAtMs: NOW - 2 * HOUR, fromAssistant: false });
     await saveBoardMessage(db, { chatId: BOARD, messageId: 2, author: "Douglas", authorId: "203", text: "Gammel besked", sentAtMs: NOW - 5 * 24 * HOUR, fromAssistant: false });
@@ -69,6 +69,32 @@ describe("Bestyrelsen lige nu", () => {
     await saveBoardMessage(db, { chatId: BOARD, messageId: 4, author: "Lisbeth", authorId: "201", text: "Nyere", sentAtMs: NOW + 2 * HOUR, fromAssistant: false });
     expect(await writeBoardNow(sagaEnv(db), deps(broken.fetcher, NOW + 3 * HOUR), db)).toBe(false);
     expect((await latestBoardNow(db))?.text).toContain("Gitta vil rykke julefesten");
+  });
+
+  // Requested: "Bestyrelsen lige nu skal være max en gang om dagen".
+  it("writes 'lige nu' every weekday morning from seven, once, even when something new comes in later that day", async () => {
+    const db = testDatabase();
+    const morning = Date.parse("2026-10-08T06:00:00Z"); // 08:00 on a Thursday in Copenhagen
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Gitta", authorId: "202", text: "Første", sentAtMs: morning - HOUR, fromAssistant: false });
+    let calls = 0;
+    const ai = fakeServices({ ai: () => { calls++; return "Gitta har skrevet."; } });
+    const claimed = new Set<string>();
+    const claim = async (key: string, slot: number) => { const k = `${key}:${slot}`; if (claimed.has(k)) return false; claimed.add(k); return true; };
+    const run = (at: number) => scheduledBoardNow(sagaEnv(db), deps(ai.fetcher, at), db, claim);
+    await run(morning);
+    expect(calls).toBe(1);
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 2, author: "Lisbeth", authorId: "201", text: "Ny", sentAtMs: morning + 2 * HOUR, fromAssistant: false });
+    await run(morning + 3 * HOUR);
+    await run(morning + 9 * HOUR);
+    expect(calls).toBe(1);
+    // The next morning, from seven - not before (06:59), and not at the weekend.
+    await run(Date.parse("2026-10-09T04:59:00Z"));
+    expect(calls).toBe(1);
+    await run(Date.parse("2026-10-09T05:00:00Z"));
+    expect(calls).toBe(2);
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 3, author: "Douglas", authorId: "203", text: "Weekend", sentAtMs: Date.parse("2026-10-10T05:30:00Z"), fromAssistant: false });
+    await run(Date.parse("2026-10-10T06:00:00Z"));
+    expect(calls).toBe(2);
   });
 
   it("shows the points on the front page, with a way on to Status", () => {

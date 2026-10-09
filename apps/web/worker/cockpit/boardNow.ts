@@ -90,12 +90,13 @@ export async function writeBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database
   return true;
 }
 
-/** Hourly, 07-22 on weekdays. */
+/** Once a day: the first round from 07:00 on a weekday (until 10:00), and only when something is new. */
 export async function scheduledBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(deps.now()).map(p => [p.type, p.value]));
   const hour = Number(parts.hour);
-  if (parts.weekday === "Sat" || parts.weekday === "Sun" || hour < 7 || hour > 22) return;
-  if (!(await claim("saga_board_now", Math.floor(deps.now() / HOUR)))) return;
+  // Requested: "Bestyrelsen lige nu hver morgen kl. 7": the first round from seven o'clock on a weekday (a round that was missed is made up for until ten), when something is new - and no more that day.
+  if (parts.weekday === "Sat" || parts.weekday === "Sun" || hour < 7 || hour > 9) return;
+  if (!(await claim("saga_board_now", Math.floor(deps.now() / DAY)))) return;
   await writeBoardNow(env, deps, db);
 }
