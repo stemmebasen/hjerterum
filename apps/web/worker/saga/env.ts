@@ -5,8 +5,6 @@ import type { EventMediaBucket } from "../event-files.js";
  * switches the matching part off instead of failing the whole Worker. */
 export interface SagaEnv {
   DB?: D1Database;
-  /** The event photos bucket (event-files.ts); the drafts' covers are kept here too. */
-  EVENT_MEDIA?: import("../event-files.js").EventMediaBucket;
   SAGA_TELEGRAM_BOT_TOKEN?: string;
   SAGA_TELEGRAM_WEBHOOK_SECRET?: string;
   SAGA_TELEGRAM_BOT_USERNAME?: string;

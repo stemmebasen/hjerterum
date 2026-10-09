@@ -110,7 +110,7 @@ export async function assignMail(db: D1Database, id: number, member: string, by:
   if (!member) { await db.prepare("UPDATE board_mail SET assigned_to = NULL, assigned_todo_id = NULL WHERE id = ?").bind(id).run(); return true; }
   const todo = await db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms) VALUES (?, ?, NULL, ?, ?)")
     .bind(member, `Svar på mail fra ${name(mail.sender)}`, by, nowMs).run();
-  await db.prepare("UPDATE board_mail SET assigned_to = ?, assigned_todo_id = ?, handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(member, todo.meta.last_row_id, id).run();
+  await db.prepare("UPDATE board_mail SET assigned_to = ?, assigned_todo_id = ?, handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(member, todo.meta?.last_row_id ?? null, id).run();
   return true;
 }
 
@@ -328,7 +328,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const labelForm = (m: BoardMailRow) => data.who ? `<form class="labelform" method="post" action="${base}/posthus/maerkat"><input type="hidden" name="id" value="${m.id}"><input type="hidden" name="back" value="${esc(data.label ?? "")}">
 <label>Mærkat <select name="label" onchange="this.form.submit()"><option value="">Intet</option>${LABELS.map(l => `<option${m.label === l ? " selected" : ""}>${l}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
   const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(cleanMailText(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</details></li>`;
+<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span></summary><p class="body">${esc(cleanMailText(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
   // Requested: "gøre det muligt at sortere under de forskellige mærkater" + "andre forslag for at gøre det mere overskueligt": the labels as chips with how many each has, and a search over what is on the page.
   const counts = data.labelCounts ?? {};
   const totalLabelled = Object.values(counts).reduce((a, b) => a + b, 0);
