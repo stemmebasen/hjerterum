@@ -1,4 +1,4 @@
-import type { EventFileView } from "../event-files.js";
+import { COVER_HEIGHT, COVER_WIDTH, checkUpload, coverSizeOk, type EventFileView, type EventMediaBucket } from "../event-files.js";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -133,7 +133,8 @@ export type EventDraft = {
   booking_type: RoomBookingType; member_price_kr: number | null; non_member_price_kr: number | null; max_attendees: number | null;
   signup: "online" | "direkte" | ""; payment: string; description: string; missing: string[];
 };
-export type DraftRow = { id: number; request: string; data: string; status: "draft" | "created" | "discarded"; room_booking_id: number | null; created_by: string; created_at_ms: number; updated_at_ms: number };
+export type DraftRow = { id: number; request: string; data: string; status: "draft" | "created" | "discarded"; room_booking_id: number | null; created_by: string; created_at_ms: number; updated_at_ms: number;
+  cover_key?: string | null; cover_name?: string | null; cover_type?: string | null };
 
 const text = (value: unknown, max: number) => typeof value === "string" ? value.trim().slice(0, max) : "";
 const kr = (value: unknown) => { const n = typeof value === "string" ? Number(value.replace(/\s|kr\.?/gi, "").replace(",", ".")) : Number(value); return value === null || value === "" || value === undefined || !Number.isFinite(n) || n < 0 ? null : Math.round(n); };
@@ -269,6 +270,9 @@ export async function createFromDraft(db: D1Database, id: number, who: string, n
   try {
     const created = await createRoomBooking(db, `cockpit:${who}`, { ...input, preApproved: true });
     await db.prepare("UPDATE cockpit_event_drafts SET status = 'created', room_booking_id = ?, updated_at_ms = ? WHERE id = ?").bind(created.id, nowMs, id).run();
+    // The draft's cover becomes the event's cover - the same file the members' events have.
+    if (row.cover_key) await db.prepare(`INSERT INTO room_booking_files (room_booking_id, kind, r2_key, filename, content_type, size_bytes, uploaded_by, created_at_ms)
+      VALUES (?, 'cover', ?, ?, ?, 0, ?, ?)`).bind(created.id, row.cover_key, row.cover_name ?? "omslag.jpg", row.cover_type ?? "image/jpeg", `cockpit:${who}`, nowMs).run().catch(() => undefined);
     return { ok: true, bookingId: created.id };
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
@@ -287,6 +291,7 @@ export const DESK_STYLE = `
 .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-right:6px}
 .draft-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.draft-grid label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
 .price{background:var(--soft);border-radius:12px;padding:12px 14px}.price strong{font-size:22px}.warn{color:#9a3412}.mw{width:100%;min-height:220px;font:13px/1.45 ui-monospace,monospace}
+.plain li:has(.x-form){display:flex;justify-content:space-between;gap:10px;align-items:center}.x-form .x{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:2px 8px}.x-form .x:hover{color:#9a3412}
 .teachers li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.teachers li:first-child{border-top:0}`;
 
 /** The photo and files a member put on an event waiting for approval, for the board to look at. */
@@ -307,7 +312,8 @@ ${reviewFiles(base, data.files?.get(e.id) ?? [])}
 <form method="post" action="${base}/arrangementer/godkend" class="acts"><input type="hidden" name="id" value="${e.id}"><input name="note" placeholder="Bemærkning (valgfri)" aria-label="Bemærkning">
 <button name="decision" value="approve">Godkend</button><button name="decision" value="reject" class="ghost">Afvis</button></form></li>`).join("")}</ul>`
     : `<p class="muted small">Ingen medlems-events venter på godkendelse.</p>`;
-  const drafts = data.drafts.length ? `<ul class="plain">${data.drafts.map(r => { const d = parseDraft(r); return `<li><a href="${base}/arrangementer/udkast/${r.id}">${esc(d.title || "Udkast uden titel")}</a> <span class="small muted">${d.date ? esc(d.date) : ""} · af ${esc(r.created_by)}${d.missing.length ? ` · mangler ${d.missing.length}` : ""}</span></li>`; }).join("")}</ul>` : "";
+  const drafts = data.drafts.length ? `<ul class="plain">${data.drafts.map(r => { const d = parseDraft(r); return `<li><a href="${base}/arrangementer/udkast/${r.id}">${esc(d.title || "Udkast uden titel")}</a> <span class="small muted">${d.date ? esc(d.date) : ""} · af ${esc(r.created_by)}${d.missing.length ? ` · mangler ${d.missing.length}` : ""}</span>
+<form method="post" action="${base}/arrangementer/udkast/${r.id}" class="x-form"><input type="hidden" name="action" value="discard"><button class="x" aria-label="Slet udkastet" title="Slet udkastet">×</button></form></li>`; }).join("")}</ul>` : "";
   const teachers = `<details><summary>Faste undervisere (${data.teachers.length}) - deres events kræver ikke godkendelse</summary>
 <ul class="plain teachers">${data.teachers.map(t => `<li><span>${esc(t.name)} <span class="small muted">${esc(t.email)}</span></span><form method="post" action="${base}/arrangementer/faste"><input type="hidden" name="email" value="${esc(t.email)}"><button name="remove" value="1" class="ghost">Fjern</button></form></li>`).join("")}</ul>
 <form method="post" action="${base}/arrangementer/faste" class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><input name="name" placeholder="Navn" aria-label="Navn" required><input name="email" type="email" placeholder="Mail (som på hjemmesiden)" aria-label="Mail" required><button>Tilføj</button></form></details>`;
@@ -318,6 +324,36 @@ ${data.aiReady ? `<form method="post" action="${base}/arrangementer/nyt" id="new
 ${drafts ? `<h3>Udkast</h3>${drafts}` : ""}</div>
 <div class="card"><h2>Til godkendelse${data.review.length ? ` <span class="pill">${data.review.length}</span>` : ""}</h2><p class="small muted">Events, medlemmer selv har oprettet på hjemmesiden. De vises først offentligt, når de er godkendt. Saga godkender kun, når alle kriterier klart er opfyldt - ellers lander de her. På hverdage.</p>${review}${teachers}</div></div></div>`;
 }
+
+/** Saves a cover for a draft: only jpg or png of exactly 1920 × 1005 px (Facebook's event cover). Returns an error text, or null when it is kept. */
+export async function saveDraftCover(db: D1Database, bucket: EventMediaBucket, row: DraftRow, file: File, nowMs: number): Promise<string | null> {
+  const bytes = await file.arrayBuffer();
+  const check = checkUpload("cover", file.name, bytes.byteLength, new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 2048)));
+  if (!check.ok) return check.error === "file_too_large" ? "Billedet er for stort - højst 8 MB." : "Omslaget skal være en jpg eller png.";
+  if (!coverSizeOk(new Uint8Array(bytes))) return `Omslaget skal være præcis ${COVER_WIDTH} × ${COVER_HEIGHT} px.`;
+  const key = `drafts/${row.id}/${crypto.randomUUID()}.${check.extension}`;
+  await bucket.put(key, bytes, { httpMetadata: { contentType: check.contentType } });
+  if (row.cover_key) await bucket.delete(row.cover_key).catch(() => undefined);
+  await db.prepare("UPDATE cockpit_event_drafts SET cover_key = ?, cover_name = ?, cover_type = ?, updated_at_ms = ? WHERE id = ?").bind(key, check.filename, check.contentType, nowMs, row.id).run();
+  return null;
+}
+export async function removeDraftCover(db: D1Database, bucket: EventMediaBucket | undefined, row: DraftRow, nowMs: number): Promise<void> {
+  if (row.cover_key) await bucket?.delete(row.cover_key).catch(() => undefined);
+  await db.prepare("UPDATE cockpit_event_drafts SET cover_key = NULL, cover_name = NULL, cover_type = NULL, updated_at_ms = ? WHERE id = ?").bind(nowMs, row.id).run();
+}
+
+/** The cover field of the draft: shows the one there is, and cuts a chosen photo to 1920 × 1005 px in the browser before it is sent. */
+const coverField = (base: string, row: DraftRow, created: boolean) => `<div class="card cover-card"><h2>Facebook-omslag</h2>
+<p class="small muted">Facebooks størrelse til events: ${COVER_WIDTH} × ${COVER_HEIGHT} px, jpg eller png. Et billede, der er større, beskæres fra midten; et, der er mindre, afvises. Omslaget følger eventet, når det oprettes.</p>
+${row.cover_key ? `<img src="${base}/arrangementer/udkast/${row.id}/omslag" alt="Omslag" style="display:block;max-width:420px;width:100%;border-radius:12px;margin:8px 0">` : ""}
+${created ? "" : `<p id="cover-msg" class="small warn" role="alert"></p><p style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input type="file" id="cover-pick" accept=".jpg,.jpeg,.png,image/jpeg,image/png">${row.cover_key ? `<button class="ghost" name="action" value="removecover" form="cover-form">Fjern omslag</button>` : ""}</p>
+<form id="cover-form" method="post" action="${base}/arrangementer/udkast/${row.id}" enctype="multipart/form-data"><input type="hidden" name="action" value="cover"><input type="file" name="cover" id="cover-out" hidden></form>
+<script>(function(){var W=${COVER_WIDTH},H=${COVER_HEIGHT},pick=document.getElementById('cover-pick'),msg=document.getElementById('cover-msg');if(!pick)return;
+pick.addEventListener('change',async function(){msg.textContent='';var f=pick.files[0];if(!f)return;var bmp;try{bmp=await createImageBitmap(f)}catch(e){msg.textContent='Billedet kunne ikke læses. Brug en jpg eller png.';return}
+var r=W/H,sw=Math.min(bmp.width,Math.round(bmp.height*r)),sh=Math.min(bmp.height,Math.round(bmp.width/r));
+if(sw<W||sh<H){msg.textContent='Billedet er for lille: mindst '+W+' × '+H+' px, og dit er '+bmp.width+' × '+bmp.height+' px.';pick.value='';return}
+var c=document.createElement('canvas');c.width=W;c.height=H;c.getContext('2d').drawImage(bmp,Math.round((bmp.width-sw)/2),Math.round((bmp.height-sh)/2),sw,sh,0,0,W,H);
+c.toBlob(function(b){var out=new File([b],'omslag-'+W+'x'+H+'.jpg',{type:'image/jpeg'}),dt=new DataTransfer();dt.items.add(out);var o=document.getElementById('cover-out');o.files=dt.files;o.form.submit()},'image/jpeg',0.9)})})();</script>`}</div>`;
 
 export function draftPage(base: string, row: DraftRow, notice: string): string {
   const d = parseDraft(row), { quote, problems } = checkDraft(d);
@@ -338,6 +374,6 @@ ${field("member_price_kr", "Pris for medlemmer (kr.)", "number", 'min="0"')}${fi
 ${field("payment", "Betaling (fx MobilePay ved fremmøde)")}</div>
 <label style="display:grid;gap:4px;margin-top:10px">Beskrivelse<textarea name="description" rows="10">${esc(d.description)}</textarea></label>
 ${created ? "" : `<p class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button name="action" value="save">Gem</button><button name="action" value="create" ${d.missing.length || problems.length ? "disabled" : ""}>Opret i Hjerterums nye system</button><button name="action" value="discard" class="ghost">Kassér</button></p>`}</form>
-<div class="card"><h2>Til MembershipWorks</h2><p class="small muted">Så længe vi kører begge systemer: kopiér teksten ind som nyt event i MembershipWorks.</p>
+${coverField(base, row, created)}<div class="card"><h2>Til MembershipWorks</h2><p class="small muted">Så længe vi kører begge systemer: kopiér teksten ind som nyt event i MembershipWorks.</p>
 <textarea class="mw" readonly id="mw">${esc(membershipWorksText(d))}</textarea><p><button type="button" class="ghost" onclick="navigator.clipboard.writeText(document.getElementById('mw').value).then(()=>{this.textContent='Kopieret'})">Kopiér</button></p></div></main>`;
 }

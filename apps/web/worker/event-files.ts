@@ -12,6 +12,32 @@ export interface EventMediaBucket {
 }
 
 export type FileKind = "cover" | "file";
+/** Requested: the cover follows Facebook's current event-cover standard - 1920 × 1005 px (1.91:1), jpg or png - and anything else is refused. */
+export const COVER_WIDTH = 1920;
+export const COVER_HEIGHT = 1005;
+
+/** The pixel size a jpeg or png says it has (read from its headers), or null. */
+export function imageSize(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length >= 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return { width: v.getUint32(16), height: v.getUint32(20) };
+  }
+  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let i = 2;
+    while (i + 9 < bytes.length) {
+      if (bytes[i] !== 0xff) { i++; continue; }
+      const marker = bytes[i + 1]!;
+      if (marker === 0xff) { i++; continue; }
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) { i += 2; continue; }
+      const length = v.getUint16(i + 2);
+      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) return { height: v.getUint16(i + 5), width: v.getUint16(i + 7) };
+      i += 2 + length;
+    }
+  }
+  return null;
+}
+export const coverSizeOk = (bytes: Uint8Array) => { const size = imageSize(bytes); return size?.width === COVER_WIDTH && size.height === COVER_HEIGHT; };
 export const COVER_MAX_BYTES = 8 * 1024 * 1024;
 export const FILE_MAX_BYTES = 10 * 1024 * 1024;
 export const MAX_OTHER_FILES = 5;
@@ -23,6 +49,7 @@ export type EventFileRow = {
 export type EventFileView = { id: number; kind: FileKind; filename: string; contentType: string; sizeBytes: number; url: string };
 
 const IMAGES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" };
+const COVER_IMAGES: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png" };
 const DOCUMENTS: Record<string, string> = {
   pdf: "application/pdf", txt: "text/plain; charset=utf-8",
   doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", odt: "application/vnd.oasis.opendocument.text",
@@ -58,13 +85,13 @@ export function safeFilename(name: string): string {
 }
 const extensionOf = (name: string) => (/\.([A-Za-z0-9]{1,5})$/.exec(name)?.[1] ?? "").toLowerCase();
 
-export type UploadCheck = { ok: true; filename: string; contentType: string; extension: string } | { ok: false; error: "empty_file" | "file_too_large" | "file_type" };
+export type UploadCheck = { ok: true; filename: string; contentType: string; extension: string } | { ok: false; error: "empty_file" | "file_too_large" | "file_type" | "cover_size" };
 /** Whether a file may be stored, and under what name and type. `head` is the file's first bytes. */
 export function checkUpload(kind: FileKind, name: string, size: number, head: Uint8Array): UploadCheck {
   if (size <= 0) return { ok: false, error: "empty_file" };
   if (size > (kind === "cover" ? COVER_MAX_BYTES : FILE_MAX_BYTES)) return { ok: false, error: "file_too_large" };
   const filename = safeFilename(name), extension = extensionOf(filename);
-  const allowed = kind === "cover" ? IMAGES : { ...IMAGES, ...DOCUMENTS };
+  const allowed = kind === "cover" ? COVER_IMAGES : { ...IMAGES, ...DOCUMENTS };
   const contentType = allowed[extension];
   if (!contentType) return { ok: false, error: "file_type" };
   const found = sniff(head);
@@ -92,7 +119,7 @@ export async function filesByBooking(db: D1Database, bookingIds: number[]): Prom
   return out;
 }
 
-export type StoreResult = { ok: true; file: EventFileView; replacedCover: boolean } | { ok: false; error: "empty_file" | "file_too_large" | "file_type" | "too_many_files" };
+export type StoreResult = { ok: true; file: EventFileView; replacedCover: boolean } | { ok: false; error: "empty_file" | "file_too_large" | "file_type" | "too_many_files" | "cover_size" };
 
 /** Stores one upload for an event the caller already knows is theirs. A new cover photo replaces the old one. */
 export async function storeEventFile(db: D1Database, bucket: EventMediaBucket, input: {
@@ -100,6 +127,7 @@ export async function storeEventFile(db: D1Database, bucket: EventMediaBucket, i
 }): Promise<StoreResult> {
   const check = checkUpload(input.kind, input.name, input.bytes.byteLength, new Uint8Array(input.bytes, 0, Math.min(input.bytes.byteLength, 2048)));
   if (!check.ok) return check;
+  if (input.kind === "cover" && !coverSizeOk(new Uint8Array(input.bytes))) return { ok: false, error: "cover_size" };
   if (input.kind === "file") {
     const count = await db.prepare("SELECT COUNT(*) AS n FROM room_booking_files WHERE room_booking_id = ? AND kind = 'file'").bind(input.bookingId).first<{ n: number }>();
     if ((count?.n ?? 0) >= MAX_OTHER_FILES) return { ok: false, error: "too_many_files" };
