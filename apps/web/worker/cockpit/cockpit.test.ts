@@ -938,7 +938,7 @@ describe("the board looks at a member's event photo and files", () => {
     await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, description, starts_at_ms, ends_at_ms, fee_minor, ticket_price_minor, payout_clerk_user_id, created_at_ms, updated_at_ms, review_status)
       VALUES ('user_a', 'Mette', 'mette@example.com', 'Lydbad', 'Et roligt event', ?, ?, 0, 0, 'user_a', 1, 1, 'needs_board')`).bind(NOW + 86_400_000, NOW + 90_000_000).run();
     const bookingId = Number((await db.prepare("SELECT id FROM room_bookings").first<{ id: number }>())!.id);
-    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46]);
+    const jpeg = new Uint8Array(20); jpeg.set([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8]); new DataView(jpeg.buffer).setUint16(7, 1005); new DataView(jpeg.buffer).setUint16(9, 1920);
     const pdf = new TextEncoder().encode("%PDF-1.7\n");
     const { storeEventFile } = await import("../event-files.js");
     const cover = await storeEventFile(db, env.EVENT_MEDIA, { bookingId, userId: "user_a", kind: "cover", name: "forside.jpg", bytes: jpeg.buffer, now: NOW });

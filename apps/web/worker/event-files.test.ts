@@ -14,6 +14,10 @@ const PDF = new TextEncoder().encode("%PDF-1.7\n");
 const ZIP = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0, 0]);
 const EXE = new TextEncoder().encode("MZ\u0090\u0000\u0003\u0000");
 
+/** A picture header that says 1920 × 1005 (or another size): enough for the size check. */
+const png = (w = 1920, h = 1005) => { const b = new Uint8Array(24); b.set(PNG); b.set([0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52], 8); new DataView(b.buffer).setUint32(16, w); new DataView(b.buffer).setUint32(20, h); return b; };
+const jpeg = (w = 1920, h = 1005) => { const b = new Uint8Array(20); b.set([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8]); new DataView(b.buffer).setUint16(7, h); new DataView(b.buffer).setUint16(9, w); return b; };
+
 function fakeBucket() {
   const objects = new Map<string, ArrayBuffer>();
   const bucket: EventMediaBucket = {
@@ -73,12 +77,22 @@ async function booking(db: ReturnType<typeof testDatabase>, owner = "user_owner"
 }
 
 describe("storing files on an event", () => {
+  it("refuses a cover that is not 1920 × 1005 px, whatever its type", async () => {
+    const db = testDatabase(), { bucket } = fakeBucket();
+    const id = await booking(db);
+    for (const [name, bytes] of [["x.jpg", jpeg(1200, 628)], ["x.png", png(1920, 1080)], ["x.jpg", jpeg(3840, 2010)]] as const) {
+      expect(await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name, bytes: buffer(bytes), now: 1 })).toEqual({ ok: false, error: "cover_size" });
+    }
+    expect(await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name: "x.jpg", bytes: buffer(jpeg()), now: 1 })).toMatchObject({ ok: true });
+    expect(checkUpload("cover", "x.webp", 1000, JPEG)).toEqual({ ok: false, error: "file_type" });
+  });
+
   it("replaces the cover photo and removes the old object", async () => {
     const db = testDatabase(), { bucket, objects } = fakeBucket();
     const id = await booking(db);
-    const first = await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name: "en.jpg", bytes: buffer(JPEG), now: 10 });
+    const first = await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name: "en.jpg", bytes: buffer(jpeg()), now: 10 });
     expect(first).toMatchObject({ ok: true, replacedCover: false });
-    const second = await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name: "to.png", bytes: buffer(PNG), now: 11 });
+    const second = await storeEventFile(db, bucket, { bookingId: id, userId: "user_owner", kind: "cover", name: "to.png", bytes: buffer(png()), now: 11 });
     expect(second).toMatchObject({ ok: true, replacedCover: true });
     expect(objects.size).toBe(1);
     const files = (await filesByBooking(db, [id])).get(id)!;
@@ -120,7 +134,7 @@ describe("who may open a file", () => {
     const pending = await booking(db, "user_a", "pending");
     const approved = await booking(db, "user_a", "approved");
     const [p, a] = await Promise.all([pending, approved].map(async (id) => {
-      const r = await storeEventFile(db, bucket, { bookingId: id, userId: "user_a", kind: "cover", name: "c.jpg", bytes: buffer(JPEG), now: 1 });
+      const r = await storeEventFile(db, bucket, { bookingId: id, userId: "user_a", kind: "cover", name: "c.jpg", bytes: buffer(jpeg()), now: 1 });
       return r.ok ? r.file.id : 0;
     }));
     expect(coverIsPublic((await fileForDownload(db, p!))!)).toBe(false);

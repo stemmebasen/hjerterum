@@ -35,7 +35,7 @@ import { knownContacts, listTeachers, saveContact, summarizeTeacher, teacherEven
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
-import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, saveDraft, DESK_STYLE } from "./eventDesk.js";
+import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
 import { addCorrection, closeSettled, answerQuestion, corrections, handleCorrection } from "./corrections.js";
 import { tellChairAboutCorrection } from "../saga/saga.js";
@@ -814,6 +814,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       return redirect(`${base}/arrangementer?besked=fejl`);
     }
   }
+  const coverPath = /^\/arrangementer\/udkast\/(\d+)\/omslag$/.exec(path);
+  if (coverPath && request.method === "GET") {
+    const row = await eventDraft(db, Number(coverPath[1]));
+    const object = row?.cover_key && env.EVENT_MEDIA ? await env.EVENT_MEDIA.get(row.cover_key) : null;
+    if (!row || !object) return html(notFound(base, who), 404);
+    return new Response(object.body, { headers: { "content-type": row.cover_type ?? "image/jpeg", "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" } });
+  }
   const draftPath = /^\/arrangementer\/udkast\/(\d+)$/.exec(path);
   if (draftPath) {
     const row = await eventDraft(db, Number(draftPath[1]));
@@ -823,7 +830,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (!who) return redirect(`${base}/hvem`);
       const form = await request.formData().catch(() => null);
       const action = String(form?.get("action") ?? "save");
-      if (action === "discard") { await discardDraft(db, row.id, now); return redirect(`${base}/arrangementer?besked=kasseret`); }
+      if (action === "cover" || action === "removecover") {
+        if (row.status !== "draft" || !env.EVENT_MEDIA) return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent("Omslag kan ikke gemmes lige nu.")}`);
+        if (action === "removecover") { await removeDraftCover(db, env.EVENT_MEDIA, row, now); return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent("Omslaget er fjernet.")}`); }
+        const file = form?.get("cover");
+        const problem = file && typeof file !== "string" && file.size > 0 ? await saveDraftCover(db, env.EVENT_MEDIA, row, file as File, now) : "Vælg et billede.";
+        return redirect(`${base}/arrangementer/udkast/${row.id}?besked=${encodeURIComponent(problem ?? "Omslaget er gemt.")}`);
+      }
+      if (action === "discard") { await removeDraftCover(db, env.EVENT_MEDIA, row, now); await discardDraft(db, row.id, now); return redirect(`${base}/arrangementer?besked=kasseret`); }
       if (row.status === "draft" && form) await saveDraft(db, row.id, draftFrom({ ...parseDraft(row), ...Object.fromEntries([...form.entries()].filter(([, v]) => typeof v === "string")) }), now);
       if (action === "create") {
         const created = await createFromDraft(db, row.id, who, now);

@@ -1,3 +1,4 @@
+import { cropCover } from "./cover-crop";
 import { useEffect, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 
@@ -9,8 +10,8 @@ export type EventFile = { id: number; kind: "cover" | "file"; filename: string; 
 export const COVER_MAX = 8 * 1024 * 1024;
 export const FILE_MAX = 10 * 1024 * 1024;
 export const OTHER_MAX = 5;
-const COVER_EXT = ["jpg", "jpeg", "png", "webp", "gif"];
-const FILE_EXT = [...COVER_EXT, "pdf", "txt", "doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp"];
+const COVER_EXT = ["jpg", "jpeg", "png"];
+const FILE_EXT = [...COVER_EXT, "webp", "gif", "pdf", "txt", "doc", "docx", "odt", "xls", "xlsx", "ods", "ppt", "pptx", "odp"];
 export const COVER_ACCEPT = COVER_EXT.map((e) => "." + e).join(",");
 export const FILE_ACCEPT = FILE_EXT.map((e) => "." + e).join(",");
 const extensionOf = (name: string) => (/\.([A-Za-z0-9]{1,5})$/.exec(name)?.[1] ?? "").toLowerCase();
@@ -20,7 +21,7 @@ const megabytes = (bytes: number) => bytes < 1024 * 1024 ? Math.max(1, Math.roun
 export function fileProblems(cover: File | null, extra: File[], alreadyThere: number): string[] {
   const problems: string[] = [];
   if (cover) {
-    if (!COVER_EXT.includes(extensionOf(cover.name))) problems.push(`Eventfotoet “${cover.name}” skal være jpg, png, webp eller gif.`);
+    if (!COVER_EXT.includes(extensionOf(cover.name))) problems.push(`Eventfotoet “${cover.name}” skal være jpg eller png.`);
     else if (cover.size > COVER_MAX) problems.push(`Eventfotoet “${cover.name}” er ${megabytes(cover.size)} - højst ${megabytes(COVER_MAX)}.`);
   }
   if (alreadyThere + extra.length > OTHER_MAX) problems.push(`Der kan være højst ${OTHER_MAX} filer på et event.`);
@@ -32,7 +33,7 @@ export function fileProblems(cover: File | null, extra: File[], alreadyThere: nu
 }
 
 const UPLOAD_ERRORS: Record<string, string> = {
-  file_too_large: "er for stor", file_type: "har en filtype, vi ikke tager imod eller som ikke passer til filens indhold", empty_file: "er tom",
+  file_too_large: "er for stor", cover_size: "har ikke målene 1920 × 1005 px", file_type: "har en filtype, vi ikke tager imod eller som ikke passer til filens indhold", empty_file: "er tom",
   too_many_files: "kan ikke komme med, for der er allerede fem filer", uploads_not_configured: "kunne ikke gemmes, fordi upload ikke er slået til endnu"
 };
 
@@ -117,6 +118,7 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
   const existingCover = existing.find((file) => file.kind === "cover");
   const existingOthers = existing.filter((file) => file.kind === "file");
   const [preview, setPreview] = useState<string | null>(null);
+  const [cropIssue, setCropIssue] = useState("");
   useEffect(() => {
     if (!cover) { setPreview(null); return; }
     const url = URL.createObjectURL(cover);
@@ -137,8 +139,9 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
               : <span className="event-file-preview event-file-empty" aria-hidden="true" />}
         </div>
         <label>Eventfoto
-          <input type="file" accept={COVER_ACCEPT} onChange={(e) => onCover(e.target.files?.[0] ?? null)} />
-          <small>Husk et billede til dit event. Vi foretrækker ikke AI-genererede billeder, og billedet skal være uden ophavsret - alternativt skal du selv eje rettighederne. Gerne 1920 × 1005 px, højst 8 MB. Billedet vises offentligt, når eventet er godkendt.</small>
+          <input type="file" accept={COVER_ACCEPT} onChange={async (e) => { const picked = e.target.files?.[0] ?? null; e.target.value = ""; if (!picked) { onCover(null); return; } const cropped = await cropCover(picked); setCropIssue(cropped.ok ? "" : cropped.reason); onCover(cropped.ok ? cropped.file : null); }} />
+          {cropIssue && <small className="is-danger" role="alert">{cropIssue}</small>}
+          <small>Husk et billede til dit event. Vi foretrækker ikke AI-genererede billeder, og billedet skal være uden ophavsret - alternativt skal du selv eje rettighederne. Billedet beskæres automatisk fra midten til 1920 × 1005 px (Facebooks størrelse til events, jpg eller png) og må ikke være mindre, højst 8 MB. Billedet vises offentligt, når eventet er godkendt.</small>
           {existingCover && !cover && <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(existingCover)}>Fjern det nuværende foto</button>}
         </label>
       </div>

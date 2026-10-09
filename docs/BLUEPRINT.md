@@ -559,3 +559,9 @@ Still open:
 
 - Posthus: "Giv til …" på hver mail (`assignMail`, migration 0057). Medlemmet får et kort punkt "Svar på mail fra <afsender>" på sin liste; fluebenet på punktet eller på mailen krydser begge af. Skifter man medlem, eller vælger "Ingen", fjernes det åbne punkt.
 - Saga lægger kun opgaver fra Telegram og mail på lister, når hun er helt sikker (`sure`); opgaver kommer primært fra referatet.
+
+## Facebook-omslag på events
+
+- Ét fælles omslag-regelsæt (`event-files.ts`): kun jpg/png, præcis 1920 × 1005 px (Facebooks event-omslag), højst 8 MB. Serveren læser målene fra billedets header og afviser alt andet (`cover_size`).
+- Medlemmernes eventformular (`src/cover-crop.ts`) og Saga-udkastet i admin beskærer et større billede fra midten i browseren; et mindre billede afvises (aldrig forstørret).
+- Udkastets omslag (`cockpit_event_drafts.cover_*`, migration 0058) bliver eventets omslag, når udkastet oprettes. Udkast slettes med × på listen.

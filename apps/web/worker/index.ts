@@ -437,7 +437,7 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
   }
 }
 
-const FILE_ROUTE_ERRORS: Record<string, number> = { empty_file: 400, file_too_large: 413, file_type: 415, too_many_files: 409 };
+const FILE_ROUTE_ERRORS: Record<string, number> = { empty_file: 400, file_too_large: 413, file_type: 415, too_many_files: 409, cover_size: 422 };
 
 async function ownedScheduledBooking(db: D1Database, userId: string, bookingId: number) {
   return db.prepare("SELECT id, review_status, teacher_email FROM room_bookings WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled'")
