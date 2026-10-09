@@ -1,3 +1,4 @@
+import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs, type ChatMessage } from "../saga/ai.js";
 import { minutesDocText } from "../saga/drive.js";
@@ -121,7 +122,7 @@ export async function teamMail(db: D1Database, nowMs: number, question: string):
     ...words.map(w => db.prepare(`SELECT ${MAIL} FROM board_mail WHERE LOWER(sender || ' ' || subject || ' ' || preview) LIKE ? ORDER BY received_at_ms DESC LIMIT 15`)
       .bind(`%${w}%`).all<TeamMail>().then(r => r.results ?? []).catch(() => [] as TeamMail[]))]);
   const line = (m: TeamMail, length: number) => `- [${time(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.enquiry_summary ? ` (forespørgsel: ${m.enquiry_summary}${m.handled_by ? `, klaret af ${m.handled_by}` : ""})` : ""}`
-    + `\n  ${m.preview.replace(/\s+/g, " ").slice(0, length)}`;
+    + `\n  ${cleanMailText(m.preview).slice(0, length)}`;
   const matched = new Map<number, TeamMail>();
   for (const m of found.flat()) matched.set(m.id, m);
   const parts = [`SENESTE 30 DAGE (${recent.length}, nyeste først):\n${recent.map(m => line(m, matched.has(m.id) ? 1500 : 280)).join("\n") || "(ingen)"}`];

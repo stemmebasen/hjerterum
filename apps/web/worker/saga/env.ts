@@ -31,6 +31,8 @@ export interface SagaEnv {
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_DRIVE_RECORDINGS_FOLDER_ID?: string;
   GOOGLE_DRIVE_MINUTES_FOLDER_ID?: string;
+  /** The folder for the nightly copy (saga/backup.ts); the minutes folder when not set. */
+  GOOGLE_DRIVE_BACKUP_FOLDER_ID?: string;
   /** Requested: "the doc we use for all referater and decisions" - Saga reads it for context and
    * appends approved minutes to it (shared with the service account as editor). */
   GOOGLE_MINUTES_DOC_ID?: string;

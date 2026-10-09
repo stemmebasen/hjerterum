@@ -1,3 +1,4 @@
+import { cleanMailText } from "./mailText";
 import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { scheduledBoardNow } from "../cockpit/boardNow.js";
@@ -6,6 +7,7 @@ import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
 import { scheduledAgendaReminder } from "../cockpit/agenda.js";
+import { scheduledBackup } from "./backup.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
@@ -70,7 +72,7 @@ export async function watchMail(env: SagaEnv, deps: SagaDeps, mails: RelayedMail
   for (const mail of mails) {
     const at = Date.parse(mail.receivedAt);
     const id = await insertMail(db, { ref: mail.ref, sender: mail.from.slice(0, 320), subject: (mail.subject || "(intet emne)").slice(0, 500),
-      receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: mail.text.replace(/\s+/g, " ").trim().slice(0, 1500), nowMs: deps.now() });
+      receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: cleanMailText(mail.text).slice(0, 1500), nowMs: deps.now() });
     if (id) fresh.push(id);
   }
   return { received: mails.length, fresh: fresh.length };
@@ -433,6 +435,8 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx" - with a link (cockpit/agenda.ts).
   await scheduledAgendaReminder(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_agenda_reminder_failed", error instanceof Error ? error.message : error));
+  // Requested: "gemmes sikkert én gang i døgnet" - the night copy of everything the board has written and decided, to Drive (saga/backup.ts).
+  await scheduledBackup(env, deps, env.DB).catch(error => console.warn("saga_backup_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
   await scheduledSiteSync(deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_site_sync_failed", error instanceof Error ? error.message : error));
