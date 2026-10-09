@@ -1,4 +1,4 @@
-import { cleanMailText } from "./mailText";
+import { mailBody } from "./mailText";
 import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { scheduledBoardNow } from "../cockpit/boardNow.js";
@@ -72,7 +72,7 @@ export async function watchMail(env: SagaEnv, deps: SagaDeps, mails: RelayedMail
   for (const mail of mails) {
     const at = Date.parse(mail.receivedAt);
     const id = await insertMail(db, { ref: mail.ref, sender: mail.from.slice(0, 320), subject: (mail.subject || "(intet emne)").slice(0, 500),
-      receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: cleanMailText(mail.text).slice(0, 1500), nowMs: deps.now() });
+      receivedAtMs: Number.isFinite(at) ? at : deps.now(), preview: mailBody(mail.text).slice(0, 1500), nowMs: deps.now() });
     if (id) fresh.push(id);
   }
   return { received: mails.length, fresh: fresh.length };
