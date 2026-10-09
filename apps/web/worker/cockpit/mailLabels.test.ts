@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { labelUnlabelled, scanEnquiries, setLabel } from "./enquiries.js";
+import { isAutomatic, labelUnlabelled, scanEnquiries, setLabel } from "./enquiries.js";
 import { handleCockpitRequest } from "./handler.js";
 import { translateHtml } from "./i18n.js";
 import { insertMail } from "../saga/store.js";
@@ -66,6 +66,25 @@ describe("labels in Posthus", () => {
     expect(asked).toEqual(["labels"]);
     expect(await db.prepare("SELECT id, label FROM board_mail ORDER BY id").all()).toMatchObject({ results: [{ id: old, label: "Medlem" }, { id: had, label: "Generel" }] });
     expect(await labelUnlabelled(env, deps(services.fetcher, NOW), db)).toBe(0);
+  });
+
+  // Requested: "Spring de mails over, der åbenlyst ikke kræver AI".
+  it("labels mail from systems 'Automatisk' without a call, and sends the rest on a shorter text", async () => {
+    expect(isAutomatic({ sender: "Shop <noreply@shop.dk>", preview: "Din ordre" })).toBe(true);
+    expect(isAutomatic({ sender: "mailer-daemon@example.com", preview: "Undelivered" })).toBe(true);
+    expect(isAutomatic({ sender: "Anna <anna@example.com>", preview: "Du kan afmelde dig her: unsubscribe" })).toBe(true);
+    expect(isAutomatic({ sender: "Anna <anna@example.com>", preview: "Betalingspåmindelse: faktura 123 forfalden" })).toBe(false);
+    expect(isAutomatic({ sender: "Advokat <jura@example.com>", preview: "Varsel om retssag" })).toBe(false);
+    const { db, env, services, mail } = setup();
+    let seen: Array<{ id: number; text: string }> = [];
+    const spy = fakeServices({ ai: (_sys, user) => { seen = JSON.parse(user); return JSON.stringify({ items: seen.map(m => ({ id: m.id, enquiry: false, urgent: false, label: "Generel" })) }); } });
+    const auto = await insertMail(db, { ref: "n", sender: "Bank <no-reply@bank.dk>", subject: "Kontoudtog", receivedAtMs: NOW - 1000, preview: "Dit kontoudtog", nowMs: NOW });
+    const person = await insertMail(db, { ref: "p", sender: "Maria <maria@example.com>", subject: "Spørgsmål", receivedAtMs: NOW - 2000, preview: "x".repeat(900), nowMs: NOW });
+    expect(await scanEnquiries(env, deps(spy.fetcher, NOW), db)).toBe(0);
+    expect(seen.map(m => m.id)).toEqual([person]);
+    expect(seen[0]!.text.length).toBe(400);
+    expect(await db.prepare("SELECT id, label, scanned_at_ms IS NOT NULL AS done FROM board_mail ORDER BY id").all()).toMatchObject({ results: [{ id: auto, label: "Automatisk", done: 1 }, { id: person, label: "Generel", done: 1 }] });
+    void services; void mail;
   });
 
   it("has the chips and the search in English", () => {
