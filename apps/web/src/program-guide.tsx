@@ -52,3 +52,14 @@ export function ProgramGuide() {
     </article>
   );
 }
+
+/** Requested: "samt på hjemmesiden" - the same words, quietly, above the website's calendar. */
+export function SpeakerLine() {
+  const [intro, setIntro] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch("/api/events/program").then(async (r) => { if (active && r.ok) setIntro((await r.json() as { intro: string | null }).intro); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  return intro ? <p className="speaker-line">{intro}</p> : null;
+}

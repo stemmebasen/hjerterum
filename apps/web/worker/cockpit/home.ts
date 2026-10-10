@@ -16,6 +16,8 @@ import { openLines, TODOS_STYLE } from "./todosPage.js";
 
 export type HomeData = {
   who: string | null; isChair: boolean; today: string;
+  /** Requested: "Du må gerne bruge samme tekst pænt og diskret på admins forside" - Saga's words about the next two events (program.ts). */
+  speaker?: string | null;
   toSign: ApprovedMinutes[];
   tasks: Task[]; todos: Todo[];
   /** What Saga has for this member: the chair's own list (chair only) and what she wrote to them or to all. */
@@ -136,7 +138,7 @@ export function homePage(base: string, data: HomeData): string {
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
-${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
+${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}${data.speaker ? `<p class="speaker" style="margin:10px 0 0;font:italic 15px/1.55 Georgia,'Times New Roman',serif;color:var(--muted);max-width:68ch">${esc(data.speaker)}</p>` : ""}</div>
 ${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a>` : ""}${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;

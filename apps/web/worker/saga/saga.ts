@@ -437,8 +437,8 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx" - with a link (cockpit/agenda.ts).
   await scheduledAgendaReminder(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_agenda_reminder_failed", error instanceof Error ? error.message : error));
-  // Requested: the overview's programme - a short warm intro to the next two events, written once a day (program.ts).
-  if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false, deps.fetcher).catch(() => []), () => claimJob(env.DB!, "event_intro", Math.floor(deps.now() / 3_600_000), deps.now()))
+  // Requested: the overview's speaker - Saga's words about the next two events that have not begun, new whenever one begins (program.ts).
+  if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false, deps.fetcher).catch(() => []), (key) => claimJob(env.DB!, `event_intro:${key}`.slice(0, 200), 0, deps.now()))
     .catch(error => console.warn("event_blurbs_failed", error instanceof Error ? error.message : error));
   // Requested: "gemmes sikkert én gang i døgnet" - the night copy of everything the board has written and decided, to Drive (saga/backup.ts).
   await scheduledBackup(env, deps, env.DB).catch(error => console.warn("saga_backup_failed", error instanceof Error ? error.message : error));

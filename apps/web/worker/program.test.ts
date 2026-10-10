@@ -30,7 +30,13 @@ describe("the overview's programme", () => {
     expect(asked[0]).toContain("Yoga");
     expect(asked[0]).not.toContain("Healing");
     expect((await program(db, external, NOW)).intro).toBe("Lidt senere i dag kommer Jørgen med breathwork. Og i morgen er der yoga.");
-    // A new day is a new intro ("senere i dag" is only true today).
-    expect((await program(db, external, NOW + 86_400_000)).intro).toBeNull();
+    // The same two events the next day: the same intro, no new call.
+    expect((await program(db, external, NOW + 3_600_000)).intro).toBe("Lidt senere i dag kommer Jørgen med breathwork. Og i morgen er der yoga.");
+    // When Breathwork begins, the intro is about Yoga and Healing - and Saga writes a new one.
+    const begun = Date.parse("2026-10-11T09:31:00Z");
+    expect((await program(db, external, begun)).intro).toBeNull();
+    expect(await writeProgramIntro(env, deps(services.fetcher, begun), db, external, async () => true)).toBe(true);
+    expect(asked[1]).toContain("Healing");
+    expect(asked[1]).not.toContain("Breathwork");
   });
 });
