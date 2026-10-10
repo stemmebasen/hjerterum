@@ -793,6 +793,41 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   );
 }
 
+/** Requested: '"Dit medlemskab" sektionen skal have en mere dominant plads under "Min profil"' - first on the page: the plan, its
+ * status, the price and the next charge, and the way to the membership page. */
+type SubscriptionSummary = { amountMinor: number | null; interval: string | null; nextChargeAt: string | null; cancelAtPeriodEnd: boolean; endsAt: string | null };
+function MembershipHero({ clerk, member }: { clerk: ClerkBrowser; member: Member }) {
+  const [subscription, setSubscription] = useState<SubscriptionSummary | null>(null);
+  const card = !member.managedExternally && member.billing !== "manual";
+  useEffect(() => {
+    if (!card) return;
+    let active = true;
+    void apiFetch(clerk, "/api/members/me/subscription").then(async (r) => { if (active && r.ok) setSubscription(await r.json() as SubscriptionSummary); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [clerk, member.id, card]);
+  const plan = membershipPlan(member.tier);
+  const longDate = (iso: string) => new Date(iso).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" });
+  const per = (interval: string | null) => interval === "year" ? "pr. år" : "pr. måned";
+  const price = subscription?.amountMinor != null ? `${membershipPrice(subscription.amountMinor)} ${per(subscription.interval)}`
+    : plan && member.billing !== "manual" ? `${membershipPrice(plan[member.interval === "year" ? "year" : "month"])} ${per(member.interval)}` : null;
+  const payment = member.managedExternally || member.paysInMembershipworks ? "Betales indtil videre via MembershipWorks"
+    : member.billing === "manual" ? "Givet af Hjerterum - ingen betaling"
+    : subscription?.cancelAtPeriodEnd ? `Ophører ${subscription.endsAt ? longDate(subscription.endsAt) : "ved periodens udløb"}`
+    : subscription?.nextChargeAt ? `Næste træk ${longDate(subscription.nextChargeAt)}` : null;
+  return (
+    <section className="profile-membership" aria-label="Dit medlemskab">
+      <div className="profile-membership-head"><p className="kicker">Dit medlemskab</p><Status value={member.status} /></div>
+      <h2>{membershipName(member.tier)}</h2>
+      {plan?.description && <p>{plan.description}</p>}
+      {(price || payment) && <dl className="membership-facts">
+        {price && <div><dt>Pris</dt><dd>{price}</dd></div>}
+        {payment && <div><dt>Betaling</dt><dd>{payment}</dd></div>}
+      </dl>}
+      <a className="pill-button dark" href="/member-portal/medlemskab">Se og administrér medlemskab</a>
+    </section>
+  );
+}
+
 function MemberProfile({
   clerk,
   member,
@@ -832,6 +867,7 @@ function MemberProfile({
       <p className="kicker">Min profil</p>
       <h1>Dig i Hjerterum</h1>
       <p className="profile-lead">Dine oplysninger, det du deler — og de fællesskaber, du vælger.</p>
+      {member && <MembershipHero clerk={clerk} member={member} />}
       <details className="profile-basics">
         <summary>
           <span><strong>Dine medlemsoplysninger</strong><small>Navn, e-mail, telefon og fødselsdag · kun til administration</small></span>
