@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import {
-  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, MAX_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES,
-  busyDuring, clockOf, danishClock, dateKey, endMinutes, endOptions, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
-  monthGrid, monthTitle, planProblem, priceText, quoteFor, startOptions, todayKey, weekdayOf,
+  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES, BUFFER_CHOICES,
+  bufferText, busyDuring, clockOf, clockOrMidnight, danishClock, endMinutes, endOptions, endRange, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
+  monthGrid, monthTitle, planProblem, priceText, quoteForPlan, startOptions, todayKey, weekdayOf, windowOf,
   type DayEntry, type Plan, type RentType
 } from "./event-planner-logic";
 
@@ -15,7 +15,7 @@ const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
 const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
 const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
 
-export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onProblem }: {
+export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onProblem }: {
   clerk: ClerkBrowser;
   plan: Plan;
   onChange: (next: Plan) => void;
@@ -24,7 +24,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
   /** Tells the form what, if anything, is wrong with the chosen day and time. */
   onProblem?: (problem: string | null) => void;
   /** The booking being edited: it does not count as busy against itself. */
-  ignore?: { startsAt: string; endsAt: string } | null;
+  ignoreId?: number | null;
 }) {
   const today = todayKey();
   const [view, setView] = useState(() => {
@@ -51,16 +51,16 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
     return () => { live = false; };
   }, [clerk, plan.date]);
 
-  const shown = useMemo(() => entries.filter((entry) => !(ignore && entry.own
-    && Date.parse(entry.startsAt) === Date.parse(ignore.startsAt) && Date.parse(entry.endsAt) === Date.parse(ignore.endsAt))), [entries, ignore]);
+  const shown = useMemo(() => entries.filter((entry) => !(ignoreId != null && entry.own && entry.id === ignoreId)), [entries, ignoreId]);
 
   // A freshly chosen day: if the suggested time is taken, move to the first free two hours - until the member has chosen a time.
   useEffect(() => {
     if (status !== "ready" || touched.current || !plan.date) return;
-    const from = minutesOf(plan.start), to = endMinutes(plan.end);
-    if (!busyDuring(shown, plan.date, from, to).length) return;
-    const free = firstFreeStart(shown, plan.date);
-    if (free) onChange({ ...plan, start: free, end: clockOf(minutesOf(free) + MIN_MINUTES) });
+    const room = windowOf(plan);
+    if (!busyDuring(shown, plan.date, room.from, room.to).length) return;
+    const length = endMinutes(plan.end) - minutesOf(plan.start);
+    const free = firstFreeStart(shown, plan.date, length, plan.setup, plan.cleanup);
+    if (free) onChange({ ...plan, start: free, end: clockOrMidnight(minutesOf(free) + length) });
   }, [status, shown]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const problem = status === "error" ? null : planProblem(plan, shown);
@@ -68,6 +68,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
   const from = minutesOf(plan.start), to = endMinutes(plan.end);
   const chosenOk = plan.date && Number.isFinite(from) && Number.isFinite(to);
   const duration = chosenOk ? to - from : 0;
+  const room = windowOf(plan);
 
   function pickDate(date: string) {
     touched.current = false;
@@ -75,10 +76,19 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
   }
   function setStart(start: string) {
     touched.current = true;
-    const length = Math.max(MIN_MINUTES, duration || MIN_MINUTES);
     const begin = minutesOf(start);
-    const end = Math.min(begin + length, LAST_HOUR * 60);
-    onChange({ ...plan, start, end: end === 24 * 60 ? "24:00" : clockOf(end) });
+    const range = endRange(begin, plan.setup, plan.cleanup);
+    const end = Math.max(range.min, Math.min(begin + (duration || 0), range.max));
+    onChange({ ...plan, start, end: clockOrMidnight(end) });
+  }
+  // Setup or cleanup changed: keep the event's time, but shorten it if the room would otherwise be rented past the limits.
+  function setBuffer(which: "setup" | "cleanup", minutes: number) {
+    touched.current = true;
+    const next = { ...plan, [which]: minutes };
+    const begin = minutesOf(next.start);
+    const range = endRange(begin, next.setup, next.cleanup);
+    const end = Math.max(range.min, Math.min(endMinutes(next.end), range.max));
+    onChange({ ...next, end: clockOrMidnight(end) });
   }
   function setEnd(end: string) { touched.current = true; onChange({ ...plan, end }); }
   function clickTrack(event: React.MouseEvent<HTMLDivElement>) {
@@ -88,7 +98,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
     setStart(clockOf(Math.max(FIRST_HOUR * 60, Math.min(raw, LAST_HOUR * 60 - MIN_MINUTES))));
   }
   // Requested: "Kan man trække sin ønskede tidsramme op og ned?" - drag the chosen time to move it, or its lower edge to make it
-  // longer or shorter; in half hours, 2-10 hours, between FIRST_HOUR and midnight.
+  // longer or shorter; in half hours, 2-10 hours of rent with setup and cleanup, between FIRST_HOUR and midnight.
   const drag = useRef<{ mode: "move" | "end"; y: number; from: number; to: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   function startDrag(event: React.PointerEvent<HTMLDivElement>, mode: "move" | "end") {
@@ -106,14 +116,15 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
     let nextFrom = d.from, nextTo = d.to;
     if (d.mode === "move") {
       const length = d.to - d.from;
-      nextFrom = Math.max(FIRST_HOUR * 60, Math.min(d.from + step, 24 * 60 - length));
+      nextFrom = Math.max(FIRST_HOUR * 60, Math.min(d.from + step, 24 * 60 - plan.cleanup - length));
       nextTo = nextFrom + length;
     } else {
-      nextTo = Math.max(d.from + MIN_MINUTES, Math.min(d.to + step, d.from + MAX_MINUTES, 24 * 60));
+      const range = endRange(d.from, plan.setup, plan.cleanup);
+      nextTo = Math.max(range.min, Math.min(d.to + step, range.max));
     }
     if (nextFrom === from && nextTo === to) return;
     touched.current = true;
-    onChange({ ...plan, start: clockOf(nextFrom), end: nextTo === 24 * 60 ? "24:00" : clockOf(nextTo) });
+    onChange({ ...plan, start: clockOf(nextFrom), end: clockOrMidnight(nextTo) });
   }
   function endDrag() { drag.current = null; setDragging(false); }
 
@@ -123,7 +134,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
   }
 
   const viewingNow = view.year === new Date().getFullYear() && view.month === new Date().getMonth();
-  const endChoices = endOptions(plan.start);
+  const endChoices = endOptions(plan.start, plan.setup, plan.cleanup);
 
   return (
     <fieldset className="planner">
@@ -168,6 +179,8 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
                     <b>{entry.label}</b> <span>{danishClock(range.from)}–{danishClock(range.to)}</span>
                   </div>;
                 })}
+                {chosenOk && to > from && plan.setup > 0 && <div className="planner-buffer before" style={{ top: topOf(room.from), height: Math.max(topOf(from) - topOf(room.from), 4) }}><span>Klargøring</span></div>}
+                {chosenOk && to > from && plan.cleanup > 0 && <div className="planner-buffer after" style={{ top: topOf(to), height: Math.max(topOf(room.to) - topOf(to), 4) }}><span>Oprydning</span></div>}
                 {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "") + (dragging ? " dragging" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}
                   onPointerDown={(e) => startDrag(e, "move")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={(e) => e.stopPropagation()}>
                   <b>Dit event</b> <span>{danishClock(from)}–{danishClock(to)}</span><span className="planner-length">{hoursText(to - from)}</span>
@@ -190,15 +203,28 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
           <select value={plan.end} disabled={!plan.date} onChange={(e) => setEnd(e.target.value)}>
             {endChoices.map((t) => <option key={t} value={t}>{danishClock(endMinutes(t))}</option>)}
           </select>
-          <small>{chosenOk && duration >= MIN_MINUTES ? `${hoursText(duration)} i salen. Et event slutter senest kl. 24.00.` : "Mindst 2 og højst 10 timer, i halve timer."}</small>
+          <small>{chosenOk ? `Salen er din ${danishClock(room.from)}–${danishClock(room.to)} (${hoursText(room.to - room.from)} med klargøring og oprydning).` : "Salen lejes 2-10 timer med klargøring og oprydning, i halve timer."}</small>
+        </label>
+      </div>
+      <div className="workspace-form-row planner-times">
+        <label>Klargøring før
+          <select value={plan.setup} disabled={!plan.date} onChange={(e) => setBuffer("setup", Number(e.target.value))}>
+            {BUFFER_CHOICES.map((m) => <option key={m} value={m}>{bufferText(m)}</option>)}
+          </select>
+        </label>
+        <label>Oprydning efter
+          <select value={plan.cleanup} disabled={!plan.date} onChange={(e) => setBuffer("cleanup", Number(e.target.value))}>
+            {BUFFER_CHOICES.map((m) => <option key={m} value={m}>{bufferText(m)}</option>)}
+          </select>
+          <small>Tiden til at gøre klar og rydde op lejes med, så næste event ikke står i døren.</small>
         </label>
       </div>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}
 
       <div className="planner-types" role="radiogroup" aria-label="Lejetype">
         {RENT_TYPES.map((type) => {
-          const quote = plan.date ? quoteFor(plan.date, plan.start, plan.end, type.id) : null;
-          const crosses = Boolean(plan.date) && quote === null && type.id !== "standard" && weekdayOf(plan.date) > 0 && weekdayOf(plan.date) < 6 && chosenOk && duration >= MIN_MINUTES;
+          const quote = plan.date ? quoteForPlan(plan, type.id) : null;
+          const crosses = Boolean(plan.date) && quote === null && type.id !== "standard" && weekdayOf(plan.date) > 0 && weekdayOf(plan.date) < 6 && chosenOk && room.to - room.from >= MIN_MINUTES;
           const selected = plan.type === type.id;
           return (
             <label key={type.id} className={"planner-type" + (selected ? " on" : "")}>
@@ -211,7 +237,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
           );
         })}
       </div>
-      <p className="lys-sub">Prisen er for lejen af salen og er inkl. moms.</p>
+      <p className="lys-sub">Prisen er for lejen af salen inkl. klargøring og oprydning og er inkl. moms.</p>
     </fieldset>
   );
 }

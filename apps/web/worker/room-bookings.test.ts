@@ -103,3 +103,29 @@ describe("room bookings priced by Hjerterum's price calculator", () => {
     expect((await db.prepare("SELECT COUNT(*) AS n FROM room_bookings").first())).toEqual({ n: 0 });
   });
 });
+
+// Requested: setup before and cleanup after the event - the room is taken, and rented, for the whole window.
+describe("setup and cleanup around a booking", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const withBuffers = (startsAt: string, endsAt: string, setupMinutes: number, cleanupMinutes: number) =>
+    normalizeCreateRoomBookingInput({ teacherName: "Maria", teacherEmail: "maria@example.com", title: "Yoga", startsAt, endsAt, setupMinutes, cleanupMinutes });
+
+  it("rents and holds the room for the event plus its setup and cleanup", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    // Tuesday 10:30-12:30 with 30 minutes each way: the room is rented 10:00-13:00, the 3-hour package.
+    expect(await createRoomBooking(db, "u1", withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 30, 30))).toMatchObject({ feeKr: 1080 });
+    expect(await db.prepare("SELECT setup_minutes, cleanup_minutes FROM room_bookings").first()).toEqual({ setup_minutes: 30, cleanup_minutes: 30 });
+    // An event that starts right when the first one ends still collides with its cleanup ...
+    await expect(createRoomBooking(db, "u2", withBuffers("2027-11-16T11:30:00Z", "2027-11-16T13:30:00Z", 0, 0))).rejects.toThrow("booking_conflict");
+    // ... and one whose setup reaches back into it too.
+    await expect(createRoomBooking(db, "u2", withBuffers("2027-11-16T12:30:00Z", "2027-11-16T14:30:00Z", 60, 0))).rejects.toThrow("booking_conflict");
+    // With half an hour of setup it fits: the room is rented 13:00-15:30, the 2½-hour package.
+    expect(await createRoomBooking(db, "u2", withBuffers("2027-11-16T12:30:00Z", "2027-11-16T14:30:00Z", 30, 0))).toMatchObject({ feeKr: 900 });
+  });
+
+  it("allows only none, half an hour or an hour", () => {
+    expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 45, 0)).toThrow("invalid_setup_minutes");
+    expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 0, 90)).toThrow("invalid_cleanup_minutes");
+  });
+});

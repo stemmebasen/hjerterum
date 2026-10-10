@@ -52,3 +52,16 @@ describe("the day's overview", () => {
     expect(await listDayItems(testDatabase(), "user_me", "i dag", [])).toBeNull();
   });
 });
+
+describe("the day's overview with setup and cleanup", () => {
+  it("shows the whole time the room is taken, and the member's own booking id", async () => {
+    const db = testDatabase();
+    await insert(db, "user_me", "Mit event", "2026-10-19T10:00:00Z", "2026-10-19T12:00:00Z", "approved");
+    await db.prepare("UPDATE room_bookings SET setup_minutes = 30, cleanup_minutes = 60").run();
+    const [item] = (await listDayItems(db, "user_me", "2026-10-19", []))!;
+    expect(item).toMatchObject({ startsAt: "2026-10-19T09:30:00.000Z", endsAt: "2026-10-19T13:00:00.000Z", own: true });
+    expect(typeof item!.id).toBe("number");
+    const [other] = (await listDayItems(db, "user_other", "2026-10-19", []))!;
+    expect(other!.id).toBeUndefined();
+  });
+});

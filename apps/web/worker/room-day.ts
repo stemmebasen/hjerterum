@@ -14,6 +14,8 @@ export type DayItem = {
   external: boolean;
   /** Waiting for approval: it already holds the time. */
   waiting: boolean;
+  /** The member's own booking id, so the planner can leave the booking being edited out of the busy times. */
+  id?: number;
 };
 
 export type ExternalDayEvent = { title: string; startsAt: string; endsAt?: string | null };
@@ -51,21 +53,21 @@ export function copenhagenDayRange(date: string): { fromMs: number; toMs: number
   return toMs === null ? null : { fromMs, toMs };
 }
 
-type Row = { clerk_user_id: string; title: string; starts_at_ms: number; ends_at_ms: number; review_status: string | null };
+type Row = { id: number; clerk_user_id: string; title: string; starts_at_ms: number; ends_at_ms: number; review_status: string | null };
 
 export async function listDayItems(db: D1Database, userId: string, date: string, external: ExternalDayEvent[]): Promise<DayItem[] | null> {
   const range = copenhagenDayRange(date);
   if (!range) return null;
   const rows = (await db.prepare(
-    `SELECT clerk_user_id, title, starts_at_ms, ends_at_ms, review_status FROM room_bookings
-     WHERE status = 'scheduled' AND starts_at_ms < ? AND ends_at_ms > ? ORDER BY starts_at_ms ASC`
+    `SELECT id, clerk_user_id, title, starts_at_ms - setup_minutes * 60000 AS starts_at_ms, ends_at_ms + cleanup_minutes * 60000 AS ends_at_ms, review_status FROM room_bookings
+     WHERE status = 'scheduled' AND starts_at_ms - setup_minutes * 60000 < ? AND ends_at_ms + cleanup_minutes * 60000 > ? ORDER BY starts_at_ms ASC`
   ).bind(range.toMs, range.fromMs).all<Row>()).results ?? [];
   const bookings: DayItem[] = rows.map((row) => {
     const own = row.clerk_user_id === userId;
     const approved = (row.review_status ?? "approved") === "approved";
     return {
       startsAt: new Date(row.starts_at_ms).toISOString(), endsAt: new Date(row.ends_at_ms).toISOString(),
-      label: own || approved ? row.title : "Optaget", own, external: false, waiting: !approved
+      label: own || approved ? row.title : "Optaget", own, external: false, waiting: !approved, ...(own ? { id: row.id } : {})
     };
   });
   const outside: DayItem[] = external.flatMap((event) => {
