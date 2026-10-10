@@ -607,3 +607,4 @@ Still open:
 ## Medlemsfordele i tekst (2026-10-10)
 
 - Formandens tekst om fordelene og tre varianter (`BENEFITS` i site/pages.ts): den fulde på hjemmesidens Medlemskab, "mere end et sted at komme" på forsidens medlemsafsnit, "Dit medlemskab giver dig ..." på medlemmernes Overblik og "Med et betalende medlemskab ..." til støttemedlemmer.
+- holistisk.orgs egne formuleringer (`ABOUT_WORDS`): sloganet som beskrivelse af forsiden og Om Hjerterum, "et åbent og inkluderende rum" og "Uanset om du søger fordybelse ..." i forsidens vision og på Om Hjerterum, listen "Fællesskab, film, sang ..." under forsidens kategorier, prislinjen (fra medlemskabets pris) i forsidens medlemsafsnit og underviserteksten i et nyt "Vil du selv bruge Hjerterum?"-afsnit.
