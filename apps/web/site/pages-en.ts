@@ -132,6 +132,8 @@ All prices include VAT.
 
 **A) Standard price – no member discount.** A fixed price by length: 2 h 720 DKK · 3 h 1,080 · 4 h 1,380 · 5 h 1,680 · 6 h 1,920 · 7 h 2,160 · 8 h 2,340 · 9 h 2,520 · 10 h 2,700 DKK.
 
+> **Members only:** B) Reduced price – with member discount and C) Free rental require that you are a paying member of Hjerterum yourself. In those cases you create your event yourself on the [member site](https://medlem.hjerterum.info/member-portal/events).
+
 **B) Reduced price – with member discount**, for events where members pay less than non-members:
 
 | | B-time: weekdays before 18:30 | A-time: weekdays after 18:30 and weekends |
@@ -142,7 +144,7 @@ All prices include VAT.
 
 For a period we offer 25% off the A-time prices – you'll see it in the calculator.
 
-**C) Free rental**, for events where Hjerterum charges nothing for the room. Members attend for free; non-members pay at least 150 DKK in A-time or 75 DKK in B-time. To use free rental you must be a paying member yourself.
+**C) Free rental**, for events where Hjerterum charges nothing for the room. Members attend for free; non-members pay at least 150 DKK in A-time or 75 DKK in B-time. To use free rental you must be a paying member yourself, and you create your event yourself on the member site.
 
 **Rules:** with a member discount or free rental a booking cannot cross 18:30 on a weekday · minimum 2 and maximum 10 hours · set-up and tidying must be within the booked time (we recommend 30 minutes before and after).
 
