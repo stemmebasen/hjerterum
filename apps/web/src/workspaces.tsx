@@ -48,6 +48,7 @@ type Booking = {
   isOwner?: boolean;
   feeKr: number;
   ticketPriceKr: number;
+  nonMemberPriceKr?: number | null;
   bookingType?: "standard" | "reduced" | "free";
   reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
   reviewNote?: string | null;
@@ -202,6 +203,14 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
   const awaiting = owned.filter((booking) => booking.reviewStatus === "pending" || booking.reviewStatus === "needs_board").length;
   const benefits = includesMemberBenefits(member?.tier ?? null);
   const firstName = member?.fullName.trim().split(/\s+/)[0];
+  // Requested: a fourth box, "Medlemsbesparelse xxx kr. Siden <dato>" (member-savings.ts).
+  const [savings, setSavings] = useState<{ savedKr: number; since: string | null } | null>(null);
+  useEffect(() => {
+    if (!member || !benefits) return;
+    let active = true;
+    apiFetch(clerk, "/api/members/me/savings").then(async (r) => { if (active && r.ok) setSavings(await r.json()); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [clerk, member?.id, benefits]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="lys-page member-overview member-page">
       <div className="lys-intro">
@@ -223,6 +232,8 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
             <small>{registrations[0] ? "næste: " + formatDate(registrations[0].startsAt) : "ingen kommende"}</small></div>}
           {benefits && <div className="lys-tile"><span>Mine events</span><b>{owned.length}</b>
             <small>{awaiting ? awaiting + " afventer godkendelse" : owned.length ? "alle behandlet" : "ingen endnu"}</small></div>}
+          {benefits && savings && <div className="lys-tile"><span>Medlemsbesparelse</span><b>{savings.savedKr.toLocaleString("da-DK")} kr.</b>
+            <small>{savings.since ? "siden " + new Date(savings.since + "T12:00:00").toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : "som medlem"}</small></div>}
         </div>
       )}
       <ProgramGuide />
@@ -378,6 +389,7 @@ function MemberEvents({
             ...planInstants(plan),
             maxAttendees: Number(form.get("maxAttendees")) || null,
             ticketPriceKr: Number(form.get("ticketPriceKr")) || 0,
+            nonMemberPriceKr: String(form.get("nonMemberPriceKr") ?? "").trim() === "" ? null : Number(form.get("nonMemberPriceKr")),
             bookingType: plan.type
           })
         }
@@ -462,6 +474,10 @@ function MemberEvents({
                   <small>{payout?.configured === false
                     ? "Betalte events kan oprettes, når betalingen er koblet til. Indtil da er billetprisen 0 kr. (gratis)."
                     : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
+                </label>
+                <label>Pris for ikke-medlemmer (kr.)
+                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder="Valgfri" defaultValue={editing?.nonMemberPriceKr ?? ""} />
+                  <small>Det, et ikke-medlem betaler. Bruges til at vise medlemmerne, hvad de sparer.</small>
                 </label>
               </div>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
