@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { parsePublicProfile, isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
 import { apiFetch, type ClerkBrowser } from "./clerk";
+import { PhotoCropper } from "./photo-cropper";
 
 export function ProfileCard({ profile }: { profile: PublicProfile }) {
   let contact: Partial<PublicProfile> = {};
   try { contact = parsePublicProfile(profile); } catch { /* Incomplete contact input is never rendered as a link. */ }
   return <article className="profile-preview">
-    <div className="profile-portrait" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>
+    {profile.photoUrl ? <img className="profile-portrait profile-portrait-photo" src={profile.photoUrl} alt={profile.name} loading="lazy" />
+      : <div className="profile-portrait" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>}
     <div><h3>{profile.name || "Dit navn"}</h3><p>{profile.title || "Din faglige titel"}</p>
       <p className="profile-badge">{[profile.teaching && "Undervisning", profile.treatment && "Behandling"].filter(Boolean).join(" · ") || "Dit tilbud"}</p>
       <p className="profile-bio">{profile.bio || "Din korte præsentation vises her."}</p><p>{profile.topics}</p>
@@ -28,6 +30,20 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
   const [message, setMessage] = useState("");
   const [conflict, setConflict] = useState(false);
   const [reload, setReload] = useState(0);
+  const [picked, setPicked] = useState<File | null>(null);
+  async function usePhoto(blob: Blob) {
+    setPicked(null); setBusy(true); setMessage("");
+    try {
+      const form = new FormData();
+      form.set("photo", new File([blob], "portraet.jpg", { type: "image/jpeg" }));
+      const response = await apiFetch(clerk, "/api/members/me/public-profile/photo", { method: "POST", body: form });
+      const body = await response.json().catch(() => ({})) as { photoUrl?: string };
+      if (!response.ok || !body.photoUrl) throw new Error();
+      change({ photoUrl: body.photoUrl });
+      setMessage("Billedet er klar. Husk at gemme visitkortet.");
+    } catch { setMessage("Billedet kunne ikke gemmes. Prøv igen."); }
+    finally { setBusy(false); }
+  }
   useEffect(() => {
     let active = true;
     setBusy(true);
@@ -80,6 +96,14 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
     <p className="profile-badge">{!saved ? "Henter visitkort …" : saved.published && saved.canPublish ? "Offentlig" : saved.published ? "Skjult · medlemskab kræves" : "Ikke offentlig"}{dirty ? " · Ændringer er ikke gemt" : ""}</p>
     {!saved ? <button className="text-button" disabled={busy} onClick={() => setReload(n => n + 1)}>Prøv igen</button> : <>
       {preview ? <ProfileCard profile={draft} /> : <fieldset className="profile-fields workspace-form" disabled={busy || conflict}>
+        <div className="profile-photo-field">
+          {picked ? <PhotoCropper file={picked} onDone={(blob) => void usePhoto(blob)} onCancel={() => setPicked(null)} /> : <>
+            {draft.photoUrl ? <img className="profile-portrait profile-portrait-photo" src={draft.photoUrl} alt="Dit billede" /> : <div className="profile-portrait" aria-hidden="true">{draft.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>}
+            <div><label className="pill-button">{draft.photoUrl ? "Skift billede" : "Upload et billede"}<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setPicked(f); }} /></label>
+              {draft.photoUrl && <button type="button" className="text-button" onClick={() => change({ photoUrl: "" })}>Fjern billedet</button>}
+              <p className="profile-note">Billedet vises rundt på visitkortet. Du kan flytte og zoome, før du gemmer.</p></div>
+          </>}
+        </div>
         <div className="workspace-form-row">
           <label>Navn på visitkortet<input value={draft.name} maxLength={80} onChange={e => change({ name: e.target.value })} /></label>
           <label>Faglig titel<input value={draft.title} maxLength={120} placeholder="Fx yogalærer og kropsterapeut" onChange={e => change({ title: e.target.value })} /></label>

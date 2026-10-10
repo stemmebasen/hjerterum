@@ -875,10 +875,27 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* Sagas speaker-tekst, diskret på hjemmesidens forside over kalenderen. */
 .speaker-line { font: italic 1.05rem/1.6 Georgia, "Times New Roman", serif; color: var(--lys-muted, var(--muted)); max-width: 70ch; margin: -6px 0 18px; }
 
+/* Visitkortets foto: rundt, med beskæring i en cirkel. */
+.profile-portrait-photo { width: 120px; height: 120px; object-fit: cover; padding: 0; border-radius: 50%; }
+.profile-photo-field { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.profile-photo-field .profile-portrait { width: 88px; height: 88px; flex: 0 0 88px; }
+.profile-photo-field label.pill-button { cursor: pointer; display: inline-flex; }
+.photo-cropper { display: grid; gap: 10px; justify-items: start; }
+.photo-crop-view { position: relative; overflow: hidden; border-radius: 50%; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 0 0 3px var(--profile-line, rgba(0, 0, 0, .12)); background: #000; }
+.photo-crop-view:active { cursor: grabbing; }
+.photo-crop-view img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; }
+.photo-zoom { display: flex; gap: 10px; align-items: center; width: 260px; }
+.photo-zoom input { flex: 1; }
 /* Requested: "Det er min profil, der har sandheden, og det er det layout og den margin, vi skal bruge på alle medlemssiderne."
  * Every member page has .member-page (Min profil's width, top margin, type and kicker); Opret event stacks its two columns within it. */
-.member-page .workspace-two-column, .member-page .workspace-two-column.events-columns { grid-template-columns: minmax(0, 1fr); }
+/* Requested: "Lad os gå tilbage til som oversigten var før og lade de andre sider tage udgangspunkt heri." Overblik (.lys-page) is the
+ * truth: every other member page has its width, side margins, top margin, kicker and headline. */
+.workspace-section.member-page { width: 100%; max-width: 1220px; margin: 0 auto; padding: 44px 28px 80px; box-sizing: border-box; font-size: 15px; }
+.workspace-section.member-page > .kicker, .workspace-section.member-page > .lys-kicker { font: 600 11.5px/1.2 var(--lys-sans); letter-spacing: .2em; text-transform: uppercase; color: var(--lys-terra); margin: 0; }
+.workspace-section.member-page > h1 { font: 400 clamp(40px, 5vw, 64px)/1.05 var(--lys-serif); letter-spacing: -.02em; margin: 12px 0 8px; max-width: none; }
+.member-page .member-page { padding: 32px 0 0; max-width: none; }
 .member-page .workspace-section { width: 100%; padding: 32px 0 0; }
+@media (max-width: 760px) { .workspace-section.member-page { padding: 28px 18px 64px; } }
 
 /* Requested: "Brug Cirkler logoet i stedet for cirkel-ikonet" - on Min CIRKLER-profil, in CIRKLER's gold. */
 .cirkler-logo-mark { display: block; width: 30px; height: 30px; background: #D9B35A;
@@ -886,3 +903,6 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* holistisk.org's words on the front page: what happens in the house, the price line. */
 .site-kinds { text-align: center; max-width: 70ch; margin: 4px auto 0; color: var(--lys-muted, var(--muted)); font-style: italic; }
 .site-price-line { font-size: .95rem; color: var(--lys-muted, var(--muted)); }
+
+/* Overblik: fire bokse på en række (medlemskab, tilmeldt, mine events, medlemsbesparelse). */
+.member-overview .lys-tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
