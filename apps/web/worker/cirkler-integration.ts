@@ -1,9 +1,10 @@
 // CIRKLER-integrationen (docs/BLUEPRINT.md, "CIRKLER is a separate product/domain and integrates only through
-// explicit entitlement contracts"). Hjerterum kender ikke til cirkler eller deltagere; det svarer kun på to ting:
+// explicit entitlement contracts"). Hjerterum gemmer intet om cirkler eller deltagere; det svarer på to ting og spørger om én:
 //
 //   POST /api/integrations/cirkler/handoff      Et medlem, der er logget ind, trykker "Tilmeld dig CIRKLER".
 //                                               Svaret er en adresse på cirkler.net med en signeret billet.
 //   POST /api/integrations/cirkler/eligibility  CIRKLERs daglige tjek: er disse medlemmer stadig berettigede?
+//   GET  /api/integrations/cirkler/status       Medlemssiden: er jeg med i en cirkel? (spørger CIRKLER live)
 //
 // Begge kører automatisk; Hjerterums team har ingen manuelle trin (Jake, 3. oktober 2026).
 // Medlemmer med medlemsgoder (Standard, Generøst, Reduceret pris) er berettigede; Support er ikke.
@@ -28,6 +29,7 @@ export interface CirklerIntegrationDeps {
   now: () => number;
   authenticate?: (request: Request, issuer?: string) => Promise<{ userId: string }>;
   primaryEmail?: (userId: string, secretKey: string) => Promise<string>;
+  fetcher?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 }
 
 // Billetten skal holde, mens medlemmet udfylder CIRKLERs spørgsmål. CIRKLER bruger den kun én gang.
@@ -187,6 +189,36 @@ async function handoff(request: Request, env: CirklerIntegrationEnv, deps: Cirkl
   }
 }
 
+export type CircleStatus = { profile: boolean; circle: string | null };
+
+/** Requested: the member page shows "Du er med i cirklen <navn>" or "Du er endnu ikke med i en cirkel". Hjerterum asks CIRKLER live
+ * with the member's reference and the key the two already share (CIRKLER_SERVICE_KEY here, HJERTERUM_SERVICE_KEY there); nothing is kept. */
+async function circleStatus(request: Request, env: CirklerIntegrationEnv, deps: CirklerIntegrationDeps): Promise<Response> {
+  const serviceKey = env.CIRKLER_SERVICE_KEY?.trim() ?? "";
+  if (!env.DB || !env.CLERK_SECRET_KEY || !serviceKey) return json({ error: "cirkler_integration_not_configured" }, { status: 503 });
+  let userId: string;
+  try {
+    userId = (await (deps.authenticate ?? authenticateBearer)(request, env.CLERK_JWT_ISSUER)).userId;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "auth_failed";
+    return json({ error: code }, { status: code === "auth_not_configured" ? 503 : 401 });
+  }
+  try {
+    const membership = await resolveActiveMembership(env.DB, userId, env.CLERK_SECRET_KEY);
+    if (!membership) return json({ error: "active_membership_required" }, { status: 403 });
+    const base = (env.CIRKLER_BASE_URL || DEFAULT_CIRKLER_BASE_URL).replace(/\/+$/, "");
+    const response = await (deps.fetcher ?? fetch)(`${base}/api/hjerterum/circle-status`, {
+      method: "POST", headers: { authorization: `Bearer ${serviceKey}`, "content-type": "application/json" }, body: JSON.stringify({ ref: membershipReference(membership) })
+    });
+    if (!response.ok) return json({ error: "cirkler_unavailable" }, { status: 503 });
+    const body = await response.json() as Partial<CircleStatus>;
+    return json({ profile: body.profile === true, circle: typeof body.circle === "string" && body.circle.trim() ? body.circle.trim().slice(0, 120) : null } satisfies CircleStatus);
+  } catch (error) {
+    console.warn("cirkler_status_failed", error instanceof Error ? error.message : error);
+    return json({ error: "cirkler_unavailable" }, { status: 503 });
+  }
+}
+
 async function eligibility(request: Request, env: CirklerIntegrationEnv): Promise<Response> {
   // Nøglen trimmes, så et mellemrum eller linjeskift fra indsætningen i
   // Cloudflare ikke giver 401 over for CIRKLER, der trimmer sin kopi.
@@ -214,5 +246,6 @@ export async function handleCirklerIntegrationRequest(
   const { pathname } = new URL(request.url);
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/handoff") return handoff(request, env, deps);
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/eligibility") return eligibility(request, env);
+  if (request.method === "GET" && pathname === "/api/integrations/cirkler/status") return circleStatus(request, env, deps);
   return json({ error: "not_found" }, { status: 404 });
 }

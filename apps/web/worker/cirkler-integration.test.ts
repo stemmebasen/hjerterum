@@ -116,6 +116,20 @@ describe("CIRKLER endpoints", () => {
     expect(response.status).toBe(403);
   });
 
+  it("asks CIRKLER for the member's circle with the shared key and passes on only the name", async () => {
+    const asked: Array<{ url: string; auth: string | null; body: string }> = [];
+    const response = await handleCirklerIntegrationRequest(
+      new Request("https://hjerterum.example/api/integrations/cirkler/status"),
+      { DB: new FakeDatabase({ membersByClerk: { user_7: member } }), CLERK_SECRET_KEY: "sk", CIRKLER_SERVICE_KEY: " shared ", CIRKLER_BASE_URL: "https://cirkler.example/" },
+      { now: () => 0, authenticate: async () => ({ userId: "user_7" }), fetcher: async (input, init) => {
+        asked.push({ url: String(input), auth: new Headers(init?.headers).get("authorization"), body: String(init?.body) });
+        return Response.json({ profile: true, circle: "Aarhus 3", email: "skal ikke videre" });
+      } }
+    );
+    expect(await response.json()).toEqual({ profile: true, circle: "Aarhus 3" });
+    expect(asked).toEqual([{ url: "https://cirkler.example/api/hjerterum/circle-status", auth: "Bearer shared", body: JSON.stringify({ ref: "HR-7" }) }]);
+  });
+
   it("answers the eligibility check only with the service key", async () => {
     const env: CirklerIntegrationEnv = { DB: new FakeDatabase({ membersById: { 7: nativeRow() } }), CIRKLER_SERVICE_KEY: "secret-key\n" };
     const request = (key: string) => new Request("https://hjerterum.example/api/integrations/cirkler/eligibility", {

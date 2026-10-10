@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { PublicProfileEditor } from "./public-profiles";
+import { openCirklerHandoff } from "./cirkler-card";
 
 export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: ClerkBrowser }) {
   const [section, setSection] = useState<"overview" | "public" | "cirkler">("overview");
@@ -10,20 +11,7 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
   // Hjerterum laver en signeret billet og sender medlemmet videre til cirkler.net. Profilen bor kun i CIRKLER.
   async function openCirkler() {
     setOpening(true);
-    setCirklerError(null);
-    try {
-      const response = await apiFetch(clerk, "/api/integrations/cirkler/handoff", { method: "POST" });
-      const body = await response.json().catch(() => ({})) as { url?: string; error?: string };
-      if (response.ok && body.url) {
-        window.location.assign(body.url);
-        return;
-      }
-      setCirklerError(body.error === "active_membership_required"
-        ? "Gratis CIRKLER kræver et aktivt medlemskab med medlemsgoder. Du kan stadig tilmelde dig direkte på cirkler.net."
-        : "Vi kunne ikke åbne CIRKLER lige nu. Prøv igen om lidt.");
-    } catch {
-      setCirklerError("Vi kunne ikke åbne CIRKLER lige nu. Prøv igen om lidt.");
-    }
+    setCirklerError(await openCirklerHandoff(clerk));
     setOpening(false);
   }
   if (section === "public") return <PublicProfileEditor clerk={clerk} fullName={fullName} onBack={() => setSection("overview")} />;
