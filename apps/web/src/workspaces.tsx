@@ -119,7 +119,17 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
   useEffect(() => {
     if (!ref.current) return;
     const node = ref.current;
-    clerk.mountUserButton(node);
+    // Requested: "Under Konto kan vi også have medlemsskab-info": a "Medlemskab" link in the account menu and in "Administrer konto".
+    const icon = (el: HTMLDivElement) => { el.textContent = "◎"; };
+    const membership = { label: "Medlemskab", mountIcon: icon, unmountIcon: () => undefined };
+    try {
+      clerk.mountUserButton(node, {
+        customMenuItems: [{ ...membership, href: "/member-portal/profil#medlemskab" }],
+        userProfileProps: { customPages: [{ ...membership, url: "/member-portal/profil#medlemskab" }] }
+      });
+    } catch {
+      clerk.mountUserButton(node);
+    }
     return () => clerk.unmountUserButton(node);
   }, [clerk]);
   return <div className="user-button" ref={ref} />;
@@ -136,10 +146,10 @@ function WorkspaceHeader({
 }) {
   const memberLinks: Array<readonly [string, string]> = [
     ["/member-portal/", "Overblik"],
-    ["/member-portal/medlemskab", "Medlemskab"],
     ["/member-portal/events", "Mine events"],
     ["/member-portal/kalender", "Kalender"],
-    ["/member-portal/profil", "Profil"],
+    // Requested: "Lad Medlemskab blive knyttet ind under Min profil".
+    ["/member-portal/profil", "Min profil"],
     ["/member-portal/kontakt", "Kontakt"]
   ];
   const adminLinks: Array<readonly [string, string]> = [
@@ -156,7 +166,7 @@ function WorkspaceHeader({
         {links.map(([href, label]) => {
           const isMemberOverview = href === "/member-portal/" && path === "/member-portal/dashboard";
           return (
-          <a key={href} href={href} aria-current={path === href || (href.endsWith("/") && path === href.slice(0, -1)) || isMemberOverview ? "page" : undefined}>
+          <a key={href} href={href} aria-current={path === href || (href === "/member-portal/profil" && path.startsWith("/member-portal/medlemskab")) || (href.endsWith("/") && path === href.slice(0, -1)) || isMemberOverview ? "page" : undefined}>
             {label}
           </a>
           );
@@ -201,7 +211,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
       {member && (
         <div className="lys-tiles">
           <div className="lys-tile"><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
-            <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/medlemskab">betaling →</a></>}</small></div>
+            <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/profil#medlemskab">betaling →</a></>}</small></div>
           {benefits && <div className="lys-tile"><span>Tilmeldt</span><b>{registrations.length}</b>
             <small>{registrations[0] ? "næste: " + formatDate(registrations[0].startsAt) : "ingen kommende"}</small></div>}
           {benefits && <div className="lys-tile"><span>Mine events</span><b>{owned.length}</b>
@@ -250,7 +260,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
               <p className="lys-kicker">Medlemskab</p>
               <h2>{member ? membershipName(member.tier) : "Dit medlemskab"}</h2>
               <p className="lys-sub">{member?.managedExternally ? "Dit eksisterende medlemskab via MembershipWorks fortsætter uændret." : "Betaling, kort og opsigelse finder du samlet ét sted."}</p>
-              {!member?.managedExternally && <a className="lys-link" href="/member-portal/medlemskab">Betaling og medlemskab →</a>}
+              {!member?.managedExternally && <a className="lys-link" href="/member-portal/profil#medlemskab">Betaling og medlemskab →</a>}
             </article>
           </>
         )}
@@ -841,13 +851,13 @@ export function MemberWorkspace({
           <section className="workspace-section"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
         </> :
         normalized === "/member-portal/medlemskab" ? (
-          <MemberBilling clerk={clerk} member={member} />
+          <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div></>
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
-          normalized === "/member-portal/profil" ? <MemberProfile clerk={clerk} member={member} onSaved={setMember} /> :
+          normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
