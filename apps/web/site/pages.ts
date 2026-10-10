@@ -360,6 +360,8 @@ Til events uden medlemsrabat. Du betaler en fast pris efter bookingens længde.
 | 9 timer | 2.520 kr. |
 | 10 timer | 2.700 kr. |
 
+> **Kun for medlemmer:** B) Reduceret pris – med medlemsrabat og C) Gratis leje kræver, at du selv er betalende medlem af Hjerterum. I de tilfælde opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
+
 ### B) Reduceret pris – med medlemsrabat
 Til events, hvor medlemmer får en lavere deltagerpris end ikke-medlemmer. Lejen beregnes efter B-tid og A-tid.
 
@@ -372,7 +374,7 @@ Til events, hvor medlemmer får en lavere deltagerpris end ikke-medlemmer. Lejen
 I en periode giver vi 25 % rabat på A-tidspriserne. Det kan du se i prisberegneren.
 
 ### C) Gratis leje
-Til events, hvor Hjerterum ikke tager betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid. For at bruge gratis leje skal du selv være betalende medlem.
+Til events, hvor Hjerterum ikke tager betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid. For at bruge gratis leje skal du selv være betalende medlem, og du opretter selv dit event på medlemssiden.
 
 ### Vigtige regler
 - **Ingen overlap:** med medlemsrabat eller gratis leje kan en booking ikke gå hen over kl. 18.30. Den skal ligge helt i B-tid eller helt i A-tid.
@@ -382,7 +384,7 @@ Til events, hvor Hjerterum ikke tager betaling for lokalet. Medlemmer deltager g
 {{price-calculator}}
 
 ## Sådan booker du {#booking}
-Find prisen og send din bookingforespørgsel med [prisberegneren og bookingformularen](/beregner). Send os disse oplysninger:
+Find prisen og send din bookingforespørgsel med [prisberegneren og bookingformularen](/beregner). Bruger du B) Reduceret pris eller C) Gratis leje, er du medlem og opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) i stedet. Ellers send os disse oplysninger:
 
 **Om eventet**
 - **Titel**

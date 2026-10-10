@@ -617,6 +617,7 @@ Still open:
 
 - Visitkortet kan have et rundt foto: medlemmet vælger et billede, trækker det på plads i en cirkel og zoomer; browseren skærer det til en 480 × 480 jpg. `POST /api/members/me/public-profile/photo` (aktivt medlemskab) gemmer kun en jpg i præcis den størrelse (højst 1 MB) i R2 under et tilfældigt navn, og `GET /api/profile-photos/<id>.jpg` viser den. Visitkortet peger på billedet (`photoUrl`, kun egne adresser).
 - holistisk.orgs egne formuleringer (`ABOUT_WORDS`): sloganet som beskrivelse af forsiden og Om Hjerterum, "et åbent og inkluderende rum" og "Uanset om du søger fordybelse ..." i forsidens vision og på Om Hjerterum, listen "Fællesskab, film, sang ..." under forsidens kategorier, prislinjen (fra medlemskabets pris) i forsidens medlemsafsnit og underviserteksten i et nyt "Vil du selv bruge Hjerterum?"-afsnit.
+- Leje: B) Reduceret pris og C) Gratis leje kræver, at man selv er betalende medlem, og så opretter man selv sit event på medlemssiden. Det står i en tydelig boks over B og C på Lej Hjerterum (også på engelsk), under "Sådan booker du" og i prisberegneren ved begge lejetyper.
 
 ## Medlemsbesparelse (2026-10-10)
 
