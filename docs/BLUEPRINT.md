@@ -666,3 +666,7 @@ Still open:
 
 - Forsidens kalenderafsnit hedder "Næste uge i Hjerterum" og viser husets events de næste 7 dage (de næste tre, hvis ugen er tom). Speakeren "I morgen i Hjerterum" står over listen.
 - Speakeren nævner alle morgendagens events (højst fire), én kort sætning hver. Udelader mellemmodellen et event, skriver hovedmodellen teksten igen. Nøglen er `intro2:…`, så en ny tekst skrives straks.
+
+## Klargøring og oprydning i kvarterer (2026-10-10)
+
+- "Klargøring før" og "Oprydning efter" kan være ingen, 15, 30, 45 min. eller 1 time (standard 30). Salen er optaget i de præcise minutter, men lejen og prisberegnerens regler (2-10 timer, 18.30) går på vinduet rundet ud til hele halve timer (fra halvtimen før klargøringen til halvtimen efter oprydningen). Migration 0065 genskaber kolonnerne med den nye CHECK og bevarer de gemte værdier.

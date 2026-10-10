@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import {
   FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES, BUFFER_CHOICES,
-  bufferText, busyDuring, clockOf, clockOrMidnight, danishClock, endMinutes, endOptions, endRange, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
+  bufferText, busyDuring, pricedSpan, clockOf, clockOrMidnight, danishClock, endMinutes, endOptions, endRange, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
   monthGrid, monthTitle, planProblem, priceText, quoteForPlan, startOptions, todayKey, weekdayOf, windowOf,
   type DayEntry, type Plan, type RentType
 } from "./event-planner-logic";
@@ -203,7 +203,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
           <select value={plan.end} disabled={!plan.date} onChange={(e) => setEnd(e.target.value)}>
             {endChoices.map((t) => <option key={t} value={t}>{danishClock(endMinutes(t))}</option>)}
           </select>
-          <small>{chosenOk ? `Salen er din ${danishClock(room.from)}–${danishClock(room.to)} (${hoursText(room.to - room.from)} med klargøring og oprydning).` : "Salen lejes 2-10 timer med klargøring og oprydning, i halve timer."}</small>
+          <small>{chosenOk ? `Salen er din ${danishClock(room.from)}–${danishClock(room.to)} med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.` : "Salen lejes 2-10 timer med klargøring og oprydning, i halve timer."}</small>
         </label>
       </div>
       <div className="workspace-form-row planner-times">
@@ -216,7 +216,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
           <select value={plan.cleanup} disabled={!plan.date} onChange={(e) => setBuffer("cleanup", Number(e.target.value))}>
             {BUFFER_CHOICES.map((m) => <option key={m} value={m}>{bufferText(m)}</option>)}
           </select>
-          <small>Tiden til at gøre klar og rydde op lejes med, så næste event ikke står i døren.</small>
+          <small>Tiden til at gøre klar og rydde op lejes med, så næste event ikke står i døren. Lejen regnes i halve timer.</small>
         </label>
       </div>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}

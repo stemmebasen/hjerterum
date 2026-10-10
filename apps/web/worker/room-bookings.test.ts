@@ -124,8 +124,17 @@ describe("setup and cleanup around a booking", () => {
     expect(await createRoomBooking(db, "u2", withBuffers("2027-11-16T12:30:00Z", "2027-11-16T14:30:00Z", 30, 0))).toMatchObject({ feeKr: 900 });
   });
 
-  it("allows only none, half an hour or an hour", () => {
-    expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 45, 0)).toThrow("invalid_setup_minutes");
+  it("rents a quarter-hour setup by the half hour", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    // Tuesday 10:30-12:30 with 15 minutes each way: taken 10:15-12:45, rented 10:00-13:00 (3 hours).
+    expect(await createRoomBooking(db, "u1", withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 15, 15))).toMatchObject({ feeKr: 1080 });
+    expect(await createRoomBooking(db, "u2", withBuffers("2027-11-16T12:00:00Z", "2027-11-16T14:00:00Z", 0, 0))).toMatchObject({ feeKr: 720 });
+    await expect(createRoomBooking(db, "u3", withBuffers("2027-11-16T08:00:00Z", "2027-11-16T09:00:00Z", 0, 30))).rejects.toThrow("booking_conflict");
+  });
+
+  it("allows only none, 15, 30, 45 or 60 minutes", () => {
+    expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 20, 0)).toThrow("invalid_setup_minutes");
     expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 0, 90)).toThrow("invalid_cleanup_minutes");
   });
 });
