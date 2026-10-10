@@ -117,11 +117,11 @@ export function parseMembershipWorksRss(xml: string): ExternalEvent[] {
   });
 }
 
-export async function getExternalEvents(force = false): Promise<ExternalEvent[]> {
+export async function getExternalEvents(force = false, fetcher: typeof fetch = fetch): Promise<ExternalEvent[]> {
   const now = Date.now();
   if (!force && cachedEvents && now < cacheExpiresAt) return cachedEvents;
 
-  const response = await fetch(MEMBERSHIPWORKS_FEED_URL, {
+  const response = await fetcher(MEMBERSHIPWORKS_FEED_URL, {
     headers: { accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" }
   });
   if (!response.ok) throw new Error(`membershipworks_fetch_failed_${response.status}`);
