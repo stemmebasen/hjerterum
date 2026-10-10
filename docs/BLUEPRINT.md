@@ -594,3 +594,8 @@ Still open:
 ## Om Hjerterum (2026-10-10)
 
 - Én side, skrevet ét sted (`site/pages.ts`, `/om-hjerterum`): kontakt, bestyrelsen (gruppebilledet og et kort pr. person fra `BOARD`) og foreningen. Hjemmesiden viser den på `/om-hjerterum` (med henvisning fra `/kontakt`); medlemsområdet viser samme side under "Om Hjerterum" (`/member-portal/kontakt`, `SitePageInner`). Teamet-siden bruger samme bestyrelsesliste.
+
+## Opret event: bredere dagsvisning og træk (2026-10-10)
+
+- Formularen får mere plads (kommende events smallere ved siden af / under), timerne er højere, og dagsvisningen lægger sig under kalenderen, når der ikke er plads ved siden af.
+- "Dit event" kan trækkes op og ned, og den nederste kant trækkes for at ændre sluttiden (halve timer, 2-10 timer, senest kl. 24). Den er stiplet, mens den trækkes, og når tiden ikke er ledig; fuldt optrukket, når den ligger på en ledig tid.
