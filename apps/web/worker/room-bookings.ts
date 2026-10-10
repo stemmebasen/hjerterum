@@ -13,7 +13,7 @@ export type CreateRoomBookingInput = {
   ticketPriceMinor: number;
   /** What a non-member pays; null when the organiser gave none. */
   nonMemberPriceMinor?: number | null;
-  /** Minutes the room is taken before and after the event (0, 30 or 60). */
+  /** Minutes the room is taken before and after the event (0, 15, 30, 45 or 60). */
   setupMinutes?: number;
   cleanupMinutes?: number;
   /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
@@ -123,6 +123,12 @@ const BOOKING_TYPES: readonly RoomBookingType[] = ["standard", "reduced", "free"
 /** The time the room is taken: the event plus setup before and cleanup after. Conflicts and rent go by this. */
 export const WINDOW_START = "(starts_at_ms - setup_minutes * 60000)";
 export const WINDOW_END = "(ends_at_ms + cleanup_minutes * 60000)";
+/** The rent goes by half hours: a window with quarter-hour setup or cleanup is priced from the half hour before it starts to the
+ * half hour after it ends (Copenhagen is a whole number of hours from UTC, so UTC half hours are local half hours). */
+const HALF_HOUR_MS = 30 * 60_000;
+export function pricedWindow(fromMs: number, toMs: number) {
+  return { fromMs: Math.floor(fromMs / HALF_HOUR_MS) * HALF_HOUR_MS, toMs: Math.ceil(toMs / HALF_HOUR_MS) * HALF_HOUR_MS };
+}
 export function roomWindow(startMs: number, endMs: number, input: { setupMinutes?: number; cleanupMinutes?: number }) {
   return { fromMs: startMs - (input.setupMinutes ?? 0) * 60_000, toMs: endMs + (input.cleanupMinutes ?? 0) * 60_000 };
 }
@@ -165,7 +171,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
   const buffer = (value: unknown, name: string) => {
     if (value === undefined || value === null || value === "") return 0;
     const n = Number(value);
-    if (![0, 30, 60].includes(n)) throw new Error(`invalid_${name}`);
+    if (![0, 15, 30, 45, 60].includes(n)) throw new Error(`invalid_${name}`);
     return n;
   };
   const setupMinutes = buffer(body.setupMinutes, "setup_minutes"), cleanupMinutes = buffer(body.cleanupMinutes, "cleanup_minutes");
@@ -262,7 +268,7 @@ export async function createRoomBooking(
     throw new Error("booking_conflict");
   }
 
-  const feeKr = calculateFee(fromMs, toMs, input.bookingType);
+  const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
   const now = Date.now();
   const insert = await db
     .prepare(
@@ -357,7 +363,7 @@ export async function updateOwnedRoomBooking(
     if ((registrations?.count ?? 0) > 0) throw new Error("booking_has_registrations");
   }
 
-  const feeKr = calculateFee(fromMs, toMs, input.bookingType);
+  const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
   const result = await db
     .prepare(
       `UPDATE room_bookings

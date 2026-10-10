@@ -645,3 +645,7 @@ Still open:
 ## I morgen i Hjerterum (2026-10-10)
 
 - Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
+
+## Klargøring og oprydning i kvarterer (2026-10-10)
+
+- "Klargøring før" og "Oprydning efter" kan være ingen, 15, 30, 45 min. eller 1 time (standard 30). Salen er optaget i de præcise minutter, men lejen og prisberegnerens regler (2-10 timer, 18.30) går på vinduet rundet ud til hele halve timer (fra halvtimen før klargøringen til halvtimen efter oprydningen). Migration 0065 genskaber kolonnerne med den nye CHECK og bevarer de gemte værdier.

@@ -125,4 +125,15 @@ describe("setup and cleanup around the event", () => {
     const { startsAt, endsAt } = planInstants(p);
     expect(planFromBooking(startsAt, endsAt, "standard", 30, 30)).toEqual(p);
   });
+
+  it("can be a quarter of an hour, with the rent in half hours", () => {
+    // 10.00-11.30 with 15 minutes each way: the room is taken 09.45-11.45, rented 09.30-12.00.
+    const p = buffered({ start: "10:00", end: "11:30", setup: 15, cleanup: 15 });
+    expect(windowOf(p)).toEqual({ from: 9 * 60 + 45, to: 11 * 60 + 45 });
+    expect(quoteForPlan(p, "standard")?.totalKr).toBe(quoteFor("2026-10-19", "09:30", "12:00", "standard")?.totalKr);
+    expect(planProblem(p, [entry("2026-10-19", 8 * 60, 9 * 60 + 45)], NOW)).toBeNull();
+    expect(planProblem(p, [entry("2026-10-19", 11 * 60 + 40, 13 * 60)], NOW)).toBe("busy");
+    expect(endOptions("10:00", 15, 15)[0]).toBe("11:00");
+    expect(endOptions("22:00", 45, 45)).toEqual(["23:00"]);
+  });
 });

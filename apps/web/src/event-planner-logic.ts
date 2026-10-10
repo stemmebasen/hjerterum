@@ -5,7 +5,7 @@ import { calculate, crossesBand, type CalcResult } from "../worker/beregner/quot
  * Everything here is plain functions, so the rules can be tested without a browser. */
 
 export type RentType = "standard" | "reduced" | "free";
-/** setup and cleanup: minutes the room is taken before and after the event (0, 30 or 60). The rent, the rules and the
+/** setup and cleanup: minutes the room is taken before and after the event (0, 15, 30, 45 or 60). The rent, the rules and the
  * busy check go by that whole window. Requested: the room must be ready before the guests come and tidy after they leave. */
 export type Plan = { date: string; start: string; end: string; type: RentType; setup: number; cleanup: number };
 export type DayEntry = { startsAt: string; endsAt: string; label: string; own: boolean; external: boolean; waiting: boolean; id?: number };
@@ -18,9 +18,11 @@ export const MAX_MINUTES = 600;
 export const EVENING_FROM = 18 * 60 + 30;
 /** The shortest event itself; the room is still rented for at least MIN_MINUTES with setup and cleanup. */
 export const MIN_EVENT_MINUTES = 60;
-export const BUFFER_CHOICES = [0, 30, 60] as const;
+// Requested: "Klargøring før og efter ... 15, 30, 45 eller 60 min."
+export const BUFFER_CHOICES = [0, 15, 30, 45, 60] as const;
 export const DEFAULT_BUFFER = 30;
 export const bufferText = (minutes: number): string => minutes === 0 ? "Ingen" : minutes === 60 ? "1 time" : `${minutes} min.`;
+/** Long enough is checked on the priced (half-hour) window; the exact window decides what is busy and when cleanup ends. */
 
 const pad = (n: number) => String(n).padStart(2, "0");
 export const dateKey = (year: number, month: number, day: number) => `${year}-${pad(month + 1)}-${pad(day)}`;
@@ -70,10 +72,16 @@ export function startOptions(): string[] {
   for (let m = FIRST_HOUR * 60; m <= LAST_HOUR * 60 - MIN_MINUTES; m += 30) options.push(clockOf(m));
   return options;
 }
+/** The rent goes by half hours: the window from the half hour before setup begins to the half hour after cleanup ends. */
+export const pricedSpan = (from: number, to: number) => ({ from: Math.floor(from / 30) * 30, to: Math.ceil(to / 30) * 30 });
+
 /** The event's shortest and longest end for a start, so the room is rented 2-10 hours with setup and cleanup, and the
  * cleanup is done by midnight (no overnight events). */
 export function endRange(from: number, setup = 0, cleanup = 0): { min: number; max: number } {
-  return { min: from + Math.max(MIN_EVENT_MINUTES, MIN_MINUTES - setup - cleanup), max: Math.min(from + MAX_MINUTES - setup - cleanup, LAST_HOUR * 60 - cleanup) };
+  const ok = (end: number) => { const p = pricedSpan(from - setup, end + cleanup); return p.to - p.from >= MIN_MINUTES && p.to - p.from <= MAX_MINUTES && end + cleanup <= LAST_HOUR * 60; };
+  const ends: number[] = [];
+  for (let end = from + MIN_EVENT_MINUTES; end <= LAST_HOUR * 60; end += 30) if (ok(end)) ends.push(end);
+  return ends.length ? { min: ends[0]!, max: ends.at(-1)! } : { min: from + MIN_EVENT_MINUTES, max: from };
 }
 /** Ending times for a start, in half hours. */
 export function endOptions(start: string, setup = 0, cleanup = 0): string[] {
@@ -125,12 +133,12 @@ export function planProblem(plan: Plan, entries: DayEntry[], now = new Date()): 
   if (!plan.date || !Number.isFinite(weekdayOf(plan.date))) return "no_date";
   const from = minutesOf(plan.start), to = endMinutes(plan.end);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return "no_date";
-  const room = windowOf(plan);
+  const room = windowOf(plan), priced = pricedSpan(room.from, room.to);
   if (atLocal(plan.date, room.from).getTime() <= now.getTime()) return "past";
-  if (to - from < MIN_EVENT_MINUTES || room.to - room.from < MIN_MINUTES) return "too_short";
-  if (room.to - room.from > MAX_MINUTES) return "too_long";
+  if (to - from < MIN_EVENT_MINUTES || priced.to - priced.from < MIN_MINUTES) return "too_short";
+  if (priced.to - priced.from > MAX_MINUTES) return "too_long";
   if (room.from < 0 || room.to > LAST_HOUR * 60) return "too_late";
-  if (crossesBand({ day: weekdayOf(plan.date), start: clockOf(room.from), hours: (room.to - room.from) / 60, type: plan.type })) return "crosses_evening";
+  if (crossesBand({ day: weekdayOf(plan.date), start: clockOf(priced.from), hours: (priced.to - priced.from) / 60, type: plan.type })) return "crosses_evening";
   if (busyDuring(entries, plan.date, room.from, room.to).length) return "busy";
   return null;
 }
@@ -151,7 +159,8 @@ const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
 export function quoteForPlan(plan: Plan, type: RentType): Quote {
   const room = windowOf(plan);
   if (!Number.isFinite(room.from) || !Number.isFinite(room.to) || room.from < 0 || room.to > 24 * 60) return null;
-  return quoteFor(plan.date, clockOf(room.from), clockOrMidnight(room.to), type);
+  const priced = pricedSpan(room.from, room.to);
+  return quoteFor(plan.date, clockOf(priced.from), clockOrMidnight(priced.to), type);
 }
 /** The room's rent for one kind of rent at the given time, with what it is made of. Null when the time cannot be priced. */
 export function quoteFor(date: string, start: string, end: string, type: RentType): Quote {
