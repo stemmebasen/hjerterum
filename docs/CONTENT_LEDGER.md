@@ -24,7 +24,7 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | holistisk.org | Titel | Ændret | Står nu | Note |
 |---|---|---|---|---|
 | [administrer-dine-events](https://holistisk.org/administrer-dine-events/) | Administrer dine events | 2026-08-24 | [/lej-hjerterum/dine-events](/lej-hjerterum/dine-events) | Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender. |
-| [artikler](https://holistisk.org/artikler/) | Artikler | 2026-04-10 | [/om-os/artikler](/om-os/artikler) |  |
+| [artikler](https://holistisk.org/artikler/) | Artikler | 2026-04-10 | – (/om-os) | Artikler er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
 | [become-a-member](https://holistisk.org/become-a-member/) | Become a member of Hjerterum | 2026-09-29 | [/en/membership](/en/membership) |  |
 | [behandling-terapi](https://holistisk.org/behandling-terapi/) | Behandlere i Hjerterum | 2024-02-04 | – (/behandlere) | Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere. |
 | [benefits-of-membership](https://holistisk.org/benefits-of-membership/) | Benefits of membership | 2026-08-16 | [/en/membership#benefits](/en/membership#benefits) |  |
@@ -47,8 +47,8 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [generalforsamling-general-assembly](https://holistisk.org/generalforsamling-general-assembly/) | Generalforsamling/møder | 2026-05-17 | [/om-os/foreningen#generalforsamling](/om-os/foreningen#generalforsamling) |  |
 | [guidelines-for-teachers](https://holistisk.org/guidelines-for-teachers/) | Practical Information | 2026-08-24 | [/en/rent#practical](/en/rent#practical) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |
 | [guidelines-for-undervisere](https://holistisk.org/guidelines-for-undervisere/) | Praktisk Information | 2026-06-05 | [/lej-hjerterum/praktisk](/lej-hjerterum/praktisk) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |
-| [himalayan-hermitage](https://holistisk.org/himalayan-hermitage/) | Himalayan Hermitage | 2026-03-03 | [/om-os/himalayan-hermitage](/om-os/himalayan-hermitage) | Den engelske udgave er samlet med den danske på én side. |
-| [himalayan-hermitage-2](https://holistisk.org/himalayan-hermitage-2/) | Himalayan Hermitage | 2020-11-23 | [/om-os/himalayan-hermitage](/om-os/himalayan-hermitage) |  |
+| [himalayan-hermitage](https://holistisk.org/himalayan-hermitage/) | Himalayan Hermitage | 2026-03-03 | – (/om-os) | Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
+| [himalayan-hermitage-2](https://holistisk.org/himalayan-hermitage-2/) | Himalayan Hermitage | 2020-11-23 | – (/om-os) | Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
 | [historien-bag-hjerterum](https://holistisk.org/historien-bag-hjerterum/) | Historien bag Hjerterum | 2026-05-17 | [/om-os/historien](/om-os/historien) |  |
 | [hjerterum-betalinger](https://holistisk.org/hjerterum-betalinger/) | Hjerterum payments | 2019-12-13 | [/lej-hjerterum/vilkaar#betaling](/lej-hjerterum/vilkaar#betaling) | Tom side; betaling via faktura pr. mail. |
 | [hjerterum-tribes](https://holistisk.org/hjerterum-tribes/) | Hjerterum Tribes! | 2026-06-13 | – (/om-os) | Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til Vision / om os. |
@@ -74,7 +74,7 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [test](https://holistisk.org/) | – | 2026-09-29 | [/](/) | Udkastet til holistisk.org's nye forside; indholdet indgår i den nye forside. |
 | [treatment-and-therapy](https://holistisk.org/treatment-and-therapy/) | Therapists | 2022-12-21 | – (/en) | Treatments er fjernet fra den engelske side sammen med Behandling og Terapi (4. oktober 2026). |
 | [tribes](https://holistisk.org/tribes/) | Hjerterum Tribes | 2026-06-11 | – (/en/team) | Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til The team. |
-| [udtalelser-om-breathwork](https://holistisk.org/udtalelser-om-breathwork/) | En journaliststuderendes beretning | 2021-04-20 | – (/om-os/artikler) | Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Artikler. |
+| [udtalelser-om-breathwork](https://holistisk.org/udtalelser-om-breathwork/) | En journaliststuderendes beretning | 2021-04-20 | – (/om-os) | Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Om Hjerterum. |
 | [use-hjerterum](https://holistisk.org/use-hjerterum/) | About Our Room | 2026-08-28 | [/en/rent](/en/rent) |  |
 | [vision](https://holistisk.org/vision/) | Hvad er Hjerterum? | 2026-06-05 | [/om-os](/om-os) | Vedtægterne er flyttet ordret til foreningssiden (/om-os/foreningen#vedtaegter). |
 | [vision-en](https://holistisk.org/vision-en/) | What is Hjerterum? | 2026-06-05 | [/en#about](/en#about) |  |

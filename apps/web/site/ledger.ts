@@ -16,7 +16,6 @@ export const NOTES: Record<string, string> = {
   "guidelines-for-undervisere": "WiFi-koden står ikke på den offentlige side; den følger bookingen.",
   "guidelines-for-teachers": "WiFi-koden står ikke på den offentlige side; den følger bookingen.",
   "hjerterum-betalinger": "Tom side; betaling via faktura pr. mail.",
-  "himalayan-hermitage": "Den engelske udgave er samlet med den danske på én side.",
   "kontakt": "Kontaktside fra 2019 (Mejlgade 95, daværende team); erstattet af den nuværende kontaktside.",
   "nyhedsbrev": "Mailchimp-links uden sporings-id; efteråret 2024 kopieret som PDF. Tilmelding til nyhedsbrevet er på forsiden, kontakt- og foreningssiden.",
   "online-events": "Online events fra 2020 tilbydes ikke længere; nævnt i historien.",

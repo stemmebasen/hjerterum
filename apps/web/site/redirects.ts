@@ -12,9 +12,9 @@ export const REDIRECTS: Record<string, string> = {
   // Behandling og Terapi - removed ("skal fjernes helt"): the old addresses, and the platform's own, lead to the practitioners.
   "/behandling-terapi": "/behandlere",
   "/hvad-er-breathwork": "/behandlere",
-  "/udtalelser-om-breathwork": "/om-os/artikler",
+  "/udtalelser-om-breathwork": "/om-os",
   "/behandling": "/behandlere",
-  "/behandling/breathwork": "/om-os/artikler",
+  "/behandling/breathwork": "/om-os",
   // Behandlere & undervisere
   "/faste-laerere-regular-teachers": "/behandlere#faste-undervisere",
   // Medlemskab
@@ -43,9 +43,12 @@ export const REDIRECTS: Record<string, string> = {
   "/hjerterum-tribes": "/om-os",
   "/generalforsamling-general-assembly": "/om-os/foreningen#generalforsamling",
   "/nyhedsbrev": "/om-os/foreningen#nyhedsbreve",
-  "/artikler": "/om-os/artikler",
-  "/himalayan-hermitage": "/om-os/himalayan-hermitage",
-  "/himalayan-hermitage-2": "/om-os/himalayan-hermitage",
+  // Requested: "Slet https://www.hjerterum.info/om-os/artikler" and ".../om-os/himalayan-hermitage" (10 October 2026).
+  "/artikler": "/om-os",
+  "/himalayan-hermitage": "/om-os",
+  "/himalayan-hermitage-2": "/om-os",
+  "/om-os/artikler": "/om-os",
+  "/om-os/himalayan-hermitage": "/om-os",
   // Kontakt
   "/kontakt-os": "/kontakt",
   // English
@@ -77,11 +80,14 @@ export const RETIRED: Record<string, string> = {
   // Requested: "\"Behandling og Terapi\" skal fjernes helt".
   "behandling-terapi": "Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere.",
   "hvad-er-breathwork": "Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere.",
-  "udtalelser-om-breathwork": "Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Artikler.",
+  "udtalelser-om-breathwork": "Beretningen hørte til Behandling og Terapi, som er fjernet (4. oktober 2026); adressen fører til Om Hjerterum.",
   "treatment-and-therapy": "Treatments er fjernet fra den engelske side sammen med Behandling og Terapi (4. oktober 2026).",
   // Requested: "Alt vedrørende Tribes skal væk".
   "hjerterum-tribes": "Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til Vision / om os.",
   "tribes": "Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til The team.",
+  "artikler": "Artikler er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum.",
+  "himalayan-hermitage": "Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum.",
+  "himalayan-hermitage-2": "Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum.",
   "log-ud": "WordPress' log-ud-side uden indhold; log ud sker nu i medlemsområdet.",
   "medlems-login": "WordPress' login-side uden indhold; login er nu /sign-in."
 };
