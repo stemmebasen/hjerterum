@@ -1,6 +1,4 @@
 import { adminsPage, aiUsage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
-import { program } from "../program.js";
-import { getExternalEvents } from "../external-events.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import { allMemories, forget, memoryPage } from "./memory.js";
 import { actorOf, audit, auditPage, can, denial, recentAudit, type Power } from "./authority.js";
@@ -215,8 +213,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     // Saga's own texts in English, when she has translated them.
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
-    const speaker = await program(db, await getExternalEvents().catch(() => []), now).then(p => p.intro).catch(() => null);
-    return html(homePage(base, { speaker, tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }

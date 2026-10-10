@@ -225,7 +225,7 @@ describe("the board cockpit", () => {
     expect(page).not.toContain("Godkend</button>");
     // Requested: "Lav et mere moderne layout og som er mobilvenligt" - a tab bar for the phone, and Mere.
     expect(front).toContain('<nav class="tabs" aria-label="Menu">');
-    expect(front).toContain('<span>Huset</span>');
+    expect(front).toContain('<span>Events</span>');
     // Requested: back to the first Lys design (3 Oct) - four boxes, no event-count box, the earlier colours.
     expect(front).not.toContain('class="tile fact"');
     expect(front).toContain("--lys-bg:#fbfaf8");
