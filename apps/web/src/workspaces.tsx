@@ -430,7 +430,7 @@ function MemberEvents({
       <div className="workspace-title-row">
         <div><p className="kicker">Events</p><h1>Mine events</h1></div>
       </div>
-      <div className="workspace-two-column">
+      <div className="workspace-two-column events-columns">
         <div className="workspace-card">
           <h2>{editing ? "Redigér event" : "Opret event og reservér salen"}</h2>
           {!active ? (

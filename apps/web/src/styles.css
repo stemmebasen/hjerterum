@@ -882,3 +882,7 @@ h3 { font-size: 25px; line-height: 1.2; }
 .site-board-card p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; }
 .site-board-hours { color: var(--muted); font-size: 12.5px !important; }
 .member-about { padding-top: 8px; }
+
+/* Opret event: formularen får pladsen, så dagsvisningen bliver bred; kommende events står smallere ved siden af (under på smalle skærme). */
+.workspace-two-column.events-columns { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+@media (max-width: 1100px) { .workspace-two-column.events-columns { grid-template-columns: minmax(0, 1fr); } }

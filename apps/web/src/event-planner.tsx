@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import {
-  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES,
+  FIRST_HOUR, LAST_HOUR, MIN_MINUTES, MAX_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES,
   busyDuring, clockOf, danishClock, dateKey, endMinutes, endOptions, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
   monthGrid, monthTitle, planProblem, priceText, quoteFor, startOptions, todayKey, weekdayOf,
   type DayEntry, type Plan, type RentType
@@ -10,7 +10,7 @@ import {
 /** The member's choice of day, time and kind of rent for an event: a date picker, what is on the chosen day, the times as
  * choices, and the room's price for each kind of rent (requested). */
 
-const HOUR_PX = 30;
+const HOUR_PX = 38;
 const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
 const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
 const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
@@ -87,6 +87,36 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
     const raw = FIRST_HOUR * 60 + Math.round(((event.clientY - rect.top) / HOUR_PX) * 2) * 30;
     setStart(clockOf(Math.max(FIRST_HOUR * 60, Math.min(raw, LAST_HOUR * 60 - MIN_MINUTES))));
   }
+  // Requested: "Kan man trække sin ønskede tidsramme op og ned?" - drag the chosen time to move it, or its lower edge to make it
+  // longer or shorter; in half hours, 2-10 hours, between FIRST_HOUR and midnight.
+  const drag = useRef<{ mode: "move" | "end"; y: number; from: number; to: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  function startDrag(event: React.PointerEvent<HTMLDivElement>, mode: "move" | "end") {
+    if (!chosenOk) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    drag.current = { mode, y: event.clientY, from, to };
+    setDragging(true);
+  }
+  function onDrag(event: React.PointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (!d) return;
+    const step = Math.round(((event.clientY - d.y) / HOUR_PX) * 2) * 30;
+    let nextFrom = d.from, nextTo = d.to;
+    if (d.mode === "move") {
+      const length = d.to - d.from;
+      nextFrom = Math.max(FIRST_HOUR * 60, Math.min(d.from + step, 24 * 60 - length));
+      nextTo = nextFrom + length;
+    } else {
+      nextTo = Math.max(d.from + MIN_MINUTES, Math.min(d.to + step, d.from + MAX_MINUTES, 24 * 60));
+    }
+    if (nextFrom === from && nextTo === to) return;
+    touched.current = true;
+    onChange({ ...plan, start: clockOf(nextFrom), end: nextTo === 24 * 60 ? "24:00" : clockOf(nextTo) });
+  }
+  function endDrag() { drag.current = null; setDragging(false); }
+
   function move(delta: number) {
     const next = new Date(view.year, view.month + delta, 1);
     setView({ year: next.getFullYear(), month: next.getMonth() });
@@ -125,7 +155,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
           ) : (
             <>
               <h3>{longDay(plan.date)}</h3>
-              <p className="lys-sub" role="status">{status === "loading" ? "Henter dagen …" : status === "error" ? "Dagen kunne ikke hentes. Du kan stadig vælge tid." : shown.length ? `${shown.length} ting i salen den dag. Tryk på et ledigt tidspunkt for at vælge start.` : "Salen er ledig hele dagen. Tryk på et tidspunkt for at vælge start."}</p>
+              <p className="lys-sub" role="status">{status === "loading" ? "Henter dagen …" : status === "error" ? "Dagen kunne ikke hentes. Du kan stadig vælge tid." : shown.length ? `${shown.length} ting i salen den dag. Tryk på et ledigt tidspunkt, eller træk dit event op og ned.` : "Salen er ledig hele dagen. Tryk på et tidspunkt, eller træk dit event op og ned."}</p>
               <div className="planner-track" style={{ height: TRACK_HEIGHT }} onClick={clickTrack} aria-hidden="true">
                 {Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => <span className="planner-hour" key={i} style={{ top: i * HOUR_PX }}>{String(FIRST_HOUR + i).padStart(2, "0")}</span>)}
                 {EVENING_FROM > FIRST_HOUR * 60 && <div className="planner-evening" style={{ top: topOf(EVENING_FROM) }}><span>18.30 · aftentakst</span></div>}
@@ -138,8 +168,10 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignore, onPro
                     <b>{entry.label}</b> <span>{danishClock(range.from)}–{danishClock(range.to)}</span>
                   </div>;
                 })}
-                {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}>
-                  <b>Dit event</b> <span>{danishClock(from)}–{danishClock(to)}</span>
+                {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "") + (dragging ? " dragging" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}
+                  onPointerDown={(e) => startDrag(e, "move")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={(e) => e.stopPropagation()}>
+                  <b>Dit event</b> <span>{danishClock(from)}–{danishClock(to)}</span><span className="planner-length">{hoursText(to - from)}</span>
+                  <div className="planner-resize" title="Træk for at ændre sluttidspunktet" onPointerDown={(e) => startDrag(e, "end")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
                 </div>}
               </div>
               <ul className="planner-sr">{shown.map((entry, index) => { const r = entryMinutes(entry, plan.date); return r ? <li key={index}>{entry.label}, {danishClock(r.from)} til {danishClock(r.to)}</li> : null; })}</ul>
