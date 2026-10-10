@@ -133,7 +133,8 @@ function AuthPage({
 function EventSection({ events, reachable, full = false, limit = 6 }: { events: CalendarEvent[]; reachable: boolean; full?: boolean; limit?: number }) {
   const house = events.filter(event => !isPartnerEvent(event)), partners = events.filter(event => isPartnerEvent(event));
   const visible = full ? house : house.slice(0, limit);
-  const partnersShown = full ? partners : partners.slice(0, 3);
+  // Requested: "Hjerteland events skal ikke være på forsiden" - partners' events only in the full calendar.
+  const partnersShown = full ? partners : [];
   const card = (event: CalendarEvent) => <EventCard key={event.key}
     title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
     host={event.host} location={event.location} imageUrl={event.imageUrl} category={event.category}
