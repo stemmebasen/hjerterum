@@ -587,7 +587,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
 
 {{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
-    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/artikler", "/om-os/himalayan-hermitage"],
+    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen"],
     sources: ["vision"]
   },
   {
@@ -696,88 +696,6 @@ ${statutesMarkdown(STATUTES)}
       ]
     },
     sources: ["generalforsamling-general-assembly", "nyhedsbrev"]
-  },
-  {
-    path: "/om-os/artikler", lang: "da", section: "om-os",
-    kicker: "Om Hjerterum", title: "Artikler", em: "fra Hjerterum",
-    lead: "Beretninger fra aftener og foredrag i Hjerterum – skrevet af gæster, der var med.",
-    description: "Artikler og beretninger fra arrangementer i Hjerterum.",
-    card: { title: "Artikler", text: "Beretninger fra aftener og foredrag i huset." },
-    body: `- [Kan man vaske sine følelser i lavendelolie?](#lavendel)
-- [Sex skal mærkes med hele kroppen](#den-hellige-seksualitet)
-
-## Kan man vaske sine følelser i lavendelolie? {#lavendel}
-*Af [Lita Domino](http://www.8000.dk), 23. april 2019.*
-
-Vi kender den alle: duften af angstens sved. Men hvad sker der, når vi er grebet af den frygtelige følelse og samtidig inhalerer en duft af lavendel? Kan vi orientere os anderledes klart, kan vi finde ro via lugtesansen, når følelser som fx angst overmander os?
-
-![Æteriske olier og blomster](/media/2019-05-1140-1.webp)
-
-Ubevidst eller bevidst reagerer vi på hinanden og os selv gennem lugtesansen. Vi orienterer os efter den; vi tiltrækkes af dem, der efter vores egen vurdering dufter godt, og frastødes af dem, der dufter giftigt eller alarmerende. Det ligger i vores overlevelse at kunne orientere os via sanserne. Vi kan på den måde påvirke kroppen til at kode vores bevidsthed om via sanserne. Så når vi mærker angst, kan lavendel virke beroligende. Når vi er deprimerede, kan pebermynte virke opløftende.
-
-Jeg er til infoaften i Hjerterum, og aftenens tema er æteriske olier ved Marianne Grene og Aurora Gayatri. Vi sidder i en rundkreds på gulvet, og de to kvinder deler viden om duftens betydning for helbredet, følelserne, miljøet og bæredygtigheden med otte glade tilhørere. Rummet var ikke svært at finde – man skulle bare gå efter duften af rosmarin.
-
-Mange forskellige dufte bliver budt rundt, og vi får fortællinger om deres gunstige virkning på alverdens små og store lidelser – lige fra problemer med helbredet til ønsker om en mere bæredygtig måde at dyrke parfume på, og hvordan vi skærer ned på al den kemi, vi er ved at drukne i.
-
-Vi taler om selvkærlighed og omsorg for andre, og vi taler om det hele menneske, og hvordan vi kan tage godt vare på os selv som de sensitive skabninger, vi er.
-
-## Sex skal mærkes med hele kroppen {#den-hellige-seksualitet}
-*Den hellige seksualitet – foredrag med Celestine Andersen. Af [Lita Domino](http://www.8000.dk), 31. marts 2019.*
-
-![Celestine Andersen](/media/2019-05-1133-1.webp)
-
-Hun er en levende fortæller, Celestine Andersen, som med hjerte og humor fortæller om den vigtige balance mellem lyse og mørke tangenter i livet. Hun inviterer publikum til at lege med og undersøge, hvordan det er at se indad – at skabe bevidsthed og nærvær i kroppen for at åbne op for større glæde og livskraft.
-
-Sammen med Celestine lukker vi alle øjnene for at undersøge, hvordan vores livskraft har det i dette øjeblik. Man behøver ikke engang at tage tøjet af for at undersøge kroppen som mirakelsted indeni. Jeg kan mærke min livskraft pulsere i hele kroppen.
-
-### Tantra
-Jeg er til foredrag i Hjerterums nye lokaler i hjertet af Aarhus. Her er fuldt hus, for mange er nysgerrige på livskraft og vitalitet og vil gerne vide mere om det nye hotte i moderne tid: tantra. Lige nu er tantramassøren og foredragsholderen Celestine Andersen i byen. Hun kommer fra København og ejer Edens Have, hvorfra hun giver al sin visdom og ildhu videre til søgende mennesker.
-
-### Den hellige seksualitet
-Jeg blev meget optaget af Celestines fortællinger om seksualdriften som livsenergi. Hun fortalte, at vi har tre energicentre i kroppen: energicentret for sex nederst i kroppen, energicentret i hjertet midt i kroppen og energicentret for ånd på toppen af hovedet. Ud fra denne model talte hun om det maskuline og det feminine i mennesket – om at fordybe oplevelsen af seksualiteten gennem vejrtrækning, om at adskille orgasme og udløsning, og om at træne nærvær og vitalitet. En smuk helhedstanke om at være mere opmærksom på vores indre og forbindelsen til andre.
-
-Den hellige seksualitet er en sammensmeltning af sex, hjerte og spiritualitet.
-
-Tusind tak til Celestine Andersen og til Hjerterum for at huse hende og dette spændende foredrag.`,
-    sources: ["artikler"]
-  },
-  {
-    path: "/om-os/himalayan-hermitage", lang: "da", section: "om-os",
-    kicker: "Om Hjerterum · Samarbejdspartner", title: "Himalayan", em: "Hermitage",
-    lead: "Pilgrimsrejser til Nepal, Tibet og Bhutan med Sisse Budolfsen og Alex d'Artois – med meditation, klostre og Himalayas smukke landskaber.",
-    description: "Himalayan Hermitage: pilgrimsrejser og meditationsrejser i Nepal, Tibet og Bhutan.",
-    card: { title: "Himalayan Hermitage", text: "Pilgrimsrejser til Nepal, Tibet og Bhutan." },
-    body: `![Sisse Budolfsen og Alex d'Artois](/media/2019-08-sisse-alex.webp "Sisse og Alex.")
-
-## Baggrund
-Himalayan Hermitage blev oprettet af stor kærlighed til Himalaya-regionen. I mere end ti år har danske Sisse Budolfsen med udgangspunkt i Kathmandu i Nepal guidet grupper i Himalaya – nu i samarbejde med sin canadiske partner Alex d'Artois.
-
-Det, der gør Himalayan Hermitages pilgrimsrejser til Nepal, Tibet og Bhutan helt unikke, er muligheden for at komme helt tæt på den spirituelle kulturarv, der lever i disse isolerede egne. Kombineret med vandreture i Himalayas smukke landskaber besøger vi klostre, templer og huler, hvor yogier har praktiseret meditation gennem årtusinder.
-
-Det er intet mindre end episke rejser ind i den autentiske buddhistiske Himalaya-kultur, hvor vi undervejs stifter bekendtskab med meditation og tibetansk buddhistisk filosofi.
-
-## Underviserne og guiderne
-Som oftest er det Sisse og Alex, der er undervisere og "lokale" guider på pilgrimsrejserne. Med deres kendskab til både nepalesisk og tibetansk og en baggrund i studier af buddhistisk filosofi på et tibetansk buddhistisk kloster i Kathmandu giver de et helt særligt indblik i både kulturen og religionen i Himalaya.
-
-## Hvad tager man med hjem?
-Himalaya-regionen og den spirituelle kulturarv, der lever i kulturerne og menneskene, har det med at røre folks hjerter. Det er forfriskende at opleve en anden måde at leve på, som ikke handler om materielle mål, men i højere grad er præget af nærvær og af at være til stede i sit liv. Ofte hører vi fra rejsedeltagerne, at de tager denne form for nærvær med sig hjem. På pilgrimsrejserne introducerer vi dagligt meditationspraksis, så du kan lære dit sind at kende og få en daglig praksis med hjem til din hverdag.
-
-## Vil du med på rejse?
-- [10-dages rejse til Buddhas fødested og junglesafari i Nepal](https://himalayanhermitage.com/pilgrimage/itinerary-for-meditation-journey-in-nepal-bhutan/)
-- [15-dages meditationsrejse i Nepal og Bhutan](https://himalayanhermitage.com/product-category/14-day-with-buthan/)
-
-Mange hilsner fra Kathmandu – Sisse og Alex`,
-    gallery: {
-      title: "Fra rejserne",
-      pictures: [
-        { src: "/media/2019-08-bell-with-view.webp", alt: "Klokke med udsigt over bjergene" },
-        { src: "/media/2019-08-day-4-gompa-locations-option-b.webp", alt: "Stupa i Bhutan" },
-        { src: "/media/2019-08-day-6-dordenma-buddha-in-thimphu.webp", alt: "Dordenma-buddhaen i Thimphu" },
-        { src: "/media/2019-08-forrest-stupashrine.webp", alt: "Helligdom i skoven" },
-        { src: "/media/2019-08-horses-at-taktsang.webp", alt: "Heste ved Taktsang" }
-      ]
-    },
-    sources: ["himalayan-hermitage-2", "himalayan-hermitage"]
   },
 
   // ---------------------------------------------------------------- Kontakt
