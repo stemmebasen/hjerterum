@@ -603,3 +603,7 @@ Still open:
 - Speakerens tekst skrives kun, når et event begynder ("bare én generering hver gang et event starter, ikke mere"): den handler altid om de to næste events, der ikke er gået i gang, og bruger ugedag og del af dagen ("søndag formiddag") i stedet for "i dag"/"i morgen", fordi den kan stå i flere dage. Samme tekst står diskret over kalenderen på hjemmesidens forside (ikke i admin, efter ønske).
 
 - Admin kalder "Arrangementer" for "Events" (menu, mobilmenu, overskrift, flise og tilbagelinks); adressen er stadig `/arrangementer`.
+
+## Medlemsfordele i tekst (2026-10-10)
+
+- Formandens tekst om fordelene og tre varianter (`BENEFITS` i site/pages.ts): den fulde på hjemmesidens Medlemskab, "mere end et sted at komme" på forsidens medlemsafsnit, "Dit medlemskab giver dig ..." på medlemmernes Overblik og "Med et betalende medlemskab ..." til støttemedlemmer.

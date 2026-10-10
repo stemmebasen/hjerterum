@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { SpeakerLine } from "./program-guide";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
 import { EnquiryForm } from "./enquiry-form";
 
@@ -174,7 +174,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
       {events}
     </section>
     <section className="site-home-section" id="medlemskab">
-      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>Vælg det medlemskab, der passer til dig – og få adgang til et fællesskab baseret på nærvær og menneskelig varme.</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
       {plans}
     </section>
     <section className="site-cirkler">
