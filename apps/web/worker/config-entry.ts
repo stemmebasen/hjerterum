@@ -1,5 +1,7 @@
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
+import { program } from "./program.js";
+import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
@@ -95,6 +97,12 @@ export default {
       return handleCirklerIntegrationRequest(request, env as CirklerIntegrationEnv, { now: () => Date.now() });
     }
 
+    // The overview's programme: the next five events with a line each (program.ts).
+    if (request.method === "GET" && url.pathname === "/api/events/program") {
+      const db = (env as { DB?: D1Database }).DB;
+      if (!db) return Response.json({ error: "database_unbound" }, { status: 503 });
+      return Response.json(await program(db, await getExternalEvents().catch(() => []), Date.now()), { headers: { "cache-control": "public, max-age=60" } });
+    }
     if (request.method === "GET" && url.pathname === "/api/events/external") {
       try {
         return Response.json(await getExternalEvents(), {

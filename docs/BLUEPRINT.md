@@ -580,3 +580,9 @@ Still open:
 
 - Besluttet: Fra første dag i det nye system er MembershipWorks ude af brug; alle medlemmer flyttes ved launch. Medlemskabssiden bygges derfor til Stripe.
 - Medlemskab ligger under Min profil (`/member-portal/profil#medlemskab`; den gamle adresse viser det samme), og der er et "Medlemskab"-link i kontomenuen og under "Administrer konto" (Clerk). Siden viser pris, sidst trukket (seneste betalte faktura) og næste træk - eller "Ophører d. X" efter afmelding - og en lille "Afmeld" (opsiger ved periodens udløb). `GET /api/members/me/subscription` læser abonnementet hos Stripe (`subscriptionSummary`).
+
+## Programoversigt på medlemmernes Overblik (2026-10-10)
+
+- "Det sker i huset" øverst på Overblik: de næste fem events (kalenderen og medlemmernes godkendte events) som et TV-program grupperet pr. dag med tid, titel og underviser, "NÆSTE"/"NU", og ved siden af en fotomosaik (det næste stort, fire små; på mobil en vandret stribe). Linje og foto lyser op sammen og åbner eventet. `GET /api/events/program` (`worker/program.ts`).
+- Saga skriver én kort, varm indledning om de to næste events ("Lidt senere i dag kommer ... Og i morgen ..."), uden klokkeslæt og uden opdigtede detaljer. Den skrives én gang pr. dag og pr. de to events (mellemmodellen, højst én gang i timen og kun når den mangler) og gemmes i `event_blurbs` (migration 0060).
+- CIRKLER-kortet har CIRKLERs logo i deres guld (#D9B35A) i hjørnet. Menupunktet "Mine events" hedder "Opret event".

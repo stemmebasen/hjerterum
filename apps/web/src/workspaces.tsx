@@ -9,6 +9,7 @@ import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
+import { ProgramGuide } from "./program-guide";
 import { LysArt, LysTop } from "./lys";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
@@ -146,7 +147,8 @@ function WorkspaceHeader({
 }) {
   const memberLinks: Array<readonly [string, string]> = [
     ["/member-portal/", "Overblik"],
-    ["/member-portal/events", "Mine events"],
+    // Requested: "Mine events -> Opret event".
+    ["/member-portal/events", "Opret event"],
     ["/member-portal/kalender", "Kalender"],
     // Requested: "Lad Medlemskab blive knyttet ind under Min profil".
     ["/member-portal/profil", "Min profil"],
@@ -218,6 +220,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
             <small>{awaiting ? awaiting + " afventer godkendelse" : owned.length ? "alle behandlet" : "ingen endnu"}</small></div>}
         </div>
       )}
+      <ProgramGuide />
       <div className="lys-grid">
         {benefits ? (
           <>

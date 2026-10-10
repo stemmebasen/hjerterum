@@ -347,8 +347,8 @@ describe("Saga's weekly summary and Liva's overview", () => {
     const db = testDatabase(), services = fakeServices();
     await runSagaJobs(sagaEnv(db), deps(services.fetcher, sunday18));
     expect(await count(db, "board_post_drafts")).toBe(0);
-    // Only the daily read of holistisk.org (no AI) - nothing to Telegram, nothing to the AI.
-    expect(services.calls.filter(call => !call.url.startsWith("https://holistisk.org/wp-json/"))).toHaveLength(0);
+    // Only the daily read of holistisk.org (no AI) - nothing to Telegram, nothing to the AI. (and the calendar feed for the programme)
+    expect(services.calls.filter(call => !call.url.startsWith("https://holistisk.org/wp-json/") && !call.url.startsWith("https://api.membershipworks.com/"))).toHaveLength(0);
   });
 
   it("shows Liva the board's week behind a bearer secret", async () => {

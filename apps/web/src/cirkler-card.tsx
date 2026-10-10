@@ -33,6 +33,8 @@ export function CirklerCard({ clerk }: { clerk: ClerkBrowser }) {
   const open = async () => { setOpening(true); setProblem(await openCirklerHandoff(clerk)); setOpening(false); };
   return (
     <article className="lys-card cirkler-card">
+      {/* Requested: "Brug logoet her til Cirkler i rette farve i et hjørne af kortet" - CIRKLER's own gold (#D9B35A). */}
+      <span className="cirkler-logo" aria-hidden="true" />
       <p className="lys-kicker">CIRKLER</p>
       {status.circle ? <>
         <h2>Du er med i cirklen {status.circle}</h2>
