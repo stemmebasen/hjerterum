@@ -617,6 +617,7 @@ Still open:
 
 - Visitkortet kan have et rundt foto: medlemmet vælger et billede, trækker det på plads i en cirkel og zoomer; browseren skærer det til en 480 × 480 jpg. `POST /api/members/me/public-profile/photo` (aktivt medlemskab) gemmer kun en jpg i præcis den størrelse (højst 1 MB) i R2 under et tilfældigt navn, og `GET /api/profile-photos/<id>.jpg` viser den. Visitkortet peger på billedet (`photoUrl`, kun egne adresser).
 - holistisk.orgs egne formuleringer (`ABOUT_WORDS`): sloganet som beskrivelse af forsiden og Om Hjerterum, "et åbent og inkluderende rum" og "Uanset om du søger fordybelse ..." i forsidens vision og på Om Hjerterum, listen "Fællesskab, film, sang ..." under forsidens kategorier, prislinjen (fra medlemskabets pris) i forsidens medlemsafsnit og underviserteksten i et nyt "Vil du selv bruge Hjerterum?"-afsnit.
+- Leje: B) Reduceret pris og C) Gratis leje kræver, at man selv er betalende medlem, og så opretter man selv sit event på medlemssiden. Det står i en tydelig boks over B og C på Lej Hjerterum (også på engelsk), under "Sådan booker du" og i prisberegneren ved begge lejetyper.
 
 ## Medlemsbesparelse (2026-10-10)
 
@@ -629,3 +630,6 @@ Still open:
 
 - En Saga-boble i hjørnet på alle medlemssider for medlemmer med medlemsfordele. På Opret event åbner hun selv efter 15 sekunder (én gang pr. besøg, ikke på mobil) og spørger, om medlemmet vil have hjælp til at sætte eventet op - eller vil have hende til at gøre det. `POST /api/members/saga/chat` (mellemmodellen, højst 40 beskeder pr. medlem pr. dag, `member_saga_usage`, migration 0063) svarer ud fra husets regler og prisberegneren; når hun kender titel, dato og tider, laver hun et udkast, og "Udfyld formularen" fylder Opret event ud. Medlemmet tjekker og trykker selv Opret.
 - Forsidens CIRKLER-tekst: "Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende."
+- Hver offentlig behandler/underviser har sin egen side, `/behandlere/<navn>` (navnet som adresse; ved to ens navne kommer et kort id på): rundt foto, navn og titel, præsentation, specialer og kontakt. Kortene i oversigten linker dertil.
+- Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.
+- Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren.

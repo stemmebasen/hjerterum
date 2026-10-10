@@ -1,8 +1,9 @@
 import { EventCard, calendarMonth } from "./event-card";
-import { SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
 import type { Section } from "../site/pages";
-import { PublicProfiles } from "./public-profiles";
+import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -130,19 +131,24 @@ function AuthPage({
 }
 
 function EventSection({ events, reachable, full = false, limit = 6 }: { events: CalendarEvent[]; reachable: boolean; full?: boolean; limit?: number }) {
-  const visible = full ? events : events.slice(0, limit);
+  const house = events.filter(event => !isPartnerEvent(event)), partners = events.filter(event => isPartnerEvent(event));
+  const visible = full ? house : house.slice(0, limit);
+  const partnersShown = full ? partners : partners.slice(0, 3);
+  const card = (event: CalendarEvent) => <EventCard key={event.key}
+    title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
+    host={event.host} location={event.location} imageUrl={event.imageUrl} category={event.category}
+    expandDescription={event.source === "hjerterum"}>
+    {event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
+      : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
+  </EventCard>;
   const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
     {reachable && visible.length ? months.map(month => <section className="calendar-month" key={month} aria-label={month}>
       <h2>{month}</h2><div className="member-event-grid">
-        {visible.map(event => calendarMonth(event.startsAt) !== month ? null : <EventCard key={event.key}
-          title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
-          host={event.host} location={event.location} imageUrl={event.imageUrl} category={event.category}
-          expandDescription={event.source === "hjerterum"}>
-          {event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
-            : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
-        </EventCard>)}
+        {visible.map(event => calendarMonth(event.startsAt) !== month ? null : card(event))}
       </div></section>) : <div className="calendar-empty"><p>{reachable ? "Der er ingen kommende events i kalenderen endnu." : "Kalenderen indlæses."}</p></div>}
+    {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
+      <h2>{PARTNER_HEADING}</h2><div className="member-event-grid">{partnersShown.map(card)}</div></section>}
   </section>;
 }
 
@@ -279,6 +285,13 @@ function PublicHome() {
 /** Every content page lives in site/pages.ts; the old holistisk.org addresses are moved there by the worker (301)
  * and, when the app itself is served without it, here. */
 function PublicContentPage({ path }: { path: string }) {
+  // Requested: "man skal så kunne klikke ind på en behandler" - /behandlere/<navn>.
+  const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
+  if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="behandlere" />} footer={<SiteFooter />} />;
+  return <SiteContentPage path={path} />;
+}
+
+function SiteContentPage({ path }: { path: string }) {
   const page = sitePage(path);
   const target = page ? undefined : redirectFor(path);
   const { events, eventsReachable } = usePublicEvents();

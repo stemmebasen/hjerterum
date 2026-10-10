@@ -49,8 +49,11 @@ export function parsePublicProfile(input: unknown): PublicProfile {
       contact.publicPhone = trimmed;
     }
     if (key === "websiteUrl") {
+      // Reported: "Jeg kan ikke offentliggøre visitkortet" with "www.jacobhauge.com" - an address without https:// gets it.
+      const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
       let url: URL;
-      try { url = new URL(trimmed); } catch { throw new Error("invalid_profile"); }
+      try { url = new URL(withScheme); } catch { throw new Error("invalid_profile"); }
+      if (!url.hostname.includes(".")) throw new Error("invalid_profile");
       if (!["https:", "http:"].includes(url.protocol) || url.username || url.password || /[\s\x00-\x1f]/.test(trimmed)) throw new Error("invalid_profile");
       contact.websiteUrl = url.href;
     }

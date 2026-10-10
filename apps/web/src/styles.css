@@ -924,3 +924,9 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-draft button { justify-self: start; margin-top: 4px; }
 .saga-panel form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--lys-line, rgba(255,255,255,.1)); }
 .saga-panel textarea { flex: 1; resize: none; border-radius: 12px; border: 1px solid var(--lys-line, rgba(255,255,255,.15)); background: transparent; color: inherit; padding: 8px 10px; font: inherit; font-size: 14px; }
+/* En behandlers egen side: rundt foto til højre for navnet. */
+.profile-page-side { display: flex; justify-content: flex-end; }
+.profile-page-photo { width: 220px; height: 220px; border-radius: 50%; object-fit: cover; }
+.profile-page-initials { display: grid; place-items: center; background: var(--lys-sage, #e4eadc); font: 64px var(--lys-serif, Georgia, serif); }
+.profile-page-bio { font-size: 1.1rem; line-height: 1.65; white-space: pre-wrap; }
+@media (max-width: 760px) { .profile-page-side { justify-content: flex-start; } .profile-page-photo { width: 160px; height: 160px; } }
