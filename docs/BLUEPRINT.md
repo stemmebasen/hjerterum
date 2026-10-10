@@ -604,7 +604,7 @@ Still open:
 
 ## Ens layout på medlemssiderne (2026-10-10)
 
-- "Det er min profil, der har sandheden": alle medlemssider (Overblik, Opret event, Kalender, Min profil med Medlemskab, Om Hjerterum og adgangssiderne) har klassen `member-page` med Min profils bredde (848 px), topmargin, typografi og kickers. Opret events to kolonner står under hinanden inden for den bredde.
+- (Erstattet: Overblik er sandheden, se nedenfor.) "Det er min profil, der har sandheden": alle medlemssider (Overblik, Opret event, Kalender, Min profil med Medlemskab, Om Hjerterum og adgangssiderne) har klassen `member-page` med Min profils bredde (848 px), topmargin, typografi og kickers. Opret events to kolonner står under hinanden inden for den bredde.
 - Speakerens tekst skrives kun, når et event begynder ("bare én generering hver gang et event starter, ikke mere"): den handler altid om de to næste events, der ikke er gået i gang, og bruger ugedag og del af dagen ("søndag formiddag") i stedet for "i dag"/"i morgen", fordi den kan stå i flere dage. Samme tekst står diskret over kalenderen på hjemmesidens forside (ikke i admin, efter ønske).
 
 - Admin kalder "Arrangementer" for "Events" (menu, mobilmenu, overskrift, flise og tilbagelinks); adressen er stadig `/arrangementer`.
@@ -622,3 +622,5 @@ Still open:
 
 - Overblik har en fjerde boks: "Medlemsbesparelse · xxx kr. · siden <dato>" (`GET /api/members/me/savings`, `worker/member-savings.ts`): for hvert event i det nye system, medlemmet har været tilmeldt (bekræftet, eventet er begyndt) siden indmeldelsen, prisen for ikke-medlemmer minus det, medlemmet betalte. Uden pris for ikke-medlemmer tæller gratis leje prisberegnerens minimum for ikke-medlemmer; andre events tæller 0.
 - Eventformularen (og Sagas udkast) gemmer "Pris for ikke-medlemmer" (`room_bookings.non_member_price_minor`, migration 0062).
+
+- Rettet 2026-10-10: "Lad os gå tilbage til som oversigten var før og lade de andre sider tage udgangspunkt heri." Overblik (`.lys-page`) er sandheden: alle andre medlemssider (`.workspace-section.member-page`) har samme bredde (1220 px), sidemargener (28/18 px), topmargen (44/28 px), kicker og overskrift (Playfair, 40-64 px). Målt ens i browser ved 1400, 1000 og 390 px.
