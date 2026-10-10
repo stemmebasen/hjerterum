@@ -583,6 +583,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [billingState, setBillingState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
+  const [subscription, setSubscription] = useState<{ amountMinor: number | null; interval: string | null; nextChargeAt: string | null; cancelAtPeriodEnd: boolean; endsAt: string | null } | null>(null);
 
   useEffect(() => {
     if (!member || member.managedExternally || member.billing === "manual") return;
@@ -592,6 +593,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
     void (async () => {
       try {
         const response = await apiFetch(clerk, "/api/members/me/payments");
+        void apiFetch(clerk, "/api/members/me/subscription").then(async (sub) => { if (active && sub.ok) setSubscription(await sub.json()); }).catch(() => undefined);
         if (response.ok) {
           const result = await response.json() as MemberInvoice[];
           if (active) {
@@ -674,12 +676,20 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         <Status value={member?.status ?? "unknown"} />
         <h2>{membershipName(member?.tier ?? "")}</h2>
         <p>{membershipPlan(member?.tier ?? "")?.description}</p>
-        {member && membershipPlan(member.tier) && <p>{membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"])} {member.interval === "year" ? "pr. år" : "pr. måned"}</p>}
-        <p>{member?.interval === "year" ? "Årlig betaling" : "Månedlig betaling"}</p>
+        {/* Requested: "Pris for det pågældende medlemsskab, hvornår der trækkes sidste gang, og en lille Afmeld-knap." */}
+        <dl className="membership-facts">
+          <div><dt>Pris</dt><dd>{subscription?.amountMinor != null
+            ? (subscription.amountMinor / 100).toLocaleString("da-DK") + " kr. " + (subscription.interval === "year" ? "pr. år" : "pr. måned")
+            : member && membershipPlan(member.tier) ? membershipPrice(membershipPlan(member.tier)![member.interval === "year" ? "year" : "month"]) + " " + (member.interval === "year" ? "pr. år" : "pr. måned") : "–"}</dd></div>
+          <div><dt>Sidst trukket</dt><dd>{(() => { const paid = invoices.find((invoice) => invoice.status === "paid" && invoice.amountPaidMinor > 0); return paid ? new Date(paid.createdAt).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : billingState === "ready" ? "Intet trukket endnu" : "–"; })()}</dd></div>
+          <div><dt>{subscription?.cancelAtPeriodEnd ? "Ophører" : "Næste træk"}</dt><dd>{subscription?.cancelAtPeriodEnd
+            ? (subscription.endsAt ? new Date(subscription.endsAt).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : "ved periodens udløb")
+            : subscription?.nextChargeAt ? new Date(subscription.nextChargeAt).toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : "–"}</dd></div>
+        </dl>
         {billingState === "ready" ? (
         <div className="workspace-actions">
           <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
-          <button type="button" className="text-button is-danger" disabled={busy} onClick={() => void cancelMembership()}>Opsig medlemskab</button>
+          {!subscription?.cancelAtPeriodEnd && <button type="button" className="text-button is-danger membership-cancel" disabled={busy} onClick={() => void cancelMembership()}>Afmeld</button>}
         </div>
         ) : <p role="status">{billingState === "loading"
           ? "Henter betalingsoplysninger …"
