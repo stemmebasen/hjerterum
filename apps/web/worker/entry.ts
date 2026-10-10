@@ -1,5 +1,4 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
-import { ownPublicProfile, publicProfiles } from "./public-profiles.js";
 import { memberSavings } from "./member-savings.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
