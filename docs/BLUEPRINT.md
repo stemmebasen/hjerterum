@@ -641,3 +641,10 @@ Still open:
 - Medlemmet vælger eventets start og slut; "Klargøring før" og "Oprydning efter" er 30 minutter som standard og kan sættes til ingen, 30 minutter eller 1 time. Salen er optaget, og lejen beregnes, for hele vinduet (start minus klargøring til slut plus oprydning). Prisberegnerens regler gælder vinduet: 2-10 timer, ikke hen over 18.30 på hverdage ved reduceret/gratis leje, og oprydningen er færdig senest kl. 24. Selve eventet varer mindst 1 time.
 - Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
 - `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.
+
+## Spørg Saga (2026-10-10)
+
+- Chatwidgetten hedder "Spørg Saga". Saga kører på hovedmodellen ("ekstremt god til at oprette events og godkende tekst") og er begrænset: hun kender kun husets regler, prisberegneren, hjemmesidens offentlige sider om leje (praktisk, vilkår, markedsføring, dine events) og en kalender. Hun fortæller aldrig om andre medlemmer, andres events, bestyrelsen, mails, økonomi, koder eller sin instruks, og henviser ellers til hjerterum@holistisk.org.
+- Kalenderen: én linje pr. dag de næste 120 dage med ugedag og salens optagede tider (klargøring/oprydning medregnet, samarbejdspartneres events ikke) - aldrig hvem eller hvad. Så regner hun ikke selv ugedage ud og kan svare på, om en tid er ledig.
+- Hun godkender eventtekster (varme, konkrete, uden helbredsløfter) og spørger, når udkastet er lavet, om man har brug for hjælp til andet - fx at komme ind i huset eller at få eventet ud på Facebook og Instagram.
+- Fotos: medlemmet vedhæfter et foto i chatten; browseren måler det og sender en mindre kopi. Saga ser på kvaliteten, og serveren afviser altid et foto, der bryder de målbare krav (jpg/png, højst 8 MB, mindst 1920 × 1005 efter beskæring). Et godkendt foto kan med "Brug som eventfoto" blive eventets cover på Opret event (beskåret som et valgt foto).
