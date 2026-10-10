@@ -906,3 +906,10 @@ h3 { font-size: 25px; line-height: 1.2; }
 
 /* Overblik: fire bokse på en række (medlemskab, tilmeldt, mine events, medlemsbesparelse). */
 .member-overview .lys-tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+/* En behandlers egen side: rundt foto til højre for navnet. */
+.profile-page-side { display: flex; justify-content: flex-end; }
+.profile-page-photo { width: 220px; height: 220px; border-radius: 50%; object-fit: cover; }
+.profile-page-initials { display: grid; place-items: center; background: var(--lys-sage, #e4eadc); font: 64px var(--lys-serif, Georgia, serif); }
+.profile-page-bio { font-size: 1.1rem; line-height: 1.65; white-space: pre-wrap; }
+@media (max-width: 760px) { .profile-page-side { justify-content: flex-start; } .profile-page-photo { width: 160px; height: 160px; } }

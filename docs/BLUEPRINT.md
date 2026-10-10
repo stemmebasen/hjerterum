@@ -624,3 +624,4 @@ Still open:
 - Eventformularen (og Sagas udkast) gemmer "Pris for ikke-medlemmer" (`room_bookings.non_member_price_minor`, migration 0062).
 
 - Rettet 2026-10-10: "Lad os gå tilbage til som oversigten var før og lade de andre sider tage udgangspunkt heri." Overblik (`.lys-page`) er sandheden: alle andre medlemssider (`.workspace-section.member-page`) har samme bredde (1220 px), sidemargener (28/18 px), topmargen (44/28 px), kicker og overskrift (Playfair, 40-64 px). Målt ens i browser ved 1400, 1000 og 390 px.
+- Hver offentlig behandler/underviser har sin egen side, `/behandlere/<navn>` (navnet som adresse; ved to ens navne kommer et kort id på): rundt foto, navn og titel, præsentation, specialer og kontakt. Kortene i oversigten linker dertil.
