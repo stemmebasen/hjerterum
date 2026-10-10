@@ -625,6 +625,11 @@ Still open:
 - Eventformularen (og Sagas udkast) gemmer "Pris for ikke-medlemmer" (`room_bookings.non_member_price_minor`, migration 0062).
 
 - Rettet 2026-10-10: "Lad os gå tilbage til som oversigten var før og lade de andre sider tage udgangspunkt heri." Overblik (`.lys-page`) er sandheden: alle andre medlemssider (`.workspace-section.member-page`) har samme bredde (1220 px), sidemargener (28/18 px), topmargen (44/28 px), kicker og overskrift (Playfair, 40-64 px). Målt ens i browser ved 1400, 1000 og 390 px.
+
+## Saga på medlemssiden (2026-10-10)
+
+- En Saga-boble i hjørnet på alle medlemssider for medlemmer med medlemsfordele. På Opret event åbner hun selv efter 15 sekunder (én gang pr. besøg, ikke på mobil) og spørger, om medlemmet vil have hjælp til at sætte eventet op - eller vil have hende til at gøre det. `POST /api/members/saga/chat` (mellemmodellen, højst 40 beskeder pr. medlem pr. dag, `member_saga_usage`, migration 0063) svarer ud fra husets regler og prisberegneren; når hun kender titel, dato og tider, laver hun et udkast, og "Udfyld formularen" fylder Opret event ud. Medlemmet tjekker og trykker selv Opret.
+- Forsidens CIRKLER-tekst: "Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende."
 - Hver offentlig behandler/underviser har sin egen side, `/behandlere/<navn>` (navnet som adresse; ved to ens navne kommer et kort id på): rundt foto, navn og titel, præsentation, specialer og kontakt. Kortene i oversigten linker dertil.
 - Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.
 - Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren.
