@@ -930,3 +930,11 @@ h3 { font-size: 25px; line-height: 1.2; }
 .profile-page-initials { display: grid; place-items: center; background: var(--lys-sage, #e4eadc); font: 64px var(--lys-serif, Georgia, serif); }
 .profile-page-bio { font-size: 1.1rem; line-height: 1.65; white-space: pre-wrap; }
 @media (max-width: 760px) { .profile-page-side { justify-content: flex-start; } .profile-page-photo { width: 160px; height: 160px; } }
+
+/* Booking: to veje - standardpris med formularen, eller medlemmer der logger ind og opretter selv. */
+.booking-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 18px 0 8px; }
+.booking-choice-card { display: grid; gap: 8px; align-content: start; padding: 22px 24px; border-radius: 20px; border: 1px solid var(--lys-line, rgba(0,0,0,.12)); background: var(--lys-surface, transparent); }
+.booking-choice-card.members { border-color: var(--lys-accent, #c9a48a); }
+.booking-choice-card h3 { margin: 0; font: 400 1.5rem/1.2 var(--lys-serif, Georgia, serif); }
+.booking-choice-card p { margin: 0; }
+.booking-choice-card .lys-btn { justify-self: start; margin-top: 6px; }

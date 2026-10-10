@@ -632,6 +632,8 @@ Still open:
 - Forsidens CIRKLER-tekst: "Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende."
 - Hver offentlig behandler/underviser har sin egen side, `/behandlere/<navn>` (navnet som adresse; ved to ens navne kommer et kort id på): rundt foto, navn og titel, præsentation, specialer og kontakt. Kortene i oversigten linker dertil.
 - Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.
+- Lej Hjerterum er gjort enkel: først "Sådan kommer du i gang" i tre trin (find prisen, book - medlemmer med B/C opretter selv eventet på medlemssiden, ellers bookingformularen - og vi bekræfter), så priser med "Kun for medlemmer"-boksen, regler, prisberegner, hvad man sender med, faciliteter og links til praktisk og vilkår. Dubletter (faktura, rengøring, prislink, gentagne medlemskrav og coverkrav) er fjernet her og på Vilkår.
+- To booking-kort (`BookingChoice`) på Lej Hjerterum under trinene og i forsidens "Vil du selv bruge Hjerterum?": "A) Standardpris - Book salen med det samme" → bookingformularen, og "B/C - Er du medlem? Book med medlemsrabat" → "Log ind og opret dit event" på medlemssiden (+ "Bliv medlem").
 - Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren.
 
 ## Klargøring og oprydning ved leje fra medlemssiden (2026-10-10)
