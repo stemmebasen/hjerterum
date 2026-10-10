@@ -12,7 +12,7 @@ import { parseCsv } from "../src/csv.js";
  * i MW". The export gives no one access. */
 
 export type AdminMember = {
-  id: number; clerkUserId: string; fullName: string; email: string; phone: string | null; streetAddress: string | null;
+  id: number; clerkUserId: string; fullName: string; email: string; phone: string | null; streetAddress: string | null; birthday: string | null;
   tier: string; interval: string; status: string; billing: "stripe" | "manual"; statusSinceMs: number | null; joinedOn: string | null;
   createdAtMs: number; isTeacher: boolean; accessBlocked: boolean; membershipworksId: string | null;
   stripeCustomerId: string; stripeSubscriptionId: string | null;
@@ -21,16 +21,16 @@ export type AdminMember = {
 };
 
 type MemberRow = {
-  id: number; clerk_user_id: string; full_name: string; email: string; phone: string | null; street_address: string | null; tier: string; interval: string;
+  id: number; clerk_user_id: string; full_name: string; email: string; phone: string | null; street_address: string | null; birthday: string | null; tier: string; interval: string;
   status: string; billing: string; status_since_ms: number | null; joined_on: string | null; created_at_ms: number; is_teacher: number; access_blocked: number;
   membershipworks_id: string | null; stripe_customer_id: string; stripe_subscription_id: string | null; pays_in_membershipworks: number; next_charge_on: string | null;
 };
 
-const COLUMNS = `id, clerk_user_id, full_name, email, phone, street_address, tier, interval, status, billing, status_since_ms, joined_on, created_at_ms,
+const COLUMNS = `id, clerk_user_id, full_name, email, phone, street_address, birthday, tier, interval, status, billing, status_since_ms, joined_on, created_at_ms,
   is_teacher, access_blocked, membershipworks_id, stripe_customer_id, stripe_subscription_id, pays_in_membershipworks, next_charge_on`;
 
 const member = (r: MemberRow): AdminMember => ({
-  id: r.id, clerkUserId: r.clerk_user_id, fullName: r.full_name, email: r.email, phone: r.phone, streetAddress: r.street_address, tier: r.tier,
+  id: r.id, clerkUserId: r.clerk_user_id, fullName: r.full_name, email: r.email, phone: r.phone, streetAddress: r.street_address, birthday: r.birthday ?? null, tier: r.tier,
   interval: r.interval, status: r.status, billing: r.billing === "manual" ? "manual" : "stripe", statusSinceMs: r.status_since_ms, joinedOn: r.joined_on,
   createdAtMs: r.created_at_ms, isTeacher: r.is_teacher === 1, accessBlocked: r.access_blocked === 1, membershipworksId: r.membershipworks_id,
   stripeCustomerId: r.stripe_customer_id, stripeSubscriptionId: r.stripe_subscription_id,

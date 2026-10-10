@@ -6,7 +6,7 @@ export type MemberProfileUpdate = {
   fullName?: string;
   email?: string;
   phone?: string | null;
-  streetAddress?: string | null;
+  birthday?: string | null;
 };
 
 export type MemberInvoice = {
@@ -33,6 +33,16 @@ function optionalNullableText(value: unknown, field: string): string | null | un
   return value.trim() || null;
 }
 
+/** Requested: "gerne fødselsdag, så vi kan lave noget omkring deres stjernetegn". A real day, YYYY-MM-DD, not in the future. */
+function optionalBirthday(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error("invalid_birthday");
+  const date = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value || date.getTime() > Date.now() || date.getUTCFullYear() < 1900) throw new Error("invalid_birthday");
+  return value;
+}
+
 export function parseMemberProfileUpdate(value: unknown): MemberProfileUpdate {
   if (!value || typeof value !== "object") throw new Error("invalid_body");
   const body = value as Record<string, unknown>;
@@ -40,9 +50,9 @@ export function parseMemberProfileUpdate(value: unknown): MemberProfileUpdate {
   const fullName = optionalRequiredText(body.fullName, "full_name");
   const email = optionalRequiredText(body.email, "email");
   const phone = optionalNullableText(body.phone, "phone");
-  const streetAddress = optionalNullableText(body.streetAddress, "street_address");
+  const birthday = optionalBirthday(body.birthday);
 
-  if (fullName === undefined && email === undefined && phone === undefined && streetAddress === undefined) {
+  if (fullName === undefined && email === undefined && phone === undefined && birthday === undefined) {
     throw new Error("invalid_empty_update");
   }
 
@@ -50,7 +60,7 @@ export function parseMemberProfileUpdate(value: unknown): MemberProfileUpdate {
     ...(fullName !== undefined ? { fullName } : {}),
     ...(email !== undefined ? { email } : {}),
     ...(phone !== undefined ? { phone } : {}),
-    ...(streetAddress !== undefined ? { streetAddress } : {})
+    ...(birthday !== undefined ? { birthday } : {})
   };
 }
 
@@ -67,16 +77,16 @@ export async function updateMemberProfile(
     fullName: input.fullName ?? current.fullName,
     email: input.email ?? current.email,
     phone: input.phone === undefined ? current.phone : input.phone,
-    streetAddress: input.streetAddress === undefined ? current.streetAddress : input.streetAddress
+    birthday: input.birthday === undefined ? current.birthday : input.birthday
   };
 
   await db
     .prepare(
       `UPDATE members
-       SET full_name = ?, email = ?, phone = ?, street_address = ?, updated_at_ms = ?
+       SET full_name = ?, email = ?, phone = ?, birthday = ?, updated_at_ms = ?
        WHERE clerk_user_id = ?`
     )
-    .bind(next.fullName, next.email, next.phone, next.streetAddress, Date.now(), clerkUserId)
+    .bind(next.fullName, next.email, next.phone, next.birthday, Date.now(), clerkUserId)
     .run();
 
   let stripeSynced = false;
@@ -89,8 +99,7 @@ export async function updateMemberProfile(
         {
           name: next.fullName,
           email: next.email,
-          phone: next.phone,
-          "address[line1]": next.streetAddress
+          phone: next.phone
         }
       );
       stripeSynced = true;

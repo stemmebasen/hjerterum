@@ -135,7 +135,7 @@ export function memberPage(base: string, who: string | null, d: MemberPageData):
   if (d.tab === "kontakt") {
     body = `<section class="panel"><div class="m-contact"><strong>${esc(m.fullName)}</strong>
 ${m.phone ? `<a href="tel:${esc(m.phone.replace(/\s+/g, ""))}">☎ ${esc(m.phone)}</a>` : `<span class="muted">Intet telefonnummer</span>`}
-<a href="mailto:${esc(m.email)}">✉ ${esc(m.email)}</a>${m.streetAddress ? `<span>${esc(m.streetAddress)}</span>` : ""}
+<a href="mailto:${esc(m.email)}">✉ ${esc(m.email)}</a>${m.birthday ? `<span>Fødselsdag ${esc(new Date(`${m.birthday}T12:00:00Z`).toLocaleDateString("da-DK", { day: "numeric", month: "long", timeZone: "UTC" }))}</span>` : ""}
 <a class="button ghost" style="justify-self:start;margin-top:6px" href="mailto:${esc(m.email)}">Send en mail</a></div></section>`;
   } else if (d.tab === "tidslinje") {
     body = `<section class="panel"><form class="m-note" method="post" action="${at}/note"><label>Ny note på tidslinjen<textarea name="note" maxlength="2000" required placeholder="Fx aftale om betaling, en samtale eller en bemærkning"></textarea></label>
