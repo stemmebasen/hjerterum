@@ -334,6 +334,8 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
 2. **Book.** Er du medlem og bruger B) Reduceret pris eller C) Gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – Saga hjælper dig gerne. Ellers sender du en bookingforespørgsel med [bookingformularen](/beregner).
 3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
 
+{{booking-choice}}
+
 ## Priser {#priser}
 Alle priser er inkl. moms.
 

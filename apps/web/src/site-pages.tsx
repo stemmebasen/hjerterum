@@ -55,6 +55,25 @@ export function Board() {
   </div>;
 }
 
+/** Requested: "Kom med forslag til CTA til booking, så man enten kan booke A med det samme via formular, ELLER logge ind og booke B og C" - "Ja". */
+export function BookingChoice() {
+  return <div className="booking-choice">
+    <article className="booking-choice-card">
+      <p className="lys-kicker">A) Standardpris</p>
+      <h3>Book salen med det samme</h3>
+      <p>For alle. Fast pris efter længde – fra 720 kr. for 2 timer.</p>
+      <a className="lys-btn" href="/beregner">Book med formularen</a>
+    </article>
+    <article className="booking-choice-card members">
+      <p className="lys-kicker">B) Reduceret pris · C) Gratis leje</p>
+      <h3>Er du medlem? Book med medlemsrabat</h3>
+      <p>Du opretter selv dit event på medlemssiden – Saga hjælper dig.</p>
+      <a className="lys-btn" href="https://medlem.hjerterum.info/member-portal/events">Log ind og opret dit event</a>
+      <a className="lys-link" href="/medlemskab">Ikke medlem endnu? Bliv medlem →</a>
+    </article>
+  </div>;
+}
+
 export function SiteFooter() {
   return <footer className="site-foot">
     <div className="site-foot-brand">
@@ -113,7 +132,7 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
       </section>
       <div className="site-body">
         {parts.map((part, index) => index % 2
-          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "board" ? <Board /> : part === "newsletter" ? <Newsletter lang={page.lang} />
+          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
             : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
           : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
       </div>
@@ -181,6 +200,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     </section>
     <section className="site-home-section site-use">
       <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/lej-hjerterum">Lej Hjerterum →</a></div>
+      <BookingChoice />
     </section>
     <section className="site-cirkler">
       <p className="lys-kicker">Et selvstændigt fællesskab</p>
