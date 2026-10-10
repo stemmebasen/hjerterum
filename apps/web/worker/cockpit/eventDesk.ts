@@ -361,7 +361,7 @@ export function draftPage(base: string, row: DraftRow, notice: string): string {
   const price = quote ? `<div class="price"><span class="small muted">Leje af salen (prisberegneren) · ${quote.band}-tid · ${quote.roundedHours} timer</span><br><strong>${quote.totalPriceKr.toLocaleString("da-DK")} kr.</strong>
 ${quote.nonMemberPriceKr !== null && d.booking_type === "reduced" ? `<br><span class="small">Ikke-medlemmer skal betale mindst ${quote.nonMemberPriceKr} kr.</span>` : ""}${quote.minimumNonMemberPriceKr !== null ? `<br><span class="small">Ikke-medlemmer betaler mindst ${quote.minimumNonMemberPriceKr} kr.</span>` : ""}</div>` : "";
   const created = row.status === "created";
-  return `<main class="desk"><p><a href="${base}/arrangementer">← Arrangementer</a></p><h1>${esc(d.title || "Udkast")}</h1>${notice ? `<p class="notice">${esc(notice)}</p>` : ""}
+  return `<main class="desk"><p><a href="${base}/arrangementer">← Events</a></p><h1>${esc(d.title || "Udkast")}</h1>${notice ? `<p class="notice">${esc(notice)}</p>` : ""}
 ${created ? `<p class="notice">Oprettet i Hjerterums nye system (booking ${row.room_booking_id}).</p>` : ""}
 <div class="card"><p class="small muted">Bestilt af ${esc(row.created_by)}: "${esc(row.request)}"</p>
 ${d.missing.length ? `<p class="warn"><strong>Mangler:</strong> ${esc(d.missing.join(", "))}</p>` : ""}${problems.map(p => `<p class="warn">${esc(p)}</p>`).join("")}${price}</div>

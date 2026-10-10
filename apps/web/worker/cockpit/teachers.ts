@@ -198,7 +198,7 @@ export function teachersPage(base: string, data: { teachers: TeacherRow[]; query
 <span class="badges">${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span>${!t.hasContact && !t.fixed && t.upcoming === 0 ? `<form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="1"><button class="x" aria-label="Fjern ${esc(t.name)} fra listen" title="Fjern fra listen">×</button></form>` : ""}</li>`;
   const missing = data.teachers.filter(t => !t.hasContact && !t.hidden).length;
   const active = shown.filter(t => isActive(t, data.nowMs)), earlier = shown.filter(t => !isActive(t, data.nowMs));
-  return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Arrangementer</a></p><h1>Undervisere</h1>
+  return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Events</a></p><h1>Undervisere</h1>
 <p class="muted">Alle, der har undervist eller holdt arrangementer i Hjerterum - samlet automatisk fra kalenderen (siden 2019), bookingerne i det nye system og listen over faste undervisere.</p>
 <form class="search" method="get" action="${base}/arrangementer/undervisere"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg på navn" aria-label="Søg på navn">${data.sort === "navn" ? `<input type="hidden" name="sorter" value="navn">` : ""}<button>Søg</button></form>
 <p class="sorting small" role="group" aria-label="Sortér"><span class="muted">Sortér:</span> ${(["events", "navn"] as const).map(s => `<a href="${base}/arrangementer/undervisere?${new URLSearchParams({ ...(data.query ? { q: data.query } : {}), sorter: s })}"${data.sort === s ? ` class="on" aria-current="true"` : ""}>${s === "events" ? "Flest events" : "A–Å"}</a>`).join("")}</p>
@@ -228,7 +228,7 @@ ${data.known.length ? `<p class="small muted" style="margin:0 0 4px">Systemet ke
 ${data.aiReady ? `<form method="post" action="${base}/arrangementer/undervisere/${key}" id="sum"><input type="hidden" name="name" value="${esc(data.name)}"><button name="action" value="summary" class="${r?.summary ? "ghost" : ""}">${r?.summary ? "Bed Saga om et nyt resumé" : "Bed Saga om et resumé af samarbejdet"}</button></form>
 <script>document.getElementById("sum").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}
 <p class="small muted">Saga læser arrangementerne, mails til team@, bestyrelsens gruppe og referaterne - hun finder ikke på noget.</p></div></div>
-<div class="card"><h2>Arrangementer</h2>${upcoming.length ? `<h3>Kommende</h3><ul class="plain evlist">${upcoming.map(evLine).join("")}</ul>` : ""}
+<div class="card"><h2>Events</h2>${upcoming.length ? `<h3>Kommende</h3><ul class="plain evlist">${upcoming.map(evLine).join("")}</ul>` : ""}
 ${past.length ? `<details${upcoming.length ? "" : " open"}><summary>Afholdte (${past.length})</summary><ul class="plain evlist">${past.slice(0, 200).map(evLine).join("")}</ul></details>` : ""}${data.events.length ? "" : `<p class="muted">Ingen arrangementer fundet.</p>`}</div></main>`,
   { section: "/arrangementer", who: data.who, style: STYLE });
 }

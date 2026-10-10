@@ -63,7 +63,7 @@ describe("Hjerterum's events in the cockpit", () => {
     const login = new FormData(); login.append("password", "hjerte-2026");
     const session = ((await call("/cockpit/login", { method: "POST", body: login })).headers.get("set-cookie") ?? "").split(";")[0]!;
     const page = await (await call("/cockpit/arrangementer", {}, session)).text();
-    for (const text of ["Arrangementer", "Medlemscafé", 'src="https://d1tif55lvfk8gc.cloudfront.net/a3.jpg"', "Arrangementer pr. år", "Michael Rahbek Thomsen", "Seneste afholdte", "i alt siden 2023"]) expect(page).toContain(text);
+    for (const text of ["<h1>Events</h1>", "Medlemscafé", 'src="https://d1tif55lvfk8gc.cloudfront.net/a3.jpg"', "Events pr. år", "Michael Rahbek Thomsen", "Seneste afholdte", "i alt siden 2023"]) expect(page).toContain(text);
     const search = await (await call("/cockpit/arrangementer?q=yoga&aar=2024", {}, session)).text();
     expect(search).toContain('1 arrangement med "yoga" i 2024');
     const asked = await call("/cockpit/saga", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: "Hvornår havde vi sidst lydhealing?" }) }, session);

@@ -16,8 +16,6 @@ import { openLines, TODOS_STYLE } from "./todosPage.js";
 
 export type HomeData = {
   who: string | null; isChair: boolean; today: string;
-  /** Requested: "Du må gerne bruge samme tekst pænt og diskret på admins forside" - Saga's words about the next two events (program.ts). */
-  speaker?: string | null;
   toSign: ApprovedMinutes[];
   tasks: Task[]; todos: Todo[];
   /** What Saga has for this member: the chair's own list (chair only) and what she wrote to them or to all. */
@@ -138,7 +136,7 @@ export function homePage(base: string, data: HomeData): string {
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
-${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}${data.speaker ? `<p class="speaker" style="margin:10px 0 0;font:italic 15px/1.55 Georgia,'Times New Roman',serif;color:var(--muted);max-width:68ch">${esc(data.speaker)}</p>` : ""}</div>
+${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
 ${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a>` : ""}${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
@@ -149,7 +147,7 @@ ${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ St
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>
 ${data.toSign.length ? `<a class="tile hot" href="${base}/referat/${data.toSign[0]!.id}"><span class="label">Til godkendelse</span><b>${data.toSign.length}</b><span class="sub">${plural(data.toSign.length, "referat", "referater")}</span></a>` : ""}
-<a class="tile" href="${base}/arrangementer"><span class="label">Arrangementer</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${membersTile(base, data.memberStats ?? [])}${fact}</section>`;
+<a class="tile" href="${base}/arrangementer"><span class="label">Events</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${membersTile(base, data.memberStats ?? [])}${fact}</section>`;
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
