@@ -641,3 +641,8 @@ Still open:
 - Medlemmet vælger eventets start og slut; "Klargøring før" og "Oprydning efter" er 30 minutter som standard og kan sættes til ingen, 30 minutter eller 1 time. Salen er optaget, og lejen beregnes, for hele vinduet (start minus klargøring til slut plus oprydning). Prisberegnerens regler gælder vinduet: 2-10 timer, ikke hen over 18.30 på hverdage ved reduceret/gratis leje, og oprydningen er færdig senest kl. 24. Selve eventet varer mindst 1 time.
 - Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
 - `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.
+
+## Sidefod, menu og juridiske sider (2026-10-10)
+
+- Menupunktet "Vision / om os" hedder "Om Hjerterum". "English" er ude af menuen og står som et lille "EN" ved Log ind (og som "English" i sidefoden).
+- Sidefoden (hjemmesiden og medlemssiden) har en juridisk linje: Handelsbetingelser (`/handelsbetingelser`), Privatlivspolitik (`/privatliv`, udvidet med medlemskab, events, Saga, nyhedsbrev, databehandlere og rettigheder), Cookies (`/cookies`), © Hjerterum F.M.B.A. · CVR og versionen `v<package.json-version> · <commit>` (sat af vite.config.ts; `GITHUB_SHA` i CI). Teksterne bør læses igennem af bestyrelsen.

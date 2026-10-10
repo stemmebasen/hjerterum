@@ -35,9 +35,16 @@ export const NAV: Array<{ section: Section; label: string; href: string }> = [
   { section: "behandlere", label: "Behandlere & undervisere", href: "/behandlere" },
   { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
   { section: "lej", label: "Lej Hjerterum", href: "/lej-hjerterum" },
-  { section: "om-os", label: "Vision / om os", href: "/om-os" },
-  { section: "kontakt", label: "Kontakt", href: "/kontakt" },
-  { section: "en", label: "English", href: "/en" }
+  { section: "om-os", label: "Om Hjerterum", href: "/om-os" },
+  { section: "kontakt", label: "Kontakt", href: "/kontakt" }
+];
+/** Requested: "English skal stå på en anden måde så det ikke fylder i menuen" - a small language switch beside the menu. */
+export const ENGLISH = { section: "en" as Section, label: "EN", title: "English", href: "/en" };
+/** Requested: "relevante links i footeren": Handelsbetingelser, Privatlivspolitik, Cookies, © Hjerterum F.M.B.A. and the version. */
+export const LEGAL_LINKS = [
+  { label: "Handelsbetingelser", href: "/handelsbetingelser" },
+  { label: "Privatlivspolitik", href: "/privatliv" },
+  { label: "Cookies", href: "/cookies" }
 ];
 
 /** Where people sign up today - the same place hjerterum.info sends them - until payment runs on this platform. */
@@ -78,6 +85,9 @@ export const TEACHERS: Teacher[] = [
   { name: "Gitta Kaas", focus: "Sanger · Spirituel sangcoach · Lydhealer", url: "https://gittakaas.dk/", image: "/media/2025-04-gitta-small.webp" },
   { name: "Kasper Frausing", focus: "Yoga", image: "/media/2025-04-kasper-frausing-small.webp" }
 ];
+
+const HENVENDELSER = `## Når du skriver til os {#henvendelser}
+Sender du en henvendelse med en af formularerne på hjemmesiden, kommer den som en mail i Hjerterums fælles indbakke, så teamet kan svare dig. Vi bruger dine oplysninger til at besvare henvendelsen og gemmer dem ikke på hjemmesiden. Mails i indbakken sorteres med hjælp fra Saga, så de rigtige i bestyrelsen ser dem. I statistikken tæller vi kun, at der kom en henvendelse – hvilken dag, om hvilket emne og fra hvilken side.`;
 
 const DISCLAIMER = `Ved events og arrangementer, som ikke er arrangeret direkte af Hjerterum, fungerer Hjerterum alene som formidler og udlejer af lokaler. Hjerterum har ikke ansvar for indhold, undervisning, rådgivning eller andre forhold i samarbejdet mellem deltager og eksterne undervisere eller arrangører. Eventuelle aftaler, forløb eller uoverensstemmelser er et anliggende mellem deltageren og den pågældende tredjepart.
 
@@ -551,7 +561,7 @@ Events, der er oprettet i den tidligere kalender på holistisk.org, administrere
   // ---------------------------------------------------------------- Vision / om os
   {
     path: "/om-os", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Mere nærvær.", em: "Mindre støj.",
+    kicker: "Om Hjerterum", title: "Mere nærvær.", em: "Mindre støj.",
     lead: "Hjerterum er skabt omkring troen på, at de bedste oplevelser vokser frem, når mennesker mødes med åbenhed og tid. Vi samler foredrag, behandlinger, musik, samtaler og små pauser i hverdagen – i et rum, hvor man må komme, som man er.",
     description: "Hvad er Hjerterum? Visionen, teamet, historien og foreningen.",
     card: { title: "Mere nærvær. Mindre støj.", text: "Visionen, menneskene og historien bag Hjerterum." },
@@ -773,11 +783,31 @@ Mange hilsner fra Kathmandu – Sisse og Alex`,
   {
     // Requested: "Gem besøg i 6 måneder, og slet dem derefter automatisk. Nævn det i privatlivsteksten." (worker/site-stats.ts)
     path: "/privatliv", lang: "da", section: "om-os",
-    kicker: "Privatliv", title: "Privatliv på", em: "hjemmesiden",
-    lead: "Vi tæller besøg på hjemmesiden for at se, hvad der bliver læst – uden cookies og uden at kunne genkende dig fra den ene dag til den næste.",
-    description: "Sådan tæller Hjerterum besøg på hjemmesiden: uden cookies, uden at gemme IP-adresser, og besøgene slettes efter 6 måneder.",
-    card: { title: "Privatliv", text: "Besøgsstatistik uden cookies." },
-    body: `## Besøgsstatistik uden cookies {#statistik}
+    kicker: "Privatlivspolitik", title: "Sådan passer vi på", em: "dine oplysninger",
+    lead: "Hvilke oplysninger Hjerterum har om dig, hvorfor, hvem der hjælper os med dem, og hvad du kan bede os om.",
+    description: "Hjerterums privatlivspolitik: medlemskab, events, booking, Saga, nyhedsbrev, besøgsstatistik uden cookies og dine rettigheder.",
+    card: { title: "Privatlivspolitik", text: "Dine oplysninger og dine rettigheder." },
+    body: `## Dataansvarlig {#ansvarlig}
+Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C. Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) om alt, der handler om dine oplysninger.
+
+## Når du er medlem {#medlem}
+Vi har dit navn, din e-mail, dit medlemskab (type, start og betalinger) og - hvis du selv skriver dem - dit telefonnummer og din fødselsdag. Vi bruger dem til at administrere medlemskabet, give dig adgang til medlemssiden og sende dig besked om dit medlemskab. Grundlaget er medlemsaftalen med dig. Når du melder dig ud, sletter vi dine oplysninger, når vi ikke længere skal bruge dem - regnskabsoplysninger gemmer vi i 5 år efter regnskabsårets udløb, som bogføringsloven kræver.
+
+## Events, booking og visitkort {#events}
+Tilmelder du dig et event, gemmer vi din tilmelding, så arrangøren og Hjerterum ved, hvem der kommer. Opretter du et event eller lejer salen, gemmer vi eventet, tidspunkterne, lejen og de filer og billeder, du lægger op. Godkendte events og deres billeder vises offentligt. Laver du et visitkort, vises det offentligt, når du selv vælger at offentliggøre det, og du kan til enhver tid tage det ned igen.
+
+## Saga - vores digitale assistent {#saga}
+Skriver du med Saga på medlemssiden, eller sender du et foto til hende, behandles beskeden af en AI-model hos vores leverandør i EU for at give dig et svar. Samtalen bruges ikke til at træne modellen. Skriv ikke følsomme oplysninger til Saga.
+
+${HENVENDELSER}
+
+## Nyhedsbrev {#nyhedsbrev}
+Tilmelder du dig nyhedsbrevet, får vi dit navn og din e-mail gennem Mailchimp. Du kan altid framelde dig med linket nederst i hvert nyhedsbrev.
+
+## Dem, der hjælper os {#databehandlere}
+Vi bruger leverandører (databehandlere), som kun må bruge oplysningerne efter vores anvisning: Cloudflare (hjemmeside, medlemsside og database), Clerk (login), Stripe (betaling, når den er slået til), Mailchimp (nyhedsbrev), One.com (mail) og en AI-tjeneste i EU (Saga). Ligger en leverandør uden for EU, sker overførslen på grundlag af EU-Kommissionens standardkontraktbestemmelser eller EU-U.S. Data Privacy Framework.
+
+## Besøgsstatistik uden cookies {#statistik}
 Når du ser en side på hjemmesiden, sender din browser et lille signal om, hvilken side det var. Vi bruger ingen cookies og gemmer intet i din browser.
 
 ## Det gemmer vi
@@ -790,15 +820,66 @@ Vi gemmer ikke din IP-adresse. For at kunne tælle dig én gang pr. dag laver vi
 
 Har din browser Global Privacy Control slået til, tæller vi slet ikke dit besøg. Login, medlemsområdet og administrationen tælles heller ikke.
 
-## Når du skriver til os {#henvendelser}
-Sender du en henvendelse med en af formularerne på hjemmesiden, kommer den som en mail i Hjerterums fælles indbakke, så teamet kan svare dig. Vi bruger dine oplysninger til at besvare henvendelsen og gemmer dem ikke på hjemmesiden. I statistikken tæller vi kun, at der kom en henvendelse – hvilken dag, om hvilket emne og fra hvilken side.
-
 ## Hvem ser tallene, og hvor længe gemmes de {#sletning}
 Tallene bruges kun samlet – fx hvor mange besøgende en side havde – af bestyrelsen og Hjerterums administration. **Besøg og optællingen af henvendelser slettes automatisk efter 6 måneder.**
 
-## Spørgsmål
-Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis du har spørgsmål til, hvordan vi passer på dine oplysninger.`,
+## Dine rettigheder {#rettigheder}
+Du kan bede om at se de oplysninger, vi har om dig, få dem rettet eller slettet, få dem udleveret, eller gøre indsigelse mod, at vi bruger dem. Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org). Er du utilfreds med, hvordan vi behandler dine oplysninger, kan du klage til [Datatilsynet](https://www.datatilsynet.dk).
+
+Se også [cookies](/cookies) og [handelsbetingelser](/handelsbetingelser).`,
     sources: []
+  },
+  {
+    // Requested: "relevante links i footeren. Handelsbetingelser, Privatlivspolitik, Cookies".
+    path: "/handelsbetingelser", lang: "da", section: "om-os",
+    kicker: "Handelsbetingelser", title: "Handels", em: "betingelser",
+    lead: "Betingelserne, når du køber medlemskab, billet til et event eller lejer salen i Hjerterum.",
+    description: "Hjerterums handelsbetingelser: medlemskab, billetter, leje af sal, betaling, fortrydelsesret, opsigelse og klager.",
+    card: { title: "Handelsbetingelser", text: "Medlemskab, billetter, leje og betaling." },
+    body: `## Sælger {#saelger}
+Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C, [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
+
+## Priser og betaling {#betaling}
+Alle priser er i danske kroner inkl. eventuel moms. Du betaler med betalingskort gennem vores betalingsleverandør; vi ser og gemmer ikke dine kortoplysninger. Leje af salen til standardpris betales efter faktura.
+
+## Medlemskab {#medlemskab}
+Medlemskabet løber pr. måned eller pr. år, alt efter hvad du vælger, og fornyes automatisk, til du opsiger det. Betalingen trækkes forud for hver periode. Du kan opsige medlemskabet når som helst under Min profil på medlemssiden eller ved at skrive til os; det gælder så til udgangen af den periode, du har betalt for. Hvad medlemskabet giver, står under [Medlemskab](/medlemskab).
+
+## Billetter til events {#billetter}
+Køber du billet til et event, er købet bindende. Aflyser Hjerterum eller arrangøren eventet, får du pengene tilbage. Arrangøren er ansvarlig for indholdet af sit event.
+
+## Leje af salen {#leje}
+For leje af salen gælder [vilkårene for leje](/lej-hjerterum/vilkaar), herunder aflysning og rengøring.
+
+## Fortrydelsesret {#fortrydelse}
+Når du køber medlemskab, har du 14 dages fortrydelsesret fra købet. Beder du os om at starte medlemskabet med det samme, og fortryder du inden for de 14 dage, betaler du for den del, du har haft. Fortryd ved at skrive til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) inden fristen. Billetter til events på en bestemt dato og leje af salen til en bestemt tid er undtaget fra fortrydelsesretten (forbrugeraftalelovens § 18, stk. 2, nr. 12).
+
+## Klager {#klager}
+Skriv først til os, så finder vi en løsning. Kan vi ikke blive enige, kan du klage til Center for Klageløsning, Nævnenes Hus, Toldboden 2, 8800 Viborg, [naevneneshus.dk](https://naevneneshus.dk).
+
+## Persondata
+Sådan behandler vi dine oplysninger: se [privatlivspolitikken](/privatliv).`,
+    sources: []
+  },
+  {
+    path: "/cookies", lang: "da", section: "om-os",
+    kicker: "Cookies", title: "Cookies", em: "kun det nødvendige",
+    lead: "Hjemmesiden bruger ingen cookies til statistik eller annoncer. Kun login bruger de cookies, det ikke kan undvære.",
+    description: "Hjerterums cookiepolitik: ingen sporing eller annoncecookies - kun de nødvendige cookies til login på medlemssiden.",
+    card: { title: "Cookies", text: "Kun de nødvendige - ingen sporing." },
+    body: `## Hjemmesiden {#hjemmesiden}
+Når du læser hjemmesiden, sætter vi ingen cookies. Vi tæller besøg uden cookies og uden at kunne genkende dig - se [besøgsstatistikken](/privatliv#statistik). Derfor spørger vi heller ikke om samtykke.
+
+## Login og medlemssiden {#login}
+Når du logger ind, sætter vores loginleverandør (Clerk) de cookies, der skal til for at holde dig logget ind og beskytte din konto. De er nødvendige for, at login virker, og kræver derfor ikke samtykke. De forsvinder, når du logger ud, eller når de udløber.
+
+## Links til andre sider {#andre}
+Klikker du videre til fx Facebook, YouTube, Mailchimp eller CIRKLER, gælder deres egne regler for cookies.
+
+## Sådan sletter du cookies {#slet}
+Du kan altid slette cookies i din browsers indstillinger. Sletter du login-cookies, bliver du logget ud.`,
+    sources: []
+
   },
   {
     path: "/kontakt", lang: "da", section: "kontakt",

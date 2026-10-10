@@ -167,7 +167,14 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-foot a { color: var(--lys-ink); text-decoration: none; }
 .site-foot a:hover { color: var(--lys-accent); }
 .site-foot nav { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 20px; align-content: start; }
-.site-foot-legal { grid-column: 1 / -1; font-size: 13px; color: var(--lys-faint); }
+.site-foot-legal { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; font-size: 13px; color: var(--lys-faint); }
+.site-foot-legal a { color: var(--lys-muted); }
+.site-version { font-variant-numeric: tabular-nums; opacity: .8; }
+/* The member site's footer: only the legal line. */
+.member-foot { margin: 56px 0 24px; padding-top: 18px; border-top: 1px solid var(--lys-line); }
+/* "EN" beside Log ind. */
+.site-lang { color: var(--lys-muted); font-size: 12.5px; letter-spacing: .08em; text-decoration: none; padding: 6px 8px; border-radius: 999px; }
+.site-lang:hover { color: var(--lys-ink); }
 
 /* The front page: hjerterum.info's sequence in Lys. */
 .site-home-title em { display: block; font-style: normal; color: inherit; }
