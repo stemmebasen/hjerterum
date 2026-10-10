@@ -327,26 +327,20 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
     lead: "Har du en workshop, et foredrag, et forløb eller en lille begivenhed på hjerte? Lej vores sal på ca. 110 m² – fra tidlig morgen til sen aften, alle ugens dage.",
     description: "Lej Hjerterums sal på ca. 110 m² i Aarhus C: faciliteter, priser, prisberegner og sådan booker du dit event.",
     card: { title: "Et rum til det, du vil skabe", text: "Faciliteter, priser og sådan booker du salen." },
-    body: `Når du booker dit event hos os, får du ikke bare et inspirerende og stemningsfuldt rum. Du bliver også en del af et stort og engageret fællesskab i Østjylland: dit event bliver vist på vores hjemmeside og Facebook-side, så du når ud til vores mange medlemmer og følgere.
+    body: `Du får et smukt rum på ca. 110 m² – og et fællesskab: dit event kommer på vores hjemmeside og Facebook-side, så du når ud til vores mange medlemmer og følgere. Du står selv for at planlægge og afvikle eventet, men vores frivillige giver gerne en hånd.
 
-Som arrangør står du selv for at planlægge og afvikle dit event – også opsætning og oprydning. Men du er ikke alene: vores frivillige giver gerne en hånd, hvis du har brug for det. Uanset om du er iværksætter, forening, terapeut eller bare har en god idé, er du velkommen. Kontakt os, og lad os skabe noget fantastisk sammen.
+## Sådan kommer du i gang {#booking}
+1. **Find prisen.** Vælg lejetype og tidspunkt i [prisberegneren](#beregner) herunder.
+2. **Book.** Er du medlem og bruger B) Reduceret pris eller C) Gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – Saga hjælper dig gerne. Ellers sender du en bookingforespørgsel med [bookingformularen](/beregner).
+3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
 
-## Faciliteter {#faciliteter}
-- Sal på ca. 110 m²
-- Fuldt udstyret køkken med tallerkener, kopper, glas og bestik til 40 personer
-- 2 toiletter
-- 20 yogamåtter, 22 madrasser, 16 meditationsstole og 20 yogablokke
-- Puder og tæpper
-- Stole til 40 personer og 8 borde
-- Musikanlæg med mixer, minijack og Bluetooth, et hifi-anlæg (minijack eller Bluetooth) og en Bluetooth-højttaler
-- Projektor med HDMI
-- Trådløst internet
+{{booking-choice}}
 
 ## Priser {#priser}
-Lejeprisen afhænger af, hvilken slags event du holder. Alle priser er inkl. moms.
+Alle priser er inkl. moms.
 
 ### A) Standardpris – uden medlemsrabat
-Til events uden medlemsrabat. Du betaler en fast pris efter bookingens længde.
+Fast pris efter bookingens længde.
 
 | Varighed | Pris |
 |---|---|
@@ -363,7 +357,7 @@ Til events uden medlemsrabat. Du betaler en fast pris efter bookingens længde.
 > **Kun for medlemmer:** B) Reduceret pris – med medlemsrabat og C) Gratis leje kræver, at du selv er betalende medlem af Hjerterum. I de tilfælde opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
 
 ### B) Reduceret pris – med medlemsrabat
-Til events, hvor medlemmer får en lavere deltagerpris end ikke-medlemmer. Lejen beregnes efter B-tid og A-tid.
+Til events, hvor medlemmer betaler mindre end ikke-medlemmer.
 
 | | B-tid: hverdage før kl. 18.30 | A-tid: hverdage efter kl. 18.30 og weekend |
 |---|---|---|
@@ -371,54 +365,43 @@ Til events, hvor medlemmer får en lavere deltagerpris end ikke-medlemmer. Lejen
 | Pris pr. ekstra time | 75 kr. | 150 kr. |
 | Mindste rabat til medlemmer | 50 kr. | 100 kr. |
 
-I en periode giver vi 25 % rabat på A-tidspriserne. Det kan du se i prisberegneren.
+I en periode giver vi 25 % rabat på A-tidspriserne – det ser du i prisberegneren.
 
 ### C) Gratis leje
-Til events, hvor Hjerterum ikke tager betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid. For at bruge gratis leje skal du selv være betalende medlem, og du opretter selv dit event på medlemssiden.
+Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 150 kr. i A-tid eller 75 kr. i B-tid.
 
-### Vigtige regler
-- **Ingen overlap:** med medlemsrabat eller gratis leje kan en booking ikke gå hen over kl. 18.30. Den skal ligge helt i B-tid eller helt i A-tid.
+### Regler
 - **Varighed:** mindst 2 og højst 10 timer pr. booking.
-- **Forberedelse:** tid til opsætning og oprydning skal være med i det bookede tidsrum. Vi anbefaler 30 minutter før og efter.
+- **Ingen overlap:** med medlemsrabat eller gratis leje må bookingen ikke gå hen over kl. 18.30 på hverdage.
+- **Forberedelse:** opsætning og oprydning skal ligge inden for den bookede tid – vi anbefaler 30 minutter før og efter.
 
+## Prisberegner {#beregner}
 {{price-calculator}}
 
-## Sådan booker du {#booking}
-Find prisen og send din bookingforespørgsel med [prisberegneren og bookingformularen](/beregner). Bruger du B) Reduceret pris eller C) Gratis leje, er du medlem og opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) i stedet. Ellers send os disse oplysninger:
+## Det sender du med en bookingforespørgsel {#materiale}
+- **Titel og eventtekst** – formål, program og lidt om dig
+- **Pris og betaling** – pris for medlemmer og ikke-medlemmer, og hvordan der betales
+- **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig
+- **Datoforslag og tidspunkt** – tjek [kalenderen](/events); eventets tid og bookingens tid med forberedelse og oprydning
+- **Coverbillede** – 1920 × 1005 px, jpg eller png, uden ophavsret (gerne ikke AI). Gratis billeder: unsplash.com; opsætning: canva.com.
 
-**Om eventet**
-- **Titel**
-- **Eventtekst** – fx formål, program og lidt om dig som underviser
-- **Pris og betaling** – prisen for medlemmer og ikke-medlemmer, hvordan der betales (fx MobilePay eller kontant), og om der betales ved fremmøde eller på forhånd
-- **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig (mail, telefon eller din egen hjemmeside)
-- **Datoforslag** – tjek [kalenderen](/events), og send gerne flere datoer, da der kan være optaget
-- **Tidspunkt** – både eventets og bookingens start og slut; husk tid til forberedelse før og oprydning efter (typisk ca. 30 minutter)
+Har du en Facebook-side, så opret gerne eventet dér, når bookingen er bekræftet, og send os linket. Markedsføring ud over vores hjemmeside og Facebook er dit ansvar – [se vores råd og grupper](/lej-hjerterum/markedsfoering).
 
-**PR-materiale**
-- Et coverbillede til eventet – og gerne flere billeder
-- Evt. link til din hjemmeside eller Facebook-side
+## Faciliteter {#faciliteter}
+- Sal på ca. 110 m², 2 toiletter og trådløst internet
+- Fuldt udstyret køkken med service til 40 personer
+- 20 yogamåtter, 22 madrasser, 16 meditationsstole, 20 yogablokke, puder og tæpper
+- Stole til 40 personer og 8 borde
+- Musikanlæg (minijack og Bluetooth) og projektor med HDMI
 
-**Krav til coverbilledet**
-- Billedet skal være uden ophavsret (royalty-free). Vi foretrækker billeder, der ikke er AI-genererede.
-- Har du ikke egne billeder, kan du finde gratis billeder på fx unsplash.com (vælg "free" – ellers er der ophavsret på billedet).
-- Canva.com kan bruges til den grafiske opsætning.
-- Format: 1920 × 1005 px (Facebook-cover), ellers kommer hele billedet ikke med. Filformat: jpg eller png.
-
-### Når bookingen er aftalt
-- Vi sender dig en faktura. Vi går først i gang med at oprette dit event, når vi har modtaget betalingen.
-- Har du en Facebook-side (fx en virksomhedsside), så opret gerne eventet dér først og send os linket – det letter det administrative arbejde. Gør det først, når bookingen er bekræftet.
-- Har du ikke en Facebook-side, opretter vi eventet på hjemmesiden og vores Facebook-side og sender dig et link.
-
-**Planlæg i god tid.** For at have en realistisk chance for at tiltrække deltagere anbefaler vi at planlægge 4–8 uger før eventet. Vi har op til ca. 5 hverdages ekspeditionstid, når vi har modtaget alt materiale.
-
-**Markedsføring er dit ansvar.** Invitér dit netværk, boost dit Facebook-event, og del det i relevante grupper. [Se vores råd og en liste over grupper](/lej-hjerterum/markedsfoering).
+Nøgler, lyd, køkken og oprydning: se [praktisk information](/lej-hjerterum/praktisk). Betaling og aflysning: se [vilkår](/lej-hjerterum/vilkaar).
 
 +++ Ansvarsfraskrivelse
 ${DISCLAIMER}
 +++
 
-## Spørgsmål om at holde et event? {#skriv}
-Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her. Selve bookingen sender du med [prisberegneren](/beregner).
+## Spørgsmål? {#skriv}
+Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
 
 {{enquiry-event-opsaetning}}`,
     image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
@@ -496,10 +479,7 @@ Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
     lead: "Betaling, aflysning, rengøring – og hvordan du bedst kommunikerer med os.",
     description: "Vilkår for leje af salen i Hjerterum: betaling, aflysningspolitik, rengøringsgebyr og kommunikationspolitik.",
     card: { title: "Vilkår for leje af sal", text: "Betaling, aflysning, rengøring og kommunikation." },
-    body: `Du sender en bookingforespørgsel via [prisberegneren](/beregner). Har du spørgsmål, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
-
-## Pris
-Prisen for at leje salen beregner du hurtigt og nemt med vores [prisberegner](/beregner). Den fulde prisliste står under [Priser](/lej-hjerterum#priser).
+    body: `Priser og sådan booker du: se [Lej Hjerterum](/lej-hjerterum#booking). Har du spørgsmål, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
 
 ## Betaling og oprettelse af event {#betaling}
 Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [skriv til os](#skriv) eller til [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
@@ -517,7 +497,7 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik – ikke ved almindelige aflysninger. Send altid en mail til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) om, at du har aflyst. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
 
 ## Rengøring efter event
-Sørg for, at salen er ren og pæn, når du går, så den er klar til de næste. Se [kravene til rengøring](/lej-hjerterum/praktisk#rengoering). Er rengøringen ikke i orden, opkræver vi et rengøringsgebyr på 250 kr.
+Efterlad salen ren og pæn – se [kravene til rengøring](/lej-hjerterum/praktisk#rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
 
 ## Kommunikation {#kommunikation}
 **Mail er kommunikationsvej nr. 1.** Skriv altid først til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org). Her fanger du os bedst, og alle bookinger, spørgsmål og henvendelser håndteres via mail.
