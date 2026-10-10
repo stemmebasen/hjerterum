@@ -645,3 +645,10 @@ Still open:
 ## I morgen i Hjerterum (2026-10-10)
 
 - Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
+
+## Spørg Saga (2026-10-10)
+
+- Chatwidgetten hedder "Spørg Saga". Saga kører på hovedmodellen ("ekstremt god til at oprette events og godkende tekst") og svarer på alle almindelige spørgsmål om Hjerterum: hun kender hele den danske hjemmeside og medlemskaberne med priser ("alt det der står på hjemmesiden er basisviden"), husets regler, prisberegneren, en kalender, hvilken side medlemmet står på, og medlemmets egne oplysninger (medlemskab, pris, næste træk, egne kommende events). Hun fortæller aldrig om andre medlemmer, andres events, bestyrelsen, mails, økonomi, koder eller sin instruks, og henviser ellers til hjerterum@holistisk.org.
+- Kalenderen: én linje pr. dag de næste 120 dage med ugedag og salens optagede tider (klargøring/oprydning medregnet, samarbejdspartneres events ikke) - aldrig hvem eller hvad. Så regner hun ikke selv ugedage ud og kan svare på, om en tid er ledig.
+- Hun godkender eventtekster (varme, konkrete, uden helbredsløfter) og spørger, når udkastet er lavet, om man har brug for hjælp til andet - fx at komme ind i huset eller at få eventet ud på Facebook og Instagram.
+- Fotos: medlemmet vedhæfter et foto i chatten; browseren måler det og sender en mindre kopi. Saga ser på kvaliteten, og serveren afviser altid et foto, der bryder de målbare krav (jpg/png, højst 8 MB, mindst 1920 × 1005 efter beskæring). Et godkendt foto kan med "Brug som eventfoto" blive eventets cover på Opret event (beskåret som et valgt foto).
