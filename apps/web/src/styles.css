@@ -931,6 +931,9 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-typing { opacity: .7; font-style: italic; }
 .saga-draft { margin-top: 6px; display: grid; gap: 4px; padding: 10px 12px; border: 1px dashed var(--lys-accent, #c9a48a); border-radius: 14px; font-size: 13px; }
 .saga-draft button { justify-self: start; margin-top: 4px; }
+.saga-photo { display: block; max-width: 100%; max-height: 160px; border-radius: 10px; margin-bottom: 6px; object-fit: cover; }
+.saga-attach { align-self: center; border: 1px solid var(--lys-line, rgba(255,255,255,.2)); background: transparent; color: inherit; border-radius: 999px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.saga-attach:disabled { opacity: .5; cursor: default; }
 .saga-panel form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--lys-line, rgba(255,255,255,.1)); }
 .saga-panel textarea { flex: 1; resize: none; border-radius: 12px; border: 1px solid var(--lys-line, rgba(255,255,255,.15)); background: transparent; color: inherit; padding: 8px 10px; font: inherit; font-size: 14px; }
 /* En behandlers egen side: rundt foto til højre for navnet. */
