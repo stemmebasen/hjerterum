@@ -1,4 +1,4 @@
-import { ownPublicProfile, publicProfiles } from "./public-profiles.js";
+import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { changeMemberAccess } from "./admin-members.js";
@@ -381,6 +381,9 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/public-profiles") return publicProfiles(request, env);
     if (url.pathname === "/api/members/me/public-profile") return ownPublicProfile(request, env);
+    if (url.pathname === "/api/members/me/public-profile/photo") return uploadProfilePhoto(request, env);
+    const photo = /^\/api\/profile-photos\/([0-9a-f-]{36})\.jpg$/.exec(url.pathname);
+    if (photo && request.method === "GET") return profilePhoto(photo[1]!, env);
 
     if (request.method === "GET" && url.pathname === "/api/client-config") {
       return json({
