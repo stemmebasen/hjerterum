@@ -17,26 +17,34 @@ describe("the overview's programme", () => {
     expect(p.intro).toBeNull();
   });
 
-  it("has Saga write one intro about the next two, once for the day, and keeps it", async () => {
+  it("has Saga write about tomorrow, once a day, under 'I morgen i Hjerterum'", async () => {
     const db = testDatabase();
     const asked: string[] = [];
-    const services = fakeServices({ ai: (_sys, user) => { asked.push(user); return "Lidt senere i dag kommer Jørgen med breathwork. Og i morgen er der yoga."; } });
+    const services = fakeServices({ ai: (_sys, user) => { asked.push(user); return "Om formiddagen guider Jørgen os gennem breathwork."; } });
     const env = sagaEnv(db);
-    const external = [ev("1", "2026-10-11T09:30:00Z", "Breathwork"), ev("2", "2026-10-12T09:30:00Z", "Yoga"), ev("3", "2026-10-13T09:30:00Z", "Healing")];
+    // NOW is Sunday 11 October 09.00; Breathwork is today, Yoga and Sang tomorrow, Healing the day after.
+    const external = [ev("1", "2026-10-11T09:30:00Z", "Breathwork"), ev("2", "2026-10-12T09:30:00Z", "Yoga"), ev("4", "2026-10-12T16:30:00Z", "Sang"), ev("3", "2026-10-13T09:30:00Z", "Healing")];
     expect(await writeProgramIntro(env, deps(services.fetcher, NOW), db, external, async () => true)).toBe(true);
     expect(await writeProgramIntro(env, deps(services.fetcher, NOW), db, external, async () => true)).toBe(false);
     expect(asked).toHaveLength(1);
-    expect(asked[0]).toContain("Breathwork");
     expect(asked[0]).toContain("Yoga");
+    expect(asked[0]).toContain("Sang");
+    expect(asked[0]).not.toContain("Breathwork");
     expect(asked[0]).not.toContain("Healing");
-    expect((await program(db, external, NOW)).intro).toBe("Lidt senere i dag kommer Jørgen med breathwork. Og i morgen er der yoga.");
-    // The same two events the next day: the same intro, no new call.
-    expect((await program(db, external, NOW + 3_600_000)).intro).toBe("Lidt senere i dag kommer Jørgen med breathwork. Og i morgen er der yoga.");
-    // When Breathwork begins, the intro is about Yoga and Healing - and Saga writes a new one.
-    const begun = Date.parse("2026-10-11T09:31:00Z");
-    expect((await program(db, external, begun)).intro).toBeNull();
-    expect(await writeProgramIntro(env, deps(services.fetcher, begun), db, external, async () => true)).toBe(true);
+    expect(await program(db, external, NOW + 3_600_000)).toMatchObject({ heading: "I morgen i Hjerterum", intro: "Om formiddagen guider Jørgen os gennem breathwork." });
+    // A new day: new words about the next day.
+    const monday = Date.parse("2026-10-12T05:00:00Z");
+    expect((await program(db, external, monday)).intro).toBeNull();
+    expect(await writeProgramIntro(env, deps(services.fetcher, monday), db, external, async () => true)).toBe(true);
     expect(asked[1]).toContain("Healing");
-    expect(asked[1]).not.toContain("Breathwork");
+    expect(asked[1]).not.toContain("Yoga");
+  });
+
+  it("names the day when tomorrow is quiet", async () => {
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "Om aftenen synger vi." });
+    const external = [ev("5", "2026-10-15T17:00:00Z", "Sang")];
+    expect(await writeProgramIntro(sagaEnv(db), deps(services.fetcher, NOW), db, external, async () => true)).toBe(true);
+    expect((await program(db, external, NOW)).heading).toBe("Torsdag i Hjerterum");
   });
 });

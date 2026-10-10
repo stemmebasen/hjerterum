@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
-/** Requested: "når jeg siger tv-program mener jeg ikke en programoversigt, men en continuity speaker der fortæller hvad der er på vej" +
+/** Requested: "I morgen i Hjerterum" - Saga's words about tomorrow (worker/program.ts) under that heading.
+ * Earlier: "når jeg siger tv-program mener jeg ikke en programoversigt, men en continuity speaker der fortæller hvad der er på vej" +
  * "fem eventfotos". Saga's words about the next two events, beside the five photos. */
 type Item = { key: string; title: string; startsAt: string; endsAt: string | null; host: string | null; imageUrl: string | null; link: string | null };
 
@@ -13,11 +14,12 @@ const firstName = (host: string | null) => (host ?? "").replace(/^(med|ved)\s+/i
 export function ProgramGuide() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [intro, setIntro] = useState<string | null>(null);
+  const [heading, setHeading] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     fetch("/api/events/program").then(async (r) => {
-      const body = r.ok ? await r.json() as { intro: string | null; items: Item[] } : { intro: null, items: [] };
-      if (active) { setItems(body.items); setIntro(body.intro); }
+      const body = r.ok ? await r.json() as { intro: string | null; heading?: string | null; items: Item[] } : { intro: null, items: [] };
+      if (active) { setItems(body.items); setIntro(body.intro); setHeading(body.heading ?? null); }
     }).catch(() => { if (active) setItems([]); });
     return () => { active = false; };
   }, []);
@@ -31,7 +33,7 @@ export function ProgramGuide() {
   return (
     <article className="lys-card program-guide">
       <div className="program-head">
-        <p className="lys-kicker">Det sker i huset</p>
+        <p className="lys-kicker">{intro && heading ? heading : "Det sker i huset"}</p>
         <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
       </div>
       <p className="program-intro">{words}</p>
@@ -51,11 +53,11 @@ export function ProgramGuide() {
 
 /** Requested: "samt på hjemmesiden" - the same words, quietly, above the website's calendar. */
 export function SpeakerLine() {
-  const [intro, setIntro] = useState<string | null>(null);
+  const [said, setSaid] = useState<{ intro: string | null; heading?: string | null } | null>(null);
   useEffect(() => {
     let active = true;
-    fetch("/api/events/program").then(async (r) => { if (active && r.ok) setIntro((await r.json() as { intro: string | null }).intro); }).catch(() => undefined);
+    fetch("/api/events/program").then(async (r) => { if (active && r.ok) setSaid(await r.json() as { intro: string | null; heading?: string | null }); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
-  return intro ? <p className="speaker-line">{intro}</p> : null;
+  return said?.intro ? <p className="speaker-line">{said.heading && <strong>{said.heading}. </strong>}{said.intro}</p> : null;
 }
