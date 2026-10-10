@@ -878,3 +878,6 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* holistisk.org's words on the front page: what happens in the house, the price line. */
 .site-kinds { text-align: center; max-width: 70ch; margin: 4px auto 0; color: var(--lys-muted, var(--muted)); font-style: italic; }
 .site-price-line { font-size: .95rem; color: var(--lys-muted, var(--muted)); }
+
+/* Overblik: fire bokse på en række (medlemskab, tilmeldt, mine events, medlemsbesparelse). */
+.member-overview .lys-tiles { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }

@@ -11,6 +11,8 @@ export type CreateRoomBookingInput = {
   endsAt: string;
   maxAttendees?: number | null;
   ticketPriceMinor: number;
+  /** What a non-member pays; null when the organiser gave none. */
+  nonMemberPriceMinor?: number | null;
   /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
   bookingType?: RoomBookingType;
   /** Set by the server, never from the request: a fixed teacher's or the board's event needs no approval. */
@@ -39,6 +41,7 @@ export type RoomBookingRow = {
   max_attendees: number | null;
   fee_minor: number;
   ticket_price_minor: number;
+  non_member_price_minor?: number | null;
   booking_type?: RoomBookingType;
   review_status?: ReviewStatus;
   review_note?: string | null;
@@ -143,6 +146,10 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     throw new Error("invalid_ticket_price");
   }
   const ticketPriceMinor = Math.round(ticketPriceKr * 100);
+  const nonMemberRaw = body.nonMemberPriceKr;
+  const nonMemberPriceKr = nonMemberRaw === undefined || nonMemberRaw === null || nonMemberRaw === "" ? null : Number(nonMemberRaw);
+  if (nonMemberPriceKr !== null && (!Number.isFinite(nonMemberPriceKr) || nonMemberPriceKr < 0 || nonMemberPriceKr > 100_000)) throw new Error("invalid_non_member_price");
+  const nonMemberPriceMinor = nonMemberPriceKr === null ? null : Math.round(nonMemberPriceKr * 100);
   const bookingType = body.bookingType === undefined ? "standard" : body.bookingType;
   if (!BOOKING_TYPES.includes(bookingType as RoomBookingType)) throw new Error("invalid_booking_type");
 
@@ -155,6 +162,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     ...(typeof body.description === "string" ? { description: body.description.trim() || null } : {}),
     ...(maxAttendees !== null ? { maxAttendees } : { maxAttendees: null }),
     ticketPriceMinor,
+    nonMemberPriceMinor,
     bookingType: bookingType as RoomBookingType,
     ...(typeof body.memberName === "string" && body.memberName.trim()
       ? { memberName: body.memberName.trim() }
@@ -181,7 +189,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, booking_type, review_status, review_note, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, non_member_price_minor, booking_type, review_status, review_note, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -240,8 +248,8 @@ export async function createRoomBooking(
          clerk_user_id, teacher_name, teacher_email, title, description,
          starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
          payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type,
-         review_status, reviewed_by, reviewed_at_ms
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         review_status, reviewed_by, reviewed_at_ms, non_member_price_minor
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -260,7 +268,8 @@ export async function createRoomBooking(
       input.bookingType ?? "standard",
       input.preApproved ? "approved" : "pending",
       input.preApproved ? "Fast underviser eller bestyrelsen" : null,
-      input.preApproved ? now : null
+      input.preApproved ? now : null,
+      input.nonMemberPriceMinor ?? null
     )
     .run();
 
@@ -330,7 +339,7 @@ export async function updateOwnedRoomBooking(
        SET teacher_name = ?, teacher_email = ?, title = ?, description = ?,
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
            ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?,
-           review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?
+           review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?, non_member_price_minor = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -350,6 +359,7 @@ export async function updateOwnedRoomBooking(
       input.preApproved ? "approved" : "pending",
       input.preApproved ? "Fast underviser eller bestyrelsen" : null,
       input.preApproved ? Date.now() : null,
+      input.nonMemberPriceMinor ?? null,
       bookingId,
       ownerClerkUserId
     )

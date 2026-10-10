@@ -263,7 +263,7 @@ export async function createFromDraft(db: D1Database, id: number, who: string, n
   let input;
   try {
     input = normalizeCreateRoomBookingInput({ teacherName: d.host_name, teacherEmail: d.host_email, title: d.title, description: eventText(d),
-      startsAt: new Date(copenhagenMs(d.date, d.start)).toISOString(), endsAt: new Date(copenhagenMs(d.date, d.end)).toISOString(), maxAttendees: d.max_attendees, ticketPriceKr: 0, bookingType: d.booking_type });
+      startsAt: new Date(copenhagenMs(d.date, d.start)).toISOString(), endsAt: new Date(copenhagenMs(d.date, d.end)).toISOString(), maxAttendees: d.max_attendees, ticketPriceKr: 0, nonMemberPriceKr: d.non_member_price_kr, bookingType: d.booking_type });
   } catch (error) {
     return { ok: false, reason: error instanceof Error && error.message === "invalid_booking_start" ? "Tidspunktet er allerede passeret." : "Tiderne kunne ikke læses." };
   }
