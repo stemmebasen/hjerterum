@@ -824,6 +824,15 @@ h3 { font-size: 25px; line-height: 1.2; }
 }
 
 /* Medlemskabets detaljer: pris, sidst trukket, næste træk - og en lille Afmeld. */
+/* "Dit medlemskab" first on Min profil, more prominent than the cards below it. */
+.profile-membership { margin: 26px 0 20px; padding: 26px 28px; border-radius: 22px; border: 1px solid color-mix(in srgb, var(--lys-accent, #c9a48a) 55%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--lys-accent, #c9a48a) 16%, var(--profile-surface, transparent)), var(--profile-surface, transparent)); }
+.profile-membership-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.profile-membership-head .kicker { margin: 0; }
+.profile-membership h2 { margin: 8px 0 6px; font-size: clamp(26px, 4vw, 34px); }
+.profile-membership > p { margin: 0; color: var(--muted); }
+.profile-membership .pill-button { display: inline-block; text-decoration: none; }
+@media (max-width: 640px) { .profile-membership { padding: 20px; } }
 .membership-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 14px 0; }
 .membership-facts div { background: var(--soft, rgba(0, 0, 0, .04)); border-radius: 12px; padding: 10px 12px; }
 .membership-facts dt { font-size: 12px; color: var(--muted); }

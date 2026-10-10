@@ -653,6 +653,15 @@ Still open:
 - Hun godkender eventtekster (varme, konkrete, uden helbredsløfter) og spørger, når udkastet er lavet, om man har brug for hjælp til andet - fx at komme ind i huset eller at få eventet ud på Facebook og Instagram.
 - Fotos: medlemmet vedhæfter et foto i chatten; browseren måler det og sender en mindre kopi. Saga ser på kvaliteten, og serveren afviser altid et foto, der bryder de målbare krav (jpg/png, højst 8 MB, mindst 1920 × 1005 efter beskæring). Et godkendt foto kan med "Brug som eventfoto" blive eventets cover på Opret event (beskåret som et valgt foto).
 
+## Dit medlemskab øverst på Min profil (2026-10-10)
+
+- "Dit medlemskab" står først på Min profil som et fremhævet kort: plan, status, pris, næste træk (eller "betales via MembershipWorks" / "givet af Hjerterum") og knappen "Se og administrér medlemskab" til `/member-portal/medlemskab`.
+
+## Sidefod, menu og juridiske sider (2026-10-10)
+
+- Menupunktet "Vision / om os" hedder "Om Hjerterum". "English" er ude af menuen og står som et lille "EN" ved Log ind (og som "English" i sidefoden).
+- Sidefoden (hjemmesiden og medlemssiden) har en juridisk linje: Handelsbetingelser (`/handelsbetingelser`), Privatlivspolitik (`/privatliv`, udvidet med medlemskab, events, Saga, nyhedsbrev, databehandlere og rettigheder), Cookies (`/cookies`), © Hjerterum F.M.B.A. · CVR og versionen `v<package.json-version> · <commit>` (sat af vite.config.ts; `GITHUB_SHA` i CI). Teksterne bør læses igennem af bestyrelsen.
+
 ## Næste uge i Hjerterum (2026-10-10)
 
 - Forsidens kalenderafsnit hedder "Næste uge i Hjerterum" og viser husets events de næste 7 dage (de næste tre, hvis ugen er tom). Speakeren "I morgen i Hjerterum" står over listen.

@@ -1,5 +1,5 @@
 import { EventCard, calendarMonth } from "./event-card";
-import { SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
 import type { Section } from "../site/pages";
@@ -90,7 +90,7 @@ function useClerk() {
 }
 
 function SiteHeader({ current }: { current?: Section | undefined }) {
-  return <LysTop right={<a className="lys-pill" href="/sign-in">Log ind</a>}><SiteNav current={current} /></LysTop>;
+  return <LysTop right={<><LanguageSwitch /><a className="lys-pill" href="/sign-in">Log ind</a></>}><SiteNav current={current} /></LysTop>;
 }
 
 function AuthPage({

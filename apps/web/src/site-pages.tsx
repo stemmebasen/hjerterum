@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { SpeakerLine } from "./program-guide";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
 import { EnquiryForm } from "./enquiry-form";
 
@@ -16,6 +16,23 @@ export function SiteNav({ current }: { current?: Section | undefined }) {
   return <nav className="lys-nav site-nav" aria-label="Hovednavigation">
     {NAV.map(item => <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>)}
   </nav>;
+}
+
+/** "EN" beside Log ind instead of "English" in the menu. */
+export function LanguageSwitch() {
+  return <a className="site-lang" href={ENGLISH.href} lang="en" hrefLang="en" title={ENGLISH.title} aria-label={ENGLISH.title}>{ENGLISH.label}</a>;
+}
+
+/** The build's version and commit, set by vite.config.ts. */
+export const BUILD = { version: typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "", commit: typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__ : "" };
+
+/** The legal line under every page, on the website and the member site. */
+export function LegalLine() {
+  return <p className="site-foot-legal">
+    {LEGAL_LINKS.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
+    <span>© {new Date().getFullYear()} Hjerterum F.M.B.A. · CVR 40827692</span>
+    {BUILD.version && <span className="site-version">v{BUILD.version}{BUILD.commit ? ` · ${BUILD.commit}` : ""}</span>}
+  </p>;
 }
 
 export function Newsletter({ lang = "da" }: { lang?: "da" | "en" }) {
@@ -84,10 +101,10 @@ export function SiteFooter() {
     <nav aria-label="Sidefod">
       {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
       <a href="/om-os/foreningen">Foreningen</a>
-      <a href="/privatliv">Privatliv</a>
+      <a href={ENGLISH.href} lang="en">{ENGLISH.title}</a>
       <a href="/sign-in">Log ind</a>
     </nav>
-    <p className="site-foot-legal">© {new Date().getFullYear()} Hjerterum F.M.B.A. · CVR 40827692 · Et fællesskab baseret på nærvær.</p>
+    <LegalLine />
   </footer>;
 }
 
@@ -210,7 +227,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     </section>
     <section className="site-home-section site-vision">
       <div className="lys-intro">
-        <div><p className="lys-kicker">Vision / om os</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
+        <div><p className="lys-kicker">Om Hjerterum</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
         <div><p>{ABOUT_WORDS.intro}</p><p>{ABOUT_WORDS.welcome}</p></div>
       </div>
       <Cards paths={["/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />
