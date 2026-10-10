@@ -3,7 +3,7 @@ import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
-import { planFromBooking, planInstants, todayKey, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
+import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
@@ -51,6 +51,8 @@ type Booking = {
   feeKr: number;
   ticketPriceKr: number;
   nonMemberPriceKr?: number | null;
+  setupMinutes?: number;
+  cleanupMinutes?: number;
   bookingType?: "standard" | "reduced" | "free";
   reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
   reviewNote?: string | null;
@@ -297,7 +299,7 @@ function localDateTimeInput(value: string): string {
   return local.toISOString().slice(0, 16);
 }
 
-const EMPTY_PLAN: Plan = { date: "", start: "10:00", end: "12:00", type: "standard" };
+const EMPTY_PLAN: Plan = { date: "", start: "10:00", end: "12:00", type: "standard", setup: DEFAULT_BUFFER, cleanup: DEFAULT_BUFFER };
 
 function MemberEvents({
   clerk,
@@ -329,7 +331,7 @@ function MemberEvents({
   useEffect(() => {
     if (!prefill) return;
     const d = prefill.draft;
-    setPlan({ date: d.date, start: d.start, end: d.end, type: d.booking_type });
+    setPlan({ date: d.date, start: d.start, end: d.end, type: d.booking_type, setup: DEFAULT_BUFFER, cleanup: DEFAULT_BUFFER });
   }, [prefill]);
   const [payout, setPayout] = useState<{
     configured: boolean;
@@ -339,8 +341,8 @@ function MemberEvents({
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
 
   useEffect(() => {
-    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard")
-      : prefill ? { date: prefill.draft.date, start: prefill.draft.start, end: prefill.draft.end, type: prefill.draft.booking_type } : EMPTY_PLAN);
+    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard", editing.setupMinutes ?? 0, editing.cleanupMinutes ?? 0)
+      : prefill ? { date: prefill.draft.date, start: prefill.draft.start, end: prefill.draft.end, type: prefill.draft.booking_type, setup: DEFAULT_BUFFER, cleanup: DEFAULT_BUFFER } : EMPTY_PLAN);
     setCover(null);
     setExtraFiles([]);
   }, [editing]);
@@ -405,7 +407,9 @@ function MemberEvents({
             maxAttendees: Number(form.get("maxAttendees")) || null,
             ticketPriceKr: Number(form.get("ticketPriceKr")) || 0,
             nonMemberPriceKr: String(form.get("nonMemberPriceKr") ?? "").trim() === "" ? null : Number(form.get("nonMemberPriceKr")),
-            bookingType: plan.type
+            bookingType: plan.type,
+            setupMinutes: plan.setup,
+            cleanupMinutes: plan.cleanup
           })
         }
       );
@@ -431,7 +435,7 @@ function MemberEvents({
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
         code === "payments_not_configured" ? "Betalte events kan ikke oprettes endnu, fordi betalingen ikke er koblet til. Sæt billetprisen til 0 kr., så oprettes eventet som gratis." :
         code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :
-        code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "En booking er mindst 2 og højst 10 timer." :
+        code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "Salen lejes mindst 2 og højst 10 timer med klargøring og oprydning." :
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
         "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til hjerterum@holistisk.org, hvis det bliver ved."
@@ -481,7 +485,7 @@ function MemberEvents({
               <label>Titel<input name="title" defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
               <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
-                ignore={editing ? { startsAt: editing.startsAt, endsAt: editing.endsAt } : null} onProblem={setPlanProblemCode} />
+                ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
               <div className="workspace-form-row event-numbers">
                 <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} /></label>
                 <label>Billetpris pr. deltager (kr.)

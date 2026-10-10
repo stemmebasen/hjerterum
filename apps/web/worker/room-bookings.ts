@@ -13,6 +13,9 @@ export type CreateRoomBookingInput = {
   ticketPriceMinor: number;
   /** What a non-member pays; null when the organiser gave none. */
   nonMemberPriceMinor?: number | null;
+  /** Minutes the room is taken before and after the event (0, 30 or 60). */
+  setupMinutes?: number;
+  cleanupMinutes?: number;
   /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
   bookingType?: RoomBookingType;
   /** Set by the server, never from the request: a fixed teacher's or the board's event needs no approval. */
@@ -42,6 +45,8 @@ export type RoomBookingRow = {
   fee_minor: number;
   ticket_price_minor: number;
   non_member_price_minor?: number | null;
+  setup_minutes?: number;
+  cleanup_minutes?: number;
   booking_type?: RoomBookingType;
   review_status?: ReviewStatus;
   review_note?: string | null;
@@ -115,6 +120,13 @@ function calculateFee(startMs: number, endMs: number, bookingType: RoomBookingTy
 
 const BOOKING_TYPES: readonly RoomBookingType[] = ["standard", "reduced", "free"];
 
+/** The time the room is taken: the event plus setup before and cleanup after. Conflicts and rent go by this. */
+export const WINDOW_START = "(starts_at_ms - setup_minutes * 60000)";
+export const WINDOW_END = "(ends_at_ms + cleanup_minutes * 60000)";
+export function roomWindow(startMs: number, endMs: number, input: { setupMinutes?: number; cleanupMinutes?: number }) {
+  return { fromMs: startMs - (input.setupMinutes ?? 0) * 60_000, toMs: endMs + (input.cleanupMinutes ?? 0) * 60_000 };
+}
+
 export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBookingInput {
   if (!value || typeof value !== "object") throw new Error("invalid_body");
   const body = value as Record<string, unknown>;
@@ -150,6 +162,13 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
   const nonMemberPriceKr = nonMemberRaw === undefined || nonMemberRaw === null || nonMemberRaw === "" ? null : Number(nonMemberRaw);
   if (nonMemberPriceKr !== null && (!Number.isFinite(nonMemberPriceKr) || nonMemberPriceKr < 0 || nonMemberPriceKr > 100_000)) throw new Error("invalid_non_member_price");
   const nonMemberPriceMinor = nonMemberPriceKr === null ? null : Math.round(nonMemberPriceKr * 100);
+  const buffer = (value: unknown, name: string) => {
+    if (value === undefined || value === null || value === "") return 0;
+    const n = Number(value);
+    if (![0, 30, 60].includes(n)) throw new Error(`invalid_${name}`);
+    return n;
+  };
+  const setupMinutes = buffer(body.setupMinutes, "setup_minutes"), cleanupMinutes = buffer(body.cleanupMinutes, "cleanup_minutes");
   const bookingType = body.bookingType === undefined ? "standard" : body.bookingType;
   if (!BOOKING_TYPES.includes(bookingType as RoomBookingType)) throw new Error("invalid_booking_type");
 
@@ -163,6 +182,8 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     ...(maxAttendees !== null ? { maxAttendees } : { maxAttendees: null }),
     ticketPriceMinor,
     nonMemberPriceMinor,
+    setupMinutes,
+    cleanupMinutes,
     bookingType: bookingType as RoomBookingType,
     ...(typeof body.memberName === "string" && body.memberName.trim()
       ? { memberName: body.memberName.trim() }
@@ -189,7 +210,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, non_member_price_minor, booking_type, review_status, review_note, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, non_member_price_minor, setup_minutes, cleanup_minutes, booking_type, review_status, review_note, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -227,20 +248,21 @@ export async function createRoomBooking(
 ): Promise<CreatedRoomBooking> {
   const startMs = Date.parse(input.startsAt);
   const endMs = Date.parse(input.endsAt);
+  const { fromMs, toMs } = roomWindow(startMs, endMs, input);
 
   const conflict = await db
     .prepare(
       `SELECT id FROM room_bookings
-       WHERE status = 'scheduled' AND starts_at_ms < ? AND ends_at_ms > ?
+       WHERE status = 'scheduled' AND ${WINDOW_START} < ? AND ${WINDOW_END} > ?
        LIMIT 1`
     )
-    .bind(endMs, startMs)
+    .bind(toMs, fromMs)
     .first<{ id: number }>();
-  if (conflict || await hasExternalEventConflict(startMs, endMs)) {
+  if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
     throw new Error("booking_conflict");
   }
 
-  const feeKr = calculateFee(startMs, endMs, input.bookingType);
+  const feeKr = calculateFee(fromMs, toMs, input.bookingType);
   const now = Date.now();
   const insert = await db
     .prepare(
@@ -248,8 +270,8 @@ export async function createRoomBooking(
          clerk_user_id, teacher_name, teacher_email, title, description,
          starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
          payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type,
-         review_status, reviewed_by, reviewed_at_ms, non_member_price_minor
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         review_status, reviewed_by, reviewed_at_ms, non_member_price_minor, setup_minutes, cleanup_minutes
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -269,7 +291,9 @@ export async function createRoomBooking(
       input.preApproved ? "approved" : "pending",
       input.preApproved ? "Fast underviser eller bestyrelsen" : null,
       input.preApproved ? now : null,
-      input.nonMemberPriceMinor ?? null
+      input.nonMemberPriceMinor ?? null,
+      input.setupMinutes ?? 0,
+      input.cleanupMinutes ?? 0
     )
     .run();
 
@@ -306,16 +330,17 @@ export async function updateOwnedRoomBooking(
 ): Promise<{ feeKr: number }> {
   const startMs = Date.parse(input.startsAt);
   const endMs = Date.parse(input.endsAt);
+  const { fromMs, toMs } = roomWindow(startMs, endMs, input);
 
   const conflict = await db
     .prepare(
       `SELECT id FROM room_bookings
-       WHERE status = 'scheduled' AND id <> ? AND starts_at_ms < ? AND ends_at_ms > ?
+       WHERE status = 'scheduled' AND id <> ? AND ${WINDOW_START} < ? AND ${WINDOW_END} > ?
        LIMIT 1`
     )
-    .bind(bookingId, endMs, startMs)
+    .bind(bookingId, toMs, fromMs)
     .first<{ id: number }>();
-  if (conflict || await hasExternalEventConflict(startMs, endMs)) {
+  if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
     throw new Error("booking_conflict");
   }
 
@@ -332,14 +357,15 @@ export async function updateOwnedRoomBooking(
     if ((registrations?.count ?? 0) > 0) throw new Error("booking_has_registrations");
   }
 
-  const feeKr = calculateFee(startMs, endMs, input.bookingType);
+  const feeKr = calculateFee(fromMs, toMs, input.bookingType);
   const result = await db
     .prepare(
       `UPDATE room_bookings
        SET teacher_name = ?, teacher_email = ?, title = ?, description = ?,
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
            ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?,
-           review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?, non_member_price_minor = ?
+           review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?, non_member_price_minor = ?,
+           setup_minutes = ?, cleanup_minutes = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -360,6 +386,8 @@ export async function updateOwnedRoomBooking(
       input.preApproved ? "Fast underviser eller bestyrelsen" : null,
       input.preApproved ? Date.now() : null,
       input.nonMemberPriceMinor ?? null,
+      input.setupMinutes ?? 0,
+      input.cleanupMinutes ?? 0,
       bookingId,
       ownerClerkUserId
     )

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { atLocal, busyDuring, endOptions, firstFreeStart, monthGrid, planFromBooking, planInstants, planProblem, quoteFor, startOptions, type DayEntry, type Plan } from "../src/event-planner-logic";
+import { atLocal, busyDuring, endOptions, firstFreeStart, monthGrid, planFromBooking, planInstants, planProblem, quoteFor, quoteForPlan, startOptions, windowOf, type DayEntry, type Plan } from "../src/event-planner-logic";
 
 // Requested: one date from a date picker, the day's overview, the times as choices, and the price for each kind of rent.
 
 const NOW = new Date(2026, 9, 5, 9, 0); // Monday 5 October 2026, 09.00 local
 const entry = (date: string, from: number, to: number, label = "Optaget"): DayEntry =>
   ({ startsAt: atLocal(date, from).toISOString(), endsAt: atLocal(date, to).toISOString(), label, own: false, external: false, waiting: false });
-const plan = (over: Partial<Plan> = {}): Plan => ({ date: "2026-10-19", start: "14:00", end: "16:00", type: "standard", ...over });
+const plan = (over: Partial<Plan> = {}): Plan => ({ date: "2026-10-19", start: "14:00", end: "16:00", type: "standard", setup: 0, cleanup: 0, ...over });
 
 describe("the date picker's month", () => {
   it("is weeks of seven, Monday first, with neighbours filling the edges", () => {
@@ -89,5 +89,40 @@ describe("a plan and the instants the server gets", () => {
     const { startsAt, endsAt } = planInstants(p);
     expect(planFromBooking(startsAt, endsAt, "reduced")).toEqual({ ...p, type: "reduced" });
     expect(new Date(endsAt).getTime() - new Date(startsAt).getTime()).toBe(4 * 3_600_000);
+  });
+});
+
+// Requested: the room must be ready before the guests come and tidy after they leave - 30 minutes each way by default.
+describe("setup and cleanup around the event", () => {
+  const buffered = (over: Partial<Plan> = {}) => plan({ setup: 30, cleanup: 30, ...over });
+
+  it("take the room from half an hour before to half an hour after", () => {
+    expect(windowOf(buffered())).toEqual({ from: 13 * 60 + 30, to: 16 * 60 + 30 });
+    expect(planProblem(buffered(), [entry("2026-10-19", 12 * 60, 13 * 60 + 30)], NOW)).toBeNull();
+    expect(planProblem(buffered(), [entry("2026-10-19", 12 * 60, 13 * 60 + 45)], NOW)).toBe("busy");
+    expect(planProblem(buffered(), [entry("2026-10-19", 16 * 60 + 15, 18 * 60)], NOW)).toBe("busy");
+    expect(firstFreeStart([entry("2026-10-19", 9 * 60, 13 * 60)], "2026-10-19", 120, 30, 30)).toBe("13:30");
+  });
+
+  it("let a one-hour event fill the two hours of rent, and end so the cleanup is done by midnight", () => {
+    expect(endOptions("10:00", 30, 30)[0]).toBe("11:00");
+    expect(endOptions("10:00", 30, 30).at(-1)).toBe("19:00");
+    expect(endOptions("22:00", 30, 30)).toEqual(["23:00", "23:30"]);
+    expect(planProblem(buffered({ end: "15:00" }), [], NOW)).toBeNull();
+    expect(planProblem(buffered({ end: "14:30" }), [], NOW)).toBe("too_short");
+    expect(planProblem(buffered({ start: "08:00", end: "18:00" }), [], NOW)).toBe("too_long");
+    expect(planProblem(buffered({ start: "22:00", end: "24:00" }), [], NOW)).toBe("too_late");
+  });
+
+  it("are priced and checked against 18.30 with the event", () => {
+    expect(quoteForPlan(buffered(), "standard")?.totalKr).toBe(quoteFor("2026-10-19", "13:30", "16:30", "standard")?.totalKr);
+    expect(planProblem(buffered({ start: "16:30", end: "18:30", type: "reduced" }), [], NOW)).toBe("crosses_evening");
+    expect(planProblem(buffered({ start: "16:00", end: "18:00", type: "reduced" }), [], NOW)).toBeNull();
+  });
+
+  it("come back when a booking is edited", () => {
+    const p = buffered({ start: "18:00", end: "21:00" });
+    const { startsAt, endsAt } = planInstants(p);
+    expect(planFromBooking(startsAt, endsAt, "standard", 30, 30)).toEqual(p);
   });
 });

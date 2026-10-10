@@ -633,3 +633,9 @@ Still open:
 - Hver offentlig behandler/underviser har sin egen side, `/behandlere/<navn>` (navnet som adresse; ved to ens navne kommer et kort id på): rundt foto, navn og titel, præsentation, specialer og kontakt. Kortene i oversigten linker dertil.
 - Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.
 - Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren.
+
+## Klargøring og oprydning ved leje fra medlemssiden (2026-10-10)
+
+- Medlemmet vælger eventets start og slut; "Klargøring før" og "Oprydning efter" er 30 minutter som standard og kan sættes til ingen, 30 minutter eller 1 time. Salen er optaget, og lejen beregnes, for hele vinduet (start minus klargøring til slut plus oprydning). Prisberegnerens regler gælder vinduet: 2-10 timer, ikke hen over 18.30 på hverdage ved reduceret/gratis leje, og oprydningen er færdig senest kl. 24. Selve eventet varer mindst 1 time.
+- Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
+- `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.

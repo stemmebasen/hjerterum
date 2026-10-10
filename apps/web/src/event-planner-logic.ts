@@ -5,8 +5,10 @@ import { calculate, crossesBand, type CalcResult } from "../worker/beregner/quot
  * Everything here is plain functions, so the rules can be tested without a browser. */
 
 export type RentType = "standard" | "reduced" | "free";
-export type Plan = { date: string; start: string; end: string; type: RentType };
-export type DayEntry = { startsAt: string; endsAt: string; label: string; own: boolean; external: boolean; waiting: boolean };
+/** setup and cleanup: minutes the room is taken before and after the event (0, 30 or 60). The rent, the rules and the
+ * busy check go by that whole window. Requested: the room must be ready before the guests come and tidy after they leave. */
+export type Plan = { date: string; start: string; end: string; type: RentType; setup: number; cleanup: number };
+export type DayEntry = { startsAt: string; endsAt: string; label: string; own: boolean; external: boolean; waiting: boolean; id?: number };
 export type Cell = { date: string; inMonth: boolean };
 
 export const FIRST_HOUR = 8;
@@ -14,6 +16,11 @@ export const LAST_HOUR = 24;
 export const MIN_MINUTES = 120;
 export const MAX_MINUTES = 600;
 export const EVENING_FROM = 18 * 60 + 30;
+/** The shortest event itself; the room is still rented for at least MIN_MINUTES with setup and cleanup. */
+export const MIN_EVENT_MINUTES = 60;
+export const BUFFER_CHOICES = [0, 30, 60] as const;
+export const DEFAULT_BUFFER = 30;
+export const bufferText = (minutes: number): string => minutes === 0 ? "Ingen" : minutes === 60 ? "1 time" : `${minutes} min.`;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 export const dateKey = (year: number, month: number, day: number) => `${year}-${pad(month + 1)}-${pad(day)}`;
@@ -63,14 +70,21 @@ export function startOptions(): string[] {
   for (let m = FIRST_HOUR * 60; m <= LAST_HOUR * 60 - MIN_MINUTES; m += 30) options.push(clockOf(m));
   return options;
 }
-/** Ending times for a start: 2 to 10 hours later in half hours, never past midnight (no overnight events). */
-export function endOptions(start: string): string[] {
+/** The event's shortest and longest end for a start, so the room is rented 2-10 hours with setup and cleanup, and the
+ * cleanup is done by midnight (no overnight events). */
+export function endRange(from: number, setup = 0, cleanup = 0): { min: number; max: number } {
+  return { min: from + Math.max(MIN_EVENT_MINUTES, MIN_MINUTES - setup - cleanup), max: Math.min(from + MAX_MINUTES - setup - cleanup, LAST_HOUR * 60 - cleanup) };
+}
+/** Ending times for a start, in half hours. */
+export function endOptions(start: string, setup = 0, cleanup = 0): string[] {
   const from = minutesOf(start);
   if (!Number.isFinite(from)) return [];
+  const { min, max } = endRange(from, setup, cleanup);
   const options: string[] = [];
-  for (let m = from + MIN_MINUTES; m <= Math.min(from + MAX_MINUTES, LAST_HOUR * 60); m += 30) options.push(m === 24 * 60 ? "24:00" : clockOf(m));
+  for (let m = min; m <= max; m += 30) options.push(m === 24 * 60 ? "24:00" : clockOf(m));
   return options;
 }
+export const clockOrMidnight = (minutes: number): string => minutes === 24 * 60 ? "24:00" : clockOf(minutes);
 export const endMinutes = (end: string): number => end === "24:00" ? 24 * 60 : minutesOf(end);
 
 /** A moment of a day as a local Date; 24:00 is the midnight that ends the day. */
@@ -93,38 +107,53 @@ export function busyDuring(entries: DayEntry[], key: string, from: number, to: n
   return entries.filter((entry) => { const range = entryMinutes(entry, key); return range !== null && range.from < to && range.to > from; });
 }
 
-/** The first start from 10.00 where a two-hour event fits between the day's entries; null when the day is full. */
-export function firstFreeStart(entries: DayEntry[], key: string): string | null {
-  for (let m = 10 * 60; m <= LAST_HOUR * 60 - MIN_MINUTES; m += 30) if (!busyDuring(entries, key, m, m + MIN_MINUTES).length) return clockOf(m);
+/** The first start from 10.00 where an event of the given length (with its setup and cleanup) fits between the day's
+ * entries; null when the day is full. */
+export function firstFreeStart(entries: DayEntry[], key: string, length = MIN_MINUTES, setup = 0, cleanup = 0): string | null {
+  for (let m = 10 * 60; m + length + cleanup <= LAST_HOUR * 60; m += 30) if (!busyDuring(entries, key, m - setup, m + length + cleanup).length) return clockOf(m);
   return null;
 }
 
-export type Problem = "no_date" | "past" | "too_short" | "too_long" | "crosses_evening" | "busy";
+/** The time the room is taken, as clock minutes of the day. */
+export function windowOf(plan: Pick<Plan, "start" | "end" | "setup" | "cleanup">): { from: number; to: number } {
+  return { from: minutesOf(plan.start) - (plan.setup ?? 0), to: endMinutes(plan.end) + (plan.cleanup ?? 0) };
+}
+
+export type Problem = "no_date" | "past" | "too_short" | "too_long" | "too_late" | "crosses_evening" | "busy";
 /** What is wrong with the chosen day and time, in the order a person should fix it. */
 export function planProblem(plan: Plan, entries: DayEntry[], now = new Date()): Problem | null {
   if (!plan.date || !Number.isFinite(weekdayOf(plan.date))) return "no_date";
   const from = minutesOf(plan.start), to = endMinutes(plan.end);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return "no_date";
-  if (atLocal(plan.date, from).getTime() <= now.getTime()) return "past";
-  if (to - from < MIN_MINUTES) return "too_short";
-  if (to - from > MAX_MINUTES) return "too_long";
-  if (crossesBand({ day: weekdayOf(plan.date), start: plan.start, hours: (to - from) / 60, type: plan.type })) return "crosses_evening";
-  if (busyDuring(entries, plan.date, from, to).length) return "busy";
+  const room = windowOf(plan);
+  if (atLocal(plan.date, room.from).getTime() <= now.getTime()) return "past";
+  if (to - from < MIN_EVENT_MINUTES || room.to - room.from < MIN_MINUTES) return "too_short";
+  if (room.to - room.from > MAX_MINUTES) return "too_long";
+  if (room.from < 0 || room.to > LAST_HOUR * 60) return "too_late";
+  if (crossesBand({ day: weekdayOf(plan.date), start: clockOf(room.from), hours: (room.to - room.from) / 60, type: plan.type })) return "crosses_evening";
+  if (busyDuring(entries, plan.date, room.from, room.to).length) return "busy";
   return null;
 }
 
 export const PROBLEM_TEXT: Record<Problem, string> = {
   no_date: "Vælg en dato.",
   past: "Tidspunktet ligger i fortiden.",
-  too_short: "En booking er mindst 2 timer.",
-  too_long: "En booking er højst 10 timer.",
-  crosses_evening: "Med reduceret pris eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller vælg standardpris.",
-  busy: "Tiden overlapper noget, der allerede er i salen."
+  too_short: "Salen lejes mindst 2 timer med klargøring og oprydning, og selve eventet varer mindst 1 time.",
+  too_long: "Salen lejes højst 10 timer med klargøring og oprydning.",
+  too_late: "Oprydningen skal være færdig senest kl. 24.00.",
+  crosses_evening: "Med reduceret pris eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30 - klargøring og oprydning medregnet. Læg den helt før eller helt efter - eller vælg standardpris.",
+  busy: "Tiden overlapper noget, der allerede er i salen - klargøring og oprydning medregnet."
 };
 
 export type Quote = { totalKr: number; lines: string[] } | null;
 const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
-/** The room's rent for one kind of rent at the chosen time, with what it is made of. Null when the time cannot be priced. */
+/** The room's rent for one kind of rent for the time the room is taken, with what it is made of. Null when the time cannot be priced. */
+export function quoteForPlan(plan: Plan, type: RentType): Quote {
+  const room = windowOf(plan);
+  if (!Number.isFinite(room.from) || !Number.isFinite(room.to) || room.from < 0 || room.to > 24 * 60) return null;
+  return quoteFor(plan.date, clockOf(room.from), clockOrMidnight(room.to), type);
+}
+/** The room's rent for one kind of rent at the given time, with what it is made of. Null when the time cannot be priced. */
 export function quoteFor(date: string, start: string, end: string, type: RentType): Quote {
   const day = weekdayOf(date), from = minutesOf(start), to = endMinutes(end);
   if (!Number.isFinite(day) || !Number.isFinite(from) || !Number.isFinite(to)) return null;
@@ -151,12 +180,12 @@ export const RENT_TYPES: Array<{ id: RentType; name: string; text: string }> = [
 ];
 
 /** A Plan from an existing booking's start and end (local time), for editing. */
-export function planFromBooking(startsAt: string, endsAt: string, type: RentType): Plan {
+export function planFromBooking(startsAt: string, endsAt: string, type: RentType, setup = 0, cleanup = 0): Plan {
   const s = new Date(startsAt), e = new Date(endsAt);
   const key = todayKey(s);
   const endKey = todayKey(e);
   const end = endKey > key ? "24:00" : clockOf(e.getHours() * 60 + e.getMinutes());
-  return { date: key, start: clockOf(s.getHours() * 60 + s.getMinutes()), end, type };
+  return { date: key, start: clockOf(s.getHours() * 60 + s.getMinutes()), end, type, setup, cleanup };
 }
 /** The instants the server wants, from the plan's local date and times. */
 export function planInstants(plan: Plan): { startsAt: string; endsAt: string } {
