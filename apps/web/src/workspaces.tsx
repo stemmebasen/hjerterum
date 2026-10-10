@@ -10,8 +10,9 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
+import { COVER_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
+import { cropCover } from "./cover-crop";
 import { LegalLine } from "./site-pages";
-import { DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
@@ -328,6 +329,15 @@ function MemberEvents({
     const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
     window.addEventListener(DRAFT_EVENT, take);
     return () => window.removeEventListener(DRAFT_EVENT, take);
+  }, []);
+  // A photo Saga approved becomes the cover, cut to 1920 × 1005 like a picked one.
+  useEffect(() => {
+    const take = async (event: Event) => {
+      const cropped = await cropCover((event as CustomEvent<File>).detail);
+      if (cropped.ok) setCover(cropped.file); else setMessage(cropped.reason);
+    };
+    window.addEventListener(COVER_EVENT, take);
+    return () => window.removeEventListener(COVER_EVENT, take);
   }, []);
   useEffect(() => {
     if (!prefill) return;

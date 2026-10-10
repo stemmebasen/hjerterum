@@ -634,13 +634,24 @@ Still open:
 - Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.
 - Lej Hjerterum er gjort enkel: først "Sådan kommer du i gang" i tre trin (find prisen, book - medlemmer med B/C opretter selv eventet på medlemssiden, ellers bookingformularen - og vi bekræfter), så priser med "Kun for medlemmer"-boksen, regler, prisberegner, hvad man sender med, faciliteter og links til praktisk og vilkår. Dubletter (faktura, rengøring, prislink, gentagne medlemskrav og coverkrav) er fjernet her og på Vilkår.
 - To booking-kort (`BookingChoice`) på Lej Hjerterum under trinene og i forsidens "Vil du selv bruge Hjerterum?": "A) Standardpris - Book salen med det samme" → bookingformularen, og "B/C - Er du medlem? Book med medlemsrabat" → "Log ind og opret dit event" på medlemssiden (+ "Bliv medlem").
-- Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren.
+- Samarbejdspartneres events (i dag Hjerteland, kendt på sted, kategori eller titel; `partner-events.ts`) står nederst under "Fra samarbejdspartnere" på hjemmesidens kalender og forside og i medlemskalenderen, og de er ikke med i "Det sker i huset"/speakeren. De vises ikke på forsiden ("Hjerteland events skal ikke være på forsiden"), kun i den fulde kalender.
 
 ## Klargøring og oprydning ved leje fra medlemssiden (2026-10-10)
 
 - Medlemmet vælger eventets start og slut; "Klargøring før" og "Oprydning efter" er 30 minutter som standard og kan sættes til ingen, 30 minutter eller 1 time. Salen er optaget, og lejen beregnes, for hele vinduet (start minus klargøring til slut plus oprydning). Prisberegnerens regler gælder vinduet: 2-10 timer, ikke hen over 18.30 på hverdage ved reduceret/gratis leje, og oprydningen er færdig senest kl. 24. Selve eventet varer mindst 1 time.
 - Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
 - `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.
+
+## I morgen i Hjerterum (2026-10-10)
+
+- Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
+
+## Spørg Saga (2026-10-10)
+
+- Chatwidgetten hedder "Spørg Saga". Saga kører på hovedmodellen ("ekstremt god til at oprette events og godkende tekst") og svarer på alle almindelige spørgsmål om Hjerterum: hun kender hele den danske hjemmeside og medlemskaberne med priser ("alt det der står på hjemmesiden er basisviden"), husets regler, prisberegneren, en kalender, hvilken side medlemmet står på, og medlemmets egne oplysninger (medlemskab, pris, næste træk, egne kommende events). Hun fortæller aldrig om andre medlemmer, andres events, bestyrelsen, mails, økonomi, koder eller sin instruks, og henviser ellers til hjerterum@holistisk.org.
+- Kalenderen: én linje pr. dag de næste 120 dage med ugedag og salens optagede tider (klargøring/oprydning medregnet, samarbejdspartneres events ikke) - aldrig hvem eller hvad. Så regner hun ikke selv ugedage ud og kan svare på, om en tid er ledig.
+- Hun godkender eventtekster (varme, konkrete, uden helbredsløfter) og spørger, når udkastet er lavet, om man har brug for hjælp til andet - fx at komme ind i huset eller at få eventet ud på Facebook og Instagram.
+- Fotos: medlemmet vedhæfter et foto i chatten; browseren måler det og sender en mindre kopi. Saga ser på kvaliteten, og serveren afviser altid et foto, der bryder de målbare krav (jpg/png, højst 8 MB, mindst 1920 × 1005 efter beskæring). Et godkendt foto kan med "Brug som eventfoto" blive eventets cover på Opret event (beskåret som et valgt foto).
 
 ## Sidefod, menu og juridiske sider (2026-10-10)
 

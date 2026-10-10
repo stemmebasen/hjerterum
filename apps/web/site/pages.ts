@@ -341,7 +341,7 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
 
 ## Sådan kommer du i gang {#booking}
 1. **Find prisen.** Vælg lejetype og tidspunkt i [prisberegneren](#beregner) herunder.
-2. **Book.** Er du medlem og bruger B) Reduceret pris eller C) Gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – Saga hjælper dig gerne. Ellers sender du en bookingforespørgsel med [bookingformularen](/beregner).
+2. **Book.** Er du medlem og vil du bruge Hjerterum til reduceret pris eller med helt gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – vores digitale assistent, Saga, hjælper dig gerne. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
 3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
 
 {{booking-choice}}
@@ -625,33 +625,34 @@ At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst mu
   {
     path: "/om-os/historien", lang: "da", section: "om-os",
     kicker: "Om Hjerterum", title: "Historien", em: "bag Hjerterum",
-    lead: "Et eventyr, der begyndte i et lille lydstudie på Karupvej i 2016 – og som i dag har til huse i en stille oase bag Guldsmedgade.",
+    lead: "Det begyndte i et lille lydstudie på Karupvej i 2016. I dag holder vi til i en stille gård bag Guldsmedgade.",
     description: "Historien om Hjerterum i Aarhus fra 2016 til i dag.",
     card: { title: "Historien bag Hjerterum", text: "Fra et lydstudie på Karupvej til Guldsmedgade." },
-    body: `I hjertet af Aarhus, på den hyggelige Guldsmedgade, gemmer sig et magisk sted kaldet Hjerterum – et rum, hvor man kan sænke skuldrene, give slip på masken og mærke hjertet slå frit. Men som alle eventyr begyndte det et helt andet sted.
+    // Requested: "optimere denne tekst så den bliver mere uformel og varm, og mindre AI" - the same facts, in plainer words.
+    body: `Bag Guldsmedgade i Aarhus ligger Hjerterum: et sted, hvor du kan sænke skuldrene, lade facaden falde og bare være dig. Men sådan startede det ikke.
 
-## 2016 – Et eventyr tager sin begyndelse
-Jacob Hauge arbejdede i efteråret 2016 i sit lille lydstudie på Karupvej. Væggene var fyldt med kabler, mikrofoner og kreativ energi, men rummet føltes ofte tomt. Han længtes efter menneskelig nærhed og dybere mening. Midt i lyden af sin egen musik opstod visionen om et sted, hvor mennesker kunne mødes og udfolde sig – et hjem for hjertet.
+## 2016 – Et lydstudie, der var for stille
+I efteråret 2016 sad Jacob Hauge i sit lille lydstudie på Karupvej. Der var kabler og mikrofoner overalt, og musikken var god – men rummet føltes tomt. Han savnede mennesker. Og ud af det voksede en idé: et sted, hvor folk kunne mødes, øve sig, dele og være sammen. Et hjem for hjertet.
 
-## 2017 – Et møde, der tændte lys
-Kort tid efter krydsede hans vej Sophia Hasselbjørn ved et julearrangement. Sophia havde selv fået inspiration til et lignende sted, og sammen mærkede de et særligt kald. Som i et stille, magisk partnerskab begyndte de at bygge bro mellem drøm og virkelighed. Allerede i januar 2017 åbnede de dørene, og Hjerterums første arrangementer fyldte rummet med varme smil, nysgerrige blikke og en dragning mod fællesskab.
+## 2017 – To med samme drøm
+Til et julearrangement mødte han Sophia Hasselbjørn, som gik med en lignende drøm. De slog pjalterne sammen, og allerede i januar 2017 åbnede dørene. De første arrangementer var fyldt med smil, nysgerrighed og lyst til fællesskab.
 
-## Nye kræfter og voksende energi
-Efter et halvt år måtte Sophia tage afsked, og Celina Eyja trådte ind som den første lønnede medarbejder. Aurora Gayatri begyndte at bruge det lille behandlerlokale – en skabende energi, der senere skulle blive uundværlig for Hjerterums udvikling.
+## Flere kom til
+Efter et halvt år gik Sophia videre, og Celina Eyja blev vores første lønnede medarbejder. Aurora Gayatri begyndte at bruge det lille behandlerlokale – og hun kom til at betyde rigtig meget for, hvordan Hjerterum voksede.
 
-## 2018 – Et sted at udfolde sig
-I 2018 ventede nye eventyr i Frichsparken. Her voksede Hjerterum til et sted med fem behandlerlokaler og en stor sal, hvor energien kunne udfolde sig fuldt ud. Aurora og Marlene Solfred sluttede sig til teamet, og selvom praktiske og økonomiske udfordringer truede med at mørkne himlen, holdt fællesskabet og visionen fast. Løsninger blev fundet!
+## 2018 – Mere plads
+I 2018 flyttede vi til Frichsparken. Her fik vi fem behandlerlokaler og en stor sal. Aurora og Marlene Solfred blev en del af teamet. Der var praktiske og økonomiske bump på vejen, men fællesskabet holdt, og vi fandt løsninger.
 
-## 2019 – At finde sit sande hjem
-Som i alle eventyr kræver det mod at finde sit rette sted. I 2019 flyttede Hjerterum til Mejlgade 95, hvor fokus igen blev på arrangementer og fællesskab. Teamet bestod nu af Aurora, Douglas Crawford, Mariam Gabriella, Jan Gabriel og Jacob. Sommeren 2020 bragte igen stor forandring, da Jacob måtte træde tilbage på grund af stress. Aurora blev forkvinde og daglig leder, og Soroush Zand kom til som kasserer. Et sandt hjerteteam! Samme år holdt Hjerterum også online events, så fællesskabet kunne mødes under nedlukningen.
+## 2019 – Mejlgade
+I 2019 flyttede Hjerterum til Mejlgade 95, og fokus kom igen på arrangementer og fællesskab. Teamet var nu Aurora, Douglas Crawford, Mariam Gabriella, Jan Gabriel og Jacob. I sommeren 2020 måtte Jacob trække sig på grund af stress. Aurora blev forkvinde og daglig leder, og Soroush Zand kom til som kasserer. Samme år holdt vi online events, så vi kunne ses under nedlukningen.
 
 ![Salen på Mejlgade 95 i 2019](/media/2019-08-hc-sal-1-800-photo.webp "Salen på Mejlgade 95 i 2019.")
 
-## 2021 – En stille oase i midtbyen
-I begyndelsen af 2021 fandt Hjerterum sin nuværende skjulte perle på Guldsmedgade – centralt, men alligevel en stille oase bag byens summen. Soroush blev konstitueret leder i 2024 og overtog formelt ledelsen fra Aurora i starten af 2025, før Jacob vendte tilbage som formand i efteråret 2026.
+## 2021 – Guldsmedgade
+I starten af 2021 fandt vi vores nuværende hjem på Guldsmedgade: midt i byen, men stille, gemt væk i en gård. Soroush blev konstitueret leder i 2024 og overtog ledelsen fra Aurora i starten af 2025. I efteråret 2026 kom Jacob tilbage som formand.
 
-## Et levende eventyr for hjertet
-Hjerterum er ikke bare et center, men et levende eventyr – et sted, hvor hjertet altid har plads, og hvor hvert menneske kan finde sin egen sti – både ind i sig selv og tilbage ind i fællesskabet ♡`,
+## Og nu?
+Hjerterum er ikke bare et center. Det er et sted, der lever af de mennesker, der kommer her – hvor der er plads til dig, som du er, og hvor du kan finde vej både ind i dig selv og ud i fællesskabet ♡`,
     sources: ["historien-bag-hjerterum"]
   },
   {
