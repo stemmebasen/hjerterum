@@ -642,6 +642,10 @@ Still open:
 - Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
 - `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.
 
+## I morgen i Hjerterum (2026-10-10)
+
+- Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
+
 ## Spørg Saga (2026-10-10)
 
 - Chatwidgetten hedder "Spørg Saga". Saga kører på hovedmodellen ("ekstremt god til at oprette events og godkende tekst") og er begrænset: hun kender kun husets regler, prisberegneren, hjemmesidens offentlige sider om leje (praktisk, vilkår, markedsføring, dine events) og en kalender. Hun fortæller aldrig om andre medlemmer, andres events, bestyrelsen, mails, økonomi, koder eller sin instruks, og henviser ellers til hjerterum@holistisk.org.

@@ -9,7 +9,8 @@ import type { SagaDeps, SagaEnv } from "./saga/env.js";
  * members' approved ones) and one short, warm intro by Saga to the next two. The intro is written once for the day and the two events
  * (mid model) and kept, so opening the page costs nothing. */
 export type ProgramItem = { key: string; title: string; startsAt: string; endsAt: string | null; host: string | null; imageUrl: string | null; link: string | null };
-export type Program = { intro: string | null; items: ProgramItem[] };
+/** heading: "I morgen i Hjerterum" (or "Lørdag i Hjerterum" when tomorrow is quiet), above Saga's words. */
+export type Program = { intro: string | null; heading: string | null; items: ProgramItem[] };
 type Candidate = ProgramItem & { description: string | null };
 
 export const PROGRAM_SIZE = 5;
@@ -37,39 +38,56 @@ export async function programCandidates(db: D1Database, external: ExternalEvent[
     return { key: await keyOf("hr", String(b.id), b.title, startsAt), title: b.title, startsAt, endsAt: new Date(b.ends_at_ms).toISOString(), host: b.teacher_name,
       imageUrl: b.cover_id ? `/api/event-files/${b.cover_id}` : null, link: "/member-portal/kalender", description: b.description };
   }));
-  return [...fromCalendar, ...fromMembers].sort((a, b) => a.startsAt.localeCompare(b.startsAt)).slice(0, PROGRAM_SIZE);
+  return [...fromCalendar, ...fromMembers].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }
 
-/** Requested: "bare én generering hver gang et event starter, ikke mere" - the intro belongs to the two events, not to the day. */
-const introKey = (_nowMs: number, two: Candidate[]) => `intro:${two.map(c => c.key).join(",")}`;
+/** Requested: "Lav resumeet om, så vi laver det til 'I morgen i Hjerterum' i stedet for." Saga's words are about tomorrow's events
+ * (or, when tomorrow is quiet, the next day with something in the house), written once a day - in the first round after midnight -
+ * and again only if that day's events change. At most three events. */
+const dateOf = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(new Date(ms));
+const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long" });
+const LONG_DAY = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
+export const MAX_SPEAKER_EVENTS = 3;
 
-/** Requested: "Der skal bare oprettes en ny hver gang et nyt event påbegyndes, så vi altid har de to kommende." The intro is about the
- * next two events that have not begun; when one begins, the two change and so does the intro. */
-const nextTwo = (candidates: Candidate[], nowMs: number) => candidates.filter(c => Date.parse(c.startsAt) > nowMs).slice(0, 2);
+/** Requested: "Overskriften skal ændres til: I morgen i Hjerterum" - always that heading; when tomorrow is quiet, the words say so
+ * and name the next day with something in the house. */
+export const SPEAKER_HEADING = "I morgen i Hjerterum";
+export function speakerDay(candidates: Candidate[], nowMs: number): { heading: string; key: string; events: Candidate[]; quietTomorrow: string | null } | null {
+  const today = dateOf(nowMs);
+  const tomorrow = dateOf(Date.parse(`${today}T12:00:00Z`) + 86_400_000);
+  const target = candidates.map(c => dateOf(Date.parse(c.startsAt))).find(d => d > today);
+  if (!target) return null;
+  const events = candidates.filter(c => dateOf(Date.parse(c.startsAt)) === target).slice(0, MAX_SPEAKER_EVENTS);
+  const at = Date.parse(events[0]!.startsAt);
+  const inAWeek = Date.parse(`${target}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`) < 7 * 86_400_000;
+  const quietTomorrow = target === tomorrow ? null : (inAWeek ? WEEKDAY.format(at) : LONG_DAY.format(at));
+  return { heading: SPEAKER_HEADING, key: `intro:${today}:${target}:${events.map(c => c.key).join(",")}`, events, quietTomorrow };
+}
 
 export async function program(db: D1Database, external: ExternalEvent[], nowMs: number): Promise<Program> {
   const candidates = await programCandidates(db, external, nowMs);
-  const two = nextTwo(candidates, nowMs);
-  const row = two.length ? await db.prepare("SELECT text FROM event_blurbs WHERE key = ?").bind(introKey(nowMs, two)).first<{ text: string }>().catch(() => null) : null;
-  return { intro: row?.text ?? null, items: candidates.map(({ description: _d, ...c }) => c) };
+  const day = speakerDay(candidates, nowMs);
+  const row = day ? await db.prepare("SELECT text FROM event_blurbs WHERE key = ?").bind(day.key).first<{ text: string }>().catch(() => null) : null;
+  return { intro: row?.text ?? null, heading: row ? day!.heading : null, items: candidates.slice(0, PROGRAM_SIZE).map(({ description: _d, ...c }) => c) };
 }
 
 const SYSTEM = "Du skriver en kort, varm og uformel indledning til medlemmerne af Hjerterum i Aarhus (et hus for meditation, yoga, personlig udvikling og fællesskab) "
-  + "om de næste to events i huset - som en speaker på tv mellem to programmer (continuity), der fortæller, hvad der er på vej. Eksempel på tonen (godkendt af formanden): \"Søndag formiddag guider Jørgen os gennem en rolig og sanselig breathwork-oplevelse, hvor vi kan mærke åndedrættets dybere lag. "
-  + "Søndag eftermiddag er Henriette og Jacob klar til Kropsligt klarsyn, hvor Henriette stiller sig til rådighed for, hvad kroppen vil fortælle, mens Jacob fylder rummet med toner fra klaveret.\" Højst to sætninger, ét event i hver. Sig hvornår med ugedag og del af dagen (fx \"søndag formiddag\", \"mandag aften\") - ikke \"i dag\" eller \"i morgen\", for teksten står, til næste event begynder, og ikke klokkeslæt. "
+  + "om de events, der er i huset en bestemt dag - som en speaker på tv (continuity), der fortæller, hvad der er på vej. Teksten står under overskriften \"I morgen i Hjerterum\". Eksempel på tonen (godkendt af formanden): \"Søndag formiddag guider Jørgen os gennem en rolig og sanselig breathwork-oplevelse, hvor vi kan mærke åndedrættets dybere lag. "
+  + "Søndag eftermiddag er Henriette og Jacob klar til Kropsligt klarsyn, hvor Henriette stiller sig til rådighed for, hvad kroppen vil fortælle, mens Jacob fylder rummet med toner fra klaveret.\" Én sætning pr. event, højst tre. Sig hvornår med del af dagen (fx \"om formiddagen\", \"sidst på eftermiddagen\", \"om aftenen\") - ikke ugedag, \"i dag\", \"i morgen\" eller klokkeslæt, for dagen står i overskriften. Står der \"stille_i_morgen\", er der intet i huset i morgen: begynd så med at sige det kort og varmt, og fortæl om den dag, der står (fx \"I morgen er der stille i huset, men torsdag aften ...\"). "
   + "Brug underviserens fornavn. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen emojis, ingen udråbstegn. Skriv på dansk. Svar kun med teksten.";
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
-/** In Saga's round (every five minutes): when the intro for the next two events is missing - that is, when an event has begun - it is written, once. */
+/** In Saga's round (every five minutes): when the words for the coming day are missing - a new day, or that day's events changed - they are written, once. */
 export async function writeProgramIntro(env: SagaEnv, deps: SagaDeps, db: D1Database, external: ExternalEvent[], claim: (key: string) => Promise<boolean>): Promise<boolean> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return false;
-  const two = nextTwo(await programCandidates(db, external, deps.now()), deps.now());
-  if (!two.length) return false;
-  const key = introKey(deps.now(), two);
+  const day = speakerDay(await programCandidates(db, external, deps.now()), deps.now());
+  if (!day) return false;
+  const { key, events: two, quietTomorrow } = day;
   if (await db.prepare("SELECT 1 AS yes FROM event_blurbs WHERE key = ?").bind(key).first().catch(() => null)) return false;
   if (!(await claim(key))) return false;
   const text = (await completeAs("program-intro", "mid")(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify({
     nu: WHEN.format(deps.now()),
+    ...(quietTomorrow ? { stille_i_morgen: true, dag: quietTomorrow } : {}),
     events: two.map(c => ({ titel: c.title, underviser: c.host, starter: WHEN.format(Date.parse(c.startsAt)), beskrivelse: (c.description ?? "").replace(/\s+/g, " ").slice(0, 600) }))
   }) }])).replace(/\s+/g, " ").replace(/^["“]|["”]$/g, "").trim().slice(0, 600);
   if (!text) return false;
