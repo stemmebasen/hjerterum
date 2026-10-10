@@ -47,7 +47,6 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
         <button className="pill-button dark" onClick={() => setSection("cirkler")}>Se CIRKLER-forløbet</button>
       </section>
     </div>
-    <p className="profile-note">De to profiler er uafhængige. Du kan være med i CIRKLER uden at have en offentlig profil.</p>
   </>;
 }
 
