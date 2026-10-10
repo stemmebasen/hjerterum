@@ -13,7 +13,6 @@ const firstName = (host: string | null) => (host ?? "").replace(/^(med|ved)\s+/i
 export function ProgramGuide() {
   const [items, setItems] = useState<Item[] | null>(null);
   const [intro, setIntro] = useState<string | null>(null);
-  const [hover, setHover] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     fetch("/api/events/program").then(async (r) => {
@@ -31,23 +30,20 @@ export function ProgramGuide() {
   const open = (i: Item) => i.link ?? "/member-portal/kalender";
   return (
     <article className="lys-card program-guide">
-      <div className="program-layout">
-        <div className="program-speaker">
-          <p className="lys-kicker">Det sker i huset</p>
-          <p className="program-intro">{words}</p>
-          <p className="member-overview-more"><a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a></p>
-        </div>
-        <div className="program-mosaic">
-          {items.map((i, index) => (
-            <a key={i.key} href={open(i)} target={i.link?.startsWith("http") ? "_blank" : undefined} rel="noopener"
-              className={"program-tile" + (index === 0 ? " is-lead" : "") + (hover === i.key ? " is-hover" : "")}
-              onMouseEnter={() => setHover(i.key)} onMouseLeave={() => setHover(null)}>
-              <span className="program-photo">{i.imageUrl ? <img src={i.imageUrl} alt="" loading="lazy" /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}
-                <span className="program-when">{shortDay(i.startsAt)} {time(i.startsAt)}</span></span>
-              <span className="program-caption"><strong>{i.title}</strong>{firstName(i.host) && <span>{firstName(i.host)}</span>}</span>
-            </a>
-          ))}
-        </div>
+      <div className="program-head">
+        <p className="lys-kicker">Det sker i huset</p>
+        <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
+      </div>
+      <p className="program-intro">{words}</p>
+      <div className="program-strip">
+        {items.map((i) => (
+          <a key={i.key} href={open(i)} target={i.link?.startsWith("http") ? "_blank" : undefined} rel="noopener" className="program-tile">
+            <span className="program-photo">{i.imageUrl ? <img src={i.imageUrl} alt="" loading="lazy" /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}
+              {i.key === next.key && <span className="program-next">Næste</span>}</span>
+            <span className="program-when">{shortDay(i.startsAt)} {time(i.startsAt)}</span>
+            <strong className="program-title">{i.title}</strong>
+          </a>
+        ))}
       </div>
     </article>
   );

@@ -41,6 +41,14 @@ export const NAV: Array<{ section: Section; label: string; href: string }> = [
 ];
 
 /** Where people sign up today - the same place hjerterum.info sends them - until payment runs on this platform. */
+/** Requested: "Denne tekst må gerne stå relevante steder på hjemmesiden og i medlemssektionen. Lav gerne alternative formuleringer". */
+export const BENEFITS = {
+  full: "Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre medlemmer, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.",
+  front: "Som betalende medlem får du mere end et sted at komme: rabat eller gratis adgang til events, mulighed for selv at skabe events for andre medlemmer, en plads i CIRKLER og din egen offentlige profil, hvis du er behandler eller underviser.",
+  member: "Dit medlemskab giver dig rabat eller gratis adgang til events, mulighed for at oprette dine egne events, en plads i CIRKLER og – hvis du underviser eller behandler – din egen offentlige profil.",
+  upgrade: "Med et betalende medlemskab får du events med rabat eller gratis, kan oprette dine egne events, være med i CIRKLER og få en offentlig profil som behandler eller underviser."
+} as const;
+
 export const SIGNUP_URL = "https://holistisk.org/bliv-medlem/";
 export const CIRKLER_URL = "https://cirkler.net";
 export const NEWSLETTER_ACTION = "https://holistisk.us6.list-manage.com/subscribe/post?u=e41afd3f798957ec11726bf83&id=0070dc72a9&f_id=00b8ede5f0";
@@ -225,6 +233,8 @@ Vil du selv undervise i Hjerterum? [Læs om at leje salen](/lej-hjerterum). Er d
     description: "Medlemskab af Hjerterum i Aarhus: priser, fordele, reduceret pris, vilkår og muligheden for at støtte huset.",
     card: { title: "Bliv en del af Hjerterum", text: "Medlemskaber, fordele og vilkår." },
     body: `> **30 dages gratis prøveperiode.** Melder du dig ind senest den 15. oktober 2026, og har du ikke været medlem af Hjerterum før, får du de første 30 dage gratis. Opsiger du, inden prøveperioden udløber, bliver du ikke opkrævet noget.
+
+Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre medlemmer, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.
 
 {{membership-plans}}
 
