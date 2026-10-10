@@ -612,6 +612,10 @@ Still open:
 ## Medlemsfordele i tekst (2026-10-10)
 
 - Formandens tekst om fordelene og tre varianter (`BENEFITS` i site/pages.ts): den fulde på hjemmesidens Medlemskab, "mere end et sted at komme" på forsidens medlemsafsnit, "Dit medlemskab giver dig ..." på medlemmernes Overblik og "Med et betalende medlemskab ..." til støttemedlemmer.
+
+## Foto på visitkortet (2026-10-10)
+
+- Visitkortet kan have et rundt foto: medlemmet vælger et billede, trækker det på plads i en cirkel og zoomer; browseren skærer det til en 480 × 480 jpg. `POST /api/members/me/public-profile/photo` (aktivt medlemskab) gemmer kun en jpg i præcis den størrelse (højst 1 MB) i R2 under et tilfældigt navn, og `GET /api/profile-photos/<id>.jpg` viser den. Visitkortet peger på billedet (`photoUrl`, kun egne adresser).
 - holistisk.orgs egne formuleringer (`ABOUT_WORDS`): sloganet som beskrivelse af forsiden og Om Hjerterum, "et åbent og inkluderende rum" og "Uanset om du søger fordybelse ..." i forsidens vision og på Om Hjerterum, listen "Fællesskab, film, sang ..." under forsidens kategorier, prislinjen (fra medlemskabets pris) i forsidens medlemsafsnit og underviserteksten i et nyt "Vil du selv bruge Hjerterum?"-afsnit.
 
 ## Medlemsbesparelse (2026-10-10)

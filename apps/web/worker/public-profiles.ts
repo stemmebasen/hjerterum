@@ -3,8 +3,10 @@ import { isCompleteProfile, parsePublicProfile } from "../public-profile.js";
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
+import { imageSize, sniff, type EventMediaBucket } from "./event-files.js";
+import { PHOTO_SIZE } from "../public-profile.js";
 
-type Env = { DB?: D1Database; CLERK_JWT_ISSUER?: string; CLERK_SECRET_KEY?: string };
+type Env = { DB?: D1Database; CLERK_JWT_ISSUER?: string; CLERK_SECRET_KEY?: string; EVENT_MEDIA?: EventMediaBucket };
 type Row = { draft_json: string; published_json: string | null; revision: number };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 
@@ -85,4 +87,33 @@ export async function ownPublicProfile(request: Request, env: Env): Promise<Resp
     return error instanceof Error && error.message === "invalid_profile"
       ? json({ error: "invalid_profile" }, 400) : json({ error: "profile_unavailable" }, 503);
   }
+}
+
+/** Requested: a photo on the visit card, cut round. The member's browser cuts it to a 480 × 480 jpg; the worker only keeps a jpg of exactly
+ * that size (up to 1 MB) under a random name, and the visit card points to it. Anyone with the address can see it, as on the website. */
+export async function uploadProfilePhoto(request: Request, env: Env): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+  if (!env.DB || !env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, 503);
+  let userId: string;
+  try { userId = (await authenticateBearer(request, env.CLERK_JWT_ISSUER)).userId; }
+  catch { return json({ error: "authentication_required" }, 401); }
+  const membership = await resolveActiveMembership(env.DB, userId, env.CLERK_SECRET_KEY).catch(() => null);
+  if (!membership) return json({ error: "membership_required" }, 403);
+  const form = await request.formData().catch(() => null);
+  const file = form?.get("photo");
+  if (!file || typeof file === "string") return json({ error: "invalid_form" }, 400);
+  const bytes = new Uint8Array(await (file as File).arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > 1024 * 1024) return json({ error: "file_too_large" }, 413);
+  const size = imageSize(bytes);
+  if (sniff(bytes.subarray(0, 16)) !== "jpeg" || size?.width !== PHOTO_SIZE || size.height !== PHOTO_SIZE) return json({ error: "photo_size" }, 422);
+  const id = crypto.randomUUID();
+  await env.EVENT_MEDIA.put(`portraits/${id}.jpg`, bytes.buffer as ArrayBuffer, { httpMetadata: { contentType: "image/jpeg" } });
+  return json({ photoUrl: `/api/profile-photos/${id}.jpg` }, 201);
+}
+
+export async function profilePhoto(id: string, env: Env): Promise<Response> {
+  if (!env.EVENT_MEDIA || !/^[0-9a-f-]{36}$/.test(id)) return json({ error: "not_found" }, 404);
+  const object = await env.EVENT_MEDIA.get(`portraits/${id}.jpg`);
+  if (!object) return json({ error: "not_found" }, 404);
+  return new Response(object.body, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=86400", "x-content-type-options": "nosniff" } });
 }

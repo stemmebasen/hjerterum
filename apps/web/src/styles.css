@@ -875,6 +875,17 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* Sagas speaker-tekst, diskret på hjemmesidens forside over kalenderen. */
 .speaker-line { font: italic 1.05rem/1.6 Georgia, "Times New Roman", serif; color: var(--lys-muted, var(--muted)); max-width: 70ch; margin: -6px 0 18px; }
 
+/* Visitkortets foto: rundt, med beskæring i en cirkel. */
+.profile-portrait-photo { width: 120px; height: 120px; object-fit: cover; padding: 0; border-radius: 50%; }
+.profile-photo-field { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.profile-photo-field .profile-portrait { width: 88px; height: 88px; flex: 0 0 88px; }
+.profile-photo-field label.pill-button { cursor: pointer; display: inline-flex; }
+.photo-cropper { display: grid; gap: 10px; justify-items: start; }
+.photo-crop-view { position: relative; overflow: hidden; border-radius: 50%; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 0 0 3px var(--profile-line, rgba(0, 0, 0, .12)); background: #000; }
+.photo-crop-view:active { cursor: grabbing; }
+.photo-crop-view img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; }
+.photo-zoom { display: flex; gap: 10px; align-items: center; width: 260px; }
+.photo-zoom input { flex: 1; }
 /* Requested: "Det er min profil, der har sandheden, og det er det layout og den margin, vi skal bruge på alle medlemssiderne."
  * Every member page has .member-page (Min profil's width, top margin, type and kicker); Opret event stacks its two columns within it. */
 .member-page .workspace-two-column, .member-page .workspace-two-column.events-columns { grid-template-columns: minmax(0, 1fr); }
