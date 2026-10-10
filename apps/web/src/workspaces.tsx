@@ -203,7 +203,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
   const benefits = includesMemberBenefits(member?.tier ?? null);
   const firstName = member?.fullName.trim().split(/\s+/)[0];
   return (
-    <section className="lys-page member-overview">
+    <section className="lys-page member-overview member-page">
       <div className="lys-intro">
         <div>
           <p className="lys-kicker">Dit Hjerterum</p>
@@ -426,7 +426,7 @@ function MemberEvents({
   }
 
   return (
-    <section className="workspace-section">
+    <section className="workspace-section member-page">
       <div className="workspace-title-row">
         <div><p className="kicker">Events</p><h1>Mine events</h1></div>
       </div>
@@ -544,7 +544,7 @@ function MemberCalendar({
   const months = [...new Set(entries.map(event => calendarMonth(event.startsAt)))];
 
   return (
-    <section className="workspace-section member-calendar-page">
+    <section className="workspace-section member-page member-calendar-page">
       <div className="calendar-intro"><div><p className="kicker">Kalender</p>
         <h1>Find dit næste pusterum</h1>
         <p>Bevægelse, fordybelse og fællesskab. Se, hvad der sker i Hjerterum.</p>
@@ -654,7 +654,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
 
   if (member?.billing === "manual") {
     return (
-      <section className="workspace-section workspace-narrow">
+      <section className="workspace-section member-page workspace-narrow">
         <p className="kicker">Medlemskab</p>
         <h1>Dit medlemskab</h1>
         <div className="workspace-card">
@@ -670,7 +670,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
 
   if (member?.managedExternally) {
     return (
-      <section className="workspace-section workspace-narrow">
+      <section className="workspace-section member-page workspace-narrow">
         <p className="kicker">Medlemskab</p>
         <h1>Dit medlemskab</h1>
         <div className="workspace-card">
@@ -686,7 +686,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   }
 
   return (
-    <section className="workspace-section workspace-narrow">
+    <section className="workspace-section member-page workspace-narrow">
       <p className="kicker">Medlemskab</p>
       <h1>Betaling og medlemskab</h1>
       <div className="workspace-card">
@@ -770,7 +770,7 @@ function MemberProfile({
   }
 
   return (
-    <section className="workspace-section member-profile-page">
+    <section className="workspace-section member-page">
       <p className="kicker">Min profil</p>
       <h1>Dig i Hjerterum</h1>
       <p className="profile-lead">Dine oplysninger, det du deler — og de fællesskaber, du vælger.</p>
@@ -854,18 +854,18 @@ export function MemberWorkspace({
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError && normalized !== "/member-portal/profil" ? <>
-          <section className="workspace-section workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section>
-          <section className="workspace-section"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
+          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section>
+          <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
         </> :
         normalized === "/member-portal/medlemskab" ? (
           <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div></>
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
-          <section className="workspace-section workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
+          <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
-          <section className="workspace-section site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
+          <section className="workspace-section member-page site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
