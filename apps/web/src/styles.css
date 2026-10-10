@@ -894,3 +894,7 @@ h3 { font-size: 25px; line-height: 1.2; }
  * Every member page has .member-page (Min profil's width, top margin, type and kicker); Opret event stacks its two columns within it. */
 .member-page .workspace-two-column, .member-page .workspace-two-column.events-columns { grid-template-columns: minmax(0, 1fr); }
 .member-page .workspace-section { width: 100%; padding: 32px 0 0; }
+
+/* Requested: "Brug Cirkler logoet i stedet for cirkel-ikonet" - on Min CIRKLER-profil, in CIRKLER's gold. */
+.cirkler-logo-mark { display: block; width: 30px; height: 30px; background: #D9B35A;
+  -webkit-mask: url("/media/cirkler-logo.png") center / contain no-repeat; mask: url("/media/cirkler-logo.png") center / contain no-repeat; }

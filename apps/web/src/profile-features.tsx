@@ -40,7 +40,7 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
         <button className="pill-button dark" onClick={() => setSection("public")}>Åbn mit visitkort</button>
       </section>
       <section className="profile-feature-card" aria-label="CIRKLER-profil og tilmelding">
-        <div className="profile-card-top"><span className="profile-emblem profile-emblem-cirkler" aria-hidden="true">◎</span><span className="profile-badge">Gratis for medlemmer</span></div>
+        <div className="profile-card-top"><span className="profile-emblem profile-emblem-cirkler" aria-hidden="true"><span className="cirkler-logo-mark" /></span><span className="profile-badge">Gratis for medlemmer</span></div>
         <p className="kicker">Små, faste fællesskaber</p><h2>Min CIRKLER-profil</h2>
         <p>Fortæl om dine ønsker og det, du søger i et fællesskab. Din uddybende profil hjælper CIRKLER med at finde en passende cirkel.</p>
         <p className="profile-scope">Din CIRKLER-profil vises ikke på den offentlige hjemmeside.</p>
