@@ -2,16 +2,24 @@ import { useEffect, useState } from "react";
 import { parsePublicProfile, isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { PhotoCropper } from "./photo-cropper";
+import { slugify } from "../site/markdown";
 
-export function ProfileCard({ profile }: { profile: PublicProfile }) {
+/** Requested: "man skal så kunne klikke ind på en behandler". Each published visit card has its own page, /behandlere/<navn>. */
+export function profileSlug(profile: { name: string; id: string }, all: Array<{ name: string; id: string }>): string {
+  const base = slugify(profile.name) || "behandler";
+  return all.filter(other => (slugify(other.name) || "behandler") === base).length > 1 ? `${base}-${profile.id.slice(0, 6)}` : base;
+}
+
+export function ProfileCard({ profile, href }: { profile: PublicProfile; href?: string }) {
   let contact: Partial<PublicProfile> = {};
   try { contact = parsePublicProfile(profile); } catch { /* Incomplete contact input is never rendered as a link. */ }
   return <article className="profile-preview">
     {profile.photoUrl ? <img className="profile-portrait profile-portrait-photo" src={profile.photoUrl} alt={profile.name} loading="lazy" />
       : <div className="profile-portrait" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>}
-    <div><h3>{profile.name || "Dit navn"}</h3><p>{profile.title || "Din faglige titel"}</p>
+    <div><h3>{href ? <a href={href}>{profile.name}</a> : profile.name || "Dit navn"}</h3><p>{profile.title || "Din faglige titel"}</p>
       <p className="profile-badge">{[profile.teaching && "Undervisning", profile.treatment && "Behandling"].filter(Boolean).join(" · ") || "Dit tilbud"}</p>
       <p className="profile-bio">{profile.bio || "Din korte præsentation vises her."}</p><p>{profile.topics}</p>
+      {href && <p><a className="text-link" href={href}>Læs mere om {profile.name.split(/\s+/)[0]} →</a></p>}
       <div className="profile-contact-links">
         {contact.publicEmail && <a href={"mailto:" + encodeURIComponent(contact.publicEmail)}>{contact.publicEmail}</a>}
         {contact.publicPhone && <a href={"tel:" + contact.publicPhone.replace(/[ ()-]/g, "")}>{contact.publicPhone}</a>}
@@ -66,7 +74,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
     if (!saved || busy || conflict) return;
     if (action !== "hide") {
       try { parsePublicProfile(draft); } catch {
-        setMessage("Kontrollér kontaktoplysningerne: skriv en gyldig e-mail, et telefonnummer og et link med https:// eller http://. Felterne må gerne være tomme.");
+        setMessage("Kontrollér kontaktoplysningerne: skriv en gyldig e-mail, et telefonnummer og en hjemmeside (fx www.ditnavn.dk). Felterne må gerne være tomme.");
         return;
       }
     }
@@ -125,7 +133,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
           <label>Tekst på linket<select value={draft.linkLabel ?? "Læs mere"} onChange={e => change({ linkLabel: e.target.value as "Læs mere" | "Book en tid" })}><option>Læs mere</option><option>Book en tid</option></select></label>
         </fieldset>
       </fieldset>}
-      <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Din private adresse, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
+      <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Dine private medlemsoplysninger, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
       <div className="workspace-actions">
         <button className="pill-button" disabled={busy || conflict} onClick={() => void save("save")}>Gem kladde</button>
         <button className="text-button" disabled={busy} onClick={() => setPreview(!preview)}>{preview ? "Redigér visitkortet" : "Se forhåndsvisning →"}</button>
@@ -137,7 +145,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
           <button className="pill-button dark" disabled={busy || conflict || !consent || !isCompleteProfile(draft)} onClick={() => void save("publish")}>{saved.published ? "Offentliggør ændringer" : "Offentliggør visitkort"}</button>
         </>}
         {saved.published && <button className="text-button" disabled={busy || conflict} onClick={() => void save("hide")}>Skjul fra hjemmesiden</button>}
-        <a className="text-link" href="/behandlere" target="_blank" rel="noreferrer">Se oversigten på hjemmesiden ↗</a>
+        <a className="text-link" href="https://www.hjerterum.info/behandlere" target="_blank" rel="noreferrer">Se oversigten på hjemmesiden ↗</a>
       </div>
     </>}
     {message && <p className="workspace-message" role="status">{message}</p>}
@@ -160,7 +168,7 @@ export function PublicProfiles({ bare = false }: { bare?: boolean }) {
     return () => { active = false; };
   }, [reload]);
   const list = error ? <p role="alert">Profilerne kunne ikke hentes. <button className="text-button" onClick={() => setReload(n => n + 1)}>Prøv igen</button></p> : !profiles ? <p role="status">Henter profiler …</p> : profiles.length ?
-    <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} />)}</div> :
+    <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} href={`/behandlere/${profileSlug(profile, profiles)}`} />)}</div> :
     bare ? null : <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>;
   // On the website's page the heading and the regular teachers come from site/pages.ts.
   if (bare) return <div className="profile-workspace public-profile-directory">{list}</div>;
@@ -169,4 +177,53 @@ export function PublicProfiles({ bare = false }: { bare?: boolean }) {
     <p className="profile-lead">Mød dem, der deler deres faglighed i Hjerterum.</p>
     {list}
   </section>;
+}
+
+/** One teacher's or practitioner's page: the photo, who they are, what they offer, how to reach them. */
+export function ProfilePage({ slug, header, footer }: { slug: string; header: React.ReactNode; footer: React.ReactNode }) {
+  const [profiles, setProfiles] = useState<Array<PublicProfile & { id: string }> | null>(null);
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void fetch("/api/public-profiles", { cache: "no-store" }).then(async response => {
+      if (!response.ok) throw new Error();
+      const data = await response.json() as Array<PublicProfile & { id: string }>;
+      if (active) setProfiles(data);
+    }).catch(() => { if (active) setError(true); });
+    return () => { active = false; };
+  }, []);
+  const profile = profiles?.find(p => profileSlug(p, profiles) === slug) ?? null;
+  useEffect(() => { if (profile) document.title = `${profile.name} · Hjerterum`; }, [profile]);
+  let contact: Partial<PublicProfile> = {};
+  try { if (profile) contact = parsePublicProfile(profile); } catch { /* not rendered as links */ }
+  const offer = profile ? [profile.teaching && "Undervisning", profile.treatment && "Behandling"].filter(Boolean).join(" · ") : "";
+  return <main className="page-shell site-page profile-page">
+    {header}
+    {!profiles && !error ? <section className="lys-intro site-intro"><p className="lys-sub" role="status">Henter …</p></section>
+      : !profile ? <section className="lys-intro site-intro"><div><p className="lys-kicker">Undervisere & behandlere</p><h1 className="lys-title">Profilen findes<em>ikke længere</em></h1></div>
+          <div className="site-intro-side"><p><a className="lys-link" href="/behandlere">← Se alle undervisere og behandlere</a></p></div></section>
+      : <>
+        <section className="lys-intro site-intro">
+          <div>
+            <a className="site-back" href="/behandlere">← Undervisere & behandlere</a>
+            <p className="lys-kicker">{offer}</p>
+            <h1 className="lys-title">{profile.name}<em>{profile.title}</em></h1>
+          </div>
+          <div className="site-intro-side profile-page-side">
+            {profile.photoUrl ? <img className="profile-page-photo" src={profile.photoUrl} alt={profile.name} /> : <div className="profile-page-photo profile-page-initials" aria-hidden="true">{profile.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("")}</div>}
+          </div>
+        </section>
+        <div className="site-body"><div className="site-prose">
+          <p className="profile-page-bio">{profile.bio}</p>
+          {profile.topics && <><h2>Specialer</h2><p>{profile.topics}</p></>}
+          {(contact.publicEmail || contact.publicPhone || contact.websiteUrl) && <><h2>Kontakt</h2>
+            <ul>
+              {contact.publicEmail && <li><a href={"mailto:" + encodeURIComponent(contact.publicEmail)}>{contact.publicEmail}</a></li>}
+              {contact.publicPhone && <li><a href={"tel:" + contact.publicPhone.replace(/[ ()-]/g, "")}>{contact.publicPhone}</a></li>}
+              {contact.websiteUrl && <li><a href={contact.websiteUrl} target="_blank" rel="noopener noreferrer">{contact.linkLabel ?? "Læs mere"} ↗</a></li>}
+            </ul></>}
+        </div></div>
+      </>}
+    {footer}
+  </main>;
 }

@@ -18,3 +18,11 @@ describe("the visit card's photo", () => {
     expect((await profilePhoto("00000000-0000-0000-0000-000000000000", env)).status).toBe(404);
   });
 });
+
+it("takes a website without https:// and adds it", () => {
+  const base2 = { name: "Anna", title: "Yogalærer", bio: "Hej", topics: "", teaching: true, treatment: false };
+  expect(parsePublicProfile({ ...base2, websiteUrl: "www.jacobhauge.com" }).websiteUrl).toBe("https://www.jacobhauge.com/");
+  expect(parsePublicProfile({ ...base2, websiteUrl: "http://example.dk" }).websiteUrl).toBe("http://example.dk/");
+  expect(() => parsePublicProfile({ ...base2, websiteUrl: "javascript:alert(1)" })).toThrow("invalid_profile");
+  expect(() => parsePublicProfile({ ...base2, websiteUrl: "hej" })).toThrow("invalid_profile");
+});

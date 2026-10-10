@@ -1,8 +1,8 @@
 import { EventCard, calendarMonth } from "./event-card";
-import { SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { redirectFor, sitePage } from "../site/redirects";
 import type { Section } from "../site/pages";
-import { PublicProfiles } from "./public-profiles";
+import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -279,6 +279,13 @@ function PublicHome() {
 /** Every content page lives in site/pages.ts; the old holistisk.org addresses are moved there by the worker (301)
  * and, when the app itself is served without it, here. */
 function PublicContentPage({ path }: { path: string }) {
+  // Requested: "man skal så kunne klikke ind på en behandler" - /behandlere/<navn>.
+  const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
+  if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="behandlere" />} footer={<SiteFooter />} />;
+  return <SiteContentPage path={path} />;
+}
+
+function SiteContentPage({ path }: { path: string }) {
   const page = sitePage(path);
   const target = page ? undefined : redirectFor(path);
   const { events, eventsReachable } = usePublicEvents();
