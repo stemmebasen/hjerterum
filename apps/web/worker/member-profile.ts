@@ -131,3 +131,32 @@ export async function listMemberInvoices(
     invoicePdf: typeof invoice.invoice_pdf === "string" ? invoice.invoice_pdf : null
   }));
 }
+
+/** Requested: "Her skal stå flere detaljer om medlemskabet: Pris ..., hvornår der trækkes sidste gang, og en lille Afmeld-knap."
+ * What the member's Stripe subscription says: the price, the next charge and whether it is cancelled at the period's end. */
+export type SubscriptionSummary = { amountMinor: number | null; interval: string | null; nextChargeAt: string | null; cancelAtPeriodEnd: boolean; endsAt: string | null };
+
+export function subscriptionSummary(raw: Record<string, unknown>): SubscriptionSummary {
+  const item = ((raw.items as { data?: Array<Record<string, unknown>> } | undefined)?.data ?? [])[0] ?? {};
+  const price = (item.price ?? {}) as { unit_amount?: unknown; recurring?: { interval?: unknown } };
+  // Newer Stripe API versions keep the period on the item, older ones on the subscription.
+  const periodEnd = typeof raw.current_period_end === "number" ? raw.current_period_end : typeof item.current_period_end === "number" ? item.current_period_end : null;
+  const iso = (seconds: number | null) => seconds ? new Date(seconds * 1000).toISOString() : null;
+  const cancelAtPeriodEnd = raw.cancel_at_period_end === true || typeof raw.cancel_at === "number";
+  const endsAt = typeof raw.cancel_at === "number" ? raw.cancel_at : cancelAtPeriodEnd ? periodEnd : null;
+  return {
+    amountMinor: typeof price.unit_amount === "number" ? price.unit_amount : null,
+    interval: typeof price.recurring?.interval === "string" ? price.recurring.interval : null,
+    nextChargeAt: cancelAtPeriodEnd || raw.status === "canceled" ? null : iso(periodEnd),
+    cancelAtPeriodEnd,
+    endsAt: iso(endsAt)
+  };
+}
+
+export async function memberSubscription(db: D1Database, stripeSecretKey: string, clerkUserId: string): Promise<SubscriptionSummary> {
+  const member = await getMemberByClerkUserId(db, clerkUserId);
+  if (!member) throw new Error("member_not_found");
+  if (!member.stripeSubscriptionId) throw new Error("membership_subscription_missing");
+  const raw = await stripeRequest<Record<string, unknown>>(stripeSecretKey, "GET", `/subscriptions/${encodeURIComponent(member.stripeSubscriptionId)}`);
+  return subscriptionSummary(raw);
+}

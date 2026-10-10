@@ -6,6 +6,7 @@ import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import {
   listMemberInvoices,
+  memberSubscription,
   parseMemberProfileUpdate,
   updateMemberProfile
 } from "./member-profile.js";
@@ -178,6 +179,19 @@ async function putMemberMe(request: Request, env: Env): Promise<Response> {
     if (code === "member_not_found") return json({ error: code }, { status: 404 });
     if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
     return json({ error: code }, { status: 503 });
+  }
+}
+
+async function memberSubscriptionRoute(request: Request, env: Env): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  if (!env.STRIPE_SECRET_KEY) return json({ error: "payments_not_configured" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (user instanceof Response) return user;
+  try {
+    return json(await memberSubscription(env.DB, env.STRIPE_SECRET_KEY, user.userId));
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "subscription_failed";
+    return json({ error: code }, { status: code === "member_not_found" || code === "membership_subscription_missing" ? 404 : 503 });
   }
 }
 
@@ -400,6 +414,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/members/me") return memberMe(request, env);
     if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);
+    if (request.method === "GET" && url.pathname === "/api/members/me/subscription") return memberSubscriptionRoute(request, env);
 
     const legacyPayments = url.pathname.match(/^\/api\/members\/(\d+)\/payments$/);
     if (request.method === "GET" && legacyPayments?.[1]) {

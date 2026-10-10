@@ -575,3 +575,8 @@ Still open:
 
 - Medlemssiden viser et CIRKLER-kort: "Du er med i cirklen <navn> - Gå til CIRKLER", "Du har en profil og venter på en cirkel" eller "Du er endnu ikke med i en cirkel - Opret profil her" (samme signerede billet som før).
 - `GET /api/integrations/cirkler/status` (medlemmets Clerk-login) spørger CIRKLER live (`POST /api/hjerterum/circle-status` på cirkler.net) med medlemsreferencen og den nøgle, de to systemer allerede deler. Kun `{profile, circle}` sendes videre; Hjerterum gemmer intet. Svarer CIRKLER ikke, vises kortet ikke.
+
+## Medlemskabets detaljer (2026-10-10)
+
+- Besluttet: Fra første dag i det nye system er MembershipWorks ude af brug; alle medlemmer flyttes ved launch. Medlemskabssiden bygges derfor til Stripe.
+- Medlemskab ligger under Min profil (`/member-portal/profil#medlemskab`; den gamle adresse viser det samme), og der er et "Medlemskab"-link i kontomenuen og under "Administrer konto" (Clerk). Siden viser pris, sidst trukket (seneste betalte faktura) og næste træk - eller "Ophører d. X" efter afmelding - og en lille "Afmeld" (opsiger ved periodens udløb). `GET /api/members/me/subscription` læser abonnementet hos Stripe (`subscriptionSummary`).
