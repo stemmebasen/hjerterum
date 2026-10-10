@@ -661,3 +661,8 @@ Still open:
 
 - Menupunktet "Vision / om os" hedder "Om Hjerterum". "English" er ude af menuen og står som et lille "EN" ved Log ind (og som "English" i sidefoden).
 - Sidefoden (hjemmesiden og medlemssiden) har en juridisk linje: Handelsbetingelser (`/handelsbetingelser`), Privatlivspolitik (`/privatliv`, udvidet med medlemskab, events, Saga, nyhedsbrev, databehandlere og rettigheder), Cookies (`/cookies`), © Hjerterum F.M.B.A. · CVR og versionen `v<package.json-version> · <commit>` (sat af vite.config.ts; `GITHUB_SHA` i CI). Teksterne bør læses igennem af bestyrelsen.
+
+## Næste uge i Hjerterum (2026-10-10)
+
+- Forsidens kalenderafsnit hedder "Næste uge i Hjerterum" og viser husets events de næste 7 dage (de næste tre, hvis ugen er tom). Speakeren "I morgen i Hjerterum" står over listen.
+- Speakeren nævner alle morgendagens events (højst fire), én kort sætning hver. Udelader mellemmodellen et event, skriver hovedmodellen teksten igen. Nøglen er `intro2:…`, så en ny tekst skrives straks.

@@ -271,6 +271,8 @@ function PublicHome() {
   const now = Date.now();
   const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
+  // Requested: "Næste uge i Hjerterum" - the coming seven days (the next three when the week is empty).
+  const week = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now && Date.parse(event.startsAt) < now + 7 * 86_400_000);
   return <SiteHome
     header={<SiteHeader />}
     soon={soon.length > 0 && <div className="lys-soon">
@@ -278,7 +280,7 @@ function PublicHome() {
       <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
       <a className="lys-link" href="/events">Hele kalenderen →</a>
     </div>}
-    events={<EventSection events={events} reachable={eventsReachable} limit={3} />}
+    events={<EventSection events={week.length ? week : events} reachable={eventsReachable} limit={week.length ? 12 : 3} />}
     plans={<MembershipPlans />}
   />;
 }
