@@ -227,7 +227,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     </section>
     <section className="site-home-section site-vision">
       <div className="lys-intro">
-        <div><p className="lys-kicker">Vision / om os</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
+        <div><p className="lys-kicker">Om Hjerterum</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
         <div><p>{ABOUT_WORDS.intro}</p><p>{ABOUT_WORDS.welcome}</p></div>
       </div>
       <Cards paths={["/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />

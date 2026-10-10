@@ -558,7 +558,7 @@ Events, der er oprettet i den tidligere kalender på holistisk.org, administrere
     sources: ["administrer-dine-events"]
   },
 
-  // ---------------------------------------------------------------- Vision / om os
+  // ---------------------------------------------------------------- Om Hjerterum (/om-os)
   {
     path: "/om-os", lang: "da", section: "om-os",
     kicker: "Om Hjerterum", title: "Mere nærvær.", em: "Mindre støj.",
@@ -742,7 +742,7 @@ Tusind tak til Celestine Andersen og til Hjerterum for at huse hende og dette sp
   },
   {
     path: "/om-os/himalayan-hermitage", lang: "da", section: "om-os",
-    kicker: "Vision / om os · Samarbejdspartner", title: "Himalayan", em: "Hermitage",
+    kicker: "Om Hjerterum · Samarbejdspartner", title: "Himalayan", em: "Hermitage",
     lead: "Pilgrimsrejser til Nepal, Tibet og Bhutan med Sisse Budolfsen og Alex d'Artois – med meditation, klostre og Himalayas smukke landskaber.",
     description: "Himalayan Hermitage: pilgrimsrejser og meditationsrejser i Nepal, Tibet og Bhutan.",
     card: { title: "Himalayan Hermitage", text: "Pilgrimsrejser til Nepal, Tibet og Bhutan." },
