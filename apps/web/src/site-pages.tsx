@@ -1,7 +1,8 @@
 import { useEffect, type ReactNode } from "react";
+import { membershipPlans } from "../membership";
 import { SpeakerLine } from "./program-guide";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
 import { EnquiryForm } from "./enquiry-form";
 
@@ -153,7 +154,7 @@ const CATEGORIES = [
 /** hjerterum.info's front page, in Lys: the welcome with the living geometry and what is about to happen, the
  * kinds of evenings, the calendar, membership, CIRKLER, and "Mere nærvær. Mindre støj." with the ways in. */
 export function SiteHome({ header, soon, events, plans }: { header: ReactNode; soon: ReactNode; events: ReactNode; plans: ReactNode }) {
-  useDocumentMeta("Hjerterum – nærvær, oplevelser og fællesskab i Aarhus", "Hjerterum er et varmt fællesskab i Aarhus med events, fordybelse og oplevelser – skabt af medlemmer for medlemmer.", "da");
+  useDocumentMeta("Hjerterum – nærvær, oplevelser og fællesskab i Aarhus", ABOUT_WORDS.tagline.replace(/\s*♥️$/, ""), "da");
   return <main className="page-shell site-home">
     {header}
     <section className="lys-hero">
@@ -168,14 +169,18 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     <nav className="site-categories" aria-label="Det sker i Hjerterum">
       {CATEGORIES.map(category => <a key={category.label} href="/events"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
     </nav>
+    <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     <section className="site-home-section">
       <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>De næste events i Hjerterum</h2></div><a className="lys-link" href="/events">Hele kalenderen →</a></div>
       <SpeakerLine />
       {events}
     </section>
     <section className="site-home-section" id="medlemskab">
-      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p><p className="site-price-line">{ABOUT_WORDS.membership(membershipPlans.standard.month / 100)}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
       {plans}
+    </section>
+    <section className="site-home-section site-use">
+      <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/lej-hjerterum">Lej Hjerterum →</a></div>
     </section>
     <section className="site-cirkler">
       <p className="lys-kicker">Et selvstændigt fællesskab</p>
@@ -186,7 +191,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     <section className="site-home-section site-vision">
       <div className="lys-intro">
         <div><p className="lys-kicker">Vision / om os</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
-        <p>Hjerterum er skabt omkring troen på, at de bedste oplevelser vokser frem, når mennesker mødes med åbenhed og tid. Vi samler foredrag, behandlinger, musik, samtaler og små pauser i hverdagen – i et rum, hvor man må komme, som man er.</p>
+        <div><p>{ABOUT_WORDS.intro}</p><p>{ABOUT_WORDS.welcome}</p></div>
       </div>
       <Cards paths={["/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />
     </section>
