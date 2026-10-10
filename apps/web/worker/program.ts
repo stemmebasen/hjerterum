@@ -49,7 +49,7 @@ export async function program(db: D1Database, external: ExternalEvent[], nowMs: 
 }
 
 const SYSTEM = "Du skriver en kort, varm og uformel indledning til medlemmerne af Hjerterum i Aarhus (et hus for meditation, yoga, personlig udvikling og fællesskab) "
-  + "om de næste to events i huset - som en vært, der fortæller, hvad der sker. Eksempel på tonen: \"Lidt senere i dag kommer Anna på besøg og deler ud af sin viden om forskning. "
+  + "om de næste to events i huset - som en speaker på tv mellem to programmer (continuity), der fortæller, hvad der er på vej. Eksempel på tonen: \"Lidt senere i dag kommer Anna på besøg og deler ud af sin viden om forskning. "
   + "Og sidst på dagen er Kasper tilbage og underviser i blid yoga med en blid afspænding, inden I går ud i de sene aftentimer.\" "
   + "Højst to sætninger, ét event i hver. Sig hvornår med ord ud fra tidspunktet nu (fx \"senere i dag\", \"i aften\", \"i morgen formiddag\", \"på søndag\") - ikke klokkeslæt. "
   + "Brug underviserens fornavn. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen emojis, ingen udråbstegn. Skriv på dansk. Svar kun med teksten.";

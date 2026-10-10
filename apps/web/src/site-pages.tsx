@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
 import { EnquiryForm } from "./enquiry-form";
 
@@ -40,6 +40,16 @@ export function Teachers() {
       <h3>{teacher.url ? <a href={teacher.url} target="_blank" rel="noopener noreferrer">{teacher.name}</a> : teacher.name}</h3>
       {teacher.focus && <p>{teacher.focus}</p>}
     </article>)}
+  </div>;
+}
+
+/** The board, as on Om Hjerterum and Teamet: the photo and a card for each (site/pages.ts BOARD). */
+export function Board() {
+  return <div className="site-board">
+    <figure className="site-board-photo"><img src={BOARD_PHOTO.src} alt={BOARD_PHOTO.alt} loading="lazy" /><figcaption>{BOARD_PHOTO.caption}</figcaption></figure>
+    <div className="site-board-cards">{BOARD.map(person => <article key={person.name} className="site-board-card">
+      <p className="lys-kicker">{person.role}</p><h3>{person.name}</h3><p className="site-board-hours">{person.hours}</p><p>{person.tasks}</p>
+    </article>)}</div>
   </div>;
 }
 
@@ -84,6 +94,30 @@ function Cards({ paths }: { paths: string[] }) {
   </div>;
 }
 
+/** A page's headline and text with its live parts - on the website and, for Om Hjerterum, in the member area too. */
+export function SitePageInner({ page, widgets, parent }: { page: SitePage; widgets: Widgets; parent?: SitePage | undefined }) {
+  const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
+  return <>
+    <section className="lys-intro site-intro">
+        <div>
+          {parent && <a className="site-back" href={parent.path}>← {parent.card.title}</a>}
+          <p className="lys-kicker">{page.kicker}</p>
+          <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
+        </div>
+        <div className="site-intro-side">
+          {page.image && <img className="site-intro-image" src={page.image.src} alt={page.image.alt} />}
+          <p>{page.lead}</p>
+        </div>
+      </section>
+      <div className="site-body">
+        {parts.map((part, index) => index % 2
+          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "board" ? <Board /> : part === "newsletter" ? <Newsletter lang={page.lang} />
+            : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
+          : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
+      </div>
+  </>;
+}
+
 export function SitePageView({ page, header, widgets }: { page: SitePage; header: ReactNode; widgets: Widgets }) {
   useDocumentMeta(`${page.card.title} · Hjerterum`, page.description, page.lang);
   useEffect(() => {
@@ -92,26 +126,9 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
     if (id) requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView());
   }, [page.path]);
   const parent = SITE_PAGES.find(candidate => candidate.children?.includes(page.path) && candidate.section === page.section);
-  const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
   return <main className="page-shell site-page">
     {header}
-    <section className="lys-intro site-intro">
-      <div>
-        {parent && <a className="site-back" href={parent.path}>← {parent.card.title}</a>}
-        <p className="lys-kicker">{page.kicker}</p>
-        <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
-      </div>
-      <div className="site-intro-side">
-        {page.image && <img className="site-intro-image" src={page.image.src} alt={page.image.alt} />}
-        <p>{page.lead}</p>
-      </div>
-    </section>
-    <div className="site-body">
-      {parts.map((part, index) => index % 2
-        ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "newsletter" ? <Newsletter lang={page.lang} />
-          : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
-        : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
-    </div>
+    <SitePageInner page={page} widgets={widgets} parent={parent} />
     {page.gallery && <section className="site-gallery" aria-label={page.gallery.title}>
       <h2>{page.gallery.title}</h2>
       <div>{page.gallery.pictures.map(picture => <img key={picture.src} src={picture.src} alt={picture.alt} loading="lazy" />)}</div>
