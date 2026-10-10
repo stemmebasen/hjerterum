@@ -645,3 +645,8 @@ Still open:
 ## I morgen i Hjerterum (2026-10-10)
 
 - Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
+
+## Næste uge i Hjerterum (2026-10-10)
+
+- Forsidens kalenderafsnit hedder "Næste uge i Hjerterum" og viser husets events de næste 7 dage (de næste tre, hvis ugen er tom). Speakeren "I morgen i Hjerterum" står over listen.
+- Speakeren nævner alle morgendagens events (højst fire), én kort sætning hver. Udelader mellemmodellen et event, skriver hovedmodellen teksten igen. Nøglen er `intro2:…`, så en ny tekst skrives straks.
