@@ -10,6 +10,7 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
+import { DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
@@ -317,6 +318,18 @@ function MemberEvents({
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
+  // A draft from Saga fills the form (saga-widget.tsx); the member still checks it and presses the button.
+  const [prefill, setPrefill] = useState<{ n: number; draft: SagaDraft } | null>(() => { const d = takePendingDraft(); return d ? { n: 1, draft: d } : null; });
+  useEffect(() => {
+    const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
+    window.addEventListener(DRAFT_EVENT, take);
+    return () => window.removeEventListener(DRAFT_EVENT, take);
+  }, []);
+  useEffect(() => {
+    if (!prefill) return;
+    const d = prefill.draft;
+    setPlan({ date: d.date, start: d.start, end: d.end, type: d.booking_type });
+  }, [prefill]);
   const [payout, setPayout] = useState<{
     configured: boolean;
     uploads?: boolean;
@@ -325,7 +338,8 @@ function MemberEvents({
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
 
   useEffect(() => {
-    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard") : EMPTY_PLAN);
+    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard")
+      : prefill ? { date: prefill.draft.date, start: prefill.draft.start, end: prefill.draft.end, type: prefill.draft.booking_type } : EMPTY_PLAN);
     setCover(null);
     setExtraFiles([]);
   }, [editing]);
@@ -462,13 +476,13 @@ function MemberEvents({
                 <button type="button" className="pill-button subtle" disabled={saving}
                   onClick={() => void startPayoutOnboarding()}>Klargør udbetaling med Stripe</button>}
             </div>
-            <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new"}>
-              <label>Titel<input name="title" defaultValue={editing?.title ?? ""} required /></label>
-              <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? ""} /></label>
+            <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
+              <label>Titel<input name="title" defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
+              <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
                 ignore={editing ? { startsAt: editing.startsAt, endsAt: editing.endsAt } : null} onProblem={setPlanProblemCode} />
               <div className="workspace-form-row event-numbers">
-                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? ""} /></label>
+                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} /></label>
                 <label>Billetpris pr. deltager (kr.)
                   <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
                   <small>{payout?.configured === false
@@ -476,7 +490,7 @@ function MemberEvents({
                     : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
                 </label>
                 <label>Pris for ikke-medlemmer (kr.)
-                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder="Valgfri" defaultValue={editing?.nonMemberPriceKr ?? ""} />
+                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder="Valgfri" defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
                   <small>Det, et ikke-medlem betaler. Bruges til at vise medlemmerne, hvad de sparer.</small>
                 </label>
               </div>
@@ -887,6 +901,7 @@ export function MemberWorkspace({
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
+      {member && !loading && includesMemberBenefits(member.tier) && <SagaWidget clerk={clerk} path={path} firstName={member.fullName.trim().split(/\s+/)[0] ?? ""} />}
     </main>
   );
 }

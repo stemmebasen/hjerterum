@@ -624,3 +624,8 @@ Still open:
 - Eventformularen (og Sagas udkast) gemmer "Pris for ikke-medlemmer" (`room_bookings.non_member_price_minor`, migration 0062).
 
 - Rettet 2026-10-10: "Lad os gå tilbage til som oversigten var før og lade de andre sider tage udgangspunkt heri." Overblik (`.lys-page`) er sandheden: alle andre medlemssider (`.workspace-section.member-page`) har samme bredde (1220 px), sidemargener (28/18 px), topmargen (44/28 px), kicker og overskrift (Playfair, 40-64 px). Målt ens i browser ved 1400, 1000 og 390 px.
+
+## Saga på medlemssiden (2026-10-10)
+
+- En Saga-boble i hjørnet på alle medlemssider for medlemmer med medlemsfordele. På Opret event åbner hun selv efter 15 sekunder (én gang pr. besøg, ikke på mobil) og spørger, om medlemmet vil have hjælp til at sætte eventet op - eller vil have hende til at gøre det. `POST /api/members/saga/chat` (mellemmodellen, højst 40 beskeder pr. medlem pr. dag, `member_saga_usage`, migration 0063) svarer ud fra husets regler og prisberegneren; når hun kender titel, dato og tider, laver hun et udkast, og "Udfyld formularen" fylder Opret event ud. Medlemmet tjekker og trykker selv Opret.
+- Forsidens CIRKLER-tekst: "Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende."

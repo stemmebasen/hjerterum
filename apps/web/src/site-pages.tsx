@@ -185,7 +185,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     <section className="site-cirkler">
       <p className="lys-kicker">Et selvstændigt fællesskab</p>
       <h2>CIRKLER</h2>
-      <p>Har du lyst til mere nærvær og fordybelse med andre? CIRKLER er et selvstændigt fællesskabstilbud, hvor mennesker mødes i mindre rum med plads til samtale, refleksion og ægte kontakt.</p>
+      <p>Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende.</p>
       <a className="lys-btn" href={CIRKLER_URL} target="_blank" rel="noopener noreferrer">Læs om CIRKLER ↗</a>
     </section>
     <section className="site-home-section site-vision">
