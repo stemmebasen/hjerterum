@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { calendarLines, houseKnowledge, memberSagaChat, parseAnswer, photoFacts } from "./member-saga.js";
+import { calendarLines, houseKnowledge, memberFacts, memberSagaChat, parseAnswer, photoFacts } from "./member-saga.js";
+import { getMemberByClerkUserId } from "./members.js";
 import type { ExternalEvent } from "./external-events.js";
 import { testDatabase } from "./saga/test-support.js";
 
@@ -58,5 +59,25 @@ describe("what Spørg Saga knows", () => {
     expect(photoFacts({ name: "e.jpg", type: "image/jpeg", bytes: 1_000_000, width: 3000, height: 4000 }).ok).toBe(true);
     expect(parseAnswer('{"reply":"Flot foto","draft":null,"photo_ok":true}').photoOk).toBe(true);
     expect(parseAnswer('{"reply":"Hm","draft":null}').photoOk).toBeNull();
+  });
+});
+
+describe("what Saga knows about the member she talks to", () => {
+  it("knows the whole website and the plans, and the member's own payment and events - only theirs", async () => {
+    expect(houseKnowledge()).toContain("Medlemskaber og priser");
+    expect(houseKnowledge()).toContain("/om-os");
+    const db = testDatabase();
+    await db.prepare(`INSERT INTO members (clerk_user_id, stripe_customer_id, tier, interval, status, full_name, email, created_at_ms, updated_at_ms, billing, pays_in_membershipworks, next_charge_on)
+      VALUES ('user_me', 'manual:1', 'standard', 'month', 'active', 'Jacob Hauge', 'j@example.dk', 1, 1, 'manual', 1, '2026-11-28')`).run();
+    await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, fee_minor, ticket_price_minor, payout_clerk_user_id, created_at_ms, updated_at_ms, review_status, status)
+      VALUES ('user_me', 'J', 'j@example.dk', 'Speak med hjertet', ?, ?, 0, 0, 'user_me', 1, 1, 'pending', 'scheduled'),
+             ('user_other', 'O', 'o@example.dk', 'Andens event', ?, ?, 0, 0, 'user_other', 1, 1, 'approved', 'scheduled')`)
+      .bind(Date.parse("2026-11-04T17:00:00Z"), Date.parse("2026-11-04T19:00:00Z"), Date.parse("2026-11-05T17:00:00Z"), Date.parse("2026-11-05T19:00:00Z")).run();
+    const member = (await getMemberByClerkUserId(db, "user_me"))!;
+    const facts = await memberFacts(db, { source: "hjerterum", fullName: member.fullName, email: member.email, member }, undefined, "user_me", Date.parse("2026-10-10T10:00:00Z"));
+    expect(facts).toContain("Næste træk: 28. november 2026");
+    expect(facts).toContain("Speak med hjertet");
+    expect(facts).toContain("afventer godkendelse");
+    expect(facts).not.toContain("Andens event");
   });
 });

@@ -37,7 +37,7 @@ export function SagaWidget({ clerk, firstName, path }: { clerk: ClerkBrowser; fi
   const onEvents = path.replace(/\/+$/, "") === "/member-portal/events";
   const greeting = `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`;
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: onEvents ? greeting : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om events, salen eller dit medlemskab – eller lad mig sætte et event op for dig.` }]);
+  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: onEvents ? greeting : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen – eller lad mig sætte et event op for dig.` }]);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
@@ -58,6 +58,7 @@ export function SagaWidget({ clerk, firstName, path }: { clerk: ClerkBrowser; fi
       const response = await apiFetch(clerk, "/api/members/saga/chat", { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
           // Earlier photos are only named, so each one is looked at once.
+          page: path,
           messages: next.map(({ role, text, photo: p }) => ({ role, text: p && p !== photo ? `${text} [Foto: ${p.file.name}, ${p.width} × ${p.height} px]` : text })),
           ...(photo ? { photo: { dataUrl: photo.dataUrl, name: photo.file.name, type: photo.file.type, bytes: photo.file.size, width: photo.width, height: photo.height } } : {})
         }) });
