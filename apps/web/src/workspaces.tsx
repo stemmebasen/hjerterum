@@ -11,7 +11,7 @@ import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
 import { SitePageInner } from "./site-pages";
-import { SITE_PAGES } from "../site/pages";
+import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
@@ -212,6 +212,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
         <div className="member-overview-side">
           <LysArt size="mini" />
           <p>Her har du dit medlemskab, dine tilmeldinger og dine egne events samlet ét sted.</p>
+          {benefits && <p className="lys-sub">{BENEFITS.member}</p>}
         </div>
       </div>
       {member && (
@@ -262,6 +263,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
               <p className="lys-kicker">Støttemedlem</p>
               <h2>Tak fordi du støtter Hjerterum</h2>
               <p className="lys-sub">{membershipPlansSupportText}</p>
+              <p className="lys-sub">{BENEFITS.upgrade}</p>
             </article>
             <article className="lys-card">
               <p className="lys-kicker">Medlemskab</p>
