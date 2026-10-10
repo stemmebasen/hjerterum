@@ -40,11 +40,14 @@ describe("the overview's programme", () => {
     expect(asked[1]).not.toContain("Yoga");
   });
 
-  it("names the day when tomorrow is quiet", async () => {
+  it("keeps the heading when tomorrow is quiet, and tells Saga which day to talk about", async () => {
     const db = testDatabase();
-    const services = fakeServices({ ai: () => "Om aftenen synger vi." });
+    const asked: string[] = [];
+    const services = fakeServices({ ai: (_sys, user) => { asked.push(user); return "I morgen er der stille i huset, men torsdag aften synger vi."; } });
     const external = [ev("5", "2026-10-15T17:00:00Z", "Sang")];
     expect(await writeProgramIntro(sagaEnv(db), deps(services.fetcher, NOW), db, external, async () => true)).toBe(true);
-    expect((await program(db, external, NOW)).heading).toBe("Torsdag i Hjerterum");
+    expect((await program(db, external, NOW)).heading).toBe("I morgen i Hjerterum");
+    expect(asked[0]).toContain("stille_i_morgen");
+    expect(asked[0]).toContain("torsdag");
   });
 });

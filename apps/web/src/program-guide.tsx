@@ -24,7 +24,7 @@ export function ProgramGuide() {
     return () => { active = false; };
   }, []);
   if (!items) return null;
-  if (!items.length) return <article className="lys-card program-guide"><p className="lys-kicker">Det sker i huset</p><p className="lys-sub">Der er stille i kalenderen lige nu - kig forbi snart.</p></article>;
+  if (!items.length) return <article className="lys-card program-guide"><p className="lys-kicker">I morgen i Hjerterum</p><p className="lys-sub">Der er stille i kalenderen lige nu - kig forbi snart.</p></article>;
   const nowMs = Date.now();
   const next = items.find((i) => Date.parse(i.endsAt ?? i.startsAt) > nowMs) ?? items[0]!;
   // Until Saga has written today's words: a plain line about the next event.
@@ -33,7 +33,7 @@ export function ProgramGuide() {
   return (
     <article className="lys-card program-guide">
       <div className="program-head">
-        <p className="lys-kicker">{intro && heading ? heading : "Det sker i huset"}</p>
+        <p className="lys-kicker">{heading ?? "I morgen i Hjerterum"}</p>
         <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
       </div>
       <p className="program-intro">{words}</p>

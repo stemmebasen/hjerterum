@@ -47,10 +47,12 @@ export async function programCandidates(db: D1Database, external: ExternalEvent[
 const dateOf = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(new Date(ms));
 const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long" });
 const LONG_DAY = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long" });
-const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 export const MAX_SPEAKER_EVENTS = 3;
 
-export function speakerDay(candidates: Candidate[], nowMs: number): { heading: string; key: string; events: Candidate[] } | null {
+/** Requested: "Overskriften skal ændres til: I morgen i Hjerterum" - always that heading; when tomorrow is quiet, the words say so
+ * and name the next day with something in the house. */
+export const SPEAKER_HEADING = "I morgen i Hjerterum";
+export function speakerDay(candidates: Candidate[], nowMs: number): { heading: string; key: string; events: Candidate[]; quietTomorrow: string | null } | null {
   const today = dateOf(nowMs);
   const tomorrow = dateOf(Date.parse(`${today}T12:00:00Z`) + 86_400_000);
   const target = candidates.map(c => dateOf(Date.parse(c.startsAt))).find(d => d > today);
@@ -58,8 +60,8 @@ export function speakerDay(candidates: Candidate[], nowMs: number): { heading: s
   const events = candidates.filter(c => dateOf(Date.parse(c.startsAt)) === target).slice(0, MAX_SPEAKER_EVENTS);
   const at = Date.parse(events[0]!.startsAt);
   const inAWeek = Date.parse(`${target}T12:00:00Z`) - Date.parse(`${today}T12:00:00Z`) < 7 * 86_400_000;
-  const heading = target === tomorrow ? "I morgen i Hjerterum" : `${capital(inAWeek ? WEEKDAY.format(at) : LONG_DAY.format(at))} i Hjerterum`;
-  return { heading, key: `intro:${today}:${target}:${events.map(c => c.key).join(",")}`, events };
+  const quietTomorrow = target === tomorrow ? null : (inAWeek ? WEEKDAY.format(at) : LONG_DAY.format(at));
+  return { heading: SPEAKER_HEADING, key: `intro:${today}:${target}:${events.map(c => c.key).join(",")}`, events, quietTomorrow };
 }
 
 export async function program(db: D1Database, external: ExternalEvent[], nowMs: number): Promise<Program> {
@@ -70,8 +72,8 @@ export async function program(db: D1Database, external: ExternalEvent[], nowMs: 
 }
 
 const SYSTEM = "Du skriver en kort, varm og uformel indledning til medlemmerne af Hjerterum i Aarhus (et hus for meditation, yoga, personlig udvikling og fællesskab) "
-  + "om de events, der er i huset en bestemt dag - som en speaker på tv (continuity), der fortæller, hvad der er på vej. Teksten står under overskriften \"I morgen i Hjerterum\" (eller dagens navn). Eksempel på tonen (godkendt af formanden): \"Søndag formiddag guider Jørgen os gennem en rolig og sanselig breathwork-oplevelse, hvor vi kan mærke åndedrættets dybere lag. "
-  + "Søndag eftermiddag er Henriette og Jacob klar til Kropsligt klarsyn, hvor Henriette stiller sig til rådighed for, hvad kroppen vil fortælle, mens Jacob fylder rummet med toner fra klaveret.\" Én sætning pr. event, højst tre. Sig hvornår med del af dagen (fx \"om formiddagen\", \"sidst på eftermiddagen\", \"om aftenen\") - ikke ugedag, \"i dag\", \"i morgen\" eller klokkeslæt, for dagen står i overskriften. "
+  + "om de events, der er i huset en bestemt dag - som en speaker på tv (continuity), der fortæller, hvad der er på vej. Teksten står under overskriften \"I morgen i Hjerterum\". Eksempel på tonen (godkendt af formanden): \"Søndag formiddag guider Jørgen os gennem en rolig og sanselig breathwork-oplevelse, hvor vi kan mærke åndedrættets dybere lag. "
+  + "Søndag eftermiddag er Henriette og Jacob klar til Kropsligt klarsyn, hvor Henriette stiller sig til rådighed for, hvad kroppen vil fortælle, mens Jacob fylder rummet med toner fra klaveret.\" Én sætning pr. event, højst tre. Sig hvornår med del af dagen (fx \"om formiddagen\", \"sidst på eftermiddagen\", \"om aftenen\") - ikke ugedag, \"i dag\", \"i morgen\" eller klokkeslæt, for dagen står i overskriften. Står der \"stille_i_morgen\", er der intet i huset i morgen: begynd så med at sige det kort og varmt, og fortæl om den dag, der står (fx \"I morgen er der stille i huset, men torsdag aften ...\"). "
   + "Brug underviserens fornavn. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen emojis, ingen udråbstegn. Skriv på dansk. Svar kun med teksten.";
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
 
@@ -80,11 +82,12 @@ export async function writeProgramIntro(env: SagaEnv, deps: SagaDeps, db: D1Data
   if (!env.AI_API_KEY || !env.AI_MODEL) return false;
   const day = speakerDay(await programCandidates(db, external, deps.now()), deps.now());
   if (!day) return false;
-  const { key, events: two } = day;
+  const { key, events: two, quietTomorrow } = day;
   if (await db.prepare("SELECT 1 AS yes FROM event_blurbs WHERE key = ?").bind(key).first().catch(() => null)) return false;
   if (!(await claim(key))) return false;
   const text = (await completeAs("program-intro", "mid")(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify({
     nu: WHEN.format(deps.now()),
+    ...(quietTomorrow ? { stille_i_morgen: true, dag: quietTomorrow } : {}),
     events: two.map(c => ({ titel: c.title, underviser: c.host, starter: WHEN.format(Date.parse(c.startsAt)), beskrivelse: (c.description ?? "").replace(/\s+/g, " ").slice(0, 600) }))
   }) }])).replace(/\s+/g, " ").replace(/^["“]|["”]$/g, "").trim().slice(0, 600);
   if (!text) return false;
