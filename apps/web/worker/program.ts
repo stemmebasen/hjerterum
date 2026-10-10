@@ -1,5 +1,6 @@
 import type { D1Database } from "./db.js";
 import type { ExternalEvent } from "./external-events.js";
+import { isPartnerEvent } from "../partner-events.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
@@ -20,7 +21,8 @@ async function keyOf(source: string, id: string, title: string, startsAt: string
 }
 
 export async function programCandidates(db: D1Database, external: ExternalEvent[], nowMs: number): Promise<Candidate[]> {
-  const fromCalendar = await Promise.all(external.filter(e => Date.parse(e.endsAt ?? e.startsAt) >= nowMs).map(async e => ({
+  // Partner houses' events (Hjerteland) are not "i huset" - they stand under "Fra samarbejdspartnere" in the calendars.
+  const fromCalendar = await Promise.all(external.filter(e => Date.parse(e.endsAt ?? e.startsAt) >= nowMs && !isPartnerEvent(e)).map(async e => ({
     key: await keyOf("mw", e.id, e.title, e.startsAt), title: e.title, startsAt: e.startsAt, endsAt: e.endsAt, host: e.host,
     imageUrl: e.imageUrl, link: e.link, description: e.description
   })));

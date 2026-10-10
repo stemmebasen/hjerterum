@@ -10,6 +10,7 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
+import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
@@ -557,8 +558,9 @@ function MemberCalendar({
 
   const entries = [
     ...bookings.map(booking => ({ key: "native-" + booking.id, startsAt: booking.startsAt, booking, external: null })),
-    ...externalEvents.map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external }))
+    ...externalEvents.filter(external => !isPartnerEvent(external)).map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external }))
   ].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const partnerEvents = externalEvents.filter(external => isPartnerEvent(external)).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const months = [...new Set(entries.map(event => calendarMonth(event.startsAt)))];
 
   return (
@@ -598,6 +600,15 @@ function MemberCalendar({
           })}
         </div>
       </section>)}
+      {partnerEvents.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
+        <h2>{PARTNER_HEADING}</h2>
+        <div className="member-event-grid">
+          {partnerEvents.map((external) => <EventCard key={"partner-" + external.id} title={external.title} description={external.description} startsAt={external.startsAt} endsAt={external.endsAt}
+            host={external.host || null} location={external.location || null} imageUrl={external.imageUrl || null} category={external.category}>
+            {external.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
+          </EventCard>)}
+        </div>
+      </section>}
     </section>
   );
 }
