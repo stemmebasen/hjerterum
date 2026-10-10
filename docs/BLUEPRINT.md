@@ -656,3 +656,8 @@ Still open:
 ## Dit medlemskab øverst på Min profil (2026-10-10)
 
 - "Dit medlemskab" står først på Min profil som et fremhævet kort: plan, status, pris, næste træk (eller "betales via MembershipWorks" / "givet af Hjerterum") og knappen "Se og administrér medlemskab" til `/member-portal/medlemskab`.
+
+## Sidefod, menu og juridiske sider (2026-10-10)
+
+- Menupunktet "Vision / om os" hedder "Om Hjerterum". "English" er ude af menuen og står som et lille "EN" ved Log ind (og som "English" i sidefoden).
+- Sidefoden (hjemmesiden og medlemssiden) har en juridisk linje: Handelsbetingelser (`/handelsbetingelser`), Privatlivspolitik (`/privatliv`, udvidet med medlemskab, events, Saga, nyhedsbrev, databehandlere og rettigheder), Cookies (`/cookies`), © Hjerterum F.M.B.A. · CVR og versionen `v<package.json-version> · <commit>` (sat af vite.config.ts; `GITHUB_SHA` i CI). Teksterne bør læses igennem af bestyrelsen.

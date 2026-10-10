@@ -12,6 +12,7 @@ import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
 import { COVER_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { cropCover } from "./cover-crop";
+import { LegalLine } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
@@ -962,6 +963,7 @@ export function MemberWorkspace({
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
+      <footer className="member-foot"><LegalLine /></footer>
       {member && !loading && includesMemberBenefits(member.tier) && <SagaWidget clerk={clerk} path={path} firstName={member.fullName.trim().split(/\s+/)[0] ?? ""} />}
     </main>
   );
