@@ -20,6 +20,7 @@ export type MemberView = {
   email: string;
   phone: string | null;
   streetAddress: string | null;
+  birthday: string | null;
   isTeacher: boolean;
   accessBlocked: boolean;
   /** "manual": given by the board in admin → Medlemmer, with no payment through Stripe (worker/member-admin.ts). */
@@ -60,7 +61,7 @@ export async function getMemberByClerkUserId(
   const row = await db
     .prepare(
       `SELECT id, clerk_user_id, stripe_customer_id, stripe_subscription_id,
-              tier, interval, status, full_name, email, phone, street_address, is_teacher, access_blocked, billing, pays_in_membershipworks
+              tier, interval, status, full_name, email, phone, street_address, birthday, is_teacher, access_blocked, billing, pays_in_membershipworks
        FROM members WHERE clerk_user_id = ? LIMIT 1`
     )
     .bind(clerkUserId)
@@ -76,6 +77,7 @@ export async function getMemberByClerkUserId(
       email: string;
       phone: string | null;
       street_address: string | null;
+      birthday: string | null;
       is_teacher: number;
       access_blocked: number;
       billing: string;
@@ -95,6 +97,7 @@ export async function getMemberByClerkUserId(
     email: row.email,
     phone: row.phone,
     streetAddress: row.street_address,
+    birthday: row.birthday ?? null,
     isTeacher: row.is_teacher === 1,
     accessBlocked: row.access_blocked === 1,
     billing: row.billing === "manual" ? "manual" : "stripe",

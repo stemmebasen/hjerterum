@@ -23,6 +23,7 @@ type Member = {
   email: string;
   phone: string | null;
   streetAddress: string | null;
+  birthday?: string | null;
   isTeacher: boolean;
   source?: "hjerterum" | "membershipworks";
   managedExternally?: boolean;
@@ -753,7 +754,7 @@ function MemberProfile({
         fullName: String(form.get("fullName") || ""),
         email: String(form.get("email") || ""),
         phone: String(form.get("phone") || ""),
-        streetAddress: String(form.get("streetAddress") || "")
+        birthday: String(form.get("birthday") || "")
       })
     });
     if (!response.ok) {
@@ -772,7 +773,7 @@ function MemberProfile({
       <p className="profile-lead">Dine oplysninger, det du deler — og de fællesskaber, du vælger.</p>
       <details className="profile-basics">
         <summary>
-          <span><strong>Dine medlemsoplysninger</strong><small>Navn, e-mail, telefon og adresse · kun til administration</small></span>
+          <span><strong>Dine medlemsoplysninger</strong><small>Navn, e-mail, telefon og fødselsdag · kun til administration</small></span>
           <span className="profile-badge">Privat</span>
         </summary>
         {member?.managedExternally ? <div className="profile-basics-content">
@@ -784,7 +785,7 @@ function MemberProfile({
               <label>Navn<input name="fullName" defaultValue={member.fullName} required /></label>
               <label>E-mail<input name="email" type="email" defaultValue={member.email} required /></label>
               <label>Telefon<input name="phone" defaultValue={member.phone || ""} /></label>
-              <label>Adresse<input name="streetAddress" defaultValue={member.streetAddress || ""} /></label>
+              <label>Fødselsdag<input name="birthday" type="date" max={new Date().toISOString().slice(0, 10)} defaultValue={member.birthday || ""} /></label>
             </div>
             <button className="pill-button dark">Gem oplysninger</button>
             {message && <p className="workspace-message" role="status">{message}</p>}

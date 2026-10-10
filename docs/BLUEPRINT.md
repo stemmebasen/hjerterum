@@ -586,3 +586,7 @@ Still open:
 - "Det sker i huset" øverst på Overblik: de næste fem events (kalenderen og medlemmernes godkendte events) som et TV-program grupperet pr. dag med tid, titel og underviser, "NÆSTE"/"NU", og ved siden af en fotomosaik (det næste stort, fire små; på mobil en vandret stribe). Linje og foto lyser op sammen og åbner eventet. `GET /api/events/program` (`worker/program.ts`).
 - Saga skriver én kort, varm indledning om de to næste events ("Lidt senere i dag kommer ... Og i morgen ..."), uden klokkeslæt og uden opdigtede detaljer. Den skrives én gang pr. dag og pr. de to events (mellemmodellen, højst én gang i timen og kun når den mangler) og gemmes i `event_blurbs` (migration 0060).
 - CIRKLER-kortet har CIRKLERs logo i deres guld (#D9B35A) i hjørnet. Menupunktet "Mine events" hedder "Opret event".
+
+## Fødselsdag i stedet for adresse (2026-10-10)
+
+- Besluttet: "Vi skal ikke bruge folks adresser. Men gerne fødselsdag, så vi kan lave noget omkring deres stjernetegn på et tidspunkt." Min profil spørger om fødselsdag (`members.birthday`, YYYY-MM-DD, migration 0061) i stedet for adresse; adressen sendes ikke længere til Stripe og vises ikke i admin. Allerede gemte adresser er ikke slettet endnu (afventer svar).
