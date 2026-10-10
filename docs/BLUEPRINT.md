@@ -600,6 +600,11 @@ Still open:
 - Formularen får mere plads (kommende events smallere ved siden af / under), timerne er højere, og dagsvisningen lægger sig under kalenderen, når der ikke er plads ved siden af.
 - "Dit event" kan trækkes op og ned, og den nederste kant trækkes for at ændre sluttiden (halve timer, 2-10 timer, senest kl. 24). Den er stiplet, mens den trækkes, og når tiden ikke er ledig; fuldt optrukket, når den ligger på en ledig tid.
 
+- Speakerens tekst skrives kun, når et event begynder ("bare én generering hver gang et event starter, ikke mere"): den handler altid om de to næste events, der ikke er gået i gang, og bruger ugedag og del af dagen ("søndag formiddag") i stedet for "i dag"/"i morgen", fordi den kan stå i flere dage. Samme tekst står diskret på admins forside og over kalenderen på hjemmesidens forside.
+
+## Ens layout på medlemssiderne (2026-10-10)
+
+- "Det er min profil, der har sandheden": alle medlemssider (Overblik, Opret event, Kalender, Min profil med Medlemskab, Om Hjerterum og adgangssiderne) har klassen `member-page` med Min profils bredde (848 px), topmargin, typografi og kickers. Opret events to kolonner står under hinanden inden for den bredde.
 - Speakerens tekst skrives kun, når et event begynder ("bare én generering hver gang et event starter, ikke mere"): den handler altid om de to næste events, der ikke er gået i gang, og bruger ugedag og del af dagen ("søndag formiddag") i stedet for "i dag"/"i morgen", fordi den kan stå i flere dage. Samme tekst står diskret over kalenderen på hjemmesidens forside (ikke i admin, efter ønske).
 
 - Admin kalder "Arrangementer" for "Events" (menu, mobilmenu, overskrift, flise og tilbagelinks); adressen er stadig `/arrangementer`.
@@ -611,3 +616,4 @@ Still open:
 ## Foto på visitkortet (2026-10-10)
 
 - Visitkortet kan have et rundt foto: medlemmet vælger et billede, trækker det på plads i en cirkel og zoomer; browseren skærer det til en 480 × 480 jpg. `POST /api/members/me/public-profile/photo` (aktivt medlemskab) gemmer kun en jpg i præcis den størrelse (højst 1 MB) i R2 under et tilfældigt navn, og `GET /api/profile-photos/<id>.jpg` viser den. Visitkortet peger på billedet (`photoUrl`, kun egne adresser).
+- holistisk.orgs egne formuleringer (`ABOUT_WORDS`): sloganet som beskrivelse af forsiden og Om Hjerterum, "et åbent og inkluderende rum" og "Uanset om du søger fordybelse ..." i forsidens vision og på Om Hjerterum, listen "Fællesskab, film, sang ..." under forsidens kategorier, prislinjen (fra medlemskabets pris) i forsidens medlemsafsnit og underviserteksten i et nyt "Vil du selv bruge Hjerterum?"-afsnit.

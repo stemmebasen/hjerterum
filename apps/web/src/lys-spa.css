@@ -10,16 +10,16 @@
 }
 body { background: var(--lys-bg); color: var(--lys-ink); font-family: var(--lys-sans); -webkit-font-smoothing: antialiased; }
 body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { background: var(--lys-bg); color: var(--lys-ink); }
-.kicker, .member-profile-page .kicker { font: 600 11.5px/1.2 var(--lys-sans); letter-spacing: .2em; text-transform: uppercase; color: var(--lys-terra); }
+.kicker, .member-page .kicker { font: 600 11.5px/1.2 var(--lys-sans); letter-spacing: .2em; text-transform: uppercase; color: var(--lys-terra); }
 .text-link { color: var(--lys-accent); font-weight: 600; }
 .pill-button { font-family: var(--lys-sans); font-weight: 600; }
-.pill-button.dark, .member-profile-page .pill-button.dark, .member-calendar-page .pill-button.dark { background: var(--lys-accent); color: var(--lys-accent-ink); border-color: var(--lys-accent); }
+.pill-button.dark, .member-page .pill-button.dark, .member-calendar-page .pill-button.dark { background: var(--lys-accent); color: var(--lys-accent-ink); border-color: var(--lys-accent); }
 .pill-button.light, .pill-button.subtle { background: var(--lys-surface); color: var(--lys-ink); border-color: var(--lys-line); }
 :is(.workspace-card, .soft-panel, .story-card, .membership-price-card, .price-result, .auth-unavailable, .workspace-table-wrap, .metric-grid article,
   .membership-source-summary article, .member-event-card, .profile-basics, .profile-feature-card, .profile-editor) {
   background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow);
 }
-.member-profile-page .pill-button, .member-profile-page .workspace-form textarea, .member-profile-page .workspace-form select { font-family: var(--lys-sans); }
+.member-page .pill-button, .member-page .workspace-form textarea, .member-page .workspace-form select { font-family: var(--lys-sans); }
 .workspace-section, .workspace-hero { width: min(1164px, calc(100% - 56px)); }
 
 /* The website's menu (site/pages.ts NAV): eight places as on hjerterum.info; below the width where they fit beside

@@ -49,6 +49,16 @@ export const BENEFITS = {
   upgrade: "Med et betalende medlemskab får du events med rabat eller gratis, kan oprette dine egne events, være med i CIRKLER og få en offentlig profil som behandler eller underviser."
 } as const;
 
+/** Requested: "Brug også disse formuleringer om Hjerterum der findes her https://holistisk.org/" - the old front page's words, kept as they were. */
+export const ABOUT_WORDS = {
+  tagline: "Hjerterum i Aarhus tilbyder arrangementer, workshops og fællesskab indenfor personlig udvikling, indre transformation og spiritualitet ♥️",
+  intro: "Hjerterum i Aarhus er et åbent og inkluderende rum, hvor du kan udforske personlig vækst, selvudvikling og fællesskab. Vi tilbyder arrangementer, workshops og inspirerende møder, der hjælper dig med at finde balance, indre styrke og nye perspektiver på livet.",
+  welcome: "Uanset om du søger fordybelse, refleksion eller bare en pause fra hverdagen, er Hjerterum et sted, hvor alle er velkomne. Kom og bliv en del af et fællesskab, der inspirerer og forbinder mennesker på tværs af livets mange facetter.",
+  kinds: "Fællesskab, film, sang, musik, dans, fællesspisning, foredrag, kurser, yoga, åndedrætsøvelser, meditation, bevægelse, kreativitet – og alt det, der skaber glæde, forbindelse og inspiration.",
+  membership: (monthKr: number) => `Bliv medlem for kun ${monthKr} kr./måned og deltag i medlemsarrangementer, og få en stor rabat på arrangementer, hvor ikke-medlemmer er tilladt – og nogle gange gratis.`,
+  teachers: "Som underviser kan du bruge vores skønne og veludstyrede rum til dine begivenheder til meget rimelige priser og drage fordel af vores store netværk af medlemmer og følgere."
+} as const;
+
 export const SIGNUP_URL = "https://holistisk.org/bliv-medlem/";
 export const CIRKLER_URL = "https://cirkler.net";
 export const NEWSLETTER_ACTION = "https://holistisk.us6.list-manage.com/subscribe/post?u=e41afd3f798957ec11726bf83&id=0070dc72a9&f_id=00b8ede5f0";
@@ -882,10 +892,12 @@ export const BOARD: BoardMember[] = [
 const ABOUT: SitePage = {
   path: "/om-hjerterum", lang: "da", section: "kontakt",
   kicker: "Om Hjerterum", title: "Huset og", em: "menneskene bag",
-  lead: "Hjerterum er en forening i Aarhus for meditation, yoga, personlig udvikling og fællesskab – drevet af et lille team og en masse ildsjæle.",
-  description: "Om Hjerterum i Aarhus: kontakt, bestyrelsen og foreningen.",
+  lead: "Hjerterum i Aarhus er et åbent og inkluderende rum, hvor du kan udforske personlig vækst, selvudvikling og fællesskab. Vi tilbyder arrangementer, workshops og inspirerende møder, der hjælper dig med at finde balance, indre styrke og nye perspektiver på livet.",
+  description: "Hjerterum i Aarhus tilbyder arrangementer, workshops og fællesskab indenfor personlig udvikling, indre transformation og spiritualitet.",
   card: { title: "Om Hjerterum", text: "Kontakt, bestyrelsen og foreningen." },
-  body: `## Kontakt {#kontakt}
+  body: `Uanset om du søger fordybelse, refleksion eller bare en pause fra hverdagen, er Hjerterum et sted, hvor alle er velkomne. Kom og bliv en del af et fællesskab, der inspirerer og forbinder mennesker på tværs af livets mange facetter.
+
+## Kontakt {#kontakt}
 **Hjerterum**, Guldsmedgade 26B, st., 8000 Aarhus C
 
 - **Medlemskab og bookinger:** [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
