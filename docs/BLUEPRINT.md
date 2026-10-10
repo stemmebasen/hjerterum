@@ -652,3 +652,7 @@ Still open:
 - Kalenderen: én linje pr. dag de næste 120 dage med ugedag og salens optagede tider (klargøring/oprydning medregnet, samarbejdspartneres events ikke) - aldrig hvem eller hvad. Så regner hun ikke selv ugedage ud og kan svare på, om en tid er ledig.
 - Hun godkender eventtekster (varme, konkrete, uden helbredsløfter) og spørger, når udkastet er lavet, om man har brug for hjælp til andet - fx at komme ind i huset eller at få eventet ud på Facebook og Instagram.
 - Fotos: medlemmet vedhæfter et foto i chatten; browseren måler det og sender en mindre kopi. Saga ser på kvaliteten, og serveren afviser altid et foto, der bryder de målbare krav (jpg/png, højst 8 MB, mindst 1920 × 1005 efter beskæring). Et godkendt foto kan med "Brug som eventfoto" blive eventets cover på Opret event (beskåret som et valgt foto).
+
+## Dit medlemskab øverst på Min profil (2026-10-10)
+
+- "Dit medlemskab" står først på Min profil som et fremhævet kort: plan, status, pris, næste træk (eller "betales via MembershipWorks" / "givet af Hjerterum") og knappen "Se og administrér medlemskab" til `/member-portal/medlemskab`.
