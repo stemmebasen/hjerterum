@@ -622,3 +622,4 @@ Still open:
 
 - Overblik har en fjerde boks: "Medlemsbesparelse · xxx kr. · siden <dato>" (`GET /api/members/me/savings`, `worker/member-savings.ts`): for hvert event i det nye system, medlemmet har været tilmeldt (bekræftet, eventet er begyndt) siden indmeldelsen, prisen for ikke-medlemmer minus det, medlemmet betalte. Uden pris for ikke-medlemmer tæller gratis leje prisberegnerens minimum for ikke-medlemmer; andre events tæller 0.
 - Eventformularen (og Sagas udkast) gemmer "Pris for ikke-medlemmer" (`room_bookings.non_member_price_minor`, migration 0062).
+- Visitkort: en hjemmeside uden https:// (fx www.ditnavn.dk) får det sat på i stedet for at blive afvist; "Se oversigten på hjemmesiden" går til www.hjerterum.info/behandlere.

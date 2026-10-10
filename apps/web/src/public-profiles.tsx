@@ -66,7 +66,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
     if (!saved || busy || conflict) return;
     if (action !== "hide") {
       try { parsePublicProfile(draft); } catch {
-        setMessage("Kontrollér kontaktoplysningerne: skriv en gyldig e-mail, et telefonnummer og et link med https:// eller http://. Felterne må gerne være tomme.");
+        setMessage("Kontrollér kontaktoplysningerne: skriv en gyldig e-mail, et telefonnummer og en hjemmeside (fx www.ditnavn.dk). Felterne må gerne være tomme.");
         return;
       }
     }
@@ -125,7 +125,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
           <label>Tekst på linket<select value={draft.linkLabel ?? "Læs mere"} onChange={e => change({ linkLabel: e.target.value as "Læs mere" | "Book en tid" })}><option>Læs mere</option><option>Book en tid</option></select></label>
         </fieldset>
       </fieldset>}
-      <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Din private adresse, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
+      <p className="profile-note">Kun oplysningerne i visitkortet bliver offentlige. Dine private medlemsoplysninger, medlemsbetaling og CIRKLER-profil vises ikke her.</p>
       <div className="workspace-actions">
         <button className="pill-button" disabled={busy || conflict} onClick={() => void save("save")}>Gem kladde</button>
         <button className="text-button" disabled={busy} onClick={() => setPreview(!preview)}>{preview ? "Redigér visitkortet" : "Se forhåndsvisning →"}</button>
@@ -137,7 +137,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
           <button className="pill-button dark" disabled={busy || conflict || !consent || !isCompleteProfile(draft)} onClick={() => void save("publish")}>{saved.published ? "Offentliggør ændringer" : "Offentliggør visitkort"}</button>
         </>}
         {saved.published && <button className="text-button" disabled={busy || conflict} onClick={() => void save("hide")}>Skjul fra hjemmesiden</button>}
-        <a className="text-link" href="/behandlere" target="_blank" rel="noreferrer">Se oversigten på hjemmesiden ↗</a>
+        <a className="text-link" href="https://www.hjerterum.info/behandlere" target="_blank" rel="noreferrer">Se oversigten på hjemmesiden ↗</a>
       </div>
     </>}
     {message && <p className="workspace-message" role="status">{message}</p>}
