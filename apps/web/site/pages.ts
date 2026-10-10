@@ -592,7 +592,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
   },
   {
     path: "/om-os/teamet", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Teamet", em: "bag Hjerterum",
+    kicker: "Om Hjerterum", title: "Teamet", em: "bag Hjerterum",
     lead: "Foreningen Hjerterum ledes af et team af dedikerede ildsjæle, der samtidig udgør bestyrelsen.",
     description: "Mød bestyrelsen og teamet bag Hjerterum i Aarhus – og hvordan vi arbejder.",
     card: { title: "Teamet bag", text: "Bestyrelsen, og hvordan vi arbejder." },
@@ -624,7 +624,7 @@ At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst mu
   },
   {
     path: "/om-os/historien", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Historien", em: "bag Hjerterum",
+    kicker: "Om Hjerterum", title: "Historien", em: "bag Hjerterum",
     lead: "Et eventyr, der begyndte i et lille lydstudie på Karupvej i 2016 – og som i dag har til huse i en stille oase bag Guldsmedgade.",
     description: "Historien om Hjerterum i Aarhus fra 2016 til i dag.",
     card: { title: "Historien bag Hjerterum", text: "Fra et lydstudie på Karupvej til Guldsmedgade." },
@@ -656,7 +656,7 @@ Hjerterum er ikke bare et center, men et levende eventyr – et sted, hvor hjert
   },
   {
     path: "/om-os/foreningen", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Foreningen", em: "Hjerterum",
+    kicker: "Om Hjerterum", title: "Foreningen", em: "Hjerterum",
     lead: "Hjerterum F.M.B.A. er en forening med generalforsamling, vedtægter og en bestyrelse valgt af medlemmerne. Her finder du referater, budgetter, nyhedsbreve og vedtægter.",
     description: "Foreningen Hjerterum F.M.B.A.: generalforsamling, referater, budget, nyhedsbreve og vedtægter.",
     card: { title: "Foreningen", text: "Generalforsamling, dokumenter, nyhedsbreve og vedtægter." },
@@ -698,7 +698,7 @@ ${statutesMarkdown(STATUTES)}
   },
   {
     path: "/om-os/artikler", lang: "da", section: "om-os",
-    kicker: "Vision / om os", title: "Artikler", em: "fra Hjerterum",
+    kicker: "Om Hjerterum", title: "Artikler", em: "fra Hjerterum",
     lead: "Beretninger fra aftener og foredrag i Hjerterum – skrevet af gæster, der var med.",
     description: "Artikler og beretninger fra arrangementer i Hjerterum.",
     card: { title: "Artikler", text: "Beretninger fra aftener og foredrag i huset." },
