@@ -212,7 +212,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
     return () => { active = false; };
   }, [clerk, member?.id, benefits]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <section className="lys-page member-overview member-page">
+    <section className="lys-page member-overview">
       <div className="lys-intro">
         <div>
           <p className="lys-kicker">Dit Hjerterum</p>
