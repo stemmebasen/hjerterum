@@ -1,4 +1,6 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
+import { ownPublicProfile, publicProfiles } from "./public-profiles.js";
+import { memberSavings } from "./member-savings.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
 import { changeMemberAccess } from "./admin-members.js";
@@ -418,6 +420,12 @@ export default {
     if (request.method === "PUT" && url.pathname === "/api/members/me") return putMemberMe(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/payments") return memberInvoices(request, env);
     if (request.method === "GET" && url.pathname === "/api/members/me/subscription") return memberSubscriptionRoute(request, env);
+    if (request.method === "GET" && url.pathname === "/api/members/me/savings") {
+      if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+      const user = await requireUser(request, env);
+      if (user instanceof Response) return user;
+      return json(await memberSavings(env.DB, user.userId, Date.now()));
+    }
 
     const legacyPayments = url.pathname.match(/^\/api\/members\/(\d+)\/payments$/);
     if (request.method === "GET" && legacyPayments?.[1]) {
