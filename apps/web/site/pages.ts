@@ -584,14 +584,8 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
     lead: "Foreningen Hjerterum ledes af et team af dedikerede ildsjæle, der samtidig udgør bestyrelsen.",
     description: "Mød bestyrelsen og teamet bag Hjerterum i Aarhus – og hvordan vi arbejder.",
     card: { title: "Teamet bag", text: "Bestyrelsen, og hvordan vi arbejder." },
-    body: `![Bestyrelsen i Hjerterum](/media/2025-12-pcgo-hdy.webp "Fra venstre: Gitta Kaas, Douglas Crawford, Jacob Hauge (formand), Frederik Kærgaard (kasserer) og Lisbeth Jespersen (næstformand).")
-
-## Bestyrelsen
-- **Jacob Hauge** – grundlægger, formand og teamleder (frivillig)
-- **Lisbeth Jespersen** – næstformand (ansat 8 timer om ugen). Bookinger med nye undervisere, generelle henvendelser samt ind- og udmeldelser.
-- **Frederik Kærgaard** – kasserer (ansat 5 timer om ugen). Økonomi, fakturaer m.m.
-- **Gitta Kaas** – (ansat 5 timer om ugen). SoMe og PR samt bookinger med faste undervisere.
-- **Douglas Crawford** – bestyrelsesmedlem (frivillig). Medlemssystem, hjemmeside, vedligeholdelse og café.
+    body: `## Bestyrelsen
+{{board}}
 
 For vores ansatte stopper engagementet sjældent ved de faste timetal. De lægger ofte ekstra frivillige timer, fordi de brænder for Hjerterum og fællesskabet.
 
@@ -810,7 +804,9 @@ Skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis du har
     lead: "Har du spørgsmål til medlemskab, events eller mulighederne i Hjerterum, er du velkommen til at række ud.",
     description: "Kontakt Hjerterum, Guldsmedgade 26B, 8000 Aarhus C: mail, betaling, parkering og adgangsforhold.",
     card: { title: "Lad os høre fra dig", text: "Adresse, mail, parkering og betaling." },
-    body: `## Adresse
+    body: `Mød bestyrelsen og se alt om foreningen på [Om Hjerterum](/om-hjerterum).
+
+## Adresse
 **Hjerterum**, Guldsmedgade 26B, st., 8000 Aarhus C
 
 Vil du se stedet? Aftal en tid til fremvisning pr. mail.
@@ -860,4 +856,46 @@ Følg os på [Facebook](https://www.facebook.com/holistiskcenter). Søger du sel
 /** The homepage is its own page (src/site-pages.tsx); it carries the draft of holistisk.org's new front page. */
 export const HOME_SOURCES = ["test"];
 
-export const SITE_PAGES: SitePage[] = [...pages, ...SITE_PAGES_EN];
+/** Requested: "en flot Om Hjerterum-side som skal være den samme her /member-portal/kontakt og på hjemmesiden. Her er både kontaktoplysninger
+ * og information om bestyrelsen med billede." The board, written once: the website's Teamet and Om Hjerterum and the member area all show it. */
+export type BoardMember = { name: string; role: string; hours: string; tasks: string };
+export const BOARD_PHOTO: Picture & { caption: string } = { src: "/media/2025-12-pcgo-hdy.webp", alt: "Bestyrelsen i Hjerterum",
+  caption: "Fra venstre: Gitta Kaas, Douglas Crawford, Jacob Hauge (formand), Frederik Kærgaard (kasserer) og Lisbeth Jespersen (næstformand)." };
+export const BOARD: BoardMember[] = [
+  { name: "Jacob Hauge", role: "Formand", hours: "Grundlægger og teamleder · frivillig", tasks: "Andre henvendelser og det overordnede." },
+  { name: "Lisbeth Jespersen", role: "Næstformand", hours: "Ansat 8 timer om ugen", tasks: "Bookinger med nye undervisere, generelle henvendelser samt ind- og udmeldelser." },
+  { name: "Frederik Kærgaard", role: "Kasserer", hours: "Ansat 5 timer om ugen", tasks: "Økonomi, fakturaer m.m." },
+  { name: "Gitta Kaas", role: "SoMe og PR", hours: "Ansat 5 timer om ugen", tasks: "SoMe og PR samt bookinger med faste undervisere." },
+  { name: "Douglas Crawford", role: "Bestyrelsesmedlem", hours: "Frivillig", tasks: "Medlemssystem, hjemmeside, vedligeholdelse og café." }
+];
+
+const ABOUT: SitePage = {
+  path: "/om-hjerterum", lang: "da", section: "kontakt",
+  kicker: "Om Hjerterum", title: "Huset og", em: "menneskene bag",
+  lead: "Hjerterum er en forening i Aarhus for meditation, yoga, personlig udvikling og fællesskab – drevet af et lille team og en masse ildsjæle.",
+  description: "Om Hjerterum i Aarhus: kontakt, bestyrelsen og foreningen.",
+  card: { title: "Om Hjerterum", text: "Kontakt, bestyrelsen og foreningen." },
+  body: `## Kontakt {#kontakt}
+**Hjerterum**, Guldsmedgade 26B, st., 8000 Aarhus C
+
+- **Medlemskab og bookinger:** [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
+- **Idéer til events:** [events@holistisk.org](mailto:events@holistisk.org)
+- **Økonomi og regnskab:** [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
+- **Andre henvendelser:** Jacob Hauge, formand – [jh@holistisk.org](mailto:jh@holistisk.org)
+
+Du kan forvente svar inden for 3–5 hverdage. Du kan også [skrive til os med formularen](/kontakt#skriv) eller læse om [parkering og adgang](/kontakt#parkering).
+
+## Bestyrelsen {#bestyrelsen}
+{{board}}
+Vi har en flad struktur: ansatte og frivillige deler ansvaret og løfter opgaverne i flok. [Læs mere om, hvordan vi arbejder](/om-os/teamet).
+
+## Foreningen {#foreningen}
+- **Hjerterum F.M.B.A.**, CVR 40827692
+- **MobilePay:** 734388
+- **Djursland Bank:** reg.nr. 7268, kontonr. 1211404
+
+[Vedtægterne](/om-os/foreningen#vedtaegter) · [Historien](/om-os/historien)`,
+  sources: []
+};
+
+export const SITE_PAGES: SitePage[] = [...pages, ABOUT, ...SITE_PAGES_EN];

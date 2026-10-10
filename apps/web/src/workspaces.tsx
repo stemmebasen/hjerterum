@@ -10,6 +10,8 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
+import { SitePageInner } from "./site-pages";
+import { SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
@@ -153,7 +155,8 @@ function WorkspaceHeader({
     ["/member-portal/kalender", "Kalender"],
     // Requested: "Lad Medlemskab blive knyttet ind under Min profil".
     ["/member-portal/profil", "Min profil"],
-    ["/member-portal/kontakt", "Kontakt"]
+    // Requested: one "Om Hjerterum" page, the same here and on the website (site/pages.ts).
+    ["/member-portal/kontakt", "Om Hjerterum"]
   ];
   const adminLinks: Array<readonly [string, string]> = [
     ["/admin/", "Overblik"],
@@ -862,7 +865,7 @@ export function MemberWorkspace({
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
-          <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
+          <section className="workspace-section site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
