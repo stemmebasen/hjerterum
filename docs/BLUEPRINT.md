@@ -570,3 +570,8 @@ Still open:
 
 - Undervisere uden kontaktoplysninger, faste eller kommende events kan fjernes fra listen med × (`cockpit_teachers_hidden`, migration 0059). De skjules kun - kalenderens historik røres ikke - og kan sættes tilbage under "Fjernet fra listen".
 - Medlemstallene har en kort forklaring: de er skrevet af fra MembershipWorks' dashboard, og gratis, restance og opsagte er hver deres tal.
+
+## CIRKLER-kort på medlemssiden
+
+- Medlemssiden viser et CIRKLER-kort: "Du er med i cirklen <navn> - Gå til CIRKLER", "Du har en profil og venter på en cirkel" eller "Du er endnu ikke med i en cirkel - Opret profil her" (samme signerede billet som før).
+- `GET /api/integrations/cirkler/status` (medlemmets Clerk-login) spørger CIRKLER live (`POST /api/hjerterum/circle-status` på cirkler.net) med medlemsreferencen og den nøgle, de to systemer allerede deler. Kun `{profile, circle}` sendes videre; Hjerterum gemmer intet. Svarer CIRKLER ikke, vises kortet ikke.

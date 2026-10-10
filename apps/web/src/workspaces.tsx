@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
+import { CirklerCard } from "./cirkler-card";
 import { LysArt, LysTop } from "./lys";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
@@ -179,7 +180,7 @@ const REVIEW_LABEL: Record<NonNullable<Booking["reviewStatus"]>, [string, string
 
 /** Hjerterum Lys (apps/web/lys.ts), in the website's layout: kicker, a serif headline with its italic line, the text
  * beside it; then the figures and the two lists a member comes for. */
-function MemberOverview({ member, calendar }: { member: Member | null; calendar: Booking[] }) {
+function MemberOverview({ member, calendar, clerk }: { member: Member | null; calendar: Booking[]; clerk: ClerkBrowser }) {
   const registrations = calendar.filter((booking) => booking.isAttending);
   const owned = calendar.filter((booking) => booking.isOwner);
   const awaiting = owned.filter((booking) => booking.reviewStatus === "pending" || booking.reviewStatus === "needs_board").length;
@@ -236,6 +237,7 @@ function MemberOverview({ member, calendar }: { member: Member | null; calendar:
               ) : <p className="lys-sub">Som medlem kan du leje salen og lægge dit event i Hjerterums kalender.</p>}
               <p className="member-overview-more"><a className="lys-btn" href="/member-portal/events">{owned.length ? "Administrér dine events" : "Opret et event"}</a></p>
             </article>
+            <CirklerCard clerk={clerk} />
           </>
         ) : (
           <>
@@ -839,7 +841,7 @@ export function MemberWorkspace({
           <section className="workspace-section workspace-narrow"><p className="kicker">Kontakt</p><h1>Vi er her.</h1><div className="workspace-card"><p>Spørgsmål om huset, medlemskab eller et event?</p><a className="text-link" href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org →</a><p>Guldsmedgade 26B, 8000 Aarhus C</p></div></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
-        ) : <MemberOverview member={member} calendar={calendar} />}
+        ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
     </main>
   );
 }
