@@ -641,6 +641,7 @@ Still open:
 - Medlemmet vælger eventets start og slut; "Klargøring før" og "Oprydning efter" er 30 minutter som standard og kan sættes til ingen, 30 minutter eller 1 time. Salen er optaget, og lejen beregnes, for hele vinduet (start minus klargøring til slut plus oprydning). Prisberegnerens regler gælder vinduet: 2-10 timer, ikke hen over 18.30 på hverdage ved reduceret/gratis leje, og oprydningen er færdig senest kl. 24. Selve eventet varer mindst 1 time.
 - Dagsvisningen viser klargøring og oprydning som lyse, stiplede felter over og under "Dit event", og andres bookinger med deres vinduer. Ved redigering tæller bookingen ikke mod sig selv (matches på id).
 - `room_bookings.setup_minutes` / `cleanup_minutes` (0/30/60, migration 0064). Konflikttjek, dagsoverblik og leje går på vinduet; offentlige tider er eventets egne.
+
 ## I morgen i Hjerterum (2026-10-10)
 
 - Speakeren på Overblik og hjemmesiden hedder nu "I morgen i Hjerterum" og handler om morgendagens events (højst tre, én sætning hver, med del af dagen). Overskriften er altid "I morgen i Hjerterum"; er der intet i morgen, siger teksten det og fortæller om næste dag med noget i huset ("I morgen er der stille i huset, men torsdag aften ..."). Saga skriver den én gang i døgnet (første runde efter midnat) og kun igen, hvis den dags events ændrer sig. Erstatter "de næste to events, ny tekst når et event starter".
