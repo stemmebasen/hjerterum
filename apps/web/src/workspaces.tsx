@@ -12,6 +12,7 @@ import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
 import { COVER_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { cropCover } from "./cover-crop";
+import { eventPagePath } from "./event-page";
 import { LegalLine } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
@@ -624,7 +625,7 @@ function MemberCalendar({
                   {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : booking.ticketPriceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>
               )}
-                  </> : external?.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
+                  </> : external && eventPagePath(external.id) ? <a className="text-link" href={eventPagePath(external.id)!}>Læs mere og tilmeld →</a> : external?.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
             </EventCard>;
           })}
         </div>

@@ -680,3 +680,8 @@ Still open:
 ## Snart i Hjerterum (2026-10-11)
 
 - "Lad resuméet altid inkludere de kommende tre events - og ændre overskriften så den passer": speakeren hedder "Snart i Hjerterum" (forsiden, Overblik og hjemmesiden) og handler altid om de næste tre events i huset, der ikke er begyndt - med titel i »«, ugedag, del af dagen og klokkeslæt, aldrig "i dag"/"i morgen". Teksten skrives igen, når et af de tre begynder (nøgle `intro4:` + de tre events). Forsidens liste under overskriften viser de samme tre. Erstatter "I morgen i Hjerterum".
+
+## Eventsider på hjerterum.info (2026-10-11)
+
+- "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside": et event fra MembershipWorks-kalenderen har sin egen side, `/events/<id>` (id = MembershipWorks' event-id, feedets guid uden "SF"). `GET /api/events/external/<id>` (worker/event-detail.ts) samler feedets titel, billede, kategori og tilmeldingslink med MembershipWorks' åbne event-API (`v2/event?eid=…&org=22308`): fuld beskrivelse som tekstafsnit (HTML gives aldrig videre), adresse, billettyper og antal pladser; 10 minutters cache.
+- "Læs mere og tilmeld" på forsiden, i kalenderen, i speakerens fotostribe og i medlemskalenderen fører til eventsiden. Kun "Tilmeld dig" åbner stadig MembershipWorks ("Tilmeldingen foregår indtil videre i Hjerterums tidligere kalender"), til billetsalget kører på platformen. Samarbejdspartneres events linker stadig til deres egne sider.
