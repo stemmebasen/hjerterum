@@ -32,7 +32,7 @@ Lysets Hus' page has no feed: the adapter reads its text layout. The year is cho
 | YO Studios (Scandinavian Center, Margrethepladsen 4, 1. sal, Aarhus C; also Oddervej 157, Højbjerg) | Timetable and events are YOGO widgets (`api.yogo.dk`, disallowed as above). Mostly pilates, barre, dance and fitness; only the yoga is in scope. | Profile with yoga (yin to vinyasa) and the events page. |
 | Gomde (Smedehalden 3, Knebel) | Its Google Calendar mixes temple practice with internal and private entries, so it is not published; programmes sit in Retreat Guru behind a login API. | Profile with the daily temple practice. |
 
-**YOGO** (yogo.dk) runs the booking for three of these studios (Yoga & Meditation Horsens, Yogaskolen i Aarhus, YO Studios). One agreement with YOGO, or each studio's written OK plus YOGO's, would let one adapter collect all three; the studios' public calendars are `<studio>.yogo.dk`.
+**YOGO** (yogo.dk) runs the booking for Yoga & Meditation Horsens, Yogaskolen i Aarhus and YO Studios. Their public calendars are `<studio>.yogo.dk`, fed by `api.yogo.dk`; one adapter can serve all three.
 
 ## Not included
 
