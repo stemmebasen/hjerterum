@@ -28,19 +28,25 @@ const rows = (body: string) => [...body.matchAll(/<span class="row-title">([^<]+
 const count = (body: string) => Number(/class="results-count"[^>]*>(\d+) events?</.exec(body)?.[1] ?? NaN);
 
 describe("front page", () => {
-  it("leads with an event, the calendar, cities, activities, topics and standing offerings", async () => {
+  it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
     expect(body).toContain("<h1>Spirituelle og holistiske events i Østjylland</h1>");
     expect(body).toContain("<title>Spirituelle og holistiske events i Østjylland – kalender ✨</title>");
-    expect(body).toContain('class="lead-story');
+    expect(body).toContain('class="card-grid');
     expect(body).toContain('action="/kalender"');
     expect(body).toContain('href="/aarhus"');
     expect(body).toContain('href="/klarsyn"');
     expect(body).toContain('href="/breathwork"');
     expect(body).toContain("Faste ugentlige tilbud");
     expect(body).toContain("16. Karmapa-meditation hver mandag kl. 17.00");
-    expect(body).toContain("Lørdag den 10. oktober");
+    expect(body).toContain("De næste 7 dage");
+  });
+
+  it("lists every event of the coming 7 days, not a selection", async () => {
+    const week = rows((await text("/kalender?periode=uge")).body);
+    expect(week.length).toBeGreaterThan(5);
+    expect(rows((await text("/")).body)).toEqual(week);
   });
 });
 

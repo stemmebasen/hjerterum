@@ -35,7 +35,7 @@ Outside production every response carries `X-Robots-Tag: noindex` and robots.txt
 
 ## Design
 
-A calm, clinical newspaper look, after Kristeligt Dagblad: a grey masthead with the centred wordmark and a blue rule, a section line with today's date, white paper, black serif headlines (Source Serif 4, OFL, served from `public/assets/fonts`), small blue section labels, hairline rules, square pictures and no shadows. The calendar is a list by day, as a newspaper's listings. The footer is dark.
+Warm and calm rather than a news site: cream paper, a sand-coloured hero, terracotta for actions and sage for labels, rounded pictures and soft cards. Headings are set in Fraunces (SIL OFL, `public/assets/fonts`, instanced to weights 300–700 with a fixed softness so the files stay ~65 kB), a soft old-style serif with curled terminals in the spirit of Playfair; body text uses the system sans-serif. The header has the sun mark, the main activities and a menu. The front page shows a few upcoming events with pictures, then every event of the coming 7 days, day by day, so no organiser's events are left out. The calendar is a list of day cards.
 
 ## Search engines
 

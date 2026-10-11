@@ -81,16 +81,17 @@ export async function countByArea(db: D1Database, f: Filters, regions: string[],
   return new Map(results.map(r => [r.area, r.n]));
 }
 
-export async function listEvents(db: D1Database, f: Filters, regions: string[], now: number): Promise<{ events: EventRow[]; total: number }> {
+export async function listEvents(db: D1Database, f: Filters, regions: string[], now: number, pageSize = PAGE_SIZE): Promise<{ events: EventRow[]; total: number }> {
   const w = filterWhere(f, regions, now);
   const where = w.sql.join(" AND ");
   const total = await db.prepare(`SELECT COUNT(*) AS n FROM events e WHERE ${where}`).bind(...w.params).first<{ n: number }>();
   const { results } = await db.prepare(`${SELECT} WHERE ${where} ORDER BY e.starts_at, e.id LIMIT ? OFFSET ?`)
-    .bind(...w.params, PAGE_SIZE, (f.page - 1) * PAGE_SIZE).all<EventRow>();
+    .bind(...w.params, pageSize, (f.page - 1) * pageSize).all<EventRow>();
   return { events: results, total: total?.n ?? 0 };
 }
 
-/** Upcoming events for the front page: soonest first, at most two per organiser, preferring events with a picture. */
+/** A few upcoming events to show with pictures on the front page: soonest first, at most two per organiser, preferring
+ * events with a picture. */
 export async function featuredEvents(db: D1Database, regions: string[], now: number, count = 6): Promise<EventRow[]> {
   const w = visible(regions, now);
   w.sql.push("e.status = 'scheduled'", "e.starts_at >= ?");

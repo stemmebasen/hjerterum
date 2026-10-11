@@ -1,6 +1,5 @@
 import { CATEGORIES } from "../categories.js";
 import { TOPICS } from "../activities.js";
-import { capitalize, wallClock, weekdayIndex, localDate, monthName } from "../time.js";
 import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
 
@@ -34,14 +33,10 @@ export type PageMeta = {
 
 const SITE = "holistisk.org";
 
-/** The section line under the masthead, as a newspaper's: the most searched activities. */
-const SECTIONS: Array<[string, string]> = [["/kalender", "Kalender"], ["/meditation", "Meditation"], ["/yoga", "Yoga"], ["/spiritualitet", "Spiritualitet"], ["/healing", "Healing"], ["/retreat", "Retreats"]];
-const WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"];
-/** "Søndag den 11. oktober" */
-export const todayLine = (now: number): string => {
-  const w = wallClock(now);
-  return `${capitalize(WEEKDAY_NAMES[weekdayIndex(localDate(now))]!)} den ${w.day}. ${monthName(w.month)}`;
-};
+/** The main navigation in the header: the calendar and the most searched activities. */
+const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/meditation", "Meditation"], ["/yoga", "Yoga"], ["/spiritualitet", "Spiritualitet"], ["/healing", "Healing"], ["/retreat", "Retreats"]];
+/** The site's mark: a sun over a horizon, drawn in the accent colour. */
+const MARK = raw('<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor" opacity=".14"/><circle cx="16" cy="17" r="6.5" fill="currentColor"/><path d="M5 21.5h22M8.5 25h15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
 
@@ -86,11 +81,11 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="twitter:title" content="${meta.title}">
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
-<meta name="theme-color" content="#f4f4f4">
+<meta name="theme-color" content="#f7f1e8">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/assets/fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=3">
-<script src="/assets/site.js?v=3" defer></script>
+<link rel="preload" href="/assets/fonts/fraunces-latin-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=4">
+<script src="/assets/site.js?v=4" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
 <body>
@@ -98,16 +93,16 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion (${ctx.environment}) – ikke offentlig endnu</div>` : ""}
 <header class="masthead">
   <div class="wrap masthead-inner">
-    <div class="masthead-side">
-      <a class="pill" href="/om#arrangoerer">Er du arrangør?</a>
-    </div>
-    <a class="wordmark" href="/" aria-label="holistisk.org – forsiden">holistisk<span>.org</span></a>
-    <div class="masthead-side masthead-right">
-      <a class="pill" href="/kalender#soeg"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2"/></svg>Søg</a>
+    <a class="wordmark" href="/" aria-label="holistisk.org – forsiden">${MARK}<span>holistisk<span class="tld">.org</span></span></a>
+    <nav class="nav" aria-label="Hovedmenu">
+      <ul>${NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
+    </nav>
+    <div class="masthead-tools">
+      <a class="icon-button" href="/kalender#soeg" aria-label="Søg i kalenderen"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
       <details class="menu">
-        <summary>Menu <span class="burger" aria-hidden="true"></span></summary>
+        <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li></ul></div>
+          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/om#arrangoerer">Er du arrangør?</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
@@ -116,22 +111,13 @@ ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Te
     </div>
   </div>
 </header>
-<nav class="sections" aria-label="Sektioner">
-  <div class="wrap sections-inner">
-    <span class="today">${todayLine(ctx.now)}</span>
-    <ul>
-      ${SECTIONS.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}
-    </ul>
-    <a class="sections-right" href="/weekend">Det sker i weekenden</a>
-  </div>
-</nav>
 <main id="indhold">
 ${body}
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">
     <div class="footer-about">
-      <p class="footer-brand">holistisk<span>.org</span></p>
+      <p class="footer-brand">${MARK}<span>holistisk<span class="tld">.org</span></span></p>
       <p>Spirituel og holistisk kalender for ${ctx.regionLabel}. Events fra mange arrangører, samlet ét sted og opdateret hver nat. Tilmelding sker altid hos arrangøren.</p>
       <p><a href="/om">Om portalen og kilderne</a> · <a href="/om#arrangoerer">Er du arrangør?</a></p>
     </div>

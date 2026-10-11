@@ -6,7 +6,7 @@ import { ORGANIZERS, organizerBySlug, organizersFor, type OrganizerProfile } fro
 import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
-import { activeFilterChips, cardGrid, dayList, eventPath, filterPanel, leadStory, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
@@ -49,7 +49,7 @@ function itemList(events: EventRow[], ctx: PageContext, offset = 0) {
 
 const eventsLabel = (n: number) => n === 1 ? "1 event" : `${n} events`;
 
-/** The regular offerings of a set of organisers, as a newspaper's standing listings. */
+/** The regular offerings of a set of organisers. */
 function offeringsBlock(profiles: OrganizerProfile[]): SafeHtml {
   const withOfferings = profiles.filter(p => p.offerings.length);
   if (!withOfferings.length) return html``;
@@ -67,38 +67,41 @@ function organizerList(profiles: OrganizerProfile[]): SafeHtml {
 
 // ————————————————————————————————————————— Front page
 
+/** How many of the coming week's events the front page lists before pointing to the calendar. */
+const FRONT_WEEK_LIMIT = 80;
+
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const areas = activeAreas(regions);
-  const [featured, byArea, today, weekend] = await Promise.all([
-    featuredEvents(db, regions, ctx.now, 7), areaCounts(db, regions, ctx.now),
-    listEvents(db, emptyFilters({ period: "idag" }), regions, ctx.now), listEvents(db, emptyFilters({ period: "weekend" }), regions, ctx.now)
+  const [featured, byArea, week] = await Promise.all([
+    featuredEvents(db, regions, ctx.now, 4), areaCounts(db, regions, ctx.now),
+    listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT)
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
-  const [lead, ...rest] = featured;
   const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
-  const activityLinks = (list: Activity[]) => linkList(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: activityCounts[ACTIVITIES.indexOf(a)] ?? 0 })));
+  const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: activityCounts[ACTIVITIES.indexOf(a)] ?? 0 })));
   const body = html`
-<div class="wrap">
-  <header class="front-head">
+<div class="hero">
+  <div class="wrap hero-inner">
     <h1>Spirituelle og holistiske events i ${ctx.regionLabel}</h1>
     <p class="standfirst">Meditation, yoga, breathwork, healing, klarsyn, foredrag, cirkler og retreats fra mange arrangører – samlet i én kalender og opdateret hver nat.</p>
     ${searchForm(areas, {})}
-  </header>
-  ${lead ? html`<div class="front-grid">
-    ${leadStory(lead, ctx.now)}
-    <div class="front-side">${cardGrid(rest.slice(0, 2), ctx.now)}</div>
+    <ul class="quick-links" aria-label="Genveje">
+      <li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/meditation">Meditation</a></li><li><a href="/yoga">Yoga</a></li><li><a href="/healing">Healing</a></li><li><a href="/retreat">Retreats</a></li>
+    </ul>
   </div>
-  ${rest.length > 2 ? cardGrid(rest.slice(2, 6), ctx.now) : ""}` : html`<p class="empty">Der er ingen kommende events lige nu. Kalenderen opdateres hver nat.</p>`}
+</div>
+<div class="wrap">
+  ${featured.length ? section("h-featured", "Snart i kalenderen", cardGrid(featured, ctx.now)) : ""}
+  ${section("h-week", "De næste 7 dage", week.events.length
+    ? html`${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se alle ${week.total} events de næste 7 dage</a></p>` : ""}`
+    : html`<p class="empty">Der er ingen events de næste 7 dage endnu. <a href="/kalender">Se hele kalenderen</a>.</p>`,
+    { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
-  <div class="two-col">
-    ${section("h-today", "Det sker i dag", today.events.length ? dayList(today.events.slice(0, 6), ctx.now) : html`<p class="meta-muted">Ingen events i dag. Se <a href="/weekend">weekenden</a> eller <a href="/kalender">hele kalenderen</a>.</p>`, { href: "/i-dag", label: "Alle i dag →" })}
-    ${weekend.total !== today.total ? section("h-weekend", "I weekenden", weekend.events.length ? dayList(weekend.events.slice(0, 6), ctx.now) : html`<p class="meta-muted">Intet i kalenderen for weekenden endnu.</p>`, { href: "/weekend", label: "Hele weekenden →" }) : html``}
-  </div>
-  ${section("h-cities", "Events i din by", html`${linkList(areas.map(a => ({ href: `/${a.slug}`, label: `Events i ${a.place}`, count: byArea.get(a.slug) ?? 0 })))}
+  ${section("h-activities", "Find din aktivitet", activityChips(ACTIVITIES.filter(a => a.category)), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
+  ${section("h-topics", "Populære emner", activityChips(TOPICS))}
+  ${section("h-cities", "Events i din by", html`${chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place, count: byArea.get(a.slug) ?? 0 })))}
     <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
-  ${section("h-activities", "Aktiviteter", activityLinks(ACTIVITIES.filter(a => a.category)), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
-  ${section("h-topics", "Populære emner", activityLinks(TOPICS))}
   ${section("h-regular", "Faste ugentlige tilbud", offeringsBlock(ORGANIZERS.filter(o => areas.some(a => a.slug === o.area))), { href: "/arrangoerer", label: "Alle arrangører →" })}
 </div>`;
   return {

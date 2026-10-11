@@ -16,7 +16,7 @@ export function placeLine(e: Pick<EventRow, "venue_name" | "city" | "area">): st
   return parts.length ? parts.join(", ") : area ?? "";
 }
 
-/** The small blue label above a headline, as a newspaper's section label: "Meditation · Aarhus". */
+/** The small label above a title: "Meditation · Aarhus". */
 export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "city">): SafeHtml {
   const category = categoryBySlug(cats(e)[0] ?? "")?.short;
   // The town itself ("Nørre Snede"), not the area it belongs to, when the two differ.
@@ -29,24 +29,11 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
 
 /** A picture, or for events without one we may show, a quiet typographic stand-in with the date. */
-function media(e: EventRow, size: "lead" | "card"): SafeHtml {
-  if (e.image_url) return html`<figure class="media media-${size}"><img src="${e.image_url}" alt="" ${size === "lead" ? "" : raw('loading="lazy" ')}decoding="async"></figure>`;
+function media(e: EventRow): SafeHtml {
+  if (e.image_url) return html`<figure class="media"><img src="${e.image_url}" alt="" loading="lazy" decoding="async"></figure>`;
   const [, m, day] = localDate(e.starts_at).split("-");
   const months = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
-  return html`<figure class="media media-${size} media-plain" aria-hidden="true"><span class="plain-day">${String(Number(day))}</span><span class="plain-month">${months[Number(m) - 1]}</span></figure>`;
-}
-
-/** The front page's lead story: the next event, large. */
-export function leadStory(e: EventRow, now: number): SafeHtml {
-  return html`<article class="lead-story${e.status === "cancelled" ? " is-cancelled" : ""}">
-  <a href="${eventPath(e)}">
-    ${media(e, "lead")}
-    ${kicker(e)}
-    <h2 class="lead-title">${e.title}</h2>
-    <p class="meta">${when(e, now)} · ${placeLine(e)}</p>
-    ${e.summary ? html`<p class="standfirst">${e.summary}</p>` : ""}
-  </a>
-</article>`;
+  return html`<figure class="media media-plain" aria-hidden="true"><span class="plain-day">${String(Number(day))}</span><span class="plain-month">${months[Number(m) - 1]}</span></figure>`;
 }
 
 export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 | 3 } = {}): SafeHtml {
@@ -54,7 +41,7 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
   const heading = options.headingLevel === 2 ? "h2" : "h3";
   return html`<article class="card${e.status === "cancelled" ? " is-cancelled" : ""}">
   <a class="card-link" href="${eventPath(e)}">
-    ${media(e, "card")}
+    ${media(e)}
     ${kicker(e)}
     ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
     <p class="meta"><span class="visually-hidden">Tid: </span>${when(e, now)}</p>
@@ -67,7 +54,7 @@ export function cardGrid(events: EventRow[], now: number, headingLevel: 2 | 3 = 
   return html`<div class="card-grid">${events.map(e => eventCard(e, now, { headingLevel }))}</div>`;
 }
 
-/** The calendar: events grouped under their day, one line each, as a newspaper's listings. */
+/** The calendar: events grouped under their day, one line each. */
 export function dayList(events: EventRow[], now: number): SafeHtml {
   const days: Array<{ date: string; label: string; events: EventRow[] }> = [];
   for (const e of events) {
@@ -102,12 +89,17 @@ export function searchForm(areas: Area[], selected: { q?: string; area?: string 
 </form>`;
 }
 
-/** A plain list of links with counts, as a newspaper's index: "Meditation i Aarhus 12". */
+/** A list of links with counts: "Meditation i Aarhus 12". */
 export function linkList(items: Array<{ href: string; label: string; count?: number | null; note?: string | null }>, options: { columns?: boolean } = {}): SafeHtml {
   return html`<ul class="link-list${options.columns === false ? "" : " link-columns"}">${items.map(i => html`<li><a href="${i.href}"><span>${i.label}</span>${i.count !== undefined && i.count !== null ? html`<span class="count">${i.count}</span>` : ""}</a>${i.note ? html`<span class="link-note">${i.note}</span>` : ""}</li>`)}</ul>`;
 }
 
-/** A section with a newspaper-style rule and heading. */
+/** Links as rounded chips, for activities, topics and towns: "Meditation 12". */
+export function chipLinks(items: Array<{ href: string; label: string; count?: number | null }>): SafeHtml {
+  return html`<ul class="chip-links">${items.map(i => html`<li><a href="${i.href}">${i.label}${i.count ? html` <span class="count">${i.count}</span>` : ""}</a></li>`)}</ul>`;
+}
+
+/** A section with a heading and an optional "more" link. */
 export function section(id: string, title: string, body: SafeHtml, more?: { href: string; label: string }): SafeHtml {
   return html`<section class="section" aria-labelledby="${id}">
   <div class="section-head"><h2 id="${id}">${title}</h2>${more ? html`<a class="more" href="${more.href}">${more.label}</a>` : ""}</div>
