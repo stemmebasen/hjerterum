@@ -31,7 +31,7 @@
     });
   });
 
-  // On a phone the filter panel starts folded, unless filters are in use.
+  // On a phone the filter panel starts folded; the active filters show as chips above the results.
   if (window.matchMedia("(max-width: 860px)").matches) {
     document.querySelectorAll("details[data-collapse-mobile]").forEach(function (d) { d.removeAttribute("open"); });
   }

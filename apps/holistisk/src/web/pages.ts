@@ -118,7 +118,7 @@ export async function listPage(db: D1Database, ctx: PageContext, regions: string
 </section>
 <div class="wrap list-layout">
   <aside class="list-filters">
-    <details class="filter-toggle" ${hasFilters(f) && !landing ? "" : raw("data-collapse-mobile")} open>
+    <details class="filter-toggle" data-collapse-mobile open>
       <summary>Filtre${hasFilters(f) ? html` <span class="count">aktive</span>` : ""}</summary>
       ${filterPanel(f, areas, cityList, cats, prices)}
     </details>
