@@ -160,6 +160,35 @@ export const ORGANIZERS: OrganizerProfile[] = [
       { text: "Workshops, kakaoceremonier og pop up-yoga flere gange om måneden", source: "https://favnaarhus.dk/workshop-kalender-aarhus/" }
     ],
     eventsNote: "Workshops hentes automatisk hver nat fra Favns workshopkalender. Ugentlige hold bookes i Favns holdkalender."
+  },
+  {
+    slug: "skandinavisk-yoga-og-meditationsskole-aarhus",
+    name: "Skandinavisk Yoga og Meditationsskole Aarhus",
+    about: "Yogaskolen i Aarhus, en del af Skandinavisk Yoga og Meditationsskole, har siden 1975 undervist i klassisk yoga, afspænding og meditation – i Vestergade 45 siden 1983. Skolen ledes af Laxmi og Gunnar Petersen.",
+    area: "aarhus", address: "Vestergade 45, baghuset", postalCode: "8000", city: "Aarhus C", lat: 56.157457, lon: 10.201182,
+    website: "https://yogaskolen.dk/",
+    activities: ["yoga", "meditation", "mindfulness", "meditation-for-begyndere", "retreat"],
+    offerings: [
+      { text: "Gratis prøvetime i yoga, afspænding og meditation de fleste torsdage kl. 20–21", source: "https://yogaskolen.dk/holdtyper" },
+      { text: "Meditation, klassisk mindful yoga & afspænding og yoga in English – enkeltklasser eller holdforløb over 8 gange", source: "https://yogaskolen.dk/holdtyper" },
+      { text: "Senioryoga 60+, gravidyoga og efterfødselsyoga", source: "https://yogaskolen.dk/holdtyper" },
+      { text: "3-timers søndagsyoga, jule- og påskekursus som gå-hjem-retreat, yoga-detox og kirtan", source: "https://yogaskolen.dk/events" },
+      { text: "Yogaretreats på 3 og 5 dage på Mors", source: "https://yogaskolen.dk/yogaferier" }
+    ],
+    eventsNote: "Skolens ugeskema og events ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yogaskolen.dk."
+  },
+  {
+    slug: "yo-studios",
+    name: "YO Studios",
+    about: "Træningsstudie i Scandinavian Center i Aarhus C og i Højbjerg med yoga fra rolig yin til dynamisk vinyasa – side om side med pilates, barre og dans.",
+    area: "aarhus", address: "Margrethepladsen 4, 1. sal", postalCode: "8000", city: "Aarhus C", lat: 56.15277, lon: 10.19707,
+    website: "https://www.yostudios.dk/",
+    activities: ["yoga", "yin-yoga"],
+    offerings: [
+      { text: "Yogahold fra yin til vinyasa i Scandinavian Center (Margrethepladsen 4) og i Højbjerg (Oddervej 157)", source: "https://www.yostudios.dk/dk/find-studio" },
+      { text: "Events som yoga & poesi – mange er gratis og åbne for alle", source: "https://www.yostudios.dk/dk/events" }
+    ],
+    eventsNote: "Holdplan og events ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yostudios.dk."
   }
 ];
 

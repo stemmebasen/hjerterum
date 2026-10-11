@@ -157,6 +157,16 @@ describe("organisers", () => {
     expect(profile.body).toContain('"@type":"Organization"');
     expect((await text("/arrangoerer/ukendt")).status).toBe(404);
   });
+
+  it("studios whose calendars cannot be collected still have a profile, listed under their activities", async () => {
+    const yogaskolen = await text("/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus");
+    expect(yogaskolen.status).toBe(200);
+    expect(yogaskolen.body).toContain("Gratis prøvetime i yoga, afspænding og meditation de fleste torsdage kl. 20–21");
+    expect((await text("/arrangoerer/yo-studios")).body).toContain("Margrethepladsen 4, 1. sal");
+    const yoga = (await text("/yoga/aarhus")).body;
+    expect(yoga).toContain('href="/arrangoerer/yo-studios"');
+    expect(yoga).toContain('href="/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus"');
+  });
 });
 
 describe("an event's page", () => {

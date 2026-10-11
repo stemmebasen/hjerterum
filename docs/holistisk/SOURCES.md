@@ -28,7 +28,11 @@ Lysets Hus' page has no feed: the adapter reads its text layout. The year is cho
 | --- | --- | --- |
 | Center for Selvudvikling (Frederiksgade 74E, Aarhus C – not Marselisborg) | Groups by application after an intake talk; dates on the site have no times. | Profile with focus and how to join. |
 | Yoga & Meditation Horsens (Sundvej 35 per the studio's site; the booking system says Clarasvej 2 – confirm with the studio) | The timetable lives in the YOGO booking API, whose robots.txt disallows all automated access. Ask the studio/YOGO for permission. | Profile with classes, monthly Sangha evening and MBSR. |
+| Skandinavisk Yoga og Meditationsskole Aarhus – Yogaskolen i Aarhus (Vestergade 45, Aarhus C) | yogaskolen.dk allows crawling, but the timetable, events and retreats are a YOGO widget fed by `api.yogo.dk`, whose robots.txt disallows all automated access. | Profile with the free Thursday intro class, class types, events and retreats on Mors. |
+| YO Studios (Scandinavian Center, Margrethepladsen 4, 1. sal, Aarhus C; also Oddervej 157, Højbjerg) | Timetable and events are YOGO widgets (`api.yogo.dk`, disallowed as above). Mostly pilates, barre, dance and fitness; only the yoga is in scope. | Profile with yoga (yin to vinyasa) and the events page. |
 | Gomde (Smedehalden 3, Knebel) | Its Google Calendar mixes temple practice with internal and private entries, so it is not published; programmes sit in Retreat Guru behind a login API. | Profile with the daily temple practice. |
+
+**YOGO** (yogo.dk) runs the booking for three of these studios (Yoga & Meditation Horsens, Yogaskolen i Aarhus, YO Studios). One agreement with YOGO, or each studio's written OK plus YOGO's, would let one adapter collect all three; the studios' public calendars are `<studio>.yogo.dk`.
 
 ## Not included
 
