@@ -1,0 +1,125 @@
+name: holistisk.org portal – staging
+
+# The event portal (apps/holistisk) deploys on its own: its own Worker (holistisk-portal-staging on workers.dev),
+# its own D1 database and its own cron. It never deploys or configures Hjerterum (apps/web), and it sets no routes
+# or custom domains. Production is not deployed by any workflow.
+on:
+  push:
+    branches: [main, "claude/holistisk-*"]
+    paths:
+      - "apps/holistisk/**"
+      - ".github/workflows/holistisk-staging.yml"
+      - ".github/scripts/configure-holistisk-d1.mjs"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: holistisk-portal-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      HOLISTISK_BILLETTO_API_KEYPAIR: ${{ secrets.HOLISTISK_BILLETTO_API_KEYPAIR }}
+      HOLISTISK_CONTACT_EMAIL: ${{ vars.HOLISTISK_CONTACT_EMAIL }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @holistisk/portal typecheck
+      - run: pnpm --filter @holistisk/portal test
+      - run: pnpm --filter @holistisk/portal build
+
+      - name: Check whether Cloudflare is configured
+        id: credentials
+        shell: bash
+        run: |
+          if [ -n "${CLOUDFLARE_ACCOUNT_ID:-}" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo "cloudflare=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cloudflare=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare credentials are not configured; the staging deploy is skipped."
+          fi
+
+      - name: Resolve or create the portal's own staging D1 database
+        if: steps.credentials.outputs.cloudflare == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          NAME="holistisk-portal-staging"
+          D1_ID="$(pnpm --dir apps/holistisk exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$NAME")"
+          if [ -z "$D1_ID" ]; then
+            pnpm --dir apps/holistisk exec wrangler d1 create "$NAME" --location weur >/tmp/d1-create.log
+            D1_ID="$(pnpm --dir apps/holistisk exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$NAME")"
+          fi
+          test -n "$D1_ID"
+          node .github/scripts/configure-holistisk-d1.mjs "$D1_ID"
+
+      - name: Apply the portal's migrations
+        if: steps.credentials.outputs.cloudflare == 'true'
+        run: pnpm --dir apps/holistisk exec wrangler d1 migrations apply DB --remote --env staging
+
+      - name: Deploy the portal's staging Worker
+        if: steps.credentials.outputs.cloudflare == 'true'
+        id: deploy
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --dir apps/holistisk exec wrangler deploy --env staging 2>&1 | node .github/scripts/capture-workers-url.mjs
+
+      - name: Set the portal's secrets
+        if: steps.credentials.outputs.cloudflare == 'true'
+        id: secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          put() { printf '%s' "$2" | pnpm --dir apps/holistisk exec wrangler secret put "$1" --env staging >/dev/null; }
+          # A fresh token for each deploy: used once below to run the collector, known to no one afterwards.
+          TOKEN="$(openssl rand -hex 32)"
+          echo "::add-mask::$TOKEN"
+          put INGEST_TOKEN "$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+          put PUBLIC_BASE_URL "${{ steps.deploy.outputs.worker_url }}"
+          if [ -n "${HOLISTISK_BILLETTO_API_KEYPAIR:-}" ]; then put BILLETTO_API_KEYPAIR "$HOLISTISK_BILLETTO_API_KEYPAIR"; fi
+          if [ -n "${HOLISTISK_CONTACT_EMAIL:-}" ]; then put CONTACT_EMAIL "$HOLISTISK_CONTACT_EMAIL"; fi
+
+      - name: Smoke test – collector, pages, filters and no indexing
+        if: steps.credentials.outputs.cloudflare == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.worker_url }}
+          TOKEN: ${{ steps.secrets.outputs.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          retry() { curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 60 "$@"; }
+          retry "$URL/api/health" | tee /tmp/health.json
+          grep -q '"environment": "staging"' /tmp/health.json
+          # Run the collector once now (the cron runs it daily) and require the first source to succeed.
+          retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
+          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));const h=r.sources.find(s=>s.id==="hjerterum");if(!h||h.status!=="ok"||h.fetched<1)process.exit(1)'
+          retry "$URL/api/status" | tee /tmp/status.json
+          node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
+          retry "$URL/" > /tmp/home.html
+          grep -q 'Find ro, nærvær og fællesskab' /tmp/home.html
+          retry "$URL/events" > /tmp/events.html
+          EVENT_PATH="$(grep -o 'href="/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="//;s/"$//')"
+          test -n "$EVENT_PATH"
+          retry "$URL$EVENT_PATH" > /tmp/event.html
+          grep -q 'application/ld+json' /tmp/event.html
+          grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
+          retry "$URL/events?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
+          grep -q 'class="results-count"' /tmp/filtered.html
+          retry "$URL/robots.txt" | grep -q 'Disallow: /'
+          curl --silent --head "$URL/" | grep -qi '^x-robots-tag: noindex'
+          echo "Staging verified: $URL"

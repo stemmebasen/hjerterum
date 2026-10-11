@@ -1,0 +1,51 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "holistisk-portal-local",
+  "compatibility_date": "2026-09-07",
+  "main": "./src/index.ts",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENVIRONMENT": "local",
+    "ACTIVE_REGIONS": "ostjylland"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "holistisk-portal-local",
+      "database_id": "00000000-0000-0000-0000-000000000010",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["17 3 * * *", "47 */6 * * *"]
+  },
+  "env": {
+    "staging": {
+      "name": "holistisk-portal-staging",
+      "workers_dev": true,
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "ACTIVE_REGIONS": "ostjylland"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "holistisk-portal-staging",
+          "database_id": "00000000-0000-0000-0000-000000000011",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "triggers": {
+        "crons": ["17 3 * * *", "47 */6 * * *"]
+      }
+    }
+  }
+}

@@ -109,6 +109,21 @@ importers:
 
   .: {}
 
+  apps/holistisk:
+    devDependencies:
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vite:
+        specifier: 8.2.2
+        version: 8.2.2(@types/node@26.6.3)(esbuild@0.28.2)
+      vitest:
+        specifier: 4.1.10
+        version: 4.1.10(@types/node@26.6.3)(vite@8.2.2(@types/node@26.6.3)(esbuild@0.28.2))
+      wrangler:
+        specifier: 4.129.0
+        version: 4.129.0
+
   apps/web:
     dependencies:
       imapflow:
