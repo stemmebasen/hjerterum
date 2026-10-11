@@ -664,7 +664,7 @@ Still open:
 
 ## Næste uge i Hjerterum (2026-10-10)
 
-- Forsidens kalenderafsnit hedder "I morgen i Hjerterum" (rettet 11/10: "der skal ikke stå næste uge i hjerterum men i morgen i hjerterum i overskriften"): speakerens tekst står under overskriften, og listen viser husets events de næste 7 dage (de næste tre, hvis ugen er tom).
+- Forsidens kalenderafsnit hedder "I morgen i Hjerterum" (rettet 11/10: "der skal ikke stå næste uge i hjerterum men i morgen i hjerterum i overskriften"): speakerens tekst står under overskriften, og listen viser kun morgendagens events i huset ("hvorfor læser jeg om ting der sker i dag") - er der intet i morgen, den næste dag med noget, som speakeren også taler om.
 - Speakeren begynder direkte med første event (ingen fyldsætning) og nævner hvert event med titel i »« og del af dagen med klokkeslæt, så ingen forveksles med dagens events. Mangler en titel, skriver hovedmodellen teksten igen. Nøgle `intro3:…`.
 - Speakeren nævner alle morgendagens events (højst fire), én kort sætning hver. Udelader mellemmodellen et event, skriver hovedmodellen teksten igen. Nøglen er `intro2:…`, så en ny tekst skrives straks.
 
