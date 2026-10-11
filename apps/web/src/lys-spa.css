@@ -366,3 +366,4 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 @media (prefers-color-scheme: dark) { .event-map-card iframe { filter: grayscale(1) invert(.9) sepia(.3) saturate(.8) contrast(.85) brightness(.8); } }
 @media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map-card { min-height: 240px; } }
 .site-section-more { margin: 22px 0 0; text-align: center; }
+.site-foot .site-motto { margin: 14px 0 0; font: italic 400 22px/1.3 var(--lys-serif); color: var(--lys-terra); }
