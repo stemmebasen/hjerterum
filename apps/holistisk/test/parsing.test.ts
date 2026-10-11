@@ -50,6 +50,7 @@ describe("categories", () => {
     expect(classify({ title: "Stilhedsretræte på Mols", description: "Tre dages retræte med meditation i naturen." })).toEqual(expect.arrayContaining(["retraeter", "meditation-mindfulness"]));
     expect(classify({ title: "Hjerterum Medlemscafé" })).toEqual(["sociale-faellesskaber"]);
     expect(classify({ title: "Generalforsamling", description: "Vi mødes i naturen." })).toEqual([]);
+    expect(classify({ title: "Slow Down Sunday med Anne", summary: "2 timers restorativ yoga for dyb afspænding" })).toEqual(["yoga"]);
   });
 
   it("knows a holistic event from another one", () => {

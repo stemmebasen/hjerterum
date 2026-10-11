@@ -57,15 +57,18 @@ function matches(re: RegExp, text: string): number {
 
 /** Up to three categories. A word in the title is strong evidence (4); the source's own category name a little (1);
  * the description counts per mention, up to 3. A category needs 3 points, so a passing mention in a long text does
- * not decide it. */
-export function classify(input: { title: string; description?: string | null; hints?: string[] }): string[] {
+ * not decide it. A source whose description is the organiser's own one-line summary of the event (Favn's teasers) passes
+ * it as summary: what it names counts 3, as a sub-title would. "Nærvær" is left out there: nearly every teaser uses it for
+ * the mood, not the activity. */
+export function classify(input: { title: string; description?: string | null; summary?: string | null; hints?: string[] }): string[] {
   const title = input.title.toLowerCase();
   const description = (input.description ?? "").toLowerCase().slice(0, 4000);
   const hints = (input.hints ?? []).join(" ").toLowerCase();
+  const summary = (input.summary ?? "").toLowerCase().slice(0, 400).replace(/nærvær\p{L}*/gu, "");
   const scored = CATEGORIES.map((c, index) => ({
     slug: c.slug,
     index,
-    score: Math.min(1, matches(c.words, title)) * 4 + Math.min(1, matches(c.words, hints)) + matches(c.words, description)
+    score: Math.min(1, matches(c.words, title)) * 4 + Math.min(1, matches(c.words, hints)) + matches(c.words, description) + Math.min(1, matches(c.words, summary)) * 3
   })).filter(s => s.score >= 3);
   scored.sort((a, b) => b.score - a.score || a.index - b.index);
   return scored.slice(0, 3).map(s => s.slug);

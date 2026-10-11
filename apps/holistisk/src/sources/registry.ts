@@ -8,6 +8,7 @@ import { eventsManager } from "./eventsmanager.js";
 import { diamondWay } from "./diamondway.js";
 import { typo3Events } from "./typo3events.js";
 import { vaekstcenteret } from "./vaekstcenteret.js";
+import { favn } from "./favn.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -23,7 +24,8 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   eventsmanager: eventsManager,
   diamondway: diamondWay,
   typo3events: typo3Events,
-  vaekstcenteret
+  vaekstcenteret,
+  favn
 };
 
 export const SOURCES: SourceConfig[] = [
@@ -171,6 +173,30 @@ export const SOURCES: SourceConfig[] = [
       ]
     },
     options: { url: "https://vaekstcenteret.dk/kurser/", skipCategories: "online", enrichBudget: 8, defaultCategories: ["meditation-mindfulness"] }
+  },
+  {
+    id: "favn-aarhus",
+    name: "Favn Aarhus",
+    adapter: "favn",
+    homepageUrl: "https://favnaarhus.dk/workshop-kalender-aarhus/",
+    permissionBasis: "Favn Aarhus' offentlige workshopkalender (favnaarhus.dk); robots.txt tillader alt. Medtaget efter aftale med projektejer; skriftligt samtykke fra arrangøren afventer – indtil da vises kun fakta, et kort uddrag og link til arrangørens egen side, ingen billeder.",
+    attribution: "Favn Aarhus, Jægergårdsgade 14, Aarhus C",
+    imagePolicy: "none",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Favn Aarhus",
+      organizerUrl: "https://favnaarhus.dk/",
+      // Coordinates: OpenStreetMap.
+      venues: [{ match: /./, name: "Favn Aarhus", address: "Jægergårdsgade 14, 2.", postalCode: "8000", city: "Aarhus C", lat: 56.147952, lon: 10.197783 }]
+    },
+    options: { url: "https://favnaarhus.dk/workshop-kalender-aarhus/", defaultCategories: ["workshops-kurser"], descriptionIsSummary: true }
   },
   {
     id: "billetto",

@@ -147,6 +147,19 @@ export const ORGANIZERS: OrganizerProfile[] = [
       { text: "Individuelle retreats og halv-arbejdsretreats efter aftale", source: "https://gomde.dk/" }
     ],
     eventsNote: "Gomdes programmer og retreats står på gomde.dk; de hentes ikke automatisk endnu."
+  },
+  {
+    slug: "favn-aarhus",
+    name: "Favn Aarhus",
+    about: "Hus for yoga, bevægelse og behandling i Aarhus med ugentlige hold i mediyoga, hormonyoga og mindful yoga, workshops, ceremonier og yogaretreats.",
+    area: "aarhus", address: "Jægergårdsgade 14, 2.", postalCode: "8000", city: "Aarhus C", lat: 56.147952, lon: 10.197783,
+    website: "https://favnaarhus.dk/",
+    activities: ["yoga", "yin-yoga", "meditation", "mindfulness", "dans", "kakaoceremoni", "workshops", "retreat", "holistisk-sundhed", "kvinde-og-mandegrupper"],
+    offerings: [
+      { text: "Ugentlige hold i mediyoga, hormonyoga og mindful yoga – se holdkalenderen", source: "https://favnaarhus.dk/book-yoga-aarhus/" },
+      { text: "Workshops, kakaoceremonier og pop up-yoga flere gange om måneden", source: "https://favnaarhus.dk/workshop-kalender-aarhus/" }
+    ],
+    eventsNote: "Workshops hentes automatisk hver nat fra Favns workshopkalender. Ugentlige hold bookes i Favns holdkalender."
   }
 ];
 

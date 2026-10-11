@@ -99,7 +99,9 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
   // always has when the words find none (a temple's English titles), topics it always concerns.
   const opt = config.options;
   const list = (v: unknown) => Array.isArray(v) ? v.map(String) : [];
-  let categories = classify({ title, description, hints: e.categoryHints }).filter(c => !list(opt.excludeCategories).includes(c));
+  let categories = (opt.descriptionIsSummary
+    ? classify({ title, summary: description, hints: e.categoryHints })
+    : classify({ title, description, hints: e.categoryHints })).filter(c => !list(opt.excludeCategories).includes(c));
   if (!categories.length) categories = list(opt.defaultCategories);
   const topics = [...new Set([...classifyTopics({ title, description }), ...list(opt.alwaysTopics)])];
   const flags = new Set(e.qualityFlags);

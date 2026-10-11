@@ -25,7 +25,9 @@ function routes(feed: string) {
     "https://mindfulness.au.dk/aktuelt/arrangementer/element/123480/rss.xml": { body: fixture("dcm-arrangementer.xml") },
     "https://vaekstcenteret.dk/robots.txt": { status: 404 },
     "https://vaekstcenteret.dk/kurser/": { body: fixture("vaekstcenteret-kurser.html") },
-    "https://vaekstcenteret.dk/kursus/": { body: fixture("vaekstcenteret-meditationsdage.html") }
+    "https://vaekstcenteret.dk/kursus/": { body: fixture("vaekstcenteret-meditationsdage.html") },
+    "https://favnaarhus.dk/robots.txt": { status: 404 },
+    "https://favnaarhus.dk/workshop-kalender-aarhus/": { body: fixture("favn-workshops.html") }
   };
 }
 

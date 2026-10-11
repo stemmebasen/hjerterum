@@ -107,7 +107,7 @@ jobs:
           grep -q '"environment": "staging"' /tmp/health.json
           # Run the collector once now (the cron runs it daily) and require the first source to succeed.
           retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
-          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"){console.error("source failed: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(r.sources.find(s=>s.id==="hjerterum").fetched>0))process.exit(1)'
+          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret","favn-aarhus"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"){console.error("source failed: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(r.sources.find(s=>s.id==="hjerterum").fetched>0))process.exit(1)'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html
