@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-/** Requested: "I morgen i Hjerterum" - Saga's words about tomorrow (worker/program.ts) under that heading.
+/** Requested: "Lad resuméet altid inkludere de kommende tre events" - Saga's words about the next three (worker/program.ts) under "Snart i Hjerterum".
  * Earlier: "når jeg siger tv-program mener jeg ikke en programoversigt, men en continuity speaker der fortæller hvad der er på vej" +
  * "fem eventfotos". Saga's words about the next two events, beside the five photos. */
 type Item = { key: string; title: string; startsAt: string; endsAt: string | null; host: string | null; imageUrl: string | null; link: string | null };
@@ -24,7 +24,7 @@ export function ProgramGuide() {
     return () => { active = false; };
   }, []);
   if (!items) return null;
-  if (!items.length) return <article className="lys-card program-guide"><p className="lys-kicker">I morgen i Hjerterum</p><p className="lys-sub">Der er stille i kalenderen lige nu - kig forbi snart.</p></article>;
+  if (!items.length) return <article className="lys-card program-guide"><p className="lys-kicker">Snart i Hjerterum</p><p className="lys-sub">Der er stille i kalenderen lige nu - kig forbi snart.</p></article>;
   const nowMs = Date.now();
   const next = items.find((i) => Date.parse(i.endsAt ?? i.startsAt) > nowMs) ?? items[0]!;
   // Until Saga has written today's words: a plain line about the next event.
@@ -33,7 +33,7 @@ export function ProgramGuide() {
   return (
     <article className="lys-card program-guide">
       <div className="program-head">
-        <p className="lys-kicker">{heading ?? "I morgen i Hjerterum"}</p>
+        <p className="lys-kicker">{heading ?? "Snart i Hjerterum"}</p>
         <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
       </div>
       <p className="program-intro">{words}</p>

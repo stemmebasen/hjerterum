@@ -676,3 +676,7 @@ Still open:
 
 - På telefon (≤ 760 px) ligger hjemmesidens menu bag en hamburgerknap ved Log ind og åbner som en liste under toplinjen.
 - Forsidens indledning er kortet ned ("For megen tekst"), og overskriften har mere luft over og under.
+
+## Snart i Hjerterum (2026-10-11)
+
+- "Lad resuméet altid inkludere de kommende tre events - og ændre overskriften så den passer": speakeren hedder "Snart i Hjerterum" (forsiden, Overblik og hjemmesiden) og handler altid om de næste tre events i huset, der ikke er begyndt - med titel i »«, ugedag, del af dagen og klokkeslæt, aldrig "i dag"/"i morgen". Teksten skrives igen, når et af de tre begynder (nøgle `intro4:` + de tre events). Forsidens liste under overskriften viser de samme tre. Erstatter "I morgen i Hjerterum".
