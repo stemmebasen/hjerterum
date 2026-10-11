@@ -8,7 +8,7 @@ const FEED = `<rss><channel><item><title>Dhyana Yoga</title><guid isPermaLink="f
 <link>https://holistisk.org/events/#!event/2026/10/13/dhyana-yoga</link><media:content medium="image" url="https://img/x.jpg" />
 <category>Yoga &#x26; Meditation</category><ev:startdate>2026-10-13T10:30:00+02:00</ev:startdate><ev:enddate>2026-10-13T11:30:00+02:00</ev:enddate>
 <ev:organizer>Kasper Frausing</ev:organizer><content:encoded><![CDATA[<p>Kort</p>]]></content:encoded></item></channel></rss>`;
-const EVENT = { ttl: "Dhyana Yoga", sdp: 1791880200, edp: 1791883800, adr: { ad1: "Guldsmedgade 26", zip: "8000", cit: "Aarhus" }, cap: 14,
+const EVENT = { ttl: "Dhyana Yoga", sdp: 1791880200, edp: 1791883800, adr: { ad1: "Guldsmedgade 26", zip: "8000", cit: "Aarhus", loc: ["10.2078481", "56.1593182"] }, cap: 14,
   dtl: "<p><strong>Dhyana Yoga&nbsp;<br />Teacher: Kasper</strong></p>\r\n<p>&nbsp;</p><div dir=\"auto\">One hour of silence.</div><script>alert(1)</script><ul><li>Mantra</li></ul>",
   tkt: [{ lbl: "Medlem - 80kr" }, { lbl: "Ikke-medlem - se n&#230;rmere info" }] };
 
@@ -28,11 +28,21 @@ describe("an event's own page", () => {
     await getExternalEvents(true, fetcher);
     const detail = (await eventDetail(EID, fetcher, 1))!;
     expect(detail).toMatchObject({ title: "Dhyana Yoga", host: "Kasper Frausing", category: "Yoga & Meditation", imageUrl: "https://img/x.jpg",
-      address: "Guldsmedgade 26, 8000 Aarhus", capacity: 14, signUpUrl: "https://holistisk.org/events/#!event/2026/10/13/dhyana-yoga" });
+      address: "Guldsmedgade 26, 8000 Aarhus", capacity: 14, lat: 56.1593182, lon: 10.2078481, signUpUrl: "https://holistisk.org/events/#!event/2026/10/13/dhyana-yoga" });
     expect(detail.tickets).toEqual(["Medlem - 80kr", "Ikke-medlem - se nærmere info"]);
     expect(detail.paragraphs).toContain("One hour of silence.");
     expect(await eventDetail("../etc", fetcher, 1)).toBeNull();
     expect(eventIdOf({ id: `SF${EID}` })).toBe(EID);
     expect(eventIdOf({ id: "hjerteland-1" })).toBeNull();
+  });
+});
+
+describe("finding the way to an event", () => {
+  it("opens Rejseplanen with Hjerterum as the destination, arriving a quarter before the start", async () => {
+    const { journeyUrl, mapUrl } = await import("../src/event-way");
+    const url = new URL(journeyUrl("Guldsmedgade 26B, 8000 Aarhus C", "2026-10-13T08:30:00.000Z"));
+    expect(url.origin + url.pathname).toBe("https://www.rejseplanen.dk/bin/query.exe/mn");
+    expect(Object.fromEntries(url.searchParams)).toEqual({ Z: "Guldsmedgade 26B, 8000 Aarhus C", ZADR: "1", timesel: "arrive", date: "13.10.26", time: "10:15" });
+    expect(mapUrl(56.159318, 10.207848).embed).toContain("marker=56.159318,10.207848");
   });
 });

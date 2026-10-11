@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { journeyUrl, mapUrl } from "./event-way";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." /events/<id>: an event
  * from the membership system's calendar on hjerterum.info (worker/event-detail.ts). Signing up happens in Hjerterum's own system. */
 type EventDetail = {
   id: string; title: string; startsAt: string; endsAt: string | null; host: string | null; category: string | null;
-  imageUrl: string | null; address: string | null; paragraphs: string[]; tickets: string[]; capacity: number | null; signUpUrl: string | null;
+  imageUrl: string | null; address: string | null; lat: number; lon: number; paragraphs: string[]; tickets: string[]; capacity: number | null; signUpUrl: string | null;
 };
 
 const TZ = "Europe/Copenhagen";
@@ -24,6 +25,41 @@ function Line({ text }: { text: string }) {
   return <p className={text.startsWith("• ") ? "event-bullet" : undefined}>
     {parts.map((part, i) => /^https?:\/\//.test(part) ? <a key={i} href={part} target="_blank" rel="noreferrer nofollow">{part.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</a> : part)}
   </p>;
+}
+
+/** Requested: "Vis også de samme sociale links samt et kort og en rejseplan-integration". */
+const FACEBOOK = "https://www.facebook.com/holistiskcenter";
+function Share({ title }: { title: string }) {
+  const [copied, setCopied] = useState(false);
+  const url = typeof window === "undefined" ? "" : window.location.href;
+  const share = async () => {
+    try { if (navigator.share) { await navigator.share({ title, url }); return; } } catch { return; }
+    try { await navigator.clipboard.writeText(url); setCopied(true); window.setTimeout(() => setCopied(false), 2000); } catch { /* nothing to do */ }
+  };
+  return <div className="event-share" aria-label="Del og følg">
+    <span className="lys-kicker">Del eventet</span>
+    <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`} target="_blank" rel="noreferrer">Facebook</a>
+    <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`}>Mail</a>
+    <button type="button" onClick={() => void share()}>{copied ? "Linket er kopieret" : "Kopiér link"}</button>
+    <a href={FACEBOOK} target="_blank" rel="noreferrer">Følg Hjerterum på Facebook</a>
+  </div>;
+}
+
+function FindWay({ event }: { event: EventDetail }) {
+  const address = !event.address || /guldsmedgade\s*26/i.test(event.address) ? "Guldsmedgade 26B, 8000 Aarhus C" : event.address;
+  const map = mapUrl(event.lat, event.lon);
+  return <section className="event-way" aria-label="Find vej">
+    <div className="event-way-text">
+      <h2>Find vej</h2>
+      <p>Hjerterum, {address}. Ring på dørtelefonen ved gitterlågen i Guldsmedgade, så lukker værten dig ind.</p>
+      <p className="event-way-links">
+        <a className="lys-btn" href={journeyUrl(address, event.startsAt)} target="_blank" rel="noreferrer">Find rejse med Rejseplanen</a>
+        <a className="lys-btn ghost" href={map.open} target="_blank" rel="noreferrer">Åbn kortet</a>
+      </p>
+      <small>Rejseplanen åbner med Hjerterum som mål og ankomst et kvarter før start - skriv bare, hvor du rejser fra.</small>
+    </div>
+    <iframe className="event-map" title="Kort over Hjerterum" src={map.embed} loading="lazy" referrerPolicy="no-referrer" />
+  </section>;
 }
 
 export function EventPage({ id, header, footer }: { id: string; header: ReactNode; footer: ReactNode }) {
@@ -76,7 +112,9 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
             <h2>Billetter</h2>
             <ul className="event-tickets">{event.tickets.map((t) => <li key={t}>{t}</li>)}</ul>
           </>}
+          <Share title={event.title} />
         </section>
+        <FindWay event={event} />
       </>}
     {footer}
   </main>;

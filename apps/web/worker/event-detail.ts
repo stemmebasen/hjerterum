@@ -12,6 +12,9 @@ export type EventDetail = {
   category: string | null;
   imageUrl: string | null;
   address: string | null;
+  /** Where the event is, for the map: MembershipWorks' coordinates, or the house's. */
+  lat: number;
+  lon: number;
   /** The description as paragraphs of plain text (the source's HTML is never passed on). */
   paragraphs: string[];
   tickets: string[];
@@ -44,7 +47,15 @@ export function htmlParagraphs(html: string): string[] {
   return text.split(/\n/).map((line) => line.replace(/[ \t ]+/g, " ").trim()).filter((line) => line.length > 0).slice(0, 120);
 }
 
-type MwEvent = { ttl?: string; sdp?: number; edp?: number; lgo?: { l?: string }; adr?: { ad1?: string; zip?: string; cit?: string }; dtl?: string; tkt?: Array<{ lbl?: string }>; cap?: number };
+/** Guldsmedgade 26B, Aarhus - the house. */
+export const HOUSE = { lat: 56.159318, lon: 10.207848 };
+function coordinates(loc: [string, string] | undefined): { lat: number; lon: number } {
+  const lon = Number(loc?.[0]), lat = Number(loc?.[1]);
+  // Only a place in or near Aarhus is believed; anything else is the house.
+  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat - HOUSE.lat) < 0.5 && Math.abs(lon - HOUSE.lon) < 0.5 ? { lat, lon } : HOUSE;
+}
+
+type MwEvent = { ttl?: string; sdp?: number; edp?: number; lgo?: { l?: string }; adr?: { ad1?: string; zip?: string; cit?: string; loc?: [string, string] }; dtl?: string; tkt?: Array<{ lbl?: string }>; cap?: number };
 
 export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now = Date.now()): Promise<EventDetail | null> {
   if (!/^[0-9a-f]{24}$/.test(id)) return null;
@@ -67,6 +78,7 @@ export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now
     category: feed?.category ?? null,
     imageUrl: feed?.imageUrl ?? mw?.lgo?.l ?? null,
     address: address || feed?.location || null,
+    ...coordinates(mw?.adr?.loc),
     paragraphs: mw?.dtl ? htmlParagraphs(mw.dtl) : (feed?.description ?? "").split(/\n/).map((l) => l.trim()).filter(Boolean),
     tickets: (mw?.tkt ?? []).map((t) => decode(t.lbl ?? "").trim()).filter(Boolean),
     capacity: typeof mw?.cap === "number" && mw.cap > 0 ? mw.cap : null,

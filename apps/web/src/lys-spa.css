@@ -347,3 +347,13 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-rule { border: 0; border-top: 1px solid var(--lys-line); margin: 18px 0; }
 .event-subhead { font: 600 15px/1.4 var(--lys-sans); margin: 18px 0 6px; color: var(--lys-ink); }
 .event-page-body a { color: var(--lys-terra); word-break: break-word; }
+.event-share { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 28px 0 0; padding-top: 18px; border-top: 1px solid var(--lys-line); font-size: 14.5px; }
+.event-share .lys-kicker { margin: 0; width: 100%; }
+.event-share a, .event-share button { color: var(--lys-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--lys-line); }
+.event-way { display: grid; grid-template-columns: 1fr 1.2fr; gap: 28px; align-items: stretch; margin: 44px 0 8px; }
+.event-way h2 { margin: 0 0 10px; }
+.event-way p { margin: 0 0 14px; line-height: 1.6; }
+.event-way-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.event-way small { color: var(--lys-muted); font-size: 13px; }
+.event-map { width: 100%; min-height: 300px; border: 1px solid var(--lys-line); border-radius: var(--lys-radius); }
+@media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map { min-height: 240px; } }
