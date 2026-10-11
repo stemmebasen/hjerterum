@@ -1,0 +1,78 @@
+import { getExternalEvents, type ExternalEvent } from "./external-events.js";
+
+/** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." An event from the
+ * membership system's calendar gets its own page on hjerterum.info: the feed's words and picture, and the event's own details
+ * from MembershipWorks' public event API (place, tickets, places). Only signing up still happens in MembershipWorks, until
+ * tickets are sold on the platform. */
+export type EventDetail = {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string | null;
+  host: string | null;
+  category: string | null;
+  imageUrl: string | null;
+  address: string | null;
+  /** The description as paragraphs of plain text (the source's HTML is never passed on). */
+  paragraphs: string[];
+  tickets: string[];
+  capacity: number | null;
+  signUpUrl: string | null;
+};
+
+const ORG = "22308";
+const CACHE_MS = 10 * 60_000;
+const cache = new Map<string, { at: number; detail: EventDetail | null }>();
+
+export const eventIdOf = (event: Pick<ExternalEvent, "id">): string | null => /^SF([0-9a-f]{24})$/.exec(event.id)?.[1] ?? null;
+
+function decode(value: string): string {
+  const named: Record<string, string> = { nbsp: " ", amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", aring: "å", Aring: "Å", aelig: "æ", AElig: "Æ", oslash: "ø", Oslash: "Ø", oacute: "ó", eacute: "é", ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“" };
+  return value
+    .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_m, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
+    .replace(/&([a-z]+);/gi, (m, name: string) => named[name] ?? m);
+}
+
+/** HTML to paragraphs: block ends and line breaks become breaks, everything else is text. Empty and repeated lines go. */
+export function htmlParagraphs(html: string): string[] {
+  const text = decode(html
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<[^>]+>/g, ""));
+  return text.split(/\n/).map((line) => line.replace(/[ \t ]+/g, " ").trim()).filter((line) => line.length > 0).slice(0, 120);
+}
+
+type MwEvent = { ttl?: string; sdp?: number; edp?: number; lgo?: { l?: string }; adr?: { ad1?: string; zip?: string; cit?: string }; dtl?: string; tkt?: Array<{ lbl?: string }>; cap?: number };
+
+export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now = Date.now()): Promise<EventDetail | null> {
+  if (!/^[0-9a-f]{24}$/.test(id)) return null;
+  const hit = cache.get(id);
+  if (hit && now - hit.at < CACHE_MS) return hit.detail;
+  const feed = (await getExternalEvents(false, fetcher).catch(() => [])).find((event) => eventIdOf(event) === id) ?? null;
+  let mw: MwEvent | null = null;
+  try {
+    const response = await fetcher(`https://api.membershipworks.com/v2/event?eid=${id}&org=${ORG}`, { headers: { accept: "application/json" } });
+    if (response.ok) mw = await response.json() as MwEvent;
+  } catch { mw = null; }
+  if (!feed && !mw?.ttl) { cache.set(id, { at: now, detail: null }); return null; }
+  const address = mw?.adr ? [mw.adr.ad1, [mw.adr.zip, mw.adr.cit].filter(Boolean).join(" ")].filter(Boolean).join(", ") : null;
+  const detail: EventDetail = {
+    id,
+    title: feed?.title ?? decode(mw?.ttl ?? ""),
+    startsAt: feed?.startsAt ?? new Date((mw?.sdp ?? 0) * 1000).toISOString(),
+    endsAt: feed?.endsAt ?? (mw?.edp ? new Date(mw.edp * 1000).toISOString() : null),
+    host: feed?.host ?? null,
+    category: feed?.category ?? null,
+    imageUrl: feed?.imageUrl ?? mw?.lgo?.l ?? null,
+    address: address || feed?.location || null,
+    paragraphs: mw?.dtl ? htmlParagraphs(mw.dtl) : (feed?.description ?? "").split(/\n/).map((l) => l.trim()).filter(Boolean),
+    tickets: (mw?.tkt ?? []).map((t) => decode(t.lbl ?? "").trim()).filter(Boolean),
+    capacity: typeof mw?.cap === "number" && mw.cap > 0 ? mw.cap : null,
+    signUpUrl: feed?.link ?? null
+  };
+  cache.set(id, { at: now, detail });
+  return detail;
+}
