@@ -16,7 +16,16 @@ function routes(feed: string) {
     [FEED_URL]: { body: feed, headers: { "content-type": "application/rss+xml" } },
     "https://api.membershipworks.com/v2/event?eid=6a572ab06960ef7bf40e3978": { body: DETAIL, headers: { "content-type": "application/json" } },
     "https://lysetshus.dk/robots.txt": { status: 404 },
-    "https://lysetshus.dk/": { body: fixture("lysetshus.html") }
+    "https://lysetshus.dk/": { body: fixture("lysetshus.html") },
+    "https://brahmakumaris.dk/robots.txt": { status: 404 },
+    "https://brahmakumaris.dk/events/feed/": { body: fixture("brahmakumaris-events.xml") },
+    "https://buddha.dk/robots.txt": { status: 404 },
+    "https://buddha.dk/": { body: fixture("buddha-dk.html") },
+    "https://mindfulness.au.dk/robots.txt": { status: 404 },
+    "https://mindfulness.au.dk/aktuelt/arrangementer/element/123480/rss.xml": { body: fixture("dcm-arrangementer.xml") },
+    "https://vaekstcenteret.dk/robots.txt": { status: 404 },
+    "https://vaekstcenteret.dk/kurser/": { body: fixture("vaekstcenteret-kurser.html") },
+    "https://vaekstcenteret.dk/kursus/": { body: fixture("vaekstcenteret-meditationsdage.html") }
   };
 }
 

@@ -1,5 +1,6 @@
 import { activeAreas, areaBySlug } from "../geo.js";
 import { categoryBySlug } from "../categories.js";
+import { activityBySlug } from "../activities.js";
 import { addDays, localDate, startOfLocalDay, weekdayIndex } from "../time.js";
 
 /** The event list's filters, read from the query string and checked: anything unknown is dropped, never echoed. */
@@ -13,6 +14,10 @@ export type Filters = {
   city: string | null;
   price: PriceFilter | null;
   page: number;
+  /** A topic (src/activities.ts) the events' text must match: set by a topic's landing page, or ?emne=. */
+  topic: string | null;
+  /** An organiser's events only (the organiser's profile page). */
+  organizer: string | null;
 };
 
 export type Period = "idag" | "imorgen" | "weekend" | "uge" | "maaned";
@@ -45,7 +50,9 @@ export function parseFilters(params: URLSearchParams, activeRegions: string[]): 
   const city = (params.get("by") ?? "").trim().slice(0, 60) || null;
   const price = PRICES.find(p => p.value === params.get("pris"))?.value ?? null;
   const page = Math.min(200, Math.max(1, Number.parseInt(params.get("side") ?? "1", 10) || 1));
-  return { q, from: date(params.get("fra")), to: date(params.get("til")), period, categories, area, city, price, page };
+  const topicParam = params.get("emne");
+  const topic = topicParam && activityBySlug(topicParam)?.groups ? topicParam : null;
+  return { q, from: date(params.get("fra")), to: date(params.get("til")), period, categories, area, city, price, page, topic, organizer: null };
 }
 
 /** The date window (local days, inclusive) the filters ask for, or null for "from now on". */
@@ -78,12 +85,13 @@ export function toQuery(f: Partial<Filters>, overrides: Partial<Filters> = {}): 
   if (v.area) p.set("omraade", v.area);
   if (v.city) p.set("by", v.city);
   if (v.price) p.set("pris", v.price);
+  if (v.topic) p.set("emne", v.topic);
   if (v.page && v.page > 1) p.set("side", String(v.page));
   const s = p.toString();
   return s ? `?${s}` : "";
 }
 
 export const hasFilters = (f: Filters): boolean =>
-  !!(f.q || f.from || f.to || f.period || f.categories.length || f.area || f.city || f.price);
+  !!(f.q || f.from || f.to || f.period || f.categories.length || f.area || f.city || f.price || f.topic);
 
 export const areaName = (slug: string | null): string | null => slug ? areaBySlug(slug)?.name ?? null : null;

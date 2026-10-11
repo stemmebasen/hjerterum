@@ -1,4 +1,6 @@
 import { CATEGORIES } from "../categories.js";
+import { TOPICS } from "../activities.js";
+import { capitalize, wallClock, weekdayIndex, localDate, monthName } from "../time.js";
 import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
 
@@ -31,6 +33,15 @@ export type PageMeta = {
 };
 
 const SITE = "holistisk.org";
+
+/** The section line under the masthead, as a newspaper's: the most searched activities. */
+const SECTIONS: Array<[string, string]> = [["/kalender", "Kalender"], ["/meditation", "Meditation"], ["/yoga", "Yoga"], ["/spiritualitet", "Spiritualitet"], ["/healing", "Healing"], ["/retreat", "Retreats"]];
+const WEEKDAY_NAMES = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"];
+/** "Søndag den 11. oktober" */
+export const todayLine = (now: number): string => {
+  const w = wallClock(now);
+  return `${capitalize(WEEKDAY_NAMES[weekdayIndex(localDate(now))]!)} den ${w.day}. ${monthName(w.month)}`;
+};
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
 
@@ -54,7 +65,6 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
   const robots = meta.noindex || ctx.environment !== "production" ? "noindex, nofollow" : "index, follow, max-image-preview:large";
   const image = meta.image ?? ctx.origin + SHARE_IMAGE;
   const jsonLd = [...(meta.jsonLd ?? []), ...(meta.breadcrumbs && meta.breadcrumbs.length > 1 ? [breadcrumbJsonLd(meta.breadcrumbs, ctx.origin)] : [])];
-  const nav = (href: string, label: string) => html`<a href="${href}"${ctx.path === href || (href !== "/" && ctx.path.startsWith(href)) ? raw(' aria-current="page"') : ""}>${label}</a>`;
   return "<!doctype html>" + html`<html lang="da">
 <head>
 <meta charset="utf-8">
@@ -76,51 +86,61 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="twitter:title" content="${meta.title}">
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
-<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#151a18" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f4f4f4">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/site.css?v=2">
-<script src="/assets/site.js?v=2" defer></script>
+<link rel="preload" href="/assets/fonts/source-serif-4-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=3">
+<script src="/assets/site.js?v=3" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
 <body>
 <a class="skip" href="#indhold">Spring til indhold</a>
 ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion (${ctx.environment}) – ikke offentlig endnu</div>` : ""}
-<header class="site-header">
-  <div class="wrap header-inner">
-    <a class="brand" href="/" aria-label="holistisk.org – forsiden">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 6c3.5 4 3.5 16 0 20M16 6c-3.5 4-3.5 16 0 20M6.5 13h19M6.5 19h19" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/></svg>
-      <span>holistisk<span class="brand-dot">.org</span></span>
-    </a>
-    <nav class="site-nav" aria-label="Hovedmenu">
-      ${nav("/events", "Events")}
-      ${nav("/kategorier", "Kategorier")}
-      ${nav("/om", "Om portalen")}
-    </nav>
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <div class="masthead-side">
+      <a class="pill" href="/om#arrangoerer">Er du arrangør?</a>
+    </div>
+    <a class="wordmark" href="/" aria-label="holistisk.org – forsiden">holistisk<span>.org</span></a>
+    <div class="masthead-side masthead-right">
+      <a class="pill" href="/kalender#soeg"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2"/></svg>Søg</a>
+      <details class="menu">
+        <summary>Menu <span class="burger" aria-hidden="true"></span></summary>
+        <div class="menu-panel">
+          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li></ul></div>
+          <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
+          <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
+          <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
+        </div>
+      </details>
+    </div>
   </div>
 </header>
+<nav class="sections" aria-label="Sektioner">
+  <div class="wrap sections-inner">
+    <span class="today">${todayLine(ctx.now)}</span>
+    <ul>
+      ${SECTIONS.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}
+    </ul>
+    <a class="sections-right" href="/weekend">Det sker i weekenden</a>
+  </div>
+</nav>
 <main id="indhold">
 ${body}
 </main>
 <footer class="site-footer">
   <div class="wrap footer-inner">
-    <div>
-      <p class="footer-brand">holistisk.org</p>
-      <p>Holistiske events fra mange arrangører, samlet ét sted. Tilmelding sker altid hos arrangøren.</p>
-      <p><a href="/om#arrangoerer">Er du arrangør?</a> · <a href="/om">Om portalen og kilderne</a></p>
+    <div class="footer-about">
+      <p class="footer-brand">holistisk<span>.org</span></p>
+      <p>Spirituel og holistisk kalender for ${ctx.regionLabel}. Events fra mange arrangører, samlet ét sted og opdateret hver nat. Tilmelding sker altid hos arrangøren.</p>
+      <p><a href="/om">Om portalen og kilderne</a> · <a href="/om#arrangoerer">Er du arrangør?</a></p>
     </div>
-    <nav aria-labelledby="f-cities">
-      <p class="footer-head" id="f-cities">Events i din by</p>
-      <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul>
-    </nav>
-    <nav aria-labelledby="f-cats">
-      <p class="footer-head" id="f-cats">Populære kategorier</p>
-      <ul>${CATEGORIES.slice(0, 8).map(c => html`<li><a href="/kategori/${c.path}">${c.name}</a></li>`)}</ul>
-    </nav>
-    <nav aria-labelledby="f-more">
-      <p class="footer-head" id="f-more">Flere eventtyper</p>
-      <ul>${CATEGORIES.slice(8).map(c => html`<li><a href="/kategori/${c.path}">${c.name}</a></li>`)}</ul>
-    </nav>
+    <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
+      <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul></nav>
+    <nav aria-labelledby="f-cats"><p class="footer-head" id="f-cats">Aktiviteter</p>
+      <ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></nav>
+    <nav aria-labelledby="f-topics"><p class="footer-head" id="f-topics">Populære emner</p>
+      <ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></nav>
   </div>
 </footer>
 </body>

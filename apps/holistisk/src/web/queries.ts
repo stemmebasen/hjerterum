@@ -1,6 +1,7 @@
 import type { D1Database } from "../db.js";
 import { nextLocalDate, startOfLocalDay } from "../time.js";
 import { dateWindow, type Filters } from "./filters.js";
+import { activityBySlug } from "../activities.js";
 
 /** Read side of the portal. Visible = scheduled or cancelled, not yet over, and in an active region. */
 
@@ -53,6 +54,11 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
   if (f.price === "gratis") w.sql.push("e.is_free = 1");
   if (f.price === "under-200") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 20000)");
   if (f.price === "under-500") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 50000)");
+  if (f.topic && activityBySlug(f.topic)?.groups) {
+    w.sql.push("EXISTS (SELECT 1 FROM event_topics t WHERE t.event_id = e.id AND t.topic = ?)");
+    w.params.push(f.topic);
+  }
+  if (f.organizer) { w.sql.push("e.organizer_id = ?"); w.params.push(f.organizer); }
   for (const term of f.q.toLowerCase().split(" ").filter(t => t.length > 1).slice(0, 6)) {
     w.sql.push("e.search_text LIKE ? ESCAPE '\\'");
     w.params.push(likeEscape(term));
@@ -60,7 +66,20 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
   return w;
 }
 
-export const PAGE_SIZE = 24;
+export const PAGE_SIZE = 30;
+
+/** How many visible events match the filters. */
+export async function countEvents(db: D1Database, f: Filters, regions: string[], now: number): Promise<number> {
+  const w = filterWhere(f, regions, now);
+  return (await db.prepare(`SELECT COUNT(*) AS n FROM events e WHERE ${w.sql.join(" AND ")}`).bind(...w.params).first<{ n: number }>())?.n ?? 0;
+}
+
+/** How many visible events match the filters, per area. */
+export async function countByArea(db: D1Database, f: Filters, regions: string[], now: number): Promise<Map<string, number>> {
+  const w = filterWhere(f, regions, now);
+  const { results } = await db.prepare(`SELECT e.area, COUNT(*) AS n FROM events e WHERE ${w.sql.join(" AND ")} GROUP BY e.area`).bind(...w.params).all<{ area: string; n: number }>();
+  return new Map(results.map(r => [r.area, r.n]));
+}
 
 export async function listEvents(db: D1Database, f: Filters, regions: string[], now: number): Promise<{ events: EventRow[]; total: number }> {
   const w = filterWhere(f, regions, now);
@@ -110,16 +129,6 @@ export async function areaCounts(db: D1Database, regions: string[], now: number)
   return new Map(results.map(r => [r.area, r.n]));
 }
 
-/** Upcoming events of one category per area, for "Meditation i din by". */
-export async function categoryAreaCounts(db: D1Database, regions: string[], now: number, category: string): Promise<Map<string, number>> {
-  const w = visible(regions, now);
-  w.sql.push("EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category = ?)");
-  w.params.push(category);
-  const { results } = await db.prepare(`SELECT e.area, COUNT(*) AS n FROM events e WHERE ${w.sql.join(" AND ")} GROUP BY e.area`)
-    .bind(...w.params).all<{ area: string; n: number }>();
-  return new Map(results.map(r => [r.area, r.n]));
-}
-
 export async function cities(db: D1Database, regions: string[], now: number, area: string | null): Promise<Array<{ city: string; n: number }>> {
   const w = visible(regions, now);
   w.sql.push("e.city IS NOT NULL");
@@ -147,14 +156,6 @@ export async function relatedEvents(db: D1Database, event: EventRow, regions: st
   if (category) { w.sql.push("EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category = ?)"); w.params.push(category); }
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY (e.area = ?) DESC, e.starts_at LIMIT ?`)
     .bind(...w.params, event.area, count).all<EventRow>();
-  return results;
-}
-
-/** Area and category pairs that have upcoming events: the city × category pages worth listing in the sitemap. */
-export async function areaCategoryPairs(db: D1Database, regions: string[], now: number): Promise<Array<{ area: string; category: string; n: number }>> {
-  const w = visible(regions, now);
-  const { results } = await db.prepare(`SELECT e.area, c.category, COUNT(*) AS n FROM events e JOIN event_categories c ON c.event_id = e.id WHERE ${w.sql.join(" AND ")} GROUP BY e.area, c.category`)
-    .bind(...w.params).all<{ area: string; category: string; n: number }>();
   return results;
 }
 

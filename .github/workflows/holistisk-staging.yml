@@ -107,25 +107,29 @@ jobs:
           grep -q '"environment": "staging"' /tmp/health.json
           # Run the collector once now (the cron runs it daily) and require the first source to succeed.
           retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
-          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"||x.fetched<1){console.error("source failed: "+id);process.exit(1)}}'
+          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"){console.error("source failed: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(r.sources.find(s=>s.id==="hjerterum").fetched>0))process.exit(1)'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html
-          grep -q 'Find ro, nærvær og fællesskab' /tmp/home.html
-          retry "$URL/events" > /tmp/events.html
+          grep -q 'Spirituelle og holistiske events i Østjylland' /tmp/home.html
+          retry "$URL/kalender" > /tmp/events.html
           EVENT_PATH="$(grep -o 'href="/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="//;s/"$//')"
           test -n "$EVENT_PATH"
           retry "$URL$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
           grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
-          retry "$URL/events?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
+          retry "$URL/kalender?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
           grep -q 'class="results-count"' /tmp/filtered.html
           retry "$URL/aarhus" > /tmp/aarhus.html
-          grep -q '<h1>Holistiske events i Aarhus</h1>' /tmp/aarhus.html
-          retry "$URL/aarhus/spiritualitet" > /tmp/aarhus-spirit.html
-          grep -q '<h1>Spiritualitet og bevidsthed i Aarhus</h1>' /tmp/aarhus-spirit.html
+          grep -q '<h1>Spirituelle og holistiske events i Aarhus</h1>' /tmp/aarhus.html
+          retry "$URL/spiritualitet/aarhus" > /tmp/aarhus-spirit.html
+          grep -q '<h1>Spirituelle arrangementer i Aarhus</h1>' /tmp/aarhus-spirit.html
+          retry "$URL/klarsyn/aarhus" > /tmp/klarsyn.html
+          grep -q '<h1>Klarsynsaftener i Aarhus</h1>' /tmp/klarsyn.html
+          retry "$URL/arrangoerer/buddhistisk-center-aarhus" > /tmp/org.html
+          grep -q 'Karmapa' /tmp/org.html
           retry "$URL/sitemap.xml" > /tmp/sitemap.xml
-          grep -q '/aarhus/' /tmp/sitemap.xml
+          grep -q '/meditation/aarhus' /tmp/sitemap.xml
           retry "$URL/robots.txt" | grep -q 'Disallow: /'
           curl --silent --head "$URL/" | grep -qi '^x-robots-tag: noindex'
           echo "Staging verified: $URL"

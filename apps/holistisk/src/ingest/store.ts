@@ -54,10 +54,12 @@ function organizerStatement(db: D1Database, r: EventRecord, now: number): D1Prep
   ).bind(r.organizer_id, r.organizer_name, r.organizer_url, now, now);
 }
 
-function categoryStatements(db: D1Database, eventId: string, categories: string[]): D1PreparedStatement[] {
+function categoryStatements(db: D1Database, eventId: string, record: Pick<EventRecord, "categories" | "topics">): D1PreparedStatement[] {
   return [
     db.prepare("DELETE FROM event_categories WHERE event_id = ?").bind(eventId),
-    ...categories.map((c, rank) => db.prepare("INSERT INTO event_categories (event_id, category, rank) VALUES (?, ?, ?)").bind(eventId, c, rank))
+    ...record.categories.map((c, rank) => db.prepare("INSERT INTO event_categories (event_id, category, rank) VALUES (?, ?, ?)").bind(eventId, c, rank)),
+    db.prepare("DELETE FROM event_topics WHERE event_id = ?").bind(eventId),
+    ...record.topics.map(t => db.prepare("INSERT INTO event_topics (event_id, topic) VALUES (?, ?)").bind(eventId, t))
   ];
 }
 
@@ -108,7 +110,8 @@ export async function processSource(
   const seenEvents = new Set<string>();
   const touched: string[] = [];
   const touchedLinks: string[] = [];
-  let enrichBudget = enrichLimit;
+  // A source may ask for fewer detail lookups per run (e.g. a site with a long Crawl-delay).
+  let enrichBudget = typeof config.options.enrichBudget === "number" ? Math.min(enrichLimit, config.options.enrichBudget) : enrichLimit;
 
   for (const raw of items.values()) {
     const hash = await contentHash(raw);
@@ -146,7 +149,7 @@ export async function processSource(
         if (org) writes.push(org);
         writes.push(db.prepare(`UPDATE events SET ${EVENT_COLUMNS.map(c => `${c} = ?`).join(", ")}, missing_runs = 0, last_checked_at = ?, updated_at = ? WHERE id = ?`)
           .bind(...values(record, hash), now, now, before.id));
-        writes.push(...categoryStatements(db, before.id, record.categories));
+        writes.push(...categoryStatements(db, before.id, record));
         const changes = diff(before, record);
         // Only a visible change is logged (not a detail lookup or a new way of categorising).
         if (Object.keys(changes).length) writes.push(change(db, before.id, runId, now, changeKind(before, record), changes));
@@ -170,7 +173,7 @@ export async function processSource(
       if (leads) {
         writes.push(db.prepare(`UPDATE events SET ${EVENT_COLUMNS.map(c => `${c} = ?`).join(", ")}, missing_runs = 0, last_checked_at = ?, updated_at = ? WHERE id = ?`)
           .bind(...values(record, hash), now, now, same.id));
-        writes.push(...categoryStatements(db, same.id, record.categories));
+        writes.push(...categoryStatements(db, same.id, record));
         same.primary_source_id = config.id;
       } else {
         // The leading source keeps its text; the other source only fills what is missing.
@@ -194,7 +197,7 @@ export async function processSource(
        VALUES (?, ?, ${EVENT_COLUMNS.map(() => "?").join(", ")}, 0, ?, ?, ?)
        ON CONFLICT(id) DO NOTHING`
     ).bind(record.id, record.slug, ...values(record, hash), now, now, now));
-    writes.push(...categoryStatements(db, record.id, record.categories));
+    writes.push(...categoryStatements(db, record.id, record));
     writes.push(db.prepare(
       `INSERT INTO event_sources (source_id, source_event_id, event_id, source_url, content_hash, first_seen_at, last_seen_at) VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(source_id, source_event_id) DO UPDATE SET event_id = excluded.event_id, content_hash = excluded.content_hash, last_seen_at = excluded.last_seen_at`

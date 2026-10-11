@@ -29,20 +29,25 @@ curl "http://localhost:8787/__scheduled?cron=17+3+*+*+*"   # runs the daily coll
 
 ## Pages
 
-`/` front page · `/events` list with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `side`) · `/events/<slug>` event page (+ `.ics`) · `/<city>` (e.g. `/aarhus`) · `/<city>/<category>` (e.g. `/aarhus/spiritualitet`) · `/kategori/<category>` · `/kategorier` · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`). Old addresses (`/omraade/<city>`, long category slugs) answer 301.
+`/` front page · `/kalender` the calendar with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `emne`, `side`) · `/i-dag` · `/weekend` · `/<activity>` (e.g. `/meditation`, `/klarsyn`) · `/<activity>/<city>` (e.g. `/meditation/aarhus`) · `/<city>` (e.g. `/aarhus`) · `/kategorier` · `/arrangoerer` · `/arrangoerer/<slug>` · `/events/<slug>` (+ `.ics`) · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`). Earlier addresses answer 301: `/events` → `/kalender`, `/kategori/<x>` → `/<activity>`, `/omraade/<city>` and `/<city>/<activity>` → the new form.
+
+Outside production every response carries `X-Robots-Tag: noindex` and robots.txt disallows everything.
+
+## Design
+
+A calm, clinical newspaper look, after Kristeligt Dagblad: a grey masthead with the centred wordmark and a blue rule, a section line with today's date, white paper, black serif headlines (Source Serif 4, OFL, served from `public/assets/fonts`), small blue section labels, hairline rules, square pictures and no shadows. The calendar is a list by day, as a newspaper's listings. The footer is dark.
 
 ## Search engines
 
-Modelled on Billetto's city and category pages (`billetto.dk/c/aarhus-l/religion-c`):
+People search for an activity in a place ("meditation aarhus", "klarsyn randers", "soundbath aarhus", "spirituel weekend jylland"), so the portal has a landing page for each:
 
-- **Landing pages per city and per category in a city**, with the search words in the address, the `<title>` ("Spiritualitet og bevidsthed i Aarhus ✨"), the H1 and a visible introduction ("Oplev spirituelle foredrag, klarsyn, healing og ceremonier i Aarhus. Uanset om du søger …"). The words per category are `path`, `phrase`, `promise` and `need` in `src/categories.ts`; city names are `place` in `src/geo.ts`.
-- **City pages** have "Events i dag", "Events i weekenden", "Kommende events", the city's categories and "Events i andre byer"; category pages link to the same category in every city.
-- **Every page** links to all cities ("Events i din by") and all categories in the footer, and carries a breadcrumb (also as schema.org BreadcrumbList), canonical URL, `hreflang="da-DK"`, Open Graph and Twitter cards (`public/assets/og.jpg` when the event has no picture).
-- **Lists** carry a schema.org ItemList; **event pages** a schema.org Event, titled "Klarsyn med Karina Graabæk – onsdag 4. november i Aarhus".
-- **The sitemap** lists the front page, categories, cities and city × category pages that have events, and every upcoming event. Empty combinations and filtered lists are `noindex`.
-- Staging is never indexed (`X-Robots-Tag: noindex`, robots.txt disallows everything); this switches on only with `ENVIRONMENT=production`.
-
-Outside production every response carries `X-Robots-Tag: noindex` and robots.txt disallows everything.
+- **Activities** (`src/activities.ts`): the 14 categories (`/meditation`, `/spiritualitet`, `/retreat` …) and 14 narrower topics people search for by name: mindfulness, MBSR, stressreduktion, meditation for begyndere, meditationsgrupper, buddhistisk meditation, stilhedsretreat, klarsyn, spirituelle foredrag, healing, soundbath, kakaoceremoni, trommerejse, yin yoga. Topics are found when events are collected (`event_topics`), scored like the categories, so a page lists events that are about the topic rather than ones that mention a word once.
+- **Activity in a city**: `/<activity>/<city>` for every activity and every active city, with the search words in the address, `<title>` ("Klarsynsaftener i Aarhus ✨"), H1, description and a visible introduction; links to the same activity in the other cities and to related topics.
+- **Cities** (`/aarhus`): "Hvad sker der i Aarhus?" – today, the weekend, what is coming, the city's activities and organisers.
+- **Organisers** (`src/organizers.ts`, `/arrangoerer/<slug>`): who arranges what, where, with their standing offerings (each with the organiser's own page as source) and their coming events. Standing offerings also appear on the activity and city pages they belong to, so a page like "Buddhistisk meditation i Aarhus" has content even in a week without dated events.
+- **Intent pages**: `/kalender` ("Spirituel og holistisk kalender for Østjylland"), `/i-dag` ("Hvad sker der i dag?"), `/weekend` ("Spirituel weekend").
+- **Every page**: breadcrumb (also as schema.org BreadcrumbList), canonical URL, `hreflang="da-DK"`, Open Graph and Twitter cards (`public/assets/og.jpg` when the event has no picture), footer links to every city, activity and topic. Lists carry a schema.org ItemList, event pages a schema.org Event, organiser pages an Organization.
+- **Sitemap**: the landing pages that have events or an organiser, organiser pages and every upcoming event. A combination with neither is shown but `noindex`.
 
 ## The collector
 

@@ -88,6 +88,15 @@ export function weekdayIndex(date: string): number {
 const WEEKDAYS = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"];
 const MONTHS = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
 export const monthName = (month: number): string => MONTHS[month - 1] ?? "";
+/** "oktober", "okt", "October" -> 10; null when it is not a month. */
+export function monthNumber(name: string): number | null {
+  const n = name.toLowerCase().replace(/\.$/, "");
+  const en = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  const i = MONTHS.findIndex(m => m === n || (n.length >= 3 && m.startsWith(n)));
+  if (i >= 0) return i + 1;
+  const j = en.findIndex(m => m === n || (n.length >= 3 && m.startsWith(n)));
+  return j >= 0 ? j + 1 : null;
+}
 
 export const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 

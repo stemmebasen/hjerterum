@@ -30,6 +30,8 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
   const maxAttempts = options.attempts ?? 3;
   const timeoutMs = options.timeoutMs ?? 20_000;
   const robots = new Map<string, Promise<RobotsRules>>();
+  const delays = new Map<string, number>();
+  const lastRequest = new Map<string, number>();
   let requests = 0;
 
   async function send(url: string, headers: Record<string, string>): Promise<HttpResponse> {
@@ -60,7 +62,12 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
         const origin = new URL(url).origin;
         let rules = robots.get(origin);
         if (!rules) {
-          rules = send(`${origin}/robots.txt`, {}).then(r => parseRobots(new TextDecoder().decode(r.body)), (e: unknown) => {
+          rules = send(`${origin}/robots.txt`, {}).then(r => {
+            const text = new TextDecoder().decode(r.body);
+            const delay = parseCrawlDelay(text);
+            if (delay) delays.set(origin, delay);
+            return parseRobots(text);
+          }, (e: unknown) => {
             // No robots.txt (404) means no restrictions; an unreachable one means we do not know, so we stay away.
             if (e instanceof HttpError && e.status !== null && e.status >= 400 && e.status < 500) return ALLOW_ALL;
             return DISALLOW_ALL;
@@ -69,6 +76,14 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
         }
         const u = new URL(url);
         if (!isAllowed(await rules, u.pathname + u.search)) throw new HttpError("robots_disallowed", null, 0);
+        // Crawl-delay: the site asks for this many seconds between requests (honoured up to 15 s).
+        const delay = delays.get(origin);
+        const last = lastRequest.get(origin);
+        if (delay && last !== undefined) {
+          const wait = last + delay * 1000 - Date.now();
+          if (wait > 0) await sleep(wait);
+        }
+        lastRequest.set(origin, Date.now());
       }
       return send(url, init.headers ?? {});
     }
@@ -106,6 +121,34 @@ export function parseRobots(text: string): RobotsRules {
   }
   const ours = groups.find(g => g.agents.some(a => a !== "*" && USER_AGENT.toLowerCase().includes(a)));
   return (ours ?? groups.find(g => g.agents.includes("*")))?.rules ?? ALLOW_ALL;
+}
+
+/** Crawl-delay (seconds) for our agent or for "*", capped at 15. */
+export function parseCrawlDelay(text: string): number | null {
+  let applies = false, lastWasAgent = false, found: number | null = null, ours: number | null = null;
+  let oursGroup = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, "").trim();
+    const m = /^([a-z-]+)\s*:\s*(.*)$/i.exec(line);
+    if (!m) continue;
+    const key = m[1]!.toLowerCase(), value = m[2]!.trim().toLowerCase();
+    if (key === "user-agent") {
+      if (!lastWasAgent) { applies = false; oursGroup = false; }
+      if (value === "*") applies = true;
+      if (value !== "*" && USER_AGENT.toLowerCase().includes(value)) { applies = true; oursGroup = true; }
+      lastWasAgent = true;
+      continue;
+    }
+    lastWasAgent = false;
+    if (key === "crawl-delay") {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n <= 0) continue;
+      // A Crawl-delay before any User-agent line applies to everyone.
+      if (applies || !text.slice(0, text.indexOf(raw)).match(/user-agent/i)) { if (oursGroup) ours = n; else found = found ?? n; }
+    }
+  }
+  const delay = ours ?? found;
+  return delay ? Math.min(15, delay) : null;
 }
 
 /** Longest matching rule wins; Allow wins a tie. Supports * and $ as in Google's robots.txt rules. */

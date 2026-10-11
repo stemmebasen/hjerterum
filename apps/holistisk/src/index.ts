@@ -1,12 +1,14 @@
 import type { Env } from "./env.js";
 import { isProduction } from "./env.js";
 import { activeAreas, activeRegions, areaBySlug, regionBySlug } from "./geo.js";
-import { categoryByPath } from "./categories.js";
+import { activityBySlug } from "./activities.js";
+import { organizerBySlug } from "./organizers.js";
 import { ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
-import { parseFilters, type Filters } from "./web/filters.js";
+import { parseFilters } from "./web/filters.js";
 import type { PageContext } from "./web/layout.js";
-import { aboutPage, areaPage, categoriesPage, eventPage, homePage, listPage, notFoundPage, type View } from "./web/pages.js";
-import { areaCategoryPairs, areaCounts, eventBySlug, sitemapEvents } from "./web/queries.js";
+import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, type View } from "./web/pages.js";
+import { sitemapPages } from "./web/sitemap.js";
+import { eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
 
 /** holistisk.org: the public event portal (server-rendered pages) and its daily collector (the cron). */
@@ -94,36 +96,55 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   if (!db) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
 
   if (path === "/sitemap.xml") {
-    const [events, pairs, byArea] = await Promise.all([sitemapEvents(db, regions, now), areaCategoryPairs(db, regions, now), areaCounts(db, regions, now)]);
-    return respond(env, sitemapXml(pc.origin, regions, events, pairs, [...byArea.keys()]), { type: "application/xml; charset=utf-8", cache: "public, max-age=3600" });
+    const pages = await sitemapPages(db, regions, now);
+    return respond(env, sitemapXml(pc.origin, pages, await sitemapEvents(db, regions, now)), { type: "application/xml; charset=utf-8", cache: "public, max-age=3600" });
   }
   if (path === "/") return view(env, await homePage(db, pc, regions));
-  if (path === "/events") return view(env, await listPage(db, pc, regions, parseFilters(url.searchParams, regions), null));
+  if (path === "/kalender") return view(env, await calendarPage(db, pc, regions, parseFilters(url.searchParams, regions)));
+  // The calendar moved from /events to /kalender (the word people search for); event pages stay under /events/.
+  if (path === "/events") return redirect(`/kalender${url.search}`);
+  if (path === "/i-dag") return view(env, await periodPage(db, pc, regions, "idag"));
+  if (path === "/weekend") return view(env, await periodPage(db, pc, regions, "weekend"));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
-  if (path === "/om") return view(env, await aboutPage(db, pc, regions, activeAreas(regions)));
-
-  // Categories: /kategori/meditation. An old or long address (/kategori/meditation-mindfulness) moves permanently.
-  const categoryPath = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
-  if (categoryPath) {
-    const category = categoryByPath(categoryPath);
-    if (!category) return view(env, notFoundPage(pc));
-    if (category.path !== categoryPath) return redirect(`/kategori/${category.path}${url.search}`);
-    const f: Filters = { ...parseFilters(url.searchParams, regions), categories: [category.slug] };
-    return view(env, await listPage(db, pc, regions, f, { kind: "category", category }));
+  if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
+  if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));
+  const organizerSlug = /^\/arrangoerer\/([a-z0-9-]+)$/.exec(path)?.[1];
+  if (organizerSlug) {
+    const profile = organizerBySlug(organizerSlug);
+    const v = profile ? await organizerPage(db, pc, regions, profile) : null;
+    return view(env, v ?? notFoundPage(pc));
   }
-  // The old area addresses (/omraade/aarhus) move to the city's own address (/aarhus).
+
+  // Old addresses move permanently: /kategori/<x> -> /<activity>, /omraade/<city> -> /<city>.
+  const oldCategory = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
+  if (oldCategory) {
+    const activity = activityBySlug(oldCategory);
+    return activity ? redirect(`/${activity.slug}${url.search}`) : view(env, notFoundPage(pc));
+  }
   const oldArea = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
   if (oldArea && areaBySlug(oldArea)) return redirect(`/${oldArea}${url.search}`);
-  // Cities and a category in a city, as Billetto's /c/aarhus-l/religion-c: /aarhus, /aarhus/spiritualitet.
-  const cityMatch = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
-  const city = cityMatch ? areaBySlug(cityMatch[1]!) : undefined;
-  if (city && regions.includes(city.region)) {
-    if (!cityMatch![2]) return view(env, await areaPage(db, pc, regions, city));
-    const category = categoryByPath(cityMatch![2]);
-    if (!category) return view(env, notFoundPage(pc));
-    if (category.path !== cityMatch![2]) return redirect(`/${city.slug}/${category.path}${url.search}`);
-    const f: Filters = { ...parseFilters(url.searchParams, regions), area: city.slug, categories: [category.slug] };
-    return view(env, await listPage(db, pc, regions, f, { kind: "areaCategory", area: city, category }));
+
+  // Landing pages, activity first as people search: /meditation, /meditation/aarhus, and the city's own /aarhus.
+  const two = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
+  if (two) {
+    const [, first, second] = two as unknown as [string, string, string | undefined];
+    const pageNo = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("side") ?? "1", 10) || 1));
+    const cityOf = (slug: string) => { const a = areaBySlug(slug); return a && regions.includes(a.region) ? a : undefined; };
+    const firstCity = cityOf(first);
+    const firstActivity = activityBySlug(first);
+    if (!second) {
+      if (firstCity) return view(env, await areaPage(db, pc, regions, firstCity));
+      if (firstActivity) return firstActivity.slug !== first ? redirect(`/${firstActivity.slug}`) : view(env, await activityPage(db, pc, regions, firstActivity, null, pageNo));
+    } else {
+      // The earlier city-first addresses (/aarhus/meditation) move to activity-first.
+      const secondActivity = activityBySlug(second);
+      if (firstCity && secondActivity) return redirect(`/${secondActivity.slug}/${firstCity.slug}`);
+      const secondCity = cityOf(second);
+      if (firstActivity && secondCity) {
+        if (firstActivity.slug !== first) return redirect(`/${firstActivity.slug}/${secondCity.slug}`);
+        return view(env, await activityPage(db, pc, regions, firstActivity, secondCity, pageNo));
+      }
+    }
   }
   const ics = /^\/events\/([a-z0-9-]{1,90})\.ics$/.exec(path)?.[1];
   if (ics) {

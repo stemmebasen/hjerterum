@@ -186,8 +186,11 @@ export function eventsFromCalendar(text: string, config: SourceConfig, now: numb
   }
   const out: SourceEvent[] = [];
   let unreadable = 0;
+  // Routine sessions (a temple's daily practice) are a standing offering on the organiser's page, not events.
+  const skip = typeof config.options.skipTitles === "string" ? new RegExp(config.options.skipTitles, "i") : null;
   for (const ev of vevents) {
     if (get(ev, "RECURRENCE-ID")) continue;
+    if (skip && skip.test(unescapeText(get(ev, "SUMMARY")?.value ?? ""))) continue;
     const uid = get(ev, "UID")?.value?.trim();
     const start = parseDate(get(ev, "DTSTART"), zone);
     const summary = collapse(unescapeText(get(ev, "SUMMARY")?.value ?? ""));

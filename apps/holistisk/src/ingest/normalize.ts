@@ -1,9 +1,10 @@
 import { classify, isHolisticRelevant } from "../categories.js";
-import { placeEvent, type Area } from "../geo.js";
+import { placeEvent, regionForText, type Area } from "../geo.js";
 import { localDate } from "../time.js";
 import { collapse, normalizeTitle, searchText, sha256Hex, slugify, summarize } from "../text.js";
 import type { SourceConfig, SourceEvent } from "../sources/types.js";
 import { categoryName } from "../categories.js";
+import { classifyTopics } from "../activities.js";
 
 /** An event as the portal stores it (the events table), plus its categories. */
 export type EventRecord = {
@@ -43,12 +44,13 @@ export type EventRecord = {
   search_text: string;
   quality_flags: string;
   categories: string[];
+  topics: string[];
 };
 
 export type Normalized = { ok: true; record: EventRecord } | { ok: false; reason: string };
 
 /** Raised when the way events are read or categorised changes, so every stored event is processed again once. */
-export const NORMALIZE_VERSION = 4;
+export const NORMALIZE_VERSION = 5;
 
 /** The fields that decide whether a source's record changed (before any enrichment). */
 export async function contentHash(e: SourceEvent): Promise<string> {
@@ -91,9 +93,17 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
   if (config.requireRelevance && !isHolisticRelevant(`${title} ${description} ${e.categoryHints.join(" ")}`)) return { ok: false, reason: "not_holistic" };
 
   const area: Area | null = placeEvent({ postalCode: e.postalCode, city: e.city, freeText: [e.locationText, e.venueName].filter(Boolean).join(" ") });
-  const categories = classify({ title, description, hints: e.categoryHints });
+  // Only a region named ("Østjylland"): listed in the region, not in any town.
+  const regionOnly = area ? null : regionForText([e.locationText, e.venueName, e.city].filter(Boolean).join(" "));
+  // A source may correct the word-based categories: some it never has (Raja Yoga is meditation, not yoga), some it
+  // always has when the words find none (a temple's English titles), topics it always concerns.
+  const opt = config.options;
+  const list = (v: unknown) => Array.isArray(v) ? v.map(String) : [];
+  let categories = classify({ title, description, hints: e.categoryHints }).filter(c => !list(opt.excludeCategories).includes(c));
+  if (!categories.length) categories = list(opt.defaultCategories);
+  const topics = [...new Set([...classifyTopics({ title, description }), ...list(opt.alwaysTopics)])];
   const flags = new Set(e.qualityFlags);
-  if (!area) flags.add("area_unknown");
+  if (!area) flags.add(regionOnly ? "region_only" : "area_unknown");
   if (!categories.length) flags.add("uncategorized");
   if (e.endsAt === null) flags.add("no_end_time");
   if (e.lat === null) flags.add("no_coordinates");
@@ -127,7 +137,7 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
       postal_code: e.postalCode,
       city: e.city ? collapse(e.city).slice(0, 80) : null,
       area: area?.slug ?? null,
-      region: area?.region ?? null,
+      region: area?.region ?? regionOnly?.slug ?? null,
       lat: e.lat,
       lon: e.lon,
       price_min_minor: e.price?.minMinor ?? null,
@@ -144,7 +154,8 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
       fingerprint: `${normalizeTitle(title)}|${localDate(e.startsAt, e.timezone)}`,
       search_text: searchText(title, e.hostName, organizerName, e.venueName, e.city, area?.name, categories.map(categoryName).join(" "), description.slice(0, 3000)),
       quality_flags: JSON.stringify([...flags].sort()),
-      categories
+      categories,
+      topics
     }
   };
 }

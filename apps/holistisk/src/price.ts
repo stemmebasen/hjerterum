@@ -25,6 +25,9 @@ export function parsePrice(paragraphs: string[]): ParsedPrice {
   if (!amounts.length && !free) return { minMinor: null, maxMinor: null, isFree: null, text: null };
   const text = [...new Set(lines)].slice(0, 3).join(" · ").slice(0, 200);
   if (!amounts.length) return { minMinor: 0, maxMinor: 0, isFree: true, text };
+  // An amount ten times the smallest is something else in the text (an education's total, a fee), not this price.
+  const smallest = Math.min(...amounts);
+  amounts.splice(0, amounts.length, ...amounts.filter(a => a <= smallest * 10));
   return { minMinor: Math.min(...amounts) * 100, maxMinor: Math.max(...amounts) * 100, isFree: false, text };
 }
 

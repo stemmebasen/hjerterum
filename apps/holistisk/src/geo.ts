@@ -100,6 +100,13 @@ export function placeEvent(input: { postalCode?: string | null; city?: string | 
   return areaForPostcode(input.postalCode) ?? areaForTown(input.city) ?? (input.freeText ? areaForTown(input.freeText) : null);
 }
 
+/** A region named in free text ("Østjylland"), for events whose source names only the region, not the town. */
+export function regionForText(text: string | null | undefined): Region | null {
+  const t = (text ?? "").toLowerCase();
+  if (!t) return null;
+  return REGIONS.find(r => t.includes(r.name.toLowerCase())) ?? null;
+}
+
 /** ACTIVE_REGIONS ("ostjylland,fyn") to the known region slugs it names. Unknown names are ignored; empty means Østjylland. */
 export function activeRegions(config: string | undefined): string[] {
   const wanted = (config ?? "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);

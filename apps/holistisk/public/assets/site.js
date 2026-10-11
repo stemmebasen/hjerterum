@@ -52,7 +52,7 @@
           var km = 12742 * Math.asin(Math.sqrt(h));
           if (km < bestKm) { bestKm = km; best = a; }
         });
-        if (best && bestKm < 80) location.href = "/omraade/" + best.slug;
+        if (best && bestKm < 80) location.href = "/" + best.slug;
         else if (status) status.textContent = "Vi dækker ikke dit område endnu – se alle områder ovenfor.";
       }, function () {
         if (status) status.textContent = "Vi kunne ikke finde din placering. Vælg et område ovenfor.";

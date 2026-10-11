@@ -4,6 +4,10 @@ import { ical } from "./ical.js";
 import { jsonLd } from "./jsonld.js";
 import { billetto } from "./billetto.js";
 import { lysetsHus } from "./lysetshus.js";
+import { eventsManager } from "./eventsmanager.js";
+import { diamondWay } from "./diamondway.js";
+import { typo3Events } from "./typo3events.js";
+import { vaekstcenteret } from "./vaekstcenteret.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -15,7 +19,11 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   ical,
   jsonld: jsonLd,
   billetto,
-  lysetshus: lysetsHus
+  lysetshus: lysetsHus,
+  eventsmanager: eventsManager,
+  diamondway: diamondWay,
+  typo3events: typo3Events,
+  vaekstcenteret
 };
 
 export const SOURCES: SourceConfig[] = [
@@ -69,6 +77,100 @@ export const SOURCES: SourceConfig[] = [
       venues: [{ match: /lysets hus/i, name: "Lysets Hus", address: "Posthussmøgen 11C", postalCode: "8000", city: "Aarhus C", lat: 56.154679, lon: 10.20885 }]
     },
     options: { url: "https://lysetshus.dk/" }
+  },
+  {
+    id: "brahma-kumaris-aarhus",
+    name: "Brahma Kumaris Aarhus",
+    adapter: "eventsmanager",
+    homepageUrl: "https://brahmakumaris.dk/",
+    permissionBasis: "Brahma Kumaris Danmarks offentlige event-feed (brahmakumaris.dk/events/feed/, tilladt i robots.txt). Medtaget efter aftale med projektejer; skriftligt samtykke fra arrangøren afventer – indtil da vises kun fakta, et kort uddrag og link til arrangørens egen side, ingen billeder.",
+    attribution: "Brahma Kumaris, Ålborggade 22, Aarhus",
+    imagePolicy: "none",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Brahma Kumaris Aarhus",
+      organizerUrl: "https://brahmakumaris.dk/",
+      // Coordinates: OpenStreetMap.
+      venues: [{ match: /ålborggade|aalborggade/i, name: "Brahma Kumaris Aarhus", address: "Ålborggade 22, 3. tv.", postalCode: "8000", city: "Aarhus C", lat: 56.143271, lon: 10.192211 }]
+    },
+    // The national feed: only the Aarhus centre's events; the daily evening meditation is a standing offering on the profile.
+    options: { url: "https://brahmakumaris.dk/events/feed/", place: "århus|aarhus", skipTitles: "^aftenmeditation$", excludeCategories: ["yoga"], defaultCategories: ["meditation-mindfulness"] }
+  },
+  {
+    id: "buddhistisk-center-aarhus",
+    name: "Buddhistisk Center Aarhus",
+    adapter: "diamondway",
+    homepageUrl: "https://buddha.dk/centres/aarhus/",
+    permissionBasis: "Diamantvejens offentlige eventdata (schema.org) på buddha.dk; robots.txt tillader alt. Medtaget efter aftale med projektejer; skriftligt samtykke fra arrangøren afventer – indtil da vises kun fakta, et kort uddrag og link til arrangørens egen side, ingen billeder.",
+    attribution: "Buddhistisk Center Aarhus (Diamantvejen), Peder Skrams Gade 52B, Aarhus N",
+    imagePolicy: "none",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Buddhistisk Center Aarhus",
+      organizerUrl: "https://buddha.dk/centres/aarhus/",
+      venues: [{ match: /./, name: "Buddhistisk Center Aarhus", address: "Peder Skrams Gade 52B, kld.", postalCode: "8200", city: "Aarhus N", lat: 56.173836, lon: 10.21666 }]
+    },
+    options: { url: "https://buddha.dk/", postalCodes: ["8200"], alwaysTopics: ["buddhistisk-meditation"], defaultCategories: ["meditation-mindfulness", "spiritualitet-bevidsthed"] }
+  },
+  {
+    id: "dansk-center-for-mindfulness",
+    name: "Dansk Center for Mindfulness",
+    adapter: "typo3events",
+    homepageUrl: "https://mindfulness.au.dk/",
+    permissionBasis: "Aarhus Universitets offentlige arrangementsliste (RSS). AU's vilkår tillader ikke gengivelse af tekst uden tilladelse, så portalen viser kun fakta (titel, tid, sted) og linker til centrets egen side.",
+    attribution: "Dansk Center for Mindfulness, Aarhus Universitet",
+    imagePolicy: "none",
+    descriptionPolicy: "none",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: false,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: { timezone: TIMEZONE, organizerName: "Dansk Center for Mindfulness", organizerUrl: "https://mindfulness.au.dk/", venues: [] },
+    options: { url: "https://mindfulness.au.dk/aktuelt/arrangementer/element/123480/rss.xml", alwaysTopics: ["mindfulness"], defaultCategories: ["meditation-mindfulness"] }
+  },
+  {
+    id: "vaekstcenteret",
+    name: "Vækstcenteret",
+    adapter: "vaekstcenteret",
+    homepageUrl: "https://vaekstcenteret.dk/kurser/",
+    permissionBasis: "Vækstcenterets offentlige kursusoversigt (vaekstcenteret.dk/kurser/); robots.txt tillader den, og portalen holder 10 sekunder mellem forespørgsler, som siden beder om. Medtaget efter aftale med projektejer; skriftligt samtykke fra arrangøren afventer – indtil da vises kun fakta, et kort uddrag og link til arrangørens egen side, ingen billeder.",
+    attribution: "Vækstcenteret, Rørbækvej 10, Nørre Snede",
+    imagePolicy: "none",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Vækstcenteret",
+      organizerUrl: "https://vaekstcenteret.dk/",
+      venues: [
+        // Retreats held elsewhere: the place is named, but its address is not given, so it is not placed on the map.
+        { match: /limfjord/i, name: "Retreatstedet ved Limfjorden", address: null, postalCode: null, city: "Louns", lat: null, lon: null },
+        { match: /oremandsg/i, name: "Oremandsgaard", address: null, postalCode: null, city: null, lat: null, lon: null },
+        { match: /./, name: "Vækstcenteret", address: "Rørbækvej 10", postalCode: "8766", city: "Nørre Snede", lat: 55.963837, lon: 9.390209 }
+      ]
+    },
+    options: { url: "https://vaekstcenteret.dk/kurser/", skipCategories: "online", enrichBudget: 8, defaultCategories: ["meditation-mindfulness"] }
   },
   {
     id: "billetto",
