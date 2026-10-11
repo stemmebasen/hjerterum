@@ -330,3 +330,39 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-files ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .workspace-list article > .event-file-preview { width: 100%; max-width: 240px; margin-bottom: 8px; }
 @media (max-width: 760px) { .event-cover { grid-template-columns: minmax(0, 1fr); } .event-file-preview { width: 100%; max-width: 320px; } }
+
+/* An event from the membership system's calendar on its own page (src/event-page.tsx). */
+.event-page-title { font-size: clamp(34px, 4.4vw, 56px); }
+.event-facts { display: grid; gap: 12px; margin: 0; }
+.event-facts div { display: grid; grid-template-columns: 84px 1fr; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--lys-line); }
+.event-facts dt { color: var(--lys-muted); font-size: 13px; letter-spacing: .06em; text-transform: uppercase; padding-top: 2px; }
+.event-facts dd { margin: 0; color: var(--lys-ink); line-height: 1.5; }
+.event-signup { display: grid; justify-items: start; gap: 8px; margin: 22px 0 0; }
+.event-signup small { color: var(--lys-muted); font-size: 13px; }
+.event-page-image { display: block; width: 100%; max-height: 520px; object-fit: cover; border-radius: var(--lys-radius); margin: 8px 0 36px; }
+.event-page-body { display: block; max-width: 68ch; }
+.event-page-body p { margin: 0 0 12px; line-height: 1.7; }
+.event-page-body .event-bullet { margin: 0 0 6px; padding-left: 4px; }
+.event-tickets { margin: 0 0 24px; padding-left: 20px; line-height: 1.7; }
+.event-rule { border: 0; border-top: 1px solid var(--lys-line); margin: 18px 0; }
+.event-subhead { font: 600 15px/1.4 var(--lys-sans); margin: 18px 0 6px; color: var(--lys-ink); }
+.event-page-body a { color: var(--lys-terra); word-break: break-word; }
+.event-share { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 28px 0 0; padding-top: 18px; border-top: 1px solid var(--lys-line); font-size: 14.5px; }
+.event-share .lys-kicker { margin: 0; width: 100%; }
+.event-share a, .event-share button { color: var(--lys-ink); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--lys-line); }
+.event-way { display: grid; grid-template-columns: 1fr 1.2fr; gap: 28px; align-items: stretch; margin: 44px 0 8px; }
+.event-way h2 { margin: 0 0 10px; }
+.event-way p { margin: 0 0 14px; line-height: 1.6; }
+.event-way-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.event-way small { color: var(--lys-muted); font-size: 13px; }
+/* The map in the house's colours: OpenStreetMap toned to sand and brown (night: to the dark palette), held still, with Hjerterum's pin. */
+.event-map-card { position: relative; display: block; min-height: 300px; overflow: hidden; border-radius: var(--lys-radius); border: 1px solid var(--lys-line); background: var(--lys-soft); box-shadow: var(--lys-shadow); }
+.event-map-card iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; filter: grayscale(1) sepia(.38) saturate(.9) contrast(.9) brightness(1.06); }
+.event-map-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--lys-bg) 55%, transparent)); }
+.event-map-pin { position: absolute; left: 50%; top: 50%; z-index: 1; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: color-mix(in srgb, var(--lys-terra) 22%, transparent); display: grid; place-items: center; }
+.event-map-pin span { width: 12px; height: 12px; border-radius: 50%; background: var(--lys-terra); box-shadow: 0 0 0 3px var(--lys-bg); }
+.event-map-label { position: absolute; left: 14px; top: 14px; z-index: 1; padding: 7px 12px; border-radius: 999px; background: var(--lys-surface); color: var(--lys-ink); font-size: 13px; box-shadow: var(--lys-shadow); border: 1px solid var(--lys-line); }
+.event-map-card:hover .event-map-label { color: var(--lys-terra); }
+@media (prefers-color-scheme: dark) { .event-map-card iframe { filter: grayscale(1) invert(.9) sepia(.3) saturate(.8) contrast(.85) brightness(.8); } }
+@media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map-card { min-height: 240px; } }
+.site-section-more { margin: 22px 0 0; text-align: center; }

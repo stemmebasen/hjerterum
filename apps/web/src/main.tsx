@@ -1,4 +1,5 @@
 import { EventCard, calendarMonth } from "./event-card";
+import { EventPage, eventPagePath } from "./event-page";
 import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
@@ -51,6 +52,8 @@ type CalendarEvent = {
   location: string | null;
   imageUrl: string | null;
   link: string | null;
+  /** The event's own page on hjerterum.info (event-page.tsx), for events from the membership system's calendar. */
+  page?: string | null;
   source: "hjerterum" | "membershipworks";
   category?: string | null;
 };
@@ -143,7 +146,8 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
     title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
     host={event.host} location={event.location} imageUrl={event.imageUrl} category={event.category}
     expandDescription={event.source === "hjerterum"}>
-    {event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
+    {event.page ? <a className="text-link" href={event.page}>Læs mere og tilmeld →</a>
+      : event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
       : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
   </EventCard>;
   const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
@@ -251,6 +255,7 @@ function usePublicEvents() {
             imageUrl: event.imageUrl,
             category: event.category,
             link: event.link,
+            page: eventPagePath(event.id),
             source: "membershipworks" as const
           }))
         : [];
@@ -296,6 +301,8 @@ function PublicHome() {
 function PublicContentPage({ path }: { path: string }) {
   // Requested: "man skal så kunne klikke ind på en behandler" - /behandlere/<navn>.
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
+  const eventMatch = /^\/events\/([0-9a-f]{24})\/?$/.exec(path);
+  if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
   if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="behandlere" />} footer={<SiteFooter />} />;
   return <SiteContentPage path={path} />;
 }

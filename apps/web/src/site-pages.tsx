@@ -207,9 +207,11 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     </nav>
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     <section className="site-home-section">
-      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>Snart i Hjerterum</h2></div><a className="lys-link" href="/events">Hele kalenderen →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>Snart i Hjerterum</h2></div></div>
       <SpeakerLine withHeading={false} />
       {events}
+      {/* Requested: "“Se hele kalenderen” bør stå under de tre events på forsiden og ikke før". */}
+      <p className="site-section-more"><a className="lys-btn ghost" href="/events">Se hele kalenderen →</a></p>
     </section>
     <section className="site-home-section" id="medlemskab">
       <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p><p className="site-price-line">{ABOUT_WORDS.membership(membershipPlans.standard.month / 100)}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>

@@ -2,6 +2,7 @@ import type { D1Database } from "./db.js";
 import type { ExternalEvent } from "./external-events.js";
 import { isPartnerEvent } from "../partner-events.js";
 import { completeAs } from "./saga/ai.js";
+import { eventIdOf } from "./event-detail.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
 /** Requested: "en programoversigt i fjernsynet på nogle linjer" + "en miniature oversigt med fem eventfotos" + "Måske er teksten bare om
@@ -25,7 +26,7 @@ export async function programCandidates(db: D1Database, external: ExternalEvent[
   // Partner houses' events (Hjerteland) are not "i huset" - they stand under "Fra samarbejdspartnere" in the calendars.
   const fromCalendar = await Promise.all(external.filter(e => Date.parse(e.endsAt ?? e.startsAt) >= nowMs && !isPartnerEvent(e)).map(async e => ({
     key: await keyOf("mw", e.id, e.title, e.startsAt), title: e.title, startsAt: e.startsAt, endsAt: e.endsAt, host: e.host,
-    imageUrl: e.imageUrl, link: e.link, description: e.description
+    imageUrl: e.imageUrl, link: eventIdOf(e) ? `/events/${eventIdOf(e)}` : e.link, description: e.description
   })));
   const rows = await db.prepare(`SELECT b.id, b.title, b.teacher_name, b.description, b.starts_at_ms, b.ends_at_ms,
       (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id

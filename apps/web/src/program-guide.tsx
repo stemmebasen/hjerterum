@@ -53,11 +53,15 @@ export function ProgramGuide() {
 
 /** Requested: "samt på hjemmesiden" - the same words, quietly, above the website's calendar. */
 export function SpeakerLine({ withHeading = true }: { withHeading?: boolean }) {
-  const [said, setSaid] = useState<{ intro: string | null; heading?: string | null } | null>(null);
+  const [said, setSaid] = useState<{ intro: string | null; heading?: string | null; items?: Item[] } | null>(null);
   useEffect(() => {
     let active = true;
-    fetch("/api/events/program").then(async (r) => { if (active && r.ok) setSaid(await r.json() as { intro: string | null; heading?: string | null }); }).catch(() => undefined);
+    fetch("/api/events/program").then(async (r) => { if (active && r.ok) setSaid(await r.json() as { intro: string | null; heading?: string | null; items?: Item[] }); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
-  return said?.intro ? <p className="speaker-line">{withHeading && said.heading && <strong>{said.heading}. </strong>}{said.intro}</p> : null;
+  // Requested: "Der er ikke resumé endnu" - until Saga has written the words, a plain line with the next three.
+  const nowMs = Date.now();
+  const next = (said?.items ?? []).filter((i) => Date.parse(i.startsAt) > nowMs).slice(0, 3);
+  const words = said?.intro ?? (next.length ? next.map((i) => `${shortDay(i.startsAt)} kl. ${time(i.startsAt)}: »${i.title}«`).join(" · ") : null);
+  return words ? <p className="speaker-line">{withHeading && said?.heading && <strong>{said.heading}. </strong>}{words}</p> : null;
 }
