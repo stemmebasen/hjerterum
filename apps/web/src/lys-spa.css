@@ -33,14 +33,27 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .lys-nav.site-nav::-webkit-scrollbar { display: none; }
   .page-shell .lys-me { margin-left: auto; }
 }
-/* Requested: "Forsiden er lidt cramped og næsten ude. Linjeskift" - on a phone the menu wraps onto lines instead of running
-   off the edge, and the top row (logo, EN, Log ind) gets room to breathe. */
+/* Requested: "Menuen skal pakkes ind i en hamburger" - on a phone the menu hides behind a button beside Log ind and opens
+   as a list under the top row; the top row (logo, EN, Log ind, the button) gets room to breathe. */
+.site-burger { display: none; }
 @media (max-width: 760px) {
-  .lys-nav.site-nav { flex-wrap: wrap; overflow-x: visible; gap: 0 2px; margin: 0 -8px; width: calc(100% + 16px); }
-  .lys-nav.site-nav > a { padding: 7px 8px; font-size: 14.5px; }
-  .page-shell .lys-me { gap: 4px; }
+  .site-burger { display: inline-grid; place-content: center; gap: 4px; width: 40px; height: 40px; border: 1px solid var(--lys-line); border-radius: 999px; background: transparent; cursor: pointer; padding: 0; }
+  .site-burger span { display: block; width: 16px; height: 1.5px; background: var(--lys-ink); border-radius: 2px; transition: transform .2s ease, opacity .2s ease; }
+  .site-burger.is-open span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+  .site-burger.is-open span:nth-child(2) { opacity: 0; }
+  .site-burger.is-open span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+  .lys-nav.site-nav { display: none; }
+  .lys-nav.site-nav.is-open { display: flex; flex-direction: column; align-items: stretch; overflow: visible; padding: 6px 0 4px; }
+  .lys-nav.site-nav.is-open > a { padding: 13px 2px; font-size: 17px; border: 0; border-top: 1px solid var(--lys-line); border-radius: 0; background: none; }
+  .lys-nav.site-nav.is-open > a:first-child { border-top: 0; }
+  .lys-nav.site-nav.is-open > a[aria-current="page"] { color: var(--lys-terra); }
+  .page-shell .lys-me { gap: 6px; }
   .page-shell .lys-me > a.lys-pill { padding: 8px 15px; font-size: 14px; }
-  .site-lang { padding: 6px 6px; }
+  .site-lang { padding: 6px 4px; }
+  /* "For lidt luft over og under h1". */
+  .lys-hero { padding-top: 36px; }
+  .lys-hero .lys-title { margin: 18px 0 20px; line-height: 1.08; }
+  .lys-hero-lead { font-size: 17.5px; }
 }
 @media (max-width: 420px) {
   .page-shell .lys-logo { gap: 9px; }

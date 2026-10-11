@@ -12,8 +12,8 @@ import { EnquiryForm } from "./enquiry-form";
 
 export type Widgets = Partial<Record<string, ReactNode>>;
 
-export function SiteNav({ current }: { current?: Section | undefined }) {
-  return <nav className="lys-nav site-nav" aria-label="Hovednavigation">
+export function SiteNav({ current, open = false }: { current?: Section | undefined; open?: boolean }) {
+  return <nav id="site-menu" className={"lys-nav site-nav" + (open ? " is-open" : "")} aria-label="Hovednavigation">
     {NAV.map(item => <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>)}
   </nav>;
 }
@@ -197,7 +197,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
       <div>
         <p className="lys-kicker">Et rum for det menneskelige</p>
         <h1 className="lys-title site-home-title">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
-        <p className="lys-hero-lead">Hjerterum er et varmt fællesskab for dig, der søger fordybelse, nye perspektiver og oplevelser med andre mennesker. Her er plads til både nysgerrighed, ro og det, der ikke kan planlægges.</p>
+        <p className="lys-hero-lead">Et varmt fællesskab for fordybelse, nye perspektiver og oplevelser med andre mennesker.</p>
         <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
       </div>
       <div className="lys-hero-art"><LysArt />{soon}</div>

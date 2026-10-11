@@ -670,3 +670,8 @@ Still open:
 ## Klargøring og oprydning i kvarterer (2026-10-10)
 
 - "Klargøring før" og "Oprydning efter" kan være ingen, 15, 30, 45 min. eller 1 time (standard 30). Salen er optaget i de præcise minutter, men lejen og prisberegnerens regler (2-10 timer, 18.30) går på vinduet rundet ud til hele halve timer (fra halvtimen før klargøringen til halvtimen efter oprydningen). Migration 0065 genskaber kolonnerne med den nye CHECK og bevarer de gemte værdier.
+
+## Mobil: hamburgermenu og roligere forside (2026-10-11)
+
+- På telefon (≤ 760 px) ligger hjemmesidens menu bag en hamburgerknap ved Log ind og åbner som en liste under toplinjen.
+- Forsidens indledning er kortet ned ("For megen tekst"), og overskriften har mere luft over og under.
