@@ -793,7 +793,7 @@ Når du læser hjemmesiden, sætter vi ingen cookies. Vi tæller besøg uden coo
 Når du logger ind, sætter vores loginleverandør (Clerk) de cookies, der skal til for at holde dig logget ind og beskytte din konto. De er nødvendige for, at login virker, og kræver derfor ikke samtykke. De forsvinder, når du logger ud, eller når de udløber.
 
 ## Links til andre sider {#andre}
-Klikker du videre til fx Facebook, YouTube, Mailchimp eller CIRKLER, gælder deres egne regler for cookies.
+Klikker du videre til fx Facebook, YouTube, Mailchimp eller CIRKLER, gælder deres egne regler for cookies. Kortet på eventsiderne vises fra OpenStreetMap, og "Find rejse" åbner Rejseplanen - her gælder deres regler.
 
 ## Sådan sletter du cookies {#slet}
 Du kan altid slette cookies i din browsers indstillinger. Sletter du login-cookies, bliver du logget ud.`,

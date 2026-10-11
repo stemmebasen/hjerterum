@@ -1,5 +1,6 @@
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
+import { eventDetail } from "./event-detail.js";
 import { program } from "./program.js";
 import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
@@ -102,6 +103,12 @@ export default {
       const db = (env as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "database_unbound" }, { status: 503 });
       return Response.json(await program(db, await getExternalEvents().catch(() => []), Date.now()), { headers: { "cache-control": "public, max-age=60" } });
+    }
+    // An event from the membership system's calendar, on its own page (event-detail.ts).
+    const detailMatch = /^\/api\/events\/external\/([0-9a-f]{24})$/.exec(url.pathname);
+    if (request.method === "GET" && detailMatch) {
+      const detail = await eventDetail(detailMatch[1]!).catch(() => null);
+      return detail ? Response.json(detail, { headers: { "cache-control": "public, max-age=300" } }) : Response.json({ error: "not_found" }, { status: 404 });
     }
     if (request.method === "GET" && url.pathname === "/api/events/external") {
       try {
