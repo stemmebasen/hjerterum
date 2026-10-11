@@ -355,5 +355,13 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-way p { margin: 0 0 14px; line-height: 1.6; }
 .event-way-links { display: flex; flex-wrap: wrap; gap: 10px; }
 .event-way small { color: var(--lys-muted); font-size: 13px; }
-.event-map { width: 100%; min-height: 300px; border: 1px solid var(--lys-line); border-radius: var(--lys-radius); }
-@media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map { min-height: 240px; } }
+/* The map in the house's colours: OpenStreetMap toned to sand and brown (night: to the dark palette), held still, with Hjerterum's pin. */
+.event-map-card { position: relative; display: block; min-height: 300px; overflow: hidden; border-radius: var(--lys-radius); border: 1px solid var(--lys-line); background: var(--lys-soft); box-shadow: var(--lys-shadow); }
+.event-map-card iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; filter: grayscale(1) sepia(.38) saturate(.9) contrast(.9) brightness(1.06); }
+.event-map-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--lys-bg) 55%, transparent)); }
+.event-map-pin { position: absolute; left: 50%; top: 50%; z-index: 1; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: color-mix(in srgb, var(--lys-terra) 22%, transparent); display: grid; place-items: center; }
+.event-map-pin span { width: 12px; height: 12px; border-radius: 50%; background: var(--lys-terra); box-shadow: 0 0 0 3px var(--lys-bg); }
+.event-map-label { position: absolute; left: 14px; top: 14px; z-index: 1; padding: 7px 12px; border-radius: 999px; background: var(--lys-surface); color: var(--lys-ink); font-size: 13px; box-shadow: var(--lys-shadow); border: 1px solid var(--lys-line); }
+.event-map-card:hover .event-map-label { color: var(--lys-terra); }
+@media (prefers-color-scheme: dark) { .event-map-card iframe { filter: grayscale(1) invert(.9) sepia(.3) saturate(.8) contrast(.85) brightness(.8); } }
+@media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map-card { min-height: 240px; } }

@@ -14,7 +14,8 @@ export function journeyUrl(address: string, startsAt: string): string {
 export function mapUrl(lat: number, lon: number): { embed: string; open: string } {
   const d = 0.0025;
   return {
-    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${lon - d * 1.6},${lat - d},${lon + d * 1.6},${lat + d}&layer=mapnik&marker=${lat},${lon}`,
+    // No marker of OpenStreetMap's: the page draws its own pin in the middle (the box is centred on the house).
+    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${lon - d * 1.6},${lat - d},${lon + d * 1.6},${lat + d}&layer=mapnik`,
     open: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`
   };
 }

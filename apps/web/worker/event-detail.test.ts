@@ -43,6 +43,6 @@ describe("finding the way to an event", () => {
     const url = new URL(journeyUrl("Guldsmedgade 26B, 8000 Aarhus C", "2026-10-13T08:30:00.000Z"));
     expect(url.origin + url.pathname).toBe("https://www.rejseplanen.dk/bin/query.exe/mn");
     expect(Object.fromEntries(url.searchParams)).toEqual({ Z: "Guldsmedgade 26B, 8000 Aarhus C", ZADR: "1", timesel: "arrive", date: "13.10.26", time: "10:15" });
-    expect(mapUrl(56.159318, 10.207848).embed).toContain("marker=56.159318,10.207848");
+    expect(mapUrl(56.159318, 10.207848).open).toContain("mlat=56.159318&mlon=10.207848");
   });
 });

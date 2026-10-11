@@ -58,7 +58,13 @@ function FindWay({ event }: { event: EventDetail }) {
       </p>
       <small>Rejseplanen åbner med Hjerterum som mål og ankomst et kvarter før start - skriv bare, hvor du rejser fra.</small>
     </div>
-    <iframe className="event-map" title="Kort over Hjerterum" src={map.embed} loading="lazy" referrerPolicy="no-referrer" />
+    {/* Requested: "Kan du finde et kort layout der passer til den øvrige design stil" - the map toned to the house's colours, still, with
+        Hjerterum's own pin; a tap opens the full map. */}
+    <a className="event-map-card" href={map.open} target="_blank" rel="noreferrer" aria-label="Åbn kortet over Hjerterum, Guldsmedgade 26B">
+      <iframe title="Kort over Hjerterum" src={map.embed} loading="lazy" referrerPolicy="no-referrer" tabIndex={-1} aria-hidden="true" />
+      <span className="event-map-pin" aria-hidden="true"><span /></span>
+      <span className="event-map-label">Hjerterum · Guldsmedgade 26B</span>
+    </a>
   </section>;
 }
 
