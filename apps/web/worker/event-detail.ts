@@ -2,8 +2,7 @@ import { getExternalEvents, type ExternalEvent } from "./external-events.js";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." An event from the
  * membership system's calendar gets its own page on hjerterum.info: the feed's words and picture, and the event's own details
- * from MembershipWorks' public event API (place, tickets, places). Only signing up still happens in MembershipWorks, until
- * tickets are sold on the platform. */
+ * from MembershipWorks' public event API (place, tickets, places). Signing up happens in Hjerterum's own system. */
 export type EventDetail = {
   id: string;
   title: string;

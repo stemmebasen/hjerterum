@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." /events/<id>: an event
- * from the membership system's calendar on hjerterum.info (worker/event-detail.ts). Only signing up still opens MembershipWorks. */
+ * from the membership system's calendar on hjerterum.info (worker/event-detail.ts). Signing up happens in Hjerterum's own system. */
 type EventDetail = {
   id: string; title: string; startsAt: string; endsAt: string | null; host: string | null; category: string | null;
   imageUrl: string | null; address: string | null; paragraphs: string[]; tickets: string[]; capacity: number | null; signUpUrl: string | null;
@@ -64,10 +64,8 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
               <div><dt>Hvor</dt><dd>Hjerterum{event.address ? `, ${event.address}` : ""}</dd></div>
               {event.capacity && <div><dt>Pladser</dt><dd>{event.capacity}</dd></div>}
             </dl>
-            {!past && event.signUpUrl && <p className="event-signup">
-              <a className="lys-btn" href={event.signUpUrl} target="_blank" rel="noreferrer">Tilmeld dig</a>
-              <small>Tilmeldingen foregår indtil videre i Hjerterums tidligere kalender.</small>
-            </p>}
+            {/* Requested: "når vi starter med at bruge den nye side vil alt tilmeldinge ske i vores eget system". */}
+            {!past && <p className="event-signup"><a className="lys-btn" href="/member-portal/kalender">Tilmeld dig</a></p>}
             {past && <p className="lys-sub">Eventet er afholdt.</p>}
           </div>
         </section>
