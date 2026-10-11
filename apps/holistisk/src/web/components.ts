@@ -148,9 +148,12 @@ export function pagination(f: Filters, total: number, pageSize: number, basePath
 </nav>`;
 }
 
-export function categoryTiles(counts: Map<string, number>): SafeHtml {
+/** Category tiles; with an area, each tile leads to that category in that area (/aarhus/meditation). Empty
+ * combinations are left out of an area's tiles, so its links lead to pages with events. */
+export function categoryTiles(counts: Map<string, number>, area?: Area): SafeHtml {
+  const list = area ? CATEGORIES.filter(c => (counts.get(c.slug) ?? 0) > 0) : CATEGORIES;
   return html`<ul class="category-tiles">
-  ${CATEGORIES.map(c => html`<li><a href="/kategori/${c.slug}" class="tile cat-${c.slug}"><span class="tile-name">${c.name}</span><span class="tile-count">${countLabel(counts.get(c.slug) ?? 0)}</span></a></li>`)}
+  ${list.map(c => html`<li><a href="${area ? `/${area.slug}/${c.path}` : `/kategori/${c.path}`}" class="tile cat-${c.slug}"><span class="tile-name">${area ? `${c.name} i ${area.place}` : c.name}</span><span class="tile-count">${countLabel(counts.get(c.slug) ?? 0)}</span></a></li>`)}
 </ul>`;
 }
 

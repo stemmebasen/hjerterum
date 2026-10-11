@@ -6,6 +6,8 @@
 export type Area = {
   slug: string;
   name: string;
+  /** The short place name people search for ("Aarhus" for "Aarhus og omegn"), used in titles and headings. */
+  place: string;
   region: string;
   /** Inclusive postcode ranges. */
   postcodes: Array<[number, number]>;
@@ -33,48 +35,48 @@ const r = (from: number, to = from): [number, number] => [from, to];
 /** Østjylland is split into the launch areas. The other regions are one area each until they are opened and split. */
 export const AREAS: Area[] = [
   {
-    slug: "aarhus", name: "Aarhus og omegn", region: "ostjylland",
+    slug: "aarhus", name: "Aarhus og omegn", place: "Aarhus", region: "ostjylland",
     postcodes: [r(8000, 8099), r(8200, 8270), r(8300, 8361), r(8370, 8382), r(8450, 8463), r(8465, 8472), r(8520, 8541)],
     towns: ["aarhus", "århus", "risskov", "viby", "højbjerg", "brabrand", "åbyhøj", "egå", "lystrup", "skødstrup", "hjortshøj", "tranbjerg", "mårslet", "beder", "malling", "solbjerg", "hasselager", "odder", "hadsten", "hinnerup", "trige", "tilst", "sabro", "hammel", "harlev", "lisbjerg"],
     centre: { lat: 56.1572, lon: 10.2107 }
   },
   {
-    slug: "randers", name: "Randers", region: "ostjylland",
+    slug: "randers", name: "Randers", place: "Randers", region: "ostjylland",
     postcodes: [r(8870), r(8900, 8940), r(8960), r(8970, 8990)],
     towns: ["randers", "langå", "havndal", "spentrup", "gjerlev", "fårup", "assentoft"],
     centre: { lat: 56.4607, lon: 10.0364 }
   },
   {
-    slug: "djursland", name: "Djursland", region: "ostjylland",
+    slug: "djursland", name: "Djursland", place: "Djursland", region: "ostjylland",
     postcodes: [r(8400, 8444), r(8500), r(8543, 8592), r(8950), r(8961, 8963)],
     towns: ["ebeltoft", "rønde", "knebel", "balle", "grenaa", "grenå", "hornslet", "mørke", "ryomgård", "kolind", "trustrup", "nimtofte", "glesborg", "ørum djurs", "anholt", "ørsted", "allingåbro", "auning", "mols", "femmøller", "kalø"],
     centre: { lat: 56.3500, lon: 10.6500 }
   },
   {
-    slug: "silkeborg", name: "Silkeborg", region: "ostjylland",
+    slug: "silkeborg", name: "Silkeborg", place: "Silkeborg", region: "ostjylland",
     postcodes: [r(8600, 8643), r(8653, 8654), r(8882, 8883)],
     towns: ["silkeborg", "kjellerup", "lemming", "sorring", "ans", "them", "bryrup", "fårvang", "gjern", "virklund"],
     centre: { lat: 56.1697, lon: 9.5451 }
   },
   {
-    slug: "skanderborg", name: "Skanderborg", region: "ostjylland",
+    slug: "skanderborg", name: "Skanderborg", place: "Skanderborg", region: "ostjylland",
     postcodes: [r(8362), r(8464), r(8660, 8680)],
     towns: ["skanderborg", "ry", "låsby", "galten", "hørning", "stilling", "skovby"],
     centre: { lat: 56.0384, lon: 9.9298 }
   },
   {
-    slug: "horsens", name: "Horsens", region: "ostjylland",
+    slug: "horsens", name: "Horsens", place: "Horsens", region: "ostjylland",
     postcodes: [r(8700, 8783)],
     towns: ["horsens", "hedensted", "brædstrup", "østbirk", "gedved", "hovedgård", "juelsminde", "løsning", "nørre snede", "hornsyld"],
     centre: { lat: 55.8607, lon: 9.8503 }
   },
-  { slug: "nordjylland", name: "Nordjylland", region: "nordjylland", postcodes: [r(7700, 7999), r(9000, 9999)], towns: ["aalborg", "hjørring", "frederikshavn", "thisted", "skagen"], centre: { lat: 57.0488, lon: 9.9217 } },
-  { slug: "midt-vestjylland", name: "Midt- og Vestjylland", region: "midt-vestjylland", postcodes: [r(6900, 7699), r(8800, 8850), r(8860, 8869), r(8880, 8881)], towns: ["viborg", "herning", "holstebro", "skive", "ikast", "ringkøbing", "struer", "bjerringbro"], centre: { lat: 56.2, lon: 9.0 } },
-  { slug: "sydjylland", name: "Syd- og Sønderjylland", region: "sydjylland", postcodes: [r(6000, 6899), r(7000, 7399)], towns: ["kolding", "vejle", "fredericia", "esbjerg", "haderslev", "aabenraa", "sønderborg", "tønder", "billund", "ribe", "varde"], centre: { lat: 55.5, lon: 9.3 } },
-  { slug: "fyn", name: "Fyn og øerne", region: "fyn", postcodes: [r(5000, 5999)], towns: ["odense", "svendborg", "nyborg", "middelfart", "faaborg", "assens"], centre: { lat: 55.3959, lon: 10.3883 } },
-  { slug: "sjaelland", name: "Sjælland", region: "sjaelland", postcodes: [r(4000, 4999)], towns: ["roskilde", "næstved", "holbæk", "slagelse", "køge", "ringsted", "nykøbing f", "kalundborg"], centre: { lat: 55.45, lon: 11.75 } },
-  { slug: "hovedstaden", name: "København og Nordsjælland", region: "hovedstaden", postcodes: [r(1000, 3699)], towns: ["københavn", "frederiksberg", "hillerød", "helsingør", "lyngby", "gentofte", "hellerup", "valby", "amager"], centre: { lat: 55.6761, lon: 12.5683 } },
-  { slug: "bornholm", name: "Bornholm", region: "bornholm", postcodes: [r(3700, 3799)], towns: ["rønne", "nexø", "svaneke", "gudhjem", "allinge"], centre: { lat: 55.1, lon: 14.9 } }
+  { slug: "nordjylland", name: "Nordjylland", place: "Nordjylland", region: "nordjylland", postcodes: [r(7700, 7999), r(9000, 9999)], towns: ["aalborg", "hjørring", "frederikshavn", "thisted", "skagen"], centre: { lat: 57.0488, lon: 9.9217 } },
+  { slug: "midt-vestjylland", name: "Midt- og Vestjylland", place: "Midt- og Vestjylland", region: "midt-vestjylland", postcodes: [r(6900, 7699), r(8800, 8850), r(8860, 8869), r(8880, 8881)], towns: ["viborg", "herning", "holstebro", "skive", "ikast", "ringkøbing", "struer", "bjerringbro"], centre: { lat: 56.2, lon: 9.0 } },
+  { slug: "sydjylland", name: "Syd- og Sønderjylland", place: "Syd- og Sønderjylland", region: "sydjylland", postcodes: [r(6000, 6899), r(7000, 7399)], towns: ["kolding", "vejle", "fredericia", "esbjerg", "haderslev", "aabenraa", "sønderborg", "tønder", "billund", "ribe", "varde"], centre: { lat: 55.5, lon: 9.3 } },
+  { slug: "fyn", name: "Fyn og øerne", place: "Fyn", region: "fyn", postcodes: [r(5000, 5999)], towns: ["odense", "svendborg", "nyborg", "middelfart", "faaborg", "assens"], centre: { lat: 55.3959, lon: 10.3883 } },
+  { slug: "sjaelland", name: "Sjælland", place: "Sjælland", region: "sjaelland", postcodes: [r(4000, 4999)], towns: ["roskilde", "næstved", "holbæk", "slagelse", "køge", "ringsted", "nykøbing f", "kalundborg"], centre: { lat: 55.45, lon: 11.75 } },
+  { slug: "hovedstaden", name: "København og Nordsjælland", place: "København", region: "hovedstaden", postcodes: [r(1000, 3699)], towns: ["københavn", "frederiksberg", "hillerød", "helsingør", "lyngby", "gentofte", "hellerup", "valby", "amager"], centre: { lat: 55.6761, lon: 12.5683 } },
+  { slug: "bornholm", name: "Bornholm", place: "Bornholm", region: "bornholm", postcodes: [r(3700, 3799)], towns: ["rønne", "nexø", "svaneke", "gudhjem", "allinge"], centre: { lat: 55.1, lon: 14.9 } }
 ];
 
 const AREA_BY_SLUG = new Map(AREAS.map(a => [a.slug, a]));

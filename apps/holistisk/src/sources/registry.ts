@@ -3,6 +3,7 @@ import { membershipWorks } from "./membershipworks.js";
 import { ical } from "./ical.js";
 import { jsonLd } from "./jsonld.js";
 import { billetto } from "./billetto.js";
+import { lysetsHus } from "./lysetshus.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -13,7 +14,8 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   membershipworks: membershipWorks,
   ical,
   jsonld: jsonLd,
-  billetto
+  billetto,
+  lysetshus: lysetsHus
 };
 
 export const SOURCES: SourceConfig[] = [
@@ -43,6 +45,30 @@ export const SOURCES: SourceConfig[] = [
     },
     // Hjerterum's texts link to its old address; holistisk.org becomes this portal, and hjerterum.info redirects the old paths.
     options: { org: "22308", rewriteHosts: { "holistisk.org": "hjerterum.info" }, signupUrlTemplate: "https://hjerterum.info/events/{eid}", sourceUrlTemplate: "https://hjerterum.info/events/{eid}" }
+  },
+  {
+    id: "lysetshus",
+    name: "Lysets Hus",
+    adapter: "lysetshus",
+    homepageUrl: "https://lysetshus.dk/",
+    permissionBasis: "Lysets Hus' (Foreningen Lyset) offentlige program på lysetshus.dk, medtaget efter aftale med projektejer; robots.txt tillader forsiden. Skriftligt samtykke fra foreningen afventer – indtil da vises kun et uddrag af beskrivelsen og ingen billeder, med link til foreningens egen side og Billetto.",
+    attribution: "Lysets Hus, Posthussmøgen 11C, Aarhus",
+    imagePolicy: "none",
+    descriptionPolicy: "excerpt",
+    priority: 55,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Lysets Hus",
+      organizerUrl: "https://lysetshus.dk/",
+      // Coordinates: OpenStreetMap, Posthussmøgen (street level).
+      venues: [{ match: /lysets hus/i, name: "Lysets Hus", address: "Posthussmøgen 11C", postalCode: "8000", city: "Aarhus C", lat: 56.154679, lon: 10.20885 }]
+    },
+    options: { url: "https://lysetshus.dk/" }
   },
   {
     id: "billetto",

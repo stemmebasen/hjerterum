@@ -1,12 +1,12 @@
 import type { Env } from "./env.js";
 import { isProduction } from "./env.js";
 import { activeAreas, activeRegions, areaBySlug, regionBySlug } from "./geo.js";
-import { categoryBySlug } from "./categories.js";
+import { categoryByPath } from "./categories.js";
 import { ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { parseFilters, type Filters } from "./web/filters.js";
 import type { PageContext } from "./web/layout.js";
-import { aboutPage, categoriesPage, eventPage, homePage, listPage, notFoundPage, type View } from "./web/pages.js";
-import { eventBySlug, sitemapEvents } from "./web/queries.js";
+import { aboutPage, areaPage, categoriesPage, eventPage, homePage, listPage, notFoundPage, type View } from "./web/pages.js";
+import { areaCategoryPairs, areaCounts, eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
 
 /** holistisk.org: the public event portal (server-rendered pages) and its daily collector (the cron). */
@@ -29,6 +29,7 @@ function respond(env: Env, body: string, init: { status?: number; type?: string;
 }
 
 const json = (env: Env, data: unknown, status = 200, cache = "no-store") => respond(env, JSON.stringify(data, null, 2), { status, type: "application/json; charset=utf-8", cache });
+const redirect = (location: string) => new Response(null, { status: 301, headers: { location, "cache-control": "public, max-age=86400" } });
 const view = (env: Env, v: View) => respond(env, v.body, { status: v.status, ...(v.headers ? { headers: v.headers } : {}), ...(v.status !== 200 ? { cache: "no-store" } : {}) });
 
 function context(env: Env, url: URL, now: number, regions: string[]): PageContext {
@@ -39,7 +40,8 @@ function context(env: Env, url: URL, now: number, regions: string[]): PageContex
     path: url.pathname,
     now,
     regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og "),
-    contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null
+    contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
+    areas: activeAreas(regions)
   };
 }
 
@@ -91,21 +93,37 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   const db = env.DB;
   if (!db) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
 
-  if (path === "/sitemap.xml") return respond(env, sitemapXml(pc.origin, regions, await sitemapEvents(db, regions, now)), { type: "application/xml; charset=utf-8", cache: "public, max-age=3600" });
+  if (path === "/sitemap.xml") {
+    const [events, pairs, byArea] = await Promise.all([sitemapEvents(db, regions, now), areaCategoryPairs(db, regions, now), areaCounts(db, regions, now)]);
+    return respond(env, sitemapXml(pc.origin, regions, events, pairs, [...byArea.keys()]), { type: "application/xml; charset=utf-8", cache: "public, max-age=3600" });
+  }
   if (path === "/") return view(env, await homePage(db, pc, regions));
   if (path === "/events") return view(env, await listPage(db, pc, regions, parseFilters(url.searchParams, regions), null));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/om") return view(env, await aboutPage(db, pc, regions, activeAreas(regions)));
 
-  const category = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
-  if (category && categoryBySlug(category)) {
-    const f: Filters = { ...parseFilters(url.searchParams, regions), categories: [category] };
-    return view(env, await listPage(db, pc, regions, f, { kind: "category", slug: category }));
+  // Categories: /kategori/meditation. An old or long address (/kategori/meditation-mindfulness) moves permanently.
+  const categoryPath = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
+  if (categoryPath) {
+    const category = categoryByPath(categoryPath);
+    if (!category) return view(env, notFoundPage(pc));
+    if (category.path !== categoryPath) return redirect(`/kategori/${category.path}${url.search}`);
+    const f: Filters = { ...parseFilters(url.searchParams, regions), categories: [category.slug] };
+    return view(env, await listPage(db, pc, regions, f, { kind: "category", category }));
   }
-  const area = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
-  if (area && areaBySlug(area) && regions.includes(areaBySlug(area)!.region)) {
-    const f: Filters = { ...parseFilters(url.searchParams, regions), area };
-    return view(env, await listPage(db, pc, regions, f, { kind: "area", slug: area }));
+  // The old area addresses (/omraade/aarhus) move to the city's own address (/aarhus).
+  const oldArea = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
+  if (oldArea && areaBySlug(oldArea)) return redirect(`/${oldArea}${url.search}`);
+  // Cities and a category in a city, as Billetto's /c/aarhus-l/religion-c: /aarhus, /aarhus/spiritualitet.
+  const cityMatch = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
+  const city = cityMatch ? areaBySlug(cityMatch[1]!) : undefined;
+  if (city && regions.includes(city.region)) {
+    if (!cityMatch![2]) return view(env, await areaPage(db, pc, regions, city));
+    const category = categoryByPath(cityMatch![2]);
+    if (!category) return view(env, notFoundPage(pc));
+    if (category.path !== cityMatch![2]) return redirect(`/${city.slug}/${category.path}${url.search}`);
+    const f: Filters = { ...parseFilters(url.searchParams, regions), area: city.slug, categories: [category.slug] };
+    return view(env, await listPage(db, pc, regions, f, { kind: "areaCategory", area: city, category }));
   }
   const ics = /^\/events\/([a-z0-9-]{1,90})\.ics$/.exec(path)?.[1];
   if (ics) {

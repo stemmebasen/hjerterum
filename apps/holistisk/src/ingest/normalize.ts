@@ -48,7 +48,7 @@ export type EventRecord = {
 export type Normalized = { ok: true; record: EventRecord } | { ok: false; reason: string };
 
 /** Raised when the way events are read or categorised changes, so every stored event is processed again once. */
-export const NORMALIZE_VERSION = 3;
+export const NORMALIZE_VERSION = 4;
 
 /** The fields that decide whether a source's record changed (before any enrichment). */
 export async function contentHash(e: SourceEvent): Promise<string> {

@@ -107,7 +107,7 @@ jobs:
           grep -q '"environment": "staging"' /tmp/health.json
           # Run the collector once now (the cron runs it daily) and require the first source to succeed.
           retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
-          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));const h=r.sources.find(s=>s.id==="hjerterum");if(!h||h.status!=="ok"||h.fetched<1)process.exit(1)'
+          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"||x.fetched<1){console.error("source failed: "+id);process.exit(1)}}'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html
@@ -120,6 +120,12 @@ jobs:
           grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
           retry "$URL/events?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
           grep -q 'class="results-count"' /tmp/filtered.html
+          retry "$URL/aarhus" > /tmp/aarhus.html
+          grep -q '<h1>Holistiske events i Aarhus</h1>' /tmp/aarhus.html
+          retry "$URL/aarhus/spiritualitet" > /tmp/aarhus-spirit.html
+          grep -q '<h1>Spiritualitet og bevidsthed i Aarhus</h1>' /tmp/aarhus-spirit.html
+          retry "$URL/sitemap.xml" > /tmp/sitemap.xml
+          grep -q '/aarhus/' /tmp/sitemap.xml
           retry "$URL/robots.txt" | grep -q 'Disallow: /'
           curl --silent --head "$URL/" | grep -qi '^x-robots-tag: noindex'
           echo "Staging verified: $URL"

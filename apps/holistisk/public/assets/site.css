@@ -74,7 +74,8 @@ p { margin: 0 0 1em; }
 @media (max-width: 520px) { .brand { font-size: 1.1rem; } .site-nav a { padding: 6px 8px; font-size: .9rem; } .site-nav a[href="/kategorier"] { display: none; } }
 .site-footer { margin-top: 72px; border-top: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2); font-size: .95rem; }
 .footer-inner { display: grid; gap: 24px; padding-top: 36px; padding-bottom: 36px; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .footer-inner { grid-template-columns: 2fr 1fr 1fr; } }
+@media (min-width: 760px) { .footer-inner { grid-template-columns: 1.6fr 1fr 1fr 1fr; } }
+.footer-inner ul li { font-size: .9rem; }
 .footer-brand { font-family: var(--serif); font-size: 1.2rem; color: var(--ink); margin-bottom: .3em; }
 .footer-head { font-weight: 600; color: var(--ink); margin-bottom: .3em; }
 .site-footer ul { list-style: none; padding: 0; margin: 0; }

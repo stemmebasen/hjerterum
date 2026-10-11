@@ -1,4 +1,4 @@
-import { categoryName, CATEGORIES } from "../categories.js";
+import { categoryBySlug, categoryName, CATEGORIES } from "../categories.js";
 import { activeAreas } from "../geo.js";
 import { isoWithOffset } from "../time.js";
 import { escapeHtml } from "./html.js";
@@ -45,11 +45,12 @@ export function eventJsonLd(e: EventRow, origin: string): Record<string, unknown
   };
 }
 
-export function sitemapXml(origin: string, regions: string[], events: Array<{ slug: string; updated_at: number }>): string {
+export function sitemapXml(origin: string, regions: string[], events: Array<{ slug: string; updated_at: number }>, pairs: Array<{ area: string; category: string }>, areasWithEvents: string[]): string {
   const urls: Array<{ loc: string; lastmod?: string }> = [
     { loc: `${origin}/` }, { loc: `${origin}/events` }, { loc: `${origin}/kategorier` }, { loc: `${origin}/om` },
-    ...CATEGORIES.map(c => ({ loc: `${origin}/kategori/${c.slug}` })),
-    ...activeAreas(regions).map(a => ({ loc: `${origin}/omraade/${a.slug}` })),
+    ...CATEGORIES.filter(c => pairs.some(p => p.category === c.slug)).map(c => ({ loc: `${origin}/kategori/${c.path}` })),
+    ...activeAreas(regions).filter(a => areasWithEvents.includes(a.slug)).map(a => ({ loc: `${origin}/${a.slug}` })),
+    ...pairs.flatMap(p => { const c = categoryBySlug(p.category); return c ? [{ loc: `${origin}/${p.area}/${c.path}` }] : []; }),
     ...events.map(e => ({ loc: `${origin}${eventPath(e)}`, lastmod: new Date(e.updated_at).toISOString().slice(0, 10) }))
   ];
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls

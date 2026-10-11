@@ -6,6 +6,7 @@ Only sources with a documented basis are enabled. Public availability alone is n
 
 | Source | Feed | Basis | Text / pictures |
 | --- | --- | --- | --- |
+| **Lysets Hus** (Foreningen Lyset, Posthussmøgen 11C, Aarhus) | The programme on the front page of lysetshus.dk (WordPress; robots.txt allows it). Dated evenings (speaker, title, description, entry price, Billetto ticket link) and the free early evenings that follow them ("Ulige/Lige uge"). Adapter `src/sources/lysetshus.ts`. | Added at the project owner's request. **To confirm:** Foreningen Lyset's written OK. Until then only an excerpt of the text is shown and no pictures (`descriptionPolicy: "excerpt"`, `imagePolicy: "none"`); switch both in `registry.ts` when they agree. | Excerpt, no pictures; sign-up via their Billetto link |
 | **Hjerterum** (Aarhus) | MembershipWorks RSS `api.membershipworks.com/v2/events?_op=rss&org=22308` and `/v2/event?eid=` | Hjerterum's own public calendar; the project is run for Hjerterum. MembershipWorks' robots.txt allows `/v2/*`. **To confirm:** the board's written OK to show its texts and pictures on holistisk.org. | Full text, pictures shown with credit |
 
 ## Ready, switched off until access is in place
@@ -13,6 +14,8 @@ Only sources with a documented basis are enabled. Public availability alone is n
 | Source | What is needed | Notes |
 | --- | --- | --- |
 | **Billetto** Public Event API (`billetto.dk/api/v3/public/events`) | An API key pair (apply via support@billetto.com) and acceptance of Billetto's publisher terms. Set it as the GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`. | The terms require the full event URL with UTM tags and our event page to name Billetto's page as canonical; the adapter does both. Picture reuse is not stated, so pictures are off and only an excerpt of the text is shown. The category queries (`meditation`, `mindfulness`, `yoga`, `health_wellness`, `mental_health`, `personal_health`, `religious_spiritual` in region `Midtjylland`) must be checked against the first real responses. |
+
+Lysets Hus' page has no feed: the adapter reads its text layout. The year is chosen so the weekday matches, and a free evening is only taken when the week's parity agrees; anything else is counted as unreadable in the run log, never guessed. If the collector reports `lysetshus_no_programme_found`, the page layout has changed and the adapter needs a look.
 
 ## Candidates – need the organiser's consent
 

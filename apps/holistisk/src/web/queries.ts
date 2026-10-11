@@ -95,8 +95,9 @@ export async function featuredEvents(db: D1Database, regions: string[], now: num
   return picked.sort((a, b) => a.starts_at - b.starts_at);
 }
 
-export async function categoryCounts(db: D1Database, regions: string[], now: number): Promise<Map<string, number>> {
+export async function categoryCounts(db: D1Database, regions: string[], now: number, area: string | null = null): Promise<Map<string, number>> {
   const w = visible(regions, now);
+  if (area) { w.sql.push("e.area = ?"); w.params.push(area); }
   const { results } = await db.prepare(`SELECT c.category, COUNT(*) AS n FROM event_categories c JOIN events e ON e.id = c.event_id WHERE ${w.sql.join(" AND ")} GROUP BY c.category`)
     .bind(...w.params).all<{ category: string; n: number }>();
   return new Map(results.map(r => [r.category, r.n]));
@@ -104,6 +105,16 @@ export async function categoryCounts(db: D1Database, regions: string[], now: num
 
 export async function areaCounts(db: D1Database, regions: string[], now: number): Promise<Map<string, number>> {
   const w = visible(regions, now);
+  const { results } = await db.prepare(`SELECT e.area, COUNT(*) AS n FROM events e WHERE ${w.sql.join(" AND ")} GROUP BY e.area`)
+    .bind(...w.params).all<{ area: string; n: number }>();
+  return new Map(results.map(r => [r.area, r.n]));
+}
+
+/** Upcoming events of one category per area, for "Meditation i din by". */
+export async function categoryAreaCounts(db: D1Database, regions: string[], now: number, category: string): Promise<Map<string, number>> {
+  const w = visible(regions, now);
+  w.sql.push("EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category = ?)");
+  w.params.push(category);
   const { results } = await db.prepare(`SELECT e.area, COUNT(*) AS n FROM events e WHERE ${w.sql.join(" AND ")} GROUP BY e.area`)
     .bind(...w.params).all<{ area: string; n: number }>();
   return new Map(results.map(r => [r.area, r.n]));
@@ -136,6 +147,14 @@ export async function relatedEvents(db: D1Database, event: EventRow, regions: st
   if (category) { w.sql.push("EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category = ?)"); w.params.push(category); }
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY (e.area = ?) DESC, e.starts_at LIMIT ?`)
     .bind(...w.params, event.area, count).all<EventRow>();
+  return results;
+}
+
+/** Area and category pairs that have upcoming events: the city × category pages worth listing in the sitemap. */
+export async function areaCategoryPairs(db: D1Database, regions: string[], now: number): Promise<Array<{ area: string; category: string; n: number }>> {
+  const w = visible(regions, now);
+  const { results } = await db.prepare(`SELECT e.area, c.category, COUNT(*) AS n FROM events e JOIN event_categories c ON c.event_id = e.id WHERE ${w.sql.join(" AND ")} GROUP BY e.area, c.category`)
+    .bind(...w.params).all<{ area: string; category: string; n: number }>();
   return results;
 }
 

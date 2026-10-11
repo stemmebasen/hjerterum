@@ -48,7 +48,7 @@ export type VenueRule = {
 export type SourceConfig = {
   id: string;
   name: string;
-  adapter: "membershipworks" | "ical" | "billetto" | "jsonld";
+  adapter: "membershipworks" | "ical" | "billetto" | "jsonld" | "lysetshus";
   homepageUrl: string | null;
   /** Why the portal may use this source: the agreement, licence or owner consent. Shown on the about page. */
   permissionBasis: string;

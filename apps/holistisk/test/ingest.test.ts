@@ -14,7 +14,9 @@ function routes(feed: string) {
   return {
     "https://api.membershipworks.com/robots.txt": { body: MW_ROBOTS },
     [FEED_URL]: { body: feed, headers: { "content-type": "application/rss+xml" } },
-    "https://api.membershipworks.com/v2/event?eid=6a572ab06960ef7bf40e3978": { body: DETAIL, headers: { "content-type": "application/json" } }
+    "https://api.membershipworks.com/v2/event?eid=6a572ab06960ef7bf40e3978": { body: DETAIL, headers: { "content-type": "application/json" } },
+    "https://lysetshus.dk/robots.txt": { status: 404 },
+    "https://lysetshus.dk/": { body: fixture("lysetshus.html") }
   };
 }
 

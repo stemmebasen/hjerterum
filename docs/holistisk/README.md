@@ -29,7 +29,18 @@ curl "http://localhost:8787/__scheduled?cron=17+3+*+*+*"   # runs the daily coll
 
 ## Pages
 
-`/` front page · `/events` list with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `side`) · `/events/<slug>` event page (+ `.ics`) · `/kategori/<slug>` · `/omraade/<slug>` · `/kategorier` · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`).
+`/` front page · `/events` list with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `side`) · `/events/<slug>` event page (+ `.ics`) · `/<city>` (e.g. `/aarhus`) · `/<city>/<category>` (e.g. `/aarhus/spiritualitet`) · `/kategori/<category>` · `/kategorier` · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`). Old addresses (`/omraade/<city>`, long category slugs) answer 301.
+
+## Search engines
+
+Modelled on Billetto's city and category pages (`billetto.dk/c/aarhus-l/religion-c`):
+
+- **Landing pages per city and per category in a city**, with the search words in the address, the `<title>` ("Spiritualitet og bevidsthed i Aarhus ✨"), the H1 and a visible introduction ("Oplev spirituelle foredrag, klarsyn, healing og ceremonier i Aarhus. Uanset om du søger …"). The words per category are `path`, `phrase`, `promise` and `need` in `src/categories.ts`; city names are `place` in `src/geo.ts`.
+- **City pages** have "Events i dag", "Events i weekenden", "Kommende events", the city's categories and "Events i andre byer"; category pages link to the same category in every city.
+- **Every page** links to all cities ("Events i din by") and all categories in the footer, and carries a breadcrumb (also as schema.org BreadcrumbList), canonical URL, `hreflang="da-DK"`, Open Graph and Twitter cards (`public/assets/og.jpg` when the event has no picture).
+- **Lists** carry a schema.org ItemList; **event pages** a schema.org Event, titled "Klarsyn med Karina Graabæk – onsdag 4. november i Aarhus".
+- **The sitemap** lists the front page, categories, cities and city × category pages that have events, and every upcoming event. Empty combinations and filtered lists are `noindex`.
+- Staging is never indexed (`X-Robots-Tag: noindex`, robots.txt disallows everything); this switches on only with `ENVIRONMENT=production`.
 
 Outside production every response carries `X-Robots-Tag: noindex` and robots.txt disallows everything.
 

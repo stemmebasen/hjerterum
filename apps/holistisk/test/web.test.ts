@@ -26,11 +26,14 @@ describe("the portal's pages", () => {
   it("front page: introduction, search, upcoming events, areas and categories", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain("<h1>Find ro, nærvær og fællesskab – tæt på dig</h1>");
+    expect(body).toContain("<h1>Holistiske events i Østjylland</h1>");
+    expect(body).toContain("<title>Holistiske events i Østjylland – meditation, yoga &amp; healing ✨</title>");
     expect(body).toContain('action="/events"');
     expect(titles(body).length).toBeGreaterThan(3);
-    expect(body).toContain('href="/omraade/aarhus"');
-    expect(body).toContain('href="/kategori/aandedraet-breathwork"');
+    expect(body).toContain('href="/aarhus"');
+    expect(body).toContain('href="/kategori/breathwork"');
+    // The weekend from Saturday 10 October has its own section, as on Billetto's city pages.
+    expect(body).toContain('<h2 id="h-weekend">Events i weekenden</h2>');
     expect(body).toContain("Se alle 7 kommende events");
   });
 
@@ -69,16 +72,53 @@ describe("the portal's pages", () => {
     expect(count((await text("/events?q=%25%25")).body)).toBe(0);
   });
 
-  it("category and area landing pages", async () => {
+  it("category, city and city × category pages, as Billetto's /c/aarhus-l/religion-c", async () => {
     const yoga = await text("/kategori/yoga");
     expect(yoga.status).toBe(200);
-    expect(yoga.body).toContain("<h1>Yoga</h1>");
+    expect(yoga.body).toContain("<h1>Yoga i Østjylland</h1>");
+    expect(yoga.body).toContain("<title>Yoga i Østjylland ✨</title>");
     expect(titles(yoga.body)).toEqual(["Dhyana Yoga"]);
-    const aarhus = await text("/omraade/aarhus");
-    expect(aarhus.body).toContain("Holistiske events i Aarhus og omegn");
+
+    const aarhus = await text("/aarhus");
+    expect(aarhus.status).toBe(200);
+    expect(aarhus.body).toContain("<h1>Holistiske events i Aarhus</h1>");
+    expect(aarhus.body).toContain("<title>Holistiske events i Aarhus – det sker i dag ✨</title>");
+    expect(aarhus.body).toContain("Events i weekenden i Aarhus");
+    expect(aarhus.body).toContain('href="/aarhus/yoga"');
+    expect(aarhus.body).toContain('"@type":"BreadcrumbList"');
+    expect(aarhus.body).toContain('"@type":"ItemList"');
+
+    const breath = await text("/aarhus/breathwork");
+    expect(breath.body).toContain("<h1>Åndedræt og breathwork i Aarhus</h1>");
+    expect(breath.body).toContain("<title>Åndedræt og breathwork i Aarhus ✨</title>");
+    expect(breath.body).toMatch(/<meta name="description" content="Oplev breathwork, åndedrætsøvelser og rebirthing i Aarhus\. Træk vejret dybt og giv slip ✨ Find events nu\.">/);
+    expect(breath.body).toContain("Oplev breathwork, åndedrætsøvelser og rebirthing i Aarhus.");
+    expect(count(breath.body)).toBe(3);
+
+    // An empty combination is shown but kept out of search engines.
+    const retreats = await text("/aarhus/retraeter");
+    expect(retreats.status).toBe(200);
+    expect(retreats.body).toContain("ingen kommende events i kategorien retræter i Aarhus lige nu");
+    expect(retreats.body).toContain('content="noindex, nofollow"');
+
+    // Old and long addresses move permanently.
+    const moved = await get("/omraade/aarhus");
+    expect(moved.status).toBe(301);
+    expect(moved.headers.get("location")).toBe("/aarhus");
+    expect((await get("/kategori/aandedraet-breathwork")).headers.get("location")).toBe("/kategori/breathwork");
+    expect((await get("/aarhus/aandedraet-breathwork")).headers.get("location")).toBe("/aarhus/breathwork");
     expect((await text("/kategori/ukendt")).status).toBe(404);
-    // An area outside the active regions is not a page yet.
-    expect((await text("/omraade/fyn")).status).toBe(404);
+    expect((await text("/aarhus/ukendt")).status).toBe(404);
+    // A city outside the active regions is not a page yet.
+    expect((await text("/fyn")).status).toBe(404);
+  });
+
+  it("share cards and language for every page", async () => {
+    const { body } = await text("/aarhus/yoga");
+    expect(body).toContain('<meta name="twitter:card" content="summary_large_image">');
+    expect(body).toContain('<meta property="og:image" content="https://portal.example/assets/og.jpg">');
+    expect(body).toContain('<link rel="alternate" hreflang="da-DK" href="https://portal.example/aarhus/yoga">');
+    expect(body).toContain('href="/aarhus">Events i Aarhus</a>');
   });
 
   it("event page: details, sign-up link, source, schema.org data", async () => {
@@ -122,6 +162,10 @@ describe("the portal's pages", () => {
     expect((await get("/", prod)).headers.get("x-robots-tag")).toBeNull();
     const sitemap = (await text("/sitemap.xml", prod)).body;
     expect(sitemap).toContain("<loc>https://holistisk.org/kategori/yoga</loc>");
+    expect(sitemap).toContain("<loc>https://holistisk.org/aarhus</loc>");
+    expect(sitemap).toContain("<loc>https://holistisk.org/aarhus/breathwork</loc>");
+    expect(sitemap).not.toContain("<loc>https://holistisk.org/aarhus/retraeter</loc>");
+    expect(sitemap).not.toContain("<loc>https://holistisk.org/randers</loc>");
     expect(sitemap.match(/\/events\/[a-z0-9-]+</g)?.length).toBe(7);
     expect((await text("/", prod)).body).toContain('<link rel="canonical" href="https://holistisk.org/">');
   });

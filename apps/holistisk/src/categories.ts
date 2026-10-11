@@ -1,31 +1,47 @@
 /** The portal's categories, and a plain keyword classifier (no AI): an event gets every category whose words it
  * carries, strongest first, at most three. A source may add hints (its own category names). */
 
-export type Category = { slug: string; name: string; short: string; words: RegExp };
+export type Category = {
+  slug: string;
+  name: string;
+  short: string;
+  words: RegExp;
+  /** The category's address in URLs: /kategori/<path>, /aarhus/<path>. Short words people search for. */
+  path: string;
+  /** Search words for titles, descriptions and the page introduction ("guidede meditationer, mindfulness …"). */
+  phrase: string;
+  /** What it gives, for the description ("Find ro og nærvær"). */
+  promise: string;
+  /** What visitors look for, for the introduction ("ro, nærvær eller en pause i hverdagen"). */
+  need: string;
+};
 
 // Word lists match lower-cased text. \b does not understand æ/ø/å, so the lists use explicit edges where it matters.
 const W = (source: string) => new RegExp(source, "i");
 
 export const CATEGORIES: Category[] = [
-  { slug: "meditation-mindfulness", name: "Meditation og mindfulness", short: "Meditation", words: W("meditat|mindful|stilhed|nærvær|vipassana|yoga nidra|body ?scan|zazen|guided rejse") },
-  { slug: "yoga", name: "Yoga", short: "Yoga", words: W("yoga|asana|vinyasa|hatha|yin|kundalini|ashtanga|pranayama") },
-  { slug: "aandedraet-breathwork", name: "Åndedræt og breathwork", short: "Breathwork", words: W("breath|åndedræt|åndedræts|vejrtrækning|wim hof|pranayama|holotrop") },
-  { slug: "personlig-udvikling", name: "Personlig udvikling", short: "Personlig udvikling", words: W("personlig udvikling|selvudvikling|selvindsigt|coaching|potentiale|livsmod|selvværd|grænser|healing journey|indre barn|transformation") },
-  { slug: "spiritualitet-bevidsthed", name: "Spiritualitet og bevidsthed", short: "Spiritualitet", words: W("spiritu|bevidsthed|shaman|trommerejse|clairvoyan|healing|healer|kakao|cacao|ceremoni|reiki|channel|sjæl|månecirkel|nymåne|fuldmåne|tarot|astrolog|chakra|energi") },
-  { slug: "lydhealing", name: "Lydhealing og sound baths", short: "Lydhealing", words: W("sound ?bath|sound ?heal|lydbad|lydhealing|lydrejse|sound journey|gong|syngeskål|klangskål|krystalskål|mantra|kirtan|healing sang|sangcirkel|syng|sing\\b|lyd, sang|toning") },
-  { slug: "dans-bevaegelse", name: "Dans og bevægelse", short: "Dans", words: W("dans|dance|bevægelse|5 ?rytmer|5rhythms|qi ?gong|qigong|tai ?chi|movement|krops?bevidst") },
-  { slug: "kvinde-mandegrupper", name: "Kvindegrupper og mandegrupper", short: "Kvinde- og mandegrupper", words: W("kvindecirkel|kvindegruppe|kvinderum|women'?s circle|mandegruppe|mandecirkel|men'?s circle|søsterskab|broderskab|for kvinder|for mænd|kvindelig") },
-  { slug: "samtale-faellesskab", name: "Samtale- og fællesskabsgrupper", short: "Samtalegrupper", words: W("samtale|sharing|delecirkel|cirkel|circle|støttegruppe|sorggruppe|lyttecirkel|dialogaften") },
-  { slug: "workshops-kurser", name: "Workshops og kurser", short: "Workshops", words: W("workshop|kursus|kurser|forløb|uddannelse|træning|introduktion til|masterclass|seminar|foredrag|undervisning") },
-  { slug: "retraeter", name: "Retræter", short: "Retræter", words: W("retræte|retreat|weekendophold|stilhedsweekend|ophold") },
-  { slug: "holistisk-sundhed", name: "Holistisk sundhed og velvære", short: "Sundhed og velvære", words: W("sundhed|velvære|wellness|massage|terapi|terapeut|krop og sind|stress|søvn|nervesystem|ayurveda|urter|kost|helbred|zoneterapi|akupunktur|healing") },
-  { slug: "natur", name: "Naturaktiviteter", short: "Natur", words: W("i naturen|ude i naturen|naturoplevelse|naturvandring|naturmeditation|skovbad|skovtur|forest bath|shinrin|havbad|vinterbad|vandretur|gåtur|hike|hiking|udendørs|udeliv|bålaften|strandtur") },
-  { slug: "sociale-faellesskaber", name: "Sociale fællesskaber", short: "Fællesskab", words: W("fællesskab|community|socialt samvær|fællesspisning|åbent hus|netværksmøde|frivillig|medlemscaf|café|cafe\\b") }
+  { slug: "meditation-mindfulness", name: "Meditation og mindfulness", short: "Meditation", words: W("meditat|mindful|stilhed|nærvær|vipassana|yoga nidra|body ?scan|zazen|guided rejse"), path: "meditation", phrase: "guidede meditationer, mindfulness og stilhed", promise: "Find ro og nærvær", need: "ro, nærvær eller en pause i hverdagen" },
+  { slug: "yoga", name: "Yoga", short: "Yoga", words: W("yoga|asana|vinyasa|hatha|yin|kundalini|ashtanga|pranayama"), path: "yoga", phrase: "yogaklasser, yin yoga, hatha og yoga nidra", promise: "Find balance i krop og sind", need: "en blid klasse, en stærk praksis eller dyb afspænding" },
+  { slug: "aandedraet-breathwork", name: "Åndedræt og breathwork", short: "Breathwork", words: W("breath|åndedræt|åndedræts|vejrtrækning|wim hof|pranayama|holotrop"), path: "breathwork", phrase: "breathwork, åndedrætsøvelser og rebirthing", promise: "Træk vejret dybt og giv slip", need: "at slippe spændinger, få energi eller mærke dig selv" },
+  { slug: "personlig-udvikling", name: "Personlig udvikling", short: "Personlig udvikling", words: W("personlig udvikling|selvudvikling|selvindsigt|coaching|potentiale|livsmod|selvværd|grænser|healing journey|indre barn|transformation"), path: "personlig-udvikling", phrase: "workshops, coaching og forløb i personlig udvikling", promise: "Bliv klogere på dig selv", need: "retning, mod eller ny indsigt" },
+  { slug: "spiritualitet-bevidsthed", name: "Spiritualitet og bevidsthed", short: "Spiritualitet", words: W("spiritu|bevidsthed|shaman|trommerejse|clairvoyan|klarsyn|medie|medium|håndlæsning|kiromanti|åndelig|afdøde|healing|healer|kakao|cacao|ceremoni|reiki|channel|sjæl|månecirkel|nymåne|fuldmåne|tarot|astrolog|chakra|energi"), path: "spiritualitet", phrase: "spirituelle foredrag, klarsyn, healing og ceremonier", promise: "Find indre ro og fællesskab", need: "refleksion, fællesskab eller ny indsigt" },
+  { slug: "lydhealing", name: "Lydhealing og sound baths", short: "Lydhealing", words: W("sound ?bath|sound ?heal|lydbad|lydhealing|lydrejse|sound journey|gong|syngeskål|klangskål|krystalskål|mantra|kirtan|healing sang|sangcirkel|syng|sing\\b|lyd, sang|toning"), path: "lydhealing", phrase: "sound baths, gongbad, lydrejser og healende sang", promise: "Lad lyden falde dig til ro", need: "dyb afslapning eller en lydrejse" },
+  { slug: "dans-bevaegelse", name: "Dans og bevægelse", short: "Dans", words: W("dans|dance|bevægelse|5 ?rytmer|5rhythms|qi ?gong|qigong|tai ?chi|movement|krops?bevidst"), path: "dans", phrase: "ecstatic dance, 5Rytmer, qigong og bevidst bevægelse", promise: "Kom i kontakt med kroppen", need: "frihed, glæde eller ro i kroppen" },
+  { slug: "kvinde-mandegrupper", name: "Kvindegrupper og mandegrupper", short: "Kvinde- og mandegrupper", words: W("kvindecirkel|kvindegruppe|kvinderum|women'?s circle|mandegruppe|mandecirkel|men'?s circle|søsterskab|broderskab|for kvinder|for mænd|kvindelig"), path: "kvinde-og-mandegrupper", phrase: "kvindecirkler, mandegrupper og månecirkler", promise: "Mød andre i et trygt rum", need: "fællesskab med andre kvinder eller mænd" },
+  { slug: "samtale-faellesskab", name: "Samtale- og fællesskabsgrupper", short: "Samtalegrupper", words: W("samtale|sharing|delecirkel|cirkel|circle|støttegruppe|sorggruppe|lyttecirkel|dialogaften"), path: "samtalegrupper", phrase: "delecirkler, samtalegrupper og støttefællesskaber", promise: "Bliv hørt og del med andre", need: "nogen at dele med eller et trygt rum at tale i" },
+  { slug: "workshops-kurser", name: "Workshops og kurser", short: "Workshops", words: W("workshop|kursus|kurser|forløb|uddannelse|træning|introduktion til|masterclass|seminar|foredrag|undervisning"), path: "workshops", phrase: "workshops, kurser, foredrag og uddannelser i det holistiske felt", promise: "Lær noget nyt", need: "viden, inspiration eller et længere forløb" },
+  { slug: "retraeter", name: "Retræter", short: "Retræter", words: W("retræte|retreat|weekendophold|stilhedsweekend|ophold"), path: "retraeter", phrase: "retræter, stilhedsweekender og ophold", promise: "Træk dig tilbage og lad op", need: "stilhed, fordybelse eller et pusterum" },
+  { slug: "holistisk-sundhed", name: "Holistisk sundhed og velvære", short: "Sundhed og velvære", words: W("sundhed|velvære|wellness|massage|terapi|terapeut|krop og sind|stress|søvn|nervesystem|ayurveda|urter|kost|helbred|zoneterapi|akupunktur|healing"), path: "holistisk-sundhed", phrase: "healing, terapi, krop og sind og naturlig sundhed", promise: "Pas godt på dig selv", need: "balance, healing eller ny energi" },
+  { slug: "natur", name: "Naturaktiviteter", short: "Natur", words: W("i naturen|ude i naturen|naturoplevelse|naturvandring|naturmeditation|skovbad|skovtur|forest bath|shinrin|havbad|vinterbad|vandretur|gåtur|hike|hiking|udendørs|udeliv|bålaften|strandtur"), path: "natur", phrase: "naturvandringer, skovbad, vinterbad og bålaftener", promise: "Find roen udenfor", need: "frisk luft, stilhed og naturen tæt på" },
+  { slug: "sociale-faellesskaber", name: "Sociale fællesskaber", short: "Fællesskab", words: W("fællesskab|community|socialt samvær|fællesspisning|åbent hus|netværksmøde|frivillig|medlemscaf|café|cafe\\b"), path: "faellesskaber", phrase: "fællesspisning, åbent hus og hyggelige fællesskaber", promise: "Mød nye mennesker", need: "selskab, samtaler og nye venskaber" }
 ];
 
 const BY_SLUG = new Map(CATEGORIES.map(c => [c.slug, c]));
 export const categoryBySlug = (slug: string): Category | undefined => BY_SLUG.get(slug);
 export const categoryName = (slug: string): string => BY_SLUG.get(slug)?.name ?? slug;
+const BY_PATH = new Map(CATEGORIES.map(c => [c.path, c]));
+/** A category by its URL path (or, for old links, by its slug). */
+export const categoryByPath = (path: string): Category | undefined => BY_PATH.get(path) ?? BY_SLUG.get(path);
 
 /** Words that make an event relevant to a holistic portal at all; used for sources that also carry other events. */
 export function isHolisticRelevant(text: string): boolean {
