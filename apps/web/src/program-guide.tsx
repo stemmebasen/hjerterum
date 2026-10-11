@@ -52,12 +52,12 @@ export function ProgramGuide() {
 }
 
 /** Requested: "samt på hjemmesiden" - the same words, quietly, above the website's calendar. */
-export function SpeakerLine() {
+export function SpeakerLine({ withHeading = true }: { withHeading?: boolean }) {
   const [said, setSaid] = useState<{ intro: string | null; heading?: string | null } | null>(null);
   useEffect(() => {
     let active = true;
     fetch("/api/events/program").then(async (r) => { if (active && r.ok) setSaid(await r.json() as { intro: string | null; heading?: string | null }); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
-  return said?.intro ? <p className="speaker-line">{said.heading && <strong>{said.heading}. </strong>}{said.intro}</p> : null;
+  return said?.intro ? <p className="speaker-line">{withHeading && said.heading && <strong>{said.heading}. </strong>}{said.intro}</p> : null;
 }
