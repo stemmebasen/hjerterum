@@ -275,13 +275,10 @@ function PublicHome() {
   const now = Date.now();
   const soon = events.filter((event) => Date.parse(event.endsAt ?? event.startsAt) >= now)
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
-  // Requested: "hvorfor læser jeg om ting der sker i dag når der står i morgen i hjerterum" - under "I morgen i Hjerterum" only
-  // tomorrow's events in the house; when tomorrow is quiet, the next day with something (as the speaker says), else the next three.
-  const day = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(new Date(iso));
-  const today = day(new Date(now).toISOString());
-  const house = events.filter((event) => !isPartnerEvent(event) && day(event.startsAt) > today).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-  const target = house[0] ? day(house[0].startsAt) : null;
-  const week = target ? house.filter((event) => day(event.startsAt) === target) : [];
+  // Requested: "Lad resuméet altid inkludere de kommende tre events" - under "Snart i Hjerterum" the same three the speaker
+  // talks about: the next events in the house that have not begun.
+  const week = events.filter((event) => !isPartnerEvent(event) && Date.parse(event.startsAt) > now)
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
   return <SiteHome
     header={<SiteHeader />}
     soon={soon.length > 0 && <div className="lys-soon">
@@ -289,7 +286,7 @@ function PublicHome() {
       <ul className="lys-list">{soon.map((event) => <li key={event.key}><span>{event.title}<span className="lys-meta">{SOON_TIME.format(new Date(event.startsAt))}</span></span></li>)}</ul>
       <a className="lys-link" href="/events">Hele kalenderen →</a>
     </div>}
-    events={<EventSection events={week.length ? week : events} reachable={eventsReachable} limit={week.length ? 6 : 3} />}
+    events={<EventSection events={week.length ? week : events} reachable={eventsReachable} limit={3} />}
     plans={<MembershipPlans />}
   />;
 }

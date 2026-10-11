@@ -207,7 +207,7 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     </nav>
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     <section className="site-home-section">
-      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>I morgen i Hjerterum</h2></div><a className="lys-link" href="/events">Hele kalenderen →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>Snart i Hjerterum</h2></div><a className="lys-link" href="/events">Hele kalenderen →</a></div>
       <SpeakerLine withHeading={false} />
       {events}
     </section>
