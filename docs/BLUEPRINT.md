@@ -701,3 +701,8 @@ Still open:
 - En lang system-besked sendes med Anthropics prompt-cache-mærke (genbrug inden for få minutter koster en tiendedel); tager routeren ikke mærket, sendes den uden.
 - Medlemmernes Spørg Saga kører på mellemmodellen (Haiku) igen - med kalenderen og hjemmesiden ved hun nok.
 - Dagsbudget 1 $: dagens forbrug skønnes ud fra `ai_usage` (pris pr. modelfamilie), og over budgettet går hovedmodellens opgaver til mellemmodellen resten af dagen. Admin → Administratorer → AI-forbrug viser "i dag ca. $x af $1,00".
+
+## Kortere resumé, kun på medlemssiden (2026-10-12)
+
+- "Lad os droppe denne del med resume på hjemmesiden": forsiden viser kun "Snart i Hjerterum" med de tre events - ingen speakertekst.
+- På Overblik står resuméet "langt mere kortfattet", med "i dag", "i morgen" eller ugedagen - aldrig en dato - og hver dag nævnt én gang; de næste events samme dag får kun "Kl. TT.MM" (formandens eksempel er modellen). Dagen står i nøglen (`intro5:<dato>:…`), så teksten skrives igen efter midnat, og når et af de tre begynder. Et event uden "Kl." får hovedmodellen til at skrive igen.

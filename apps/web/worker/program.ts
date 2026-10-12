@@ -47,10 +47,20 @@ export async function programCandidates(db: D1Database, external: ExternalEvent[
  * three change), so the words never speak of something that has started. Replaces "I morgen i Hjerterum". */
 export const SPEAKER_EVENTS = 3;
 export const SPEAKER_HEADING = "Snart i Hjerterum";
+/** Requested: "aldrig skrive 'tirsdag d. 13. oktober', men 'I morgen'" - so the words belong to the day they are read on: written again
+ * after midnight (the day is in the key) as well as when one of the three begins. */
+const dateOf = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: TZ }).format(new Date(ms));
+const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long" });
+export function dayWord(startMs: number, nowMs: number): string {
+  const today = dateOf(nowMs);
+  const tomorrow = dateOf(Date.parse(`${today}T12:00:00Z`) + 86_400_000);
+  const day = dateOf(startMs);
+  return day === today ? "i dag" : day === tomorrow ? "i morgen" : WEEKDAY.format(new Date(startMs));
+}
 export function speakerNext(candidates: Candidate[], nowMs: number): { heading: string; key: string; events: Candidate[] } | null {
   const events = candidates.filter(c => Date.parse(c.startsAt) > nowMs).slice(0, SPEAKER_EVENTS);
   if (!events.length) return null;
-  return { heading: SPEAKER_HEADING, key: `intro4:${events.map(c => c.key).join(",")}`, events };
+  return { heading: SPEAKER_HEADING, key: `intro5:${dateOf(nowMs)}:${events.map(c => c.key).join(",")}`, events };
 }
 
 export async function program(db: D1Database, external: ExternalEvent[], nowMs: number): Promise<Program> {
@@ -60,12 +70,16 @@ export async function program(db: D1Database, external: ExternalEvent[], nowMs: 
   return { intro: row?.text ?? null, heading: row ? day!.heading : null, items: candidates.slice(0, PROGRAM_SIZE).map(({ description: _d, ...c }) => c) };
 }
 
-const SYSTEM = "Du skriver en kort, varm og uformel indledning til medlemmerne af Hjerterum i Aarhus (et hus for meditation, yoga, personlig udvikling og fællesskab) "
-  + "om de næste events i huset - som en speaker på tv (continuity), der fortæller, hvad der er på vej. Teksten står under overskriften \"Snart i Hjerterum\". Eksempel på tonen (godkendt af formanden): \"Søndag formiddag guider Jørgen os gennem en rolig og sanselig breathwork-oplevelse, hvor vi kan mærke åndedrættets dybere lag. "
-  + "Søndag eftermiddag er Henriette og Jacob klar til Kropsligt klarsyn, hvor Henriette stiller sig til rådighed for, hvad kroppen vil fortælle, mens Jacob fylder rummet med toner fra klaveret.\" Nævn ALLE de events, du får - én kort sætning om hvert (højst 30 ord), i rækkefølge, så ingen bliver glemt. Begynd direkte med det første event - ingen indledende sætning som \"Der er en smuk oplevelse på programmet\". "
-  + "Nævn hvert events titel i »« og hvornår med ugedag, del af dagen og klokkeslæt (fx \"Mandag formiddag kl. 10.30 guider Jørgen os gennem »Din Indre Natur - Breathwork Journey«, ...\"). Skriv aldrig \"i dag\", \"i morgen\" eller \"i aften\" - teksten står, til det første event begynder, og kan blive læst dagen før. "
-  + "Brug underviserens fornavn. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen emojis, ingen udråbstegn. Skriv på dansk. Svar kun med teksten.";
-const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" });
+// Requested: "langt mere kortfattet og aldrig skrive 'tirsdag d. 13. oktober', men 'I morgen'. Og siden alle tre events her er i morgen
+// skal der selvfølgelig ikke stå 'I morgen' 3 gange." - with the chair's own example as the model.
+const SYSTEM = "Du skriver en kort, varm og uformel tekst til medlemmerne af Hjerterum i Aarhus om de næste events i huset - som en speaker, der fortæller, hvad der er på vej. "
+  + "Eksempel (godkendt af formanden): \"I morgen byder på tre forskellige oplevelser: Kl. 10.30 guider Kasper os gennem Dhyana Yoga, en time med indre stilhed, bevidst vejrtrækning og rolige yogaasanas. "
+  + "Kl. 15.00 inviterer Steven til Det magiske indre barn som vejviser i livet, en varm workshop om intuition, livsglæde og kropslig udfoldelse. "
+  + "Kl. 19.00 leder Douglas Source Breathwork (Rebirthing), en tryg og støttende rebirthing-session, hvor alle er velkomne, også begyndere.\" "
+  + "Regler: Nævn ALLE de events, du får, i rækkefølge, med \"Kl. TT.MM\" foran hvert. Brug dagen, som den står i feltet \"dag\" (i dag, i morgen eller en ugedag) - aldrig en dato - og nævn hver dag kun én gang, hvor dens første event kommer; "
+  + "de næste events samme dag får kun klokkeslæt. Højst 20 ord pr. event. Brug underviserens fornavn og en kort form af titlen (ingen »«, ingen \"med Navn\" i titlen). "
+  + "Find ikke på detaljer, der ikke står i beskrivelsen. Ingen emojis, ingen udråbstegn. Skriv på dansk. Svar kun med teksten.";
+const CLOCK = new Intl.DateTimeFormat("da-DK", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 
 /** In Saga's round (every five minutes): when the words for the coming day are missing - a new day, or that day's events changed - they are written, once. */
 export async function writeProgramIntro(env: SagaEnv, deps: SagaDeps, db: D1Database, external: ExternalEvent[], claim: (key: string) => Promise<boolean>): Promise<boolean> {
@@ -78,12 +92,11 @@ export async function writeProgramIntro(env: SagaEnv, deps: SagaDeps, db: D1Data
   // Requested: "der er kun ét event, du omtaler her, ikke alle events i morgen" - every event gets its sentence; a text that
   // leaves one out is written again by the main model.
   const ask = (model: "mid" | false) => completeAs("program-intro", model)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify({
-    nu: WHEN.format(deps.now()),
     antal_events: two.length,
-    events: two.map(c => ({ titel: c.title, underviser: c.host, starter: WHEN.format(Date.parse(c.startsAt)), beskrivelse: (c.description ?? "").replace(/\s+/g, " ").slice(0, 600) }))
+    events: two.map(c => ({ titel: c.title, underviser: c.host, dag: dayWord(Date.parse(c.startsAt), deps.now()), klokken: CLOCK.format(new Date(Date.parse(c.startsAt))).replace(":", "."), beskrivelse: (c.description ?? "").replace(/\s+/g, " ").slice(0, 400) }))
   }) }]).then(t => t.replace(/\s+/g, " ").replace(/^["“]|["”]$/g, "").trim().slice(0, 1200));
-  // Every event named by its title in »« - so none is left out and none can be mistaken for another day's.
-  const enough = (t: string) => (t.match(/»/g) ?? []).length >= two.length;
+  // Every event with its "Kl." - so none is left out.
+  const enough = (t: string) => (t.match(/\bkl\.?\s*\d/gi) ?? []).length >= two.length;
   let text = await ask("mid");
   if (text && !enough(text)) text = await ask(false).catch(() => text);
   if (!text) return false;

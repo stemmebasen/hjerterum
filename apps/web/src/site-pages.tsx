@@ -1,6 +1,5 @@
 import { useEffect, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
-import { SpeakerLine } from "./program-guide";
 import { renderMarkdown } from "../site/markdown";
 import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { LysArt } from "./lys";
@@ -210,7 +209,6 @@ export function SiteHome({ header, soon, events, plans }: { header: ReactNode; s
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     <section className="site-home-section">
       <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>Snart i Hjerterum</h2></div></div>
-      <SpeakerLine withHeading={false} />
       {events}
       {/* Requested: "“Se hele kalenderen” bør stå under de tre events på forsiden og ikke før". */}
       <p className="site-section-more"><a className="lys-btn ghost" href="/events">Se hele kalenderen →</a></p>
