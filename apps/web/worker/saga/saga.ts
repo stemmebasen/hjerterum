@@ -383,9 +383,11 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
  * on Sunday evening (18-19 Copenhagen time, once per week). */
 /** Asked: "Why have Saga not made a resume on the admin page since Friday at 1?" - the round began by reading team@, and when
  * that died (the runtime stops a run from outside, uncatchable), every job after it was lost, the board's summary with them.
- * So team@ is read in a run of its own (config-entry.ts: its own cron), and the round leaves a mark at each step
+ * So team@ is read in a run of its own (config-entry.ts: every other run), and the round leaves a mark at each step
  * ("saga_round"), so a round that stops shows where. */
-export const MAIL_CRON = "2-57/5 * * * *";
+/** The account is on Cloudflare's free plan (at most 5 cron triggers in all), so there is one cron, every five minutes: every other run
+ * reads team@, the runs between do Saga's other jobs - each about every ten minutes, in runs of their own. */
+export const isMailRun = (scheduledTime: number): boolean => Math.floor(scheduledTime / 300_000) % 2 === 1;
 
 export async function runTeamMailRound(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;

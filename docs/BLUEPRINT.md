@@ -690,5 +690,5 @@ Still open:
 ## Sagas runde må ikke stoppe ved mailen (2026-10-12)
 
 - Spurgt: "Why have Saga not made a resume on the admin page since Friday at 1?" Sagas runde (hvert 5. minut) begyndte med at læse team@; når kørslen blev stoppet udefra midt i mailen, gik alle opgaverne efter den tabt - også "Bestyrelsen lige nu". Weekenden er i forvejen uden AI, og mandag morgen kørte runderne ikke fra 06.46.
-- team@ læses nu i sin egen kørsel (cron `2-57/5 * * * *`, `runTeamMailRound`); den almindelige runde (`*/5`) læser ikke mailen. Runden skriver hvert trin i `saga_status` (`saga_round`, fx "bestyrelsen lige nu (startet 06:00 UTC)" og til sidst "færdig"), så en runde, der stopper, viser hvor.
+- team@ læses nu i sin egen kørsel: hver anden 5-minutters-kørsel læser team@ (`isMailRun`, `runTeamMailRound`), kørslerne imellem laver Sagas øvrige opgaver. (En ekstra cron blev afvist: kontoen er på Cloudflares gratisplan med højst 5 cron-triggere i alt.) Runden skriver hvert trin i `saga_status` (`saga_round`, fx "bestyrelsen lige nu (startet 06:00 UTC)" og til sidst "færdig"), så en runde, der stopper, viser hvor.
 - "Bestyrelsen lige nu" laves ved første runde fra kl. 7 på hverdage og indhentes til kl. 22, hvis morgenen går tabt (før kun til kl. 10).
