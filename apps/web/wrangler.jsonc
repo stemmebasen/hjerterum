@@ -31,7 +31,7 @@
         "SAGA_MINUTES_PING": "off"
       },
       "triggers": {
-        "crons": ["*/5 * * * *", "2-57/5 * * * *"]
+        "crons": ["*/5 * * * *"]
       },
       "r2_buckets": [
         {
@@ -54,7 +54,7 @@
         "AI_MID_MODEL": "anthropic/claude-haiku-5-5"
       },
       "triggers": {
-        "crons": ["*/5 * * * *", "2-57/5 * * * *"]
+        "crons": ["*/5 * * * *"]
       }
     }
   }
