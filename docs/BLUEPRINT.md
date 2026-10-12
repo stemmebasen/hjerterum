@@ -706,3 +706,8 @@ Still open:
 
 - "Lad os droppe denne del med resume på hjemmesiden": forsiden viser kun "Snart i Hjerterum" med de tre events - ingen speakertekst.
 - På Overblik står resuméet "langt mere kortfattet", med "i dag", "i morgen" eller ugedagen - aldrig en dato - og hver dag nævnt én gang; de næste events samme dag får kun "Kl. TT.MM" (formandens eksempel er modellen). Dagen står i nøglen (`intro5:<dato>:…`), så teksten skrives igen efter midnat, og når et af de tre begynder. Et event uden "Kl." får hovedmodellen til at skrive igen.
+
+## Møder: dagsorden i fuld bredde og ønsker fra gruppen (2026-10-12)
+
+- "Det giver ikke mening, at hele halvdelen af skærmen bruges til et referat, der selvfølgelig ikke er lavet, fordi man er ved at planlægge et møde": et kommende møde uden referat viser kun dagsordenen (i fuld bredde, højst 860 px). Referatkortet kommer, når mødet er holdt, eller et referat er på vej.
+- "Saga [har] ikke inkluderet mit forslag i Telegram-gruppen om at drøfte rabat til Hjerteland. Er det ikke meningen, at hun skal fange det?": en besked i gruppen, der beder om noget på dagsordenen ("Lad os få det på dagsorden", "tag det op på næste møde", "drøfte … på næste møde"), sættes på næste teammøde som spørgerens eget punkt ("… (ønsket af Jacob)") - ikke som et af Sagas forslag, og uden at tælle med i hendes fem. Kun de beskeder koster et AI-kald (mellemmodellen, én linje), og hver besked kun én gang (`cockpit/agenda.ts` `agendaRequests`, i Sagas runde).

@@ -6,7 +6,7 @@ import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
-import { scheduledAgendaReminder } from "../cockpit/agenda.js";
+import { agendaRequests, scheduledAgendaReminder } from "../cockpit/agenda.js";
 import { scheduledBackup } from "./backup.js";
 import { writeProgramIntro } from "../program.js";
 import { getExternalEvents } from "../external-events.js";
@@ -458,6 +458,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // Requested: "Om morgenen for teammødet skal Saga sende en besked til gruppen om, at dagsordenen er klar, og at vi ses klokken xx" - with a link (cockpit/agenda.ts).
   await scheduledAgendaReminder(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("cockpit_agenda_reminder_failed", error instanceof Error ? error.message : error));
+  // Asked: "Er det ikke meningen, at hun skal fange det?" - a wish in the group to have something on the agenda goes on the next team meeting (cockpit/agenda.ts).
+  await agendaRequests(env, deps, env.DB, (key) => claimJob(env.DB!, key.slice(0, 200), 0, deps.now()))
+    .catch(error => console.warn("cockpit_agenda_requests_failed", error instanceof Error ? error.message : error));
   // Requested: the overview's speaker - Saga's words about the next two events that have not begun, new whenever one begins (program.ts).
   if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false, deps.fetcher).catch(() => []), (key) => claimJob(env.DB!, `event_intro:${key}`.slice(0, 200), 0, deps.now()))
     .catch(error => console.warn("event_blurbs_failed", error instanceof Error ? error.message : error));
