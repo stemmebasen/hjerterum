@@ -311,6 +311,11 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
   const db = requireDb(env);
   const item = await getMinutes(db, id);
   if (!item || (item.status !== "drafted" && item.status !== "approved") || !item.draft_markdown) return;
+  if (item.locked_at_ms) {
+    // Approved by the whole board and locked: Saga says so instead of changing it.
+    await telegramClient(env, deps).sendMessage(owner(env), `Referatet${item.meeting_date ? ` fra ${danishDate(item.meeting_date)}` : ""} er godkendt af hele bestyrelsen og låst, så det kan ikke rettes.`);
+    return;
+  }
   if (item.status === "approved") {
     // Already up: corrected in place, and the board's sign-offs start over.
     const draft = await completeAs("referat-ret", false, 12000)(env, deps, [{ role: "system", content: REVISE_SYSTEM },

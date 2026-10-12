@@ -5,7 +5,7 @@ export type PostDraft = { id: number; kind: string; text: string; status: string
   minutes_id: number | null; approval_message_id: number | null };
 export type Minutes = { id: number; source: string; source_file_id: string; file_name: string; mime_type: string | null;
   status: string; meeting_date: string | null; transcript: string | null; draft_markdown: string | null;
-  approval_message_id: number | null; drive_document_url: string | null; attempts: number; created_at_ms: number };
+  approval_message_id: number | null; drive_document_url: string | null; attempts: number; created_at_ms: number; locked_at_ms?: number | null };
 
 export async function saveBoardMessage(db: D1Database, message: { chatId: string; messageId: number; author: string;
   authorId: string | null; text: string; sentAtMs: number; fromAssistant?: boolean }): Promise<void> {
@@ -56,7 +56,7 @@ export async function markPosted(db: D1Database, id: number, postedMessageId: nu
 export const pendingPostCount = async (db: D1Database) =>
   Number((await db.prepare("SELECT COUNT(*) AS n FROM board_post_drafts WHERE status = 'pending'").first<{ n: number }>())?.n ?? 0);
 
-const MINUTES_COLUMNS = "id, source, source_file_id, file_name, mime_type, status, meeting_date, transcript, draft_markdown, approval_message_id, drive_document_url, attempts, created_at_ms";
+const MINUTES_COLUMNS = "id, source, source_file_id, file_name, mime_type, status, meeting_date, transcript, draft_markdown, approval_message_id, drive_document_url, attempts, created_at_ms, locked_at_ms";
 
 /** Queues a recording once; a file already queued (by id) is never processed twice. */
 export async function queueMinutes(db: D1Database, file: { source: "telegram" | "drive" | "upload" | "document"; fileId: string; fileName: string;

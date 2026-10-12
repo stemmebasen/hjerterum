@@ -12,9 +12,9 @@ export type MeetingKind = "team" | "andet";
 export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null; leader?: string | null; moderator?: string | null; agenda_authors?: string };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
-export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null };
+export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null; locked_at_ms?: number | null };
 
-const MINUTES = "id, source, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms";
+const MINUTES = "id, source, meeting_date, draft_markdown, drive_document_url, created_at_ms, updated_at_ms, locked_at_ms";
 
 export async function approvedMinutes(db: D1Database, limit = 200): Promise<ApprovedMinutes[]> {
   const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes WHERE status = 'approved' AND draft_markdown IS NOT NULL
@@ -340,6 +340,16 @@ export async function approvalCounts(db: D1Database): Promise<Map<number, number
 export async function signOff(db: D1Database, minutesId: number, member: string, status: Signoff["status"], comment: string | null, nowMs: number): Promise<void> {
   await db.prepare(`INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(minutes_id, member) DO UPDATE SET status = excluded.status, comment = excluded.comment, at_ms = excluded.at_ms`).bind(minutesId, member, status, comment, nowMs).run();
+}
+
+/** Requested: "Når et referat er blevet godkendt af alle bestyrelsesmedlemmer, skal det låses fast, ingen ændringer mulige."
+ * Locks the minutes once every board member has approved it; the database then refuses any change (migration 0068). */
+export async function lockIfApproved(db: D1Database, minutesId: number, members: string[], nowMs: number): Promise<boolean> {
+  if (!members.length) return false;
+  const approved = new Set((await signoffs(db, minutesId)).filter(s => s.status === "approved").map(s => s.member));
+  if (!members.every(member => approved.has(member))) return false;
+  const result = await db.prepare("UPDATE board_minutes SET locked_at_ms = ? WHERE id = ? AND status = 'approved' AND locked_at_ms IS NULL").bind(nowMs, minutesId).run();
+  return Number(result.meta?.changes ?? 0) === 1;
 }
 
 /** Saga's minutes from the last 90 days that this member has not yet approved (or asked to correct). */

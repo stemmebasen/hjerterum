@@ -13,7 +13,7 @@ import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsor
 import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, tasksFor, unsignedFor, weeklySummary,
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
@@ -322,7 +322,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const minutes = await approvedMinutesById(db, id);
     if (!minutes || minutes.source === "document") return html(notFound(base, who), 404);
     if (!who) return redirect(`${base}/hvem`);
-    if (signPath[2] === "godkend") { await signOff(db, id, who, "approved", null, now); return redirect(`${base}/referat/${id}?godkendt=1`); }
+    // Approved by all and locked: nothing more to approve or correct.
+    if (minutes.locked_at_ms) return redirect(`${base}/referat/${id}?laast=1`);
+    if (signPath[2] === "godkend") {
+      await signOff(db, id, who, "approved", null, now);
+      const locked = await lockIfApproved(db, id, members.names, now);
+      return redirect(`${base}/referat/${id}?${locked ? "laast" : "godkendt"}=1`);
+    }
     const comment = String((await request.formData().catch(() => null))?.get("comment") ?? "").trim().slice(0, 2000);
     if (!comment) return redirect(`${base}/referat/${id}`);
     await signOff(db, id, who, "correction", comment, now);
@@ -337,6 +343,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const minutes = await approvedMinutesById(db, id);
     if (!minutes) return html(notFound(base, who), 404);
     if (!who) return redirect(`${base}/hvem`);
+    if (minutes.locked_at_ms) return redirect(`${base}/referat/${id}?laast=1`);
     const form = await request.formData().catch(() => null);
     let correctionId = 0, point = 0;
     if (fixPath[2]) {
@@ -361,7 +368,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
     if (!minutes) return html(notFound(base, who), 404);
     await closeSettled(db, minutes.id);
-    const notice = url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse."
+    // Lock it here too, should everyone already have approved (or the board have become smaller).
+    if (!minutes.locked_at_ms && await lockIfApproved(db, minutes.id, members.names, now)) minutes.locked_at_ms = now;
+    const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse."
       : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt." : "";
     const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
     // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
