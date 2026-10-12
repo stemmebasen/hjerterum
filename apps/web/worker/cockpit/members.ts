@@ -71,7 +71,7 @@ const READ_SYSTEM = "Du aflæser et skærmbillede af MembershipWorks' oversigt (
 
 /** Saga reads the screenshot. Nothing is saved here: the member sees the numbers and presses Gem. */
 export async function readScreenshot(env: SagaEnv, deps: SagaDeps, image: { type: string; base64: string }, today: string): Promise<StatsInput | null> {
-  const text = await completeAs("medlemstal-skaerm")(env, deps, [{ role: "system", content: READ_SYSTEM },
+  const text = await completeAs("medlemstal-skaerm", false, 1500)(env, deps, [{ role: "system", content: READ_SYSTEM },
     { role: "user", content: [{ type: "text", text: "Aflæs tallene på dette skærmbillede." }, { type: "image_url", image_url: { url: `data:${image.type};base64,${image.base64}` } }] }]);
   const json = /\{[\s\S]*\}/.exec(text)?.[0];
   if (!json) return null;

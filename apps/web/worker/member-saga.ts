@@ -237,8 +237,8 @@ export async function memberSagaChat(request: Request, env: SagaEnv & { CLERK_JW
       const parts: ChatPart[] = [{ type: "text", text: `${m.text}\n\n${measured.text}` }, { type: "image_url", image_url: { url: photo.dataUrl } }];
       return { role: "user", content: parts };
     });
-    // The main model: "ekstremt god til at oprette events og godkende tekst".
-    const answer = await completeAs("medlem-saga")(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) }, ...history]);
+    // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
+    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) }, ...history]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
     return json({ reply: parsed.reply, draft: parsed.draft, photo: measured ? { ok: measured.ok && parsed.photoOk === true } : null });

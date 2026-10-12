@@ -48,7 +48,7 @@ export async function translateTexts(env: SagaEnv, deps: SagaDeps, db: D1Databas
   const have = await translations(db, texts);
   const missing = [...new Set(texts.filter(t => t.trim() && !have.has(t)))].slice(0, 20);
   if (!missing.length) return 0;
-  const answer = await completeAs("oversaet-tekster", true)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify({ texts: missing }) }]);
+  const answer = await completeAs("oversaet-tekster", true, 8000)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: JSON.stringify({ texts: missing }) }]);
   let out: unknown = null;
   try { out = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { texts?: unknown } | null)?.texts; } catch { out = null; }
   if (!Array.isArray(out) || out.length !== missing.length || !out.every(t => typeof t === "string" && t.trim())) throw new Error("translation_unreadable");
@@ -83,7 +83,7 @@ export async function translatedMinutes(db: D1Database, markdown: string): Promi
 export async function translateMinutes(env: SagaEnv, deps: SagaDeps, db: D1Database, markdown: string): Promise<string> {
   const kept = await translatedMinutes(db, markdown);
   if (kept) return kept;
-  const answer = (await completeAs("oversaet-referat", true)(env, deps, [{ role: "system", content: DOC_SYSTEM }, { role: "user", content: markdown }])).trim();
+  const answer = (await completeAs("oversaet-referat", true, 12000)(env, deps, [{ role: "system", content: DOC_SYSTEM }, { role: "user", content: markdown }])).trim();
   if (answer.length < Math.min(200, markdown.length / 3)) throw new Error("translation_too_short");
   await keep(db, markdown, answer, deps.now());
   return answer;

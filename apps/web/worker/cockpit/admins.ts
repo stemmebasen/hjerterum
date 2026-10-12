@@ -1,3 +1,4 @@
+import { DAILY_BUDGET_USD, spentToday } from "../saga/ai.js";
 import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { boardMembers, responsibilities } from "./data.js";
@@ -103,14 +104,15 @@ export const ADMINS_STYLE = `${MEMBER_PAGES_STYLE}
 
 /** Requested: "We spend around $3 to $4 each day on AI calls": what Saga's AI calls were for the last seven days - how many, how many tokens in and out, which model, what failed - so the money can be seen where it goes. */
 export type AiUsageRow = { purpose: string; model: string; calls: number; promptTokens: number; completionTokens: number; failed: number; fallbacks: number };
-export async function aiUsage(db: D1Database, nowMs: number): Promise<{ week: AiUsageRow[]; day: { calls: number; tokens: number } }> {
+export async function aiUsage(db: D1Database, nowMs: number): Promise<{ week: AiUsageRow[]; day: { calls: number; tokens: number; usd?: number } }> {
   const week = await db.prepare(`SELECT purpose, model, COUNT(*) AS calls, COALESCE(SUM(prompt_tokens), 0) AS promptTokens, COALESCE(SUM(completion_tokens), 0) AS completionTokens, SUM(1 - ok) AS failed, SUM(fallback) AS fallbacks
     FROM ai_usage WHERE at_ms >= ? GROUP BY purpose, model ORDER BY promptTokens + completionTokens DESC, calls DESC, purpose, model`).bind(nowMs - 7 * 86_400_000).all<AiUsageRow>().then(r => r.results ?? []).catch(() => [] as AiUsageRow[]);
   const day = await db.prepare("SELECT COUNT(*) AS calls, COALESCE(SUM(COALESCE(prompt_tokens, 0) + COALESCE(completion_tokens, 0)), 0) AS tokens FROM ai_usage WHERE at_ms >= ?").bind(nowMs - 86_400_000).first<{ calls: number; tokens: number }>().catch(() => null);
-  return { week, day: { calls: Number(day?.calls ?? 0), tokens: Number(day?.tokens ?? 0) } };
+  // Requested: "nedbringe forbruget til cirka en dollar om dagen" - today's estimated spend against the budget.
+  return { week, day: { calls: Number(day?.calls ?? 0), tokens: Number(day?.tokens ?? 0), usd: await spentToday(db as never, nowMs) } };
 }
 
-export function adminsPage(base: string, who: string | null, d: { cockpit: CockpitAdmin[]; area: MemberAreaAdmin[]; nowMs: number; usage?: { week: AiUsageRow[]; day: { calls: number; tokens: number } } }): string {
+export function adminsPage(base: string, who: string | null, d: { cockpit: CockpitAdmin[]; area: MemberAreaAdmin[]; nowMs: number; usage?: { week: AiUsageRow[]; day: { calls: number; tokens: number; usd?: number } } }): string {
   const tokens = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1).replace(".", ",")} mio.` : n >= 1000 ? `${Math.round(n / 1000).toLocaleString("da-DK")} t.` : String(n);
   const usage = d.usage && d.usage.week.length ? `<table class="rows m-list"><tr><th>Til</th><th>Model</th><th>Kald</th><th>Ind</th><th>Ud</th><th>Fejl</th></tr>${d.usage.week.map(r => `<tr><td data-label="Til">${esc(r.purpose)}</td><td data-label="Model">${esc(r.model)}${r.fallbacks ? `<small>${r.fallbacks} gange skiftet til hovedmodellen</small>` : ""}</td>
 <td data-label="Kald">${r.calls}</td><td data-label="Ind">${tokens(r.promptTokens)}</td><td data-label="Ud">${tokens(r.completionTokens)}</td><td data-label="Fejl">${r.failed || "-"}</td></tr>`).join("")}</table>`
@@ -130,7 +132,7 @@ export function adminsPage(base: string, who: string | null, d: { cockpit: Cockp
   return layout(base, "Administratorer", `<main class="adm"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Administratorer</h1>
 <p>Hvem der har adgang til admin, og hvem der har været aktive de seneste ${ACTIVE_DAYS} dage. Kun for formanden.</p></div>
 <section class="panel"><header><h2>Bestyrelsen i admin<span class="count">${active(d.cockpit)} aktive af ${d.cockpit.length}</span></h2><p>Alle, der har skrevet i bestyrelsens gruppe. "Login aktiveret" er første gang, de brugte deres personlige link fra Saga. "Sidst set" er sidste gang, de brugte et link, spurgte Saga eller arbejdede med en opgave. Det fælles password viser ikke, hvem der er inde.</p></header>${cockpit}</section>
-<section class="panel"><header><h2>AI-forbrug<span class="count">seneste døgn: ${d.usage?.day.calls ?? 0} kald, ${tokens(d.usage?.day.tokens ?? 0)} tokens</span></h2><p>Hvad Sagas AI-kald har været til de seneste 7 dage - mest forbrug øverst. "Ind" er det, hun sender med; "Ud" er svaret.</p></header>${usage}</section>
+<section class="panel"><header><h2>AI-forbrug<span class="count">seneste døgn: ${d.usage?.day.calls ?? 0} kald, ${tokens(d.usage?.day.tokens ?? 0)} tokens${d.usage?.day.usd !== undefined ? ` · i dag ca. $${d.usage.day.usd.toFixed(2)} af $${DAILY_BUDGET_USD.toFixed(2)}` : ""}</span></h2><p>Hvad Sagas AI-kald har været til de seneste 7 dage - mest forbrug øverst. "Ind" er det, hun sender med; "Ud" er svaret. Når dagens skøn passerer budgettet, bruger Saga den mellemstore model resten af dagen.</p></header>${usage}</section>
 <section class="panel"><header><h2>Samtaler med Saga</h2><p>Det, bestyrelsens medlemmer har spurgt Saga om, og hvad hun svarede.</p></header><a class="more" href="${base}/samtaler">Se samtalerne →</a></section>
 <section class="panel"><header><h2>Admin i medlemsområdet<span class="count">${active(d.area)} aktive af ${d.area.length}</span></h2><p>E-mails, der må åbne admin-siderne på medlem.hjerterum.info. Login og sidste login hentes hos Clerk.</p></header>${area}</section></main>`,
     { section: "/medlemmer", who, style: ADMINS_STYLE });
