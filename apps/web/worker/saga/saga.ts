@@ -22,7 +22,7 @@ import { transcribe } from "./transcribe.js";
 import { docHash, parsePicture, trimMinutesDoc } from "./picture.js";
 import { OVERVIEW_SYSTEM, boardContext, doneContext, mailContext, membersContext, MINUTES_SYSTEM, PRIVATE_SYSTEM, REPLY_SYSTEM, REVISE_SYSTEM, WEEKLY_SYSTEM } from "./prompts.js";
 import {
-  saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, serviceStatus, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
+  saveOverview, latestOverview, ownerDone, boardActivitySince, claimJob, serviceStatus, setServiceStatus, claimNextMinutes, insertMail, recentMail, createPostDraft, decideMinutes, decidePostDraft, getMinutes, getPostDraft, markPosted,
   plannedMeeting, queueMinutes, recentBoardMessages, recentMinutes, saveBoardMessage, updateMinutes, updatePostDraft
 } from "./store.js";
 import { approvalButtons, telegramClient } from "./telegram.js";
@@ -381,12 +381,27 @@ export async function approveMinutes(env: SagaEnv, deps: SagaDeps, id: number, a
 
 /** Every five minutes: new Drive recordings, one recording processed, and the weekly summary
  * on Sunday evening (18-19 Copenhagen time, once per week). */
-export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
+/** Asked: "Why have Saga not made a resume on the admin page since Friday at 1?" - the round began by reading team@, and when
+ * that died (the runtime stops a run from outside, uncatchable), every job after it was lost, the board's summary with them.
+ * So team@ is read in a run of its own (config-entry.ts: its own cron), and the round leaves a mark at each step
+ * ("saga_round"), so a round that stops shows where. */
+export const MAIL_CRON = "2-57/5 * * * *";
+
+export async function runTeamMailRound(env: SagaEnv, deps: SagaDeps): Promise<void> {
   if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
   // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Saga reads team@ herself,
-  // every run, read-only (teamMail.ts); the run's outcome is what the watch below and Posthus show. First of all the
-  // jobs: reported runs that stopped before the mail was read, the run's CPU spent on the jobs before it.
+  // every run, read-only (teamMail.ts); the run's outcome is what the watch and Posthus show.
   await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
+}
+
+export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?: boolean } = {}): Promise<void> {
+  if (!env.DB || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
+  const db = env.DB;
+  const started = deps.now();
+  const step = (name: string) => setServiceStatus(db, "saga_round", true, `${name} (startet ${new Date(started).toISOString().slice(11, 16)} UTC)`, deps.now());
+  // Tests and a single-cron setup still read the mail in the round; the deployed worker reads it in its own run.
+  if (options.mail !== false) { await step("mail"); await runTeamMailRound(env, deps); }
+  await step("optagelser og referater");
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or cannot be read), Saga tells Jacob privately, once a day. No AI.
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
@@ -397,6 +412,7 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));
+  await step("overblik, forespørgsler og events");
   // A fresh overview up to four times a day (the first one as soon as Saga runs) - only when
   // something happened since the last one. Requested: "Undersøg igen unødvendig og kontinuerlig
   // brug af AI" - it was rewritten every six hours whether or not anything was new.
@@ -410,9 +426,11 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: "Saga skal godkende events som medlemmer selv sætter op ud fra kriterier der allerede ligger i blueprint eller systemet".
   await scheduledEventReview(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_event_review_failed", error instanceof Error ? error.message : error));
+  await step("bestyrelsen lige nu");
   // Requested: "Bestyrelsen lige nu" - "en gang i timen ... resume og overblik over hvad der rører sig netop nu".
   await scheduledBoardNow(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_now_failed", error instanceof Error ? error.message : error));
+  await step("adgang, oversættelser og dagsorden");
   // Whoever has left the board's group loses the cockpit (cockpit/personalLogin.ts).
   await scheduledBoardAccess(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_access_failed", error instanceof Error ? error.message : error));
@@ -440,6 +458,7 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
   // Requested: the overview's speaker - Saga's words about the next two events that have not begun, new whenever one begins (program.ts).
   if (env.AI_API_KEY && env.AI_MODEL) await writeProgramIntro(env, deps, env.DB, await getExternalEvents(false, deps.fetcher).catch(() => []), (key) => claimJob(env.DB!, `event_intro:${key}`.slice(0, 200), 0, deps.now()))
     .catch(error => console.warn("event_blurbs_failed", error instanceof Error ? error.message : error));
+  await step("backup og hjemmeside");
   // Requested: "gemmes sikkert én gang i døgnet" - the night copy of everything the board has written and decided, to Drive (saga/backup.ts).
   await scheduledBackup(env, deps, env.DB).catch(error => console.warn("saga_backup_failed", error instanceof Error ? error.message : error));
   // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig" - read once a day, no AI.
@@ -451,4 +470,5 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps): Promise<void> {
     const week = Math.floor(deps.now() / (7 * DAY));
     if (await claimJob(env.DB, "saga_weekly_summary", week, deps.now())) await draftWeeklySummary(env, deps).catch(error => console.warn("saga_weekly_failed", error instanceof Error ? error.message : error));
   }
+  await setServiceStatus(db, "saga_round", true, `færdig (startet ${new Date(started).toISOString().slice(11, 16)} UTC)`, deps.now());
 }

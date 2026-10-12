@@ -7,7 +7,7 @@ import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
 import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
-import { runSagaJobs } from "./saga/saga.js";
+import { MAIL_CRON, runSagaJobs, runTeamMailRound } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
 import { handleCirklerIntegrationRequest, isCirklerIntegrationRequest, type CirklerIntegrationEnv } from "./cirkler-integration.js";
 import { logoResponse } from "./cockpit/logo.js";
@@ -134,8 +134,14 @@ export default {
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
-    await app.scheduled(controller, env);
-    await runSagaJobs(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
+    const deps = { fetcher: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), now: () => Date.now() };
+    // team@ in a run of its own (saga.ts MAIL_CRON): a mailbox that stops the run can no longer take Saga's other jobs with it.
+    if (controller.cron === MAIL_CRON) {
+      await runTeamMailRound(env as SagaEnv, deps).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
+      return;
+    }
+    await app.scheduled(controller, env).catch(error => console.warn("app_scheduled_failed", error instanceof Error ? error.message : error));
+    await runSagaJobs(env as SagaEnv, deps, { mail: false })
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
     await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
       .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
