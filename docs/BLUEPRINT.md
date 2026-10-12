@@ -692,3 +692,8 @@ Still open:
 - Spurgt: "Why have Saga not made a resume on the admin page since Friday at 1?" Sagas runde (hvert 5. minut) begyndte med at læse team@; når kørslen blev stoppet udefra midt i mailen, gik alle opgaverne efter den tabt - også "Bestyrelsen lige nu". Weekenden er i forvejen uden AI, og mandag morgen kørte runderne ikke fra 06.46.
 - team@ læses nu i sin egen kørsel: hver anden 5-minutters-kørsel læser team@ (`isMailRun`, `runTeamMailRound`), kørslerne imellem laver Sagas øvrige opgaver. (En ekstra cron blev afvist: kontoen er på Cloudflares gratisplan med højst 5 cron-triggere i alt.) Runden skriver hvert trin i `saga_status` (`saga_round`, fx "bestyrelsen lige nu (startet 06:00 UTC)" og til sidst "færdig"), så en runde, der stopper, viser hvor.
 - "Bestyrelsen lige nu" laves ved første runde fra kl. 7 på hverdage og indhentes til kl. 22, hvis morgenen går tabt (før kun til kl. 10).
+
+## Kortere resumé, kun på medlemssiden (2026-10-12)
+
+- "Lad os droppe denne del med resume på hjemmesiden": forsiden viser kun "Snart i Hjerterum" med de tre events - ingen speakertekst.
+- På Overblik står resuméet "langt mere kortfattet", med "i dag", "i morgen" eller ugedagen - aldrig en dato - og hver dag nævnt én gang; de næste events samme dag får kun "Kl. TT.MM" (formandens eksempel er modellen). Dagen står i nøglen (`intro5:<dato>:…`), så teksten skrives igen efter midnat, og når et af de tre begynder. Et event uden "Kl." får hovedmodellen til at skrive igen.
