@@ -231,7 +231,7 @@ export async function draftEvent(env: SagaEnv, deps: SagaDeps, db: D1Database, r
     .map(e => `--- ${e.title}${e.category ? ` [${e.category}]` : ""} ---\n${e.description.slice(0, 500)}`).join("\n\n") || "(ingen)";
   const today = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)
     + ` (${new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now)})`;
-  const answer = await completeAs("event-udkast")(env, deps, [{ role: "system", content: DRAFT_SYSTEM(today, examples) }, { role: "user", content: request }]);
+  const answer = await completeAs("event-udkast", false, 2000)(env, deps, [{ role: "system", content: DRAFT_SYSTEM(today, examples) }, { role: "user", content: request }]);
   let parsed: unknown = null;
   try { parsed = JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null"); } catch { parsed = null; }
   if (!parsed) throw new Error("event_draft_unreadable");

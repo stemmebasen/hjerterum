@@ -115,7 +115,7 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
   await db.prepare("UPDATE board_minutes_corrections SET attempts = attempts + 1, updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
   const minutes = await getMinutes(db, row.minutes_id);
   if (!minutes?.draft_markdown) return "failed";
-  const answer = parseAnswer(await completeAs("rettelse")(env, deps, [{ role: "system", content: POINT_SYSTEM }, { role: "user", content: [
+  const answer = parseAnswer(await completeAs("rettelse", false, 3000)(env, deps, [{ role: "system", content: POINT_SYSTEM }, { role: "user", content: [
     `REFERAT:\n${minutes.draft_markdown}`, `PUNKT: ${row.point}`, `RETTELSE FRA ${row.member}:\n${row.correction}`,
     row.question ? `DIT SPØRGSMÅL: ${row.question}\nSVAR FRA ${row.member}: ${row.answer ?? ""}` : "",
     minutes.transcript ? `KILDE (til opslag):\n${minutes.transcript.slice(0, 60_000)}` : ""].filter(Boolean).join("\n\n") }]), row.point);

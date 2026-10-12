@@ -692,3 +692,12 @@ Still open:
 - Spurgt: "Why have Saga not made a resume on the admin page since Friday at 1?" Sagas runde (hvert 5. minut) begyndte med at læse team@; når kørslen blev stoppet udefra midt i mailen, gik alle opgaverne efter den tabt - også "Bestyrelsen lige nu". Weekenden er i forvejen uden AI, og mandag morgen kørte runderne ikke fra 06.46.
 - team@ læses nu i sin egen kørsel (cron `2-57/5 * * * *`, `runTeamMailRound`); den almindelige runde (`*/5`) læser ikke mailen. Runden skriver hvert trin i `saga_status` (`saga_round`, fx "bestyrelsen lige nu (startet 06:00 UTC)" og til sidst "færdig"), så en runde, der stopper, viser hvor.
 - "Bestyrelsen lige nu" laves ved første runde fra kl. 7 på hverdage og indhentes til kl. 22, hvis morgenen går tabt (før kun til kl. 10).
+
+## AI-forbrug: cirka en dollar om dagen (2026-10-12)
+
+- "Find en plan for, hvordan vi kan nedbringe forbruget til cirka en dollar om dagen" (Requesty: 25 $ på 12 dage, 99,9 % Sonnet). Ikke mailen (den kører på Haiku og koster cents), men statusoverblikket: op til fire gange om dagen på Sonnet med ca. 40.000 tokens ind og op til 16.000 ud - klippet af og spurgt igen.
+- Statusoverblikket laves højst én gang om dagen, når noget er nyt, på mellemmodellen (`overblik`, før forkert mærket `telegram-samtale`).
+- Hvert kald har et loft over svaret (standard 4.000 tokens; referater 12.000, oversættelser 8.000, spørgsmål 2.000, medlemmernes Spørg Saga 1.500) - ikke længere 16.000 for alle.
+- En lang system-besked sendes med Anthropics prompt-cache-mærke (genbrug inden for få minutter koster en tiendedel); tager routeren ikke mærket, sendes den uden.
+- Medlemmernes Spørg Saga kører på mellemmodellen (Haiku) igen - med kalenderen og hjemmesiden ved hun nok.
+- Dagsbudget 1 $: dagens forbrug skønnes ud fra `ai_usage` (pris pr. modelfamilie), og over budgettet går hovedmodellens opgaver til mellemmodellen resten af dagen. Admin → Administratorer → AI-forbrug viser "i dag ca. $x af $1,00".
