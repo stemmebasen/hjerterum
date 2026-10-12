@@ -8,6 +8,7 @@ import { trimMinutesDoc } from "../saga/picture.js";
 import { COCKPIT_SYSTEM } from "../saga/prompts.js";
 import { recentBoardMessages } from "../saga/store.js";
 import { parseMembershipWorksRss } from "../external-events.js";
+import { boardPosts, postsForSaga } from "./board.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
@@ -204,6 +205,7 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     !wants("medlemskab") ? "" : `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
     // Requested: "Opret forslag til afstemning" - the board's digital votes.
     `AFSTEMNINGER I BESTYRELSEN (digitale, vedtaget ved flertal af bestyrelsen - og forslag, der stemmes om på næste møde):\n${await votesForSaga(db, now)}`,
+    postsForSaga(await boardPosts(db, now).catch(() => [])),
     // Requested: "Det er denne prisberegners data alt skal baseres på https://holistisk.org/lejepriser/".
     !wants("leje") ? "" : `LEJE AF SALEN - PRISER OG REGLER (Hjerterums prisberegner):\n${ROOM_RENTAL_RULES}`,
     // Requested: "Generelt må hun gerne have al data fra den nuværende hjemmeside tilgængelig".

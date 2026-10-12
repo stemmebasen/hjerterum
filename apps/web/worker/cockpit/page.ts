@@ -172,7 +172,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
-  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Events"], ["/statistik", "Statistik"]];
+  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/opslag", "Opslag"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Events"], ["/statistik", "Statistik"]];
   const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
   const here = parent[options.section ?? ""] ?? options.section;
   // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - still there under your initials (Profil), and on the phone's Huset.
@@ -181,7 +181,8 @@ export function layout(base: string, title: string, body: string, options: { sec
   // On a phone the five labels must fit side by side.
   const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Events" };
   // The phone's tab bar keeps five places; Posthus, Medlemmer and Statistik are on Overblik and under the initials.
-  const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  // The phone keeps five tabs: Opslag is reached from Overblik ("Dine opgaver" and "+ Nyt opslag").
+  const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer" && path !== "/opslag").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10151f" media="(prefers-color-scheme: dark)">
