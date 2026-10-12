@@ -49,6 +49,9 @@ export function signoffPanel(base: string, minutes: ApprovedMinutes, data: { mem
   const missing = data.members.filter(m => !by.has(m));
   const mine = data.who ? by.get(data.who) : undefined;
   const action = `${base}/referat/${minutes.id}`;
+  // Requested: "Når et referat er blevet godkendt af alle bestyrelsesmedlemmer, skal det låses fast, ingen ændringer mulige."
+  if (minutes.locked_at_ms) return `<section class="card m-sign m-locked"><h2>Bestyrelsens godkendelse</h2>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
+<p><strong>Godkendt af alle og låst ${esc(DECIDED.format(minutes.locked_at_ms))}.</strong> Referatet kan ikke længere ændres.</p>${approved.length ? `<p class="small muted">Godkendt af ${esc(approved.join(", "))}</p>` : ""}</section>`;
   return `<section class="card m-sign"><h2>Bestyrelsens godkendelse</h2>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
 <p>${approved.length ? `<strong>Godkendt af:</strong> ${esc(approved.join(", "))}` : "Ingen har godkendt endnu."}${missing.length ? ` <span class="muted">· Mangler: ${esc(missing.join(", "))}</span>` : ""}</p>
 ${corrections.length ? `<ul class="plain">${corrections.map(c => `<li><strong>${esc(c.member)}</strong> har en rettelse: ${esc(c.comment ?? "")}</li>`).join("")}</ul>` : ""}
@@ -78,7 +81,7 @@ function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: 
 <form class="stack" data-saga method="post" action="${action}/rettelse/${c.id}/svar"><textarea name="answer" required maxlength="2000" rows="2" placeholder="Dit svar til Saga"></textarea><button>Svar Saga</button></form></div>`
       : `<p class="m-fixnote">Saga har spurgt ${esc(c.member)} om rettelsen.</p>`;
   }).join("");
-  const form = fix.who ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" data-saga method="post" action="${action}/punkt/${point}">
+  const form = fix.who && !minutes.locked_at_ms ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" data-saga method="post" action="${action}/punkt/${point}">
 <textarea name="correction" required maxlength="2000" rows="3" placeholder="Hvad skal rettes i punktet? Saga omskriver det - eller spørger dig, hvis hun er i tvivl."></textarea><button>Send rettelsen til Saga</button></form></details>` : "";
   return own || form ? `<div class="m-fix">${own}${form}</div>` : "";
 }
@@ -147,7 +150,7 @@ export const MINUTES_STYLE = `
 .m-box{border:1px solid var(--good);border-radius:12px;padding:2px 20px 10px;margin-top:24px}.m-box h2{color:var(--good)}.m-box ul{margin:0;padding-left:20px}
 .m-tasks td:first-child{font-weight:600;white-space:nowrap}.m-tasks td:last-child{white-space:nowrap}
 .m-original{margin-top:24px}.m-original div{white-space:pre-wrap;font-size:13.5px;color:var(--muted);margin-top:8px}@media print{.m-original{display:none}}
-.m-sign{max-width:820px;width:100%;margin:0 auto}.m-sign-actions{display:grid;gap:8px}.m-sign-actions details{border-top:0;padding:0}@media print{.m-sign{display:none}}
+.m-sign{max-width:820px;width:100%;margin:0 auto}.m-sign-actions{display:grid;gap:8px}.m-sign-actions details{border-top:0;padding:0}@media print{.m-sign{display:none}.m-sign.m-locked{display:block}}
 .m-fix{margin:8px 0 0 34px;display:grid;gap:6px}.m-fixnote{font-size:13px;color:var(--muted);margin:0}.m-fixform{border-top:0;padding:0}.m-fixform summary{font-size:13px;font-weight:600;color:var(--accent)}
 .m-fixform form{margin-top:8px}.m-ask{background:var(--soft);border-radius:10px;padding:10px 12px}.m-ask p{margin:0 0 8px}@media (max-width:640px){.m-fix{margin-left:0}}@media print{.m-fix{display:none}}
 .m-foot{margin-top:32px;padding-top:12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}

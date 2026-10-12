@@ -114,7 +114,11 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
   if (!row) return "failed";
   await db.prepare("UPDATE board_minutes_corrections SET attempts = attempts + 1, updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
   const minutes = await getMinutes(db, row.minutes_id);
-  if (!minutes?.draft_markdown) return "failed";
+  // A locked minutes (approved by all) is never rewritten.
+  if (!minutes?.draft_markdown || minutes.locked_at_ms) {
+    await db.prepare("UPDATE board_minutes_corrections SET status = 'failed', updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
+    return "failed";
+  }
   const answer = parseAnswer(await completeAs("rettelse", false, 3000)(env, deps, [{ role: "system", content: POINT_SYSTEM }, { role: "user", content: [
     `REFERAT:\n${minutes.draft_markdown}`, `PUNKT: ${row.point}`, `RETTELSE FRA ${row.member}:\n${row.correction}`,
     row.question ? `DIT SPØRGSMÅL: ${row.question}\nSVAR FRA ${row.member}: ${row.answer ?? ""}` : "",
