@@ -34,6 +34,7 @@ import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPag
 import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
+import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -200,8 +201,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
-    const [eventsToReview, boardNow, votes, openProposals, held] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).catch(() => []),
-      db.prepare("SELECT COUNT(*) AS n, MIN(starts_at_ms) AS first FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number; first: number | null }>().catch(() => null)]);
+    const [eventsToReview, boardNow, votes, openProposals, held, posts] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).catch(() => []),
+      db.prepare("SELECT COUNT(*) AS n, MIN(starts_at_ms) AS first FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number; first: number | null }>().catch(() => null), boardPosts(db, now).catch(() => [])]);
     const isChair = Boolean(who && members.chair && who === members.chair);
     const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
     // "Næste møde" is the next meeting of any kind; "Næste teammøde" is the next one that is not said to be something else (a general assembly, an info meeting ...).
@@ -213,7 +214,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     // Saga's own texts in English, when she has translated them.
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
-    return html(homePage(base, { tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    return html(homePage(base, { posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -653,7 +654,34 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const all = currentTasks(allTasks(minutes, picture));
     const saga = await sagaFor(picture);
     return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), boardChecks: await taskChecksByKey(db), now,
-      votes: await awaitingVote(db, who, now) }));
+      votes: await awaitingVote(db, who, now), posts: waitingOn(await boardPosts(db, now).catch(() => []), who) }));
+  }
+
+  // The board's notice board (board.ts): Afklaring, Til orientering, and the open votes; "Til mødet" puts a post on the next team meeting.
+  if (path === "/opslag" && request.method === "GET") {
+    const NOTICE: Record<string, string> = { ny: "Opslaget er sat op. De andre har det på deres liste.", moede: "Sat på dagsordenen til næste teammøde.", vent: "Det kommer på dagsordenen, så snart næste teammøde er planlagt.",
+      lukket: "Opslaget er lukket.", aaben: "Opslaget er åbnet igen.", svar: "Dit svar er skrevet.", set: "Noteret, at du har set det." };
+    const [posts, list] = await Promise.all([boardPosts(db, now), proposals(db, now).catch(() => [])]);
+    return html(boardPage(base, { posts, votes: list, who, members: members.names, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+  }
+  if (path === "/opslag" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    const id = await createPost(db, { kind: String(form?.get("kind") ?? ""), title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), who, forMeeting: form?.get("moede") === "1" }, now);
+    return redirect(`${base}/opslag${id ? `?besked=ny#o${id}` : ""}`);
+  }
+  const postAction = /^\/opslag\/(\d+)\/(svar|luk|genaabn|set|moede)$/.exec(path);
+  if (postAction && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number(postAction[1]), action = postAction[2]!;
+    const form = await request.formData().catch(() => null);
+    let notice = "";
+    if (action === "svar") notice = await reply(db, id, who, String(form?.get("text") ?? ""), now) ? "svar" : "";
+    else if (action === "luk") notice = await closePost(db, id, who, String(form?.get("outcome") ?? ""), now) ? "lukket" : "";
+    else if (action === "genaabn") notice = await closePost(db, id, who, "", now, true) ? "aaben" : "";
+    else if (action === "set") { await markSeen(db, id, who, now); notice = "set"; }
+    else { const placed = await toMeeting(db, id, who, now); notice = placed === "added" ? "moede" : placed === "waiting" ? "vent" : ""; }
+    return redirect(`${base}/opslag${notice ? `?besked=${notice}` : ""}#o${id}`);
   }
 
   // Requested: "Beslutninger og Afstemninger skal merges" - one page; the old address leads there.

@@ -711,3 +711,12 @@ Still open:
 
 - "Det giver ikke mening, at hele halvdelen af skærmen bruges til et referat, der selvfølgelig ikke er lavet, fordi man er ved at planlægge et møde": et kommende møde uden referat viser kun dagsordenen (i fuld bredde, højst 860 px). Referatkortet kommer, når mødet er holdt, eller et referat er på vej.
 - "Saga [har] ikke inkluderet mit forslag i Telegram-gruppen om at drøfte rabat til Hjerteland. Er det ikke meningen, at hun skal fange det?": en besked i gruppen, der beder om noget på dagsordenen ("Lad os få det på dagsorden", "tag det op på næste møde", "drøfte … på næste møde"), sættes på næste teammøde som spørgerens eget punkt ("… (ønsket af Jacob)") - ikke som et af Sagas forslag, og uden at tælle med i hendes fem. Kun de beskeder koster et AI-kald (mellemmodellen, én linje), og hver besked kun én gang (`cockpit/agenda.ts` `agendaRequests`, i Sagas runde).
+
+## Opslagstavlen (2026-10-12)
+
+- Gittas forslag: "et slags åbent fora næsten som en opslagstavle for bestyrelsen ... hvor vi lige kan tage et emne op eller hurtige beslutninger sammen. Stille noget op til 'afstemning/afklaring/beslutning' som ikke behøver være til et møde. Så kun det vigtigste når med til mødet."
+- Admin → Opslag (`/opslag`, `cockpit/board.ts`, migration 0067): **Afklaring** (et spørgsmål, de andre svarer på i en tråd; lukkes online med hvad der blev afklaret), **Til orientering** (hver markerer "Set"; siden viser, hvem der har set det) og de åbne **afstemninger** (de bor stadig under Beslutninger). Et opslag kan genåbnes.
+- Et åbent opslag står på de andres to-do (Overblik og Opgaver), til de har svaret (afklaring) eller set det (orientering).
+- "Til mødet" (eller afkrydset ved oprettelsen) sætter opslaget på næste teammødes dagsorden som spørgerens eget punkt ("… (fra opslagstavlen, ønsket af X)"); er der intet teammøde planlagt, kommer det på, så snart der er et (Sagas runde). Kun det, der sendes til mødet, kommer på dagsordenen.
+- Saga kender de åbne opslag (bestyrelsens "Spørg Saga").
+- Menuen på computer: Overblik · Opgaver · Møder · Opslag · Beslutninger · …; på telefonen nås Opslag fra Overblik ("+ Nyt opslag" og "Dine opgaver").

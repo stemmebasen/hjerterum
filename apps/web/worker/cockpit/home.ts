@@ -4,6 +4,7 @@ import type { HouseEvent } from "./events.js";
 import { membersTile, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
 import { frontVotes, VOTES_STYLE, voteTodo, type Proposal, type ProposalView } from "./votes.js";
+import { postTodo, type PostView } from "./board.js";
 import { esc, layout, longDay, responsibilitiesForm, shortDay } from "./page.js";
 import { openLines, TODOS_STYLE } from "./todosPage.js";
 
@@ -37,6 +38,8 @@ export type HomeData = {
   boardNow?: { text: string; at: number } | null;
   /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." */
   votes?: Proposal[];
+  /** The board's posts that wait on this member: an Afklaring not answered, an orientation not seen (cockpit/board.ts). */
+  posts?: PostView[];
   /** Every open proposal, for the card on everyone's front page (cockpit/votes.ts). */
   proposals?: ProposalView[];
   nowMs?: number;
@@ -75,7 +78,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
-.welcome .propose-btn{flex:none;align-self:flex-end;margin-bottom:6px}
+.welcome .propose-row{display:flex;flex-wrap:wrap;gap:8px;flex:none;align-self:flex-end;margin-bottom:6px}.welcome .propose-btn{flex:none}
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
@@ -90,7 +93,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 @media (max-width:900px){.tiles,.tiles.with-fact,.tiles.with-members{grid-template-columns:repeat(2,1fr);grid-auto-flow:row;grid-auto-columns:auto}.tiles.with-members .tile:last-child:nth-child(odd){grid-column:1/-1}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
-@media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome .propose-btn{align-self:flex-start;margin-top:4px}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
+@media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome .propose-row{align-self:flex-start;margin-top:4px}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
 `;
 
 const MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" });
@@ -132,12 +135,12 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
 
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
-  const open = data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0);
+  const open = data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0) + (data.posts?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
-${data.who ? `<a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a>` : ""}${lysArt("mini")}</section>`;
+${data.who ? `<span class="propose-row"><a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a><a class="button ghost propose-btn" href="${base}/opslag">+ Nyt opslag</a></span>` : ""}${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
   // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
@@ -152,6 +155,7 @@ ${data.toSign.length ? `<a class="tile hot" href="${base}/referat/${data.toSign[
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
+    ...(data.posts ?? []).map(p => postTodo(base, p)),
     ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
     // The same lines as on Opgaver, with the same checkbox to the left ("helt samme styling som på opgavesiden"): the same task from the minutes,
     // the minutes document, Saga's list and your own items is one line (data.ts sameTask), and checking it takes the page back here.
