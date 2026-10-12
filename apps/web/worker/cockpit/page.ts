@@ -172,7 +172,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
   // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
   // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
-  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/opslag", "Opslag"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Events"], ["/statistik", "Statistik"]];
+  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/opslag", "Opslagstavle"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Events"], ["/statistik", "Statistik"]];
   const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
   const here = parent[options.section ?? ""] ?? options.section;
   // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - still there under your initials (Profil), and on the phone's Huset.

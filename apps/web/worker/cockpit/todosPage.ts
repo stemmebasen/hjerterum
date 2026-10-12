@@ -131,7 +131,7 @@ export function todosPage(base: string, data: TodosData): string {
 <label>Frist (valgfri)<input type="date" name="due"></label>
 <label>Til<select name="owner"><option value="${esc(data.who)}">Mig selv</option><option value="${EVERYONE}">Alle</option>${others.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("")}</select></label>
 <button>Tilføj</button></form>
-<p class="small" style="margin:12px 0 0"><a href="${base}/beslutninger#nyt">Stil et forslag til afstemning i bestyrelsen →</a></p></div>`;
+<p class="small" style="margin:12px 0 0"><a href="${base}/opslag?art=afstemning#nyt">Stil et forslag til afstemning i bestyrelsen →</a></p></div>`;
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
 ${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}

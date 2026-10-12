@@ -40,7 +40,7 @@ describe("tasks as instructions", () => {
         { who: "Jacob", what: "sender preview-link til nyt system til Douglas", due: "", meeting: "2026-10-01", source: "referat" }] } as never);
     expect(html).toContain("Se på automatisk opsætning af nyhedsbrev i nyt system");
     expect(html).toContain("Send preview-link til nyt system til Douglas");
-    expect(html).toContain('href="/beslutninger#nyt">Stil et forslag til afstemning →');
+    expect(html).toContain('href="/opslag?art=afstemning#nyt">Stil et forslag til afstemning →');
   });
 });
 

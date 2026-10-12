@@ -50,9 +50,15 @@ describe("digital votes in the board", () => {
     expect(empty.indexOf('id="nyt"')).toBeLessThan(empty.indexOf("<h2>Besluttet</h2>"));
     expect(await (await call("/", { cookie: as("Gitta") })).text()).not.toContain('id="forslag"');
     // A quick button on every member's front page, whether or not a proposal is open.
-    expect(await (await call("/", { cookie: as("Gitta") })).text()).toContain('<a class="button propose-btn" href="/beslutninger#nyt">+ Stil et forslag</a>');
+    // Requested: "Så nu er der både «Opret opslag», men der er også en opslagstavle. Giver det mening?" - one button; a proposal for a vote is one kind of post.
+    const home = await (await call("/", { cookie: as("Gitta") })).text();
+    expect(home).toContain('<a class="button propose-btn" href="/opslag?ny=1#nyt">+ Nyt opslag</a>');
+    expect(home).not.toContain("+ Stil et forslag");
+    const compose = await (await call("/opslag?art=afstemning", { cookie: as("Lisbeth") })).text();
+    expect(compose).toContain('<input type="radio" name="kind" value="afstemning" checked>');
 
-    await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi åbner salen om søndagen", text: "", days: "7" }) });
+    const posted = await call("/opslag", { method: "POST", cookie: as("Lisbeth"), body: form({ kind: "afstemning", title: "Vi åbner salen om søndagen", text: "", mode: "digital", days: "7" }) });
+    expect(posted.headers.get("location")).toContain("/beslutninger?besked=ny#p1");
     const page = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
     expect(page.indexOf('id="nyt"')).toBeLessThan(page.indexOf('id="afstemning"'));
     expect(page.indexOf('id="afstemning"')).toBeLessThan(page.indexOf("<h2>Besluttet</h2>"));
