@@ -418,7 +418,7 @@ describe("Saga's overview and connection check for the chair", () => {
     String(input).endsWith("/getWebhookInfo") ? new Response(JSON.stringify({ ok: true, result: info })) : fetcher(input, init);
   const google = async () => ({ GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }), GOOGLE_MINUTES_DOC_ID: "minutes-doc" });
 
-  it("writes an overall overview from the group, the minutes document and the mail, up to four times a day", async () => {
+  it("writes an overall overview from the group, the minutes document and the mail, once a day", async () => {
     const db = testDatabase();
     let context = "";
     const services = fakeServices({ ai: (system, user) => { if (system.includes("overordnet overblik")) { context = user; return "## Besluttet\n- Ny kagekasse."; } return "[]"; } });
@@ -435,9 +435,10 @@ describe("Saga's overview and connection check for the chair", () => {
     await runSagaJobs(env, deps(services.fetcher, NOW + 6 * 3_600_000));
     expect(await count(db, "board_overviews")).toBe(1);
     const later = boardMessage(2, "Mødet flyttes til torsdag");
-    later.message.date = (NOW + 7 * 3_600_000) / 1000;
+    later.message.date = (NOW + 20 * 3_600_000) / 1000;
     await webhook(env, services.fetcher, later);
-    await runSagaJobs(env, deps(services.fetcher, NOW + 12 * 3_600_000));
+    // Requested: "nedbringe forbruget til cirka en dollar om dagen" - at most once a day: the next day.
+    await runSagaJobs(env, deps(services.fetcher, NOW + 24 * 3_600_000));
     expect(await count(db, "board_overviews")).toBe(2);
   });
 
@@ -570,9 +571,9 @@ describe("the board's picture: the group, the document and what waits on the cha
 
     // The next overview is told what is done, so it is not raised again.
     const later = boardMessage(2, "Lokalet er lejet");
-    later.message.date = (NOW + 7 * 3_600_000) / 1000;
+    later.message.date = (NOW + 20 * 3_600_000) / 1000;
     await webhook(env, services.fetcher, later);
-    await runSagaJobs(env, deps(services.fetcher, NOW + 12 * 3_600_000));
+    await runSagaJobs(env, deps(services.fetcher, NOW + 24 * 3_600_000));
     expect(contexts).toHaveLength(2);
     expect(contexts[1]).toContain("JACOB HAR MARKERET SOM KLARET:\n- Underskriv lejekontrakten");
   });
@@ -591,7 +592,7 @@ describe("the board's picture: the group, the document and what waits on the cha
     await runSagaJobs(env, deps(fetcher, NOW + 6 * 3_600_000));
     expect(calls).toBe(1);
     doc += "\nReferat 20. september 2026\nForslag: Sommerfest.";
-    await runSagaJobs(env, deps(fetcher, NOW + 12 * 3_600_000));
+    await runSagaJobs(env, deps(fetcher, NOW + 24 * 3_600_000));
     expect(calls).toBe(2);
   });
 

@@ -237,11 +237,11 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   const now = deps.now();
   // Requested: "kun det relevante med for det pågældende spørgsmål" - "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk": the first call has only what the question seems to need;
   // if Saga says something is missing (`[[MANGLER: ...]]`), the same question is asked again with those parts - or the whole pack when she names none. Once: the second answer is the answer.
-  let raw = await completeAs("spoergsmaal")(env, deps, await build(sectionsFor(topic)));
+  let raw = await completeAs("spoergsmaal", false, 2000)(env, deps, await build(sectionsFor(topic)));
   const missing = MISSING.exec(raw);
   if (missing) {
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
-    raw = await completeAs("spoergsmaal-udvidet")(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
+    raw = await completeAs("spoergsmaal-udvidet", false, 2000)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
   const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, items, now, base), who, now);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();

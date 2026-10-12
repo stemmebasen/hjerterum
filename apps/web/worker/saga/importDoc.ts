@@ -51,7 +51,7 @@ export async function importDocMinutes(env: SagaEnv, deps: SagaDeps): Promise<vo
     if (approved) continue;
     let answer: string;
     try {
-      answer = await completeAs("import-referat")(env, deps, [{ role: "system", content: IMPORT_SYSTEM },
+      answer = await completeAs("import-referat", false, 12000)(env, deps, [{ role: "system", content: IMPORT_SYSTEM },
         { role: "user", content: `Mødedato: ${meeting.day}\n\nFRA REFERATDOKUMENTET:\n${meeting.text.slice(0, 40_000)}` }]);
     } catch (error) {
       // The AI did not answer: the meeting is tried again at the next run.
