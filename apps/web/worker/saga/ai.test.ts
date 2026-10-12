@@ -77,9 +77,9 @@ describe("Saga's AI provider", () => {
     await insert(now - 9 * 86_400_000, "gammel", "main", 1, 1);
     const usage = await aiUsage(db, now);
     expect(usage.week.map(r => [r.purpose, r.model, r.calls])).toEqual([["spoergsmaal", "main", 2], ["oversaet-tekster", "cheap", 1], ["oversaet-tekster", "main", 1]]);
-    expect(usage.day).toEqual({ calls: 4, tokens: 153_100 });
+    expect(usage.day).toMatchObject({ calls: 4, tokens: 153_100 });
     const page = adminsPage("", "Jacob Hauge", { cockpit: [], area: [], nowMs: now, usage });
-    expect(page).toContain("<h2>AI-forbrug<span class=\"count\">seneste døgn: 4 kald, 153 t. tokens</span></h2>");
+    expect(page).toContain("<h2>AI-forbrug<span class=\"count\">seneste døgn: 4 kald, 153 t. tokens · i dag ca. $");
     expect(page.indexOf("spoergsmaal")).toBeLessThan(page.indexOf("oversaet-tekster"));
     expect(page).toContain("1 gange skiftet til hovedmodellen");
   });
