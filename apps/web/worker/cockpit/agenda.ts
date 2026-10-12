@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import { postsToBoard, SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
-import { saveBoardMessage } from "../saga/store.js";
+import { recentBoardMessages, saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { boardKnowledge } from "./ask.js";
 import { addAgendaPoints, agendaPoints, boardPicture, meetings, nextTeamMeeting, rolesLine, SAGA_POINTS, sagaRoom, type Meeting } from "./data.js";
@@ -120,4 +120,39 @@ export async function scheduledAgendaReminder(env: SagaEnv, deps: SagaDeps, db: 
     await db.prepare("DELETE FROM job_claims WHERE job_key = ? AND scheduled_for_ms = 0").bind(key).run().catch(() => undefined);
     throw error;
   }
+}
+
+/** Asked: "jeg lægger mærke til, at Saga ikke har inkluderet mit forslag i Telegram-gruppen om at drøfte rabat til Hjerteland. Er det ikke meningen,
+ * at hun skal fange det?" - she only suggested points when asked, and the wish came after. Now a message in the group that asks for something on the
+ * agenda ("Lad os få det på dagsorden", "tag det op på næste møde") puts it on the next team meeting at once - as the asker's own point, not
+ * one of Saga's suggestions. Only messages that say so cost an AI call (the middle model, a line); each message once. */
+export const AGENDA_ASK = /dagsorden|\b(?:tag(?:e|er)?|tages)\s+(?:det\s+|dette\s+|emnet\s+|den\s+)?op\s+på\s+(?:næste\s+|et\s+|vores\s+)?møde|\bdrøfte[^.!?\n]{0,60}\bpå\s+(?:næste\s+|et\s+|vores\s+)?møde/i;
+
+const REQUEST_SYSTEM = "Du er Saga, assistent for bestyrelsen i Hjerterum. Et bestyrelsesmedlem har i gruppen bedt om at få noget på dagsordenen. "
+  + "Formulér emnet som ét kort dagsordenspunkt på dansk (højst 14 ord), konkret, ud fra beskeden og samtalen lige før den - uden punktum og uden \"Drøftelse af\" foran, hvis det kan undgås. "
+  + "Beder beskeden ikke om at få noget på dagsordenen, så svar null. Opfind intet. Svar KUN med JSON: {\"point\": \"...\"} eller {\"point\": null}.";
+
+export async function agendaRequests(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string) => Promise<boolean>): Promise<number> {
+  const chat = env.SAGA_BOARD_CHAT_ID;
+  if (!chat || !env.AI_API_KEY || !env.AI_MODEL) return 0;
+  const now = deps.now();
+  const recent = await recentBoardMessages(db, chat, now - 3 * 86_400_000, 300);
+  const asks = recent.filter(m => !m.from_assistant && AGENDA_ASK.test(m.text));
+  if (!asks.length) return 0;
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
+  const meeting = nextTeamMeeting(await meetings(db), today);
+  if (!meeting) return 0;
+  let added = 0;
+  for (const ask of asks) {
+    if (!(await claim(`agenda_request:${chat}:${ask.telegram_message_id ?? ask.sent_at_ms}`))) continue;
+    const before = recent.filter(m => m.sent_at_ms <= ask.sent_at_ms).slice(-7);
+    const answer = await completeAs("dagsorden-oenske", "mid", 300)(env, deps, [{ role: "system", content: REQUEST_SYSTEM },
+      { role: "user", content: before.map(m => `${m.author_name}: ${m.text.slice(0, 600)}`).join("\n") + `\n\nBESKEDEN (fra ${ask.author_name}): ${ask.text.slice(0, 800)}` }]).catch(() => "");
+    let point: unknown = null;
+    try { point = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { point?: unknown } | null)?.point; } catch { point = null; }
+    if (typeof point !== "string" || !point.trim()) continue;
+    const first = ask.author_name.trim().split(/\s+/)[0] ?? ask.author_name;
+    added += await addAgendaPoints(db, meeting.id, [`${point.trim().replace(/[.\s]+$/, "")} (ønsket af ${first})`], ask.author_name, now, false);
+  }
+  return added;
 }

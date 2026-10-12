@@ -61,7 +61,7 @@ h3{font-size:12px;margin:18px 0 8px;color:var(--faint);text-transform:uppercase;
 .hero{display:grid;gap:10px;margin-bottom:4px}.hero p{margin:0;color:var(--muted)}
 .chips{display:flex;gap:8px;flex-wrap:wrap}.chips a,.chips span{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:14px;font-weight:550;color:var(--ink);text-decoration:none}
 .chips .hot{background:var(--warn-soft);color:var(--warn);box-shadow:none}.chips b{font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:20px;align-items:start}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:20px;align-items:start}.grid.single{grid-template-columns:minmax(0,860px)}
 .card{background:var(--card);border-radius:var(--radius);padding:26px 28px;min-width:0;box-shadow:var(--shadow);border:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
 .muted{color:var(--muted)}.small{font-size:14px}.pill{display:inline-block;font-size:12px;font-weight:650;padding:2px 10px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
 ul.plain{list-style:none;margin:0;padding:0;display:grid}ul.plain li{padding:12px 0;border-bottom:1px solid var(--line)}ul.plain li:first-child{padding-top:2px}ul.plain li:last-child{border-bottom:0;padding-bottom:0}
@@ -541,13 +541,16 @@ export function meetingPage(base: string, m: Meeting, data: { members: string[];
   const points = m.agenda.split("\n").map(l => l.trim()).filter(Boolean), saga = new Set((m.agenda_saga ?? "").split("\n").map(l => l.trim()).filter(Boolean));
   // The document's suggestion that is not on the agenda yet - and only as many as Saga has room for (five of hers at a time).
   const offered = Math.min(data.suggestion.filter(p => !points.includes(p)).length, sagaRoom(m));
+  // Requested: "Det giver ikke mening, at hele halvdelen af skærmen bruges til et referat, der selvfølgelig ikke er lavet, fordi man er ved at planlægge et møde":
+  // a meeting still to come has the whole width for its agenda; the minutes card comes when the meeting is held (or minutes are on their way).
+  const showMinutes = held || Boolean(data.minutes) || Boolean(data.state);
   const minutesCard = data.minutes ? `<p><a class="button" href="${base}/referat/${data.minutes.id}">Læs referatet</a></p>`
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
   return layout(base, `Rediger møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><p class="editing-banner">${PENCIL}Rediger møde</p><h1>${esc(longDay(m.meeting_date))}</h1>
-${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
+${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid${showMinutes ? "" : " single"}"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 10px">${esc(rolesLine(m))}</p>` : ""}
 ${points.length ? `<ol class="agenda points" data-order="${base}/moder/${m.id}/punkt/raekkefolge">${points.map(p => `<li data-point="${esc(p)}">${points.length > 1 ? `<button type="button" class="grip" aria-label="Flyt punktet: ${esc(p)}" title="Træk for at flytte punktet - eller brug pil op og ned">${GRIP}</button>` : ""}<span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : authors[p] ? personChip(data.members, authors[p]!) : ""}<button type="button" class="pencil" data-edit aria-label="Ret punktet: ${esc(p)}" title="Ret punktet">${PENCIL}</button><form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form>
 <form class="editpoint" method="post" action="${base}/moder/${m.id}/punkt/ret"><input type="hidden" name="old" value="${esc(p)}"><input name="text" value="${esc(p)}" required maxlength="200" autocomplete="off" aria-label="Ret punktet"><button>Gem</button><button type="button" class="ghost" data-cancel>Annullér</button></form></li>`).join("")}</ol>`
@@ -579,7 +582,7 @@ ${roleSelects(data.members, m)}
 <div class="actions"><button class="ghost">Gem ændringer</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
 <form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
-<div class="card"><h2>Referat</h2>${minutesCard}</div></div></main>`, { section: "/moder", who, style: WHO_CHIP_STYLE });
+${showMinutes ? `<div class="card"><h2>Referat</h2>${minutesCard}</div>` : ""}</div></main>`, { section: "/moder", who, style: WHO_CHIP_STYLE });
 }
 
 /** Every decision on the list wears the laurel: a decision is valid when it is taken - whether the minutes have been approved by the whole board is another matter, and never
