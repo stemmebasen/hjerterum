@@ -35,6 +35,7 @@ import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTe
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
+import { markPrDone, prWishes, setPrWishes } from "./prWishes.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -779,7 +780,21 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       fejl: "Saga kunne ikke lave et udkast lige nu. Prøv igen om lidt.", kasseret: "Udkastet er kasseret." };
     const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
     const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
-    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk }));
+    const wishes = await prWishes(db, coming.map(e => e.id));
+    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk, pr: { wishes } }));
+  }
+  // Gitta's PR wishes on the coming events (prWishes.ts).
+  if (path === "/arrangementer/pr" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    await setPrWishes(db, String(form?.get("event") ?? "").slice(0, 120), who, (form?.getAll("kind") ?? []).map(String), String(form?.get("note") ?? ""), now);
+    return redirect(`${base}/arrangementer#pr`);
+  }
+  if (path === "/arrangementer/pr/lavet" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const form = await request.formData().catch(() => null);
+    await markPrDone(db, String(form?.get("event") ?? "").slice(0, 120), String(form?.get("kind") ?? ""), who, form?.get("done") === "1", now);
+    return redirect(`${base}/arrangementer#pr`);
   }
 
   // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).

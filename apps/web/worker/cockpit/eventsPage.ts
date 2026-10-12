@@ -1,6 +1,7 @@
 import type { EventStats, HouseEvent } from "./events.js";
 import { esc, fold, layout, SHOWN } from "./page.js";
 import { DESK_STYLE } from "./eventDesk.js";
+import { PR_STYLE, prPicker, prWishList, type PrWish } from "./prWishes.js";
 
 /** Hjerterum's events in the cockpit: what is coming, the history since 2019, and a search. */
 
@@ -18,23 +19,24 @@ const STYLE = `
 .ev-bars{display:grid;gap:6px}.ev-bar{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center;font-size:13px}.ev-bar i{display:block;height:14px;border-radius:0 4px 4px 0;background:var(--accent);min-width:2px}
 .ev-bar span:last-child{text-align:right;color:var(--muted)}form.search{display:flex;gap:8px;flex-wrap:wrap}form.search input{flex:1 1 220px}form.search select{flex:0 0 120px}`;
 
-const card = (e: HouseEvent) => `<article class="ev-card">${e.image_url && IMAGE_HOST.test(e.image_url) ? `<img src="${esc(e.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
+const card = (e: HouseEvent, pr = "") => `<article class="ev-card">${e.image_url && IMAGE_HOST.test(e.image_url) ? `<img src="${esc(e.image_url)}" alt="" loading="lazy" onerror="this.remove()">` : ""}
 <div><span class="small muted">${esc(when(e))}</span><strong>${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}</strong>
-${e.host ? `<span class="small">${esc(e.host)}</span>` : ""}${e.category ? `<span class="small muted">${esc(e.category)}</span>` : ""}</div></article>`;
+${e.host ? `<span class="small">${esc(e.host)}</span>` : ""}${e.category ? `<span class="small muted">${esc(e.category)}</span>` : ""}${pr}</div></article>`;
 
 const line = (e: HouseEvent) => `<li><span class="small muted">${esc(when(e))}${e.category ? ` · ${esc(e.category)}` : ""}</span>
 <span class="${e.removed_at_ms ? "ev-gone" : ""}">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a>` : esc(e.title)}${e.host ? ` · ${esc(e.host)}` : ""}</span>
 ${e.removed_at_ms ? `<span class="small muted">Fjernet fra kalenderen</span>` : ""}</li>`;
 
 export function eventsPage(base: string, data: { stats: EventStats; coming: HouseEvent[]; recent: HouseEvent[]; results: HouseEvent[] | null; query: string; year: number | null;
-  thisYear: number; syncing: boolean; who: string | null; desk?: string }): string {
+  thisYear: number; syncing: boolean; who: string | null; desk?: string; pr?: { wishes: Map<string, PrWish[]> } }): string {
+  const withPr = (e: HouseEvent) => card(e, data.pr ? prPicker(base, e.id, data.pr.wishes.get(e.id) ?? [], data.who) : "");
   const s = data.stats, count = (y: number) => s.byYear.find(b => b.year === String(y))?.n ?? 0, max = Math.max(1, ...s.byYear.map(b => b.n));
   const years = s.byYear.map(b => Number(b.year)).filter(Boolean).sort((a, b) => b - a);
   const search = `<form class="search" method="get" action="${base}/arrangementer"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg fx yoga, lydhealing, et navn" aria-label="Søg i arrangementer">
 <select name="aar" aria-label="År"><option value="">Alle år</option>${years.map(y => `<option${y === data.year ? " selected" : ""}>${y}</option>`).join("")}</select><button>Søg</button></form>`;
   const results = data.results ? `<div class="card"><h2>${data.results.length === 100 ? "Over 100" : data.results.length} arrangement${data.results.length === 1 ? "" : "er"}${data.query ? ` med "${esc(data.query)}"` : ""}${data.year ? ` i ${data.year}` : ""}</h2>
 ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join("")}</ul>` : `<p class="muted">Ingen arrangementer fundet.</p>`}</div>` : "";
-  const overview = data.results ? "" : `<h2 style="margin:8px 0 0">Kommende</h2>${data.coming.length ? `<div class="ev-cards">${data.coming.slice(0, SHOWN).map(card).join("")}</div>${data.coming.length > SHOWN ? fold("Klik her for at se alle kommende arrangementer", "Skjul de senere arrangementer", `<div class="ev-cards">${data.coming.slice(SHOWN).map(card).join("")}</div>`, data.coming.length - SHOWN) : ""}` : `<p class="muted">Ingen kommende arrangementer i kalenderen.</p>`}
+  const overview = data.results ? "" : `<h2 style="margin:8px 0 0">Kommende</h2>${data.coming.length ? `<div class="ev-cards">${data.coming.slice(0, SHOWN).map(withPr).join("")}</div>${data.coming.length > SHOWN ? fold("Klik her for at se alle kommende arrangementer", "Skjul de senere arrangementer", `<div class="ev-cards">${data.coming.slice(SHOWN).map(withPr).join("")}</div>`, data.coming.length - SHOWN) : ""}` : `<p class="muted">Ingen kommende arrangementer i kalenderen.</p>`}
 <div class="grid"><div class="card"><h2>Events pr. år</h2><div class="ev-bars" role="img" aria-label="Antal arrangementer pr. år">${s.byYear.map(b => `<div class="ev-bar"><span>${esc(b.year)}</span><i style="width:${Math.round(b.n / max * 100)}%"></i><span>${b.n}${Number(b.year) === data.thisYear ? "*" : ""}</span></div>`).join("")}</div>
 <p class="small muted">* indtil nu, inkl. planlagte.</p></div>
 <div class="card"><h2>Mest aktive det seneste år</h2>${s.hosts.length ? `<table>${s.hosts.slice(0, SHOWN).map(h => `<tr><td>${esc(h.host)}</td><td style="text-align:right">${h.n}</td></tr>`).join("")}</table>${s.hosts.length > SHOWN ? fold("Klik her for at se flere", "Skjul de øvrige", `<table>${s.hosts.slice(SHOWN).map(h => `<tr><td>${esc(h.host)}</td><td style="text-align:right">${h.n}</td></tr>`).join("")}</table>`, s.hosts.length - SHOWN) : ""}` : `<p class="muted small">Underviserne står ikke i kalenderen.</p>`}
@@ -43,5 +45,5 @@ ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join
   return layout(base, "Events", `<main><h1>Events</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>
-<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a></p>${data.desk ?? ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE });
+<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a></p>${data.desk ?? ""}${data.pr && !data.results ? prWishList(base, data.coming, data.pr.wishes, data.who) : ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE + PR_STYLE });
 }

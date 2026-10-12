@@ -720,3 +720,7 @@ Still open:
 - "Til mødet" (eller afkrydset ved oprettelsen) sætter opslaget på næste teammødes dagsorden som spørgerens eget punkt ("… (fra opslagstavlen, ønsket af X)"); er der intet teammøde planlagt, kommer det på, så snart der er et (Sagas runde). Kun det, der sendes til mødet, kommer på dagsordenen.
 - Saga kender de åbne opslag (bestyrelsens "Spørg Saga").
 - Menuen på computer: Overblik · Opgaver · Møder · Opslag · Beslutninger · …; på telefonen nås Opslag fra Overblik ("+ Nyt opslag" og "Dine opgaver").
+## PR-ønsker på events (2026-10-12)
+
+- Gittas forslag: "Vælge/klikke på et event, have en lille dropdown menu om hvad man godt kunne tænke sig der blev lavet: story, reel, karrusel, andet? Bare en hurtig måde for jer og mig at se hvad I gerne vil have delt/opmærksomhed på."
+- Admin → Events: hvert kommende event har "PR-ønske" (Story · Reel · Karrusel · Andet med et kort "hvad?"). Hver i bestyrelsen krydser sine egne af; kortet viser, hvem der har ønsket hvad. Kortet "PR-ønsker" øverst samler ønskerne for de kommende events, tidligste først, og hvert ønske kan markeres "Lavet" (og fortrydes). Tabel `event_pr_wishes` (migration 0066), `cockpit/prWishes.ts`. Erstatter idéen om at "vinge af til særlig PR".
