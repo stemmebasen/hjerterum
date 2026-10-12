@@ -140,7 +140,7 @@ export function homePage(base: string, data: HomeData): string {
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
-${data.who ? `<span class="propose-row"><a class="button propose-btn" href="${base}/beslutninger#nyt">+ Stil et forslag</a><a class="button ghost propose-btn" href="${base}/opslag">+ Nyt opslag</a></span>` : ""}${lysArt("mini")}</section>`;
+${data.who ? `<span class="propose-row"><a class="button propose-btn" href="${base}/opslag?ny=1#nyt">+ Nyt opslag</a></span>` : ""}${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
   // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
@@ -164,7 +164,7 @@ ${data.toSign.length ? `<a class="tile hot" href="${base}/referat/${data.toSign[
   const yours = `<article class="panel" id="dine-opgaver"><header><h2>Dine opgaver</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="plain">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
-<a class="more" href="${base}/beslutninger#nyt">Stil et forslag til afstemning →</a></article>`;
+<a class="more" href="${base}/opslag?art=afstemning#nyt">Stil et forslag til afstemning →</a></article>`;
 
   const m = data.nextTeam !== undefined ? data.nextTeam : data.next;
   // Requested: "On the front page, we don't show any items for the coming meeting, but simply just tell about the meeting": when, where and who leads it - the agenda is on the meeting's page.

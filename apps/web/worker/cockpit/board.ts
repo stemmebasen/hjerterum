@@ -123,18 +123,25 @@ ${!p.for_meeting_by ? `<form method="post" action="${base}/opslag/${p.id}/moede"
 ${p.status === "closed" ? `<p class="outcome">${p.outcome ? `<b>${p.kind === "afklaring" ? "Afklaret" : "Lukket"}:</b> ${esc(p.outcome)}` : "Lukket"} <span class="small muted">· ${esc(first(p.closed_by ?? ""))}</span>${who ? ` <form method="post" action="${base}/opslag/${p.id}/genaabn" class="inline"><button class="linkbtn">Genåbn</button></form>` : ""}</p>` : ""}${actions}</article>`;
 }
 
-export function boardPage(base: string, data: { posts: PostView[]; votes: ProposalView[]; who: string | null; members: string[]; notice: string }): string {
+export function boardPage(base: string, data: { posts: PostView[]; votes: ProposalView[]; who: string | null; members: string[]; notice: string; compose?: "" | "afklaring" | "afstemning" }): string {
   const open = data.posts.filter(p => p.status === "open"), closed = data.posts.filter(p => p.status === "closed");
   const votes = data.votes.filter(v => v.status === "open");
-  const form = data.who ? `<details class="card new-post"${open.length ? "" : " open"}><summary><h2>Nyt opslag</h2></summary><form method="post" action="${base}/opslag" class="stack">
-<div class="kinds"><label class="pick"><input type="radio" name="kind" value="afklaring" checked> <b>Afklaring</b> <span class="muted small">et spørgsmål, de andre svarer på</span></label>
+  // Requested: one way in. A proposal for a vote starts here too; it then lives under Beslutninger.
+  const pick = data.compose === "afstemning" ? "afstemning" : "afklaring";
+  const checked = (kind: string) => kind === pick ? " checked" : "";
+  const form = data.who ? `<details class="card new-post" id="nyt"${open.length && !data.compose ? "" : " open"}><summary><h2>Nyt opslag</h2></summary><form method="post" action="${base}/opslag" class="stack">
+<div class="kinds"><label class="pick"><input type="radio" name="kind" value="afklaring"${checked("afklaring")}> <b>Afklaring</b> <span class="muted small">et spørgsmål, de andre svarer på</span></label>
 <label class="pick"><input type="radio" name="kind" value="orientering"> <b>Til orientering</b> <span class="muted small">noget, de andre skal vide</span></label>
-<a class="pick" href="${base}/beslutninger#ny"><b>Afstemning</b> <span class="muted small">stem digitalt eller på mødet →</span></a></div>
+<label class="pick"><input type="radio" name="kind" value="afstemning"${checked("afstemning")}> <b>Forslag til afstemning</b> <span class="muted small">bestyrelsen stemmer digitalt eller på mødet</span></label></div>
 <label>Overskrift<input name="title" required maxlength="200" placeholder="Fx Skal vi forlænge den gratis prøveperiode?"></label>
 <label>Uddybning (valgfri)<textarea name="text" rows="3" maxlength="4000"></textarea></label>
-<label class="pick"><input type="checkbox" name="moede" value="1"> Tag det også med til næste teammøde</label><div class="actions"><button>Slå op</button></div></form></details>` : `<p class="notice">Vælg hvem du er for at skrive på opslagstavlen.</p>`;
+<label class="pick meet-only"><input type="checkbox" name="moede" value="1"> Tag det også med til næste teammøde</label>
+<div class="vote-only"><label class="pick"><input type="radio" name="mode" value="digital" checked> <b>Digital afstemning</b> <span class="muted small">vedtaget ved flertal</span></label>
+<label class="pick"><input type="radio" name="mode" value="moede"> <b>På næste møde</b> <span class="muted small">Saga sætter det på dagsordenen</span></label>
+<label>Frist for afstemningen<select name="days"><option value="3">3 dage</option><option value="7" selected>7 dage</option><option value="14">14 dage</option></select></label></div>
+<div class="actions"><button>Slå op</button></div></form></details>` : `<p class="notice">Vælg hvem du er for at skrive på opslagstavlen.</p>`;
   const voteList = votes.length ? `<div class="card"><h2>Åbne afstemninger<span class="count">${votes.length}</span></h2><ul class="plain">${votes.map(v => `<li><a href="${base}/beslutninger#p${v.id}">${esc(v.title)}</a> <span class="small muted">${v.mode === "moede" ? "stemmes om på mødet" : `${v.ballots.length} af ${v.members} har stemt`}${data.who && v.mode === "digital" && !v.ballots.some(b => b.voter === data.who) ? " · mangler din stemme" : ""}</span></li>`).join("")}</ul></div>` : "";
-  return layout(base, "Opslag", `<main class="board"><h1>Opslagstavlen</h1><p class="muted">Tag et emne op eller få noget afklaret uden at vente på et møde. Kun det, I sender "Til mødet", kommer på dagsordenen.</p>
+  return layout(base, "Opslagstavle", `<main class="board"><h1>Opslagstavlen</h1><p class="muted">Tag et emne op, få noget afklaret eller stil et forslag til afstemning uden at vente på et møde. Kun det, I sender "Til mødet", kommer på dagsordenen.</p>
 ${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}${form}${voteList}
 <h2>Åbne opslag${open.length ? `<span class="count">${open.length}</span>` : ""}</h2>${open.length ? open.map(p => postCard(base, p, data.who, data.members)).join("") : `<p class="muted">Ingen åbne opslag.</p>`}
 ${closed.length ? `<details class="fold"><summary>Lukkede opslag (${closed.length})</summary>${closed.map(p => postCard(base, p, data.who, data.members)).join("")}</details>` : ""}</main>`, { section: "/opslag", who: data.who, style: BOARD_STYLE });
@@ -149,4 +156,6 @@ export const BOARD_STYLE = `.board .post{background:var(--card);border:1px solid
 .board details.close summary::-webkit-details-marker{display:none}.board details.close[open] form{margin-top:8px}
 .board form.reply{display:flex;gap:8px}.board form.reply input{flex:1;min-width:0}.board .outcome{font-size:14px}.board form.inline{display:inline}
 .board .new-post summary{list-style:none;cursor:pointer}.board .new-post summary::-webkit-details-marker{display:none}.board .new-post summary h2{margin:0}
+.board .kinds,.board .vote-only{display:grid;gap:6px}.board .vote-only{display:none}
+.board form:has(input[value=afstemning]:checked) .vote-only{display:grid}.board form:has(input[value=afstemning]:checked) .meet-only{display:none}
 .board .kinds{display:grid;gap:6px}.board .kinds .pick{display:flex;gap:8px;align-items:baseline;text-decoration:none;color:inherit}`;

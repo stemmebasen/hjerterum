@@ -663,11 +663,18 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     const NOTICE: Record<string, string> = { ny: "Opslaget er sat op. De andre har det på deres liste.", moede: "Sat på dagsordenen til næste teammøde.", vent: "Det kommer på dagsordenen, så snart næste teammøde er planlagt.",
       lukket: "Opslaget er lukket.", aaben: "Opslaget er åbnet igen.", svar: "Dit svar er skrevet.", set: "Noteret, at du har set det." };
     const [posts, list] = await Promise.all([boardPosts(db, now), proposals(db, now).catch(() => [])]);
-    return html(boardPage(base, { posts, votes: list, who, members: members.names, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "" }));
+    return html(boardPage(base, { posts, votes: list, who, members: members.names, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "",
+      compose: url.searchParams.get("art") === "afstemning" ? "afstemning" : url.searchParams.has("ny") ? "afklaring" : "" }));
   }
   if (path === "/opslag" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
+    if (String(form?.get("kind") ?? "") === "afstemning") {
+      const mode = String(form?.get("mode") ?? "digital") === "moede" ? "moede" : "digital";
+      const voteId = await createProposal(db, { title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), days: Number(form?.get("days") ?? 7), who,
+        members: Math.max(members.names.length, 1), mode }, now);
+      return redirect(voteId ? `${base}/beslutninger?besked=${mode === "moede" ? "nymoede" : "ny"}#p${voteId}` : `${base}/opslag?art=afstemning`);
+    }
     const id = await createPost(db, { kind: String(form?.get("kind") ?? ""), title: String(form?.get("title") ?? ""), text: String(form?.get("text") ?? ""), who, forMeeting: form?.get("moede") === "1" }, now);
     return redirect(`${base}/opslag${id ? `?besked=ny#o${id}` : ""}`);
   }
