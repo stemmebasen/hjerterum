@@ -711,3 +711,8 @@ Still open:
 
 - "Det giver ikke mening, at hele halvdelen af skærmen bruges til et referat, der selvfølgelig ikke er lavet, fordi man er ved at planlægge et møde": et kommende møde uden referat viser kun dagsordenen (i fuld bredde, højst 860 px). Referatkortet kommer, når mødet er holdt, eller et referat er på vej.
 - "Saga [har] ikke inkluderet mit forslag i Telegram-gruppen om at drøfte rabat til Hjerteland. Er det ikke meningen, at hun skal fange det?": en besked i gruppen, der beder om noget på dagsordenen ("Lad os få det på dagsorden", "tag det op på næste møde", "drøfte … på næste møde"), sættes på næste teammøde som spørgerens eget punkt ("… (ønsket af Jacob)") - ikke som et af Sagas forslag, og uden at tælle med i hendes fem. Kun de beskeder koster et AI-kald (mellemmodellen, én linje), og hver besked kun én gang (`cockpit/agenda.ts` `agendaRequests`, i Sagas runde).
+
+## PR-ønsker på events (2026-10-12)
+
+- Gittas forslag: "Vælge/klikke på et event, have en lille dropdown menu om hvad man godt kunne tænke sig der blev lavet: story, reel, karrusel, andet? Bare en hurtig måde for jer og mig at se hvad I gerne vil have delt/opmærksomhed på."
+- Admin → Events: hvert kommende event har "PR-ønske" (Story · Reel · Karrusel · Andet med et kort "hvad?"). Hver i bestyrelsen krydser sine egne af; kortet viser, hvem der har ønsket hvad. Kortet "PR-ønsker" øverst samler ønskerne for de kommende events, tidligste først, og hvert ønske kan markeres "Lavet" (og fortrydes). Tabel `event_pr_wishes` (migration 0066), `cockpit/prWishes.ts`. Erstatter idéen om at "vinge af til særlig PR".

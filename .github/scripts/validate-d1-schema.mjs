@@ -16,7 +16,7 @@ function runWrangler(args, { expectFailure = false, json = false } = {}) {
   const result = spawnSync(
     "pnpm",
     ["exec", "wrangler", ...args, "--config", config],
-    { cwd: app, encoding: "utf8" }
+    { cwd: app, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
   );
 
   if (expectFailure) {
