@@ -24,7 +24,7 @@ import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { assignMail, enquiries, LABELS, notCritical, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
+import { assignMail, enquiries, LABELS, markImportant, notCritical, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { englishLater, suggestForTeamMeeting } from "./agenda.js";
@@ -481,6 +481,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const form = await request.formData().catch(() => null);
     const id = Number(form?.get("id"));
     if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
+    return redirect(`${base}/posthus`);
+  }
+  if (path === "/posthus/vigtig" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number((await request.formData().catch(() => null))?.get("id"));
+    if (Number.isSafeInteger(id) && id > 0) await markImportant(db, id);
     return redirect(`${base}/posthus`);
   }
   if (path === "/posthus/ikke-kritisk" && request.method === "POST") {

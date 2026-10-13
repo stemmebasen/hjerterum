@@ -59,7 +59,8 @@ describe("critical mail", () => {
     expect(await tellChairAboutUrgentMail({ ...env, SAGA_OWNER_TELEGRAM_ID: "" }, deps(services.fetcher, NOW), db)).toBe(0);
   });
 
-  it("scans once an hour on weekdays, not at the weekend", async () => {
+  // Asked: "How often is the email checked? Maybe that's why." - sorted in the same ten-minute round as team@ is read, every day.
+  it("sorts new mail every ten minutes, also at the weekend, and only calls Saga when there is new mail", async () => {
     const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: false })));
     await mail("m1", "Hej");
     const claimed = new Set<string>();
@@ -69,15 +70,17 @@ describe("critical mail", () => {
     const first = AI();
     expect(first).toBeGreaterThan(0);
     await mail("m2", "Hej igen");
-    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 20 * 60_000), db, claim); // the same hour
+    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 5 * 60_000), db, claim); // the same ten minutes
     expect(AI()).toBe(first);
-    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 61 * 60_000), db, claim); // the next hour
+    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 11 * 60_000), db, claim); // the next round
     expect(AI()).toBeGreaterThan(first);
+    const after = AI();
+    await scheduledEnquiryScan(env, deps(services.fetcher, NOW + 31 * 60_000), db, claim); // nothing new: no call
+    expect(AI()).toBe(after);
     const saturday = Date.parse("2026-10-10T10:00:00Z");
-    const before = AI();
-    await mail("m3", "Lørdag");
+    await mail("m3", "Lørdag", "Bo <bo@example.com>", saturday - 60_000);
     await scheduledEnquiryScan(env, deps(services.fetcher, saturday), db, claim);
-    expect(AI()).toBe(before);
+    expect(AI()).toBeGreaterThan(after);
   });
 
   // Reported (Douglas): "9 long emails from Mailchimp that were activated because I was helping Gitta with the newsletter. They can be ignored" -
