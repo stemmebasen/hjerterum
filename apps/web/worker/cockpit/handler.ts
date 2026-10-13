@@ -45,6 +45,7 @@ import { claimJob, markOwnerDone, serviceStatus } from "../saga/store.js";
 import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } from "../saga/teamMail.js";
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
+import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -83,9 +84,16 @@ const redirect = (location: string, cookies: string[] = []) => {
 /** Requested: "Douglas taler engelsk" - "Ja byg det sådan". A member who reads in English gets every page translated
  * (cockpit/i18n.ts); the route below says which language the member has chosen. */
 export async function handleCockpitRequest(request: Request, env: SagaEnv, deps: SagaDeps): Promise<Response> {
-  const state: { lang: Lang } = { lang: "da" };
-  const response = await route(request, env, deps, state);
-  if (state.lang !== "en" || !(response.headers.get("content-type") ?? "").startsWith("text/html")) return response;
+  const state: State = { lang: "da" };
+  let response = await route(request, env, deps, state);
+  const isHtml = (response.headers.get("content-type") ?? "").startsWith("text/html");
+  // The reminder to approve minutes: a coloured bar right under the header, on every page (signReminder.ts).
+  if (state.banner && isHtml && response.status === 200) {
+    const body = await response.text();
+    const at = body.indexOf("</header>");
+    response = new Response(at < 0 ? body : `${body.slice(0, at + 9)}${SIGN_STYLE}${state.banner}${body.slice(at + 9)}`, { status: response.status, headers: response.headers });
+  }
+  if (state.lang !== "en" || !isHtml) return response;
   const page = await response.text();
   // Requested: "I think that overview, tasks, and decisions should be automatically translated".
   const url = new URL(request.url);
@@ -97,7 +105,9 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   return new Response(translateHtml(page), { status: response.status, headers: response.headers });
 }
 
-async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { lang: Lang }): Promise<Response> {
+type State = { lang: Lang; banner?: string };
+
+async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: State): Promise<Response> {
   const url = new URL(request.url);
   const base = isCockpitHost(url.hostname) ? "" : "/cockpit";
   // An old /cockpit/… link on the cockpit's own address goes to the same page without the prefix.
@@ -183,6 +193,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
   const who = personal ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);
+  // Not on a minutes' own page, where the approval stands at the top.
+  if (who && !path.startsWith("/referat/") && request.method === "GET") state.banner = signReminder(base, await unsignedFor(db, who, now).catch(() => []), now);
 
   if (path === "/hvem") {
     // Requested: "Once you have logged in, you can't change to another person." Chosen once; only logging out undoes it.
