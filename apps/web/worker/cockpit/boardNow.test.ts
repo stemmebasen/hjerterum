@@ -71,30 +71,56 @@ describe("Bestyrelsen lige nu", () => {
     expect((await latestBoardNow(db))?.text).toContain("Gitta vil rykke julefesten");
   });
 
-  // Requested: "Bestyrelsen lige nu skal være max en gang om dagen".
-  it("writes 'lige nu' every weekday morning from seven, once, even when something new comes in later that day", async () => {
+  // Requested: "Hvorfor opdateres Bestyrelsen lige nu ikke?" - "2": from 07, 12 and 17 on weekdays, and a time with nothing new is looked at again every hour.
+  it("writes 'lige nu' from seven, twelve and five on weekdays, and looks again every hour while nothing is new", async () => {
     const db = testDatabase();
-    const morning = Date.parse("2026-10-08T06:00:00Z"); // 08:00 on a Thursday in Copenhagen
-    await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Gitta", authorId: "202", text: "Første", sentAtMs: morning - HOUR, fromAssistant: false });
+    const at = (local: string) => Date.parse(`2026-10-${local}:00+02:00`);
+    const say = (id: number, when: number) => saveBoardMessage(db, { chatId: BOARD, messageId: id, author: "Gitta", authorId: "202", text: `Besked ${id}`, sentAtMs: when, fromAssistant: false });
     let calls = 0;
     const ai = fakeServices({ ai: () => { calls++; return "Gitta har skrevet."; } });
     const claimed = new Set<string>();
     const claim = async (key: string, slot: number) => { const k = `${key}:${slot}`; if (claimed.has(k)) return false; claimed.add(k); return true; };
-    const run = (at: number) => scheduledBoardNow(sagaEnv(db), deps(ai.fetcher, at), db, claim);
-    await run(morning);
+    const run = (when: number) => scheduledBoardNow(sagaEnv(db), deps(ai.fetcher, when), db, claim);
+    await say(1, at("08T06:30"));
+    await run(at("08T06:59"));
+    expect(calls).toBe(0);
+    await run(at("08T07:00"));
     expect(calls).toBe(1);
-    await saveBoardMessage(db, { chatId: BOARD, messageId: 2, author: "Lisbeth", authorId: "201", text: "Ny", sentAtMs: morning + 2 * HOUR, fromAssistant: false });
-    await run(morning + 3 * HOUR);
-    await run(morning + 9 * HOUR);
+    // New at 10, but the morning is done: the next one is at twelve.
+    await say(2, at("08T10:00"));
+    await run(at("08T11:50"));
     expect(calls).toBe(1);
-    // The next morning, from seven - not before (06:59), and not at the weekend.
-    await run(Date.parse("2026-10-09T04:59:00Z"));
-    expect(calls).toBe(1);
-    await run(Date.parse("2026-10-09T05:00:00Z"));
+    await run(at("08T12:05"));
+    await run(at("08T12:35"));
     expect(calls).toBe(2);
-    await saveBoardMessage(db, { chatId: BOARD, messageId: 3, author: "Douglas", authorId: "203", text: "Weekend", sentAtMs: Date.parse("2026-10-10T05:30:00Z"), fromAssistant: false });
-    await run(Date.parse("2026-10-10T06:00:00Z"));
+    // Nothing new at five: no call - Saga looks again each hour and writes once something comes in.
+    await run(at("08T17:00"));
+    await run(at("08T18:00"));
     expect(calls).toBe(2);
+    await say(3, at("08T18:30"));
+    await run(at("08T18:40"));
+    expect(calls).toBe(2);
+    await run(at("08T19:00"));
+    expect(calls).toBe(3);
+    // Not after 22: what came in late is written the next morning.
+    await say(4, at("08T21:45"));
+    await run(at("08T22:10"));
+    expect(calls).toBe(3);
+    await run(at("09T07:00"));
+    expect(calls).toBe(4);
+    // The weekend: nothing.
+    await say(5, at("10T09:00"));
+    await run(at("10T12:00"));
+    expect(calls).toBe(4);
+    // Monday: the weekend's news at seven; then a quiet noon is not lost - what comes at 13:30 is written at 14.
+    await run(at("12T07:00"));
+    expect(calls).toBe(5);
+    await run(at("12T12:00"));
+    await run(at("12T13:00"));
+    expect(calls).toBe(5);
+    await say(6, at("12T13:30"));
+    await run(at("12T14:00"));
+    expect(calls).toBe(6);
   });
 
   it("shows the points on the front page, with a way on to Status", () => {
