@@ -371,10 +371,11 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 /* Requested: "Have a look at this PDF ... make our web design a little bit more like it. Especially this header picture" - the front page
    opens like the monthly newsletter: a warm panel, three of the month's photos, a camel stripe, "Oktober / i Hjerterum" (month-hero.tsx). */
 :root { --lys-camel: #c9976f; }
-.month-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) 22px; background: var(--lys-soft); margin: clamp(20px, 4vh, 40px) 0 8px; min-height: 420px; }
+.month-hero { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr) 22px; background: var(--lys-soft); margin: clamp(20px, 4vh, 40px) 0 8px; min-height: 420px; }
 .month-photos { display: grid; gap: 10px; padding: 24px 0 24px 36px; align-content: center; }
 .month-photos a { display: block; }
-.month-photos img { width: 100%; height: 172px; object-fit: cover; display: block; }
+/* Requested: "It doesn't look like you can see the whole of the event photos" - each photo whole, in its own proportions (many carry text). */
+.month-photos img { width: 100%; height: auto; display: block; }
 .month-text { padding: 52px 52px 46px 60px; display: flex; flex-direction: column; justify-content: center; }
 .month-hero:not(:has(.month-photos)) .month-text { grid-column: 1 / 3; }
 .month-kicker { margin: 0; font: 700 12px/1 var(--lys-sans); letter-spacing: .32em; text-transform: uppercase; color: var(--lys-ink); }
@@ -400,7 +401,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .month-hero { grid-template-columns: minmax(0, 1fr) 12px; min-height: 0; margin-top: 12px; }
   .month-text { grid-column: 1; grid-row: 1; padding: 34px 22px 8px; }
   .month-photos { grid-column: 1; grid-row: 2; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 18px 22px 24px; }
-  .month-photos img { height: 92px; }
+  .month-photos { align-items: center; }
   .month-stripe { grid-column: 2; grid-row: 1 / 3; }
   .month-title { font-size: 72px; margin-top: 20px; }
   .month-note { font-size: 19px; }
