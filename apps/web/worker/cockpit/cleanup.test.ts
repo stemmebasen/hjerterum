@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { applyOpenSuggestions, cleanupCard, cleanupForChair, decideCleanup, runCleanup, scheduledCleanup } from "./cleanup.js";
-import { addTodo } from "./data.js";
+import { addTodo, boardPicture } from "./data.js";
 import { createPost } from "./board.js";
-import { claimJob, insertMail, saveBoardMessage } from "../saga/store.js";
-import { BOARD, deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
+import { claimJob, insertMail, saveBoardMessage, saveOverview } from "../saga/store.js";
+import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
 
 // Requested: "I would like to add an intelligent and clever AI call once per day that looks through it all and tidies up and catches duplets,
 // irrelevant or outdated information and just makes sure the admin is nicely kept." - "Ja".
@@ -73,5 +73,28 @@ describe("Saga's nightly tidy-up", () => {
     await scheduledCleanup(env, deps(services.fetcher, Date.parse("2026-10-15T01:05:00Z")), db, claim);
     await scheduledCleanup(env, deps(services.fetcher, Date.parse("2026-10-15T09:00:00Z")), db, claim);
     expect(calls).toBe(1);
+  });
+
+  // Reported: "Jeg ser stadig dubletter, selvom de er ryddet op. Hvorfor forsvinder de ikke fra min forside?"
+  it("reads the whole of Dine opgaver - Saga's own items too - and takes the duplicate away from there", async () => {
+    const db = testDatabase();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Jacob Hauge", authorId: OWNER, text: "Hej", sentAtMs: NOW - DAY, fromAssistant: false });
+    await saveOverview(db, "Rolig uge.", NOW - DAY, { docHash: "x", data: JSON.stringify({ summary: "Rolig uge.", temperature: null, topics: [],
+      document: { latestMeeting: "", missingMinutes: [], dates: [], figures: [], decisions: [], openThreads: [], proposals: [], tasks: [], nextAgenda: [] },
+      forJacob: [{ kind: "opgave", text: "Kontakt udlejeren om en ny nøgle til salen", source: "telegram", from: "Gitta", since: "", sure: true }], forMembers: [] }) });
+    await addTodo(db, { owner: "Jacob Hauge", text: "Ring til udlejer om nøglen", due: null, createdBy: "Jacob Hauge" }, NOW - 3 * DAY);
+    await addTodo(db, { owner: "Jacob Hauge", text: "Bestil kaffe", due: null, createdBy: "Jacob Hauge" }, NOW - 3 * DAY);
+    let seen = "";
+    const services = fakeServices({ ai: (_s, user) => { seen = user; const ref = /\[(s\d+)\] Sagas punkt til Jacob Hauge: Kontakt udlejeren/.exec(user)?.[1];
+      return JSON.stringify({ items: [{ kind: "dublet", ref, keep: "todo:1", why: "Samme som 'Ring til udlejer om nøglen'" }] }); } });
+    const result = await runCleanup(sagaEnv(db, {}), deps(services.fetcher, NOW), db);
+    expect(result).toEqual({ done: 1, suggested: 0 });
+    expect(seen).toContain("Sagas punkt til Jacob Hauge: Kontakt udlejeren om en ny nøgle til salen");
+    expect((await boardPicture(db, NOW)).picture?.forJacob).toEqual([]);
+    const [action] = await cleanupForChair(db, NOW);
+    expect(cleanupCard("/c", [action!])).toContain("Fra Saga: Kontakt udlejeren om en ny nøgle til salen");
+    // Fortryd brings it back.
+    expect(await decideCleanup(db, action!.id, "fortryd", "Jacob Hauge", NOW + 1000)).toBe(true);
+    expect((await boardPicture(db, NOW)).picture?.forJacob.map(f => f.text)).toEqual(["Kontakt udlejeren om en ny nøgle til salen"]);
   });
 });
