@@ -13,5 +13,6 @@ const commit = (() => {
 
 export default defineConfig({
   plugins: [react(), cloudflare()],
-  define: { __APP_VERSION__: JSON.stringify(version), __APP_COMMIT__: JSON.stringify(commit) }
+  // Requested (the admin's footer, "Hjerterum admin v1.15.0 · 4. okt. 2026"): "this footer should change accordingly" - the day of the build too.
+  define: { __APP_VERSION__: JSON.stringify(version), __APP_COMMIT__: JSON.stringify(commit), __APP_BUILT__: JSON.stringify(new Date().toISOString().slice(0, 10)) }
 });

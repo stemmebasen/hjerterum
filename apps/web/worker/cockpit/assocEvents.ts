@@ -1,0 +1,64 @@
+import type { D1Database } from "../db.js";
+import type { Meeting } from "./data.js";
+import { esc } from "./page.js";
+
+/** Requested: "Når foreningen har arrangementer som teammøder og generalforsamlinger, skal det nævnes på forsiden af admin. Vi har for eksempel
+ * generalforsamling i morgen. Det bør nævnes på forsiden med en flot gradient guldbaggrund." The association's own gatherings of the coming week -
+ * the meetings planned in the admin, and a general assembly or members' meeting in the house's calendar - in a golden card on the front page. */
+export type AssocEvent = { day: string; time: string; title: string; place: string; href: string };
+
+const ZONE = "Europe/Copenhagen";
+const ASSOC = /generalforsamling|teammøde|bestyrelsesmøde|stormøde|informationsmøde|medlemsmøde|årsmøde/i;
+const DAY_OF = new Intl.DateTimeFormat("sv-SE", { timeZone: ZONE });
+const TIME_OF = new Intl.DateTimeFormat("da-DK", { timeZone: ZONE, hour: "2-digit", minute: "2-digit" });
+const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "long" });
+const LONG = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
+const addDays = (iso: string, days: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+
+function meetingTitle(m: Meeting): string {
+  if (m.kind === "team") return "Teammøde";
+  const named = ASSOC.exec(m.agenda ?? "")?.[0];
+  return named ? named.charAt(0).toLocaleUpperCase("da-DK") + named.slice(1).toLocaleLowerCase("da-DK") : m.kind === "andet" ? "Møde i foreningen" : "Teammøde";
+}
+
+export async function associationEvents(db: D1Database, base: string, meetings: Meeting[], today: string, nowMs: number): Promise<AssocEvent[]> {
+  const until = addDays(today, 7);
+  const out: AssocEvent[] = meetings.filter(m => m.meeting_date >= today && m.meeting_date <= until)
+    .map(m => ({ day: m.meeting_date, time: m.start_time ?? "", title: meetingTitle(m), place: m.place ?? "", href: `${base}/moder/${m.id}` }));
+  const house = (await db.prepare("SELECT title, starts_at_ms, location, link FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ? ORDER BY starts_at_ms LIMIT 200")
+    .bind(nowMs - 3 * 3_600_000, nowMs + 8 * 86_400_000).all<{ title: string; starts_at_ms: number; location: string | null; link: string | null }>().catch(() => ({ results: [] }))).results ?? [];
+  for (const e of house) {
+    if (!ASSOC.test(e.title)) continue;
+    const day = DAY_OF.format(e.starts_at_ms);
+    if (day < today || day > until) continue;
+    // The same gathering planned in the admin too is shown once - with what the admin knows.
+    const kind = ASSOC.exec(e.title)![0].toLocaleLowerCase("da-DK");
+    if (out.some(o => o.day === day && o.title.toLocaleLowerCase("da-DK").includes(kind))) continue;
+    out.push({ day, time: TIME_OF.format(e.starts_at_ms).replace(":", "."), title: e.title.trim(), place: e.location ?? "Hjerterum", href: e.link ?? `${base}/arrangementer` });
+  }
+  return out.sort((a, b) => `${a.day} ${a.time}`.localeCompare(`${b.day} ${b.time}`));
+}
+
+const when = (day: string, today: string) => {
+  const date = new Date(`${day}T12:00:00Z`);
+  if (day === today) return "I dag";
+  if (day === addDays(today, 1)) return "I morgen";
+  return `På ${WEEKDAY.format(date)}`;
+};
+
+export function assocCard(events: AssocEvent[], today: string): string {
+  if (!events.length) return "";
+  return `<section class="assoc-card" aria-label="Foreningens arrangementer">${events.map(e => `<a class="assoc" href="${esc(e.href)}">
+<span class="assoc-when">${esc(when(e.day, today))}</span><strong>${esc(e.title)}</strong>
+<span class="assoc-meta">${esc(LONG.format(new Date(`${e.day}T12:00:00Z`)).replace(/^\p{Ll}/u, c => c.toLocaleUpperCase("da-DK")))}${e.time ? ` kl. ${esc(e.time.replace(":", "."))}` : ""}${e.place ? ` · ${esc(e.place)}` : ""}</span></a>`).join("")}</section>`;
+}
+
+export const ASSOC_STYLE = `
+.assoc-card{display:grid;gap:10px;margin:0 0 22px}
+.assoc{display:grid;gap:2px;padding:20px 24px;border-radius:18px;text-decoration:none;color:#3f2c08;
+background:linear-gradient(120deg,#fbf0c9 0%,#f1d88a 38%,#e2b65a 72%,#c99a3b 100%);box-shadow:0 10px 30px -14px rgb(150 105 20 / .55),inset 0 1px 0 rgb(255 255 255 / .55);border:1px solid #d9b25a}
+.assoc:hover{filter:brightness(1.03)}
+.assoc-when{font-size:11.5px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;opacity:.8}
+.assoc strong{font-size:24px;line-height:1.2;font-weight:700}
+.assoc-meta{font-size:14.5px;font-weight:600;opacity:.85}
+@media (prefers-color-scheme:dark){.assoc{color:#fff3d1;background:linear-gradient(120deg,#5c4512 0%,#7f6020 45%,#a07a2c 100%);border-color:#a8822f;box-shadow:0 10px 30px -14px rgb(0 0 0 / .6)}}`;

@@ -116,7 +116,7 @@ export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til 
   + "Sidste linje begynder med \"Temperatur:\" og siger i én sætning, hvordan stemningen er i bestyrelsen og omkring Hjerterum og hvorfor. Er der intet væsentligt, så én linje plus temperaturen.,\n"
   + "\"temperature\": {\"level\": ét ord (fx god, rolig, travl, presset, anspændt), \"why\": én kort sætning},\n"
   + "\"topics\": emnerne i Telegram-gruppen de seneste to uger, vigtigste først, højst 8: [{\"title\": kort emne, \"status\": \"besluttet\" | \"drøftes\" | \"afventer\" | \"på vej\", "
-  + "\"who\": [fornavne på dem der er involveret], \"waitsOnJacob\": true kun når nogen venter på Jacob eller formanden, \"note\": én kort sætning om hvor det står}],\n"
+  + "\"who\": [fornavne på dem der er involveret], \"waitsOnJacob\": true kun når nogen venter på Jacob eller formanden, \"note\": én kort sætning om hvor det står - med det, der er aftalt, og vigtige pejlemærker (en dato, en frist, et beløb), når der er nogen}],\n"
   // Requested, after the board's own minutes were read through: "Kig også gerne i dokumentet og vurder hvad vil være mest
   // hjælpsomt at vise mig". The document holds one meeting after another (newest at the top): an agenda, then "Referat",
   // with "Beslutning:", "Opfølgning:", "Ansvar:", "Aftalt:" and "Næste skridt:" and often a closing "Beslutninger og opfølgning".

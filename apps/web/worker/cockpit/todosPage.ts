@@ -1,4 +1,5 @@
 import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, uniqueTasks, type Task, type Todo } from "./data.js";
+import type { BoardPicture } from "../saga/picture.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 import { postTodo, type PostView } from "./board.js";
@@ -13,6 +14,10 @@ background:color-mix(in srgb,var(--c) 14%,transparent);color:color-mix(in srgb,v
 .who[aria-pressed=true]{background:var(--c);color:#fff}`;
 // Requested: "Dine todos og Skriv en opgave er på samme række og i hver sin kolonne" (.todo-row): the list is the wider column, the form the narrower - one under the other on a narrow screen.
 export const TODOS_STYLE = `
+.moves-h{font-size:15px;margin:18px 0 8px}.moves.topics li{align-items:baseline}.tnote{color:var(--muted)}
+.tstatus{flex:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--ink);margin-right:8px;white-space:nowrap}
+.tstatus.s-besluttet{background:#e6f4ea;color:#1e6b35}.tstatus.s-afventer{background:#fdf3e1;color:#8a5a00}.tstatus.s-på-vej{background:var(--tint);color:var(--accent)}
+
 .todo{display:flex;gap:12px;align-items:flex-start}.todo form{margin:0}.todo .what{flex:1;min-width:0}
 .check{width:26px;height:26px;min-height:26px;padding:0;border-radius:8px;border:2px solid var(--line);background:transparent;color:var(--ink);flex:none;display:grid;place-items:center;font-size:15px;line-height:1}
 .check:hover{border-color:var(--accent-ink);filter:none}.check.done{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -36,6 +41,8 @@ export type TodosData = { who: string; members: string[]; tasks: Task[]; checked
   saga?: Array<{ key: string; kind: string; text: string; source: string; from?: string | null }>;
   /** Requested ("gennemtænkt"): "Hvem har hvad" moves here from Status - everyone's open tasks from the minutes, newest first. */
   everyone?: Task[];
+  /** Requested: "'Hvad bevæger sig' må også gerne inkludere aftaler og vigtige pejlemærker fra Telegram" - the topics of Saga's overview. */
+  topics?: BoardPicture["topics"];
   /** Who checked each task off, and when: shown with a check and the date for seven days, then archived. */
   boardChecks?: Map<string, { by: string; at: number }>; now?: number;
   /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." Gone once voted. */
@@ -149,9 +156,12 @@ ${done.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${
   // Requested: "Hvad bevæger sig viser kun de aktive - resten er også foldet sammen": what is still open stands there; what was checked off in the last seven days and the archive are folded.
   const active = current.filter(t => !checkOf(t)), finished = current.filter(t => checkOf(t));
   const people = [...new Set(everyone.map(t => t.who.trim() || EVERYONE))];
-  const board = everyone.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens åbne opgaver fra referaterne - de nyeste øverst.</p>
+  const STATUS: Record<string, string> = { besluttet: "Aftalt", drøftes: "Drøftes", afventer: "Afventer", "på vej": "På vej" };
+  const topics = (data.topics ?? []).filter(t => t.title);
+  const fromGroup = topics.length ? `<h3 class="moves-h">Fra Telegram-gruppen: aftaler og pejlemærker</h3><ul class="moves topics">${topics.map(t => `<li><span class="tstatus s-${esc(t.status.replace(/\s/g, "-"))}">${esc(STATUS[t.status] ?? t.status)}</span><span><strong>${esc(t.title)}</strong>${t.note ? ` <span class="tnote">${esc(t.note)}</span>` : ""}${t.who.length ? `<span class="when">· ${esc(t.who.join(", "))}</span>` : ""}</span></li>`).join("")}</ul>` : "";
+  const board = everyone.length || topics.length ? `<div class="card"><h2>Hvad bevæger sig</h2><p class="small muted" style="margin-top:-8px">Hele bestyrelsens åbne opgaver fra referaterne - de nyeste øverst - og det, der er aftalt og på vej i Telegram-gruppen.</p>
 ${people.length > 1 ? `<div class="who-filter" role="group" aria-label="Vis kun">${people.map(p => chip(p, "button", ` type="button" aria-pressed="false" data-who="${esc(p)}"`)).join("")}</div>` : ""}
-${active.length ? `<ul class="moves">${active.map(t => move(t)).join("")}</ul>` : `<p class="muted">Intet er i gang lige nu.</p>`}
+${active.length ? `<ul class="moves">${active.map(t => move(t)).join("")}</ul>` : everyone.length ? `<p class="muted">Intet er i gang lige nu.</p>` : ""}${fromGroup}
 ${finished.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${finished.length})</summary><ul class="moves">${finished.map(t => move(t)).join("")}</ul></details>` : ""}
 ${archived.length ? `<details class="done-list"><summary>Arkiv (${archived.length})</summary><ul class="moves">${archived.map(t => move(t)).join("")}</ul></details>` : ""}</div>
 <script>document.querySelectorAll(".who-filter .who").forEach(b=>b.onclick=()=>{const on=b.getAttribute("aria-pressed")!=="true";document.querySelectorAll(".who-filter .who").forEach(x=>x.setAttribute("aria-pressed","false"));

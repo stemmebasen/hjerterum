@@ -22,20 +22,21 @@ describe("Bestyrelsen lige nu", () => {
     expect(await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW + HOUR), db)).toBe(false);
   });
 
-  it("says what is done is done, and keeps it under fifty words", async () => {
+  it("says what is done is done, and keeps it to about seventy words with the details that matter", async () => {
     const db = testDatabase();
     await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Lisbeth", authorId: "201", text: "Hvad med Thomas Emil?", sentAtMs: NOW - HOUR, fromAssistant: false });
     await markOwnerDone(db, "k1", "Svar Thomas Emil om sagen", NOW - 30 * 60_000);
     let input = "", system = "";
-    const ai = fakeServices({ ai: (s, user) => { system = s; input = user; return `- ${Array.from({ length: 80 }, (_, i) => `ord${i}`).join(" ")}`; } });
+    const ai = fakeServices({ ai: (s, user) => { system = s; input = user; return `- ${Array.from({ length: 100 }, (_, i) => `ord${i}`).join(" ")}`; } });
     await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW), db);
-    expect(system).toContain("Højst 45 ord");
+    expect(system).toContain("Højst 70 ord");
+    expect(system).toContain("med de vigtige detaljer");
     expect(system).toContain("i entréen: varmt, venligt og let");
     expect(system).toContain("Det, der står under KLARET, er klaret");
     expect(input).toContain("KLARET");
     expect(input).toContain("Svar Thomas Emil om sagen");
     const text = (await latestBoardNow(db))!.text;
-    expect(text.split(" ").length).toBe(51);
+    expect(text.split(" ").length).toBe(76);
     expect(text.startsWith("ord0")).toBe(true);
   });
 
