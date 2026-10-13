@@ -8,7 +8,9 @@ import { esc } from "./page.js";
 export type AssocEvent = { key: string; day: string; time: string; title: string; place: string; href: string };
 
 const ZONE = "Europe/Copenhagen";
-const ASSOC = /generalforsamling|teammøde|bestyrelsesmøde|stormøde|informationsmøde|medlemsmøde|årsmøde/i;
+/** Reported: "You have now put in a gold frame for our team meeting. What I meant was the generalforsamling. The normal team meeting is just in
+ * the normal regular box." The gold card is for the association's own big gatherings - not the board's team meetings. */
+const ASSOC = /generalforsamling|stormøde|informationsmøde|medlemsmøde|årsmøde/i;
 const DAY_OF = new Intl.DateTimeFormat("sv-SE", { timeZone: ZONE });
 const TIME_OF = new Intl.DateTimeFormat("da-DK", { timeZone: ZONE, hour: "2-digit", minute: "2-digit" });
 const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "long" });
@@ -16,14 +18,14 @@ const LONG = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "long"
 const addDays = (iso: string, days: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 function meetingTitle(m: Meeting): string {
-  if (m.kind === "team") return "Teammøde";
   const named = ASSOC.exec(m.agenda ?? "")?.[0];
-  return named ? named.charAt(0).toLocaleUpperCase("da-DK") + named.slice(1).toLocaleLowerCase("da-DK") : m.kind === "andet" ? "Møde i foreningen" : "Teammøde";
+  return named ? named.charAt(0).toLocaleUpperCase("da-DK") + named.slice(1).toLocaleLowerCase("da-DK") : "Møde i foreningen";
 }
 
 export async function associationEvents(db: D1Database, base: string, meetings: Meeting[], today: string, nowMs: number): Promise<AssocEvent[]> {
   const until = addDays(today, 7);
-  const out: AssocEvent[] = meetings.filter(m => m.meeting_date >= today && m.meeting_date <= until)
+  // A meeting in Møder is in the gold card only when it is said to be something else than a team meeting (a general assembly, an info meeting ...).
+  const out: AssocEvent[] = meetings.filter(m => m.kind === "andet" && m.meeting_date >= today && m.meeting_date <= until)
     .map(m => ({ key: `moede:${m.id}`, day: m.meeting_date, time: m.start_time ?? "", title: meetingTitle(m), place: m.place ?? "", href: `${base}/moder/${m.id}` }));
   const house = (await db.prepare("SELECT id, title, starts_at_ms, location, link FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ? ORDER BY starts_at_ms LIMIT 200")
     .bind(nowMs - 3 * 3_600_000, nowMs + 8 * 86_400_000).all<{ id: string; title: string; starts_at_ms: number; location: string | null; link: string | null }>().catch(() => ({ results: [] }))).results ?? [];
@@ -66,6 +68,13 @@ export async function toggleRsvp(db: D1Database, key: string, member: string, no
 
 const first = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 
+/** "Jeg kommer" outside the gold card - in the regular box of the next team meeting. */
+export function rsvpLine(base: string, key: string, who: string | null, coming: string[]): string {
+  const mine = Boolean(who && coming.includes(who));
+  return `<div class="rsvp-line">${who ? `<form method="post" action="${base}/kommer"><input type="hidden" name="key" value="${esc(key)}"><button class="rsvp-plain${mine ? " is-coming" : ""}" aria-pressed="${mine}">${mine ? "✓ Du kommer" : "Jeg kommer"}</button></form>` : ""}
+<span class="small muted">${coming.length ? `Kommer: ${esc(coming.map(first).join(", "))} (${coming.length})` : "Ingen har meldt sig endnu"}</span></div>`;
+}
+
 export function assocCard(events: AssocEvent[], today: string, rsvp: { base: string; who: string | null; coming: Map<string, string[]> } = { base: "", who: null, coming: new Map() }): string {
   if (!events.length) return "";
   return `<section class="assoc-card" aria-label="Foreningens arrangementer">${events.map(e => {
@@ -80,6 +89,9 @@ ${coming.length ? `<span class="assoc-who">Kommer: ${esc(coming.map(first).join(
 }
 
 export const ASSOC_STYLE = `
+.rsvp-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:12px 0 0}.rsvp-line form{margin:0}
+.rsvp-plain{padding:7px 16px;min-height:0;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.rsvp-plain.is-coming{border-color:var(--accent);color:var(--accent)}
 .assoc-card{display:grid;gap:10px;margin:0 0 22px}
 .assoc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 18px;align-items:center;padding:20px 24px;border-radius:18px;text-decoration:none;color:#3f2c08;
 background:linear-gradient(120deg,#fbf0c9 0%,#f1d88a 38%,#e2b65a 72%,#c99a3b 100%);box-shadow:0 10px 30px -14px rgb(150 105 20 / .55),inset 0 1px 0 rgb(255 255 255 / .55);border:1px solid #d9b25a}
