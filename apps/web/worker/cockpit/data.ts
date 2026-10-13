@@ -593,3 +593,23 @@ export async function openFor(db: D1Database, owner: string, tasks: Task[]): Pro
   const [checked, todos] = await Promise.all([checkedTasks(db, owner), todosFor(db, owner)]);
   return { tasks: currentTasks(tasksFor(owner, tasks)).filter(task => !checked.has(taskKey(task))), todos: currentTodos(todos).filter(t => t.done_at_ms === null) };
 }
+
+/** Reported (Douglas): "Reply to: Thumbs up to sending the event email as it is, or should the list be changed ..." - "it doesn't send
+ * me to somewhere where there are two options to choose between". A question from the group links to it in Telegram (the asker's
+ * latest question there, or else the group's newest message); one from team@ to Posthuset. */
+export async function answerLinks<T extends { source: string; from?: string | null }>(env: SagaEnv, db: D1Database, items: T[], base: string, nowMs: number): Promise<Array<T & { link?: string }>> {
+  const chat = env.SAGA_BOARD_CHAT_ID ?? "";
+  const group = telegramLink(chat) !== null;
+  const out: Array<T & { link?: string }> = [];
+  for (const item of items) {
+    if (item.source === "mail") { out.push({ ...item, link: `${base}/posthus` }); continue; }
+    if (item.source !== "telegram" || !group) { out.push(item); continue; }
+    const asker = (item.from ?? "").trim().split(/\s+/)[0] ?? "";
+    const row = (asker ? await db.prepare(`SELECT telegram_message_id AS id FROM board_messages WHERE chat_id = ? AND from_assistant = 0 AND sent_at_ms >= ?
+      AND (author_name = ? OR author_name LIKE ? || ' %') AND text LIKE '%?%' ORDER BY sent_at_ms DESC LIMIT 1`).bind(chat, nowMs - 21 * 86_400_000, asker, asker).first<{ id: number }>().catch(() => null) : null)
+      ?? await db.prepare("SELECT MAX(telegram_message_id) AS id FROM board_messages WHERE chat_id = ?").bind(chat).first<{ id: number | null }>().catch(() => null);
+    const link = telegramLink(chat, row?.id);
+    out.push(row?.id && link ? { ...item, link } : item);
+  }
+  return out;
+}

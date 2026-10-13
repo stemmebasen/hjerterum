@@ -13,7 +13,7 @@ import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsor
 import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, tasksFor, unsignedFor, weeklySummary,
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
@@ -28,7 +28,7 @@ import { assignMail, enquiries, LABELS, postPage, openEnquiryCount, scanEnquirie
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { englishLater, suggestForTeamMeeting } from "./agenda.js";
-import { latestBoardNow } from "./boardNow.js";
+import { boardNowOnRequest, latestBoardNow } from "./boardNow.js";
 import { awaitingVote, castVote, decideAtMeeting, toggleDiscuss, createProposal, proposals, voteDecisions, voteBlocks, withdrawProposal, type Vote } from "./votes.js";
 import { acceptSuggestion, contactSuggestions, declineSuggestion, suggestionsPage } from "./teacherSuggestions.js";
 import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTeacher, teacherEvents, teacherKey, teacherPage, teacherRecord, teacherSort, teachersPage } from "./teachers.js";
@@ -174,8 +174,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
     if (input.moderator && !members.names.includes(input.moderator) && input.moderator !== existing?.moderator) input.moderator = "";
   };
   // What Saga has for this member: the chair's own list (the chair only), and what she wrote to them by name or to all.
-  const sagaFor = async (picture: BoardPicture | null) => !who ? [] : [
-    ...(who === members.chair ? currentForChair(picture?.forJacob ?? []) : []), ...currentForChair(await sagaItemsFor(db, picture, who))];
+  const sagaFor = async (picture: BoardPicture | null) => !who ? [] : answerLinks(env, db, [
+    ...(who === members.chair ? currentForChair(picture?.forJacob ?? []) : []), ...currentForChair(await sagaItemsFor(db, picture, who))], base, now);
   const saved = jar.get(WHO_COOKIE) ?? null;
   // A personal login is that member, and stays so; with the shared password you say who you are - once per login
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
@@ -958,6 +958,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: { la
       if (gone && gone.member !== who) await audit(db, actor, "memory.forget_any", `Glemte: ${gone.text.slice(0, 160)}`, now);
     }
     return redirect(`${base}/hukommelse`);
+  }
+  // Requested: "Lav dog en opdatering for her klokken 12" - "Opdater nu" under Bestyrelsen lige nu.
+  if (path === "/lige-nu" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    await boardNowOnRequest(env, deps, db, (key, slot) => claimJob(db, key, slot, now)).catch(error => console.warn("cockpit_board_now_failed", error instanceof Error ? error.message : error));
+    return redirect(`${base}/`);
   }
   if (path === "/saga" && request.method === "POST") {
     const input = askInput(await request.json().catch(() => null));

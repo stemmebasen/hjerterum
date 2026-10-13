@@ -1,5 +1,9 @@
 import type { D1Database } from "../db.js";
-import { addTodo, allTasks, approvedMinutes, boardPicture, EVERYONE, openFor, setTaskChecked, setTodoDone, taskKey, type Task, type Todo } from "./data.js";
+import type { SagaEnv } from "../saga/env.js";
+import { addTodo, allTasks, approvedMinutes, boardMembers, boardPicture, EVERYONE, openFor, sagaItemsFor, sagaSource, setTaskChecked, setTodoDone, taskKey, unsignedFor, type Task, type Todo } from "./data.js";
+import { awaitingVote } from "./votes.js";
+import { boardPosts, waitingOn } from "./board.js";
+import { currentForChair } from "./home.js";
 
 /** Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det, men aldrig noget der vedrører
  * andre eller hele foreningen uden alles samtykke." Saga changes only the asker's own list, and only an item that is the
@@ -88,4 +92,21 @@ export async function applyPersonal(db: D1Database, answer: string, who: string 
   }
   const rest = answer.replace(ACTION, "").replace(/\n{3,}/g, "\n\n").trim();
   return `${rest}\n\n${results.join("\n")}\n\n[Se din liste](${base}/opgaver)`;
+}
+
+/** Reported (Douglas): his to-do list had "Svar på: ..." from the group, yet Saga told him "your to-do list is empty right now".
+ * The rest of what waits on the asker under "Dine opgaver" - Saga's questions and tasks from the group and team@, votes without
+ * their vote, posts on Opslagstavlen and minutes to approve - so Saga sees the same list. Read only: these are answered or
+ * ticked off where they stand. */
+export async function waitingSection(env: SagaEnv, db: D1Database, who: string, nowMs: number, base = ""): Promise<string> {
+  const [{ picture }, members, votes, posts, unsigned] = await Promise.all([boardPicture(db, nowMs), boardMembers(env, db),
+    awaitingVote(db, who, nowMs).catch(() => []), boardPosts(db, nowMs).then(all => waitingOn(all, who)).catch(() => []), unsignedFor(db, who, nowMs).catch(() => [])]);
+  const saga = [...(who === members.chair ? currentForChair(picture?.forJacob ?? []) : []), ...currentForChair(await sagaItemsFor(db, picture, who))];
+  const lines = [
+    ...saga.map(f => `- ${f.kind === "spørgsmål" ? "Svar på: " : ""}${f.text}${f.from ? ` (spurgt af ${f.from})` : ""} - ${sagaSource(f, "fra Saga")}${f.source === "telegram" ? ", svares i Telegram-gruppen" : f.source === "mail" ? `, svares i Posthuset ${base}/posthus` : ""}`),
+    ...votes.map(v => `- Stem på forslaget: ${v.title} - ${base}/beslutninger#p${v.id}`),
+    ...posts.map(p => `- ${p.kind === "afklaring" ? "Svar på" : "Læs"} opslaget: ${p.title} - ${base}/opslag#o${p.id}`),
+    ...unsigned.map(m => `- Godkend referatet${m.meeting_date ? ` fra ${m.meeting_date}` : ""} - ${base}/referat/${m.id}`)
+  ];
+  return `\n\nDET VENTER OGSÅ PÅ ${who.toUpperCase()} (står under "Dine opgaver" ${base}/opgaver; kun til at svare om - kan ikke ændres med [[OPGAVE]]):\n${lines.join("\n") || "(intet)"}`;
 }

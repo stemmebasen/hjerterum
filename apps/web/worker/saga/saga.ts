@@ -1,7 +1,7 @@
 import { mailBody } from "./mailText";
 import { scheduledEnquiryScan } from "../cockpit/enquiries.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
-import { scheduledBoardNow } from "../cockpit/boardNow.js";
+import { sagaTimeSince, scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
@@ -32,7 +32,7 @@ import { boardKnowledge } from "../cockpit/ask.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
 
-const DAY = 86_400_000;
+const DAY = 86_400_000, HOUR = 3_600_000;
 const copenhagenDate = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(ms);
 const danishDate = (iso: string | null) => {
   if (!iso) return "";
@@ -424,8 +424,12 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // A fresh overview up to four times a day (the first one as soon as Saga runs) - only when
   // something happened since the last one. Requested: "Undersøg igen unødvendig og kontinuerlig
   // brug af AI" - it was rewritten every six hours whether or not anything was new.
-  // Requested: "nedbringe forbruget til cirka en dollar om dagen" - once a day (no longer up to four times), on the middle model.
-  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && await claimJob(env.DB, "saga_overview_daily", Math.floor(deps.now() / DAY), deps.now())) {
+  // Requested: "nedbringe forbruget til cirka en dollar om dagen" - on the middle model. Then: "opdateres Sagas overblik ikke også
+  // baseret på nyeste chats?" - once a day (at night) left the day's chats out until the next. Now from 07, 12 and 17 (weekends: 07),
+  // when something is new; while nothing is, she looks again each hour (no AI call).
+  const overviewSince = sagaTimeSince(deps.now(), true);
+  if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && overviewSince !== null && ((await latestOverview(env.DB))?.created_at_ms ?? 0) < overviewSince
+    && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / HOUR) * HOUR, deps.now())) {
     const { stale, doc } = await overviewStale(env, deps, env.DB);
     if (stale) await draftOverview(env, deps, doc).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   }

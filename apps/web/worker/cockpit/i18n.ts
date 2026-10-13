@@ -74,7 +74,7 @@ export const EN: Record<string, string> = {
   "Saga kunne ikke læse MembershipWorks-tal på billedet. Prøv et skærmbillede af hele Current Stats-siden.": "Saga could not read MembershipWorks figures in the image. Try a screenshot of the whole Current Stats page.",
   "Medlemstyper": "Membership types",
   // Minutes
-  "Bestyrelsens godkendelse": "The board's approval", "Godkendt af:": "Approved by:", "for at godkende.": "to approve.", "Du har godkendt referatet.": "You have approved the summary.", "Referatet kan ikke længere ændres.": "The summary can no longer be changed.", "Referatet er godkendt af alle og låst. Det kan ikke længere ændres.": "The summary is approved by everyone and locked. It can no longer be changed.",
+  "Bestyrelsens godkendelse": "The board's approval", "Godkendt af:": "Approved by:", "for at godkende.": "to approve.", "Du har godkendt referatet.": "You have approved the summary.", "Opdater nu": "Update now", "Svar i gruppen →": "Answer in the group →", "Svar i Posthuset →": "Answer in the mailbox →", "Referatet kan ikke længere ændres.": "The summary can no longer be changed.", "Referatet er godkendt af alle og låst. Det kan ikke længere ændres.": "The summary is approved by everyone and locked. It can no longer be changed.",
   "Jeg godkender referatet": "I approve the summary", "Jeg har en rettelse": "I have a correction", "Send rettelsen til formanden": "Send the correction to the chair", "Saga spørger dig:": "Saga asks you:",
   "Svar Saga": "Answer Saga", "Ret dette punkt": "Correct this point", "Send rettelsen til Saga": "Send the correction to Saga", "Dagsorden": "Agenda", "Referat": "Summary", "Beslutning": "Decision",
   "Hvem": "Who", "Hvad": "What", "Frist": "Deadline", "← Møder": "← Meetings", "Åbn i Google Docs": "Open in Google Docs", "Print / gem som PDF": "Print / save as PDF",
@@ -228,7 +228,8 @@ const MONTH_NAMES_EN: Record<string, string> = { januar: "January", februar: "Fe
 const RULES: Array<[RegExp, string | ((...m: string[]) => string)]> = [
   [/^Hej (.+?) 🙂 Jeg er Saga\. Spørg mig f\.eks\. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab\.$/, (_, name) => `Hi ${name} 🙂 I'm Saga. Ask me e.g. about the statutes, decisions, matters, meetings, events and membership.`],
   [/^Hej 🙂 Jeg er Saga\. /, "Hi 🙂 I'm Saga. "],
-  [/^Godkendt af alle og låst (.+)\.$/, "Approved by everyone and locked $1."], [/^Godkendt af (.+)$/, "Approved by $1"],
+  [/^Godkendt af alle og låst (.+)\.$/, "Approved by everyone and locked $1."],
+  [/^(Fra Telegram gruppen|Fra team@|Fra Saga) ·$/, (_, where) => `${({ "Fra Telegram gruppen": "From the Telegram group", "Fra team@": "From team@", "Fra Saga": "From Saga" } as Record<string, string>)[where]} ·`], [/^Godkendt af (.+)$/, "Approved by $1"],
   [/^Hej (\S+)$/, "Hi $1"],
   [/\b(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)(?: den)? (\d{1,2})\. (januar|februar|marts|april|maj|juni|juli|august|september|oktober|november|december)(?: (\d{4}))?/gi,
     (_, d, n, m, y) => `${DAYS[d.toLowerCase()] ?? d} ${n} ${MONTHS_EN[month(m)]}${y ? ` ${y}` : ""}`],

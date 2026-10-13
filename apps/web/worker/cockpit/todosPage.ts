@@ -94,7 +94,7 @@ function todoItem(base: string, todo: Todo, who: string, also: string[] = [], ba
 ${removeButton(base, "punkt", String(todo.id), also, back)}</li>`;
 }
 
-type SagaItem = { key: string; kind: string; text: string; source: string; since?: string; from?: string | null };
+type SagaItem = { key: string; kind: string; text: string; source: string; since?: string; from?: string | null; link?: string };
 
 /** The open lines of "Dine opgaver", the same on Opgaver and on the front page ("Gør det også muligt at sætte et flueben ved ens opgaver fra forsiden ...
  * Altså helt samme styling som på opgavesiden"): the tasks from the minutes (the approved minutes' wording first, then the minutes document's), what Saga
@@ -102,7 +102,7 @@ type SagaItem = { key: string; kind: string; text: string; source: string; since
 export function openLines(base: string, d: { who: string; tasks: Task[]; todos: Todo[]; saga: SagaItem[]; back?: Back }): string[] {
   type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
   const sagaLine = (f: SagaItem): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also, d.back)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
-<div class="small muted">${esc(sagaSource(f, "Fra Saga"))}</div></div>${removeButton(base, "saga", f.key, also, d.back)}</li>` });
+<div class="small muted">${esc(sagaSource(f, "Fra Saga"))}${f.link ? ` · <a href="${esc(f.link)}"${f.link.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}>${f.source === "mail" ? "Svar i Posthuset" : "Svar i gruppen"} →</a>` : ""}</div></div>${removeButton(base, "saga", f.key, also, d.back)}</li>` });
   const lines: Line[] = [
     ...d.tasks.filter(t => t.source !== "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),
     ...d.tasks.filter(t => t.source === "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),

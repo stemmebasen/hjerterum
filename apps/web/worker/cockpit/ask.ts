@@ -16,7 +16,7 @@ import { applyMemory, memorySection } from "./memory.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { MEMBERSHIP_FACTS } from "./membership.js";
 import { siteForSaga } from "./site.js";
-import { applyPersonal, personalItems, personalSection, type PersonalItem } from "./personal.js";
+import { applyPersonal, personalItems, personalSection, waitingSection, type PersonalItem } from "./personal.js";
 import { STATUTES } from "./statutes.js";
 import { votesForSaga } from "./votes.js";
 import { decisionKinds, withKinds } from "./decisionKinds.js";
@@ -232,9 +232,10 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
   const items: PersonalItem[] = who ? await personalItems(db, who, deps.now()).catch(() => []) : [];
   const mine = who ? personalSection(who, items) : "";
+  const waiting = who ? await waitingSection(env, db, who, deps.now(), base).catch(() => "") : "";
   const topic = [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" ");
   const userTurn = { role: "user" as const, content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` };
-  const tail = `${mine}${await memorySection(db, who)}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder`;
+  const tail = `${mine}${waiting}${await memorySection(db, who)}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder`;
   const build = async (only: ReadonlySet<string> | null): Promise<ChatMessage[]> => [{ role: "system", content: `${COCKPIT_SYSTEM}${only ? `\n\n${MISSING_NOTE}` : ""}\n\n${await boardKnowledge(env, deps, db, topic, only)}${tail}` }, ...input.history, userTurn];
   const now = deps.now();
   // Requested: "kun det relevante med for det pågældende spørgsmål" - "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk": the first call has only what the question seems to need;

@@ -128,9 +128,9 @@ describe("the board cockpit", () => {
     expect(chair).toContain("Skal vi svare Thomas Emil?");
     // Requested: "Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch" /
     // "Fra Telegram gruppen" - no full stop from Saga's wording, no "gruppen · Gitta".
-    expect(chair).toContain('<div class="what">Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch\n<div class="small muted">Fra Telegram gruppen</div></div>');
+    expect(chair).toContain('<div class="what">Svar på: Hvem skal spørges som suppleant, og hvordan afgøres det? Lisbeth foreslår Maria Ravbæk Larsen og Philip Lenbroch\n<div class="small muted">Fra Telegram gruppen');
     expect(chair).not.toContain("Fra gruppen");
-    expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Jacob Hauge") })).text()).toContain("Fra Telegram gruppen</div>");
+    expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Jacob Hauge") })).text()).toContain("Fra Telegram gruppen · <a href=");
     const decisions = await (await call("/cockpit/beslutninger", { cookie: session })).text();
     expect(decisions).toContain("Budgettet er vedtaget");
     expect(decisions).toContain("Gratis prøveperiode til 15. oktober");

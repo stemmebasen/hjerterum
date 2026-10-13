@@ -57,7 +57,7 @@ describe("what Saga has for each member", () => {
   it("shows each member their own list on the front page - the question for everyone reaches all, the rest only who it is for", async () => {
     const { call, as } = await setup();
     // The same line as on Opgaver: a checkbox to the left, the text, and where it came from under it.
-    const line = `<div class="what">Svar på: ${SUPPLEANT}\n<div class="small muted">Fra Telegram gruppen</div></div>`;
+    const line = `<div class="what">Svar på: ${SUPPLEANT}\n<div class="small muted">Fra Telegram gruppen`;
     const gitta = await (await call("/", { cookie: await as("Gitta Hansen") })).text();
     expect(gitta).toContain(line);
     expect(gitta).toContain("Skriv nyhedsbrevet");
