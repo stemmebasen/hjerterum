@@ -24,7 +24,7 @@ import { changeMemberAccess } from "../admin-members.js";
 import { enquiryTopics, periodOf, siteStats } from "../site-stats.js";
 import { logoResponse } from "./logo.js";
 import { currentForChair, homePage } from "./home.js";
-import { assignMail, enquiries, LABELS, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
+import { assignMail, enquiries, LABELS, notCritical, postPage, openEnquiryCount, scanEnquiries, setHandled, setLabel } from "./enquiries.js";
 import { IMAGE_MAX, IMAGE_TYPES, latestStats, membersPage, readScreenshot, saveStats, statsInput, toBase64 } from "./members.js";
 import { askInput, askSaga, DAILY_QUESTIONS, questionsToday } from "./ask.js";
 import { englishLater, suggestForTeamMeeting } from "./agenda.js";
@@ -480,6 +480,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const id = Number(form?.get("id"));
     if (Number.isSafeInteger(id) && id > 0) await setHandled(db, id, who, form?.get("done") === "1", now);
     return redirect(`${base}/posthus`);
+  }
+  if (path === "/posthus/ikke-kritisk" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    // One cross for a matter takes all its mails off the list.
+    const ids = String((await request.formData().catch(() => null))?.get("id") ?? "").split(",").map(Number).filter(id => Number.isSafeInteger(id) && id > 0).slice(0, 50);
+    if (ids.length) await notCritical(db, ids);
+    return redirect(`${base}/posthus#kritiske`);
   }
   // Requested: "gøre det muligt at sortere under de forskellige mærkater": a member changes the label of a mail.
   if (path === "/posthus/tildel" && request.method === "POST") {

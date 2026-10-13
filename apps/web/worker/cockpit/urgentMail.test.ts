@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scanEnquiries, scheduledEnquiryScan, tellChairAboutUrgentMail } from "./enquiries.js";
+import { isAutomatic, scanEnquiries, scheduledEnquiryScan, tellChairAboutUrgentMail } from "./enquiries.js";
 import { handleCockpitRequest } from "./handler.js";
 import { insertMail } from "../saga/store.js";
 import { deps, fakeServices, memberCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -78,5 +78,54 @@ describe("critical mail", () => {
     await mail("m3", "Lørdag");
     await scheduledEnquiryScan(env, deps(services.fetcher, saturday), db, claim);
     expect(AI()).toBe(before);
+  });
+
+  // Reported (Douglas): "9 long emails from Mailchimp that were activated because I was helping Gitta with the newsletter. They can be ignored" -
+  // "How do we make sure that this doesn't happen now or in the future?" and "Also add a little cross by each so we can delete them immediately."
+  it("never reads the board's own newsletter service as critical, and a cross takes a mail off the list", async () => {
+    expect(isAutomatic({ sender: "Mailchimp <hello@mailchimp.com>", preview: "Your account", subject: "New login to Mailchimp" })).toBe(true);
+    expect(isAutomatic({ sender: "Mailchimp <bounce-mc.us21_1234@mail123.mcsv.net>", preview: "Test", subject: "[Test] Oktober i Hjerterum" })).toBe(true);
+    expect(isAutomatic({ sender: "Intuit Mailchimp <no-reply@intuit.com>", preview: "x", subject: "x" })).toBe(true);
+    expect(isAutomatic({ sender: "Gmail <konto@example.com>", preview: "x", subject: "Your verification code is 123456" })).toBe(true);
+    // A person complaining about a login is still read.
+    expect(isAutomatic({ sender: "Anna <anna@example.com>", preview: "Jeg kan ikke logge ind og vil have pengene tilbage", subject: "Klage" })).toBe(false);
+
+    const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: true, why: "Advarsel om sikkerhed" })));
+    await mail("mc", "New login to Mailchimp", "Mailchimp <hello@mailchimp.com>");
+    const real = await mail("p1", "Klage over aflyst kursus");
+    await scanEnquiries(env, deps(services.fetcher, NOW), db);
+    expect(await db.prepare("SELECT id FROM board_mail WHERE urgent_why IS NOT NULL").all()).toMatchObject({ results: [{ id: real }] });
+    expect((await db.prepare("SELECT label FROM board_mail WHERE subject LIKE '%Mailchimp%'").first<{ label: string }>())?.label).toBe("Automatisk");
+    const ask = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(`${ORIGIN}${path}`, init), env, deps(services.fetcher, NOW));
+    const session = ((await ask("/login", { method: "POST", headers: { origin: ORIGIN }, body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const cookie = await memberCookie(session, "Gitta");
+    const page = await (await ask("/posthus", { headers: { cookie } })).text();
+    expect(page).toContain(`<form method="post" action="/posthus/ikke-kritisk" class="x-form"><input type="hidden" name="id" value="${real}"><button class="x"`);
+    const removed = await ask("/posthus/ikke-kritisk", { method: "POST", headers: { origin: ORIGIN, cookie }, body: (() => { const f = new FormData(); f.append("id", String(real)); return f; })() });
+    expect(removed.headers.get("location")).toBe("/posthus#kritiske");
+    const after = await (await ask("/posthus", { headers: { cookie } })).text();
+    expect(after).not.toContain("Kritiske mails");
+    expect(after).toContain("Klage over aflyst kursus");
+  });
+
+  // Requested: "Der bør i øvrigt ikke være mere end én advarsel pr. sag. Lige nu er der fem advarsler om den samme ting."
+  it("gives one warning per matter - on the page and on Telegram - and one cross takes them all", async () => {
+    const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: true, why: "Kunden kræver pengene tilbage" })));
+    const first = await mail("k1", "Klage over kursus", "Bo <bo@example.com>", NOW - 3_000_000);
+    const second = await mail("k2", "Re: Klage over kursus", "Bo <bo@example.com>", NOW - 2_000_000);
+    const third = await mail("k3", "RE: SV: Klage over kursus", "Bo <bo@example.com>", NOW - 1_000_000);
+    await mail("o1", "Inkasso", "Firma <inkasso@example.com>");
+    await scanEnquiries(env, deps(services.fetcher, NOW), db);
+    const sent = services.calls.filter(c => c.url.includes("sendMessage")).map(c => (c.body as { text: string }).text);
+    expect(sent).toHaveLength(2);
+    const ask = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(`${ORIGIN}${path}`, init), env, deps(services.fetcher, NOW));
+    const session = ((await ask("/login", { method: "POST", headers: { origin: ORIGIN }, body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() })).headers.get("set-cookie") ?? "").split(";")[0]!;
+    const cookie = await memberCookie(session, "Gitta");
+    const page = await (await ask("/posthus", { headers: { cookie } })).text();
+    expect(page).toContain('<h2>Kritiske mails <span class="count">2</span></h2>');
+    expect(page).toContain('<span class="kind">3 mails</span>');
+    expect(page).toContain(`name="id" value="${third},${second},${first}"`);
+    await ask("/posthus/ikke-kritisk", { method: "POST", headers: { origin: ORIGIN, cookie }, body: (() => { const f = new FormData(); f.append("id", `${third},${second},${first}`); return f; })() });
+    expect((await db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE urgent_why IS NOT NULL").first<{ n: number }>())?.n).toBe(1);
   });
 });

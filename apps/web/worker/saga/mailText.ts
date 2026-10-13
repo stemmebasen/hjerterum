@@ -33,5 +33,31 @@ export function readableMail(text: string): string {
   out = out.replace(/\s*Bemærkninger:\s*Instagram:[\s\S]*?(?:PR-materiale:[\s\S]*)$/i, "");
   out = out.replace(/[ \t]*[\p{L}][\p{L} -]{1,40}:[ \t]*\((?:Ingen|Intet)[^)]*\)/giu, "");
   if (!out.includes("\n")) out = out.replace(/ ?(---[^-]+---)/g, "\n$1\n").replace(/ (?=[A-ZÆØÅ][\p{L}().-]*(?: [a-zæøå(][\p{L}().-]*){0,4}: )/gu, "\n");
+  // Requested: "du skal huske at tilføje linjeskift i mailsene. Ellers bliver de alt for uoverskuelige" - rules of dashes become breaks,
+  // the greeting stands alone, and a long block is cut into paragraphs of a couple of sentences.
+  out = out.replace(/[ \t]*-{5,}[ \t]*/g, "\n");
+  out = out.split("\n").map(paragraphs).join("\n");
   return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+const GREETING = /^((?:Kære|Hej|Hi|Hello|Dear|Godmorgen|Goddag)(?: [\p{Lu}][\p{L}-]+){0,2}[,!]?) (?=[\p{Lu}])/u;
+function paragraphs(line: string): string {
+  let rest = line.trim(), head = "";
+  const greeting = GREETING.exec(rest);
+  if (greeting && rest.length > 120) { head = `${greeting[1]}\n\n`; rest = rest.slice(greeting[0].length); }
+  if (rest.length <= 280) return head + rest;
+  const sentences = rest.split(/(?<=[.!?…])\s+(?=["“„(]?[\p{Lu}0-9])/u);
+  const parts: string[] = [];
+  let part = "";
+  for (const sentence of sentences) {
+    if (part && (part.length + sentence.length > 260)) { parts.push(part); part = sentence; } else part = part ? `${part} ${sentence}` : sentence;
+  }
+  if (part) parts.push(part);
+  return head + parts.join("\n\n");
+}
+
+/** One or two lines to see what a mail is about before opening it: the text without the greeting and the breaks. */
+export function mailSnippet(text: string, max = 180): string {
+  const flat = readableMail(text).replace(/\s+/g, " ").trim().replace(GREETING, "");
+  return flat.length > max ? `${flat.slice(0, max).replace(/\s+\S*$/, "")} …` : flat;
 }
