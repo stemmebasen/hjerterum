@@ -232,6 +232,8 @@ export const openEnquiryCount = (db: D1Database, nowMs: number) =>
     .then(r => Number(r?.n ?? 0)).catch(() => 0);
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+/** Reported: "But there is no way to fold the email again" - a long mail, once open, has its own way back at the bottom. */
+const FOLD = `<button type="button" class="fold-up" onclick="const d=this.closest('details');d.open=false;d.scrollIntoView({block:'nearest'})">Fold sammen ▴</button>`;
 const name = (sender: string) => sender.replace(/<[^>]*>/, "").replace(/"/g, "").trim() || sender;
 /** Requested: "Der bør ikke være mere end én advarsel pr. sag. Lige nu er der fem advarsler om den samme ting." One matter = the same
  * sender and the same subject, without Re:/Fwd:/[Test] and numbers that change from mail to mail. */
@@ -289,6 +291,7 @@ const STYLE = `
 .inbox .snip{grid-column:1/-1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
 .inbox details[open] .snip{display:none}.inbox .why{grid-column:1/-1;font-size:13.5px;color:var(--warn);margin-top:2px}
 .inbox .body{line-height:1.6;max-width:72ch}
+.fold-up{display:inline-flex;align-items:center;gap:4px;margin:10px 0 2px;padding:5px 12px;min-height:0;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}.fold-up:hover{color:var(--ink);border-color:var(--ink)}
 /* Requested: "Also add a little cross by each so we can delete them immediately." */
 .urgent-item{position:relative}.urgent-item summary{padding-right:40px}.x-form{position:absolute;top:8px;right:0;margin:0;z-index:1}
 .x-form .x{width:30px;height:30px;min-height:0;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:18px;line-height:1;cursor:pointer}.x-form .x:hover{color:var(--warn);border-color:var(--warn)}.inbox .kind{font-size:11px;font-weight:700;color:var(--accent);margin-right:4px}
@@ -316,7 +319,7 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number, own: strin
   const followed = replyTarget({ reply_address: e.reply_address ?? null, sender: e.sender, preview: e.preview }, own) !== null;
   return `<li><div><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
 <span class="meta">${labelTag(e.label)}${assignedTag(e.assigned_to)}<span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
-<details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(readableMail(e.preview))}</p></details>
+<details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(readableMail(e.preview))}</p>${FOLD}</details>
 <div class="acts-col">${assignForm(base, e.id, e.assigned_to, members)}<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="tick${open ? "" : " is-done"}" title="${open ? "Besvaret" : "Fortryd"}" aria-label="${open ? "Marker som besvaret" : "Fortryd: åbn igen"}">✓</button></form></div></li>`;
 }
 
@@ -363,7 +366,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const labelForm = (m: BoardMailRow) => data.who ? `<form class="labelform" method="post" action="${base}/posthus/maerkat"><input type="hidden" name="id" value="${m.id}"><input type="hidden" name="back" value="${esc(data.label ?? "")}">
 <label>Mærkat <select name="label" onchange="this.form.submit()"><option value="">Intet</option>${LABELS.map(l => `<option${m.label === l ? " selected" : ""}>${l}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
   const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
+<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${FOLD}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
   // Requested: "gøre det muligt at sortere under de forskellige mærkater" + "andre forslag for at gøre det mere overskueligt": the labels as chips with how many each has, and a search over what is on the page.
   const counts = data.labelCounts ?? {};
   const totalLabelled = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -377,7 +380,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
 <p class="small muted" style="margin:0 0 8px">Saga vurderer, at de skal tages stilling til hurtigst muligt.</p>
 <ul class="inbox">${matters.map(m => `<li class="urgent-item"><form method="post" action="${base}/posthus/ikke-kritisk" class="x-form"><input type="hidden" name="id" value="${m.ids.join(",")}"><button class="x" aria-label="Ikke kritisk - fjern fra listen" title="Ikke kritisk - fjern fra listen">×</button></form><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span><span class="subj">${esc(m.subject)}${m.count > 1 ? ` <span class="kind">${m.count} mails</span>` : ""}</span>
 <span class="why"><strong>Hvorfor:</strong> ${esc(m.urgent_why ?? "")}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary>
-<p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}</details></li>`).join("")}</ul></div>` : "";
+<p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${FOLD}</details></li>`).join("")}</ul></div>` : "";
   const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>
 <p class="small ${data.watchOk ? "muted" : "warn"}" style="margin:0 0 6px">${esc(data.watch)}</p>
 ${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}
