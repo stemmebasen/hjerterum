@@ -1,8 +1,9 @@
-import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, uniqueTasks, type Task, type Todo } from "./data.js";
+import { agreedLabel, EVERYONE, imperative, mergeSame, sagaSource, taskKey, uniqueTasks, type ApprovedMinutes, type Task, type Todo } from "./data.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 import { postTodo, type PostView } from "./board.js";
+import { signTodo } from "./signReminder.js";
 
 /** Requested: "vi skal have en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der
  * er tildelt en. Man kan også selv skrive ind." The tasks the minutes give you, your own items and the
@@ -132,7 +133,7 @@ export function todosPage(base: string, data: TodosData): string {
   const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
   const merged = openLines(base, { who: data.who, tasks: openTasks, todos: openTodos, saga: data.saga ?? [] });
-  const open = [...(data.toSign ?? []).map(m => signTodo(base, m, data.now)), ...(data.votes ?? []).map(p => voteTodo(base, p)), ...(data.posts ?? []).map(p => postTodo(base, p)), ...merged];
+  const open = [...(data.toSign ?? []).map(m => signTodo(base, m, nowMs)), ...(data.votes ?? []).map(p => voteTodo(base, p)), ...(data.posts ?? []).map(p => postTodo(base, p)), ...merged];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">

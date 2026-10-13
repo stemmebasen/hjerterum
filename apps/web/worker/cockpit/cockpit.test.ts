@@ -179,7 +179,9 @@ describe("the board cockpit", () => {
     const front = await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text();
     expect(front).toContain('<div class="sign-bar ny" role="status">');
     expect(front.split("Læs og godkend").length - 1).toBe(1);
-    expect(front).not.toContain("Godkend referatet");
+    // Then: "Det ville også være godt, hvis godkendelse af referatet kommer på den individuelle opgaveliste for dem, der ikke har godkendt det endnu."
+    expect(front).toContain(`<a href="/cockpit/referat/${queued!.id}"><strong>Godkend referatet`);
+    expect(await (await call("/cockpit/opgaver", { cookie: await memberCookie(session, "Gitta") })).text()).toContain("<strong>Godkend referatet");
     expect(front).not.toContain("Til godkendelse");
     const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: await memberCookie(session, "Lisbeth") });
     expect(signed.headers.get("location")).toBe(`/cockpit/referat/${queued!.id}?godkendt=1`);
@@ -832,7 +834,9 @@ describe("each member's task list", () => {
     await call("/cockpit/opgaver/afkryds", { method: "POST", cookie: as("Gitta"), body: form({ kind: "opgave", id: key, done: "1" }) });
     page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
     expect(page).toContain("Klaret de sidste 7 dage (1)");
-    expect(page).toContain("Intet venter på dig");
+    // What is left is the minutes she has not approved yet.
+    expect(page.slice(0, page.indexOf("Klaret de sidste 7 dage"))).not.toContain("Lav event-mail");
+    expect(page).toContain("<strong>Godkend referatet");
     expect(await (await call("/cockpit/", { cookie: as("Gitta") })).text()).not.toContain("Lav event-mail");
 
     // Your own item, and one written to Lisbeth: only on her list, with who wrote it.

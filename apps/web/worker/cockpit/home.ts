@@ -7,6 +7,7 @@ import { membersTile, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
 import { frontVotes, VOTES_STYLE, voteTodo, type Proposal, type ProposalView } from "./votes.js";
 import { postTodo, type PostView } from "./board.js";
+import { signTodo } from "./signReminder.js";
 import { esc, layout, longDay, responsibilitiesForm, shortDay } from "./page.js";
 import { openLines, TODOS_STYLE } from "./todosPage.js";
 
