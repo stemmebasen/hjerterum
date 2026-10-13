@@ -1,5 +1,6 @@
 import { mailBody } from "./mailText";
 import { autoAssignMail, scheduledEnquiryScan } from "../cockpit/enquiries.js";
+import { scheduledCleanup } from "../cockpit/cleanup.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { sagaTimeSince, scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
@@ -439,6 +440,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // Requested: "assigns that email automatically to that person" - no AI; only what is important or critical and no one has.
   await (async () => autoAssignMail(env.DB!, (await boardMembers(env, env.DB!)).names, await responsibilities(env.DB!), deps.now()))()
     .catch(error => console.warn("saga_auto_assign_failed", error instanceof Error ? error.message : error));
+  // Requested: "an intelligent and clever AI call once per day that looks through it all and tidies up" - once a night (cockpit/cleanup.ts).
+  await scheduledCleanup(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_cleanup_failed", error instanceof Error ? error.message : error));
   // Requested: "Saga skal godkende events som medlemmer selv sætter op ud fra kriterier der allerede ligger i blueprint eller systemet".
   await scheduledEventReview(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_event_review_failed", error instanceof Error ? error.message : error));
