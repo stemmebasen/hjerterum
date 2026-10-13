@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
+import { isAssocMeeting } from "./assocEvents.js";
 import { saveMeeting } from "./data.js";
 import { saveBoardMessage, saveOverview } from "../saga/store.js";
 import { BOARD, deps, fakeServices, memberCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -22,6 +23,16 @@ async function setup() {
 }
 
 describe("the association's own gatherings on the admin's front page", () => {
+  // Asked: "Nu er generalforsamlingen væk fra forsiden igen. Hvordan kan det være?" - it was in Møder without the box ticked either way.
+  it("knows a general assembly in Møder that nobody has ticked as team meeting or not", () => {
+    const m = (agenda: string, kind: "team" | "andet" | null = null) => ({ id: 1, meeting_date: "2026-10-14", start_time: "19:30", place: null, agenda, updated_at_ms: 0, updated_by: null, kind });
+    expect(isAssocMeeting(m("Generalforsamling 2026\n1. Valg af dirigent"))).toBe(true);
+    expect(isAssocMeeting(m("1. Valg af dirigent\n2. Bestyrelsens beretning"))).toBe(true);
+    expect(isAssocMeeting(m("Godkendelse af referat\nØkonomi\nGeneralforsamling\nEventuelt"))).toBe(false);
+    expect(isAssocMeeting(m("Generalforsamling", "team"))).toBe(false);
+    expect(isAssocMeeting(m("", "andet"))).toBe(true);
+  });
+
   it("shows the general assembly tomorrow in the golden card - and a team meeting only in its regular box, with Jeg kommer", async () => {
     const { db, ask, cookie } = await setup();
     await db.prepare("INSERT INTO house_events (id, title, starts_at_ms, ends_at_ms, location, content_hash, updated_at_ms) VALUES ('gf', 'Generalforsamling i Hjerterum', ?, ?, 'Hjerterum', 'h', ?)")

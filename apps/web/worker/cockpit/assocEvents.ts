@@ -17,6 +17,17 @@ const WEEKDAY = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "lo
 const LONG = new Intl.DateTimeFormat("da-DK", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long" });
 const addDays = (iso: string, days: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
+/** Asked: "Nu er generalforsamlingen væk fra forsiden igen. Hvordan kan det være?" - a meeting nobody has ticked as team or not (kind NULL,
+ * as every meeting from before the box) was left out. Ticked "andet" it is the association's; ticked "Teammøde" it is not; not ticked, its
+ * agenda tells: a general assembly or the like named in its first line, or a dirigent to be chosen. A team meeting with the general assembly
+ * as one of its points further down stays a team meeting. */
+export function isAssocMeeting(m: Meeting): boolean {
+  if (m.kind === "andet") return true;
+  if (m.kind === "team") return false;
+  const agenda = m.agenda ?? "", first = agenda.split("\n").map(l => l.trim()).find(Boolean) ?? "";
+  return ASSOC.test(first) || /\bdirigent/i.test(agenda);
+}
+
 function meetingTitle(m: Meeting): string {
   const named = ASSOC.exec(m.agenda ?? "")?.[0];
   return named ? named.charAt(0).toLocaleUpperCase("da-DK") + named.slice(1).toLocaleLowerCase("da-DK") : "Møde i foreningen";
@@ -24,8 +35,7 @@ function meetingTitle(m: Meeting): string {
 
 export async function associationEvents(db: D1Database, base: string, meetings: Meeting[], today: string, nowMs: number): Promise<AssocEvent[]> {
   const until = addDays(today, 7);
-  // A meeting in Møder is in the gold card only when it is said to be something else than a team meeting (a general assembly, an info meeting ...).
-  const out: AssocEvent[] = meetings.filter(m => m.kind === "andet" && m.meeting_date >= today && m.meeting_date <= until)
+  const out: AssocEvent[] = meetings.filter(m => isAssocMeeting(m) && m.meeting_date >= today && m.meeting_date <= until)
     .map(m => ({ key: `moede:${m.id}`, day: m.meeting_date, time: m.start_time ?? "", title: meetingTitle(m), place: m.place ?? "", href: `${base}/moder/${m.id}` }));
   const house = (await db.prepare("SELECT id, title, starts_at_ms, location, link FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ? ORDER BY starts_at_ms LIMIT 200")
     .bind(nowMs - 3 * 3_600_000, nowMs + 8 * 86_400_000).all<{ id: string; title: string; starts_at_ms: number; location: string | null; link: string | null }>().catch(() => ({ results: [] }))).results ?? [];

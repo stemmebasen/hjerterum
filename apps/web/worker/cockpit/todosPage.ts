@@ -48,7 +48,9 @@ export type TodosData = { who: string; members: string[]; tasks: Task[]; checked
   /** Requested: "Når et forslag er stillet, skal hvert bestyrelsesmedlem have punktet på sin to do." Gone once voted. */
   votes?: Proposal[];
   /** The board's posts that wait on this member (cockpit/board.ts). */
-  posts?: PostView[] };
+  posts?: PostView[];
+  /** Minutes this member has not approved yet (signReminder.ts). */
+  toSign?: ApprovedMinutes[] };
 
 type Kind = "opgave" | "punkt" | "saga";
 /** The same task's other lines (kind:id), checked or removed with the one shown. */
@@ -130,7 +132,7 @@ export function todosPage(base: string, data: TodosData): string {
   const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
   const merged = openLines(base, { who: data.who, tasks: openTasks, todos: openTodos, saga: data.saga ?? [] });
-  const open = [...(data.votes ?? []).map(p => voteTodo(base, p)), ...(data.posts ?? []).map(p => postTodo(base, p)), ...merged];
+  const open = [...(data.toSign ?? []).map(m => signTodo(base, m, data.now)), ...(data.votes ?? []).map(p => voteTodo(base, p)), ...(data.posts ?? []).map(p => postTodo(base, p)), ...merged];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">

@@ -9,8 +9,9 @@ import { esc } from "./page.js";
 /** Requested: "I would like to add an intelligent and clever AI call once per day that looks through it all and tidies up and catches duplets,
  * irrelevant or outdated information and just makes sure the admin is nicely kept." - "Ja".
  * Once a night Saga reads what is still open - the to-dos, the posts on Opslagstavlen and the important mails - with the group's and team@'s last
- * two weeks, and finds what is the same twice, what is done and what is out of date. A duplicate to-do she closes herself (the chair can undo it);
- * the rest are suggestions for the chair, on the front page, accepted or turned down with one press. */
+ * two weeks, and finds what is the same twice, what is done and what is out of date.
+ * Then: "alle dem, som hun har fundet, er helt fine og skal egentlig bare ryddes automatisk fremover. Men det er kun mig, der må se det" - she
+ * tidies all of it herself, and only the chair sees what she did, with Fortryd on each. */
 
 export type CleanupKind = "dublet" | "klaret" | "forældet";
 export type CleanupAction = { id: number; run_day: string; kind: CleanupKind; target: string; text: string; why: string; status: "gjort" | "forslag" | "afvist" | "fortrudt"; created_at_ms: number };
@@ -71,19 +72,30 @@ export async function runCleanup(env: SagaEnv, deps: SagaDeps, db: D1Database): 
     if (!kind || !target || recent.has(ref)) continue;
     if (kind === "dublet" && (!byRef.has(String(item.keep ?? "")) || item.keep === ref)) continue;
     const why = String(item.why ?? "").replace(/\s+/g, " ").trim().slice(0, 240) || (kind === "dublet" ? "Står der allerede" : kind === "klaret" ? "Ser ud til at være klaret" : "Ser ud til at være forældet");
-    // A duplicate to-do is closed at once - the one kept says the same; everything else waits for the chair.
-    const auto = kind === "dublet" && ref.startsWith("todo:");
-    if (auto) await db.prepare("UPDATE cockpit_todos SET done_at_ms = ? WHERE id = ? AND done_at_ms IS NULL").bind(now, Number(ref.slice(5))).run();
-    await db.prepare("INSERT INTO cleanup_actions (run_day, kind, target, text, why, status, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(today, kind, ref, target.text.slice(0, 300), why, auto ? "gjort" : "forslag", now).run();
+    await apply(db, ref, SAGA, why, now, false);
+    await db.prepare("INSERT INTO cleanup_actions (run_day, kind, target, text, why, status, created_at_ms) VALUES (?, ?, ?, ?, ?, 'gjort', ?)")
+      .bind(today, kind, ref, target.text.slice(0, 300), why, now).run();
     recent.add(ref);
-    if (auto) done++; else suggested++;
+    done++;
   }
-  return { done, suggested };
+  return { done, suggested: 0 };
+}
+
+const SAGA = "Saga";
+
+/** Suggestions from before she tidied by herself are carried out too - what she found was right. */
+export async function applyOpenSuggestions(db: D1Database, nowMs: number): Promise<number> {
+  const open = (await db.prepare("SELECT id, target, why FROM cleanup_actions WHERE status = 'forslag'").all<{ id: number; target: string; why: string }>().catch(() => ({ results: [] }))).results ?? [];
+  for (const row of open) {
+    await apply(db, row.target, SAGA, row.why, nowMs, false);
+    await db.prepare("UPDATE cleanup_actions SET status = 'gjort', created_at_ms = ? WHERE id = ? AND status = 'forslag'").bind(nowMs, row.id).run();
+  }
+  return open.length;
 }
 
 /** Once a night: the first round from 03:00 in Copenhagen. */
 export async function scheduledCleanup(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
+  await applyOpenSuggestions(db, deps.now());
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: ZONE, hour: "2-digit", hourCycle: "h23" }).format(deps.now()));
   if (hour < 3) return;
@@ -99,7 +111,7 @@ async function apply(db: D1Database, target: string, who: string, why: string, n
   if (kind === "mail") await setHandled(db, id, who, !undo, nowMs);
 }
 
-/** The chair accepts or turns down a suggestion, or undoes what Saga did. */
+/** The chair undoes what Saga did (accepting or turning down a suggestion is kept for any left from before). */
 export async function decideCleanup(db: D1Database, id: number, choice: "ja" | "nej" | "fortryd", who: string, nowMs: number): Promise<boolean> {
   const row = await db.prepare("SELECT target, why, status FROM cleanup_actions WHERE id = ?").bind(id).first<{ target: string; why: string; status: string }>();
   if (!row) return false;
@@ -111,7 +123,7 @@ export async function decideCleanup(db: D1Database, id: number, choice: "ja" | "
   return true;
 }
 
-/** What the chair sees: last night's work and every suggestion still open (two weeks back). */
+/** What the chair - and only the chair - sees: what she tidied the last two days, and any suggestion still open. */
 export async function cleanupForChair(db: D1Database, nowMs: number): Promise<CleanupAction[]> {
   return (await db.prepare(`SELECT id, run_day, kind, target, text, why, status, created_at_ms FROM cleanup_actions
     WHERE (status = 'forslag' AND created_at_ms >= ?) OR (status = 'gjort' AND decided_by IS NULL AND created_at_ms >= ?) ORDER BY created_at_ms DESC, id LIMIT 30`)
@@ -124,7 +136,7 @@ const WHAT: Record<string, string> = { todo: "To-do", post: "Opslag", mail: "Mai
 export function cleanupCard(base: string, actions: CleanupAction[]): string {
   if (!actions.length) return "";
   const done = actions.filter(a => a.status === "gjort"), open = actions.filter(a => a.status === "forslag");
-  const head = [done.length ? `${done.length} ${done.length === 1 ? "dublet ryddet" : "dubletter ryddet"}` : "", open.length ? `${open.length} ${open.length === 1 ? "forslag" : "forslag"} til dig` : ""].filter(Boolean).join(" · ");
+  const head = [done.length ? `${done.length} ting ryddet op · kun du ser det` : "", open.length ? `${open.length} forslag til dig` : ""].filter(Boolean).join(" · ");
   const form = (a: CleanupAction, choice: string, label: string, cls = "") => `<form method="post" action="${base}/oprydning"><input type="hidden" name="id" value="${a.id}"><input type="hidden" name="valg" value="${choice}"><button class="${cls}">${label}</button></form>`;
   const row = (a: CleanupAction) => `<li><span class="ck ck-${a.kind === "forældet" ? "foraeldet" : a.kind}">${LABEL[a.kind]}</span><div><strong>${esc(WHAT[a.target.split(":")[0]!] ?? "")}: ${esc(a.text)}</strong><span class="small muted">${esc(a.why)}</span></div>
 <div class="ck-acts">${a.status === "gjort" ? form(a, "fortryd", "Fortryd", "ghost") : `${form(a, "ja", "Ja, ryd op")}${form(a, "nej", "Nej", "ghost")}`}</div></li>`;

@@ -26,6 +26,14 @@ export function signReminder(base: string, toSign: ApprovedMinutes[], nowMs: num
   return `<div class="sign-bar ${level}" role="status"><div class="sign-inner"><span>${esc(text)}</span><a class="button" href="${base}/referat/${oldest.id}">Læs og godkend →</a></div></div>`;
 }
 
+/** Requested: "Det ville også være godt, hvis godkendelse af referatet kommer på den individuelle opgaveliste for dem, der ikke har godkendt
+ * det endnu." - one line on Dine opgaver per minutes still to approve; it goes when they are approved. */
+export function signTodo(base: string, m: ApprovedMinutes, nowMs: number): string {
+  const days = Math.max(0, Math.floor((nowMs - Math.max(m.created_at_ms, m.updated_at_ms ?? 0)) / DAY));
+  const which = m.meeting_date ? `referatet fra ${DATE.format(new Date(`${m.meeting_date}T12:00:00Z`))}` : "referatet";
+  return `<li><a href="${base}/referat/${m.id}"><strong>Godkend ${esc(which)}</strong></a><span class="ctx">Referat · ${days >= 2 ? `har ventet i ${days} dage` : "nyt"}</span></li>`;
+}
+
 export const SIGN_STYLE = `<style>
 .sign-bar{border-bottom:1px solid var(--line);background:var(--soft);color:var(--ink)}
 .sign-bar .sign-inner{max-width:1160px;margin:0 auto;padding:10px 24px;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;font-size:14.5px;font-weight:600}

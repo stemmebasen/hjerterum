@@ -143,7 +143,7 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
 
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
-  const open = data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0) + (data.posts?.length ?? 0);
+  const open = data.toSign.length + data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0) + (data.posts?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
@@ -161,6 +161,7 @@ ${lysArt("mini")}</section>`;
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
+    ...data.toSign.map(m => signTodo(base, m, data.nowMs ?? Date.now())),
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...(data.posts ?? []).map(p => postTodo(base, p)),
     // The same lines as on Opgaver, with the same checkbox to the left ("helt samme styling som på opgavesiden"): the same task from the minutes,
