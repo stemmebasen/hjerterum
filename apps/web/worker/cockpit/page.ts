@@ -164,9 +164,13 @@ const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="curr
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.15.0";
-export const COCKPIT_RELEASED = "2026-10-04";
-const versionLine = () => `<p class="ver">Hjerterum admin v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
+export const COCKPIT_VERSION = "1.16.0";
+export const COCKPIT_RELEASED = "2026-10-13";
+/** Requested: "this footer should change accordingly" - the day and the commit each deploy was built from (vite.config.ts), so the line follows
+ * what is live; the hand-set day only stands in where nothing was built (the tests). */
+const BUILT = typeof __APP_BUILT__ === "string" && __APP_BUILT__ ? __APP_BUILT__ : COCKPIT_RELEASED;
+const COMMIT = typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__ : "";
+const versionLine = () => `<p class="ver">Hjerterum admin v${COCKPIT_VERSION} · ${shortDay(BUILT)}${COMMIT ? ` · ${COMMIT}` : ""} © Jacob Hauge</p>`;
 
 export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string; post?: { kind?: PostKind; open?: boolean } } = {}): string {
   // The version sits quietly at the end of every page's main column.
