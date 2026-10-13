@@ -149,14 +149,12 @@ ${data.who ? `<span class="propose-row"><a class="button propose-btn" href="${ba
   const tiles = `<section class="tiles with-members${fact ? " with-fact" : ""}" aria-label="Kort fortalt">
 <a class="tile" href="${base}/moder${data.next ? `/${data.next.id}` : ""}"><span class="label">Næste møde</span><b>${data.next ? esc(shortDay(data.next.meeting_date).replace(/\s\d{4}$/, "")) : "Ikke sat"}</b><span class="sub">${data.next ? `${inDays(days!)}${data.next.start_time ? ` · kl. ${esc(data.next.start_time)}` : ""}` : "Planlæg det under Møder"}</span></a>
 <a class="tile" href="${base}/opgaver"><span class="label">Dine opgaver</span><b>${open}</b><span class="sub">${open ? "venter på dig" : "intet venter"}</span></a>
-${data.toSign.length ? `<a class="tile hot" href="${base}/referat/${data.toSign[0]!.id}"><span class="label">Til godkendelse</span><b>${data.toSign.length}</b><span class="sub">${plural(data.toSign.length, "referat", "referater")}</span></a>` : ""}
 <a class="tile" href="${base}/arrangementer"><span class="label">Events</span><b>${data.eventsMonth}</b><span class="sub">de næste 30 dage</span></a>${membersTile(base, data.memberStats ?? [])}${fact}</section>`;
 
   // What waits on me: minutes to approve, my own and written-to-me items, my tasks from the minutes, and (for the chair) Saga's list.
   const mine = [
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...(data.posts ?? []).map(p => postTodo(base, p)),
-    ...data.toSign.map(m => `<li><a href="${base}/referat/${m.id}"><strong>Godkend referatet</strong></a><span class="ctx">Møde ${esc(shortDay(m.meeting_date ?? ""))}</span></li>`),
     // The same lines as on Opgaver, with the same checkbox to the left ("helt samme styling som på opgavesiden"): the same task from the minutes,
     // the minutes document, Saga's list and your own items is one line (data.ts sameTask), and checking it takes the page back here.
     ...(data.who ? openLines(base, { who: data.who, tasks: data.tasks, todos: data.todos, saga: data.forMe, back: "forside" }) : [])
@@ -182,11 +180,11 @@ ${rolesLine(m) ? `<p class="small muted" style="margin:10px 0 0">${esc(rolesLine
   // godkende referatet)". The meeting's formalities (approving the agenda or the minutes) stay in the minutes.
   const l = data.latest;
   const important = l ? l.decisions.filter(d => !FORMALITY.test(d)) : [];
-  const unsigned = l ? data.toSign.some(m2 => m2.id === l.id) : false;
-  const minutes = l ? `<article class="panel"><header><h2>Vigtigste punkter fra sidste møde</h2><p>${esc(capital(longDay(l.date)))}${unsigned ? ` · <a href="${base}/referat/${l.id}">Husk at godkende referatet</a>` : ""}</p></header>
+  // Requested: the bar under the header is "den eneste notifikation om godkendelsen" (signReminder.ts) - nothing about it here.
+  const minutes = l ? `<article class="panel"><header><h2>Vigtigste punkter fra sidste møde</h2><p>${esc(capital(longDay(l.date)))}</p></header>
 ${important.length ? `<ul class="items hearts">${frontPagePoints(important).map(d => `<li>${esc(tr(d))}</li>`).join("")}</ul>${important.length > 3 ? `<p class="small muted">og ${plural(important.length - 3, "punkt", "punkter")} mere</p>` : ""}` : `<p class="empty">Ingen beslutninger i referatet.</p>`}
 ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.approved} af ${l.members}</strong> har godkendt</div><div class="meter"><i style="width:${Math.round(100 * Math.min(l.approved, l.members) / l.members)}%"></i></div></div>` : ""}
-<a class="more" href="${base}/referat/${l.id}">${unsigned ? "Læs og godkend" : "Læs referatet"} →</a></article>` : "";
+<a class="more" href="${base}/referat/${l.id}">Læs referatet →</a></article>` : "";
 
   // Requested: "Her skal Saga en gang i timen lave et resume og overblik over hvad der rører sig netop nu" - "et uformelt
   // resume på under halvtreds ord om, hvad der rører sig. Bare det vigtigste og det nyeste." - "Så det fulde resumé og

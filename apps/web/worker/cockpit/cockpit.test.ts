@@ -175,7 +175,12 @@ describe("the board cockpit", () => {
     expect(minutes).toContain("Ingen har godkendt endnu.");
     expect(minutes).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
-    expect(await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text()).toContain("Godkend referatet");
+    // Requested: the reminder is one coloured bar under the header, and "den eneste notifikation om godkendelsen".
+    const front = await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text();
+    expect(front).toContain('<div class="sign-bar ny" role="status">');
+    expect(front.split("Læs og godkend").length - 1).toBe(1);
+    expect(front).not.toContain("Godkend referatet");
+    expect(front).not.toContain("Til godkendelse");
     const signed = await call(`/cockpit/referat/${queued!.id}/godkend`, { method: "POST", cookie: await memberCookie(session, "Lisbeth") });
     expect(signed.headers.get("location")).toBe(`/cockpit/referat/${queued!.id}?godkendt=1`);
     const correction = await call(`/cockpit/referat/${queued!.id}/rettelse`, { method: "POST", cookie: await memberCookie(session, "Gitta"), body: form({ comment: "Fristen er 20. oktober" }) });

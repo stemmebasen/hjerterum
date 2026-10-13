@@ -9,11 +9,11 @@ const page = (unsigned: boolean) => homePage("", { who: "Jacob", isChair: true, 
     "Lisbeth er dirigent for generalforsamlingen, medmindre en anden melder sig.", "Der anbefales op til fire suppleanter på generalforsamlingen."] } } as never);
 
 describe("the latest meeting on the front page", () => {
-  it("shows the important points, not the formalities, under the meeting's date, and reminds to approve", () => {
+  it("shows the important points, not the formalities, under the meeting's date - the reminder to approve is the bar under the header", () => {
     const html = page(true);
     expect(html).toContain("<h2>Vigtigste punkter fra sidste møde</h2>");
     expect(html).toContain("Torsdag den 1. oktober 2026");
-    expect(html).toContain('<a href="/referat/7">Husk at godkende referatet</a>');
+    expect(html).not.toContain("Husk at godkende");
     // Requested: "Jeg mangler bullet points, hjerter eller andet til hver linje".
     expect(html).toContain('<ul class="items hearts">');
     expect(html).toContain("Lisbeth er dirigent for generalforsamlingen");
