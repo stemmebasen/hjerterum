@@ -1,6 +1,6 @@
 import type { BoardPicture } from "../saga/picture.js";
 import { cleanupCard, CLEANUP_STYLE, type CleanupAction } from "./cleanup.js";
-import { assocCard, ASSOC_STYLE, type AssocEvent } from "./assocEvents.js";
+import { assocCard, ASSOC_STYLE, rsvpLine, type AssocEvent } from "./assocEvents.js";
 import { guessKind, rolesLine, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
 import { membersTile, MEMBERS_STYLE, type MemberStats } from "./members.js";
@@ -178,6 +178,7 @@ ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for 
 ${m ? `<div class="when"><div class="date"><span>${esc(MONTH.format(new Date(`${m.meeting_date}T12:00:00Z`)).replace(".", ""))}</span><b>${Number(m.meeting_date.slice(8))}</b></div>
 <div><strong>${esc(longDay(m.meeting_date).replace(/\s\d{4}$/, ""))}</strong><div class="muted small">${[m.start_time ? `kl. ${esc(m.start_time)}` : "", m.place ? esc(m.place) : "", inDays(daysUntil(m.meeting_date, data.today))].filter(Boolean).join(" · ")}</div></div></div>
 ${rolesLine(m) ? `<p class="small muted" style="margin:10px 0 0">${esc(rolesLine(m))}</p>` : ""}
+${rsvpLine(base, `moede:${m.id}`, data.who, data.coming?.get(`moede:${m.id}`) ?? [])}
 <a class="more" href="${base}/moder/${m.id}">Åbn mødet og dagsordenen →</a>`
     : data.found.length ? `<p class="empty">Intet møde er sat i kalenderen, men Saga har set <strong>${esc(longDay(data.found[0]!.date))}</strong> nævnt${data.found[0]!.what ? ` (${esc(data.found[0]!.what)})` : ""}.</p>
 <a class="more" href="${base}/moder?dato=${esc(data.found[0]!.date)}${guessKind(data.found[0]!.what) ? `&amp;art=${guessKind(data.found[0]!.what)}` : ""}#nyt">Sæt det i kalenderen →</a>`
