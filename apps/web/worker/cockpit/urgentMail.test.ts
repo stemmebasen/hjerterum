@@ -124,6 +124,8 @@ describe("critical mail", () => {
     const page = await (await ask("/posthus", { headers: { cookie } })).text();
     expect(page).toContain('<h2>Kritiske mails <span class="count">2</span></h2>');
     expect(page).toContain('<span class="kind">3 mails</span>');
+    // Reported: "But there is no way to fold the email again" - each open mail has its own way back.
+    expect(page).toContain('<button type="button" class="fold-up" onclick="const d=this.closest(\'details\');d.open=false;d.scrollIntoView({block:\'nearest\'})">Fold sammen ▴</button></details>');
     expect(page).toContain(`name="id" value="${third},${second},${first}"`);
     await ask("/posthus/ikke-kritisk", { method: "POST", headers: { origin: ORIGIN, cookie }, body: (() => { const f = new FormData(); f.append("id", `${third},${second},${first}`); return f; })() });
     expect((await db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE urgent_why IS NOT NULL").first<{ n: number }>())?.n).toBe(1);
