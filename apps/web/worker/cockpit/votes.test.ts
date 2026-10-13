@@ -44,23 +44,26 @@ describe("digital votes in the board", () => {
     // The form is the first thing on the page, above what is up for vote and the decisions - with or without a proposal. Requested: "'Opret forslag' fylder for meget nu.
     // Kan den være en fold-ud bjælke i højre side?" - a tab on the right edge, closed until pressed.
     const empty = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
-    expect(empty).toContain('<aside class="drawer" id="nyt" aria-label="Opret forslag"><button type="button" class="tab" aria-expanded="false" aria-controls="nyt-panel">');
+    // Requested: "Hvor er den flotte sideknap Stil et forslag?" - "Ja": the same tab on every page, for a new post; here a vote is chosen.
+    expect(empty).toContain('<aside class="drawer" id="nyt" aria-label="Nyt opslag"><button type="button" class="tab" aria-expanded="false" aria-controls="nyt-panel">');
+    expect(empty).toContain('<input type="radio" name="kind" value="afstemning" checked>');
     expect(empty).toContain('if(location.hash==="#nyt")set(true)');
     expect(empty).not.toContain('class="card propose"');
-    expect(empty.indexOf('id="nyt"')).toBeLessThan(empty.indexOf("<h2>Besluttet</h2>"));
     expect(await (await call("/", { cookie: as("Gitta") })).text()).not.toContain('id="forslag"');
     // A quick button on every member's front page, whether or not a proposal is open.
     // Requested: "Så nu er der både «Opret opslag», men der er også en opslagstavle. Giver det mening?" - one button; a proposal for a vote is one kind of post.
     const home = await (await call("/", { cookie: as("Gitta") })).text();
-    expect(home).toContain('<a class="button propose-btn" href="/opslag?ny=1#nyt">+ Nyt opslag</a>');
+    expect(home).toContain('<aside class="drawer" id="nyt" aria-label="Nyt opslag">');
+    expect(home).toContain('<input type="radio" name="kind" value="afklaring" checked>');
+    expect(home).not.toContain('class="button propose-btn"');
     expect(home).not.toContain("+ Stil et forslag");
     const compose = await (await call("/opslag?art=afstemning", { cookie: as("Lisbeth") })).text();
     expect(compose).toContain('<input type="radio" name="kind" value="afstemning" checked>');
+    expect(compose).toContain('<aside class="drawer open" id="nyt"');
 
     const posted = await call("/opslag", { method: "POST", cookie: as("Lisbeth"), body: form({ kind: "afstemning", title: "Vi åbner salen om søndagen", text: "", mode: "digital", days: "7" }) });
     expect(posted.headers.get("location")).toContain("/beslutninger?besked=ny#p1");
     const page = await (await call("/beslutninger", { cookie: as("Gitta") })).text();
-    expect(page.indexOf('id="nyt"')).toBeLessThan(page.indexOf('id="afstemning"'));
     expect(page.indexOf('id="afstemning"')).toBeLessThan(page.indexOf("<h2>Besluttet</h2>"));
     expect(page.indexOf("Stem for")).toBeLessThan(page.indexOf("<h2>Besluttet</h2>"));
 
@@ -204,7 +207,7 @@ describe("digital votes in the board", () => {
     const formPage = await (await call("/beslutninger", { cookie: as("Lisbeth") })).text();
     expect(formPage).toContain('<input type="radio" name="mode" value="digital" checked>');
     expect(formPage).toContain('<input type="radio" name="mode" value="moede">');
-    expect(formPage).toContain("Saga foreslår det som punkt på dagsordenen til mødet");
+    expect(formPage).toContain("<b>På næste møde</b><span>Saga sætter det på dagsordenen.</span>");
 
     const made = await call("/afstemninger/ny", { method: "POST", cookie: as("Lisbeth"), body: form({ title: "Vi hæver prisen på Lydbad", text: "Salen koster mere.", days: "7", mode: "moede" }) });
     expect(made.headers.get("location")).toBe("/beslutninger?besked=nymoede#p1");
