@@ -46,7 +46,7 @@ import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } fr
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
-import { associationEvents } from "./assocEvents.js";
+import { associationEvents, rsvps, toggleRsvp } from "./assocEvents.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -229,7 +229,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
-    return html(homePage(base, { assoc, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    const coming = await rsvps(db, assoc.map(e => e.key));
+    return html(homePage(base, { assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -264,7 +265,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
     const asked = url.searchParams.get("dato") ?? "";
     const notice = url.searchParams.get("upload") === "1" ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : "";
-    return html(meetingsPage(base, { members: members.names, upcoming, past,
+    const coming = await rsvps(db, upcoming.map(m => `moede:${m.id}`));
+    return html(meetingsPage(base, { coming, members: members.names, upcoming, past,
       found: sagaMeetings(picture, list, today), suggestion: picture?.document.nextAgenda ?? [],
       prefill: { date: /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked >= today ? asked : "", kind: url.searchParams.get("art") === "team" ? "team" : url.searchParams.get("art") === "andet" ? "andet" : "" }, today, who, notice, uploads: Boolean(env.BOARD_RECORDINGS) }));
   }
@@ -985,6 +987,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (gone && gone.member !== who) await audit(db, actor, "memory.forget_any", `Glemte: ${gone.text.slice(0, 160)}`, now);
     }
     return redirect(`${base}/hukommelse`);
+  }
+  // Requested: "Kan du indsætte en lille knap? 'Jeg kommer' til vores fælles møder, inklusive generalforsamling."
+  if (path === "/kommer" && request.method === "POST") {
+    if (!who) return redirect(`${base}/hvem`);
+    await toggleRsvp(db, String((await request.formData().catch(() => null))?.get("key") ?? ""), who, now);
+    return redirect(`${base}/`);
   }
   // Requested: "Lav dog en opdatering for her klokken 12" - "Opdater nu" under Bestyrelsen lige nu.
   if (path === "/lige-nu" && request.method === "POST") {
