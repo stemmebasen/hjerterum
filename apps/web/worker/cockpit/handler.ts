@@ -47,6 +47,7 @@ import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, rsvps, toggleRsvp } from "./assocEvents.js";
+import { cleanupForChair, decideCleanup } from "./cleanup.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -230,7 +231,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
     const coming = await rsvps(db, [...assoc.map(e => e.key), ...(nextTeam ? [`moede:${nextTeam.id}`] : [])]);
-    return html(homePage(base, { assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    const cleanup = who && members.chair && who === members.chair ? await cleanupForChair(db, now) : [];
+    return html(homePage(base, { cleanup, assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -987,6 +989,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (gone && gone.member !== who) await audit(db, actor, "memory.forget_any", `Glemte: ${gone.text.slice(0, 160)}`, now);
     }
     return redirect(`${base}/hukommelse`);
+  }
+  // Requested: "an intelligent and clever AI call once per day that ... tidies up" - the chair accepts, turns down or undoes (cleanup.ts).
+  if (path === "/oprydning" && request.method === "POST") {
+    if (!who || who !== members.chair) return redirect(`${base}/`);
+    const form = await request.formData().catch(() => null);
+    const choice = String(form?.get("valg") ?? "");
+    if (choice === "ja" || choice === "nej" || choice === "fortryd") await decideCleanup(db, Number(form?.get("id")), choice, who, now);
+    return redirect(`${base}/#oprydning`);
   }
   // Requested: "Kan du indsætte en lille knap? 'Jeg kommer' til vores fælles møder, inklusive generalforsamling."
   if (path === "/kommer" && request.method === "POST") {

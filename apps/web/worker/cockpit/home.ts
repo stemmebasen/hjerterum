@@ -1,4 +1,5 @@
 import type { BoardPicture } from "../saga/picture.js";
+import { cleanupCard, CLEANUP_STYLE, type CleanupAction } from "./cleanup.js";
 import { assocCard, ASSOC_STYLE, rsvpLine, type AssocEvent } from "./assocEvents.js";
 import { guessKind, rolesLine, TASKS_SINCE, taskDay, type ApprovedMinutes, type Meeting, type Task, type Todo } from "./data.js";
 import type { HouseEvent } from "./events.js";
@@ -20,6 +21,8 @@ export type HomeData = {
   who: string | null; isChair: boolean; today: string;
   /** The association's own gatherings the coming week - a team meeting, the general assembly (assocEvents.ts). */
   assoc?: AssocEvent[];
+  /** The chair's: what Saga tidied up last night, and her suggestions (cleanup.ts). */
+  cleanup?: CleanupAction[];
   /** Who has said "Jeg kommer" to each of them. */
   coming?: Map<string, string[]>;
   toSign: ApprovedMinutes[];
@@ -213,6 +216,6 @@ ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="eve
   const reviewNote = data.eventsToReview ? `<p class="notice"><a href="${base}/arrangementer"><strong>${plural(data.eventsToReview, "medlems-event", "medlems-events")}</strong> venter på godkendelse →</a></p>` : "";
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" - until the member has written them.
   const ask = data.needsResponsibilities ? `<section class="panel ask-ansvar" id="ansvar"><header><h2>Hvad har du ansvar for?</h2><p>Skriv det med dine egne ord, så ved Saga, hvad hun skal give dig besked om, og hvem hun skal pege på, når noget kommer ind. Du kan altid rette det under din profil.</p></header>${responsibilitiesForm(base, "", "/")}</section>` : "";
-  return layout(base, "Overblik", `<main class="home">${welcome}${assocCard(data.assoc ?? [], data.today, { base, who: data.who, coming: data.coming ?? new Map() })}${tiles}${ask}${enquiryNote}${reviewNote}${working}
-<div class="panels"><div>${yours}${minutes}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs, data.next?.meeting_date)}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE + ASSOC_STYLE });
+  return layout(base, "Overblik", `<main class="home">${welcome}${assocCard(data.assoc ?? [], data.today, { base, who: data.who, coming: data.coming ?? new Map() })}${tiles}${cleanupCard(base, data.cleanup ?? [])}${ask}${enquiryNote}${reviewNote}${working}
+<div class="panels"><div>${yours}${minutes}${frontVotes(base, data.proposals ?? [], data.who, data.nowMs, data.next?.meeting_date)}</div><div>${meeting}${board}${events}</div></div></main>`, { section: "/", who: data.who, style: TODOS_STYLE + VOTES_STYLE + HOME_STYLE + MEMBERS_STYLE + ASSOC_STYLE + CLEANUP_STYLE });
 }
