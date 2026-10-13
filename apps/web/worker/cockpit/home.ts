@@ -195,7 +195,7 @@ ${l.members ? `<div style="margin-top:14px"><div class="small"><strong>${l.appro
   const now = data.boardNow?.text ? data.boardNow : null;
   const board = `<article class="panel"><header><h2>Bestyrelsen lige nu</h2><p>${now ? `Saga · ${esc(NOW_TIME.format(now.at))}` : "Sagas korte resumé af, hvad der rører sig."}</p></header>
 ${now ? `<p class="now">${esc(tr(now.text))}</p>` : `<p class="empty">Saga skriver det første korte resumé inden for en time (på hverdage).</p>`}
-<a class="more" href="${base}/status">Mere i Status →</a></article>`;
+<div class="more-row"><a class="more" href="${base}/status">Mere i Status →</a>${data.who ? `<form method="post" action="${base}/lige-nu" class="inline" onsubmit="const b=this.querySelector('button');b.disabled=true;b.textContent='Saga skriver …'"><button class="linkbtn" title="Saga skriver et nyt resumé nu">Opdater nu</button></form>` : ""}</div></article>`;
 
   const events = `<article class="panel"><header><h2>Lige om lidt i Hjerterum</h2><p>De næste arrangementer i Hjerterum.</p></header>
 ${data.events.length ? `<ul class="items">${data.events.map(e => `<li class="event">${e.image_url ? `<img src="${esc(e.image_url)}" alt="" loading="lazy">` : `<span class="date" style="width:52px;height:52px"><b style="font-size:20px">${new Date(e.starts_at_ms).getDate()}</b></span>`}

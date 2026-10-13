@@ -79,6 +79,14 @@ export async function latestBoardNow(db: D1Database): Promise<(BoardNow & { newe
   return row ? { text: nowText(row.text), at: row.created_at_ms, newest: /^\s*[-*•]\s/m.test(row.text) || row.created_at_ms < TONE_SINCE_MS ? -1 : row.newest_source_ms } : null;
 }
 
+/** Requested: "Lav dog en opdatering for her klokken 12" - the board can ask for one at once ("Opdater" on the front page);
+ * at most once every ten minutes for the whole board. */
+export async function boardNowOnRequest(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<boolean> {
+  if (!env.AI_API_KEY || !env.AI_MODEL) return false;
+  if (!(await claim("saga_board_now_asked", Math.floor(deps.now() / (10 * 60_000)) * 10 * 60_000))) return false;
+  return writeBoardNow(env, deps, db, true);
+}
+
 /** One summary, when there is something newer than the last one (or `force`). True when a new one was saved. */
 export async function writeBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database, force = false): Promise<boolean> {
   const now = deps.now();
@@ -95,14 +103,22 @@ export async function writeBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database
  * something is new. A time with nothing new is not lost: Saga looks again every hour until 22:00 and writes once there is.
  * Earlier: once a day from seven, and a quiet morning lost the whole day. No automatic AI at weekends. */
 const TIMES = [17, 12, 7];
+/** When the current time (07, 12 or 17 in Copenhagen) began - null outside 07-22, and at the weekend only 07 (or null with `weekends: false`).
+ * Copenhagen's offset is whole hours. Shared with Sagas overblik (saga.ts). */
+export function sagaTimeSince(now: number, weekends: boolean): number | null {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(now).map(p => [p.type, p.value]));
+  const hour = Number(parts.hour), weekend = parts.weekday === "Sat" || parts.weekday === "Sun";
+  if ((weekend && !weekends) || hour < 7 || hour > 21) return null;
+  const from = weekend ? 7 : TIMES.find(t => hour >= t)!;
+  return Math.floor(now / HOUR) * HOUR - (hour - from) * HOUR;
+}
+
 export async function scheduledBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
   const now = deps.now();
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(now).map(p => [p.type, p.value]));
-  const hour = Number(parts.hour);
-  if (parts.weekday === "Sat" || parts.weekday === "Sun" || hour < 7 || hour > 21) return;
-  // The start of the current time (07, 12 or 17 in Copenhagen; its offset is whole hours). Written since then: done.
-  const since = Math.floor(now / HOUR) * HOUR - (hour - TIMES.find(t => hour >= t)!) * HOUR;
+  const since = sagaTimeSince(now, false);
+  if (since === null) return;
+  // Written since the current time began: done.
   const last = await latestBoardNow(db);
   if (last && last.at >= since) return;
   // At most one look an hour; it costs an AI call only when something is new.
