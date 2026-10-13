@@ -229,7 +229,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const english = state.lang === "en" ? await translations(db, await frontPageTexts(db, now)).catch(() => new Map<string, string>()) : null;
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
-    const coming = await rsvps(db, assoc.map(e => e.key));
+    const coming = await rsvps(db, [...assoc.map(e => e.key), ...(nextTeam ? [`moede:${nextTeam.id}`] : [])]);
     return html(homePage(base, { assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));

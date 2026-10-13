@@ -22,7 +22,7 @@ async function setup() {
 }
 
 describe("the association's own gatherings on the admin's front page", () => {
-  it("shows the general assembly tomorrow from the house's calendar and a team meeting from the admin, in the golden card", async () => {
+  it("shows the general assembly tomorrow in the golden card - and a team meeting only in its regular box, with Jeg kommer", async () => {
     const { db, ask, cookie } = await setup();
     await db.prepare("INSERT INTO house_events (id, title, starts_at_ms, ends_at_ms, location, content_hash, updated_at_ms) VALUES ('gf', 'Generalforsamling i Hjerterum', ?, ?, 'Hjerterum', 'h', ?)")
       .bind(Date.parse("2026-10-14T17:30:00Z"), Date.parse("2026-10-14T19:00:00Z"), NOW).run();
@@ -32,7 +32,11 @@ describe("the association's own gatherings on the admin's front page", () => {
     expect(home).toContain('<section class="assoc-card" aria-label="Foreningens arrangementer">');
     expect(home).toContain('<span class="assoc-when">I morgen</span><strong>Generalforsamling i Hjerterum</strong>');
     expect(home).toContain("Onsdag 14. oktober kl. 19.30 · Hjerterum");
-    expect(home).toContain('<span class="assoc-when">På fredag</span><strong>Teammøde</strong>');
+    // Reported: "You have now put in a gold frame for our team meeting. What I meant was the generalforsamling."
+    expect(home).not.toContain("<strong>Teammøde</strong>");
+    expect(home.split('class="assoc"').length - 1).toBe(1);
+    expect(home).toContain('<h2>Næste teammøde</h2>');
+    expect(home).toMatch(/<div class="rsvp-line"><form method="post" action="\/kommer"><input type="hidden" name="key" value="moede:\d+"><button class="rsvp-plain" aria-pressed="false">Jeg kommer<\/button><\/form>/);
     expect(home).not.toContain("20. november kl.");
     expect(home.indexOf("assoc-card")).toBeLessThan(home.indexOf('class="tiles'));
     // The footer follows what is built; in the tests, the day set by hand.
