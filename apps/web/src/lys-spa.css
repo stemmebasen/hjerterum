@@ -367,3 +367,41 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 @media (max-width: 760px) { .event-way { grid-template-columns: 1fr; } .event-map-card { min-height: 240px; } }
 .site-section-more { margin: 22px 0 0; text-align: center; }
 .site-foot .site-motto { margin: 14px 0 0; font: italic 400 22px/1.3 var(--lys-serif); color: var(--lys-terra); }
+
+/* Requested: "Have a look at this PDF ... make our web design a little bit more like it. Especially this header picture" - the front page
+   opens like the monthly newsletter: a warm panel, three of the month's photos, a camel stripe, "Oktober / i Hjerterum" (month-hero.tsx). */
+:root { --lys-camel: #c9976f; }
+.month-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) 22px; background: var(--lys-soft); margin: clamp(20px, 4vh, 40px) 0 8px; min-height: 420px; }
+.month-photos { display: grid; gap: 10px; padding: 24px 0 24px 36px; align-content: center; }
+.month-photos a { display: block; }
+.month-photos img { width: 100%; height: 172px; object-fit: cover; display: block; }
+.month-text { padding: 52px 52px 46px 60px; display: flex; flex-direction: column; justify-content: center; }
+.month-hero:not(:has(.month-photos)) .month-text { grid-column: 1 / 3; }
+.month-kicker { margin: 0; font: 700 12px/1 var(--lys-sans); letter-spacing: .32em; text-transform: uppercase; color: var(--lys-ink); }
+.month-title { margin: 24px 0 0; font: 400 clamp(64px, 8.6vw, 124px)/.95 var(--lys-serif); letter-spacing: -.01em; color: var(--lys-ink); }
+.month-title em { display: block; font-size: .48em; line-height: 1.1; margin-top: 10px; font-style: italic; }
+.month-rule { display: block; width: 104px; height: 6px; background: var(--lys-camel); margin: 28px 0 24px; }
+.month-note { margin: 12px 0 0; font: italic 400 22px/1.35 var(--lys-serif); max-width: 32ch; }
+.month-note a { color: inherit; text-decoration: none; }
+.month-note a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.month-text .lys-hero-actions { margin-top: 28px; }
+.month-stripe { background: var(--lys-camel); }
+.site-italic { font-style: italic; }
+/* "Resten af oktober" - the newsletter's list, week by week. */
+.month-rest { text-align: center; border-top: 3px solid var(--lys-ink); margin: 44px 0 8px; padding-top: 6px; }
+.month-rest h3 { font: italic 400 clamp(30px, 3.4vw, 40px)/1.2 var(--lys-serif); margin: 34px 0 6px; }
+.month-week { margin: 26px 0 12px; padding-bottom: 10px; border-bottom: 2px solid var(--lys-camel); font: 800 12.5px/1 var(--lys-sans); letter-spacing: .24em; text-transform: uppercase; }
+.month-rest ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.month-rest li { display: grid; gap: 1px; }
+.month-when { font: 800 13px/1.4 var(--lys-sans); letter-spacing: .03em; }
+.month-rest li a { color: var(--lys-ink); text-decoration: none; font-size: 17px; }
+.month-rest li a:hover { text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .month-hero { grid-template-columns: minmax(0, 1fr) 12px; min-height: 0; margin-top: 12px; }
+  .month-text { grid-column: 1; grid-row: 1; padding: 34px 22px 8px; }
+  .month-photos { grid-column: 1; grid-row: 2; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 18px 22px 24px; }
+  .month-photos img { height: 92px; }
+  .month-stripe { grid-column: 2; grid-row: 1 / 3; }
+  .month-title { font-size: 72px; margin-top: 20px; }
+  .month-note { font-size: 19px; }
+}

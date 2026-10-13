@@ -2,7 +2,6 @@ import { useEffect, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
 import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
-import { LysArt } from "./lys";
 import { EnquiryForm } from "./enquiry-form";
 
 /** The public website in Hjerterum Lys (site/pages.ts): the homepage modelled on hjerterum.info ("En forside som denne
@@ -190,26 +189,20 @@ const CATEGORIES = [
 
 /** hjerterum.info's front page, in Lys: the welcome with the living geometry and what is about to happen, the
  * kinds of evenings, the calendar, membership, CIRKLER, and "Mere nærvær. Mindre støj." with the ways in. */
-export function SiteHome({ header, soon, events, plans }: { header: ReactNode; soon: ReactNode; events: ReactNode; plans: ReactNode }) {
+export function SiteHome({ header, hero, events, rest, plans }: { header: ReactNode; hero: ReactNode; events: ReactNode; rest?: ReactNode; plans: ReactNode }) {
   useDocumentMeta("Hjerterum – nærvær, oplevelser og fællesskab i Aarhus", ABOUT_WORDS.tagline.replace(/\s*♥️$/, ""), "da");
   return <main className="page-shell site-home">
     {header}
-    <section className="lys-hero">
-      <div>
-        <p className="lys-kicker">Et rum for det menneskelige</p>
-        <h1 className="lys-title site-home-title">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
-        <p className="lys-hero-lead">Et varmt fællesskab for fordybelse, nye perspektiver og oplevelser med andre mennesker.</p>
-        <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
-      </div>
-      <div className="lys-hero-art"><LysArt />{soon}</div>
-    </section>
+    {/* Requested: the front page opens like the monthly newsletter's header (month-hero.tsx). */}
+    {hero}
     <nav className="site-categories" aria-label="Det sker i Hjerterum">
       {CATEGORIES.map(category => <a key={category.label} href="/events"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
     </nav>
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     <section className="site-home-section">
-      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2>Snart i Hjerterum</h2></div></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2 className="site-italic">Snart i Hjerterum</h2></div></div>
       {events}
+      {rest}
       {/* Requested: "“Se hele kalenderen” bør stå under de tre events på forsiden og ikke før". */}
       <p className="site-section-more"><a className="lys-btn ghost" href="/events">Se hele kalenderen →</a></p>
     </section>
