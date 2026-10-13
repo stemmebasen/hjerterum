@@ -6,7 +6,7 @@ import { recentBoardMessages } from "../saga/store.js";
 
 /** Requested: "\"Bestyrelsen lige nu\" virker ikke. Her skal Saga en gang i timen lave et resume og overblik over
  * hvad der rører sig netop nu med basis i Telegram, vigtige mails og fra mødet (hvis det er mindre end 48 timer
- * siden)." - later: "et uformelt resume på under halvtreds ord". Once an hour (07-22, weekdays - no automatic AI at weekends), and only when something new has come
+ * siden)." - later: "et uformelt resume på under halvtreds ord". At 07, 12 and 17 on weekdays (no automatic AI at weekends), and only when something new has come
  * in: the group's last three days, team@'s last two days, and a meeting held within 48 hours (its minutes, or
  * its agenda while the minutes are on their way). Never a broken answer: the last good one stands. */
 
@@ -91,14 +91,21 @@ export async function writeBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database
   return true;
 }
 
-/** Once a day: the first round from 07:00 on a weekday, and only when something is new. Asked: "Why have Saga not made a resume
- * on the admin page since Friday at 1?" - a morning without rounds lost the day's summary; it is now made up for until 22:00. */
+/** Requested: "Hvorfor opdateres Bestyrelsen lige nu ikke?" - three times a weekday: from 07:00, 12:00 and 17:00, each when
+ * something is new. A time with nothing new is not lost: Saga looks again every hour until 22:00 and writes once there is.
+ * Earlier: once a day from seven, and a quiet morning lost the whole day. No automatic AI at weekends. */
+const TIMES = [17, 12, 7];
 export async function scheduledBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
-  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(deps.now()).map(p => [p.type, p.value]));
+  const now = deps.now();
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hourCycle: "h23" }).formatToParts(now).map(p => [p.type, p.value]));
   const hour = Number(parts.hour);
-  // Requested: "Bestyrelsen lige nu hver morgen kl. 7": the first round from seven o'clock on a weekday (a round that was missed is made up for until ten), when something is new - and no more that day.
   if (parts.weekday === "Sat" || parts.weekday === "Sun" || hour < 7 || hour > 21) return;
-  if (!(await claim("saga_board_now", Math.floor(deps.now() / DAY)))) return;
+  // The start of the current time (07, 12 or 17 in Copenhagen; its offset is whole hours). Written since then: done.
+  const since = Math.floor(now / HOUR) * HOUR - (hour - TIMES.find(t => hour >= t)!) * HOUR;
+  const last = await latestBoardNow(db);
+  if (last && last.at >= since) return;
+  // At most one look an hour; it costs an AI call only when something is new.
+  if (!(await claim("saga_board_now", Math.floor(now / HOUR) * HOUR))) return;
   await writeBoardNow(env, deps, db);
 }
