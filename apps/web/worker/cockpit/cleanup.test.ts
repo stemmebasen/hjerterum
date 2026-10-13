@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanupCard, cleanupForChair, decideCleanup, runCleanup, scheduledCleanup } from "./cleanup.js";
+import { applyOpenSuggestions, cleanupCard, cleanupForChair, decideCleanup, runCleanup, scheduledCleanup } from "./cleanup.js";
 import { addTodo } from "./data.js";
 import { createPost } from "./board.js";
 import { claimJob, insertMail, saveBoardMessage } from "../saga/store.js";
@@ -25,38 +25,47 @@ async function setup(answer: (user: string) => unknown[]) {
 }
 
 describe("Saga's nightly tidy-up", () => {
-  it("closes a duplicate to-do herself, and suggests the rest to the chair with what the group and team@ say", async () => {
+  // Then: "alle dem, som hun har fundet, er helt fine og skal egentlig bare ryddes automatisk fremover. Men det er kun mig, der må se det".
+  it("tidies all she is sure of herself, with what the group and team@ say, and the chair can undo it", async () => {
     const { db, env, services, ids, seen } = await setup(() => [
       { kind: "dublet", ref: "todo:2", keep: "todo:1", why: "Samme opgave som 'Send nyhedsbrevet'" },
       { kind: "klaret", ref: "post:1", why: "Jacob skrev i gruppen, at det er aftalt" },
       { kind: "forældet", ref: "mail:99", why: "findes ikke" }]);
-    expect(await runCleanup(env, deps(services.fetcher, NOW), db)).toEqual({ done: 1, suggested: 1 });
+    expect(await runCleanup(env, deps(services.fetcher, NOW), db)).toEqual({ done: 2, suggested: 0 });
     expect(seen()).toContain(`[todo:${ids.b}] to-do til Gitta Hansen: Nyhedsbrev skal sendes ud`);
     expect(seen()).toContain("Vi forlænger prøveperioden til 30 dage");
     expect(seen()).toContain(`[mail:${ids.mail}] vigtig mail fra Pia`);
     expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(ids.b).first<{ done_at_ms: number }>())?.done_at_ms).toBe(NOW);
     expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(ids.a).first<{ done_at_ms: number | null }>())?.done_at_ms).toBeNull();
+    expect(await db.prepare("SELECT status, outcome FROM board_posts WHERE id = ?").bind(ids.post).first()).toEqual({ status: "closed", outcome: "Ryddet op: Jacob skrev i gruppen, at det er aftalt" });
     const shown = await cleanupForChair(db, NOW);
     const card = cleanupCard("/c", shown);
-    expect(card).toContain("<h2>Saga har ryddet op</h2><p>1 dublet ryddet · 1 forslag til dig</p>");
+    expect(card).toContain("<h2>Saga har ryddet op</h2><p>2 ting ryddet op · kun du ser det</p>");
     expect(card).toContain("Opslag: Skal vi forlænge prøveperioden?");
-    // The chair accepts the suggestion: the post is closed with why; and undoes the duplicate.
-    const suggestion = shown.find(a => a.status === "forslag")!, duplicate = shown.find(a => a.status === "gjort")!;
-    expect(await decideCleanup(db, suggestion.id, "ja", "Jacob Hauge", NOW + 1000)).toBe(true);
-    expect(await db.prepare("SELECT status, outcome FROM board_posts WHERE id = ?").bind(ids.post).first()).toEqual({ status: "closed", outcome: "Ryddet op: Jacob skrev i gruppen, at det er aftalt" });
-    expect(await decideCleanup(db, duplicate.id, "fortryd", "Jacob Hauge", NOW + 2000)).toBe(true);
+    expect(card).not.toContain("Ja, ryd op");
+    // The chair undoes both: the post opens again, the to-do is back.
+    for (const a of shown) expect(await decideCleanup(db, a.id, "fortryd", "Jacob Hauge", NOW + 1000)).toBe(true);
+    expect((await db.prepare("SELECT status FROM board_posts WHERE id = ?").bind(ids.post).first<{ status: string }>())?.status).toBe("open");
     expect((await db.prepare("SELECT done_at_ms FROM cockpit_todos WHERE id = ?").bind(ids.b).first<{ done_at_ms: number | null }>())?.done_at_ms).toBeNull();
     expect(await cleanupForChair(db, NOW + 3000)).toEqual([]);
   });
 
-  it("does not bring the same thing up again within a month, and runs once a night from three", async () => {
+  it("carries out the suggestions left from before", async () => {
+    const { db, ids } = await setup(() => []);
+    await db.prepare("INSERT INTO cleanup_actions (run_day, kind, target, text, why, status, created_at_ms) VALUES ('2026-10-13', 'forældet', ?, 'Leje af salen', 'Gammel', 'forslag', ?)").bind(`mail:${ids.mail}`, NOW - DAY).run();
+    expect(await applyOpenSuggestions(db, NOW)).toBe(1);
+    expect((await db.prepare("SELECT handled_by FROM board_mail WHERE id = ?").bind(ids.mail).first<{ handled_by: string }>())?.handled_by).toBe("Saga");
+    expect((await cleanupForChair(db, NOW)).map(a => a.status)).toEqual(["gjort"]);
+  });
+
+  it("does not tidy the same thing again within a month once undone, and runs once a night from three", async () => {
     let calls = 0;
     const { db, env, services } = await setup(() => { calls++; return [{ kind: "forældet", ref: "mail:1", why: "Gammel" }]; });
     const first = await runCleanup(env, deps(services.fetcher, NOW), db);
-    expect(first.suggested).toBe(1);
+    expect(first.done).toBe(1);
     const row = (await cleanupForChair(db, NOW))[0]!;
-    await decideCleanup(db, row.id, "nej", "Jacob Hauge", NOW);
-    expect((await runCleanup(env, deps(services.fetcher, NOW + DAY), db)).suggested).toBe(0);
+    await decideCleanup(db, row.id, "fortryd", "Jacob Hauge", NOW);
+    expect((await runCleanup(env, deps(services.fetcher, NOW + DAY), db)).done).toBe(0);
     calls = 0;
     const claim = (key: string, slot: number) => claimJob(db, key, slot, NOW);
     await scheduledCleanup(env, deps(services.fetcher, Date.parse("2026-10-15T00:30:00Z")), db, claim); // 02:30 - not yet

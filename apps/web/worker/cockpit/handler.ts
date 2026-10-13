@@ -46,7 +46,7 @@ import { connectTeamMail, disconnectTeamMail, readTeamMail, teamMailAccount } fr
 import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
-import { associationEvents, rsvps, toggleRsvp } from "./assocEvents.js";
+import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
 import { cleanupForChair, decideCleanup } from "./cleanup.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
@@ -221,7 +221,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const isChair = Boolean(who && members.chair && who === members.chair);
     const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
     // "Næste møde" is the next meeting of any kind; "Næste teammøde" is the next one that is not said to be something else (a general assembly, an info meeting ...).
-    const next = upcoming[0] ?? null, nextTeam = upcoming.find(m => m.kind !== "andet") ?? null;
+    const next = upcoming[0] ?? null, nextTeam = upcoming.find(m => !isAssocMeeting(m)) ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
     const open = who ? await openFor(db, who, allTasks(minutes, picture)) : { tasks: [], todos: [] };
     const latest = minutes.find(m => m.source !== "document") ?? minutes[0] ?? null;
@@ -695,7 +695,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const all = currentTasks(allTasks(minutes, picture));
     const saga = await sagaFor(picture);
     return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), topics: picture?.topics ?? [], boardChecks: await taskChecksByKey(db), now,
-      votes: await awaitingVote(db, who, now), posts: waitingOn(await boardPosts(db, now).catch(() => []), who) }));
+      votes: await awaitingVote(db, who, now), posts: waitingOn(await boardPosts(db, now).catch(() => []), who), toSign: await unsignedFor(db, who, now) }));
   }
 
   // The board's notice board (board.ts): Afklaring, Til orientering, and the open votes; "Til mødet" puts a post on the next team meeting.
