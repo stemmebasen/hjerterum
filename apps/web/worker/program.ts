@@ -103,3 +103,18 @@ export async function writeProgramIntro(env: SagaEnv, deps: SagaDeps, db: D1Data
   await db.prepare("INSERT INTO event_blurbs (key, text, created_at_ms) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET text = excluded.text, created_at_ms = excluded.created_at_ms").bind(key, text, deps.now()).run();
   return true;
 }
+
+/** Requested (Audiofolk, 13/10): Hjerterum's coming events as a plain public feed, so Audiofolk's agent can order a day-current radio
+ * spot from them ("morgendagens program for hjerterum der automatisk bliver lavet til et radiospot"). The house's events - the
+ * calendar's and the members' approved ones, never the partner houses' - for the next two weeks, with their own words. Nothing
+ * here that the public site does not already show. */
+export type UpcomingEvent = { title: string; startsAt: string; endsAt: string | null; host: string | null; description: string | null; link: string | null };
+export const UPCOMING_DAYS = 14;
+export function upcomingFeed(candidates: Candidate[], nowMs: number, origin = "https://hjerterum.info"): UpcomingEvent[] {
+  const until = nowMs + UPCOMING_DAYS * 86_400_000;
+  return candidates.filter(c => Date.parse(c.startsAt) >= nowMs && Date.parse(c.startsAt) <= until).map(c => ({
+    title: c.title, startsAt: c.startsAt, endsAt: c.endsAt, host: c.host,
+    description: c.description ? c.description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 600) || null : null,
+    link: c.link ? (c.link.startsWith("/") ? origin + c.link : c.link) : null,
+  }));
+}

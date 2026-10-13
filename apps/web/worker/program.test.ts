@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { program, writeProgramIntro } from "./program.js";
+import { program, programCandidates, upcomingFeed, writeProgramIntro } from "./program.js";
 import type { ExternalEvent } from "./external-events.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "./saga/test-support.js";
 
@@ -61,5 +61,17 @@ describe("the overview's programme", () => {
     expect((await program(db, external, monday)).intro).toBeNull();
     expect(await writeProgramIntro(sagaEnv(db), deps(services.fetcher, monday), db, external, async () => true)).toBe(true);
     expect(asked[1]).toContain('"dag":"i dag"');
+  });
+});
+
+// Requested (Audiofolk, 13/10): the house's coming events as a feed Audiofolk's agent orders a day-current radio spot from.
+describe("the upcoming feed for Audiofolk", () => {
+  it("lists the house's events of the next two weeks, oldest first, with their own words and full links", async () => {
+    const db = testDatabase();
+    const external = [ev("1", "2026-10-11T09:30:00Z", "Breathwork"), ev("0", "2026-10-01T09:30:00Z", "Gammel"), ev("9", "2026-11-30T09:30:00Z", "Langt ude")];
+    const feed = upcomingFeed(await programCandidates(db, external, NOW), NOW);
+    expect(feed.map(e => e.title)).toEqual(["Breathwork"]);
+    expect(feed[0]).toMatchObject({ startsAt: "2026-10-11T09:30:00Z", host: "Jørgen Arvid", description: "En rolig rejse ind i åndedrættet." });
+    expect(feed[0]!.link).toMatch(/^https:\/\//);
   });
 });
