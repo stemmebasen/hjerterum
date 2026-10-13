@@ -9,7 +9,8 @@
  * This file is the single source: the React pages inject LYS_CSS, and the cockpit puts it in every page. Each side
  * maps its own older variable names onto the --lys-* tokens, so the two can no longer drift apart. */
 
-export const LYS_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap";
+// Lato and Playfair's italic 500 as in the monthly newsletter (lys-spa.css, the public site).
+export const LYS_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lato:ital,wght@0,400;0,700;0,900;1,400&family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&display=swap";
 
 const TOKENS = `
 :root{--lys-bg:#fbfaf8;--lys-surface:#fff;--lys-soft:#f6f3ef;--lys-line:#ebe5dd;--lys-ink:#2a2622;--lys-muted:#766d64;--lys-faint:#a0978d;

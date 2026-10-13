@@ -189,23 +189,34 @@ const CATEGORIES = [
 
 /** hjerterum.info's front page, in Lys: the welcome with the living geometry and what is about to happen, the
  * kinds of evenings, the calendar, membership, CIRKLER, and "Mere nærvær. Mindre støj." with the ways in. */
-export function SiteHome({ header, hero, events, rest, plans }: { header: ReactNode; hero: ReactNode; events: ReactNode; rest?: ReactNode; plans: ReactNode }) {
+/** Requested: "just take the design of the heading, the fonts, and the colors from the PDF and adapt that to our website" - "Ja den er godt".
+ * The house's own words in the newsletter's heading: a wide-spaced kicker, Playfair with the italic "af", the camel rule, square dark buttons -
+ * and the hall itself beside it, bleeding to the edge with the camel stripe. */
+function SiteHero() {
+  return <section className="nl-hero">
+    <div className="nl-hero-text">
+      <p className="lys-kicker">Hjerterum · Aarhus</p>
+      <h1 className="nl-tagline">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
+      <span className="nl-rule" aria-hidden="true" />
+      <p className="nl-lead">Et varmt fællesskab for fordybelse, nye perspektiver og oplevelser med andre mennesker.</p>
+      <p className="lys-kicker nl-motto">Et rum for det menneskelige</p>
+      <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se hele kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
+    </div>
+    <div className="nl-hero-img"><img src="/media/2021-03-hjerterum-c.webp" alt="Salen i Hjerterum med de hvide bjælker og trægulvet" /></div>
+  </section>;
+}
+
+export function SiteHome({ header, month, plans }: { header: ReactNode; month: ReactNode; plans: ReactNode }) {
   useDocumentMeta("Hjerterum – nærvær, oplevelser og fællesskab i Aarhus", ABOUT_WORDS.tagline.replace(/\s*♥️$/, ""), "da");
   return <main className="page-shell site-home">
     {header}
-    {/* Requested: the front page opens like the monthly newsletter's header (month-hero.tsx). */}
-    {hero}
+    <SiteHero />
     <nav className="site-categories" aria-label="Det sker i Hjerterum">
       {CATEGORIES.map(category => <a key={category.label} href="/events"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
     </nav>
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
-    <section className="site-home-section">
-      <div className="site-section-head"><div><p className="lys-kicker">Kalender</p><h2 className="site-italic">Snart i Hjerterum</h2></div></div>
-      {events}
-      {rest}
-      {/* Requested: "“Se hele kalenderen” bør stå under de tre events på forsiden og ikke før". */}
-      <p className="site-section-more"><a className="lys-btn ghost" href="/events">Se hele kalenderen →</a></p>
-    </section>
+    {/* "Oktober i Hjerterum" - the month as in the newsletter (month-hero.tsx); "Se hele kalenderen" under the events. */}
+    {month}
     <section className="site-home-section" id="medlemskab">
       <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p><p className="site-price-line">{ABOUT_WORDS.membership(membershipPlans.standard.month / 100)}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
       {plans}
