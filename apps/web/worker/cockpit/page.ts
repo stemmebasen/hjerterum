@@ -22,6 +22,7 @@ export const longDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH
 export const shortDay = (iso: string) => /^\d{4}-\d{2}-\d{2}$/.test(iso) ? DANISH_SHORT.format(new Date(`${iso}T12:00:00Z`)) : iso;
 
 export const COCKPIT_STYLE = `
+.meet-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;margin:10px 0 0}
 /* Requested: "It still looks like a quite weird and old design, and I don't like the green ... Take a look at my page for inspiration -
    jacobhauge.com" (2 October); "Can you try to revert just the colors and the design styling back to before October 3rd?" - "Just here" (7 October);
    then "the blue is a bit cold ... a little warmer and more yellowish" - "Lad os bruge natblå".
@@ -370,7 +371,7 @@ function foldCard(id: string, title: string, body: string, open: boolean): strin
   return `<details class="card foldcard" id="${id}"${open ? " open" : ""}><summary><h2>${title}</h2></summary><div class="fold-body">${body}</div></details>`;
 }
 
-function meetingSummary(base: string, m: Meeting, members: string[] = []): string {
+function meetingSummary(base: string, m: Meeting, members: string[] = [], coming?: string[]): string {
   // Requested: "I do not want Sagas suggestions here in the overview": only the board's own points are shown; hers are on the meeting's page, under Rediger møde.
   const saga = new Set((m.agenda_saga ?? "").split("\n").filter(Boolean)), authors = agendaAuthors(m.agenda_authors);
   const all = m.agenda.split("\n").filter(Boolean), items = all.filter(item => !saga.has(item));
@@ -378,7 +379,9 @@ function meetingSummary(base: string, m: Meeting, members: string[] = []): strin
   return `<p><strong>${esc(longDay(m.meeting_date))}</strong>${m.start_time ? ` kl. ${esc(m.start_time)}` : ""}${m.place ? ` · ${esc(m.place)}` : ""}${m.kind ? KIND_TAG[m.kind] : ""}</p>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 8px">${esc(rolesLine(m))}</p>` : ""}
 ${items.length ? `<div class="agenda-box"><ol class="agenda">${items.slice(0, SHOWN).map(item => point(item)).join("")}</ol>${items.length > SHOWN ? fold("Klik her for detaljer", "Skjul detaljer", `<ol class="agenda" start="${SHOWN + 1}">${items.slice(SHOWN).map(item => point(item)).join("")}</ol>`, items.length - SHOWN) : ""}</div>` : `<p class="muted small">${all.length ? "Kun Sagas forslag endnu - du finder dem under Rediger møde." : "Ingen dagsorden endnu."}</p>`}
-<p style="margin:10px 0 0"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a></p>`;
+<p class="meet-actions"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a>${coming === undefined ? "" : `<span class="small muted">${coming.length
+    // Requested: "Der skal så stå deltagere diskret til højre for Rediger møde-knappen" - who pressed "Jeg kommer" (assocEvents.ts).
+    ? `Deltagere: ${esc(coming.map(n => n.trim().split(/\s+/)[0] ?? n).join(", "))} (${coming.length})` : "Ingen har meldt sig endnu"}</span>`}</p>`;
 }
 
 const md = (text: string) => /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(text))?.[1] ?? "";
@@ -520,7 +523,7 @@ ${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date
 }
 
 export function meetingsPage(base: string, data: { members: string[]; upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
-  prefill: { date: string; kind: "" | "team" | "andet" }; today: string; who: string | null; notice: string; uploads: boolean }): string {
+  prefill: { date: string; kind: "" | "team" | "andet" }; today: string; who: string | null; notice: string; uploads: boolean; coming?: Map<string, string[]> }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
 <label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, null)}
@@ -534,7 +537,7 @@ ${roleSelects(data.members, null)}
 <td data-label="Dagsorden">${row.meeting ? `<a href="${base}/moder/${row.meeting.id}">${row.meeting.agenda.split("\n").filter(Boolean).length} punkter</a>` : `<span class="muted">-</span>`}</td>
 <td data-label="Referat">${status(row)}</td></tr>`).join("")}</table>`;
   return layout(base, "Møder", `<main><h1>Møder</h1>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
-<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m, data.members)}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
+<div class="grid"><div class="card"><h2>Kommende møder</h2>${data.upcoming.length ? data.upcoming.map(m => `<div style="margin-bottom:14px">${meetingSummary(base, m, data.members, data.coming?.get(`moede:${m.id}`) ?? [])}<p class="small muted">${inDays(daysUntil(m.meeting_date, data.today))}</p></div>`).join("") : `<p class="muted">Ingen møder planlagt.</p>`}
 ${foundMeetings(base, data.found, data.today)}</div>
 <div class="stack-cards">${foldCard("nyt", "Planlæg et møde", form, Boolean(data.prefill.date || data.prefill.kind))}
 ${foldCard("upload", "Optag et møde", data.uploads ? `${recorderCard(base, { date: data.today, meetingId: data.upcoming.find(m => m.meeting_date === data.today)?.id ?? null })}${uploadForm(base, data.past, data.today)}` : `<p class="muted">Upload er ikke sat op endnu (lageret til optagelser mangler).</p>`, false)}
