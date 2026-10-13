@@ -192,22 +192,6 @@ export const VOTES_STYLE = `
 .votes-panel{background:color-mix(in srgb,var(--accent) 7%,var(--card));border-color:color-mix(in srgb,var(--accent) 32%,var(--line))}
 .votes-panel h2{color:var(--accent)}
 .newprop .row{display:grid;gap:12px;grid-template-columns:1fr auto;align-items:end}.newprop .row p{margin:0}.newprop .go{padding-inline:28px}
-/* Requested: "\"Opret forslag\" fylder for meget nu. Kan den være en fold-ud bjælke i højre side?": a tab on the right edge of the page that folds the form out over it. */
-.drawer{position:fixed;top:150px;right:0;z-index:40;display:flex;align-items:flex-start;pointer-events:none;max-width:100vw}
-.drawer>*{pointer-events:auto}
-.drawer .tab{writing-mode:vertical-rl;transform:rotate(180deg);display:inline-flex;align-items:center;gap:8px;margin:0;padding:18px 11px;border:0;border-radius:0 12px 12px 0;background:var(--accent);color:var(--accent-ink);
-font:inherit;font-size:13.5px;font-weight:700;letter-spacing:.04em;cursor:pointer;box-shadow:-3px 4px 18px rgb(0 0 0 / .18)}
-.drawer .tab:hover{filter:brightness(1.07)}.drawer .tab i{font-style:normal;font-size:17px;line-height:1;transform:rotate(180deg);transition:transform .25s}
-.drawer.open .tab i{transform:rotate(225deg)}
-.drawer .panel{width:min(380px,calc(100vw - 52px));max-height:calc(100vh - 150px - 24px);overflow:auto;box-sizing:border-box;padding:20px 20px 18px;background:var(--card);color:var(--ink);
-border:1px solid color-mix(in srgb,var(--accent) 32%,var(--line));border-right:0;border-radius:16px 0 0 16px;box-shadow:-8px 10px 34px rgb(0 0 0 / .22);
-transition:transform .28s ease,opacity .2s;transform-origin:right center}
-.drawer:not(.open) .panel{display:none}
-.drawer textarea{min-height:64px}.drawer .panel h2{margin:0 0 4px;font-size:18px;color:var(--accent)}.drawer .panel .lead{margin:0 0 14px;font-size:13.5px;color:var(--muted)}
-.drawer .panel .row{grid-template-columns:1fr}.drawer .panel .go{width:100%}
-@media (prefers-reduced-motion:no-preference){.drawer.open .panel{animation:drawer-in .28s ease}@keyframes drawer-in{from{transform:translateX(40px);opacity:0}}}
-@media (max-width:620px){.newprop .row{grid-template-columns:1fr}.drawer{top:30vh}.drawer.open{top:76px}.drawer .panel{max-height:calc(100vh - 76px - 90px)}}
-@media print{.drawer{display:none}}
 .votes-panel .count{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--tint);color:var(--accent);margin-left:8px;vertical-align:3px}
 .votes-panel .prop{border-top:1px solid color-mix(in srgb,var(--accent) 22%,var(--line))}.votes-panel .prop h3 a{color:var(--ink);text-decoration:none}.votes-panel .prop h3 a:hover{color:var(--accent)}
 .votes-panel .prop .state.todo{background:var(--accent);color:var(--accent-ink)}
@@ -256,12 +240,6 @@ ${actions}`;
   return adopted ? `<article class="prop adopted" id="p${p.id}"><div class="seal">${laurel(64)}</div><div class="pbody">${APPROVED_BADGE}${body}</div></article>` : `<article class="prop" id="p${p.id}">${body}</article>`;
 }
 
-const DRAWER_SCRIPT = `<script>(()=>{const d=document.getElementById("nyt"),b=d&&d.querySelector(".tab");if(!d||!b)return;
-const set=o=>{d.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));if(o)setTimeout(()=>{const f=d.querySelector("input[name=title]");f&&f.focus({preventScroll:true})},60)};
-b.addEventListener("click",()=>set(!d.classList.contains("open")));
-document.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest('a[href$="#nyt"]');if(a)set(true)});
-document.addEventListener("keydown",e=>{if(e.key==="Escape")set(false)});
-if(location.hash==="#nyt")set(true)})()</script>`;
 
 /** Requested: "Beslutninger og Afstemninger skal merges" - the votes are part of the page Beslutninger (page.ts decisionsPage):
  * the open proposals first, the board's decisions, a new proposal, and the decided votes folded away.
@@ -280,17 +258,8 @@ export function voteBlocks(base: string, data: { list: ProposalView[]; who: stri
     open: `${open.length ? `<div class="card" id="afstemning"><h2>Til afstemning <span class="pill">${open.length}</span></h2>${open.map(card).join("")}</div>` : ""}${forMeeting.length
       ? `<div class="card" id="moede"><h2>Til næste møde <span class="pill">${forMeeting.length}</span></h2><p class="small muted" style="margin:-6px 0 6px">Forslag, der stemmes om på det næste bestyrelsesmøde${esc(meetingDay(data.nextMeeting))}. Saga foreslår dem som punkter på dagsordenen.</p>${forMeeting.map(card).join("")}</div>` : ""}${fresh.length
       ? `<div class="card adopted-panel" id="vedtaget"><h2>Vedtaget den seneste uge</h2>${fresh.map(card).join("")}</div>` : ""}`,
-    create: `<aside class="drawer" id="nyt" aria-label="Opret forslag"><button type="button" class="tab" aria-expanded="false" aria-controls="nyt-panel"><i aria-hidden="true">+</i>Opret forslag</button>
-<div class="panel" id="nyt-panel"><h2>Opret forslag</h2>${data.who ? `<p class="lead">Det står på alles forside og to-do - eller på næste dagsorden.</p><form class="newprop" method="post" action="${base}/afstemninger/ny">
-<label>Forslag<input name="title" required maxlength="200" placeholder="Fx Vi åbner salen om søndagen"></label>
-<label>Begrundelse (valgfri)<textarea name="text" rows="2" maxlength="4000"></textarea></label>
-<fieldset><legend>Hvordan skal der stemmes?</legend>
-<label class="choice"><input type="radio" name="mode" value="digital" checked><b>Digital afstemning</b><span>Bestyrelsen stemmer her. Vedtaget ved flertal.</span></label>
-<label class="choice"><input type="radio" name="mode" value="moede"><b>På næste møde</b><span>${data.nextMeeting ? `Saga foreslår det som punkt på dagsordenen til mødet ${esc(shortDay(data.nextMeeting))}.` : "Saga foreslår det som punkt på næste dagsorden."}</span></label></fieldset>
-<label class="deadline">Frist for afstemningen<select name="days"><option value="3">3 dage</option><option value="7" selected>7 dage</option><option value="14">14 dage</option></select></label>
-<p style="margin:0"><button class="go">Stil forslaget</button></p>
-<p class="small muted digital-only" style="margin:0">Vil nogen hellere tage et digitalt forslag op på et møde, kan de trykke <em>Jeg ønsker at drøfte dette på et møde</em> - afstemningen fortsætter, og Saga sætter forslaget på sit forslag til næste dagsorden.</p></form>` : `<p class="muted"><a href="${base}/hvem">Vælg hvem du er</a> for at stille et forslag.</p>`}</div></aside>
-<noscript><style>.drawer:not(.open) .panel{display:block}</style></noscript>${DRAWER_SCRIPT}`,
+    // The form is the tab on the right edge of every page now (postDrawer.ts).
+    create: "",
     closed: closed.length ? `<div class="card"><details><summary><h2 style="display:inline">Afgjorte afstemninger (${closed.length})</h2></summary>${closed.map(card).join("")}</details></div>` : ""
   };
 }

@@ -3,6 +3,7 @@ import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { personChip, WHO_CHIP_STYLE } from "./todosPage.js";
 import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
+import { DRAWER_STYLE, postDrawer, type PostKind } from "./postDrawer.js";
 import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, rolesLine, sagaRoom, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
@@ -167,7 +168,7 @@ export const COCKPIT_VERSION = "1.15.0";
 export const COCKPIT_RELEASED = "2026-10-04";
 const versionLine = () => `<p class="ver">Hjerterum admin v${COCKPIT_VERSION} · ${shortDay(COCKPIT_RELEASED)} © Jacob Hauge</p>`;
 
-export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string } = {}): string {
+export function layout(base: string, title: string, body: string, options: { section?: string; who?: string | null; style?: string; post?: { kind?: PostKind; open?: boolean } } = {}): string {
   // The version sits quietly at the end of every page's main column.
   const end = body.lastIndexOf("</main>");
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
@@ -184,16 +185,18 @@ export function layout(base: string, title: string, body: string, options: { sec
   // The phone's tab bar keeps five places; Posthus, Medlemmer and Statistik are on Overblik and under the initials.
   // The phone keeps five tabs: Opslag is reached from Overblik ("Dine opgaver" and "+ Nyt opslag").
   const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer" && path !== "/opslag").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  // The tab on the right edge on every page, for whoever has said who they are.
+  const drawer = options.section !== undefined && Boolean(options.who);
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#f6f1e7" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#10151f" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${BRICOLAGE_FONT_URL.replace(/&/g, "&amp;")}">
-<title>${esc(title)} · Hjerterum bestyrelse</title><style>${LYS_CSS}${COCKPIT_STYLE}${options.style ?? ""}</style></head><body>
+<title>${esc(title)} · Hjerterum bestyrelse</title><style>${LYS_CSS}${COCKPIT_STYLE}${drawer ? DRAWER_STYLE : ""}${options.style ?? ""}</style></head><body>
 ${options.section === undefined ? "" : `<header class="bar"><div class="top"><a class="brand" href="${base}/"><span class="brand-mark"><img src="${base}/logo.png?v=${COCKPIT_VERSION}" alt="" width="44" height="44"></span><span class="names"><b>Hjerterum</b><span>Bestyrelsen</span></span></a><nav class="desk" aria-label="Menu">${desk}</nav>
 <div class="me">${options.who ? `<span class="who-name">${esc(options.who)}</span>` : ""}<a class="avatar" href="${base}/profil" title="${esc(options.who ? `${options.who} · profil` : "Vælg hvem du er")}">${esc(initials)}</a>
 <form method="post" action="${base}/logout" class="logout"><button>Log ud</button></form></div></div></header>
 <nav class="tabs" aria-label="Menu">${tabs}</nav>`}
-${body}${options.section === undefined ? "" : sagaChat(base, options.who ?? null)}</body></html>`;
+${body}${drawer ? postDrawer(base, options.post) : ""}${options.section === undefined ? "" : sagaChat(base, options.who ?? null)}</body></html>`;
 }
 
 /** Requested: "Der bør vær en engelsk oversættelses knap - Douglas taler engelsk" - "Ja byg det sådan": the member's language, chosen once. */
@@ -616,7 +619,7 @@ ${decisionTable("agreements", "Aftale", agreed.slice(0, SHOWN).map(agreement))}$
 <script>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));const d=h&&h.closest("details");if(d){d.open=true;h.scrollIntoView()}}
 {const m=document.querySelector("main.sortable"),set=on=>{m.classList.toggle("sorting",on);document.querySelectorAll("[data-sorting]").forEach(b=>b.setAttribute("aria-pressed",String(on)));try{sessionStorage.setItem("sorting",on?"1":"")}catch(e){}};
 document.querySelectorAll("[data-sorting]").forEach(b=>b.addEventListener("click",()=>set(!m.classList.contains("sorting"))));try{if(sessionStorage.getItem("sorting"))set(true)}catch(e){}}
-document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();if(q)document.querySelectorAll("main details.fold").forEach(d=>{d.open=true});document.querySelectorAll("table.decisions tr").forEach(r=>{if(r.querySelector("th"))return;r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE });
+document.getElementById("q").addEventListener("input",e=>{const q=e.target.value.toLowerCase();if(q)document.querySelectorAll("main details.fold").forEach(d=>{d.open=true});document.querySelectorAll("table.decisions tr").forEach(r=>{if(r.querySelector("th"))return;r.hidden=q&&!r.textContent.toLowerCase().includes(q)})})</script>`, { section: "/beslutninger", who, style: VOTES_STYLE, post: { kind: "afstemning" } });
 }
 
 /** Requested: "Lav lignende oprydning på de resterende": the five newest minutes and days stand open, the older ones are folded under a button. */

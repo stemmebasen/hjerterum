@@ -78,7 +78,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .now{margin:0;font-size:16.5px;line-height:1.6}
 .welcome{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;padding:6px 0 2px}.welcome>div{display:grid;gap:8px;min-width:0}
 .welcome .eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--lys-terra);margin:0}
-.welcome .propose-row{display:flex;flex-wrap:wrap;gap:8px;flex:none;align-self:flex-end;margin-bottom:6px}.welcome .propose-btn{flex:none}
+
 .welcome h1{font-size:clamp(40px,5.6vw,68px)}.welcome .lead{font-size:18px;line-height:1.55;color:var(--muted);max-width:68ch;margin:4px 0 0}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .tile{display:grid;gap:4px;padding:18px 20px;border-radius:18px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);min-width:0}
@@ -93,7 +93,7 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .event{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}.event img{width:52px;height:52px;border-radius:12px;object-fit:cover;background:var(--soft)}
 .event .t{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 @media (max-width:900px){.tiles,.tiles.with-fact,.tiles.with-members{grid-template-columns:repeat(2,1fr);grid-auto-flow:row;grid-auto-columns:auto}.tiles.with-members .tile:last-child:nth-child(odd){grid-column:1/-1}.panels{grid-template-columns:1fr}.tile.fact{grid-column:1/-1}}
-@media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome .propose-row{align-self:flex-start;margin-top:4px}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
+@media (max-width:760px){.welcome{flex-direction:column;align-items:flex-start}.welcome h1{font-size:40px}.welcome .lead{font-size:16px}.panel{padding:20px}.tile{padding:15px 16px}.tile b{font-size:26px}.tile.fact b{font-size:30px}}
 `;
 
 const MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "UTC" });
@@ -140,7 +140,7 @@ export function homePage(base: string, data: HomeData): string {
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
 ${summary ? `<p class="lead">${inline(summary)}</p>` : `<p class="lead">Her er det vigtigste i bestyrelsen lige nu.</p>`}</div>
-${data.who ? `<span class="propose-row"><a class="button propose-btn" href="${base}/opslag?ny=1#nyt">+ Nyt opslag</a></span>` : ""}${lysArt("mini")}</section>`;
+${lysArt("mini")}</section>`;
 
   const days = data.next ? daysUntil(data.next.meeting_date, data.today) : null;
   // Requested: back to the first Lys design (3 Oct), which has four boxes and no event-count box. The box stays built - set this to true to bring it back.
