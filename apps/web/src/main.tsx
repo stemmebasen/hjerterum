@@ -1,6 +1,6 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
-import { MonthHero, MonthRest } from "./month-hero";
+import { MonthSection } from "./month-hero";
 import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
@@ -278,17 +278,10 @@ function PublicHome() {
   const { events, eventsReachable } = usePublicEvents();
   useEffect(countVisit, []);
   const now = Date.now();
-  // Requested: "Lad resuméet altid inkludere de kommende tre events" - under "Snart i Hjerterum" the same three the speaker
-  // talks about: the next events in the house that have not begun.
-  const week = events.filter((event) => !isPartnerEvent(event) && Date.parse(event.startsAt) > now)
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt)).slice(0, 3);
   const house = events.filter((event) => !isPartnerEvent(event));
-  const shown = new Set((week.length ? week : events).slice(0, 3).map((event) => event.key));
   return <SiteHome
     header={<SiteHeader />}
-    hero={<MonthHero events={house} now={now} />}
-    events={<EventSection events={week.length ? week : events} reachable={eventsReachable} limit={3} />}
-    rest={<MonthRest events={house} now={now} shown={shown} />}
+    month={<MonthSection events={house} now={now} reachable={eventsReachable} />}
     plans={<MembershipPlans />}
   />;
 }
