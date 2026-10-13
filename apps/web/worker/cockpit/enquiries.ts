@@ -22,7 +22,7 @@ export const LABEL_CLASS: Record<(typeof LABELS)[number], string> = { Medlem: "l
 export const labelTag = (label: string | null | undefined): string => label && label in LABEL_CLASS ? `<span class="kind label ${LABEL_CLASS[label as keyof typeof LABEL_CLASS]}">${esc(label)}</span> ` : "";
 export const KINDS = ["Lokaleleje", "Undervisning og arrangementer", "Medlemskab", "Samarbejde", "Andet"] as const;
 export type Enquiry = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string; enquiry_summary: string | null; handled_at_ms: number | null; handled_by: string | null; label?: string | null; assigned_to?: string | null;
-  answered_at_ms?: number | null; answered_how?: string | null; reply_address?: string | null };
+  answered_at_ms?: number | null; answered_how?: string | null; reply_address?: string | null; assigned_why?: string | null };
 
 const DAY = 86_400_000;
 const BATCH = 25;
@@ -96,6 +96,8 @@ export async function labelUnlabelled(env: SagaEnv, deps: SagaDeps, db: D1Databa
       await db.prepare("UPDATE board_mail SET label = ? WHERE id = ? AND label IS NULL").bind(String(item.label), Number(item.id)).run();
       batch++;
     }
+    // A mail Saga could not label is "Generel" after one try - with a sort every ten minutes, it must not cost a call each round.
+    for (const r of rest) await db.prepare("UPDATE board_mail SET label = 'Generel' WHERE id = ? AND label IS NULL").bind(r.id).run();
     done += batch;
     if (!batch) break;
   }
@@ -111,15 +113,72 @@ export async function setLabel(db: D1Database, id: number, label: string): Promi
 
 /** Requested: "Man skal også kunne tildele hver mail til et medlem af bestyrelsen. Mailen skal så vises på to do-listen" + "hold det helt simpelt":
  * the mail gets an owner and the owner a to-do "Svar på mail fra <afsender>". No member = the mail is taken back and its open to-do removed. */
-export async function assignMail(db: D1Database, id: number, member: string, by: string, nowMs: number): Promise<boolean> {
+/** `why`: Saga's reason when she assigned it (autoAssignMail); a member's choice has none - and a member who takes Saga's choice away
+ * leaves the mail to them ('fravalgt'). */
+export async function assignMail(db: D1Database, id: number, member: string, by: string, nowMs: number, why: string | null = null): Promise<boolean> {
   const mail = await db.prepare("SELECT sender, assigned_to, assigned_todo_id FROM board_mail WHERE id = ?").bind(id).first<{ sender: string; assigned_to: string | null; assigned_todo_id: number | null }>();
   if (!mail) return false;
   if (mail.assigned_todo_id) await db.prepare("DELETE FROM cockpit_todos WHERE id = ? AND done_at_ms IS NULL").bind(mail.assigned_todo_id).run();
-  if (!member) { await db.prepare("UPDATE board_mail SET assigned_to = NULL, assigned_todo_id = NULL WHERE id = ?").bind(id).run(); return true; }
+  if (!member) { await db.prepare("UPDATE board_mail SET assigned_to = NULL, assigned_todo_id = NULL, assigned_why = CASE WHEN assigned_why IS NULL THEN NULL ELSE 'fravalgt' END WHERE id = ?").bind(id).run(); return true; }
   const todo = await db.prepare("INSERT INTO cockpit_todos (owner, text, due, created_by, created_at_ms) VALUES (?, ?, NULL, ?, ?)")
     .bind(member, `Svar på mail fra ${name(mail.sender)}`, by, nowMs).run();
-  await db.prepare("UPDATE board_mail SET assigned_to = ?, assigned_todo_id = ?, handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(member, todo.meta?.last_row_id ?? null, id).run();
+  await db.prepare("UPDATE board_mail SET assigned_to = ?, assigned_todo_id = ?, assigned_why = ?, handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(member, todo.meta?.last_row_id ?? null, why, id).run();
   return true;
+}
+
+/** Requested: "Is it possible that Saga learns or checks the email (the IMAP) to see if there is a contact person from the team that normally deals
+ * with this sender, and then assigns that email automatically to that person?" - "Ja". No AI: for an important or critical mail no one has, Saga
+ * looks at the same sender's earlier mails - whom the members assigned them to (counts double) and who answered them from team@ (the name on the
+ * answer) - and, with no history, whose responsibilities cover the mail's label. Only a clear first choice is assigned; a tie is left to the board. */
+const RESPONSIBLE: Record<string, RegExp> = {
+  Økonomi: /økonomi|regnskab|kasserer|betaling|faktura|bogføring/i,
+  Medlem: /medlem/i,
+  Event: /event|arrangement|undervis|lokale|udlej|booking|kalender/i
+};
+const firstName = (text: string) => text.trim().split(/[\s|,–-]+/)[0]?.toLocaleLowerCase("da-DK") ?? "";
+/** The board member a name on an answer belongs to ("Gitta | Hjerterum", "Gitta Hansen"), when only one fits. */
+export function memberOf(nameOnMail: string, members: string[]): string | null {
+  const words = nameOnMail.toLocaleLowerCase("da-DK").split(/[^\p{L}]+/u).filter(Boolean);
+  const hits = members.filter(m => words.includes(firstName(m)));
+  return hits.length === 1 ? hits[0]! : null;
+}
+
+export async function autoAssignMail(db: D1Database, members: string[], responsibilities: Map<string, string>, nowMs: number): Promise<number> {
+  if (!members.length) return 0;
+  const open = (await db.prepare(`SELECT id, sender, label FROM board_mail WHERE assigned_to IS NULL AND assigned_why IS NULL AND handled_at_ms IS NULL AND answered_at_ms IS NULL
+    AND (enquiry_kind IS NOT NULL OR urgent_why IS NOT NULL) AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 50`).bind(nowMs - 14 * DAY)
+    .all<{ id: number; sender: string; label: string | null }>()).results ?? [];
+  let assigned = 0;
+  for (const mail of open) {
+    const from = address(mail.sender).toLowerCase();
+    if (!from) continue;
+    const earlier = (await db.prepare(`SELECT assigned_to, assigned_why, answered_by FROM board_mail WHERE id != ? AND lower(sender) LIKE ? AND received_at_ms >= ?`)
+      .bind(mail.id, `%${from}%`, nowMs - 365 * DAY).all<{ assigned_to: string | null; assigned_why: string | null; answered_by: string | null }>()).results ?? [];
+    const score = new Map<string, number>(), why = new Map<string, string>();
+    const add = (member: string, points: number, reason: string) => { score.set(member, (score.get(member) ?? 0) + points); if (!why.has(member) || points > 1) why.set(member, reason); };
+    for (const e of earlier) {
+      if (e.assigned_to && members.includes(e.assigned_to) && (e.assigned_why === null || e.assigned_why === "fravalgt")) add(e.assigned_to, 2, `plejer at få mails fra ${name(mail.sender)}`);
+      const answeredBy = e.answered_by ? memberOf(e.answered_by, members) : null;
+      if (answeredBy) add(answeredBy, 1, `har svaret ${name(mail.sender)} før`);
+    }
+    const ranked = [...score.entries()].sort((a, b) => b[1] - a[1]);
+    let member: string | null = null, reason = "";
+    if (ranked.length && (ranked.length === 1 || ranked[0]![1] > ranked[1]![1])) { member = ranked[0]![0]; reason = why.get(member)!; }
+    else if (!ranked.length && mail.label && RESPONSIBLE[mail.label]) {
+      const fits = members.filter(m => RESPONSIBLE[mail.label!]!.test(responsibilities.get(m) ?? ""));
+      if (fits.length === 1) { member = fits[0]!; reason = `har ${mail.label.toLocaleLowerCase("da-DK")} som ansvarsområde`; }
+    }
+    if (!member) continue;
+    await assignMail(db, mail.id, member, "Saga", nowMs, reason);
+    assigned++;
+  }
+  return assigned;
+}
+
+/** Asked: "How come an email from Laila Pedersen for instance, is not shown in Vigtige mails?" - when Saga did not see a mail as one to answer,
+ * a member can move it there. */
+export async function markImportant(db: D1Database, id: number): Promise<void> {
+  await db.prepare("UPDATE board_mail SET enquiry_kind = COALESCE(enquiry_kind, 'Andet'), enquiry_summary = COALESCE(enquiry_summary, subject), handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(id).run();
 }
 
 /** Requested: "Bare mig nu": a mail Saga judges critical is sent to the chair on Telegram at once - privately, never in the group - once, with who, what and why, and the way to Posthus.
@@ -189,10 +248,10 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
 /** The scheduled scan: once an hour on weekdays, and only when there is something new. Requested: "lad os lave et kald en gang i timen i stedet for hvert kvarter" (to save on the AI calls). */
 export async function scheduledEnquiryScan(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<void> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return;
-  const weekday = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short" }).format(deps.now());
-  if (weekday === "Sat" || weekday === "Sun") return;
+  // Asked: "How often is the email checked? Maybe that's why." - team@ is read every ten minutes; now the new mails are sorted in the same
+  // round, every day (an AI call only when there are new mails from people).
   const waiting = await db.prepare("SELECT 1 AS hit FROM board_mail WHERE (scanned_at_ms IS NULL OR label IS NULL) AND received_at_ms >= ? LIMIT 1").bind(deps.now() - 30 * DAY).first<{ hit: number }>().catch(() => null);
-  if (!waiting || !(await claim("saga_enquiries", Math.floor(deps.now() / 3_600_000)))) return;
+  if (!waiting || !(await claim("saga_enquiries", Math.floor(deps.now() / 600_000)))) return;
   await scanEnquiries(env, deps, db);
 }
 
@@ -202,7 +261,7 @@ const INBOX = 60;
 export async function enquiries(db: D1Database, nowMs: number, all = false, label = ""): Promise<{ open: Enquiry[]; handled: Enquiry[]; unscanned: number; inbox: BoardMailRow[]; inboxTotal: number; urgent: BoardMailRow[]; labelCounts: Record<string, number> }> {
   const where = label ? "WHERE label = ?" : "";
   const [list, waiting, inbox, total, urgent, counts] = await Promise.all([
-    db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by, answered_at_ms, answered_how, reply_address, label, assigned_to FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
+    db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by, answered_at_ms, answered_how, reply_address, label, assigned_to, assigned_why FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
       .bind(nowMs - 90 * DAY).all<Enquiry>().then(r => r.results ?? []).catch(() => [] as Enquiry[]),
     db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 30 * DAY).first<{ n: number }>().catch(() => null),
     db.prepare(`SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms, urgent_why, label, assigned_to FROM board_mail ${where} ORDER BY received_at_ms DESC LIMIT ?`).bind(...(label ? [label] : []), all ? 500 : INBOX)
@@ -291,7 +350,7 @@ const STYLE = `
 .inbox .snip{grid-column:1/-1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;line-height:1.45;color:var(--muted);margin-top:2px}
 .inbox details[open] .snip{display:none}.inbox .why{grid-column:1/-1;font-size:13.5px;color:var(--warn);margin-top:2px}
 .inbox .body{line-height:1.6;max-width:72ch}
-.fold-up{display:inline-flex;align-items:center;gap:4px;margin:10px 0 2px;padding:5px 12px;min-height:0;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}.fold-up:hover{color:var(--ink);border-color:var(--ink)}
+.fold-up{display:inline-flex;align-items:center;gap:4px;margin:10px 0 2px;padding:5px 12px;min-height:0;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}.fold-up:hover{color:var(--ink);border-color:var(--ink)}.inline-form{display:inline;margin:0}.saga-why{display:block;margin-top:3px}
 /* Requested: "Also add a little cross by each so we can delete them immediately." */
 .urgent-item{position:relative}.urgent-item summary{padding-right:40px}.x-form{position:absolute;top:8px;right:0;margin:0;z-index:1}
 .x-form .x{width:30px;height:30px;min-height:0;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:18px;line-height:1;cursor:pointer}.x-form .x:hover{color:var(--warn);border-color:var(--warn)}.inbox .kind{font-size:11px;font-weight:700;color:var(--accent);margin-right:4px}
@@ -308,7 +367,7 @@ function closedBy(e: Enquiry): string {
   return "";
 }
 
-const assignedTag = (to: string | null | undefined) => to ? `<span class="kind assigned" title="Tildelt ${esc(to)}">→ ${esc(to.split(/\s+/)[0] ?? to)}</span> ` : "";
+const assignedTag = (to: string | null | undefined, why?: string | null) => to ? `<span class="kind assigned" title="${why && why !== "fravalgt" ? `Tildelt af Saga: ${esc(to)} ${esc(why)}` : `Tildelt ${esc(to)}`}">→ ${esc(to.split(/\s+/)[0] ?? to)}${why && why !== "fravalgt" ? " · Saga" : ""}</span> ` : "";
 const assignForm = (base: string, id: number, to: string | null | undefined, members: string[]) => members.length
   ? `<form class="labelform" method="post" action="${base}/posthus/tildel"><input type="hidden" name="id" value="${id}"><label>Tildel: <select name="member" onchange="this.form.submit()"><option value="">Ingen</option>${members.map(m => `<option${to === m ? " selected" : ""}>${esc(m)}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
 
@@ -318,7 +377,8 @@ function item(base: string, e: Enquiry, open: boolean, nowMs: number, own: strin
   // Saga sees an answer by who it went to. A mail with no address to answer (a form that wrote none) cannot be followed.
   const followed = replyTarget({ reply_address: e.reply_address ?? null, sender: e.sender, preview: e.preview }, own) !== null;
   return `<li><div><span class="line">${esc(e.enquiry_summary || e.subject)}</span></div>
-<span class="meta">${labelTag(e.label)}${assignedTag(e.assigned_to)}<span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
+<span class="meta">${labelTag(e.label)}${assignedTag(e.assigned_to, e.assigned_why)}<span class="kind">${esc(e.enquiry_kind)}</span> · ${esc(name(e.sender))} · ${esc(WHEN.format(e.received_at_ms))}${open ? ` · <span class="wait${days >= 2 ? " late" : ""}">Ventet ${esc(waited(e.received_at_ms, nowMs))}</span>${followed ? "" : ` · <span class="follow" title="Mailen har ingen adresse at svare til, så Saga kan ikke se, om der er svaret. Tryk Besvaret, når du har svaret.">Svar kan ikke følges</span>`}` : esc(closedBy(e))}</span>
+${e.assigned_to && e.assigned_why && e.assigned_why !== "fravalgt" ? `<span class="small muted saga-why">Saga: ${esc(e.assigned_to.split(/\s+/)[0] ?? e.assigned_to)} ${esc(e.assigned_why)}. Skift herunder, hvis det er forkert.</span>` : ""}
 <details><summary>Se mailen: ${esc(e.subject)}</summary>${mail ? `<p class="from"><a href="mailto:${esc(mail)}">${esc(mail)}</a></p>` : ""}<p>${esc(readableMail(e.preview))}</p>${FOLD}</details>
 <div class="acts-col">${assignForm(base, e.id, e.assigned_to, members)}<form method="post" action="${base}/posthus/klaret"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="done" value="${open ? "1" : "0"}"><button class="tick${open ? "" : " is-done"}" title="${open ? "Besvaret" : "Fortryd"}" aria-label="${open ? "Marker som besvaret" : "Fortryd: åbn igen"}">✓</button></form></div></li>`;
 }
@@ -366,7 +426,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const labelForm = (m: BoardMailRow) => data.who ? `<form class="labelform" method="post" action="${base}/posthus/maerkat"><input type="hidden" name="id" value="${m.id}"><input type="hidden" name="back" value="${esc(data.label ?? "")}">
 <label>Mærkat <select name="label" onchange="this.form.submit()"><option value="">Intet</option>${LABELS.map(l => `<option${m.label === l ? " selected" : ""}>${l}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
   const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${FOLD}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
+<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${m.enquiry_kind || m.urgent_why ? "" : `<form method="post" action="${base}/posthus/vigtig" class="inline-form"><input type="hidden" name="id" value="${m.id}"><button class="fold-up" title="Saga så den ikke som en mail, der skal svares på">☆ Flyt til Vigtige mails</button></form> `}${FOLD}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
   // Requested: "gøre det muligt at sortere under de forskellige mærkater" + "andre forslag for at gøre det mere overskueligt": the labels as chips with how many each has, and a search over what is on the page.
   const counts = data.labelCounts ?? {};
   const totalLabelled = Object.values(counts).reduce((a, b) => a + b, 0);

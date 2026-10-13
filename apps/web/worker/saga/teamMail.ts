@@ -322,9 +322,11 @@ export async function readTeamMail(env: SagaEnv, deps: SagaDeps, db: D1Database,
         const batch = uids.slice(0, sentRoom);
         for (const mail of await open.fetch(batch, { body: false })) {
           const to = [...(mail.envelope?.to ?? []), ...(mail.envelope?.cc ?? [])].map(a => lower(a.address)).filter(Boolean);
-          await db.prepare(`INSERT OR IGNORE INTO team_mail_sent (ref, message_id, in_reply_to, refs, recipients, subject, sent_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          // The name the mail program puts on the answer ("Gitta | Hjerterum") tells Saga who on the team answers whom (cockpit/enquiries.ts autoAssignMail).
+          await db.prepare(`INSERT OR IGNORE INTO team_mail_sent (ref, message_id, in_reply_to, refs, recipients, subject, sent_at_ms, from_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
             .bind(`${path}:${box.uidValidity}:${mail.uid}`, lower(mail.envelope?.messageId) || null, lower(mail.envelope?.inReplyTo) || null, lower(mail.references) || null,
-              to.join(" "), mail.envelope?.subject ?? "", mail.envelope?.date instanceof Date && !Number.isNaN(mail.envelope.date.getTime()) ? mail.envelope.date.getTime() : now).run();
+              to.join(" "), mail.envelope?.subject ?? "", mail.envelope?.date instanceof Date && !Number.isNaN(mail.envelope.date.getTime()) ? mail.envelope.date.getTime() : now,
+              (mail.envelope?.from?.[0]?.name ?? "").trim().slice(0, 120) || null).run();
         }
         sentRoom -= batch.length;
         await watermark(path, box.uidValidity, batch.length ? batch[batch.length - 1]! : after === null ? Math.max(0, box.uidNext - 1) : after);
@@ -348,8 +350,8 @@ export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress
   const [rows, sent] = await Promise.all([
     db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, message_id, reply_address, folder, uid_validity, uid, preview FROM board_mail
       WHERE answered_at_ms IS NULL AND answered_how IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 500`).bind(nowMs - ANSWER_WINDOW_MS).all<Unanswered>().then(r => r.results ?? []),
-    db.prepare("SELECT message_id, in_reply_to, refs, recipients, subject, sent_at_ms FROM team_mail_sent WHERE sent_at_ms >= ? ORDER BY sent_at_ms")
-      .bind(nowMs - ANSWER_WINDOW_MS - SENT_LOOKBACK_MS).all<{ message_id: string | null; in_reply_to: string | null; refs: string | null; recipients: string; subject: string; sent_at_ms: number }>().then(r => r.results ?? []),
+    db.prepare("SELECT message_id, in_reply_to, refs, recipients, subject, sent_at_ms, from_name FROM team_mail_sent WHERE sent_at_ms >= ? ORDER BY sent_at_ms")
+      .bind(nowMs - ANSWER_WINDOW_MS - SENT_LOOKBACK_MS).all<{ message_id: string | null; in_reply_to: string | null; refs: string | null; recipients: string; subject: string; sent_at_ms: number; from_name: string | null }>().then(r => r.results ?? []),
   ]);
   let answered = 0;
   for (const row of rows) {
@@ -358,7 +360,10 @@ export async function matchSentAnswers(db: D1Database, nowMs: number, ownAddress
     const reply = sent.find(s => s.sent_at_ms >= row.received_at_ms - 60_000 && (
       (id && (s.in_reply_to === id || (s.refs ?? "").includes(id))) ||
       (target && s.recipients.split(" ").includes(target.to) && (sameSubject(s.subject) === sameSubject(row.subject) || s.recipients.split(" ").length <= 3))));
-    if (reply) { await markAnswered(db, row.id, reply.sent_at_ms, "svar"); answered++; }
+    if (reply) {
+      await markAnswered(db, row.id, reply.sent_at_ms, "svar"); answered++;
+      if (reply.from_name) await db.prepare("UPDATE board_mail SET answered_by = ? WHERE id = ? AND answered_by IS NULL").bind(reply.from_name, row.id).run();
+    }
   }
   return answered;
 }
