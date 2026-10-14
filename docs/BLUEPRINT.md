@@ -724,3 +724,20 @@ Still open:
 
 - Gittas forslag: "Vælge/klikke på et event, have en lille dropdown menu om hvad man godt kunne tænke sig der blev lavet: story, reel, karrusel, andet? Bare en hurtig måde for jer og mig at se hvad I gerne vil have delt/opmærksomhed på."
 - Admin → Events: hvert kommende event har "PR-ønske" (Story · Reel · Karrusel · Andet med et kort "hvad?"). Hver i bestyrelsen krydser sine egne af; kortet viser, hvem der har ønsket hvad. Kortet "PR-ønsker" øverst samler ønskerne for de kommende events, tidligste først, og hvert ønske kan markeres "Lavet" (og fortrydes). Tabel `event_pr_wishes` (migration 0066), `cockpit/prWishes.ts`. Erstatter idéen om at "vinge af til særlig PR".
+
+## Besluttet at huske, ikke bygget endnu (2026-10-14)
+
+### Beføjelser pr. bestyrelsesmedlem
+
+- Formanden: "Jeg leger lidt med tanken om, at jeg kan give hvert teammedlem beføjelser. For eksempel kan Douglas sammen med Saga administrere alt vedrørende medlemskab, og Gita kan administrere hjemmesideopdateringer og så videre." - "Det skal ikke tage udgangspunkt i, hvad de selv har skrevet af ansvarsområder, men det er noget, jeg tildeler dem et særligt sted for superadmins." - "Ikke nu, men husk det."
+- Forslaget, som det står: en side "Beføjelser" under Administratorer, kun for formanden med personligt login. Den viser et skema med medlemmer × områder, og formanden sætter flueben. Områder til at starte med: Medlemskab (se og rette medlemskaber, svare på medlemshenvendelser), Hjemmeside (Saga laver forslag til rettelser, den ansvarlige godkender, og så går det live), Events (godkende eller afvise medlemmers events, rette i programmet) og Posthus (se, fordele og klare mails). Kun formanden kan uddele beføjelser, lukke adgang, læse samtaler og forbinde mailen.
+- Saga hjælper et medlem med at handle inden for de områder, de har fået, og nævner uden for dem, hvem der har området. Henvendelser inden for et område går til den, der har det.
+- Beføjelser virker kun med personligt login. Alt, hvad der bliver gjort med dem, kommer i formandens log.
+- Bygges ovenpå `cockpit/authority.ts` (POWERS, `can`, `audit`). I dag tjekker `can` kun, om man er formand. Ansvarsområder, som medlemmerne selv skriver (`cockpit_responsibilities`), giver ingen beføjelser.
+- Åbent: hvilke områder og hvem, og hvad der må ske uden godkendelse.
+
+### Referat af generalforsamlingen
+
+- Spørgsmål: "Ved saga hvordan hun skal integrere og gemme referat fra generalforsamlingen?" Svar: nej. I dag bliver en optagelse altid til et bestyrelsesreferat (skabelon "Referat - bestyrelsesmøde", godkendelse hos hele bestyrelsen, bestyrelsens referatdokument, bestyrelsens beslutninger og opgaver).
+- Forslaget: en egen skabelon (dirigent og referent, fremmødte og stemmeberettigede, beretning, regnskab og budget, kontingent, forslag med stemmetal, valg, eventuelt). Godkendelse ved dirigenten, evt. med et link, og derefter låst. Gemmes for sig under "Generalforsamlinger". Beslutninger mærkes "Generalforsamlingen", og valgene opdaterer bestyrelse og suppleanter. Offentliggøres for medlemmerne, når det er godkendt.
+- Åbent: hvem der godkender (dirigenten?), og om referatet skal være offentligt eller kun for medlemmer. Indtil det er bygget, skal optagelsen af generalforsamlingen ikke uploades.
