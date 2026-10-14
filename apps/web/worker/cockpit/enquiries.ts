@@ -409,7 +409,9 @@ ${box.address ? `<p>${esc(box.address)} er forbundet. Saga læser indbakken og u
 
 export function postPage(base: string, data: { who: string | null; open: Enquiry[]; handled: Enquiry[]; unscanned: number; notice: string; canScan: boolean;
   inbox: BoardMailRow[]; inboxTotal: number; members?: string[]; urgent?: BoardMailRow[]; labelCounts?: Record<string, number>; label?: string; all: boolean; watch: string; watchOk: boolean; nowMs: number;
-  mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null } | null }): string {
+  mailbox?: { address: string | null; by: string | null; at: number | null; notice: string | null; canChange?: boolean; loginLink?: string | null } | null;
+  /** The chair's: what Saga tidied, folded at the very bottom (cleanup.ts). */
+  tidied?: string }): string {
   const scan = `<div class="scan"><p class="small muted" style="margin:0">${data.unscanned ? `${data.unscanned} nye mails venter på, at Saga læser dem (hver time på hverdage).` : "Saga har læst alle nye mails i team@."}</p>
 ${data.canScan && data.unscanned ? `<form method="post" action="${base}/posthus/scan" style="margin:0" id="scan-now"><button class="ghost">Scan nu</button></form>
 <script>document.getElementById("scan-now").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}</div>`;
@@ -446,7 +448,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
 ${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${labelBar}${urgentCard}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${labelBar}${urgentCard}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}${data.tidied ?? ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }
 
 /** Requested: "a little cross by each so we can delete them immediately" - a mail is no longer critical: off the list (it stays in the inbox). */

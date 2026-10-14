@@ -159,29 +159,48 @@ export async function decideCleanup(db: D1Database, id: number, choice: "ja" | "
   return true;
 }
 
-/** What the chair - and only the chair - sees: what she tidied the last two days, and any suggestion still open. */
+/** What the chair - and only the chair - sees: what she tidied the last week, and any suggestion still open.
+ * Asked: "Skal jeg virkelig blive ved med at se på alt dette? Hvornår forsvinder det?" - "Det bør flyttes over i bunden af postkassen, foldet sammen,
+ * når det er handlet på": it is not on the front page; it is at the bottom of Posthuset, folded. */
 export async function cleanupForChair(db: D1Database, nowMs: number): Promise<CleanupAction[]> {
   return (await db.prepare(`SELECT id, run_day, kind, target, text, why, status, created_at_ms FROM cleanup_actions
-    WHERE (status = 'forslag' AND created_at_ms >= ?) OR (status = 'gjort' AND decided_by IS NULL AND created_at_ms >= ?) ORDER BY created_at_ms DESC, id LIMIT 30`)
-    .bind(nowMs - 14 * DAY, nowMs - 2 * DAY).all<CleanupAction>().catch(() => ({ results: [] }))).results ?? [];
+    WHERE (status = 'forslag' AND created_at_ms >= ?) OR (status = 'gjort' AND decided_by IS NULL AND created_at_ms >= ?) ORDER BY created_at_ms DESC, id LIMIT 60`)
+    .bind(nowMs - 14 * DAY, nowMs - 7 * DAY).all<CleanupAction>().catch(() => ({ results: [] }))).results ?? [];
 }
+
 
 const LABEL: Record<CleanupKind, string> = { dublet: "Dublet", klaret: "Klaret", forældet: "Forældet" };
 const WHAT: Record<string, string> = { todo: "To-do", opgave: "Opgave", ejer: "Fra Saga", saga: "Fra Saga", post: "Opslag", mail: "Mail" };
 
+/** One line per thing: the same thing tidied on several members' lists (or found twice) is one line, and its Fortryd undoes all of it. Folded at the
+ * bottom of Posthuset: one line, the list when opened. */
 export function cleanupCard(base: string, actions: CleanupAction[]): string {
   if (!actions.length) return "";
-  const done = actions.filter(a => a.status === "gjort"), open = actions.filter(a => a.status === "forslag");
-  const head = [done.length ? `${done.length} ting ryddet op · kun du ser det` : "", open.length ? `${open.length} forslag til dig` : ""].filter(Boolean).join(" · ");
-  const form = (a: CleanupAction, choice: string, label: string, cls = "") => `<form method="post" action="${base}/oprydning"><input type="hidden" name="id" value="${a.id}"><input type="hidden" name="valg" value="${choice}"><button class="${cls}">${label}</button></form>`;
-  const row = (a: CleanupAction) => `<li><span class="ck ck-${a.kind === "forældet" ? "foraeldet" : a.kind}">${LABEL[a.kind]}</span><div><strong>${esc(WHAT[a.target.split(":")[0]!] ?? "")}: ${esc(a.text)}</strong><span class="small muted">${esc(a.why)}</span></div>
-<div class="ck-acts">${a.status === "gjort" ? form(a, "fortryd", "Fortryd", "ghost") : `${form(a, "ja", "Ja, ryd op")}${form(a, "nej", "Nej", "ghost")}`}</div></li>`;
-  return `<article class="panel cleanup-card" id="oprydning"><header><h2>Saga har ryddet op</h2><p>${esc(head)}</p></header><ul class="cleanup">${[...open, ...done].map(row).join("")}</ul></article>`;
+  type Group = { first: CleanupAction; ids: number[] };
+  const group = (list: CleanupAction[]) => {
+    const out = new Map<string, Group>();
+    for (const a of list) {
+      const key = `${a.status}|${a.kind}|${a.target.split(":")[0]}|${a.text.trim().toLowerCase()}`;
+      const g = out.get(key);
+      if (g) g.ids.push(a.id); else out.set(key, { first: a, ids: [a.id] });
+    }
+    return [...out.values()];
+  };
+  const done = group(actions.filter(a => a.status === "gjort")), open = group(actions.filter(a => a.status === "forslag"));
+  const head = [done.length ? `${done.length} ting ryddet op` : "", open.length ? `${open.length} forslag til dig` : ""].filter(Boolean).join(" · ");
+  const form = (g: Group, choice: string, label: string, cls = "") => `<form method="post" action="${base}/oprydning">${g.ids.map(id => `<input type="hidden" name="id" value="${id}">`).join("")}<input type="hidden" name="valg" value="${choice}"><button class="${cls}">${label}</button></form>`;
+  const row = (g: Group) => { const a = g.first; return `<li><span class="ck ck-${a.kind === "forældet" ? "foraeldet" : a.kind}">${LABEL[a.kind]}</span><div><strong>${esc(WHAT[a.target.split(":")[0]!] ?? "")}: ${esc(a.text)}</strong><span class="small muted">${esc(a.why)}</span></div>
+<div class="ck-acts">${a.status === "gjort" ? form(g, "fortryd", "Fortryd", "ghost") : `${form(g, "ja", "Ja, ryd op")}${form(g, "nej", "Nej", "ghost")}`}</div></li>`; };
+  return `<style>${CLEANUP_STYLE}</style><article class="panel cleanup-card" id="oprydning"><details${open.length ? " open" : ""}><summary><span><strong>Saga har ryddet op</strong> <span class="small muted">${esc(head)} den seneste uge · kun du ser det</span></span><span class="ck-see small">Se hvad</span></summary>
+<ul class="cleanup">${[...open, ...done].map(row).join("")}</ul></details></article>`;
 }
 
 export const CLEANUP_STYLE = `
 .cleanup{list-style:none;margin:0;padding:0;display:grid}.cleanup li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 12px;align-items:start;padding:12px 0;border-top:1px solid var(--line)}
 .cleanup li:first-child{border-top:0}.cleanup li strong{display:block;font-weight:600;font-size:14.5px}.cleanup li .small{display:block;margin-top:2px}
 .ck{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--soft);white-space:nowrap;margin-top:2px}.ck-dublet{color:var(--accent)}.ck-klaret{background:#e6f4ea;color:#1e6b35}.ck-foraeldet{background:#fdf3e1;color:#8a5a00}
+.cleanup-card{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cleanup-card details{flex:1;min-width:0}.cleanup-card summary{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;list-style:none}
+.cleanup-card summary::-webkit-details-marker{display:none}.ck-see{color:var(--accent);font-weight:600;white-space:nowrap}.cleanup-card details[open] .ck-see{display:none}.cleanup-card details[open]{flex-basis:100%}
+.cleanup-card details[open] ul{margin-top:10px}
 .ck-acts{display:flex;gap:6px}.ck-acts form{margin:0}.ck-acts button{padding:6px 12px;min-height:0;font-size:13px}
 @media (max-width:620px){.cleanup li{grid-template-columns:1fr}.ck{justify-self:start}}`;

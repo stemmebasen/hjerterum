@@ -47,7 +47,7 @@ import { mailWatch } from "../saga/connections.js";
 import { memberLang, setMemberLang, translateHtml, type Lang } from "./i18n.js";
 import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
-import { cleanupForChair, decideCleanup } from "./cleanup.js";
+import { cleanupCard, cleanupForChair, decideCleanup } from "./cleanup.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
 import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
@@ -231,8 +231,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
     const coming = await rsvps(db, [...assoc.map(e => e.key), ...(nextTeam ? [`moede:${nextTeam.id}`] : [])]);
-    const cleanup = who && members.chair && who === members.chair ? await cleanupForChair(db, now) : [];
-    return html(homePage(base, { cleanup, assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    return html(homePage(base, { assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -453,7 +452,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const mailNotice = ({ ok: "team@ er forbundet. Saga har læst indbakken og undermapperne.", login: "Mailserveren afviste adgangskoden. Intet er gemt.", adresse: "Brug en adresse på @holistisk.org.",
       fejl: "Mailserveren svarede ikke. Intet er gemt - prøv igen om lidt.", noegle: "Hjerterum mangler nøglen til at gemme adgangskoden. Intet er gemt.", afbrudt: "Forbindelsen til team@ er afbrudt." } as Record<string, string>)[url.searchParams.get("mail") ?? ""] ?? null;
     const notice = url.searchParams.has("scannet") ? `Saga har læst de nye mails${url.searchParams.get("scannet") !== "0" ? ` og fundet ${url.searchParams.get("scannet")} forespørgsler` : " - ingen nye forespørgsler"}.` : url.searchParams.has("fejl") ? "Saga kunne ikke læse mailene lige nu. Prøv igen om lidt." : "";
-    return html(postPage(base, { who, ...data, members: board.names, label, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
+    // Requested: "Det bør flyttes over i bunden af postkassen, foldet sammen, når det er handlet på" - what Saga tidied, for the chair only.
+    const tidied = who && members.chair && who === members.chair ? cleanupCard(base, await cleanupForChair(db, now)) : "";
+    return html(postPage(base, { tidied, who, ...data, members: board.names, label, notice, canScan: Boolean(env.AI_API_KEY && env.AI_MODEL), all, nowMs: now,
       watch: watch.state === "ok" ? `Mailen tjekkes løbende - ${watch.detail.charAt(0).toLowerCase()}${watch.detail.slice(1)}` : watch.detail, watchOk: watch.state === "ok",
       // Reported: "Jeg kan stadig ikke tjekke mail i cockpit" - logged in with the shared password the chair saw no card at all.
       // The chair always sees it; only connecting or disconnecting needs Saga's personal link (anyone could say they are the chair).
@@ -995,8 +996,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who || who !== members.chair) return redirect(`${base}/`);
     const form = await request.formData().catch(() => null);
     const choice = String(form?.get("valg") ?? "");
-    if (choice === "ja" || choice === "nej" || choice === "fortryd") await decideCleanup(db, Number(form?.get("id")), choice, who, now);
-    return redirect(`${base}/#oprydning`);
+    // One line can stand for the same thing tidied on several lists - each of its ids.
+    if (choice === "ja" || choice === "nej" || choice === "fortryd") for (const id of (form?.getAll("id") ?? []).slice(0, 20)) await decideCleanup(db, Number(id), choice, who, now);
+    return redirect(`${base}/posthus#oprydning`);
   }
   // Requested: "Kan du indsætte en lille knap? 'Jeg kommer' til vores fælles møder, inklusive generalforsamling."
   if (path === "/kommer" && request.method === "POST") {
