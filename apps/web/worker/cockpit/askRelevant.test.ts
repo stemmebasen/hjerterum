@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { askInput, askSagaMarkdown, boardKnowledge, LONG_VIEW, sectionsFor } from "./ask.js";
 import { meetingOn, saveMeeting } from "./data.js";
+import { setMemberLang } from "./i18n.js";
+import { saveBoardMessage } from "../saga/store.js";
+import { BOARD, OWNER } from "../saga/test-support.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 
 // Requested: "kan der ikke kun sendes det relevante med for det pågældende spørgsmål?" and "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk".
@@ -29,6 +32,24 @@ describe("Saga keeps the conversation, and puts a point on the agenda when asked
     expect(await askSagaMarkdown(env, deps(services.fetcher, NOW + 120_000), db, "Jacob Hauge", { question: "Sæt kaffe på", history: [], conversation: "another-one" }))
       .toContain("Der er intet møde torsdag 22. oktober i kalenderen");
     expect(firsts[2]).toContain("Sæt kaffe på");
+  });
+});
+
+describe("Saga writes to a board member privately when asked", () => {
+  // Asked: "Why can't she DM the others? And if I ask her to do something, she should do it because I'm the chairman and super admin."
+  it("sends her [[BESKED]] line to that member on Telegram, knows the chair is asking, and knows each member's language", async () => {
+    const db = testDatabase();
+    for (const [i, [name, id]] of ([["Jacob Hauge", OWNER], ["Douglas Crawford", "203"]] as const).entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: id, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
+    await setMemberLang(db, "Douglas Crawford", "en", NOW);
+    let system = "", first = "";
+    const services = fakeServices({ ai: (s, f) => { system = s; first = f; return "Done.\n[[BESKED til=Douglas: Jacob asked me to say thank you for all the good work you do. 🧡]]\n[[BESKED til=Nobody: Hej]]"; } });
+    const out = await askSagaMarkdown(sagaEnv(db), deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Send an encouraging message to Douglas directly on Telegram", history: [] });
+    expect(first).toContain("Jacob Hauge (formand og superadmin) spørger");
+    expect(system).toContain("BESTYRELSENS SPROG (det sprog, hver har valgt i admin):\nDouglas Crawford: engelsk\nJacob Hauge: dansk");
+    expect(services.telegram("sendMessage").map(m => m.body)).toMatchObject([{ chat_id: "203", text: "Jacob asked me to say thank you for all the good work you do. 🧡" }]);
+    expect(out).toContain("✓ Sendt privat til Douglas:\n\n> Jacob asked me to say thank you for all the good work you do. 🧡");
+    expect(out).toContain("Jeg kender ingen Nobody i bestyrelsens gruppe, så beskeden er ikke sendt.");
   });
 });
 

@@ -19,6 +19,7 @@ import { MEMBERSHIP_FACTS } from "./membership.js";
 import { siteForSaga } from "./site.js";
 import { applyPersonal, personalItems, personalSection, waitingSection, type PersonalItem } from "./personal.js";
 import { STATUTES } from "./statutes.js";
+import { memberLang } from "./i18n.js";
 import { votesForSaga } from "./votes.js";
 import { decisionKinds, withKinds } from "./decisionKinds.js";
 import { ROOM_RENTAL_RULES } from "../../../../packages/core/src/legacy-room-pricing.js";
@@ -257,8 +258,11 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   const mine = who ? personalSection(who, items) : "";
   const waiting = who ? await waitingSection(env, db, who, deps.now(), base).catch(() => "") : "";
   const topic = [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" ");
-  const userTurn = { role: "user" as const, content: `${who ? `${who} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` };
-  const tail = `${mine}${waiting}${await memorySection(db, who)}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder`;
+  const board = await boardMembers(env, db).catch(() => ({ names: [] as string[], chair: null }));
+  const isChair = Boolean(who && board.chair && who === board.chair);
+  const userTurn = { role: "user" as const, content: `${who ? `${who}${isChair ? " (formand og superadmin)" : ""} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` };
+  const langs = await Promise.all(board.names.map(async n => `${n}: ${await memberLang(db, n) === "en" ? "engelsk" : "dansk"}`));
+  const tail = `${mine}${waiting}${await memorySection(db, who)}${langs.length ? `\n\nBESTYRELSENS SPROG (det sprog, hver har valgt i admin):\n${langs.join("\n")}` : ""}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder`;
   const build = async (only: ReadonlySet<string> | null): Promise<ChatMessage[]> => [{ role: "system", content: `${COCKPIT_SYSTEM}${only ? `\n\n${MISSING_NOTE}` : ""}\n\n${await boardKnowledge(env, deps, db, topic, only)}${tail}` }, ...input.history, userTurn];
   const now = deps.now();
   // Requested: "kun det relevante med for det pågældende spørgsmål" - "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk": the first call has only what the question seems to need;
@@ -270,7 +274,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, now, base), who, items, now, base), who, now), who);
+  const answer = await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, now, base), who, items, now, base), who, now), who), who);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms, conversation) VALUES (?, ?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now, input.conversation ?? null).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
@@ -292,6 +296,30 @@ export async function applyGroupMessage(env: SagaEnv, deps: SagaDeps, db: D1Data
   if (!sent) return `${text}\n\nBeskeden kom ikke igennem til gruppen. Her er den, så du kan sende den selv:\n\n${quoted}`;
   await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text: message, sentAtMs: deps.now(), fromAssistant: true }).catch(() => undefined);
   return `${text}\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n${quoted}`;
+}
+
+/** Asked: "Why can't she DM the others?" Her [[BESKED til=<name>: ...]] lines go to each board member privately on Telegram, as her messages, for the
+ * member who asked. A name is a board member's first or full name; who cannot be reached (unknown, or never opened a chat with her) is said. */
+const DM_LINE = /\[\[BESKED\s+til=([^:\]]+?):\s*([\s\S]*?)\]\]/gi;
+export async function applyDirectMessages(env: SagaEnv, deps: SagaDeps, db: D1Database, answer: string, who: string | null): Promise<string> {
+  const lines = [...answer.matchAll(DM_LINE)];
+  if (!lines.length) return answer;
+  let text = answer.replace(DM_LINE, "").trim();
+  if (!who || !env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return text;
+  const people = (await db.prepare(`SELECT author_name, MAX(author_telegram_id) AS id FROM board_messages WHERE chat_id = ? AND from_assistant = 0 AND author_telegram_id IS NOT NULL
+    GROUP BY author_name`).bind(env.SAGA_BOARD_CHAT_ID).all<{ author_name: string; id: string }>()).results ?? [];
+  const lower = (s: string) => s.trim().toLocaleLowerCase("da-DK");
+  const telegram = telegramClient(env, deps);
+  for (const [, to, body] of lines.slice(0, 8)) {
+    const name = lower(to!), message = body!.trim().slice(0, 1500);
+    const person = people.find(p => lower(p.author_name) === name) ?? people.find(p => lower(p.author_name).split(/\s+/)[0] === name.split(/\s+/)[0]);
+    const quoted = message.split("\n").map(l => `> ${l}`).join("\n");
+    if (!person || !message) { text += `\n\nJeg kender ingen ${to!.trim()} i bestyrelsens gruppe, så beskeden er ikke sendt.`; continue; }
+    const sent = await telegram.sendMessage(person.id, message).then(() => true, () => false);
+    const first = person.author_name.split(/\s+/)[0];
+    text += sent ? `\n\n✓ Sendt privat til ${first}:\n\n${quoted}` : `\n\n${first} har ikke åbnet en chat med mig endnu (skal skrive /start til mig i Telegram), så beskeden kom ikke frem:\n\n${quoted}`;
+  }
+  return text;
 }
 
 /** Requested: "Når man beder saga putte et punkt på dagsordenen skal hun hjælpe med det. Hun skal spørge om noget hvis hun er i tvivl. Det kan
