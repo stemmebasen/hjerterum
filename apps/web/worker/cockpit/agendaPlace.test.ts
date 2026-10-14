@@ -71,7 +71,7 @@ describe("a meeting's agenda and place", () => {
     expect(withSaga).toContain(`<form class="cross" method="post" action="/moder/${id}/punkt/slet"><input type="hidden" name="text" value="Generalforsamling 14. okt.: roller"><button aria-label="Fjern punktet: Generalforsamling 14. okt.: roller" title="Fjern punktet">×</button></form>`);
     // Requested: "en let måde at redigere et punkt på. Måske en lille blå blyant til venstre for krydset": the pencil stands before the cross and opens the point for editing in place.
     expect(withSaga.indexOf('class="pencil" data-edit aria-label="Ret punktet: Generalforsamling')).toBeLessThan(withSaga.indexOf('<form class="cross" method="post" action="/moder/' + id + '/punkt/slet"><input type="hidden" name="text" value="Generalforsamling'));
-    expect(withSaga).toContain(`<form class="editpoint" method="post" action="/moder/${id}/punkt/ret"><input type="hidden" name="old" value="Generalforsamling 14. okt.: roller"><input name="text" value="Generalforsamling 14. okt.: roller" required maxlength="200"`);
+    expect(withSaga).toContain(`<form class="editpoint" method="post" action="/moder/${id}/punkt/ret"><input type="hidden" name="old" value="Generalforsamling 14. okt.: roller"><textarea name="text" rows="2" required maxlength="200" autocomplete="off" aria-label="Ret punktet">Generalforsamling 14. okt.: roller</textarea>`);
     // The overview of the meetings does not show her points.
     expect(await (await call("/moder", { cookie })).text()).not.toContain("Generalforsamling 14. okt.: roller");
 
@@ -233,7 +233,8 @@ describe("a meeting's agenda and place", () => {
     expect(danish).toContain("Julefest: valg af dato");
     const english = await translatePage(env, deps(services.fetcher, MORNING), db, danish);
     expect(english).toContain("EN: Julefest: valg af dato");
-    expect(english).not.toContain(">Julefest: valg af dato<");
+    // The field to edit a point holds the point as it is stored.
+    expect(english.replace(/<textarea[\s\S]*?<\/textarea>/g, "")).not.toContain(">Julefest: valg af dato<");
     // The overview shows the board's own points only - hers are not in it.
     const overviewPage = await (await call("/moder", { cookie, now: MORNING })).text();
     expect(overviewPage).toContain("Lisbeths punkt");
