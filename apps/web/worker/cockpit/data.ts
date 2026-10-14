@@ -9,7 +9,7 @@ import { latestOverview, latestWeeklySummary, ownerDone, recentBoardMessages, ty
  * tasks in them. Drafts waiting for the chair's approval are counted, never shown. */
 
 export type MeetingKind = "team" | "andet";
-export type Meeting = { id: number; meeting_date: string; start_time: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null; leader?: string | null; moderator?: string | null; agenda_authors?: string };
+export type Meeting = { id: number; meeting_date: string; start_time: string | null; end_time?: string | null; place: string | null; agenda: string; updated_at_ms: number; updated_by: string | null; agenda_saga?: string; kind?: MeetingKind | null; leader?: string | null; moderator?: string | null; agenda_authors?: string };
 export type Task = { who: string; what: string; due: string; meeting: string; source: "referat" | "dokument" | "formand" };
 export type Decision = { text: string; date: string; topic: string; source: "referat" | "dokument" | "afstemning"; minutesId: number | null; voteId?: number; atMeeting?: boolean; kind?: "beslutning" | "aftale"; kindBy?: string };
 export type ApprovedMinutes = Pick<Minutes, "id" | "source" | "meeting_date" | "draft_markdown" | "drive_document_url" | "created_at_ms"> & { updated_at_ms: number; transcript?: string | null; locked_at_ms?: number | null };
@@ -47,19 +47,19 @@ export const DEFAULT_PLACE = "Hjerterum, Guldsmedgade 26B, 8000 Aarhus";
 const PLACE = `COALESCE(NULLIF(TRIM(place), ''), '${DEFAULT_PLACE}') AS place`;
 
 export async function meetings(db: D1Database): Promise<Meeting[]> {
-  const rows = await db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
+  const rows = await db.prepare(`SELECT id, meeting_date, start_time, end_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings ORDER BY meeting_date DESC, id DESC LIMIT 200`).all<Meeting>();
   return rows.results ?? [];
 }
 
 export const meetingOn = (db: D1Database, day: string) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, end_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE meeting_date = ? ORDER BY id DESC LIMIT 1`).bind(day).first<Meeting>();
 
 export const meeting = (db: D1Database, id: number) =>
-  db.prepare(`SELECT id, meeting_date, start_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
+  db.prepare(`SELECT id, meeting_date, start_time, end_time, ${PLACE}, agenda, agenda_saga, agenda_authors, kind, leader, moderator, updated_at_ms, updated_by FROM board_meetings WHERE id = ?`).bind(id).first<Meeting>();
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^\d{2}:\d{2}$/;
 /** `agenda` is left out when the form does not carry it: the points of the agenda are added and deleted one by one (addAgendaPoints, removeAgendaPoint). */
-export type MeetingInput = { date: string; time: string; place: string; agenda?: string; kind?: MeetingKind; leader?: string; moderator?: string };
+export type MeetingInput = { date: string; time: string; end?: string; place: string; agenda?: string; kind?: MeetingKind; leader?: string; moderator?: string };
 
 /** One point of an agenda: one line, no numbering or bullet, at most 200 characters - never running text. */
 export const cleanPoint = (text: string) => text.replace(/\s+/g, " ").trim().replace(/^(\d+[.)]|[-*•])\s+/, "").slice(0, 200);
@@ -75,12 +75,26 @@ export function framedAgenda(points: string[]): string[] {
   return [points.find(isWelcome) ?? WELCOME, ...middle, points.find(isAnyOther) ?? ANY_OTHER];
 }
 
+/** Requested: "Mødeoverskrift: Torsdag d. 15. oktober kl. 13.30-15.30". A team meeting without an end time is taken to last two hours. */
+const HEAD_DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
+export function meetingHeading(m: Pick<Meeting, "meeting_date" | "start_time" | "end_time" | "kind">): string {
+  const parts = HEAD_DAY.formatToParts(new Date(`${m.meeting_date}T12:00:00Z`));
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  const day = `${get("weekday").charAt(0).toLocaleUpperCase("da-DK")}${get("weekday").slice(1)} d. ${get("day")}. ${get("month")}`;
+  const start = m.start_time && TIME.test(m.start_time) ? m.start_time : "";
+  if (!start) return day;
+  const [h, min] = start.split(":").map(Number);
+  const end = m.end_time && TIME.test(m.end_time) ? m.end_time : m.kind === "team" ? `${String((h! + 2) % 24).padStart(2, "0")}:${String(min).padStart(2, "0")}` : "";
+  return `${day} kl. ${start.replace(":", ".")}${end ? `-${end.replace(":", ".")}` : ""}`;
+}
+
 /** A meeting as written in the cockpit form; null when the date is not a real day. */
 export function meetingInput(form: FormData): MeetingInput | null {
   const date = String(form.get("meeting_date") ?? "").trim();
   const time = String(form.get("start_time") ?? "").trim();
   if (!ISO_DAY.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return null;
-  return { date, time: TIME.test(time) ? time : "", place: String(form.get("place") ?? "").trim().slice(0, 200),
+  const end = String(form.get("end_time") ?? "").trim();
+  return { date, time: TIME.test(time) ? time : "", ...(form.has("end_time") ? { end: TIME.test(end) ? end : "" } : {}), place: String(form.get("place") ?? "").trim().slice(0, 200),
     // A ticked "Teammøde" sends kind=team; an unticked one sends nothing, so the form says it carried the box (kind_sent) - then it is "andet". A form without the box leaves the kind alone.
     ...(form.get("kind") === "team" || form.get("kind") === "andet" ? { kind: form.get("kind") as MeetingKind } : form.has("kind_sent") ? { kind: "andet" as const } : {}),
     // Requested: "Der skal i øvrigt kunne vælges en Mødeleder og Ordstyrer.": a name from the board, or "" for none; left out, they stay as they were.
@@ -93,14 +107,15 @@ export async function saveMeeting(db: D1Database, input: MeetingInput, who: stri
     // What the form leaves out stays as it was: the agenda (its points are added and deleted one by one) and the kind of meeting.
     const sets = ["meeting_date = ?", "start_time = ?", "place = ?", "updated_at_ms = ?", "updated_by = ?"], values: Array<string | number | null> = [input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null];
     if (input.agenda !== undefined) { sets.push("agenda = ?"); values.push(input.agenda); }
+    if (input.end !== undefined) { sets.push("end_time = ?"); values.push(input.end || null); }
     if (input.kind) { sets.push("kind = ?"); values.push(input.kind); }
     if (input.leader !== undefined) { sets.push("leader = ?"); values.push(input.leader || null); }
     if (input.moderator !== undefined) { sets.push("moderator = ?"); values.push(input.moderator || null); }
     await db.prepare(`UPDATE board_meetings SET ${sets.join(", ")} WHERE id = ?`).bind(...values, id).run();
     return id;
   }
-  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, place, agenda, kind, leader, moderator, created_at_ms, updated_at_ms, updated_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, input.leader || null, input.moderator || null, nowMs, nowMs, who || null).run();
+  const result = await db.prepare(`INSERT INTO board_meetings (meeting_date, start_time, end_time, place, agenda, kind, leader, moderator, created_at_ms, updated_at_ms, updated_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(input.date, input.time || null, input.end || null, input.place || DEFAULT_PLACE, input.agenda ?? "", input.kind ?? null, input.leader || null, input.moderator || null, nowMs, nowMs, who || null).run();
   return Number(result.meta?.last_row_id);
 }
 
