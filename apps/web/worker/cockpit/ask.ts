@@ -2,11 +2,12 @@ import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs, type ChatMessage } from "../saga/ai.js";
 import { minutesDocText } from "../saga/drive.js";
-import type { SagaDeps, SagaEnv } from "../saga/env.js";
+import { SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
 import { markdownToHtml } from "../saga/markdown.js";
 import { trimMinutesDoc } from "../saga/picture.js";
 import { COCKPIT_SYSTEM } from "../saga/prompts.js";
-import { recentBoardMessages } from "../saga/store.js";
+import { recentBoardMessages, saveBoardMessage } from "../saga/store.js";
+import { telegramClient } from "../saga/telegram.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { boardPosts, postsForSaga } from "./board.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
@@ -254,10 +255,28 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applyMemory(db, await applyPersonal(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, items, now, base), who, now);
+  const answer = await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, items, now, base), who, now), who);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
+}
+
+/** Asked in admin: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?" - Saga answered that she could not
+ * write in Telegram, though she is in the group. Her [[GRUPPEN: ...]] line is sent there as her own message, for the member who asked; the
+ * answer says it was sent, and what. Only for a member who is known, and one message per answer. */
+const GROUP_LINE = /\[\[GRUPPEN:\s*([\s\S]*?)\]\]/i;
+export async function applyGroupMessage(env: SagaEnv, deps: SagaDeps, db: D1Database, answer: string, who: string | null): Promise<string> {
+  const line = GROUP_LINE.exec(answer);
+  if (!line) return answer;
+  const text = answer.replace(GROUP_LINE, "").replace(GROUP_LINE, "").trim();
+  const message = line[1]!.trim().slice(0, 1500);
+  if (!message || !who) return text;
+  const quoted = message.split("\n").map(l => `> ${l}`).join("\n");
+  if (!env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return `${text}\n\nJeg kan ikke nå gruppen lige nu, så her er beskeden, du kan sende selv:\n\n${quoted}`;
+  const sent = await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, message).catch(() => null);
+  if (!sent) return `${text}\n\nBeskeden kom ikke igennem til gruppen. Her er den, så du kan sende den selv:\n\n${quoted}`;
+  await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text: message, sentAtMs: deps.now(), fromAssistant: true }).catch(() => undefined);
+  return `${text}\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n${quoted}`;
 }
 
 /** Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."
