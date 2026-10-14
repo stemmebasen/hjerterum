@@ -61,11 +61,11 @@ describe("a meeting's agenda and place", () => {
     expect(asked).toContain("Opfind intet");
     expect(asked).toContain("2026-10-15");
     // Her points stand on the agenda at the bottom (the numbering is left out), marked as hers, each with a cross.
-    expect((await meeting(db, id))?.agenda).toBe("Godkendelse af dagsorden\nGeneralforsamling 14. okt.: roller\nEventuelt");
+    expect((await meeting(db, id))?.agenda).toBe("Velkommen\nGodkendelse af dagsorden\nGeneralforsamling 14. okt.: roller\nEventuelt");
     const withSaga = await (await call(`/moder/${id}?forslag=3`, { cookie })).text();
     expect(withSaga).toContain("Saga har lagt 3 punkter nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.");
     expect(withSaga.match(/<span class="saga-mark">Sagas forslag<\/span>/g)).toHaveLength(3);
-    expect(withSaga.match(/<form class="cross"/g)).toHaveLength(3);
+    expect(withSaga.match(/<form class="cross"/g)).toHaveLength(4);
     expect(withSaga).toContain(`<li data-point="Generalforsamling 14. okt.: roller"><button type="button" class="grip" aria-label="Flyt punktet: Generalforsamling 14. okt.: roller"`);
     expect(withSaga).toMatch(/<span class="t">Generalforsamling 14\. okt\.: roller<\/span><span class="saga-mark">Sagas forslag<\/span><button type="button" class="pencil" data-edit aria-label="Ret punktet: Generalforsamling 14\. okt\.: roller" title="Ret punktet">/);
     expect(withSaga).toContain(`<form class="cross" method="post" action="/moder/${id}/punkt/slet"><input type="hidden" name="text" value="Generalforsamling 14. okt.: roller"><button aria-label="Fjern punktet: Generalforsamling 14. okt.: roller" title="Fjern punktet">×</button></form>`);
@@ -81,13 +81,16 @@ describe("a meeting's agenda and place", () => {
     await call(`/moder/${id}/punkt`, { method: "POST", cookie, body: form({ text: "økonomi og budget for efteråret" }) });
     await call(`/moder/${id}/punkt`, { method: "POST", cookie, body: form({ text: "x".repeat(500) }) });
     const row = await meeting(db, id);
-    expect(row?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller", "Økonomi og budget for efteråret", "x".repeat(200)]);
+    // Requested: "Start altid med et Velkommen punkt, samt slut med Evt." - a team meeting's agenda gets them back when a point is added.
+    expect(row?.agenda.split("\n")).toEqual(["Velkommen", "Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller", "Økonomi og budget for efteråret", "x".repeat(200), "Evt."]);
     expect(row?.agenda_saga).toBe("Godkendelse af dagsorden\nGeneralforsamling 14. okt.: roller");
     // The pencil: the new text takes the old one's place; a point of Saga's that a member rewrote is theirs now (no mark); empty text, a point that is not there and a duplicate change nothing.
     const edit = (old: string, text: string) => call(`/moder/${id}/punkt/ret`, { method: "POST", cookie, body: form({ old, text }) });
     expect((await edit("Generalforsamling 14. okt.: roller", "  Generalforsamling 14. okt.:\nroller og dirigent ")).headers.get("location")).toBe(`/moder/${id}#dagsorden`);
-    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller og dirigent", "Økonomi og budget for efteråret", "x".repeat(200)]);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Velkommen", "Godkendelse af dagsorden", "Generalforsamling 14. okt.: roller og dirigent", "Økonomi og budget for efteråret", "x".repeat(200), "Evt."]);
     expect((await meeting(db, id))?.agenda_saga).toBe("Godkendelse af dagsorden");
+    // Velkommen and Evt. can be taken off with the cross like any point (they come back when a point is added).
+    for (const text of ["Velkommen", "Evt."]) await call(`/moder/${id}/punkt/slet`, { method: "POST", cookie, body: form({ text }) });
     await edit("Økonomi og budget for efteråret", "");
     await edit("Findes ikke", "Noget");
     await edit("Økonomi og budget for efteråret", "godkendelse af dagsorden");
@@ -164,13 +167,13 @@ describe("a meeting's agenda and place", () => {
     // The document's button adds her point - once; a form without the box (an old link, a script) leaves the kind alone; unticked, it is not a team meeting.
     await call(`/moder/${plain}/forslag/dokument`, { method: "POST", cookie });
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", kind: "team", kind_sent: "1" }) });
-    expect((await meeting(db, plain))?.agenda).toBe("Opfølgning på skiltet");
+    expect((await meeting(db, plain))?.agenda).toBe("Velkommen\nOpfølgning på skiltet\nEvt.");
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", start_time: "14:00" }) });
     expect((await meeting(db, plain))?.kind).toBe("team");
     await call(`/moder/${plain}`, { method: "POST", cookie, body: form({ meeting_date: "2026-10-15", kind_sent: "1" }) });
     expect((await meeting(db, plain))?.kind).toBe("andet");
     expect((await call(`/moder/${plain}/forslag`, { method: "POST", cookie })).headers.get("location")).toBe(`/moder/${plain}?forslag=ikketeam#dagsorden`);
-    expect((await meeting(db, plain))?.agenda).toBe("Opfølgning på skiltet");
+    expect((await meeting(db, plain))?.agenda).toBe("Velkommen\nOpfølgning på skiltet\nEvt.");
     expect(calls).toBe(0);
   });
 
@@ -184,7 +187,7 @@ describe("a meeting's agenda and place", () => {
     expect((await meeting(db, team))?.agenda).toBe("");
     expect((await meeting(db, team))?.kind).toBe("team");
     expect((await call(`/moder/${team}/forslag/dokument`, { method: "POST", cookie })).headers.get("location")).toBe(`/moder/${team}?forslag=2#dagsorden`);
-    expect((await meeting(db, team))?.agenda).toBe("Opfølgning på skiltet\nLokaleleje");
+    expect((await meeting(db, team))?.agenda).toBe("Velkommen\nOpfølgning på skiltet\nLokaleleje\nEvt.");
     // Another team meeting, later than the next one, and a meeting of another kind: nothing until asked - and never for another kind.
     const later = await id("team", "2026-10-27"), other = await id("andet", "2026-10-18");
     expect((await meeting(db, later))?.agenda).toBe("");
@@ -223,7 +226,7 @@ describe("a meeting's agenda and place", () => {
     // Requested: "Hun bør prioritere de fem vigtigste.": she is told how many places she has, and she sees the document's points to choose among.
     expect(prompt).toContain("Du har kun plads til 5 punkter, så vælg de 5 vigtigste");
     expect(prompt).toContain("Referatets forslag til næste dagsorden (vælg blandt dem og resten af materialet, ikke alle): Lokaleleje");
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lisbeths punkt", "Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Velkommen", "Lisbeths punkt", "Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
     // Requested: "Saga should come with suggestions in either Danish AND English depending on what language was picked": the English was made with the Danish points, in one request.
     expect(translated).toBe(1);
     expect([...(await translations(db, ["Julefest: valg af dato", "Godkendelse af dagsorden"])).values()].sort()).toEqual(["EN: Godkendelse af dagsorden", "EN: Julefest: valg af dato"]);
@@ -249,7 +252,7 @@ describe("a meeting's agenda and place", () => {
     expect(await ask()).toBe(1);
     expect(calls).toBe(before + 1);
     expect(prompt).toContain("Du har kun plads til 3 punkter, så vælg de 3 vigtigste");
-    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Lisbeths punkt", "Godkendelse af dagsorden", "Eventuelt", "Julefest: valg af dato"]);
+    expect((await meeting(db, next))?.agenda.split("\n")).toEqual(["Velkommen", "Lisbeths punkt", "Godkendelse af dagsorden", "Julefest: valg af dato", "Eventuelt"]);
   });
 
   // Requested: "det er alt for voldsomt med så mange forslag. Hun bør prioritere de fem vigtigste."
@@ -268,7 +271,7 @@ describe("a meeting's agenda and place", () => {
     expect((await meeting(db, id))?.agenda).toBe("");
     expect(await (await call(`/moder/${id}`, { cookie, now: MORNING })).text()).toContain("Tilføj Sagas forslag fra dokumentet (5 punkter)");
     expect((await call(`/moder/${id}/forslag/dokument`, { method: "POST", cookie, now: MORNING })).headers.get("location")).toBe(`/moder/${id}?forslag=5#dagsorden`);
-    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(eight.slice(0, 5));
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Velkommen", ...eight.slice(0, 5), "Evt."]);
     expect((await meeting(db, id))?.agenda_saga?.split("\n")).toHaveLength(5);
     expect(await (await call(`/moder/${id}`, { cookie, now: MORNING })).text()).not.toContain("Tilføj Sagas forslag fra dokumentet");
     // Asked for more: five of hers are there, so no AI call is made.
@@ -284,7 +287,7 @@ describe("a meeting's agenda and place", () => {
     expect(await suggestForTeamMeeting(env, deps(services.fetcher, MORNING + 2000), db, (await meeting(db, id))!)).toBe(1);
     expect(calls).toBe(1);
     expect(prompt).toContain("Du har kun plads til 1 punkt, så vælg de vigtigste");
-    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Lisbeths punkt", "Ny A"]);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Velkommen", "Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Lisbeths punkt", "Ny A", "Evt."]);
     expect((await meeting(db, id))?.agenda_saga?.split("\n")).toEqual(["Punkt 1", "Punkt 3", "Punkt 4", "Punkt 5", "Ny A"]);
   });
 
@@ -296,7 +299,7 @@ describe("a meeting's agenda and place", () => {
     const planned = await call("/moder", { method: "POST", cookie, now: MORNING, body: form({ meeting_date: "2026-10-15", kind: "team", kind_sent: "1" }) });
     const id = Number(/\/moder\/(\d+)/.exec(planned.headers.get("location") ?? "")?.[1]);
     expect(await suggestForTeamMeeting(env, deps(services.fetcher, MORNING), db, (await meeting(db, id))!)).toBe(5);
-    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4", "Punkt 5"]);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Velkommen", "Punkt 1", "Punkt 2", "Punkt 3", "Punkt 4", "Punkt 5", "Evt."]);
   });
 
   // Requested: "On the front page, we don't show any items for the coming meeting, but simply just tell about the meeting."

@@ -62,7 +62,7 @@ describe("Saga asks each board member for agenda points the day before a team me
     expect(response.status).toBe(200);
     // She knows what she asked about.
     expect(seen.at(-1)).toBe("(Det, du skrev til mig privat i Telegram:)");
-    expect((await meetingOn(db, "2026-10-15"))?.agenda).toBe("Økonomi\nBudget for julefrokosten");
+    expect((await meetingOn(db, "2026-10-15"))?.agenda).toBe("Velkommen\nØkonomi\nBudget for julefrokosten\nEvt.");
     const reply = services.telegram("sendMessage").map(text).filter(m => m.chat_id === "201").at(-1)!.text;
     expect(reply).toContain("✓ Sat på dagsordenen torsdag 15. oktober: Budget for julefrokosten - se mødet: https://admin.hjerterum.example/moder/1");
   });

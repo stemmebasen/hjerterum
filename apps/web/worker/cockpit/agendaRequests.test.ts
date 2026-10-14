@@ -30,7 +30,7 @@ describe("a wish in the group to have something on the agenda", () => {
     expect(asked).toHaveLength(1);
     expect(asked[0]).toContain("Frederik: Hvad er aftalen med Hjerteland?");
     const row = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings").first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
-    expect(row!.agenda).toBe("Julefest\nHjerteland-aftalen: giver medlemsrabatten stadig mening (ønsket af Jacob)");
+    expect(row!.agenda).toBe("Velkommen\nJulefest\nHjerteland-aftalen: giver medlemsrabatten stadig mening (ønsket af Jacob)\nEvt.");
     expect(row!.agenda_saga).toBe("");
     expect(JSON.parse(row!.agenda_authors)).toMatchObject({ "Hjerteland-aftalen: giver medlemsrabatten stadig mening (ønsket af Jacob)": "Jacob Hauge" });
   });
