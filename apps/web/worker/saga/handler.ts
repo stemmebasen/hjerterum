@@ -4,6 +4,7 @@ import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../c
 import { boardMembers } from "../cockpit/data.js";
 import { sagaBrief } from "./brief.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
+import { answerMemberPrivately } from "../cockpit/agendaAsk.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
   answerOwnerPrivately, approveMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
@@ -92,6 +93,11 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
     await answerLoginRequest(env, deps, requireDb(env), chatId, String(message.from.id));
     return;
   }
+
+  // Requested: "they can just write it to her in the chat and she will add it" - a board member's private message is answered as in admin.
+  const privateText = (message.text ?? "").trim();
+  if (message.chat.type === "private" && message.from && !message.from.is_bot && privateText && !privateText.startsWith("/")
+    && await answerMemberPrivately(env, deps, requireDb(env), String(message.from.id), privateText, Boolean(message.reply_to_message))) return;
 
   // Private chat with Jacob; anyone else is ignored.
   if (message.chat.type !== "private" || !message.from || String(message.from.id) !== ownerId) return;
