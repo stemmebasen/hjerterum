@@ -36,7 +36,8 @@ const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europ
 
 export type AskTurn = { role: "user" | "assistant"; content: string };
 
-export type AskInput = { question: string; history: AskTurn[]; conversation?: string };
+/** `context`: turns that always go first - what Saga wrote to the member before they answered her (agendaAsk.ts). */
+export type AskInput = { question: string; history: AskTurn[]; conversation?: string; context?: AskTurn[] };
 
 /** The conversation as the page sends it: at most the last six turns, each cut to 2000 characters, and the conversation's id. */
 export function askInput(body: unknown): AskInput | null {
@@ -250,7 +251,7 @@ export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who:
 /** The same answer as Markdown - for Matrix's chat (Requested: "Kan jeg have Saga og Zilla tilgængelig i chat i Matrix"). */
 export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, asked: AskInput, base = "", lang: "da" | "en" = "da"): Promise<string> {
   const kept = await conversationTurns(db, who, asked.conversation, deps.now());
-  const input = kept.length ? { ...asked, history: kept } : asked;
+  const input = { ...asked, history: [...(asked.context ?? []), ...(kept.length ? kept : asked.history)] };
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
   const items: PersonalItem[] = who ? await personalItems(db, who, deps.now()).catch(() => []) : [];
   const mine = who ? personalSection(who, items) : "";

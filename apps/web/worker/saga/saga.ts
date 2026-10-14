@@ -30,6 +30,7 @@ import {
 import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
+import { scheduledAgendaAsk } from "../cockpit/agendaAsk.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
 
@@ -443,6 +444,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // Requested: "an intelligent and clever AI call once per day that looks through it all and tidies up" - once a night (cockpit/cleanup.ts).
   await scheduledCleanup(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_cleanup_failed", error instanceof Error ? error.message : error));
+  // Requested: "24 hours before a team meeting she should write to each and every board member directly and ask if they have anything to add".
+  await scheduledAgendaAsk(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_agenda_ask_failed", error instanceof Error ? error.message : error));
   // Requested: "Saga skal godkende events som medlemmer selv sætter op ud fra kriterier der allerede ligger i blueprint eller systemet".
   await scheduledEventReview(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_event_review_failed", error instanceof Error ? error.message : error));
