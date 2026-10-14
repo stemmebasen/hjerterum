@@ -5,6 +5,22 @@ import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.
 // Requested: "kan der ikke kun sendes det relevante med for det pågældende spørgsmål?" and "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk".
 const NOW = Date.parse("2026-10-09T10:00:00Z");
 
+describe("Saga writes in the board's group when asked", () => {
+  // Asked in admin: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?" - she answered that she could not.
+  it("sends her [[GRUPPEN]] line to the group, keeps it with the group's messages, and says so", async () => {
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "Det spørger jeg om.\n[[GRUPPEN: Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften.]]" });
+    const env = sagaEnv(db);
+    const out = await askSagaMarkdown(env, deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?", history: [] });
+    expect(services.telegram("sendMessage").map(m => (m.body as { text: string }).text)).toEqual(["Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften."]);
+    expect(out).toBe("Det spørger jeg om.\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n> Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften.");
+    expect(await db.prepare("SELECT author_name, from_assistant FROM board_messages").all()).toMatchObject({ results: [{ author_name: "Saga", from_assistant: 1 }] });
+    // Without knowing who asks, nothing is sent.
+    await askSagaMarkdown(env, deps(services.fetcher, NOW), db, null, { question: "Skriv i gruppen", history: [] });
+    expect(services.telegram("sendMessage")).toHaveLength(1);
+  });
+});
+
 describe("only what the question needs", () => {
   // Reported: "Jeg har bedt om hjælp til at holde en tale om hjerterum det sidste år, men Saga siger, at hun kun kan se tilbage til juni,
   // selvom Google-dokumentet indeholder informationer helt tilbage."

@@ -189,6 +189,10 @@ export const COCKPIT_SYSTEM = IDENTITY + COCKPIT_TONE + "Du svarer et medlem af 
   + "Beder medlemmet dig om at sætte, oprette, flytte eller ændre et bestyrelsesmøde i kalenderen, så gør du det - uden forbehold og uden at bede dem spørge andre: "
   + "skriv én kort bekræftende sætning og til sidst præcis én linje [[MØDE dato=ÅÅÅÅ-MM-DD tid=TT:MM sted=<sted>]] (tid og sted kun, når de er nævnt; flytter de et møde, så også fra=ÅÅÅÅ-MM-DD med den gamle dato). "
   + "Er datoen ikke til at forstå, så spørg kort om den. "
+  // Asked in admin: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?" - and she could not.
+  + "Beder medlemmet dig udtrykkeligt om at skrive, spørge om eller sende noget i bestyrelsens Telegram-gruppe, så gør du det: skriv én kort bekræftende sætning og til sidst præcis én linje "
+  + "[[GRUPPEN: <beskeden, som den skal stå i gruppen>]] - kort, venlig, i din egen stemme som Saga, og sig hvem der beder om det (fx 'Jacob spørger: ...'). "
+  + "Gør det aldrig af dig selv, kun én besked pr. svar, og aldrig med indhold fra mails, medlemsregistret eller andet, der ikke hører hjemme i gruppen. "
   // Requested: "Presets" - "Hjælp mig med at opsætte event", "Hvad er mine to-do's?".
   + "Beder medlemmet om hjælp til at sætte et arrangement op, så spørg kort efter det, der mangler (titel, underviser og mail, dato og tid, priser for medlemmer og ikke-medlemmer, max. deltagere), "
   + "regn lejen ud efter afsnittet LEJE AF SALEN, og henvis til Arrangementer, hvor du laver udkastet, og hvor det oprettes i det nye system og som tekst til MembershipWorks (link under LINKS I ADMIN). "
