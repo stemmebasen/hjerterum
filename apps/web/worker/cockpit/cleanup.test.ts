@@ -40,7 +40,12 @@ describe("Saga's nightly tidy-up", () => {
     expect(await db.prepare("SELECT status, outcome FROM board_posts WHERE id = ?").bind(ids.post).first()).toEqual({ status: "closed", outcome: "Ryddet op: Jacob skrev i gruppen, at det er aftalt" });
     const shown = await cleanupForChair(db, NOW);
     const card = cleanupCard("/c", shown);
-    expect(card).toContain("<h2>Saga har ryddet op</h2><p>2 ting ryddet op · kun du ser det</p>");
+    // Asked: "Skal jeg virkelig blive ved med at se på alt dette?" - "Det bør flyttes over i bunden af postkassen, foldet sammen": one folded line.
+    expect(card).toContain('<details><summary><span><strong>Saga har ryddet op</strong> <span class="small muted">2 ting ryddet op den seneste uge · kun du ser det</span></span>');
+    // The same thing tidied twice is one line, and its Fortryd takes both.
+    const twice = cleanupCard("/c", [shown[0]!, { ...shown[0]!, id: 99 }]);
+    expect(twice.match(/<li>/g)).toHaveLength(1);
+    expect(twice).toContain(`<input type="hidden" name="id" value="${shown[0]!.id}"><input type="hidden" name="id" value="99">`);
     expect(card).toContain("Opslag: Skal vi forlænge prøveperioden?");
     expect(card).not.toContain("Ja, ryd op");
     // The chair undoes both: the post opens again, the to-do is back.
