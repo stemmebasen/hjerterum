@@ -48,7 +48,8 @@ describe("a meeting's agenda and place", () => {
     expect(page).toContain("Ingen punkter endnu.");
     // Requested: "På denne side bør det fremgå tydeligt, at man er ved at redigere mødet.": a banner above the date, and the title says it too.
     expect(page).toContain('<p class="editing-banner"><svg');
-    expect(page).toMatch(/<p class="editing-banner">[^]*Rediger møde<\/p><h1>torsdag den 15\. oktober 2026<\/h1>/);
+    expect(page).toMatch(/<p class="editing-banner">[^]*Rediger møde<\/p><h1>Torsdag d\. 15\. oktober kl\. 13\.30-15\.30<\/h1>/);
+    // Requested: "Mødeoverskrift: Torsdag d. 15. oktober kl. 13.30-15.30" - a team meeting without an end time lasts two hours.
     expect(page).toContain("<title>Rediger møde");
     expect(page).toContain('<span class="kind-tag team">Teammøde</span>');
     expect(page).not.toContain('id="slags"');

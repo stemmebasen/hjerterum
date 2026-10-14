@@ -31,7 +31,7 @@ import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
 import { scheduledAgendaAsk } from "../cockpit/agendaAsk.js";
-import { scheduledAgendaPriority } from "../cockpit/agendaPriority.js";
+import { frameComingAgendas, scheduledAgendaPriority } from "../cockpit/agendaPriority.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
 
@@ -412,6 +412,8 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   const step = (name: string) => setServiceStatus(db, "saga_round", true, `${name} (startet ${new Date(started).toISOString().slice(11, 16)} UTC)`, deps.now());
   // Tests and a single-cron setup still read the mail in the round; the deployed worker reads it in its own run.
   if (options.mail !== false) { await step("mail"); await runTeamMailRound(env, deps); }
+  // Requested: "Start altid med et Velkommen punkt, samt slut med Evt." - first in the round, and without AI, so it is there whatever comes after.
+  await frameComingAgendas(db, deps.now()).catch(error => console.warn("saga_agenda_frame_failed", error instanceof Error ? error.message : error));
   await step("optagelser og referater");
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or cannot be read), Saga tells Jacob privately, once a day. No AI.

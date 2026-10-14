@@ -31,7 +31,9 @@ export async function prioritizeAgenda(env: SagaEnv, deps: SagaDeps, db: D1Datab
   let ordered = middle;
   if (!theirs && middle.length > 1 && env.AI_API_KEY && env.AI_MODEL) {
     const question = `Dagsorden til teammødet ${m.meeting_date}:\n${middle.map((p, i) => `${i + 1}. ${p}`).join("\n")}`;
-    const answer = await completeAs("dagsorden-prioritet", "mid", 300)(env, deps, [{ role: "system", content: `${SYSTEM}\n\n${await boardKnowledge(env, deps, db, question, new Set())}` }, { role: "user", content: question }]);
+    // Reported: "Jeg kan ikke se, at velkommen og eventuelt er på endnu" - when the AI fails, the agenda still gets Velkommen and Evt.
+    const answer = await completeAs("dagsorden-prioritet", "mid", 300)(env, deps, [{ role: "system", content: `${SYSTEM}\n\n${await boardKnowledge(env, deps, db, question, new Set())}` }, { role: "user", content: question }])
+      .catch(error => { console.warn("cockpit_agenda_priority_failed", error instanceof Error ? error.message : error); return ""; });
     let order: unknown = null;
     try { order = (JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as { order?: unknown } | null)?.order; } catch { order = null; }
     const picked = Array.isArray(order) ? [...new Set(order.map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= middle.length))] : [];
@@ -41,6 +43,19 @@ export async function prioritizeAgenda(env: SagaEnv, deps: SagaDeps, db: D1Datab
   const agenda = [framed[0]!, ...ordered, framed[framed.length - 1]!];
   const changed = agenda.join("\n") !== before.join("\n");
   await db.prepare(`UPDATE board_meetings SET ${changed ? "agenda = ?, " : ""}agenda_sorted_at_ms = ? WHERE id = ?`).bind(...(changed ? [agenda.join("\n")] : []), theirs ? m.agenda_sorted_at_ms : now, id).run();
+  return changed;
+}
+
+/** Every round, no AI: each coming team meeting's agenda has Velkommen first and Evt. last. Returns how many agendas were changed. */
+export async function frameComingAgendas(db: D1Database, nowMs: number): Promise<number> {
+  const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(nowMs);
+  let changed = 0;
+  for (const m of (await meetings(db)).filter(m => m.kind === "team" && m.meeting_date >= today)) {
+    const before = agendaPoints(m.agenda), agenda = framedAgenda(before);
+    if (agenda.join("\n") === before.join("\n")) continue;
+    await db.prepare("UPDATE board_meetings SET agenda = ? WHERE id = ?").bind(agenda.join("\n"), m.id).run();
+    changed++;
+  }
   return changed;
 }
 

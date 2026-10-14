@@ -4,7 +4,7 @@ import type { BoardPicture } from "../saga/picture.js";
 import { personChip, WHO_CHIP_STYLE } from "./todosPage.js";
 import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from "./votes.js";
 import { DRAWER_STYLE, postDrawer, type PostKind } from "./postDrawer.js";
-import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, rolesLine, sagaRoom, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
+import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, meetingHeading, rolesLine, sagaRoom, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
 
 /** The admin's own typeface (the blue design from before 3 October): Bricolage Grotesque. */
@@ -527,7 +527,7 @@ ${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date
 export function meetingsPage(base: string, data: { members: string[]; upcoming: Meeting[]; past: PastMeeting[]; found: Array<{ date: string; what: string }>; suggestion: string[];
   prefill: { date: string; kind: "" | "team" | "andet" }; today: string; who: string | null; notice: string; uploads: boolean; coming?: Map<string, string[]> }): string {
   const form = `<form class="stack" method="post" action="${base}/moder"><div class="row"><label>Dato<input type="date" name="meeting_date" required min="${esc(data.today)}" value="${esc(data.prefill.date)}"></label>
-<label>Tid<input type="time" name="start_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
+<label>Tid<input type="time" name="start_time"></label><label>Slut<input type="time" name="end_time"></label><label>Sted<input name="place" maxlength="200" value="${esc(DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, null)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${data.prefill.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>
@@ -563,7 +563,7 @@ export function meetingPage(base: string, m: Meeting, data: { members: string[];
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 <button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
-  return layout(base, `Rediger møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><p class="editing-banner">${PENCIL}Rediger møde</p><h1>${esc(longDay(m.meeting_date))}</h1>
+  return layout(base, `Rediger møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><p class="editing-banner">${PENCIL}Rediger møde</p><h1>${esc(meetingHeading(m))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid${showMinutes ? "" : " single"}"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 10px">${esc(rolesLine(m))}</p>` : ""}
 ${points.length ? `<ol class="agenda points" data-order="${base}/moder/${m.id}/punkt/raekkefolge">${points.map(p => `<li data-point="${esc(p)}">${points.length > 1 ? `<button type="button" class="grip" aria-label="Flyt punktet: ${esc(p)}" title="Træk for at flytte punktet - eller brug pil op og ned">${GRIP}</button>` : ""}<span class="t">${esc(p)}</span>${saga.has(p) ? `<span class="saga-mark">Sagas forslag</span>` : authors[p] ? personChip(data.members, authors[p]!) : ""}<button type="button" class="pencil" data-edit aria-label="Ret punktet: ${esc(p)}" title="Ret punktet">${PENCIL}</button><form class="cross" method="post" action="${base}/moder/${m.id}/punkt/slet"><input type="hidden" name="text" value="${esc(p)}"><button aria-label="Fjern punktet: ${esc(p)}" title="Fjern punktet">×</button></form>
@@ -592,7 +592,7 @@ ${data.aiReady ? `<p class="small muted">Saga laver kun forslag, når du beder h
 <script>document.getElementById("agenda-ask").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}` : ""}
 <h3 style="margin:18px 0 8px" id="detaljer">Dato, tid, sted og roller</h3>
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
-<label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
+<label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Slut<input type="time" name="end_time" value="${esc(m.end_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, m)}
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>

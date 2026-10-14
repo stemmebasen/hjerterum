@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { claimJob } from "../saga/store.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { prioritizeAgenda, scheduledAgendaPriority } from "./agendaPriority.js";
-import { framedAgenda, meeting, reorderAgendaPoints, saveMeeting } from "./data.js";
+import { frameComingAgendas, prioritizeAgenda, scheduledAgendaPriority } from "./agendaPriority.js";
+import { framedAgenda, meeting, meetingHeading, reorderAgendaPoints, saveMeeting } from "./data.js";
 
 // Requested: "Hun skal selv prioritere hvad der virker til at haste mest på dagsordenen og hvad der kan vente til senere.
 // Start altid med et Velkommen punkt, samt slut med Evt."
@@ -52,5 +52,28 @@ describe("the agenda in order", () => {
     await scheduledAgendaPriority(env, deps(services.fetcher, START - 2 * HOUR), db, claim);
     expect(calls()).toBe(1);
     expect((await meeting(db, id))?.agenda.split("\n").slice(0, 2)).toEqual(["Velkommen", "Husleje stiger fra 1. november"]);
+  });
+
+  // Reported: "Jeg kan ikke se, at velkommen og eventuelt er på endnu."
+  it("frames each coming team meeting every round, without AI - and an agenda whose AI call fails still gets its frame", async () => {
+    const { db, id } = await setup();
+    const other = await saveMeeting(db, { date: "2026-10-20", time: "19:00", place: "", agenda: "Valg af dirigent", kind: "andet" }, "Jacob Hauge", START);
+    expect(await frameComingAgendas(db, START - 20 * HOUR)).toBe(1);
+    expect((await meeting(db, id))?.agenda.split("\n")).toEqual(["Velkommen", "Idé: sommerfest", "Regnskabet skal være klar til revisor 20. oktober", "Husleje stiger fra 1. november", "Eventuelt"]);
+    expect((await meeting(db, other))?.agenda).toBe("Valg af dirigent");
+    expect(await frameComingAgendas(db, START - 19 * HOUR)).toBe(0);
+    const failing = testDatabase();
+    const services = fakeServices({ ai: () => { throw new Error("down"); } });
+    const fid = await saveMeeting(failing, { date: "2026-10-15", time: "13:30", place: "", agenda: "Økonomi", kind: "team" }, "Jacob Hauge", START);
+    await prioritizeAgenda(sagaEnv(failing), deps(services.fetcher, START - 20 * HOUR), failing, fid);
+    expect((await meeting(failing, fid))?.agenda).toBe("Velkommen\nØkonomi\nEvt.");
+  });
+
+  // Requested: "Mødeoverskrift: Torsdag d. 15. oktober kl. 13.30-15.30"
+  it("heads a meeting with its day and time, from start to end", () => {
+    expect(meetingHeading({ meeting_date: "2026-10-15", start_time: "13:30", end_time: null, kind: "team" })).toBe("Torsdag d. 15. oktober kl. 13.30-15.30");
+    expect(meetingHeading({ meeting_date: "2026-10-15", start_time: "13:30", end_time: "16:00", kind: "team" })).toBe("Torsdag d. 15. oktober kl. 13.30-16.00");
+    expect(meetingHeading({ meeting_date: "2026-10-20", start_time: "19:00", end_time: null, kind: "andet" })).toBe("Tirsdag d. 20. oktober kl. 19.00");
+    expect(meetingHeading({ meeting_date: "2026-10-20", start_time: null, end_time: null, kind: "team" })).toBe("Tirsdag d. 20. oktober");
   });
 });
