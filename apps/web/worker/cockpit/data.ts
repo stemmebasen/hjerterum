@@ -65,6 +65,16 @@ export type MeetingInput = { date: string; time: string; place: string; agenda?:
 export const cleanPoint = (text: string) => text.replace(/\s+/g, " ").trim().replace(/^(\d+[.)]|[-*•])\s+/, "").slice(0, 200);
 export const agendaPoints = (agenda: string | null | undefined) => (agenda ?? "").split("\n").map(line => line.trim()).filter(Boolean);
 
+/** Requested: "Start altid med et Velkommen punkt, samt slut med Evt." A team meeting's agenda opens with Velkommen and closes with Evt. -
+ * the board's own wording of them is kept ("Velkomst", "Eventuelt"), and the points between keep their order. */
+export const WELCOME = "Velkommen", ANY_OTHER = "Evt.";
+export const isWelcome = (p: string) => /^velkom/i.test(p.trim());
+export const isAnyOther = (p: string) => /^(?:evt\.?|eventuelt)(?:\s|$|[.:])/i.test(p.trim());
+export function framedAgenda(points: string[]): string[] {
+  const middle = points.filter(p => !isWelcome(p) && !isAnyOther(p));
+  return [points.find(isWelcome) ?? WELCOME, ...middle, points.find(isAnyOther) ?? ANY_OTHER];
+}
+
 /** A meeting as written in the cockpit form; null when the date is not a real day. */
 export function meetingInput(form: FormData): MeetingInput | null {
   const date = String(form.get("meeting_date") ?? "").trim();
@@ -127,9 +137,11 @@ export function sagaRoom(m: { agenda: string; agenda_saga?: string }): number {
 
 /** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted - and stops at the five she may have (`sagaRoom`). Returns how many were added. */
 export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
-  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors, kind FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string; kind: string | null }>();
   if (!m) return 0;
-  const points = agendaPoints(m.agenda), saga = agendaPoints(m.agenda_saga), authors = agendaAuthors(m.agenda_authors), seen = new Set(points.map(p => p.toLowerCase()));
+  // A new point goes above Evt., not under it.
+  const before = agendaPoints(m.agenda), last = before.length && isAnyOther(before[before.length - 1]!) ? before.pop()! : null;
+  const points = before, saga = agendaPoints(m.agenda_saga), authors = agendaAuthors(m.agenda_authors), seen = new Set([...points, ...(last ? [last] : [])].map(p => p.toLowerCase()));
   let added = 0, room = fromSaga ? sagaRoom(m) : Infinity;
   for (const text of texts.map(cleanPoint).filter(Boolean)) {
     if (room <= 0) break;
@@ -137,7 +149,9 @@ export async function addAgendaPoints(db: D1Database, id: number, texts: string[
     seen.add(text.toLowerCase()); points.push(text); added++;
     if (fromSaga) { saga.push(text); room--; } else if (who) authors[text] = who;
   }
-  if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(points.join("\n"), saga.join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
+  if (last) points.push(last);
+  const agenda = m.kind === "team" ? framedAgenda(points) : points;
+  if (added) await db.prepare("UPDATE board_meetings SET agenda = ?, agenda_saga = ?, agenda_authors = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(agenda.join("\n"), saga.join("\n"), JSON.stringify(authors), nowMs, who || null, id).run();
   return added;
 }
 
@@ -169,7 +183,8 @@ export async function reorderAgendaPoints(db: D1Database, id: number, order: str
   const current = agendaPoints(m.agenda), given = [...new Set(order.map(cleanPoint).filter(p => current.includes(p)))];
   const next = [...given, ...current.filter(p => !given.includes(p))];
   if (next.join("\n") === current.join("\n")) return false;
-  await db.prepare("UPDATE board_meetings SET agenda = ?, updated_at_ms = ?, updated_by = ? WHERE id = ?").bind(next.join("\n"), nowMs, who || null, id).run();
+  // Moved by hand: Saga does not put it in her order again (agendaPriority.ts).
+  await db.prepare("UPDATE board_meetings SET agenda = ?, updated_at_ms = ?, updated_by = ?, agenda_moved_at_ms = ? WHERE id = ?").bind(next.join("\n"), nowMs, who || null, nowMs, id).run();
   return true;
 }
 

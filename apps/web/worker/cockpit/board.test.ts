@@ -40,8 +40,8 @@ describe("the board's notice board", () => {
     await db.prepare("INSERT INTO board_meetings (meeting_date, start_time, agenda, kind, created_at_ms, updated_at_ms) VALUES ('2026-10-15', '19:00', '', 'team', ?, ?)").bind(NOW, NOW).run();
     expect(await placePending(db, NOW)).toBe(1);
     expect(await placePending(db, NOW)).toBe(0);
-    expect((await db.prepare("SELECT agenda FROM board_meetings").first<{ agenda: string }>())!.agenda).toBe("Hjerteland-aftalen (fra opslagstavlen, ønsket af Jacob)");
+    expect((await db.prepare("SELECT agenda FROM board_meetings").first<{ agenda: string }>())!.agenda).toBe("Velkommen\nHjerteland-aftalen (fra opslagstavlen, ønsket af Jacob)\nEvt.");
     expect(await toMeeting(db, id, "Gitta", NOW)).toBe("added");
-    expect((await db.prepare("SELECT agenda FROM board_meetings").first<{ agenda: string }>())!.agenda).toBe("Hjerteland-aftalen (fra opslagstavlen, ønsket af Jacob)");
+    expect((await db.prepare("SELECT agenda FROM board_meetings").first<{ agenda: string }>())!.agenda).toBe("Velkommen\nHjerteland-aftalen (fra opslagstavlen, ønsket af Jacob)\nEvt.");
   });
 });
