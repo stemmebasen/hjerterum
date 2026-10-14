@@ -11,7 +11,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { boardPosts, postsForSaga } from "./board.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
-import { allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
+import { addAgendaPoints, allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { applyMemory, memorySection } from "./memory.js";
 import { latestStats, statsForSaga } from "./members.js";
@@ -36,16 +36,28 @@ const time = (ms: number) => new Intl.DateTimeFormat("da-DK", { timeZone: "Europ
 
 export type AskTurn = { role: "user" | "assistant"; content: string };
 
-/** The conversation as the page sends it: at most the last six turns, each cut to 2000 characters. */
-export function askInput(body: unknown): { question: string; history: AskTurn[] } | null {
-  const data = body && typeof body === "object" ? body as { question?: unknown; history?: unknown } : {};
+export type AskInput = { question: string; history: AskTurn[]; conversation?: string };
+
+/** The conversation as the page sends it: at most the last six turns, each cut to 2000 characters, and the conversation's id. */
+export function askInput(body: unknown): AskInput | null {
+  const data = body && typeof body === "object" ? body as { question?: unknown; history?: unknown; conversation?: unknown } : {};
   const question = typeof data.question === "string" ? data.question.trim().slice(0, 1500) : "";
   if (!question) return null;
   const history = (Array.isArray(data.history) ? data.history : []).slice(-6)
     .map(turn => turn as { role?: unknown; content?: unknown })
     .filter(turn => (turn.role === "user" || turn.role === "assistant") && typeof turn.content === "string" && turn.content.trim())
     .map(turn => ({ role: turn.role as AskTurn["role"], content: String(turn.content).slice(0, 2000) }));
-  return { question, history };
+  const conversation = typeof data.conversation === "string" && /^[\w-]{8,40}$/.test(data.conversation) ? data.conversation : undefined;
+  return { question, history, ...(conversation ? { conversation } : {}) };
+}
+
+/** Asked: "Kan hun ikke huske beskedhistorik i chatten?" - a bare "Ja" was answered as if nothing came before it. The server keeps each
+ * question with its conversation; the last three questions and answers of it (within half an hour) are the history, whatever the browser kept. */
+export async function conversationTurns(db: D1Database, who: string | null, conversation: string | undefined, nowMs: number): Promise<AskTurn[]> {
+  if (!who || !conversation) return [];
+  const rows = (await db.prepare("SELECT question, answer FROM cockpit_questions WHERE asked_by = ? AND conversation = ? AND created_at_ms >= ? ORDER BY created_at_ms DESC, id DESC LIMIT 3")
+    .bind(who, conversation, nowMs - 30 * 60_000).all<{ question: string; answer: string | null }>().catch(() => ({ results: [] }))).results ?? [];
+  return rows.reverse().flatMap(r => [{ role: "user" as const, content: r.question.slice(0, 2000) }, { role: "assistant" as const, content: (r.answer ?? "").slice(0, 2000) }]).filter(t => t.content);
 }
 
 export async function questionsToday(db: D1Database, nowMs: number): Promise<number> {
@@ -231,12 +243,14 @@ const MISSING = /\[\[MANGLER(?::\s*([^\]]*))?\]\]/i;
 const MISSING_NOTE = `DU HAR KUN FÅET DE DELE AF VIDEN, SOM SER RELEVANTE UD FOR SPØRGSMÅLET. Kan du ikke svare ordentligt uden mere, så svar KUN med [[MANGLER: ${HEAVY_SECTIONS.join(", ")}]] og nævn kun de dele, du mangler (eller bare [[MANGLER]] hvis du er i tvivl) - skriv intet andet. Så får du dem med det samme. Gæt aldrig.`;
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
-export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = "", lang: "da" | "en" = "da"): Promise<string> {
+export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: AskInput, base = "", lang: "da" | "en" = "da"): Promise<string> {
   return /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(await askSagaMarkdown(env, deps, db, who, input, base, lang)))?.[1] ?? "";
 }
 
 /** The same answer as Markdown - for Matrix's chat (Requested: "Kan jeg have Saga og Zilla tilgængelig i chat i Matrix"). */
-export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: { question: string; history: AskTurn[] }, base = "", lang: "da" | "en" = "da"): Promise<string> {
+export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, asked: AskInput, base = "", lang: "da" | "en" = "da"): Promise<string> {
+  const kept = await conversationTurns(db, who, asked.conversation, deps.now());
+  const input = kept.length ? { ...asked, history: kept } : asked;
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
   const items: PersonalItem[] = who ? await personalItems(db, who, deps.now()).catch(() => []) : [];
   const mine = who ? personalSection(who, items) : "";
@@ -255,8 +269,8 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, items, now, base), who, now), who);
-  await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms) VALUES (?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now).run();
+  const answer = await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, now, base), who, items, now, base), who, now), who);
+  await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms, conversation) VALUES (?, ?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now, input.conversation ?? null).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
 }
@@ -277,6 +291,25 @@ export async function applyGroupMessage(env: SagaEnv, deps: SagaDeps, db: D1Data
   if (!sent) return `${text}\n\nBeskeden kom ikke igennem til gruppen. Her er den, så du kan sende den selv:\n\n${quoted}`;
   await saveBoardMessage(db, { chatId: env.SAGA_BOARD_CHAT_ID, messageId: sent.message_id, author: SAGA_NAME, authorId: null, text: message, sentAtMs: deps.now(), fromAssistant: true }).catch(() => undefined);
   return `${text}\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n${quoted}`;
+}
+
+/** Requested: "Når man beder saga putte et punkt på dagsordenen skal hun hjælpe med det. Hun skal spørge om noget hvis hun er i tvivl. Det kan
+ * både være at forstå hvilket møde det er, eller at uddybe hvad punktet går ud på." Her [[DAGSORDEN dato=... punkt=...]] line puts the point
+ * on that meeting's agenda in the member's name (as if they wrote it there), and the line becomes a confirmation with a link. */
+const AGENDA_LINE = /\[\[DAGSORDEN\s+dato=(\d{4}-\d{2}-\d{2})\s+punkt=([^\]]+)\]\]/gi;
+export async function applyAgenda(db: D1Database, answer: string, who: string | null, nowMs: number, base = ""): Promise<string> {
+  const lines = [...answer.matchAll(AGENDA_LINE)];
+  if (!lines.length) return answer;
+  let text = answer.replace(AGENDA_LINE, "").trim();
+  if (!who) return text;
+  for (const [, date, point] of lines.slice(0, 5)) {
+    const m = await meetingOn(db, date!);
+    const day = DANISH_DATE.format(new Date(`${date}T12:00:00Z`));
+    if (!m) { text += `\n\nDer er intet møde ${day} i kalenderen, så punktet er ikke sat på. Skal jeg oprette mødet først?`; continue; }
+    const added = await addAgendaPoints(db, m.id, [point!.trim()], who, nowMs);
+    text += added ? `\n\n✓ Sat på dagsordenen ${day}: ${point!.trim()} - [se mødet](${base}/moder/${m.id})` : `\n\nPunktet står allerede på dagsordenen ${day} - [se mødet](${base}/moder/${m.id})`;
+  }
+  return text;
 }
 
 /** Requested: "Sæt næste møde til torsdag d. 15. oktober kl. 13.30" - "Hun skal blot gøre hvad jeg siger."

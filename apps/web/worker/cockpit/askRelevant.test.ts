@@ -1,9 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { askSagaMarkdown, boardKnowledge, LONG_VIEW, sectionsFor } from "./ask.js";
+import { askInput, askSagaMarkdown, boardKnowledge, LONG_VIEW, sectionsFor } from "./ask.js";
+import { meetingOn, saveMeeting } from "./data.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 
 // Requested: "kan der ikke kun sendes det relevante med for det pågældende spørgsmål?" and "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk".
 const NOW = Date.parse("2026-10-09T10:00:00Z");
+
+describe("Saga keeps the conversation, and puts a point on the agenda when asked", () => {
+  // Requested: "Når man beder saga putte et punkt på dagsordenen skal hun hjælpe med det. Hun skal spørge om noget hvis hun er i tvivl." -
+  // and asked: "Kan hun ikke huske beskedhistorik i chatten?" after a bare "Ja" was answered as if nothing came before it.
+  it("answers a bare 'Ja' with the conversation before it, even when the browser lost it, and sets the point on the meeting's agenda", async () => {
+    const db = testDatabase();
+    await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "Hjerterum", agenda: "Økonomi" }, "Jacob Hauge", NOW);
+    const firsts: string[] = [];
+    let answers = ["Skal punktet på teammødet torsdag 15. oktober?", "Godt, det er sat på.\n[[DAGSORDEN dato=2026-10-15 punkt=Nøgler: hvem har hvilke, og hvem mangler]]"];
+    const services = fakeServices({ ai: (_system, first) => { firsts.push(first); return answers.shift() ?? "Svar."; } });
+    const env = sagaEnv(db);
+    const conversation = "c0nversation1";
+    expect(askInput({ question: "Ja", history: [], conversation })).toEqual({ question: "Ja", history: [], conversation });
+    await askSagaMarkdown(env, deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Sæt nøglerne på dagsordenen", history: [], conversation });
+    const out = await askSagaMarkdown(env, deps(services.fetcher, NOW + 60_000), db, "Jacob Hauge", { question: "Ja", history: [], conversation });
+    // The second call starts with the first question - the server kept it.
+    expect(firsts[1]).toBe("Sæt nøglerne på dagsordenen");
+    expect(out).toContain("✓ Sat på dagsordenen torsdag 15. oktober: Nøgler: hvem har hvilke, og hvem mangler");
+    expect((await meetingOn(db, "2026-10-15"))?.agenda).toBe("Økonomi\nNøgler: hvem har hvilke, og hvem mangler");
+    // Another conversation does not see it; nor does a meeting that is not there get a point.
+    answers = ["[[DAGSORDEN dato=2026-10-22 punkt=Kaffe]]"];
+    expect(await askSagaMarkdown(env, deps(services.fetcher, NOW + 120_000), db, "Jacob Hauge", { question: "Sæt kaffe på", history: [], conversation: "another-one" }))
+      .toContain("Der er intet møde torsdag 22. oktober i kalenderen");
+    expect(firsts[2]).toContain("Sæt kaffe på");
+  });
+});
 
 describe("Saga writes in the board's group when asked", () => {
   // Asked in admin: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?" - she answered that she could not.

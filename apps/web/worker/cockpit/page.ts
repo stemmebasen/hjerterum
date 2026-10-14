@@ -285,9 +285,10 @@ function sagaChat(base: string, who: string | null): string {
 <script>(()=>{const url=${JSON.stringify(`${base}/saga`)},box=document.getElementById("saga"),fab=document.getElementById("saga-open"),log=document.getElementById("saga-log"),form=document.getElementById("saga-form"),q=document.getElementById("saga-q");
 // Requested: "Sørg også for, at chatten med Saga nulstilles inden for normale standarder": after 30 minutes
 // without a question the conversation starts over, and "Ny samtale" starts one at once.
-const IDLE=30*60*1000;let history=[];try{const kept=JSON.parse(sessionStorage.getItem("saga-chat")||"null");if(kept&&Array.isArray(kept.h)&&Date.now()-Number(kept.t||0)<IDLE)history=kept.h}catch(e){}
-const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify({t:Date.now(),h:history.slice(-12)}))}catch(e){}};
-document.getElementById("saga-new").onclick=()=>{history=[];try{sessionStorage.removeItem("saga-chat")}catch(e){}log.querySelectorAll(".saga-msg:not(:first-child)").forEach(m=>m.remove());q.focus()};
+// Asked: "Kan hun ikke huske beskedhistorik i chatten?" - the conversation has an id the server keeps the questions under, so it knows the conversation itself.
+const IDLE=30*60*1000,newId=()=>Math.random().toString(36).slice(2)+Date.now().toString(36);let history=[],conv=newId();try{const kept=JSON.parse(sessionStorage.getItem("saga-chat")||"null");if(kept&&Array.isArray(kept.h)&&Date.now()-Number(kept.t||0)<IDLE){history=kept.h;if(kept.c)conv=kept.c}}catch(e){}
+const save=()=>{try{sessionStorage.setItem("saga-chat",JSON.stringify({t:Date.now(),h:history.slice(-12),c:conv}))}catch(e){}};
+document.getElementById("saga-new").onclick=()=>{history=[];conv=newId();try{sessionStorage.removeItem("saga-chat")}catch(e){}log.querySelectorAll(".saga-msg:not(:first-child)").forEach(m=>m.remove());q.focus()};
 const add=(cls,content,isHtml)=>{const d=document.createElement("div");d.className="saga-msg "+cls;if(isHtml)d.innerHTML=content;else d.textContent=content;log.appendChild(d);log.scrollTop=log.scrollHeight;return d};
 for(const t of history)add(t.role==="user"?"saga-u":"saga-a",t.role==="user"?t.content:t.html||t.content,t.role!=="user");
 const open=(v,quiet)=>{box.hidden=!v;fab.hidden=v;fab.setAttribute("aria-expanded",String(v));if(v){try{sessionStorage.setItem("saga-popped","1")}catch(e){}if(!quiet)q.focus()}};
@@ -300,7 +301,7 @@ if(!box.hidden||history.length||typing||sessionStorage.getItem("saga-popped"))re
 let busy=false;
 async function ask(text){if(busy||!text.trim())return;busy=true;log.querySelector(".saga-ideas")?.remove();add("saga-u",text);q.value="";const wait=add("saga-a saga-wait","Saga tænker …");
 const sent=history.slice(-6).map(t=>({role:t.role,content:t.content}));
-try{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:text,history:sent})});const data=await r.json().catch(()=>({}));
+try{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({question:text,history:sent,conversation:conv})});const data=await r.json().catch(()=>({}));
 if(r.ok&&data.html){wait.className="saga-msg saga-a";wait.innerHTML=data.html;history.push({role:"user",content:text},{role:"assistant",content:wait.textContent,html:data.html});save()}
 else{wait.className="saga-msg saga-a saga-err";wait.textContent=data.error||(r.status===401?"Du er logget ud. Genindlæs siden.":"Saga kunne ikke svare lige nu.")}}
 catch(e){wait.className="saga-msg saga-a saga-err";wait.textContent="Ingen forbindelse. Prøv igen."}
