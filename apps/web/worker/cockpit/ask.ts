@@ -11,7 +11,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { parseMembershipWorksRss } from "../external-events.js";
 import { boardPosts, postsForSaga } from "./board.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
-import { addAgendaPoints, allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
+import { addAgendaPoints, agendaClosed, meetingOver, allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
 import { applyMemory, memorySection } from "./memory.js";
 import { latestStats, statsForSaga } from "./members.js";
@@ -212,13 +212,14 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
   const d = picture?.document;
   const sorted = withKinds(allDecisions(minutes, picture), await decisionKinds(db));
   const parts = [
-    `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now)}`,
+    // Asked: "Er Saga i en anden tidszone? Det står som om det ikke har fundet sted endnu, selvom det er færdigt." - she knows the time of day too.
+    `I DAG: ${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(now)} (dansk tid)`,
     !wants("vedtaegter") ? "" : `VEDTÆGTER:\n${STATUTES}`,
     !wants("foreningsret") ? "" : `FORENINGSRET (lovgrundlaget for foreninger med begrænset ansvar):\n${LAW}`,
     `BESLUTNINGER (nyeste først - truffet af bestyrelsen):\n${sorted.filter(x => x.kind !== "aftale").slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
     // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
     `UFORMELLE AFTALER (aftalt mellem enkelte personer, anbefalet, foreslået eller noteret - ikke afgjort som beslutninger i bestyrelsen; kald dem aftaler eller anbefalinger, aldrig beslutninger):\n${sorted.filter(x => x.kind === "aftale").slice(0, 30).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
-    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}` : ""}${m.place ? `, ${m.place}` : ""}${rolesLine(m) ? ` (${rolesLine(m)})` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
+    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}${m.end_time ? `-${m.end_time}` : ""}` : ""}${meetingOver(m, now) ? " [afholdt]" : agendaClosed(m, now) ? " [i gang nu - dagsordenen er låst]" : ""}${m.place ? `, ${m.place}` : ""}${rolesLine(m) ? ` (${rolesLine(m)})` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
@@ -349,6 +350,8 @@ export async function applyAgenda(db: D1Database, answer: string, who: string | 
     const m = await meetingOn(db, date!);
     const day = DANISH_DATE.format(new Date(`${date}T12:00:00Z`));
     if (!m) { text += `\n\nDer er intet møde ${day} i kalenderen, så punktet er ikke sat på. Skal jeg oprette mødet først?`; continue; }
+    // Requested: "Dagsordenen skal selvfølgelig heller ikke kunne rettes mere når mødet først er startet".
+    if (agendaClosed(m, nowMs)) { text += `\n\nMødet ${day} er begyndt, så dagsordenen er låst, og punktet er ikke sat på. Skal det på næste teammøde?`; continue; }
     const added = await addAgendaPoints(db, m.id, [point!.trim()], who, nowMs);
     text += added ? `\n\n✓ Sat på dagsordenen ${day}: ${point!.trim()} - [se mødet](${base}/moder/${m.id})` : `\n\nPunktet står allerede på dagsordenen ${day} - [se mødet](${base}/moder/${m.id})`;
   }

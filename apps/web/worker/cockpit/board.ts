@@ -61,7 +61,7 @@ async function place(db: D1Database, id: number, nowMs: number): Promise<boolean
   const post = await db.prepare("SELECT title, for_meeting_by FROM board_posts WHERE id = ? AND meeting_id IS NULL AND for_meeting_by IS NOT NULL").bind(id).first<{ title: string; for_meeting_by: string }>();
   if (!post) return false;
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(nowMs);
-  const meeting = nextTeamMeeting(await meetings(db), today);
+  const meeting = nextTeamMeeting(await meetings(db), today, nowMs);
   if (!meeting) return false;
   const first = post.for_meeting_by.trim().split(/\s+/)[0] ?? post.for_meeting_by;
   await addAgendaPoints(db, meeting.id, [`${post.title} (fra opslagstavlen, ønsket af ${first})`], post.for_meeting_by, nowMs, false);

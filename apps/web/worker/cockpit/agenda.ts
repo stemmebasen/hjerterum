@@ -140,7 +140,7 @@ export async function agendaRequests(env: SagaEnv, deps: SagaDeps, db: D1Databas
   const asks = recent.filter(m => !m.from_assistant && AGENDA_ASK.test(m.text));
   if (!asks.length) return 0;
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
-  const meeting = nextTeamMeeting(await meetings(db), today);
+  const meeting = nextTeamMeeting(await meetings(db), today, now);
   if (!meeting) return 0;
   let added = 0;
   for (const ask of asks) {

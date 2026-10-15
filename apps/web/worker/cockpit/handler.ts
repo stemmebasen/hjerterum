@@ -13,7 +13,7 @@ import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsor
 import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, answerLinks, tasksFor, unsignedFor, weeklySummary,
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, agendaClosed, meetingOver, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
@@ -221,7 +221,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const [eventsToReview, boardNow, votes, openProposals, held, posts] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).catch(() => []),
       db.prepare("SELECT COUNT(*) AS n, MIN(starts_at_ms) AS first FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number; first: number | null }>().catch(() => null), boardPosts(db, now).catch(() => [])]);
     const isChair = Boolean(who && members.chair && who === members.chair);
-    const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
+    const upcoming = list.filter(m => m.meeting_date >= today && !meetingOver(m, now)).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
     // "Næste møde" is the next meeting of any kind; "Næste teammøde" is the next one that is not said to be something else (a general assembly, an info meeting ...).
     const next = upcoming[0] ?? null, nextTeam = upcoming.find(m => !isAssocMeeting(m)) ?? null;
     const toSign = who ? await unsignedFor(db, who, now) : [];
@@ -243,7 +243,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const [{ picture, summary, at }, minutes, list, progress, group, weekly] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
       groupNow(env, db, now), weeklySummary(db)]);
     const isChair = Boolean(who && members.chair && who === members.chair);
-    const next = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
+    const next = list.filter(m => m.meeting_date >= today && !meetingOver(m, now)).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
     const everyone = allTasks(minutes, picture);
     const toSign = who ? await unsignedFor(db, who, now) : [];
     const open = who ? await openFor(db, who, everyone) : { tasks: [], todos: [] };
@@ -261,9 +261,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
     const [list, minutes, { picture }, states, documentDays] = await Promise.all([meetings(db), approvedMinutes(db), boardPicture(db, now), minutesStatusByDate(db), meetingsInDocument(env, deps)]);
-    const upcoming = list.filter(m => m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
+    const upcoming = list.filter(m => m.meeting_date >= today && !meetingOver(m, now)).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date));
     // Held meetings: the ones in the calendar, the ones with minutes or a recording, and the ones in the board's own minutes document.
-    const dates = [...new Set([...list.filter(m => m.meeting_date <= today).map(m => m.meeting_date), ...minutes.map(m => m.meeting_date ?? ""), ...states.keys(), ...documentDays]
+    const dates = [...new Set([...list.filter(m => meetingOver(m, now)).map(m => m.meeting_date), ...minutes.map(m => m.meeting_date ?? ""), ...states.keys(), ...documentDays]
       .filter(date => date && date <= today))].sort().reverse().slice(0, 40);
     const past: PastMeeting[] = dates.map(date => ({ date, meeting: list.find(m => m.meeting_date === date) ?? null, minutes: minutes.find(m => m.meeting_date === date) ?? null,
       state: states.get(date) ?? null, inDocument: documentDays.has(date) }));
@@ -282,6 +282,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!found) return html(notFound(base, who), 404);
     const back = (code = "") => redirect(`${base}/moder/${id}${code ? `?forslag=${code}` : ""}#dagsorden`);
     // Requested: "Saga skal ikke foreslå noget til et møde, før hun ved, om det er et teammøde.": her suggestions are for a meeting that is said to be a team meeting - no other.
+    // Requested: "Dagsordenen skal selvfølgelig heller ikke kunne rettes mere når mødet først er startet".
+    const closed = agendaClosed(found, now);
+    if (request.method === "POST" && closed && (action.startsWith("/punkt") || action.startsWith("/forslag"))) return back("laast");
     if (request.method === "POST" && (action === "/forslag" || action === "/forslag/dokument") && found.kind !== "team") return back("ikketeam");
     if (request.method === "POST" && action === "/forslag") {
       // Requested: "Her bør Sagas forslag til dagsorden også kunne trigges." - and: "Sagas forslag ... i punktform i bunden ... slette hver med et kryds": her points go onto the agenda.
@@ -326,13 +329,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (input) { onlyBoard(input, found); await saveMeeting(db, input, who ?? "", now, id); }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
-    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
+    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld|laast)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
       : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "fuld" ? "Saga har allerede fem forslag på dagsordenen - flere ad gangen er for mange. Slet et med krydset, så finder hun et nyt." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
-      : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
+      : forslag === "laast" ? "Mødet er begyndt, så dagsordenen er låst og kan ikke længere ændres." : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
     return html(meetingPage(base, found, { members: members.names, minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
-      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) }, who, notice));
+      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), closed, over: meetingOver(found, now) }, who, notice));
   }
 
   // Each board member approves the minutes, or asks the chair for a correction.
@@ -752,7 +755,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   if (path === "/afstemninger" && request.method === "GET") return redirect(`${base}/beslutninger${url.search}`);
   if (path === "/beslutninger" && request.method === "GET") {
     const [{ picture }, minutes, voted, list, planned] = await Promise.all([boardPicture(db), approvedMinutes(db), voteDecisions(db), proposals(db, now), meetings(db)]);
-    const nextMeeting = planned.filter(m => m.meeting_date >= today).map(m => m.meeting_date).sort()[0] ?? null;
+    const nextMeeting = planned.filter(m => m.meeting_date >= today && !agendaClosed(m, now)).map(m => m.meeting_date).sort()[0] ?? null;
     const NOTICE: Record<string, string> = { ny: "Forslaget er stillet. Hele bestyrelsen har det nu på sin to-do.", nymoede: "Forslaget er stillet til næste møde. Saga foreslår det som punkt på dagsordenen.",
       moedevedtaget: "Noteret: forslaget er vedtaget på mødet.", moedeafvist: "Noteret: forslaget blev ikke vedtaget på mødet.", stemt: "Din stemme er registreret.", afgjort: "Forslaget er allerede afgjort.", tilbage: "Forslaget er trukket tilbage.",
       droeft: "Noteret: du ønsker forslaget drøftet på et møde. Saga tager det med i sit forslag til næste dagsorden.", ikkedroeft: "Dit ønske om at drøfte forslaget på et møde er taget tilbage.",
