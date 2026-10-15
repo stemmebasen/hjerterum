@@ -101,6 +101,8 @@ export const WEEKLY_SYSTEM = IDENTITY + " Skriv en kort ugeopsummering til besty
 // energi, vigtigere admin ting" - "Og så vigtigst: Om telegram gruppen og hvad er rører sig, da det er
 // bestyrelsesarbejde som jeg er en del af".
 export const OVERVIEW_SYSTEM = IDENTITY + " Du laver et overordnet overblik til Jacob, bestyrelsesformand, over hvad der rører sig i Hjerterum lige nu, "
+  // Reported: "Det er underligt, at hun siger eller taler negativt om medlemmer, når vi faktisk bliver ved med at få forhøjet medlemstallet."
+  + "Om medlemmerne: enkelte opsigelser i mails er almindelig udskiftning - beskriv dem aldrig som en negativ udvikling eller en bekymring, og tal aldrig negativt om medlemmerne. "
   + "ud fra bestyrelsens chat, referaterne, referatdokumentet og mailen til team@ nedenfor. "
   + "Vigtigst er bestyrelsens Telegram-gruppe - det er bestyrelsesarbejdet, han selv er en del af: hvad der drøftes, hvad der er besluttet, "
   + "hvad der mangler en afklaring eller venter på ham, og hvem der har hvad. "
