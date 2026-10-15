@@ -109,6 +109,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-intro-side > p { margin: 30px 0 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
 .site-intro-image { width: 100%; max-height: 300px; object-fit: cover; border-radius: var(--lys-radius); }
 .site-intro-image + p { margin-top: 0; }
+.site-intro-lead { margin: 22px 0 0; max-width: 44ch; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
+.site-intro:has(.site-intro-image) { align-items: center; }
+.site-intro:has(.site-intro-image) .site-intro-image { max-height: 340px; }
 .site-back { display: inline-block; margin-bottom: 18px; font: 500 14px/1.2 var(--lys-sans); color: var(--lys-muted); text-decoration: none; }
 .site-back:hover { color: var(--lys-accent); }
 .site-body { display: grid; gap: 28px; padding: 24px 0 8px; }
