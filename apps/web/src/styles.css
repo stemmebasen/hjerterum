@@ -958,3 +958,8 @@ h3 { font-size: 25px; line-height: 1.2; }
 .pr-photos img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 12px; background: var(--soft, #f3efe9); }
 .pr-add { display: grid; place-items: center; aspect-ratio: 4 / 5; width: 100%; border-radius: 12px; cursor: pointer; }
 .profile-badge.ok { background: #e6f4ea; color: #1e6b35; }
+/* Requested (Gitta): the teacher's quotes and photos on their page. */
+.profile-quote { margin: 18px 0; padding: 4px 0 4px 18px; border-left: 3px solid var(--lys-accent, #5b4a3f); font-style: italic; font-size: 1.08rem; }
+.profile-quote cite { font-style: normal; font-size: .9rem; color: var(--lys-muted, #766d64); }
+.profile-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin: 26px 0 8px; }
+.profile-gallery img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }

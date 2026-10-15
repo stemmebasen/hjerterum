@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { teacherFor, type SiteProfile } from "./public-profiles";
 import { journeyUrl, mapUrl } from "./event-way";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." /events/<id>: an event
@@ -86,6 +87,15 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
     const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
     if (meta) meta.content = (event.paragraphs.join(" ").slice(0, 160)) || event.title;
   }, [event]);
+  // The host's own page, when they have a published visit card.
+  const [profiles, setProfiles] = useState<SiteProfile[]>([]);
+  useEffect(() => {
+    if (!event?.host) return;
+    let active = true;
+    fetch("/api/public-profiles").then(async r => { if (r.ok && active) setProfiles(await r.json() as SiteProfile[]); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [event?.host]);
+  const teacher = event?.host ? teacherFor(event.host, profiles) : null;
   const past = event ? Date.parse(event.endsAt ?? event.startsAt) < Date.now() : false;
   return <main className="page-shell site-page event-page">
     {header}
@@ -102,7 +112,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
           <div className="site-intro-side">
             <dl className="event-facts">
               <div><dt>Hvornår</dt><dd>{capital(DAY.format(new Date(event.startsAt)))}<br />kl. {clock(event.startsAt)}{event.endsAt ? `–${clock(event.endsAt)}` : ""}</dd></div>
-              {event.host && <div><dt>Med</dt><dd>{event.host}</dd></div>}
+              {event.host && <div><dt>Med</dt><dd>{teacher ? <a href={teacher.href}>{event.host}</a> : event.host}</dd></div>}
               <div><dt>Hvor</dt><dd>Hjerterum{event.address ? `, ${event.address}` : ""}</dd></div>
               {event.capacity && <div><dt>Pladser</dt><dd>{event.capacity}</dd></div>}
             </dl>
