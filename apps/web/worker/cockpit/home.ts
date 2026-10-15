@@ -6,9 +6,10 @@ import { membersTile, MEMBERS_STYLE, type MemberStats } from "./members.js";
 import { lysArt } from "../../lys.js";
 import { frontVotes, VOTES_STYLE, voteTodo, type Proposal, type ProposalView } from "./votes.js";
 import { postTodo, type PostView } from "./board.js";
+import { prTodo, type PrTodo } from "./prWishes.js";
 import { signTodo } from "./signReminder.js";
 import { esc, layout, longDay, responsibilitiesForm, shortDay } from "./page.js";
-import { openLines, TODOS_STYLE } from "./todosPage.js";
+import { openLines, TODO_SCRIPT, TODOS_STYLE } from "./todosPage.js";
 
 /** Requested: "det er vigtigt, at vi får et meget veltænkt og gennemtænkt overblik på forsiden, gerne med en
  * lille følgebeskrivelse" - "lav en moderne og pæn forside, som giver overblik over det vigtigste på alle de
@@ -49,6 +50,8 @@ export type HomeData = {
   /** Every open proposal, for the card on everyone's front page (cockpit/votes.ts). */
   proposals?: ProposalView[];
   nowMs?: number;
+  /** Gitta's: the PR wishes not yet made (prWishes.ts). */
+  prs?: PrTodo[];
   /** Requested: "Douglas taler engelsk" - Saga's own texts in English when she has translated them (cockpit/translate.ts). */
   tr?: ((danish: string) => string) | undefined;
 };
@@ -141,7 +144,7 @@ export function currentForChair(items: BoardPicture["forJacob"]): BoardPicture["
 
 export function homePage(base: string, data: HomeData): string {
   const first = data.who?.split(/\s+/)[0];
-  const open = data.toSign.length + data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0) + (data.posts?.length ?? 0);
+  const open = (data.prs?.length ?? 0) + data.toSign.length + data.todos.length + data.tasks.length + data.forMe.length + (data.votes?.length ?? 0) + (data.posts?.length ?? 0);
   const tr = data.tr ?? ((text: string) => text);
   const summary = tr(lead(data.summary));
   const welcome = `<section class="welcome"><div><p class="eyebrow">${esc(longDay(data.today))}</p><h1>${first ? `Hej ${esc(first)}` : "Overblik"}</h1>
@@ -162,6 +165,7 @@ ${lysArt("mini")}</section>`;
     ...data.toSign.map(m => signTodo(base, m, data.nowMs ?? Date.now())),
     ...(data.votes ?? []).map(p => voteTodo(base, p)),
     ...(data.posts ?? []).map(p => postTodo(base, p)),
+    ...(data.prs ?? []).map(w => prTodo(base, w, "forside")),
     // The same lines as on Opgaver, with the same checkbox to the left ("helt samme styling som på opgavesiden"): the same task from the minutes,
     // the minutes document, Saga's list and your own items is one line (data.ts sameTask), and checking it takes the page back here.
     ...(data.who ? openLines(base, { who: data.who, tasks: data.tasks, todos: data.todos, saga: data.forMe, back: "forside" }) : [])
@@ -169,7 +173,7 @@ ${lysArt("mini")}</section>`;
   const yours = `<article class="panel" id="dine-opgaver"><header><h2>Dine opgaver</h2><p>Det, der venter på dig - fra referaterne, bestyrelsen og Saga.</p></header>
 ${!data.who ? `<p class="empty"><a href="${base}/hvem">Vælg hvem du er</a> for at se dine opgaver.</p>` : mine.length ? `<ul class="plain">${mine.slice(0, 6).join("")}</ul>` : `<p class="empty">Intet venter på dig lige nu.</p>`}
 <a class="more" href="${base}/opgaver">${mine.length > 6 ? `Se alle ${mine.length}` : "Åbn dine opgaver"} →</a>
-<a class="more" href="${base}/opslag?art=afstemning#nyt">Stil et forslag til afstemning →</a></article>`;
+<a class="more" href="${base}/opslag?art=afstemning#nyt">Stil et forslag til afstemning →</a></article>${TODO_SCRIPT}`;
 
   const m = data.nextTeam !== undefined ? data.nextTeam : data.next;
   // Requested: "On the front page, we don't show any items for the coming meeting, but simply just tell about the meeting": when, where and who leads it - the agenda is on the meeting's page.

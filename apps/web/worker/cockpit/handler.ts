@@ -14,7 +14,7 @@ import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCo
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, answerLinks, tasksFor, unsignedFor, weeklySummary,
-  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
+  addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
 import { memberPage, membersListPage, turnoverPage, MEMBER_TABS, type MemberTab } from "./memberPages.js";
@@ -35,7 +35,7 @@ import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTe
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
-import { markPrDone, prWishes, setPrWishes } from "./prWishes.js";
+import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -231,7 +231,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const ownResponsibilities = who ? (await responsibilities(db)).get(who) ?? "" : "";
     const assoc = await associationEvents(db, base, list, today, now).catch(() => []);
     const coming = await rsvps(db, [...assoc.map(e => e.key), ...(nextTeam ? [`moede:${nextTeam.id}`] : [])]);
-    return html(homePage(base, { assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
+    const prs = isPrOwner(who) ? await openPrWishes(db, now) : [];
+    return html(homePage(base, { prs, assoc, coming, posts: waitingOn(posts, who), tr: english ? (text: string) => english.get(text) ?? text : undefined, who, isChair, today, toSign, tasks: open.tasks, todos: open.todos, forMe: await sagaFor(picture), needsResponsibilities: Boolean(who) && !ownResponsibilities,
       next, nextTeam, found: sagaMeetings(picture, list, today), picture, summary, at, events, eventsMonth: month?.n ?? 0, eventsHeld: held?.n ?? 0, eventsSince: held?.first ?? null, progress, memberStats, newEnquiries, eventsToReview, boardNow, votes, proposals: openProposals, nowMs: now,
       latest: latest ? { id: latest.id, date: latest.meeting_date ?? "", decisions: onlyDecisions(minutesDecisions(latest).map(d => d.text), await decisionKinds(db)), approved: approvals, members: latest.source === "document" ? 0 : members.names.length } : null }));
   }
@@ -647,6 +648,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (request.method === "POST") {
       const form = await request.formData().catch(() => null);
       const field = (name: string, max: number) => String(form?.get(name) ?? "").trim().slice(0, max);
+      // Requested (Gitta): "Det ville være nice hvis man kunne redigere sine egne to do's ... kom feks lige til at trykke enter for hurtigt".
+      if (path === "/opgaver/ret") {
+        const id = Number(field("id", 12));
+        if (Number.isSafeInteger(id)) await editTodo(db, id, who, field("text", 300));
+        return redirect(field("back", 10) === "forside" ? `${base}/#dine-opgaver` : `${base}/opgaver`);
+      }
       if (path === "/opgaver/ny") {
         const text = field("text", 300), due = field("due", 10), owner = field("owner", 60) || who;
         if (!text || (members.names.length && !members.names.includes(owner) && owner !== who && owner !== "Alle")) return redirect(`${base}/opgaver`);
@@ -696,7 +703,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const all = currentTasks(allTasks(minutes, picture));
     const saga = await sagaFor(picture);
     return html(todosPage(base, { who, saga, members: members.names, tasks: tasksFor(who, all), checked, removed, todos: currentTodos(todos), notice, everyone: lastMonthTasks(allTasks(minutes, picture), now), topics: picture?.topics ?? [], boardChecks: await taskChecksByKey(db), now,
-      votes: await awaitingVote(db, who, now), posts: waitingOn(await boardPosts(db, now).catch(() => []), who), toSign: await unsignedFor(db, who, now) }));
+      votes: await awaitingVote(db, who, now), posts: waitingOn(await boardPosts(db, now).catch(() => []), who), toSign: await unsignedFor(db, who, now),
+      prs: isPrOwner(who) ? await openPrWishes(db, now) : [] }));
   }
 
   // The board's notice board (board.ts): Afklaring, Til orientering, and the open votes; "Til mødet" puts a post on the next team meeting.
@@ -842,7 +850,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who) return redirect(`${base}/hvem`);
     const form = await request.formData().catch(() => null);
     await markPrDone(db, String(form?.get("event") ?? "").slice(0, 120), String(form?.get("kind") ?? ""), who, form?.get("done") === "1", now);
-    return redirect(`${base}/arrangementer#pr`);
+    // From Gitta's list, back to her list.
+    const back = String(form?.get("back") ?? "");
+    return redirect(back === "opgaver" ? `${base}/opgaver` : back === "forside" ? `${base}/#dine-opgaver` : `${base}/arrangementer#pr`);
   }
 
   // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).
