@@ -3,7 +3,7 @@ import { handleSagaRequest } from "../saga/handler.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { scheduledAgendaAsk, scheduledLeaderAgenda } from "./agendaAsk.js";
-import { meetingOn, saveMeeting } from "./data.js";
+import { meeting, meetingOn, saveMeeting } from "./data.js";
 import { setMemberLang } from "./i18n.js";
 
 // Requested: "24 hours before a team meeting she should write to each and every board member directly and ask if they have anything to add to
@@ -85,5 +85,22 @@ describe("Saga asks each board member for agenda points the day before a team me
     expect(toChair).toHaveLength(1);
     expect(toChair[0]).toMatchObject({ chat_id: OWNER });
     expect(toChair[0]!.text).toContain("Hej Jacob 🙂 Dagens teammøde har ingen mødeleder endnu kl. 13.30 (Hjerterum). Her er den færdige dagsorden:\n\n1. Økonomi");
+  });
+
+  // Then, from the chair in Telegram after the meeting began: "Frederik er ordstyrer i dag" - "Hun bør kunne forstå og rette i mødet."
+  it("lets the chair change the meeting from his private chat - roles and end time - with the same Saga as in admin", async () => {
+    const START = Date.parse("2026-10-15T11:30:00Z");
+    const db = testDatabase();
+    for (const [i, [name, id]] of ([["Jacob Hauge", OWNER], ["Frederik Lund", "204"]] as const).entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: id, text: "Hej", sentAtMs: START - 86_400_000, fromAssistant: false });
+    const id = await saveMeeting(db, { date: "2026-10-15", time: "13:30", place: "Hjerterum", agenda: "Velkommen\nEvt.", kind: "team" }, "Jacob Hauge", START);
+    await db.prepare("UPDATE board_meetings SET leader = 'Jacob Hauge' WHERE id = ?").bind(id).run();
+    const services = fakeServices({ ai: () => "Det er rettet.\n[[MØDE dato=2026-10-15 ordstyrer=Frederik slut=15.30]]" });
+    const env = sagaEnv(db, { COCKPIT_URL: "https://admin.hjerterum.example" });
+    const update = { update_id: 2, message: { message_id: 60, date: START / 1000 + 60, chat: { id: Number(OWNER), type: "private" }, from: { id: Number(OWNER), first_name: "Jacob" }, text: "Frederik er ordstyrer i dag" } };
+    await handleSagaRequest(new Request("https://hjerterum.test/api/saga/telegram", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "hook-secret" }, body: JSON.stringify(update) }), env, deps(services.fetcher, START + 60_000));
+    expect(await meeting(db, id)).toMatchObject({ leader: "Jacob Hauge", moderator: "Frederik Lund", end_time: "15:30", start_time: "13:30", agenda: "Velkommen\nEvt." });
+    const reply = services.telegram("sendMessage").map(text).filter(m => m.chat_id === OWNER).at(-1)!.text;
+    expect(reply).toContain("✓ Mødet er opdateret: torsdag 15. oktober kl. 13:30-15:30 (ordstyrer: Frederik) - se mødet: https://admin.hjerterum.example/moder/");
   });
 });

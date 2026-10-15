@@ -274,7 +274,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base), who, now, base), who, items, now, base), who, now), who), who);
+  const answer = await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms, conversation) VALUES (?, ?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now, input.conversation ?? null).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
@@ -345,17 +345,24 @@ export async function applyAgenda(db: D1Database, answer: string, who: string | 
  * Saga's [[MØDE ...]] line becomes the meeting in the cockpit's calendar (a move takes the old date's
  * meeting along, agenda and all), and the line becomes a confirmation with a link. */
 const DANISH_DATE = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
-export async function applyMeeting(db: D1Database, answer: string, who: string | null, nowMs: number, base = ""): Promise<string> {
+/** Then: "Frederik er ordstyrer i dag" - "Hun bør kunne forstå og rette i mødet." The same line sets the meeting's leader (leder=), moderator
+ * (ordstyrer=) and end (slut=); a first name becomes the board member's full name. */
+export async function applyMeeting(db: D1Database, answer: string, who: string | null, nowMs: number, base = "", board: string[] = []): Promise<string> {
   const line = /\[\[MØDE\s+([^\]]*)\]\]/i.exec(answer);
   if (!line) return answer;
-  const field = (name: string) => new RegExp(`${name}=(.+?)(?=\\s+(?:dato|tid|sted|fra)=|$)`, "i").exec(line[1]!)?.[1]?.trim() ?? "";
-  const date = field("dato"), time = field("tid").replace(".", ":"), place = field("sted").slice(0, 200), from = field("fra");
+  const field = (name: string) => new RegExp(`${name}=(.+?)(?=\\s+(?:dato|tid|slut|sted|fra|leder|ordstyrer)=|$)`, "i").exec(line[1]!)?.[1]?.trim() ?? "";
+  const date = field("dato"), time = field("tid").replace(".", ":"), place = field("sted").slice(0, 200), from = field("fra"), end = field("slut").replace(".", ":");
+  const person = (raw: string) => { const n = raw.trim().toLocaleLowerCase("da-DK"); if (!n || n === "ingen") return ""; return board.find(b => b.toLocaleLowerCase("da-DK") === n) ?? board.find(b => b.toLocaleLowerCase("da-DK").split(/\s+/)[0] === n.split(/\s+/)[0]) ?? raw.trim().slice(0, 100); };
+  const leader = /leder=/i.test(line[1]!) ? person(field("leder")) : undefined, moderator = /ordstyrer=/i.test(line[1]!) ? person(field("ordstyrer")) : undefined;
   const text = answer.replace(line[0], "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return text;
   const existing = (/^\d{4}-\d{2}-\d{2}$/.test(from) ? await meetingOn(db, from) : null) ?? await meetingOn(db, date);
   const id = await saveMeeting(db, { date, time: /^\d{1,2}:\d{2}$/.test(time) ? time.padStart(5, "0") : existing?.start_time ?? "",
-    place: place || existing?.place || "", agenda: existing?.agenda ?? "" }, who ?? "Saga", nowMs, existing?.id);
+    ...(/^\d{1,2}:\d{2}$/.test(end) ? { end: end.padStart(5, "0") } : {}), place: place || existing?.place || "", agenda: existing?.agenda ?? "",
+    ...(leader !== undefined ? { leader } : {}), ...(moderator !== undefined ? { moderator } : {}) }, who ?? "Saga", nowMs, existing?.id);
   const day = DANISH_DATE.format(new Date(`${date}T12:00:00Z`));
   const what = !existing ? "Sat i kalenderen:" : existing.meeting_date !== date ? "Mødet er flyttet til" : "Mødet er opdateret:";
-  return `${text}\n\n✓ ${what} ${day}${time ? ` kl. ${time}` : ""}${place ? `, ${place}` : ""} - [se mødet](${base}/moder/${id})`;
+  const roles = [leader !== undefined ? `mødeleder: ${leader ? leader.split(/\s+/)[0] : "ingen"}` : "", moderator !== undefined ? `ordstyrer: ${moderator ? moderator.split(/\s+/)[0] : "ingen"}` : ""].filter(Boolean).join(", ");
+  const shownTime = time || existing?.start_time || "";
+  return `${text}\n\n✓ ${what} ${day}${shownTime ? ` kl. ${shownTime}` : ""}${/^\d{1,2}:\d{2}$/.test(end) && shownTime ? `-${end}` : ""}${place ? `, ${place}` : ""}${roles ? ` (${roles})` : ""} - [se mødet](${base}/moder/${id})`;
 }
