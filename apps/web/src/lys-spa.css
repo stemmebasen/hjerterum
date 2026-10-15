@@ -405,7 +405,13 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .nl-coming { position: absolute; z-index: 1; left: -56px; bottom: 14%; width: min(360px, 78%); display: grid; gap: 8px; padding: 24px 28px 22px; background: var(--lys-bg); color: var(--lys-ink);
   border-top: 5px solid var(--lys-camel); box-shadow: 0 28px 60px -24px rgba(20, 16, 12, .45); text-decoration: none; transition: transform .2s ease, box-shadow .2s ease; }
 .nl-coming:hover { transform: translateY(-2px); box-shadow: 0 34px 70px -24px rgba(20, 16, 12, .55); }
-.nl-coming .lys-kicker { margin: 0; color: var(--lys-terra); }
+/* Asked: "a little aesthetic flare around the box - not too fancy, but just exclusive and beautiful": a fine camel hairline framed inside the box,
+   a soft warm glow in its corner, and a short rule before the kicker - like a printed invitation. */
+.nl-coming { outline: 1px solid color-mix(in srgb, var(--lys-camel) 55%, transparent); outline-offset: -9px;
+  background-image: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--lys-camel) 16%, transparent), transparent 60%); padding: 28px 32px 26px; }
+.nl-coming:hover { outline-color: var(--lys-camel); }
+.nl-coming .lys-kicker { margin: 0; color: var(--lys-terra); display: flex; align-items: center; gap: 10px; }
+.nl-coming .lys-kicker::before { content: ""; width: 22px; height: 1px; background: var(--lys-camel); flex: none; }
 .nl-coming strong { font: 400 clamp(22px, 2.1vw, 28px)/1.15 var(--lys-serif); }
 .nl-coming-when { font: 700 12.5px/1.4 var(--lys-sans); letter-spacing: .12em; color: var(--lys-muted); }
 .nl-coming .nl-more { justify-self: start; margin-top: 4px; }

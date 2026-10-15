@@ -3,7 +3,7 @@ import { SAGA_NAME, type SagaDeps, type SagaEnv } from "../saga/env.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { isAssocMeeting } from "./assocEvents.js";
-import { meeting, meetingHeading, meetings, saveMeeting, type Meeting } from "./data.js";
+import { meeting, meetingHeading, meetingOver, meetings, saveMeeting, type Meeting } from "./data.js";
 import { copenhagenMs } from "./eventDesk.js";
 import { memberLang, type Lang } from "./i18n.js";
 import { stillOnBoard } from "./personalLogin.js";
@@ -72,6 +72,19 @@ async function reachableBoard(env: SagaEnv, deps: SagaDeps, db: D1Database): Pro
 }
 
 const link = (env: SagaEnv, id: number) => env.COCKPIT_URL ? `${env.COCKPIT_URL.replace(/\/+$/, "")}/moder/${id}` : "";
+
+/** Requested: "Husk at Saga skal sætte teammøde op automatisk. Lige nu er der ikke sat noget op." As soon as a team meeting is over and none comes after
+ * it, the next is set up - Thursday in the next even week, 13.30-15.30, where the last one was - once per meeting (one deleted on purpose stays deleted).
+ * The roles are picked the day after, as before. */
+export async function ensureNextTeamMeeting(db: D1Database, nowMs: number, claim: (key: string, slot: number) => Promise<boolean>): Promise<Meeting | null> {
+  const today = copenhagenDay(nowMs);
+  const team = (await meetings(db)).filter(m => !isAssocMeeting(m));
+  const last = team.filter(m => m.meeting_date <= today && m.meeting_date >= addDays(today, -6) && meetingOver(m, nowMs)).sort((a, b) => b.meeting_date.localeCompare(a.meeting_date))[0];
+  if (!last || team.some(m => m.meeting_date > last.meeting_date)) return null;
+  if (!(await claim(`next_team_meeting_${last.meeting_date}`, last.id))) return null;
+  const id = await saveMeeting(db, { date: nextEvenThursday(last.meeting_date), time: "13:30", end: "15:30", place: last.place ?? "", kind: "team" }, SAGA_NAME, nowMs);
+  return meeting(db, id);
+}
 
 /** Every round from 09, the day after a team meeting (up to six days after, should a round be missed): once per meeting. */
 export async function scheduledMeetingRoles(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<Meeting | null> {

@@ -3,7 +3,7 @@ import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { meetingOn, meetings, saveMeeting } from "./data.js";
 import { setMemberLang } from "./i18n.js";
-import { isoWeek, nextEvenThursday, pickRoles, scheduledMeetingRoles, scheduledRoleReminders } from "./meetingRoles.js";
+import { ensureNextTeamMeeting, isoWeek, nextEvenThursday, pickRoles, scheduledMeetingRoles, scheduledRoleReminders } from "./meetingRoles.js";
 
 // Requested: "The day after the last board meeting, a new mødeleder and ordstyrer will get chosen. Saga will be picking two and letting them know directly.
 // For mødelederen er det vigtigt at huske vedkommende på at gøre dagsordenen klar 3 dage inden." - "Hele bestyrelsen"; "Saga må gerne automatisk sætte
@@ -75,5 +75,15 @@ describe("the meeting's leader and moderator in turn", () => {
       + "you can edit it here: https://admin.hjerterum.example/moder/2#dagsorden, or just write the points to me here, and I will add them.");
     expect(sent.find(m => m.chat_id === "202")!.text).toBe("Hej Gitta 🙂 Lige en påmindelse: Du er ordstyrer på teammødet torsdag d. 29. oktober kl. 13.30-15.30. Douglas er mødeleder. Jeg sender dig dagsordenen på dagen.");
     expect(await db.prepare("SELECT member, meeting_id FROM agenda_asks").all()).toMatchObject({ results: [{ member: "Douglas Crawford", meeting_id: 2 }] });
+  });
+
+  // Requested: "Husk at Saga skal sætte teammøde op automatisk. Lige nu er der ikke sat noget op."
+  it("sets up the next team meeting as soon as the last one is over, once", async () => {
+    const { db, claim } = await setup();
+    const during = Date.parse("2026-10-15T12:00:00Z"), after = Date.parse("2026-10-15T14:00:00Z"); // 14.00 and 16.00 in Copenhagen
+    expect(await ensureNextTeamMeeting(db, during, claim(during))).toBeNull();
+    expect(await ensureNextTeamMeeting(db, after, claim(after))).toMatchObject({ meeting_date: "2026-10-29", start_time: "13:30", end_time: "15:30", kind: "team", place: "Hjerterum", leader: null });
+    expect(await ensureNextTeamMeeting(db, after + 600_000, claim(after + 600_000))).toBeNull();
+    expect((await meetings(db)).length).toBe(2);
   });
 });
