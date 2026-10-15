@@ -262,8 +262,10 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
 async function agendaFor(db: ReturnType<typeof requireDb>, day: string | null): Promise<string> {
   const planned = day ? await plannedMeeting(db, day).catch(() => null) : null;
   const points = (planned?.agenda ?? "").split("\n").map(line => line.trim().replace(/^(\d+[.)]|[-*•])\s+/, "")).filter(Boolean);
-  if (!points.length) return "";
-  return `${planned?.start_time ? `\nTidspunkt: kl. ${planned.start_time}` : ""}${planned?.place ? `\nSted: ${planned.place}` : ""}`
+  // Asked: "Hun skal kunne rette: Teammødets deltagere" - the reported "Taler 1, Taler 2 ..." under Til stede: the names come from the meeting.
+  const attendees = planned?.attendees?.trim() ? `\nDeltagere (skriv dem præcis sådan under **Til stede:**, og brug navnene om talerne, hvor det fremgår, hvem der taler - skriv aldrig "Taler 1" osv. under Til stede): ${planned.attendees.trim()}` : "";
+  if (!points.length) return attendees;
+  return `${planned?.start_time ? `\nTidspunkt: kl. ${planned.start_time}` : ""}${planned?.place ? `\nSted: ${planned.place}` : ""}${attendees}`
     + "\n\nDAGSORDEN (skriv \"## Punkter\" i denne rækkefølge med disse numre og overskrifter; et punkt, der ikke blev drøftet, får \"- Drøftelse: Ikke drøftet\"; "
     + "drøftes noget uden for dagsordenen, så tag det med til sidst som et ekstra punkt):\n" + points.map((point, i) => `${i + 1}. ${point}`).join("\n");
 }
@@ -358,8 +360,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), draft,
       `Rettet og lagt op${link ? `: ${link}` : ""}. ${inEditWindow(item, deps.now()) ? "Bestyrelsen kan stadig rette i det" : "Bestyrelsen godkender den rettede udgave"}. Svar på denne besked for at rette igen.`);
     await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
-    // In the three days of corrections no one has approved yet, so the group hears nothing; after them, the board approves the corrected text.
-    if (!inEditWindow(item, deps.now())) await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i admin."}`);
+    // Requested: "Ingen skal have en besked når noget rettes i referatet" - the group hears nothing of a correction.
     return;
   }
   const draft = await completeAs("referat-ret", false, 12000)(env, deps, [{ role: "system", content: REVISE_SYSTEM },

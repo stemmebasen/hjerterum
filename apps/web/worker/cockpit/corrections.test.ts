@@ -63,9 +63,8 @@ describe("corrections to one point of the minutes", () => {
     expect(await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_signoffs").first()).toEqual({ n: 0 });
     const after = await (await call(`/cockpit/referat/${id}`, { headers: as("Lisbeth") })).text();
     expect(after).toContain('<details class="m-made"><summary>1 rettelse</summary><p class="m-fixnote">Gitta: Kassebeholdningen er rettet til 41.200 kr.</p></details>');
-    const told = services.telegram("sendMessage").at(-1)?.body as { chat_id: string; text: string };
-    expect(told.chat_id).toBe(OWNER);
-    expect(told.text).toContain("Gitta rettede punkt 2");
+    // Requested: "Ingen skal have en besked når noget rettes i referatet".
+    expect(services.telegram("sendMessage").some(c => (c.body as { text?: string }).text?.includes("rettede punkt"))).toBe(false);
     expect(services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
     // Only the one who was asked can answer.
     expect((await call(`/cockpit/referat/${id}/rettelse/${correctionId}/svar`, { method: "POST", headers: as("Lisbeth"), body: form({ answer: "x" }) })).status).toBe(303);

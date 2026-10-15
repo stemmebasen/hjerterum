@@ -219,7 +219,7 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     `BESLUTNINGER (nyeste først - truffet af bestyrelsen):\n${sorted.filter(x => x.kind !== "aftale").slice(0, 60).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.topic ? `${x.topic}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
     // Requested: "Vi skal også differentiere mellem beslutninger og uformelle aftaler".
     `UFORMELLE AFTALER (aftalt mellem enkelte personer, anbefalet, foreslået eller noteret - ikke afgjort som beslutninger i bestyrelsen; kald dem aftaler eller anbefalinger, aldrig beslutninger):\n${sorted.filter(x => x.kind === "aftale").slice(0, 30).map(x => `- ${x.date ? `${x.date}: ` : ""}${x.text}`).join("\n") || "(ingen)"}`,
-    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}${m.end_time ? `-${m.end_time}` : ""}` : ""}${meetingOver(m, now) ? " [afholdt]" : agendaClosed(m, now) ? " [i gang nu - dagsordenen er låst]" : ""}${m.place ? `, ${m.place}` : ""}${rolesLine(m) ? ` (${rolesLine(m)})` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
+    `MØDER OG DAGSORDENER:\n${list.slice(0, 20).map(m => `- ${m.meeting_date}${m.start_time ? ` kl. ${m.start_time}${m.end_time ? `-${m.end_time}` : ""}` : ""}${meetingOver(m, now) ? " [afholdt]" : agendaClosed(m, now) ? " [i gang nu - dagsordenen er låst]" : ""}${m.place ? `, ${m.place}` : ""}${rolesLine(m) ? ` (${rolesLine(m)})` : ""}${m.attendees ? ` [deltagere: ${m.attendees}]` : ""}: ${m.agenda.split("\n").join("; ") || "ingen dagsorden"}`).join("\n") || "(ingen i admin)"}`,
     d ? `SAGER OG STATUS (Sagas overblik):\n${[...d.openThreads.map(t => `- Hængeparti (${t.status}, siden ${t.since}): ${t.text}`), ...d.tasks.map(t => `- Opgave: ${t.who} - ${t.what}${t.due ? ` - ${t.due}` : ""}`),
       ...d.proposals.map(p => `- Forslag${p.by ? ` fra ${p.by}` : ""}: ${p.text}`), ...d.dates.map(x => `- Dato ${x.date}: ${x.what}`), ...d.figures.map(f => `- Nøgletal ${f.label}: ${f.value}${f.date ? ` (${f.date})` : ""}`),
       ...(picture?.topics ?? []).map(t => `- Emne i gruppen (${t.status}): ${t.title}${t.note ? ` - ${t.note}` : ""}`)].join("\n")}` : "",
@@ -367,19 +367,21 @@ const DANISH_DATE = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "nu
 export async function applyMeeting(db: D1Database, answer: string, who: string | null, nowMs: number, base = "", board: string[] = []): Promise<string> {
   const line = /\[\[MØDE\s+([^\]]*)\]\]/i.exec(answer);
   if (!line) return answer;
-  const field = (name: string) => new RegExp(`${name}=(.+?)(?=\\s+(?:dato|tid|slut|sted|fra|leder|ordstyrer)=|$)`, "i").exec(line[1]!)?.[1]?.trim() ?? "";
+  const field = (name: string) => new RegExp(`${name}=(.+?)(?=\\s+(?:dato|tid|slut|sted|fra|leder|ordstyrer|deltagere)=|$)`, "i").exec(line[1]!)?.[1]?.trim() ?? "";
   const date = field("dato"), time = field("tid").replace(".", ":"), place = field("sted").slice(0, 200), from = field("fra"), end = field("slut").replace(".", ":");
   const person = (raw: string) => { const n = raw.trim().toLocaleLowerCase("da-DK"); if (!n || n === "ingen") return ""; return board.find(b => b.toLocaleLowerCase("da-DK") === n) ?? board.find(b => b.toLocaleLowerCase("da-DK").split(/\s+/)[0] === n.split(/\s+/)[0]) ?? raw.trim().slice(0, 100); };
   const leader = /leder=/i.test(line[1]!) ? person(field("leder")) : undefined, moderator = /ordstyrer=/i.test(line[1]!) ? person(field("ordstyrer")) : undefined;
+  const attendees = /deltagere=/i.test(line[1]!) ? field("deltagere").replace(/\s+/g, " ").slice(0, 400) : undefined;
   const text = answer.replace(line[0], "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T12:00:00Z`))) return text;
   const existing = (/^\d{4}-\d{2}-\d{2}$/.test(from) ? await meetingOn(db, from) : null) ?? await meetingOn(db, date);
   const id = await saveMeeting(db, { date, time: /^\d{1,2}:\d{2}$/.test(time) ? time.padStart(5, "0") : existing?.start_time ?? "",
     ...(/^\d{1,2}:\d{2}$/.test(end) ? { end: end.padStart(5, "0") } : {}), place: place || existing?.place || "", agenda: existing?.agenda ?? "",
-    ...(leader !== undefined ? { leader } : {}), ...(moderator !== undefined ? { moderator } : {}) }, who ?? "Saga", nowMs, existing?.id);
+    ...(leader !== undefined ? { leader } : {}), ...(moderator !== undefined ? { moderator } : {}), ...(attendees !== undefined ? { attendees } : {}) }, who ?? "Saga", nowMs, existing?.id);
   const day = DANISH_DATE.format(new Date(`${date}T12:00:00Z`));
   const what = !existing ? "Sat i kalenderen:" : existing.meeting_date !== date ? "Mødet er flyttet til" : "Mødet er opdateret:";
-  const roles = [leader !== undefined ? `mødeleder: ${leader ? leader.split(/\s+/)[0] : "ingen"}` : "", moderator !== undefined ? `ordstyrer: ${moderator ? moderator.split(/\s+/)[0] : "ingen"}` : ""].filter(Boolean).join(", ");
+  const roles = [leader !== undefined ? `mødeleder: ${leader ? leader.split(/\s+/)[0] : "ingen"}` : "", moderator !== undefined ? `ordstyrer: ${moderator ? moderator.split(/\s+/)[0] : "ingen"}` : "",
+    attendees ? `deltagere: ${attendees}` : ""].filter(Boolean).join(", ");
   const shownTime = time || existing?.start_time || "";
   return `${text}\n\n✓ ${what} ${day}${shownTime ? ` kl. ${shownTime}` : ""}${/^\d{1,2}:\d{2}$/.test(end) && shownTime ? `-${end}` : ""}${place ? `, ${place}` : ""}${roles ? ` (${roles})` : ""} - [se mødet](${base}/moder/${id})`;
 }

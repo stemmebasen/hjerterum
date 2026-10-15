@@ -158,3 +158,20 @@ describe("Saga's messages to the others are her own", () => {
     expect(ownVoice("Har I punkter til i morgen?")).toBe("Har I punkter til i morgen?");
   });
 });
+
+describe("the meeting's attendees", () => {
+  // Asked: "Hun skal kunne rette: Teammødets deltagere: Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)" - she said she could not -
+  // "gør det muligt at rette det manuelt fremover".
+  it("sets them when asked, and the meeting's minutes take them under Til stede", async () => {
+    const db = testDatabase();
+    await saveMeeting(db, { date: "2026-10-08", time: "13:30", place: "Hjerterum", kind: "team" }, "Jacob Hauge", NOW);
+    await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, draft_markdown, created_at_ms, updated_at_ms)
+      VALUES ('upload', 'f1', 'm.m4a', 'approved', '2026-10-08', ?, ?, ?)`).bind("# Referat\n**Til stede:** Taler 1, Taler 2, Taler 3\n**Fraværende:** Ingen\n\n## Punkter", NOW, NOW).run();
+    const services = fakeServices({ ai: () => "Det er rettet.\n[[MØDE dato=2026-10-08 deltagere=Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)]]" });
+    const out = await askSagaMarkdown(sagaEnv(db), deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Teammødets deltagere: Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)", history: [] });
+    expect(out).toContain("deltagere: Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)");
+    expect(await meetingOn(db, "2026-10-08")).toMatchObject({ attendees: "Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)", start_time: "13:30" });
+    expect((await db.prepare("SELECT draft_markdown FROM board_minutes").first<{ draft_markdown: string }>())!.draft_markdown)
+      .toBe("# Referat\n**Til stede:** Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)\n**Fraværende:** Ingen\n\n## Punkter");
+  });
+});
