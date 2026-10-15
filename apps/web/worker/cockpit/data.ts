@@ -106,7 +106,8 @@ export async function saveMeeting(db: D1Database, input: MeetingInput, who: stri
   if (id) {
     // What the form leaves out stays as it was: the agenda (its points are added and deleted one by one) and the kind of meeting.
     const sets = ["meeting_date = ?", "start_time = ?", "place = ?", "updated_at_ms = ?", "updated_by = ?"], values: Array<string | number | null> = [input.date, input.time || null, input.place || DEFAULT_PLACE, nowMs, who || null];
-    if (input.agenda !== undefined) { sets.push("agenda = ?"); values.push(input.agenda); }
+    const was = input.agenda !== undefined ? await meeting(db, id) : null;
+    if (input.agenda !== undefined && !(was && agendaClosed(was, nowMs))) { sets.push("agenda = ?"); values.push(input.agenda); }
     if (input.end !== undefined) { sets.push("end_time = ?"); values.push(input.end || null); }
     if (input.kind) { sets.push("kind = ?"); values.push(input.kind); }
     if (input.leader !== undefined) { sets.push("leader = ?"); values.push(input.leader || null); }
@@ -129,9 +130,30 @@ export function rolesLine(m: Pick<Meeting, "leader" | "moderator">): string {
   return [first(m.leader) && `Mødeleder: ${first(m.leader)}`, first(m.moderator) && `Ordstyrer: ${first(m.moderator)}`].filter(Boolean).join(" · ");
 }
 
-/** The next team meeting: the earliest meeting from today on that is said to be one. */
-export const nextTeamMeeting = (list: Meeting[], today: string): Meeting | null =>
-  list.filter(m => m.kind === "team" && m.meeting_date >= today).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
+/** Copenhagen's wall clock to an instant. */
+export function copenhagenMs(date: string, time: string): number {
+  const guess = Date.parse(`${date}T${time}:00Z`);
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
+    .formatToParts(guess).map(x => [x.type, x.value]));
+  return guess - (Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00Z`) - guess);
+}
+
+const HM = /^\d{2}:\d{2}$/;
+/** When a meeting begins and ends by Copenhagen's clock (null start: no time set). No end time: two hours; no time at all: the whole day. */
+export function meetingSpan(m: Pick<Meeting, "meeting_date" | "start_time" | "end_time">): { start: number | null; end: number } {
+  const start = m.start_time && HM.test(m.start_time) ? copenhagenMs(m.meeting_date, m.start_time) : null;
+  const end = start !== null && m.end_time && HM.test(m.end_time) ? copenhagenMs(m.meeting_date, m.end_time) : start !== null ? start + 2 * 3_600_000
+    : copenhagenMs(new Date(Date.parse(`${m.meeting_date}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10), "00:00");
+  return { start, end: Math.max(end, start ?? end) };
+}
+/** Asked: "Det står som om det ikke har fundet sted endnu, selvom det er færdigt." A meeting is over when its end has passed - not at midnight. */
+export const meetingOver = (m: Pick<Meeting, "meeting_date" | "start_time" | "end_time">, nowMs: number) => meetingSpan(m).end <= nowMs;
+/** Requested: "Dagsordenen skal selvfølgelig heller ikke kunne rettes mere når mødet først er startet" - from its start (a meeting without a time: when the day is over). */
+export const agendaClosed = (m: Pick<Meeting, "meeting_date" | "start_time" | "end_time">, nowMs: number) => { const { start, end } = meetingSpan(m); return (start ?? end) <= nowMs; };
+
+/** The next team meeting: the earliest meeting from today on that is said to be one - with `nowMs`, one whose agenda can still take points (not begun). */
+export const nextTeamMeeting = (list: Meeting[], today: string, nowMs?: number): Meeting | null =>
+  list.filter(m => m.kind === "team" && m.meeting_date >= today && (nowMs === undefined || !agendaClosed(m, nowMs))).sort((a, b) => a.meeting_date.localeCompare(b.meeting_date))[0] ?? null;
 
 /** Who made each point of an agenda: {"point": "name"}. A point of Saga's is in `agenda_saga` instead; an old point has no author. */
 export function agendaAuthors(raw: string | null | undefined): Record<string, string> {
@@ -152,8 +174,9 @@ export function sagaRoom(m: { agenda: string; agenda_saga?: string }): number {
 
 /** Adds points at the bottom of a meeting's agenda - the ones already there are not added twice. `fromSaga` marks them as hers, until they are deleted - and stops at the five she may have (`sagaRoom`). Returns how many were added. */
 export async function addAgendaPoints(db: D1Database, id: number, texts: string[], who: string, nowMs: number, fromSaga = false): Promise<number> {
-  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors, kind FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string; kind: string | null }>();
-  if (!m) return 0;
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors, kind, meeting_date, start_time, end_time FROM board_meetings WHERE id = ?").bind(id)
+    .first<{ agenda: string; agenda_saga: string; agenda_authors: string; kind: string | null; meeting_date: string; start_time: string | null; end_time: string | null }>();
+  if (!m || agendaClosed(m, nowMs)) return 0;
   // A new point goes above Evt., not under it.
   const before = agendaPoints(m.agenda), last = before.length && isAnyOther(before[before.length - 1]!) ? before.pop()! : null;
   const points = before, saga = agendaPoints(m.agenda_saga), authors = agendaAuthors(m.agenda_authors), seen = new Set([...points, ...(last ? [last] : [])].map(p => p.toLowerCase()));
@@ -173,9 +196,10 @@ export async function addAgendaPoints(db: D1Database, id: number, texts: string[
 /** Edits one point of the agenda in place (the pencil): the new text takes the old one's place. A point of Saga's that a member has rewritten is theirs now - it loses her mark.
  * False when the old point is not there, the new text is empty, or another point already says the same. */
 export async function editAgendaPoint(db: D1Database, id: number, oldText: string, newText: string, who: string, nowMs: number): Promise<boolean> {
-  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors, meeting_date, start_time, end_time FROM board_meetings WHERE id = ?").bind(id)
+    .first<{ agenda: string; agenda_saga: string; agenda_authors: string; meeting_date: string; start_time: string | null; end_time: string | null }>();
   const before = cleanPoint(oldText), after = cleanPoint(newText);
-  if (!m || !before || !after) return false;
+  if (!m || !before || !after || agendaClosed(m, nowMs)) return false;
   const points = agendaPoints(m.agenda), at = points.findIndex(p => p === before);
   if (at < 0) return false;
   if (after === before) return true;
@@ -193,8 +217,8 @@ export async function editAgendaPoint(db: D1Database, id: number, oldText: strin
 /** Requested: "man skal i øvrigt også kunne flytte punkterne op og ned. Helst drag and drop." The points in the order the board gave them. A point that has been added or deleted meanwhile does not break it:
  * the ones given and still there come first, in the given order; the ones that were not given follow in their old order. False when nothing changed. */
 export async function reorderAgendaPoints(db: D1Database, id: number, order: string[], who: string, nowMs: number): Promise<boolean> {
-  const m = await db.prepare("SELECT agenda FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string }>();
-  if (!m) return false;
+  const m = await db.prepare("SELECT agenda, meeting_date, start_time, end_time FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; meeting_date: string; start_time: string | null; end_time: string | null }>();
+  if (!m || agendaClosed(m, nowMs)) return false;
   const current = agendaPoints(m.agenda), given = [...new Set(order.map(cleanPoint).filter(p => current.includes(p)))];
   const next = [...given, ...current.filter(p => !given.includes(p))];
   if (next.join("\n") === current.join("\n")) return false;
@@ -205,9 +229,10 @@ export async function reorderAgendaPoints(db: D1Database, id: number, order: str
 
 /** Deletes one point of the agenda (the cross). False when it is not there. */
 export async function removeAgendaPoint(db: D1Database, id: number, text: string, who: string, nowMs: number): Promise<boolean> {
-  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors FROM board_meetings WHERE id = ?").bind(id).first<{ agenda: string; agenda_saga: string; agenda_authors: string }>();
+  const m = await db.prepare("SELECT agenda, agenda_saga, agenda_authors, meeting_date, start_time, end_time FROM board_meetings WHERE id = ?").bind(id)
+    .first<{ agenda: string; agenda_saga: string; agenda_authors: string; meeting_date: string; start_time: string | null; end_time: string | null }>();
   const point = cleanPoint(text);
-  if (!m || !point) return false;
+  if (!m || !point || agendaClosed(m, nowMs)) return false;
   const points = agendaPoints(m.agenda), at = points.findIndex(p => p === point);
   if (at < 0) return false;
   points.splice(at, 1);

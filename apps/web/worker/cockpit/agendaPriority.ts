@@ -3,7 +3,7 @@ import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { boardKnowledge } from "./ask.js";
 import { isAssocMeeting } from "./assocEvents.js";
-import { agendaPoints, framedAgenda, meetings, type Meeting } from "./data.js";
+import { agendaClosed, agendaPoints, framedAgenda, meetings, type Meeting } from "./data.js";
 import { copenhagenMs } from "./eventDesk.js";
 
 /** Requested: "Hun skal selv prioritere hvad der virker til at haste mest på dagsordenen og hvad der kan vente til senere. Start altid med et
@@ -50,7 +50,7 @@ export async function prioritizeAgenda(env: SagaEnv, deps: SagaDeps, db: D1Datab
 export async function frameComingAgendas(db: D1Database, nowMs: number): Promise<number> {
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(nowMs);
   let changed = 0;
-  for (const m of (await meetings(db)).filter(m => m.kind === "team" && m.meeting_date >= today)) {
+  for (const m of (await meetings(db)).filter(m => m.kind === "team" && m.meeting_date >= today && !agendaClosed(m, nowMs))) {
     const before = agendaPoints(m.agenda), agenda = framedAgenda(before);
     if (agenda.join("\n") === before.join("\n")) continue;
     await db.prepare("UPDATE board_meetings SET agenda = ? WHERE id = ?").bind(agenda.join("\n"), m.id).run();

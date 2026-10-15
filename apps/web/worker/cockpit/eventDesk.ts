@@ -6,7 +6,8 @@ import { calculateRoomPriceQuote, roomBookingProblems, ROOM_RENTAL_RULES, type R
 import { createRoomBooking, normalizeCreateRoomBookingInput, type ReviewStatus } from "../room-bookings.js";
 import { STATUTES } from "./statutes.js";
 import { esc } from "./page.js";
-import { DEFAULT_PLACE } from "./data.js";
+import { copenhagenMs, DEFAULT_PLACE } from "./data.js";
+export { copenhagenMs };
 
 /** Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op ... så den kommende
  * hjemmeside og medlemssystem bliver en integreret del af vores cockpit" - "I det nye system" - "Undersøg gerne,
@@ -166,13 +167,6 @@ export function draftMissing(d: EventDraft): string[] {
   return missing;
 }
 
-/** Copenhagen's wall clock to an instant. */
-export function copenhagenMs(date: string, time: string): number {
-  const guess = Date.parse(`${date}T${time}:00Z`);
-  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
-    .formatToParts(guess).map(x => [x.type, x.value]));
-  return guess - (Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00Z`) - guess);
-}
 
 export type DraftCheck = { quote: RoomPriceQuote | null; problems: string[] };
 const PROBLEM: Record<RoomBookingProblem, string> = {

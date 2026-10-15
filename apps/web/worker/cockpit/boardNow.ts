@@ -2,6 +2,7 @@ import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import { latestStats, type MemberStats } from "./members.js";
+import { agendaClosed, meetingHeading, meetingOver, meetingSpan, type Meeting } from "./data.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { recentBoardMessages } from "../saga/store.js";
 
@@ -26,7 +27,9 @@ const SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum. Sk
   + "Fang stemningen og de ting, der fylder mest, med de vigtige detaljer, der gør en forskel - fx hvornår noget sker, en frist eller hvem der tager sig af det - men uden opremsning. "
   + "Højst 70 ord, ét lille afsnit i almindelig talesprog, gerne med en venlig tone. Ingen punkter, ingen overskrift, ingen fed skrift, ingen hilsen eller afslutning. "
   + "Grundlaget er materialet nedenfor: bestyrelsens Telegram-gruppe, vigtige mails til team@ og et møde inden for de sidste 48 timer. "
-  + "Brug dagsdatoen: sig kun \"i dag\" om noget, der faktisk sker i dag. Det, der står under KLARET, er klaret - nævn det ikke som noget, der venter. "
+  + "Brug dagsdatoen: sig kun \"i dag\" om noget, der faktisk sker i dag. "
+  // Reported: "Der er møde i dag kl. 19" about a meeting at 13.30 - and still after it was over: "Er Saga i en anden tidszone?"
+  + "Mødernes tidspunkter står KUN under MØDER: brug dem præcist, og nævn aldrig et klokkeslæt for et møde, der ikke står der. Et møde, der står som afholdt, er overstået - omtal det i datid. Det, der står under KLARET, er klaret - nævn det ikke som noget, der venter. "
   // Reported: "Det er underligt, at hun siger eller taler negativt om medlemmer, når vi faktisk bliver ved med at få forhøjet medlemstallet." - "Der er desværre
   // kommet flere udmeldinger i denne uge" came from four cancellation mails, while the paying members went from 169 to 177 in two weeks.
   + "Medlemsudviklingen vurderer du KUN ud fra MEDLEMSTAL (opgørelserne fra MembershipWorks): stiger antallet af betalende, så går det godt - sig det gerne. Enkelte opsigelser i mails er almindelig udskiftning; "
@@ -53,8 +56,8 @@ async function sources(env: SagaEnv, db: D1Database, nowMs: number): Promise<Sou
       .bind(nowMs - 2 * DAY).all<{ sender: string; subject: string; received_at_ms: number; preview: string; enquiry_summary: string | null }>().then(r => r.results ?? []).catch(() => []),
     db.prepare("SELECT meeting_date, status, draft_markdown, updated_at_ms FROM board_minutes WHERE meeting_date >= ? AND meeting_date <= ? AND status IN ('drafted', 'approved') AND draft_markdown IS NOT NULL ORDER BY meeting_date DESC LIMIT 2")
       .bind(since48, day(nowMs)).all<{ meeting_date: string; status: string; draft_markdown: string; updated_at_ms: number }>().then(r => r.results ?? []).catch(() => []),
-    db.prepare("SELECT meeting_date, agenda, updated_at_ms FROM board_meetings WHERE meeting_date >= ? AND meeting_date <= ? ORDER BY meeting_date DESC LIMIT 2")
-      .bind(since48, day(nowMs)).all<{ meeting_date: string; agenda: string; updated_at_ms: number }>().then(r => r.results ?? []).catch(() => []),
+    db.prepare("SELECT meeting_date, start_time, end_time, kind, agenda, updated_at_ms FROM board_meetings WHERE meeting_date >= ? AND meeting_date <= ? ORDER BY meeting_date, start_time LIMIT 6")
+      .bind(since48, day(nowMs + 7 * DAY)).all<Pick<Meeting, "meeting_date" | "start_time" | "end_time" | "kind" | "agenda" | "updated_at_ms">>().then(r => r.results ?? []).catch(() => []),
     db.prepare(`SELECT text, done_at_ms AS at FROM board_owner_done WHERE done_at_ms >= ?1
       UNION ALL SELECT owner || ': ' || text, done_at_ms FROM cockpit_todos WHERE done_at_ms >= ?1
       UNION ALL SELECT owner || ': ' || task_key, done_at_ms FROM cockpit_task_checks WHERE done_at_ms >= ?1 ORDER BY 2 DESC LIMIT 40`)
@@ -62,16 +65,20 @@ async function sources(env: SagaEnv, db: D1Database, nowMs: number): Promise<Sou
     latestStats(db, 12).catch(() => [])
   ]);
   const people = messages.filter(m => !m.from_assistant);
+  const held = meetings.filter(m => meetingOver(m, nowMs));
+  // A meeting that has ended is news: the text is written again after it (the end counts as its newest source).
+  const ended = meetings.map(m => meetingSpan(m).end).filter(end => end <= nowMs);
   const parts = [
     `I DAG: ${when(nowMs)}`,
     `TELEGRAM-GRUPPEN (seneste 3 døgn):\n${people.map(m => `[${when(m.sent_at_ms)}] ${m.author_name}: ${m.text.slice(0, 600)}`).join("\n") || "(ingen beskeder)"}`,
     `MAILS TIL TEAM@ (seneste 2 døgn):\n${mails.map(m => `[${when(m.received_at_ms)}] Fra ${m.sender}: ${m.subject}${m.enquiry_summary ? ` (forespørgsel: ${m.enquiry_summary})` : ""}\n  ${cleanMailText(m.preview).slice(0, 300)}`).join("\n") || "(ingen)"}`,
     minutes.length ? `MØDE INDEN FOR 48 TIMER - REFERAT:\n${minutes.map(m => `--- ${m.meeting_date} (${m.status === "approved" ? "godkendt" : "udkast"}) ---\n${m.draft_markdown.slice(0, 12_000)}`).join("\n\n")}`
-      : meetings.length ? `MØDE INDEN FOR 48 TIMER (referatet er ikke klar endnu) - DAGSORDEN:\n${meetings.map(m => `--- ${m.meeting_date} ---\n${m.agenda || "(ingen dagsorden)"}`).join("\n")}` : "",
+      : held.length ? `MØDE INDEN FOR 48 TIMER (referatet er ikke klar endnu) - DAGSORDEN:\n${held.map(m => `--- ${m.meeting_date} ---\n${m.agenda || "(ingen dagsorden)"}`).join("\n")}` : "",
+    meetings.length ? `MØDER (dansk tid):\n${meetings.map(m => `- ${meetingHeading(m)}: ${meetingOver(m, nowMs) ? "afholdt" : agendaClosed(m, nowMs) ? "i gang nu" : "ikke begyndt"}`).join("\n")}` : "",
     memberTrend(stats, nowMs),
     `KLARET (afkrydset de sidste 14 dage):\n${done.map(d => `- [${when(d.at)}] ${d.text.slice(0, 200)}`).join("\n") || "(intet)"}`
   ];
-  const newest = Math.max(0, ...people.map(m => m.sent_at_ms), ...mails.map(m => m.received_at_ms), ...minutes.map(m => m.updated_at_ms), ...meetings.map(m => m.updated_at_ms), ...done.map(d => d.at));
+  const newest = Math.max(0, ...people.map(m => m.sent_at_ms), ...mails.map(m => m.received_at_ms), ...minutes.map(m => m.updated_at_ms), ...meetings.filter(m => m.meeting_date <= day(nowMs)).map(m => m.updated_at_ms), ...ended, ...done.map(d => d.at));
   return { text: parts.filter(Boolean).join("\n\n"), newest };
 }
 
@@ -142,7 +149,10 @@ export async function scheduledBoardNow(env: SagaEnv, deps: SagaDeps, db: D1Data
   if (since === null) return;
   // Written since the current time began: done.
   const last = await latestBoardNow(db);
-  if (last && last.at >= since) return;
+  // A meeting that ended after the last text: written again at once, not first at the next time.
+  const ended = last ? await db.prepare("SELECT meeting_date, start_time, end_time FROM board_meetings WHERE meeting_date = ?").bind(day(now)).all<Pick<Meeting, "meeting_date" | "start_time" | "end_time">>()
+    .then(r => (r.results ?? []).some(m => { const end = meetingSpan(m).end; return end <= now && end > last.at; })).catch(() => false) : false;
+  if (last && last.at >= since && !ended) return;
   // At most one look an hour; it costs an AI call only when something is new.
   if (!(await claim("saga_board_now", Math.floor(now / HOUR) * HOUR))) return;
   await writeBoardNow(env, deps, db);
