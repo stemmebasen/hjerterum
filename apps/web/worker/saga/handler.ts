@@ -7,7 +7,7 @@ import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js"
 import { answerMemberPrivately } from "../cockpit/agendaAsk.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
-  answerOwnerPrivately, approveMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
+  answerOwnerPrivately, approveMinutes, publishMinutes, draftOverview, approvePost, draftBoardReply, draftWeeklySummary, queueTelegramRecording,
   processNextMinutes, reviseMinutes, revisePost, watchMail, type RelayedMail
 } from "./saga.js";
 import { recordMailWatch, sagaConnections } from "./connections.js";
@@ -65,7 +65,8 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
     const match = /^(approve|reject):(post|minutes):(\d+)$/.exec(callback.data ?? "");
     if (!match) { await telegram.answerCallbackQuery(callback.id); return; }
     const approve = match[1] === "approve", id = Number(match[3]);
-    const result = match[2] === "post" ? await approvePost(env, deps, id, approve) : await approveMinutes(env, deps, id, approve);
+    // Requested: "Når et referat er færdigskrevet skal formanden først have det til gennemlæsning" - his Godkend puts it up for the board.
+    const result = match[2] === "post" ? await approvePost(env, deps, id, approve) : approve ? await publishMinutes(env, deps, id, "Tak.") : await approveMinutes(env, deps, id, false);
     await telegram.answerCallbackQuery(callback.id, result);
     await telegram.sendMessage(String(ownerId), result);
     return;

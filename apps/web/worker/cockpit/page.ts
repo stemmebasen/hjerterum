@@ -553,7 +553,7 @@ ${foldCard("upload", "Optag et møde", data.uploads ? `${recorderCard(base, { da
 <script>{const open=()=>{const h=location.hash&&document.querySelector(location.hash.replace(/[^#\w-]/g,""));if(h&&h.tagName==="DETAILS"){h.open=true;h.scrollIntoView()}};open();addEventListener("hashchange",open)}</script></main>`, { section: "/moder", who: data.who, style: WHO_CHIP_STYLE });
 }
 
-export function meetingPage(base: string, m: Meeting, data: { members: string[]; minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean; closed?: boolean; over?: boolean },
+export function meetingPage(base: string, m: Meeting, data: { members: string[]; minutes: ApprovedMinutes | null; state: MinutesState | null; suggestion: string[]; today: string; uploads: boolean; aiReady?: boolean; closed?: boolean; over?: boolean; isChair?: boolean },
   who: string | null, notice: string): string {
   // On the day (and after): the recorder and the minutes card are there.
   const held = m.meeting_date <= data.today;
@@ -607,7 +607,7 @@ ${roleSelects(data.members, m)}
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>
 <div class="actions"><button class="ghost">Gem ændringer</button></div></form>
 ${m.updated_by ? `<p class="small muted">Sidst rettet af ${esc(m.updated_by)}.</p>` : ""}
-<form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form></div>
+${data.isChair ? `<form method="post" action="${base}/moder/${m.id}/slet" onsubmit="return confirm('Slette mødet og dets dagsorden?')"><button class="ghost">Slet møde</button></form>` : ""}</div>
 ${showMinutes ? `<div class="card"><h2>Referat</h2>${minutesCard}</div>` : ""}</div></main>`, { section: "/moder", who, style: WHO_CHIP_STYLE });
 }
 
