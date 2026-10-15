@@ -19,7 +19,7 @@ import { MEMBERSHIP_FACTS } from "./membership.js";
 import { siteForSaga } from "./site.js";
 import { applyPersonal, personalItems, personalSection, waitingSection, type PersonalItem } from "./personal.js";
 import { STATUTES } from "./statutes.js";
-import { applySaveText, savedTexts, savedTextsForSaga } from "./savedTexts.js";
+import { applySaveText, applyTextChanges, savedTexts, savedTextsForSaga } from "./savedTexts.js";
 import { memberLang } from "./i18n.js";
 import { votesForSaga } from "./votes.js";
 import { decisionKinds, withKinds } from "./decisionKinds.js";
@@ -277,7 +277,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applySaveText(env, deps, db, await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who), who, input.question, base);
+  const answer = await applyTextChanges(db, await applySaveText(env, deps, db, await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who), who, input.question, base), who, isChair, base);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms, conversation) VALUES (?, ?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now, input.conversation ?? null).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;

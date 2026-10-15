@@ -37,7 +37,7 @@ import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
-import { savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
+import { deleteText, renameText, savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -982,10 +982,19 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     return html(archivePage(base, { minutes, history, docUrl: minutesDocUrl(env), docError, who, texts: savedTextsCard(base, await savedTexts(db)) }));
   }
   // What Saga was asked to keep (savedTexts.ts).
+  if (path === "/tekster") return redirect(`${base}/arkiv#tekster`);
   const textPath = /^\/tekster\/(\d+)$/.exec(path);
-  if (textPath && request.method === "GET") {
-    const t = await savedText(db, Number(textPath[1]));
-    return t ? html(savedTextPage(base, t, who)) : html(notFound(base, who), 404);
+  if (textPath) {
+    const id = Number(textPath[1]), isChair = Boolean(who && members.chair && who === members.chair);
+    if (request.method === "POST") {
+      if (!who) return redirect(`${base}/hvem`);
+      const form = await request.formData().catch(() => null);
+      if (form?.get("action") === "delete") return redirect(await deleteText(db, id, who, isChair) ? `${base}/arkiv#tekster` : `${base}/tekster/${id}`);
+      await renameText(db, id, String(form?.get("title") ?? ""));
+      return redirect(`${base}/tekster/${id}?omdobt=1`);
+    }
+    const t = await savedText(db, id);
+    return t ? html(savedTextPage(base, t, who, Boolean(who && (t.saved_by === who || isChair)), url.searchParams.has("omdobt") ? "Titlen er gemt." : "")) : html(notFound(base, who), 404);
   }
 
   // Saga in the corner of every page: the answer goes only to the one asking.
