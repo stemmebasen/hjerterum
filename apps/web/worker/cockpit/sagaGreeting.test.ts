@@ -46,7 +46,9 @@ describe("Saga's greeting and what she knows about membership", () => {
     expect(system).toContain("Tilbyd højst én ting ad gangen");
     // Requested: "Saga er en uformel og kærlig medhjælper, og hun skal ikke svare i tunge paragraffer, medmindre hun eksplicit bliver bedt om dem".
     expect(system).toContain("UDTRYKKELIGT beder om paragraf, kilde eller dokumentation");
-    expect(system).toContain("Hold det naturligt og ikke overdrevet");
+    expect(system).toContain("Hold det naturligt.");
+    // Requested: "Saga can be a little extra warm and flirty once in a while ... Hjerterum is not a professional and stiff corporate."
+    expect(system).toContain("en gang imellem må du gerne være ekstra varm, personlig og lidt flirtende");
     expect(system).toContain("nævner du kun, når medlemmet udtrykkeligt beder om dem");
     expect(system).not.toContain("Henvis til paragraf og stykke");
     expect(system).not.toContain("nævn loven og paragraffen, som de står der");
