@@ -31,6 +31,7 @@ import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
 import { scheduledAgendaAsk, scheduledLeaderAgenda } from "../cockpit/agendaAsk.js";
+import { scheduledMeetingRoles, scheduledRoleReminders } from "../cockpit/meetingRoles.js";
 import { frameComingAgendas, scheduledAgendaPriority } from "../cockpit/agendaPriority.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
@@ -434,6 +435,11 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // Requested: "Mødelederen skal have sendt den færdige dagsorden en halv time inden start på telegram" - early in the round, so nothing slow comes first.
   await scheduledLeaderAgenda(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
     .catch(error => console.warn("saga_leader_agenda_failed", error instanceof Error ? error.message : error));
+  // Requested: "The day after the last board meeting, a new mødeleder and ordstyrer will get chosen" - and reminded three days before. No AI.
+  await scheduledMeetingRoles(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
+    .catch(error => console.warn("saga_meeting_roles_failed", error instanceof Error ? error.message : error));
+  await scheduledRoleReminders(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
+    .catch(error => console.warn("saga_role_reminders_failed", error instanceof Error ? error.message : error));
   await step("optagelser og referater");
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or cannot be read), Saga tells Jacob privately, once a day. No AI.
