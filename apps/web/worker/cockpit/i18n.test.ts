@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { translateHtml, worthTranslating } from "./i18n.js";
 import { scheduledEnglishSummaries, scheduledTranslations, translatePage } from "./translate.js";
-import { processNextMinutes } from "../saga/saga.js";
+import { processNextMinutes, publishMinutes } from "../saga/saga.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 
@@ -78,6 +78,7 @@ describe("the cockpit in English", () => {
     await call("/upload", { method: "POST", cookie: jacob, body: form({ recording: new File([new Uint8Array([1, 2, 3])], "m.m4a", { type: "audio/mp4" }), meeting_date: "2026-09-30" }) });
     const id = (await db.prepare("SELECT id FROM board_minutes").first<{ id: number }>())!.id;
     expect(await processNextMinutes(env, deps(services.fetcher, NOW))).toBe(true);
+    await publishMinutes(env, deps(services.fetcher, NOW), id, "Tak.");
     {
       const before = await (await call(`/referat/${id}`, { cookie: douglas })).text();
       expect(before).toContain("Budgettet er vedtaget");

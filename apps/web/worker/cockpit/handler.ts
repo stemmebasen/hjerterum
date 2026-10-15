@@ -323,19 +323,25 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       await removeAgendaPoint(db, id, String((await request.formData().catch(() => null))?.get("text") ?? ""), who ?? "", now);
       return back();
     }
-    if (request.method === "POST" && action === "/slet") { await deleteMeeting(db, id); return redirect(`${base}/moder`); }
+    // Requested: "Kun formanden skal kunne slette møder".
+    const chairHere = Boolean(who && members.chair && who === members.chair);
+    if (request.method === "POST" && action === "/slet") {
+      if (!chairHere) return redirect(`${base}/moder/${id}?forslag=kunformand`);
+      await deleteMeeting(db, id);
+      return redirect(`${base}/moder`);
+    }
     if (request.method === "POST") {
       const input = meetingInput(await request.formData());
       if (input) { onlyBoard(input, found); await saveMeeting(db, input, who ?? "", now, id); }
       return redirect(`${base}/moder/${id}?gemt=1#dagsorden`);
     }
-    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld|laast)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
+    const forslag = /^(?:\d{1,2}|ingenai|fejl|ikketeam|fuld|laast|kunformand)$/.test(url.searchParams.get("forslag") ?? "") ? url.searchParams.get("forslag") : null;
     const [all, states, { picture }] = await Promise.all([approvedMinutes(db), minutesStatusByDate(db), boardPicture(db, now)]);
     const notice = url.searchParams.get("upload") ? "Optagelsen er modtaget. Saga går i gang inden for fem minutter (en lang optagelse tager lidt tid), og formanden får referatet til godkendelse i Telegram." : url.searchParams.get("gemt") ? "Gemt."
       : forslag === "ikketeam" ? "Saga foreslår kun punkter til teammøder. Sæt kryd ved Teammøde under Dato, tid og sted, og tryk Gem." : forslag === "fuld" ? "Saga har allerede fem forslag på dagsordenen - flere ad gangen er for mange. Slet et med krydset, så finder hun et nyt." : forslag === "ingenai" ? "Saga kan ikke lave forslag lige nu (hendes AI er ikke sat op)." : forslag === "fejl" ? "Saga kunne ikke lave et forslag lige nu. Prøv igen om lidt."
-      : forslag === "laast" ? "Mødet er begyndt, så dagsordenen er låst og kan ikke længere ændres." : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
+      : forslag === "kunformand" ? "Kun formanden kan slette et møde." : forslag === "laast" ? "Mødet er begyndt, så dagsordenen er låst og kan ikke længere ændres." : forslag === "0" ? "Saga fandt ikke noget nyt at foreslå ud fra materialet." : forslag ? `Saga har lagt ${forslag} ${forslag === "1" ? "punkt" : "punkter"} nederst på dagsordenen. Slet dem, du ikke vil have, med krydset.` : "";
     return html(meetingPage(base, found, { members: members.names, minutes: all.find(m => m.meeting_date === found.meeting_date) ?? null, state: states.get(found.meeting_date) ?? null,
-      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), closed, over: meetingOver(found, now) }, who, notice));
+      suggestion: picture?.document.nextAgenda ?? [], today, uploads: Boolean(env.BOARD_RECORDINGS), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), closed, over: meetingOver(found, now), isChair: chairHere }, who, notice));
   }
 
   // Each board member approves the minutes, or asks the chair for a correction.

@@ -4,7 +4,7 @@ import { handleCockpitRequest } from "./handler.js";
 import { addTodo, agreedLabel, removeDuplicateTodos, sagaSource, uniqueTasks } from "./data.js";
 import { translateHtml } from "./i18n.js";
 import { recorderCard } from "./recorder.js";
-import { processNextMinutes } from "../saga/saga.js";
+import { processNextMinutes, publishMinutes } from "../saga/saga.js";
 import { createPostDraft, decideMinutes, decidePostDraft, markOwnerDone, markPosted, queueMinutes, saveBoardMessage, saveOverview, updateMinutes } from "../saga/store.js";
 import { itemKey } from "../saga/picture.js";
 import { STATUTES } from "./statutes.js";
@@ -152,7 +152,14 @@ describe("the board cockpit", () => {
     await call(`/cockpit/moder/${id}`, { method: "POST", cookie: session, body: form({ meeting_date: "2026-10-08", start_time: "14:00", place: "", agenda: "Økonomi" }) });
     const row = await db.prepare("SELECT agenda, start_time, updated_by FROM board_meetings WHERE id = ?").bind(Number(id)).first<{ agenda: string; start_time: string; updated_by: string | null }>();
     expect(row).toEqual({ agenda: "Økonomi", start_time: "14:00", updated_by: null });
-    await call(`/cockpit/moder/${id}/slet`, { method: "POST", cookie: session });
+    // Requested: "Kun formanden skal kunne slette møder".
+    expect(await (await call(`/cockpit/moder/${id}`, { cookie: await memberCookie(session, "Lisbeth") })).text()).not.toContain("Slet møde");
+    const refused = await call(`/cockpit/moder/${id}/slet`, { method: "POST", cookie: await memberCookie(session, "Lisbeth") });
+    expect(refused.headers.get("location")).toBe(`/cockpit/moder/${id}?forslag=kunformand`);
+    expect((await call(`/cockpit/moder/${id}`, { cookie: session })).status).toBe(200);
+    const chairCookie = await memberCookie(session, "Jacob Hauge");
+    expect(await (await call(`/cockpit/moder/${id}`, { cookie: chairCookie })).text()).toContain("Slet møde");
+    await call(`/cockpit/moder/${id}/slet`, { method: "POST", cookie: chairCookie });
     expect((await call(`/cockpit/moder/${id}`, { cookie: session })).status).toBe(404);
   });
 
@@ -169,6 +176,9 @@ describe("the board cockpit", () => {
     expect(await processNextMinutes(env, deps(services.fetcher, NOW))).toBe(true);
     expect(services.calls.some(c => c.url === "https://api.elevenlabs.io/v1/speech-to-text")).toBe(true);
     expect(services.telegram("sendDocument")).toHaveLength(1);
+    // Requested: "Når et referat er færdigskrevet skal formanden først have det til gennemlæsning" - the board does not see it before he approves it.
+    expect((await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).status).toBe(404);
+    await publishMinutes(env, deps(services.fetcher, NOW), queued!.id, "Tak.");
     // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet".
     const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(minutes).toContain("<li>Budgettet er vedtaget</li>");

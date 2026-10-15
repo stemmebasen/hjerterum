@@ -191,14 +191,16 @@ describe("Saga and the board's minutes document", () => {
 
     await webhook(env as SagaEnv, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
     expect(prompts[1]).toContain("BAGGRUND - tidligere referater");
-    // Requested: "Referatet skal op uden godkendelse" - it is written into the document at once.
+    // Requested: "Når et referat er færdigskrevet skal formanden først have det til gennemlæsning" - it goes up, and into the document, when he approves it.
+    expect(services.calls.some(c => c.url.endsWith("minutes-doc:batchUpdate"))).toBe(false);
+    await webhook(env as SagaEnv, services.fetcher, callback("approve:minutes:1"));
     const update = services.calls.find(c => c.url.endsWith("minutes-doc:batchUpdate"));
     const requests = (update?.body as { requests: Array<Record<string, any>> }).requests;
     expect(requests[0]).toEqual({ insertText: { location: { index: 119 }, text: expect.stringContaining("\nReferat - bestyrelsesmøde 2026-09-23\nReferat\n\nTil stede\n• Jacob") } });
     expect(requests[0]!.insertText.text).toContain("• Budgettet er vedtaget.");
     expect(requests[1]).toMatchObject({ updateParagraphStyle: { range: { startIndex: 120, endIndex: 120 + "Referat - bestyrelsesmøde 2026-09-23".length + 1 }, paragraphStyle: { namedStyleType: "HEADING_2" } } });
     expect(await getMinutes(db, 1)).toMatchObject({ status: "approved", drive_document_url: "https://docs.google.com/document/d/minutes-doc/edit" });
-    expect(services.telegram("sendDocument").at(-1)?.body).toMatchObject({ chat_id: OWNER, caption: expect.stringContaining("Det er også skrevet ind i referatdokumentet.") });
+    expect(services.telegram("sendMessage").at(-1)?.body).toMatchObject({ chat_id: OWNER, text: expect.stringContaining("Det er også skrevet ind i referatdokumentet.") });
     expect(services.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
   });
 });
@@ -246,9 +248,9 @@ describe("Saga watching team@holistisk.org", () => {
 });
 
 describe("Saga's minutes", () => {
-  // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet"
-  // - "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL".
-  it("puts the minutes up at once, pings the board to approve them, and the chair can still correct them", async () => {
+  // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet" - "Hej alle sammen 😊 / Så er referatet klar
+  // til godkendelse: / URL". Then: "Når et referat er færdigskrevet skal formanden først have det til gennemlæsning, så vi sikrer der ikke er for mange fejl."
+  it("gives the chair the minutes to read first, puts them up when he approves, pings the board, and the chair can still correct them", async () => {
     const db = testDatabase();
     let transcript = "";
     const services = fakeServices({ ai: (system, user) => {
@@ -263,16 +265,22 @@ describe("Saga's minutes", () => {
     expect(transcript).toContain("Taler 1: Vi vedtager budgettet.\nTaler 2: Enig.");
     expect(transcript).toContain("Mødedato: 23. september 2026");
     const [document] = services.telegram("sendDocument");
-    expect(document?.body).toMatchObject({ chat_id: OWNER, document: "[file Referat 2026-09-23.md]", caption: expect.stringContaining("https://cockpit.hjerterum.info/referat/1") });
-    expect((document?.body as { reply_markup?: string }).reply_markup).toBeUndefined();
-    const published = (await getMinutes(db, 1))!;
-    expect(published).toMatchObject({ status: "approved", draft_markdown: MINUTES });
+    expect(document?.body).toMatchObject({ chat_id: OWNER, document: "[file Referat 2026-09-23.md]", caption: expect.stringContaining("læs det igennem, før det kommer op til bestyrelsen") });
+    expect((document?.body as { reply_markup?: string }).reply_markup).toBeDefined();
+    expect(await getMinutes(db, 1)).toMatchObject({ status: "drafted" });
     const pings = () => services.telegram("sendMessage").filter(c => (c.body as { chat_id: string }).chat_id === BOARD).map(c => (c.body as { text: string }).text);
-    expect(pings()).toEqual(["Hej alle sammen 😊\nSå er referatet fra mødet 23. september 2026 lagt op. I kan rette i det de næste 3 dage - derefter godkender I det hver især:\nhttps://cockpit.hjerterum.info/referat/1"]);
+    expect(pings()).toEqual([]);
 
     // The same recording again is not transcribed twice.
     await webhook(env, services.fetcher, privateMessage(6, { voice: { file_id: "voice-1", file_size: 5000 } }));
     expect(services.telegram("sendMessage").filter(c => (c.body as { chat_id: string }).chat_id === OWNER)[1]?.body).toMatchObject({ text: "Den optagelse har jeg allerede fået." });
+
+    // His Godkend puts it up; the three days of corrections count from now.
+    await webhook(env, services.fetcher, callback("approve:minutes:1"));
+    const published = (await getMinutes(db, 1))!;
+    expect(published).toMatchObject({ status: "approved", draft_markdown: MINUTES });
+    expect((services.telegram("sendMessage").at(-1)?.body as { text: string }).text).toContain("Det er lagt op: https://cockpit.hjerterum.info/referat/1");
+    expect(pings()).toEqual(["Hej alle sammen 😊\nSå er referatet fra mødet 23. september 2026 lagt op. I kan rette i det de næste 3 dage - derefter godkender I det hver især:\nhttps://cockpit.hjerterum.info/referat/1"]);
 
     // A reply corrects the minutes in place; the board's sign-offs start over.
     await db.prepare("INSERT INTO board_minutes_signoffs (minutes_id, member, status, comment, at_ms) VALUES (1, 'Gitta', 'approved', NULL, 1)").run();
@@ -288,6 +296,7 @@ describe("Saga's minutes", () => {
     // Without the ping turned on, Saga stays silent in the group.
     const quiet = testDatabase(), other = fakeServices({ ai: () => MINUTES });
     await webhook(sagaEnv(quiet), other.fetcher, privateMessage(5, { voice: { file_id: "voice-2", file_size: 5000 } }));
+    await webhook(sagaEnv(quiet), other.fetcher, callback("approve:minutes:1"));
     expect(await getMinutes(quiet, 1)).toMatchObject({ status: "approved" });
     expect(other.calls.filter(c => (c.body as { chat_id?: string })?.chat_id === BOARD)).toHaveLength(0);
   });
@@ -304,7 +313,9 @@ describe("Saga's minutes", () => {
     const env = sagaEnv(db, { GOOGLE_SERVICE_ACCOUNT_JSON: JSON.stringify({ client_email: "saga@hjerterum.iam.gserviceaccount.com", private_key: await testPrivateKey() }),
       GOOGLE_DRIVE_RECORDINGS_FOLDER_ID: "rec-folder", GOOGLE_DRIVE_MINUTES_FOLDER_ID: "min-folder" });
     await runSagaJobs(env, deps(services.fetcher, NOW));
-    expect(await getMinutes(db, 1)).toMatchObject({ source: "drive", source_file_id: "rec-1", status: "approved", meeting_date: "2026-09-22" });
+    expect(await getMinutes(db, 1)).toMatchObject({ source: "drive", source_file_id: "rec-1", status: "drafted", meeting_date: "2026-09-22" });
+    await webhook(env, services.fetcher, callback("approve:minutes:1"));
+    expect(await getMinutes(db, 1)).toMatchObject({ status: "approved" });
     const token = services.calls.find(c => c.url === "https://oauth2.googleapis.com/token");
     expect(String(token?.body)).toContain("grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer");
 
@@ -360,6 +371,7 @@ describe("Saga's weekly summary and Liva's overview", () => {
     const env = sagaEnv(db);
     await webhook(env, services.fetcher, boardMessage(1, "Husk kage til mødet"));
     await webhook(env, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
+    await webhook(env, services.fetcher, callback("approve:minutes:1"));
     const overview = (authorization?: string) => handleSagaRequest(new Request("https://hjerterum.test/api/saga/liva/overview?days=3", {
       headers: authorization ? { authorization } : {} }), env, deps(services.fetcher, NOW));
 
@@ -513,9 +525,10 @@ describe("Saga reads the open minutes document through its link", () => {
     await webhook(env as SagaEnv, services.fetcher, privateMessage(4, { text: "Hvad besluttede vi om kage?" }));
     expect(prompts[0]).toContain("Beslutning: Ny kagekasse.");
     await webhook(env as SagaEnv, services.fetcher, privateMessage(5, { voice: { file_id: "voice-1", file_size: 5000 } }));
+    await webhook(env as SagaEnv, services.fetcher, callback("approve:minutes:1"));
     expect(services.calls.some(c => c.url.includes("googleapis.com"))).toBe(false);
     expect(await getMinutes(db, 1)).toMatchObject({ status: "approved" });
-    expect(services.telegram("sendDocument").at(-1)?.body).toMatchObject({ caption: expect.stringContaining("Saga kan ikke skrive i referatdokumentet") });
+    expect(services.telegram("sendMessage").at(-1)?.body).toMatchObject({ chat_id: OWNER, text: expect.stringContaining("Saga kan ikke skrive i referatdokumentet") });
   });
 });
 
