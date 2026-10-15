@@ -401,21 +401,29 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .nl-hero-img { position: relative; min-height: 360px; }
 .nl-hero-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .nl-hero-img::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 22px; background: var(--lys-camel); }
-/* "Coming up i Hjerterum": the next event in a box over the picture's left edge. */
-.nl-coming { position: absolute; z-index: 1; left: -56px; bottom: 14%; width: min(360px, 78%); display: grid; gap: 8px; padding: 24px 28px 22px; background: var(--lys-bg); color: var(--lys-ink);
-  border-top: 5px solid var(--lys-camel); box-shadow: 0 28px 60px -24px rgba(20, 16, 12, .45); text-decoration: none; transition: transform .2s ease, box-shadow .2s ease; }
-.nl-coming:hover { transform: translateY(-2px); box-shadow: 0 34px 70px -24px rgba(20, 16, 12, .55); }
-/* Asked: "a little aesthetic flare around the box - not too fancy, but just exclusive and beautiful": a fine camel hairline framed inside the box,
-   a soft warm glow in its corner, and a short rule before the kicker - like a printed invitation. */
-.nl-coming { outline: 1px solid color-mix(in srgb, var(--lys-camel) 55%, transparent); outline-offset: -9px;
-  background-image: radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--lys-camel) 16%, transparent), transparent 60%); padding: 28px 32px 26px; }
-.nl-coming:hover { outline-color: var(--lys-camel); }
+/* "Coming up i Hjerterum": the next event over the picture's left edge. Asked: "Din boks er ikke moderne og tidssvarende, og jeg ønsker en
+   bevægelig flare effekt der slider med kanten. Tænk 2026" - frosted glass over the hall, a fine edge, and a beam of warm light gliding round it. */
+@property --nl-beam { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@keyframes nl-beam { to { --nl-beam: 360deg; } }
+.nl-coming { position: absolute; z-index: 1; left: -56px; bottom: 14%; width: min(370px, 78%); display: grid; gap: 8px; padding: 28px 30px 26px; border-radius: 18px;
+  color: var(--lys-ink); text-decoration: none; isolation: isolate;
+  background: color-mix(in srgb, var(--lys-bg) 84%, transparent); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lys-camel) 28%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent), 0 30px 70px -28px rgba(20, 16, 12, .55);
+  transition: transform .35s cubic-bezier(.2, .7, .2, 1), box-shadow .35s ease; }
+/* The beam: a ring of light two pixels wide, cut out of a turning conic gradient, glowing softly along the edge only. */
+.nl-coming::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 2px; animation: nl-beam 6s linear infinite;
+  background: conic-gradient(from var(--nl-beam), transparent 0deg 220deg, color-mix(in srgb, var(--lys-camel) 45%, transparent) 280deg, var(--lys-camel) 318deg, #fffaf2 340deg, var(--lys-camel) 350deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  filter: drop-shadow(0 0 6px var(--lys-camel)) drop-shadow(0 0 14px color-mix(in srgb, var(--lys-camel) 60%, transparent)); }
+.nl-coming:hover { transform: translateY(-3px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lys-camel) 45%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent), 0 40px 80px -28px rgba(20, 16, 12, .6); }
+.nl-coming:hover::before { animation-duration: 3s; }
+@media (prefers-reduced-motion: reduce) { .nl-coming::before { animation: none; --nl-beam: 200deg; } .nl-coming { transition: none; } }
 .nl-coming .lys-kicker { margin: 0; color: var(--lys-terra); display: flex; align-items: center; gap: 10px; }
-.nl-coming .lys-kicker::before { content: ""; width: 22px; height: 1px; background: var(--lys-camel); flex: none; }
+.nl-coming .lys-kicker::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--lys-camel); box-shadow: 0 0 0 4px color-mix(in srgb, var(--lys-camel) 22%, transparent); flex: none; }
 .nl-coming strong { font: 400 clamp(22px, 2.1vw, 28px)/1.15 var(--lys-serif); }
 .nl-coming-when { font: 700 12.5px/1.4 var(--lys-sans); letter-spacing: .12em; color: var(--lys-muted); }
 .nl-coming .nl-more { justify-self: start; margin-top: 4px; }
-@media (prefers-color-scheme: dark) { .nl-coming { background: var(--nl-panel); } }
+@media (prefers-color-scheme: dark) { .nl-coming { background: color-mix(in srgb, var(--nl-panel) 82%, transparent); } }
 
 /* "Oktober i Hjerterum" - the calendar section. */
 .nl-month { padding: 84px 0 10px; }
