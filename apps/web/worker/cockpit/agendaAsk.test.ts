@@ -68,7 +68,7 @@ describe("Saga asks each board member for agenda points the day before a team me
   });
 
   // Requested: "Mødelederen skal have sendt den færdige dagsorden en halv time inden start på telegram."
-  it("sends the meeting leader the final agenda privately half an hour before - in their language - and the chair when there is no leader", async () => {
+  it("sends the meeting leader and the moderator the final agenda privately half an hour before - in their language - and the chair when there is no leader", async () => {
     const START = Date.parse("2026-10-15T11:30:00Z");
     const { db, env, services, fetcher, claim } = await setup();
     await db.prepare("UPDATE board_meetings SET leader = 'Douglas Crawford', moderator = 'Lisbeth', agenda = 'Velkommen\nØkonomi\nEvt.'").run();
@@ -76,7 +76,9 @@ describe("Saga asks each board member for agenda points the day before a team me
     expect(await scheduledLeaderAgenda(env, deps(fetcher, START - 25 * 60_000), db, claim)).toBe(true);
     expect(await scheduledLeaderAgenda(env, deps(fetcher, START - 15 * 60_000), db, claim)).toBe(false);
     const sent = services.telegram("sendMessage").map(text);
-    expect(sent).toEqual([{ chat_id: "203", text: "Hi Douglas 🙂 You are leading today's team meeting at 13.30 (Hjerterum). Here is the final agenda:\n\n1. Velkommen\n2. Økonomi\n3. Evt."
+    // Then: "husk at de begge skal have dagsordnen sendt på selve dagen" - the moderator gets it too.
+    expect(sent.find(m => m.chat_id === "201")!.text).toContain("Hej Lisbeth 🙂 Du er ordstyrer på dagens teammøde kl. 13.30 (Hjerterum). Her er den færdige dagsorden:\n\n1. Velkommen\n2. Økonomi\n3. Evt.");
+    expect(sent.filter(m => m.chat_id !== "201")).toEqual([{ chat_id: "203", text: "Hi Douglas 🙂 You are leading today's team meeting at 13.30 (Hjerterum). Here is the final agenda:\n\n1. Velkommen\n2. Økonomi\n3. Evt."
       + "\n\nMødeleder: Douglas · Ordstyrer: Lisbeth\n\nOn the meeting's page: https://admin.hjerterum.example/moder/1#dagsorden", disable_web_page_preview: true }].map(m => expect.objectContaining({ chat_id: m.chat_id, text: m.text })));
 
     const none = await setup();
