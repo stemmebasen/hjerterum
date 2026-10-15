@@ -45,6 +45,25 @@ export function monthOf(events: MonthEvent[], now: number): { name: string; key:
 }
 
 const href = (e: MonthEvent) => e.page ?? e.link ?? "/events";
+
+/** Requested: "Over hero billedet bør være en flot kasse - announcement om næste arrangement: Coming up i Hjerterum / EVENT TITEL / DATO OG TIDSPUNKT /
+ * Læs mere". The next event that is not one of a series (a title that comes again within two months, like the mornings), else simply the next. */
+export function comingUp(events: MonthEvent[], now: number): MonthEvent | null {
+  const soon = events.filter(e => Date.parse(e.startsAt) > now && Date.parse(e.startsAt) < now + 60 * 86_400_000).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const count = new Map<string, number>();
+  for (const e of soon) count.set(e.title.trim().toLocaleLowerCase("da-DK"), (count.get(e.title.trim().toLocaleLowerCase("da-DK")) ?? 0) + 1);
+  return soon.find(e => count.get(e.title.trim().toLocaleLowerCase("da-DK")) === 1) ?? soon[0] ?? null;
+}
+
+export function ComingUp({ event }: { event: MonthEvent | null }) {
+  if (!event) return null;
+  return <a className="nl-coming" href={href(event)}>
+    <span className="lys-kicker">Coming up i Hjerterum</span>
+    <strong>{event.title}</strong>
+    <span className="nl-coming-when">{featureLine(event.startsAt)}</span>
+    <span className="nl-more">Læs mere →</span>
+  </a>;
+}
 const LONG_DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", timeZone: ZONE });
 const WEEKDAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", timeZone: ZONE });
 const DAY_NUM = new Intl.DateTimeFormat("da-DK", { day: "numeric", timeZone: ZONE });
