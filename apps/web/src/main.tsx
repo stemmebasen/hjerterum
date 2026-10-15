@@ -1,6 +1,6 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
-import { MonthSection } from "./month-hero";
+import { ComingUp, comingUp, MonthSection } from "./month-hero";
 import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
@@ -282,6 +282,7 @@ function PublicHome() {
   return <SiteHome
     header={<SiteHeader />}
     month={<MonthSection events={house} now={now} reachable={eventsReachable} />}
+    coming={<ComingUp event={comingUp(house, now)} />}
     plans={<MembershipPlans />}
   />;
 }

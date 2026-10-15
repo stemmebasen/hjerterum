@@ -194,7 +194,7 @@ const CATEGORIES = [
 /** Requested: "just take the design of the heading, the fonts, and the colors from the PDF and adapt that to our website" - "Ja den er godt".
  * The house's own words in the newsletter's heading: a wide-spaced kicker, Playfair with the italic "af", the camel rule, square dark buttons -
  * and the hall itself beside it, bleeding to the edge with the camel stripe. */
-function SiteHero() {
+function SiteHero({ coming }: { coming?: ReactNode }) {
   return <section className="nl-hero">
     <div className="nl-hero-text">
       <p className="lys-kicker">Hjerterum · Aarhus</p>
@@ -204,15 +204,15 @@ function SiteHero() {
       <p className="lys-kicker nl-motto">Et rum for det menneskelige</p>
       <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se hele kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
     </div>
-    <div className="nl-hero-img"><img src="/media/2021-03-hjerterum-c.webp" alt="Salen i Hjerterum med de hvide bjælker og trægulvet" /></div>
+    <div className="nl-hero-img"><img src="/media/2021-03-hjerterum-c.webp" alt="Salen i Hjerterum med de hvide bjælker og trægulvet" />{coming}</div>
   </section>;
 }
 
-export function SiteHome({ header, month, plans }: { header: ReactNode; month: ReactNode; plans: ReactNode }) {
+export function SiteHome({ header, month, plans, coming }: { header: ReactNode; month: ReactNode; plans: ReactNode; coming?: ReactNode }) {
   useDocumentMeta("Hjerterum – nærvær, oplevelser og fællesskab i Aarhus", ABOUT_WORDS.tagline.replace(/\s*♥️$/, ""), "da");
   return <main className="page-shell site-home">
     {header}
-    <SiteHero />
+    <SiteHero coming={coming} />
     <nav className="site-categories" aria-label="Det sker i Hjerterum">
       {CATEGORIES.map(category => <a key={category.label} href="/events"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
     </nav>
