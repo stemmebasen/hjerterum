@@ -47,12 +47,9 @@ export function monthOf(events: MonthEvent[], now: number): { name: string; key:
 const href = (e: MonthEvent) => e.page ?? e.link ?? "/events";
 
 /** Requested: "Over hero billedet bør være en flot kasse - announcement om næste arrangement: Coming up i Hjerterum / EVENT TITEL / DATO OG TIDSPUNKT /
- * Læs mere". The next event that is not one of a series (a title that comes again within two months, like the mornings), else simply the next. */
+ * Læs mere". Then: "Der står at næste event er Healing med slægt. Men der er også ... fri-morgendans" - simply the next event, whatever it is. */
 export function comingUp(events: MonthEvent[], now: number): MonthEvent | null {
-  const soon = events.filter(e => Date.parse(e.startsAt) > now && Date.parse(e.startsAt) < now + 60 * 86_400_000).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-  const count = new Map<string, number>();
-  for (const e of soon) count.set(e.title.trim().toLocaleLowerCase("da-DK"), (count.get(e.title.trim().toLocaleLowerCase("da-DK")) ?? 0) + 1);
-  return soon.find(e => count.get(e.title.trim().toLocaleLowerCase("da-DK")) === 1) ?? soon[0] ?? null;
+  return events.filter(e => Date.parse(e.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0] ?? null;
 }
 
 export function ComingUp({ event }: { event: MonthEvent | null }) {
