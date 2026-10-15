@@ -287,7 +287,7 @@ function sagaChat(base: string, who: string | null): string {
 <div class="saga-log" id="saga-log" aria-live="polite"><div class="saga-msg saga-a">Hej${first ? ` ${esc(first)}` : ""} 🙂 Jeg er Saga. Spørg mig f.eks. om vedtægter, beslutninger, sager, møder, arrangementer og medlemskab.</div>
 <div class="saga-ideas">${IDEAS.map(idea => `<button type="button">${esc(idea)}</button>`).join("")}</div></div>
 <p class="saga-hint small muted">Hvis Saga tager fejl, så fortæl hende det - på den måde får vi bygget en klog og nyttig assistent med tiden.</p>
-<form id="saga-form"><textarea id="saga-q" rows="1" maxlength="1500" placeholder="Skriv dit spørgsmål" aria-label="Dit spørgsmål"></textarea><button>Send</button></form></section>
+<form id="saga-form"><textarea id="saga-q" rows="1" maxlength="12000" placeholder="Skriv dit spørgsmål" aria-label="Dit spørgsmål"></textarea><button>Send</button></form></section>
 <script>(()=>{const url=${JSON.stringify(`${base}/saga`)},box=document.getElementById("saga"),fab=document.getElementById("saga-open"),log=document.getElementById("saga-log"),form=document.getElementById("saga-form"),q=document.getElementById("saga-q");
 // Requested: "Sørg også for, at chatten med Saga nulstilles inden for normale standarder": after 30 minutes
 // without a question the conversation starts over, and "Ny samtale" starts one at once.
@@ -643,11 +643,11 @@ document.getElementById("q").addEventListener("input",e=>{const q=e.target.value
 const minutesLineOf = (base: string) => (m: ApprovedMinutes) => `<li><a href="${base}/referat/${m.id}">Referat ${esc(m.meeting_date ? longDay(m.meeting_date) : "")}</a></li>`;
 const historyDay = (h: { day: string; text: string }) => `<details id="${esc(h.day)}"><summary>${esc(longDay(h.day))}</summary><div style="white-space:pre-wrap" class="small">${esc(h.text)}</div></details>`;
 
-export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; history: Array<{ day: string; label: string; text: string }>; docUrl: string | null; docError: string | null; who: string | null }): string {
+export function archivePage(base: string, data: { minutes: ApprovedMinutes[]; history: Array<{ day: string; label: string; text: string }>; docUrl: string | null; docError: string | null; who: string | null; texts?: string }): string {
   return layout(base, "Arkiv", `<main><h1>Arkiv</h1><div class="grid"><div class="card"><h2>Referater fra Saga</h2>
 ${data.minutes.length ? `<ul class="plain">${data.minutes.slice(0, SHOWN).map(minutesLineOf(base)).join("")}</ul>${data.minutes.length > SHOWN ? fold("Klik her for at se alle referater", "Skjul de ældre referater", `<ul class="plain">${data.minutes.slice(SHOWN).map(minutesLineOf(base)).join("")}</ul>`, data.minutes.length - SHOWN) : ""}` : `<p class="muted">Ingen endnu.</p>`}</div>
 <div class="card"><h2>Tidligere referater</h2>${data.docUrl ? `<p class="small"><a href="${esc(data.docUrl)}" target="_blank" rel="noopener">Åbn referatdokumentet</a></p>` : ""}
 ${data.docError ? `<p class="muted">${esc(data.docError)}</p>` : data.history.length ? `${data.history.slice(0, SHOWN).map(historyDay).join("")}${data.history.length > SHOWN ? fold("Klik her for at se alle tidligere referater", "Skjul de ældre", data.history.slice(SHOWN).map(historyDay).join(""), data.history.length - SHOWN) : ""}`
-    : `<p class="muted">Ingen referater fundet i dokumentet.</p>`}</div></div></main>
+    : `<p class="muted">Ingen referater fundet i dokumentet.</p>`}</div></div>${data.texts ?? ""}</main>
 <script>const d=location.hash&&document.getElementById(decodeURIComponent(location.hash.slice(1)));if(d&&d.tagName==="DETAILS"){d.open=true;d.scrollIntoView()}</script>`, { section: "/arkiv", who: data.who });
 }
