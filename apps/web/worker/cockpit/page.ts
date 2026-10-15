@@ -1,4 +1,5 @@
 import { markdownToHtml } from "../saga/markdown.js";
+import { infoTip } from "./info.js";
 import { recorderCard } from "./recorder.js";
 import type { BoardPicture } from "../saga/picture.js";
 import { personChip, WHO_CHIP_STYLE } from "./todosPage.js";
@@ -97,6 +98,8 @@ button.grip{order:-1;flex:none;width:22px;height:32px;min-height:0;margin-left:-
 button.grip:hover,button.grip:focus-visible{color:var(--accent);filter:none}ol.agenda.points li.dragging{border-color:var(--accent);box-shadow:0 8px 22px rgb(0 0 0 / .18);background:color-mix(in srgb,var(--accent) 6%,var(--card));position:relative;z-index:2}
 ol.agenda.points li.dragging button.grip{cursor:grabbing}
 button.pencil{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--accent);border:1.5px solid var(--line);display:grid;place-items:center;flex:none}button.pencil:hover{border-color:var(--accent);filter:none}
+.info{display:inline-block;margin:8px 0 0}.info summary{list-style:none;cursor:pointer;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1px solid var(--line);color:var(--muted);font-size:12px;font-weight:700;font-style:italic;font-family:Georgia,serif}
+.info summary::-webkit-details-marker{display:none}.info[open] summary{border-color:var(--accent);color:var(--accent)}.info>div{margin-top:6px;max-width:60ch}.info>div p{margin:0 0 6px}
 .editing-banner{display:inline-flex;align-items:center;gap:8px;margin:0 0 6px;padding:5px 14px 5px 11px;border-radius:999px;background:var(--tint);color:var(--accent);font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
 form.cross{margin:0}form.cross button{width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:transparent;color:var(--muted);border:1.5px solid var(--line);font-size:22px;font-weight:400;line-height:1;display:grid;place-items:center;padding-bottom:2px}
 form.cross button:hover{color:var(--warn);border-color:var(--warn);filter:none}
@@ -522,7 +525,7 @@ function uploadForm(base: string, past: PastMeeting[], today: string): string {
   return `<form class="stack" method="post" action="${base}/upload" enctype="multipart/form-data">
 <label>Optagelse (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
 ${pick}<label data-other-date${pick ? " hidden" : ""}>Mødedato<input type="date" name="meeting_date" max="${esc(today)}" value="${esc(today)}"></label>
-<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og lægger det op her. Bestyrelsen godkender det, og hvert medlem kan rette de enkelte punkter.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>
+<button>Upload og lav referat</button>${infoTip("Saga skriver referatet ud fra optagelsen og lægger det op her. Bestyrelsen godkender det, og hvert medlem kan rette de enkelte punkter.", "Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.")}</form>
 <script>document.querySelectorAll("[data-other]").forEach(s=>s.addEventListener("change",()=>{s.form.querySelector("[data-other-date]").hidden=s.value!=="anden"}))</script>`;
 }
 
@@ -564,7 +567,7 @@ export function meetingPage(base: string, m: Meeting, data: { members: string[];
     : `${data.state ? `<p class="notice${data.state === "failed" ? " warn" : ""}">${STATE_TEXT[data.state]}.</p>` : `<p class="muted">Intet godkendt referat endnu.</p>`}
 ${held && data.uploads && data.state !== "working" && data.state !== "waiting" ? `${recorderCard(base, { date: m.meeting_date, meetingId: m.id })}<form class="stack" id="upload" method="post" action="${base}/upload" enctype="multipart/form-data"><input type="hidden" name="meeting_choice" value="${esc(m.meeting_date)}"><input type="hidden" name="meeting_id" value="${m.id}">
 <label>Optagelse af dette møde (mp3, m4a, wav, ogg - højst 60 MB)<input type="file" name="recording" accept="audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/ogg,.mp3,.m4a,.wav,.ogg" required></label>
-<button>Upload og lav referat</button><p class="small muted">Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.</p><p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></form>` : ""}`;
+<button>Upload og lav referat</button>${infoTip("Saga skriver referatet ud fra optagelsen og dagsordenen og lægger det op her til bestyrelsens godkendelse.", "Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.")}</form>` : ""}`;
   return layout(base, `Rediger møde ${shortDay(m.meeting_date)}`, `<main><p class="small"><a href="${base}/moder">← Møder</a></p><p class="editing-banner">${PENCIL}Rediger møde</p><h1>${esc(meetingHeading(m))}</h1>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}<div class="grid${showMinutes ? "" : " single"}"><div class="card" id="dagsorden"><h2>Dagsorden${m.kind ? KIND_TAG[m.kind] : ""}</h2>
 ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 10px">${esc(rolesLine(m))}</p>` : ""}
