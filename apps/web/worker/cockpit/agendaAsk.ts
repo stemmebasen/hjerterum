@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
 import { isAssocMeeting } from "./assocEvents.js";
-import { meetings, type Meeting } from "./data.js";
+import { agendaPoints, meetings, rolesLine, type Meeting } from "./data.js";
 import { copenhagenMs } from "./eventDesk.js";
 import { memberLang, type Lang } from "./i18n.js";
 import { askSagaMarkdown, DAILY_QUESTIONS, questionsToday, type AskTurn } from "./ask.js";
@@ -88,5 +88,40 @@ export async function answerMemberPrivately(env: SagaEnv, deps: SagaDeps, db: D1
   const answer = await askSagaMarkdown(env, deps, db, member, { question: text.slice(0, 1500), history: [], conversation: `tg-${telegramId}`, context }, base, lang)
     .catch(() => lang === "en" ? "I could not answer right now. Please try again in a moment." : "Jeg kunne ikke svare lige nu. Prøv igen om lidt.");
   await telegram.sendMessage(telegramId, plainForTelegram(answer)).catch(() => undefined);
+  return true;
+}
+
+/** Requested: "Mødelederen skal have sendt den færdige dagsorden en halv time inden start på telegram." Half an hour before a team meeting the
+ * leader gets the agenda as it stands then, privately, in their own language; with no leader picked (or one Saga cannot write to) the chair gets it. Once. */
+export function leaderAgendaText(lang: Lang, member: string, m: Meeting, link: string, forLeader: boolean): string {
+  const points = agendaPoints(m.agenda).map((p, i) => `${i + 1}. ${p}`).join("\n");
+  const time = m.start_time ? m.start_time.replace(":", ".") : "";
+  if (lang === "en") return `Hi ${first(member)} 🙂 ${forLeader ? "You are leading today's team meeting" : "Today's team meeting has no meeting leader yet"}${time ? ` at ${time}` : ""}${m.place ? ` (${m.place})` : ""}. Here is the final agenda:\n\n${points || "(no points)"}`
+    + `${rolesLine(m) ? `\n\n${rolesLine(m)}` : ""}${link ? `\n\nOn the meeting's page: ${link}` : ""}`;
+  return `Hej ${first(member)} 🙂 ${forLeader ? "Du er mødeleder på dagens teammøde" : "Dagens teammøde har ingen mødeleder endnu"}${time ? ` kl. ${time}` : ""}${m.place ? ` (${m.place})` : ""}. Her er den færdige dagsorden:\n\n${points || "(ingen punkter)"}`
+    + `${rolesLine(m) ? `\n\n${rolesLine(m)}` : ""}${link ? `\n\nPå mødets side: ${link}` : ""}`;
+}
+
+export async function scheduledLeaderAgenda(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<boolean> {
+  if (!env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return false;
+  const now = deps.now();
+  const next = (await meetings(db)).filter(m => m.kind === "team" && m.start_time && /^\d{2}:\d{2}$/.test(m.start_time)).map(m => ({ m, start: startOf(m) }))
+    .filter(x => x.start - 30 * 60_000 <= now && now < x.start).sort((a, b) => a.start - b.start)[0];
+  if (!next || !(await claim(`agenda_leader_${next.m.meeting_date}`, next.m.id))) return false;
+  const people = (await db.prepare(`SELECT author_name, MAX(author_telegram_id) AS id FROM board_messages WHERE chat_id = ? AND from_assistant = 0 AND author_telegram_id IS NOT NULL
+    GROUP BY author_name`).bind(env.SAGA_BOARD_CHAT_ID).all<{ author_name: string; id: string }>()).results ?? [];
+  const lower = (s: string) => s.trim().toLocaleLowerCase("da-DK");
+  const leader = next.m.leader ? people.find(p => lower(p.author_name) === lower(next.m.leader!)) ?? people.find(p => lower(first(p.author_name)) === lower(first(next.m.leader!))) : undefined;
+  const chair = env.SAGA_OWNER_TELEGRAM_ID ? people.find(p => p.id === env.SAGA_OWNER_TELEGRAM_ID) : undefined;
+  const telegram = telegramClient(env, deps), link = env.COCKPIT_URL ? `${env.COCKPIT_URL.replace(/\/+$/, "")}/moder/${next.m.id}#dagsorden` : "";
+  if (leader) {
+    const ok = await telegram.sendMessage(leader.id, leaderAgendaText(await memberLang(db, leader.author_name), leader.author_name, next.m, link, true)).then(() => true, () => false);
+    if (ok) return true;
+    if (env.SAGA_OWNER_TELEGRAM_ID && leader.id !== env.SAGA_OWNER_TELEGRAM_ID) await telegram.sendMessage(env.SAGA_OWNER_TELEGRAM_ID,
+      `Jeg kunne ikke sende dagsordenen privat til ${first(leader.author_name)} (mødeleder) - de skal først skrive /start til mig i Telegram.`).catch(() => undefined);
+  }
+  if (!env.SAGA_OWNER_TELEGRAM_ID || (leader && leader.id === env.SAGA_OWNER_TELEGRAM_ID)) return false;
+  const name = chair?.author_name ?? "Jacob";
+  await telegram.sendMessage(env.SAGA_OWNER_TELEGRAM_ID, leaderAgendaText(await memberLang(db, name), name, next.m, link, Boolean(leader))).catch(() => undefined);
   return true;
 }
