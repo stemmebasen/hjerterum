@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleSagaRequest } from "../saga/handler.js";
 import { claimJob, saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { scheduledAgendaAsk } from "./agendaAsk.js";
+import { scheduledAgendaAsk, scheduledLeaderAgenda } from "./agendaAsk.js";
 import { meetingOn, saveMeeting } from "./data.js";
 import { setMemberLang } from "./i18n.js";
 
@@ -65,5 +65,25 @@ describe("Saga asks each board member for agenda points the day before a team me
     expect((await meetingOn(db, "2026-10-15"))?.agenda).toBe("Velkommen\nØkonomi\nBudget for julefrokosten\nEvt.");
     const reply = services.telegram("sendMessage").map(text).filter(m => m.chat_id === "201").at(-1)!.text;
     expect(reply).toContain("✓ Sat på dagsordenen torsdag 15. oktober: Budget for julefrokosten - se mødet: https://admin.hjerterum.example/moder/1");
+  });
+
+  // Requested: "Mødelederen skal have sendt den færdige dagsorden en halv time inden start på telegram."
+  it("sends the meeting leader the final agenda privately half an hour before - in their language - and the chair when there is no leader", async () => {
+    const START = Date.parse("2026-10-15T11:30:00Z");
+    const { db, env, services, fetcher, claim } = await setup();
+    await db.prepare("UPDATE board_meetings SET leader = 'Douglas Crawford', moderator = 'Lisbeth', agenda = 'Velkommen\nØkonomi\nEvt.'").run();
+    expect(await scheduledLeaderAgenda(env, deps(fetcher, START - 40 * 60_000), db, claim)).toBe(false);
+    expect(await scheduledLeaderAgenda(env, deps(fetcher, START - 25 * 60_000), db, claim)).toBe(true);
+    expect(await scheduledLeaderAgenda(env, deps(fetcher, START - 15 * 60_000), db, claim)).toBe(false);
+    const sent = services.telegram("sendMessage").map(text);
+    expect(sent).toEqual([{ chat_id: "203", text: "Hi Douglas 🙂 You are leading today's team meeting at 13.30 (Hjerterum). Here is the final agenda:\n\n1. Velkommen\n2. Økonomi\n3. Evt."
+      + "\n\nMødeleder: Douglas · Ordstyrer: Lisbeth\n\nOn the meeting's page: https://admin.hjerterum.example/moder/1#dagsorden", disable_web_page_preview: true }].map(m => expect.objectContaining({ chat_id: m.chat_id, text: m.text })));
+
+    const none = await setup();
+    await scheduledLeaderAgenda(none.env, deps(none.fetcher, START - 20 * 60_000), none.db, none.claim);
+    const toChair = none.services.telegram("sendMessage").map(text);
+    expect(toChair).toHaveLength(1);
+    expect(toChair[0]).toMatchObject({ chat_id: OWNER });
+    expect(toChair[0]!.text).toContain("Hej Jacob 🙂 Dagens teammøde har ingen mødeleder endnu kl. 13.30 (Hjerterum). Her er den færdige dagsorden:\n\n1. Økonomi");
   });
 });

@@ -30,7 +30,7 @@ import {
 import { approvalButtons, telegramClient } from "./telegram.js";
 import { importDocMinutes } from "./importDoc.js";
 import { boardKnowledge } from "../cockpit/ask.js";
-import { scheduledAgendaAsk } from "../cockpit/agendaAsk.js";
+import { scheduledAgendaAsk, scheduledLeaderAgenda } from "../cockpit/agendaAsk.js";
 import { frameComingAgendas, scheduledAgendaPriority } from "../cockpit/agendaPriority.js";
 import { boardMembers, memberDoneForSaga, responsibilities, responsibilitiesForSaga } from "../cockpit/data.js";
 import { handlePendingCorrections } from "../cockpit/corrections.js";
@@ -414,6 +414,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   if (options.mail !== false) { await step("mail"); await runTeamMailRound(env, deps); }
   // Requested: "Start altid med et Velkommen punkt, samt slut med Evt." - first in the round, and without AI, so it is there whatever comes after.
   await frameComingAgendas(db, deps.now()).catch(error => console.warn("saga_agenda_frame_failed", error instanceof Error ? error.message : error));
+  // Requested: "Mødelederen skal have sendt den færdige dagsorden en halv time inden start på telegram" - early in the round, so nothing slow comes first.
+  await scheduledLeaderAgenda(env, deps, db, (key, slot) => claimJob(db, key, slot, deps.now()))
+    .catch(error => console.warn("saga_leader_agenda_failed", error instanceof Error ? error.message : error));
   await step("optagelser og referater");
   // Asked: "Og er vi sikre på, at mailen bliver tjekket kontinuerligt?" - when team@ has not been checked for two hours
   // (or cannot be read), Saga tells Jacob privately, once a day. No AI.
