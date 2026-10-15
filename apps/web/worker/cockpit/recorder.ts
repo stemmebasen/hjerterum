@@ -16,6 +16,8 @@
  *   says so at once when the microphone goes quiet, is taken away by the phone or stops delivering, notes the holes there were, and a "Tjek mikrofonen"
  *   button tries the microphone for a few seconds before the meeting. */
 
+import { infoTip } from "./info.js";
+
 const esc = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export const RECORDER_LIMIT_BYTES = 55 * 1024 * 1024;
@@ -208,8 +210,7 @@ export function recorderCard(base: string, o: { date: string; meetingId?: number
 <label class="check"><input type="checkbox" data-rec-consent> <span>Alle, der deltager, ved, at mødet bliver optaget.</span></label>
 <div class="actions" style="margin:10px 0 0"><button type="button" data-rec-start disabled>● Start optagelse</button><button type="button" class="ghost" data-rec-check>Tjek mikrofonen</button></div>
 <div class="meter" style="margin-top:10px"><i data-rec-check-level></i></div><p class="small check-result" data-rec-check-result role="status" aria-live="polite"></p>
-<p class="small muted">Optagelsen bruger enhedens mikrofon: læg telefonen eller computeren midt på bordet, og hold siden åben og skærmen tændt, mens I optager. Når I trykker stop, skriver Saga referatet ud fra optagelsen og dagsordenen.</p>
-<p class="small muted">Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.</p></div>
+${infoTip("Optagelsen bruger enhedens mikrofon: læg telefonen eller computeren midt på bordet, og hold siden åben og skærmen tændt, mens I optager. Når I trykker stop, skriver Saga referatet ud fra optagelsen og dagsordenen.", "Lydfilen slettes 14 dage efter, at referatet er lagt op. Referatet og transskriptionen beholdes.")}</div>
 <div data-rec="live" hidden><p class="recbar"><span class="dot"></span><strong data-rec-time>00:00</strong><span data-rec-state>Optager</span></p>
 <div class="meter"><i data-rec-level></i></div><div class="warns" data-rec-warns role="alert"></div>
 <div class="actions"><button type="button" class="ghost" data-rec-pause>Pause</button><button type="button" data-rec-stop>Stop og lav referat</button></div>

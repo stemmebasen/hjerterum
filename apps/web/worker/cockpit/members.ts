@@ -104,6 +104,20 @@ function change(now: number | null, before: number | null | undefined): string {
   return `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "+" : "−"}${KR.format(Math.abs(d))}</span>`;
 }
 
+/** Requested: "Når der står + eller - ved siden af medlemstallet, skal det være beregnet ift. en uge tidligere. Og det skal nævnes f.eks. '5 nye ift. sidste uge'
+ * eller '3 færre ift. sidste uge'." The count to compare with: the newest one taken at least a week before the newest; none when there is no such count. */
+export function weekBefore(rows: MemberStats[]): MemberStats | undefined {
+  const [now] = rows;
+  if (!now) return undefined;
+  const weekAgo = new Date(Date.parse(`${now.taken_on}T12:00:00Z`) - 7 * 86_400_000).toISOString().slice(0, 10);
+  return rows.find(r => r.taken_on <= weekAgo);
+}
+export function changeWords(now: number | null, before: number | null | undefined): string {
+  if (now === null || before === null || before === undefined) return "";
+  const d = now - before;
+  return d > 0 ? `${KR.format(d)} ${d === 1 ? "ny" : "nye"} ift. sidste uge` : d < 0 ? `${KR.format(-d)} færre ift. sidste uge` : "som sidste uge";
+}
+
 export const MEMBERS_STYLE = `
 .figures{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:2px 0 14px}.figures div{background:var(--soft);border-radius:14px;padding:12px 14px;min-width:0}
 .figures b{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1.15}.figures span{font-size:12.5px;color:var(--muted)}
@@ -116,15 +130,15 @@ export const MEMBERS_STYLE = `
 
 /** Requested: "Lad os droppe medlems-count vinduet for nu, og i stedet have et card i toppen - et femte kort": the front page's fifth key figure - the paying members, the change since the figures before, when they were taken and the way to the rest. */
 export function membersTile(base: string, rows: MemberStats[]): string {
-  const [now, before] = rows;
+  const [now] = rows, before = weekBefore(rows);
   if (!now) return `<a class="tile" href="${base}/medlemmer/tal"><span class="label">Medlemmer</span><b>–</b><span class="sub">Ingen medlemstal endnu</span></a>`;
-  return `<a class="tile" href="${base}/medlemmer/tal"><span class="label">Medlemmer</span><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span class="sub">betalende medlemmer</span>
+  return `<a class="tile" href="${base}/medlemmer/tal"><span class="label">Medlemmer</span><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span class="sub">betalende medlemmer${before ? ` · ${changeWords(now.paying, before.paying)}` : ""}</span>
 <span class="sub wrap">opdateret ${esc(shortDay(now.taken_on))}. <span class="more-link">Læs mere</span></span></a>`;
 }
 
 /** The "Medlemmer" panel. Requested: "we don't give these figures" - the front page (`front`) has the four figures and the way to the rest; the share of each kind of membership is on the page of the figures. */
 export function membersPanel(base: string, rows: MemberStats[], front = true): string {
-  const [now, before] = rows;
+  const [now] = rows, before = weekBefore(rows);
   const head = `<header><h2>Medlemmer</h2><p>Fra MembershipWorks${now ? ` · opdateret ${esc(shortDay(now.taken_on))}` : ""}.</p></header>`;
   if (!now) return `<article class="panel">${head}<p class="empty">Ingen medlemstal endnu.</p><a class="more" href="${base}/medlemmer/tal">Upload et skærmbillede →</a></article>`;
   // Requested: "\"Betaling stoppet\" grafen er ikke relevant. Men fint at se hvordan det går med samtlige abonnementer" -
@@ -132,9 +146,9 @@ export function membersPanel(base: string, rows: MemberStats[], front = true): s
   const top = now.plans.filter(p => p.share !== null && !/stoppet|cancel/i.test(p.name));
   const max = Math.max(...top.map(p => p.share ?? 0), 1);
   return `<article class="panel">${head}<div class="figures">
-<div><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span>betalende medlemmer</span></div>
+<div><b>${KR.format(now.paying)}${change(now.paying, before?.paying)}</b><span>betalende medlemmer${before ? ` · ${changeWords(now.paying, before.paying)}` : ""}</span></div>
 <div><b>${now.annual_revenue_kr !== null ? `${KR.format(now.annual_revenue_kr)} kr.` : "–"}</b><span>medlemskontingent (årligt)</span></div>
-<div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab</span></div>
+<div><b>${now.free !== null ? KR.format(now.free) : "–"}${change(now.free, before?.free)}</b><span>på gratis medlemskab${before && now.free !== null && before.free !== null ? ` · ${changeWords(now.free, before.free)}` : ""}</span></div>
 <div><b>${now.past_due !== null ? KR.format(now.past_due) : "–"}${change(now.past_due, before?.past_due)}</b><span>i restance${now.cancelled ? ` · ${now.cancelled} opsagt` : ""}</span></div></div>
 <p class="small muted" style="margin:10px 0 0">Tallene er skrevet af fra MembershipWorks' dashboard. Gratis medlemskab, restance og opsagte er hver deres tal.</p>
 ${top.length && !front ? `<ul class="bars" aria-label="Medlemstyper">${top.map(p => `<li><div class="lbl"><span>${esc(p.name)}</span><span>${p.count !== null ? `${p.count} · ` : ""}${String(p.share).replace(".", ",")} %</span></div><div class="track"><i style="width:${Math.round(100 * (p.share ?? 0) / max)}%"></i></div></li>`).join("")}</ul>` : ""}

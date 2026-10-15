@@ -45,3 +45,18 @@ describe("the to-do list after Gitta's comments", () => {
     expect(comingNames(["Jacob Hauge", "Gitta Hansen", "Lisbeth"])).toBe("Jacob, Gitta og Lisbeth");
   });
 });
+
+// Requested: "Når der står + eller - ved siden af medlemstallet, skal det være beregnet ift. en uge tidligere. Og det skal nævnes f.eks. '5 nye ift. sidste uge'".
+describe("the members' change over a week", () => {
+  it("compares with the count from at least a week before, and says it in words", async () => {
+    const { changeWords, membersTile, weekBefore } = await import("./members.js");
+    const row = (taken_on: string, paying: number) => ({ id: 0, taken_on, total_accounts: 0, with_membership: null, paying, free: null, past_due: null, pending_cancellation: null, cancelled: null, annual_revenue_kr: null, plans: [], added_by: "", created_at_ms: 0 });
+    const rows = [row("2026-10-15", 177), row("2026-10-12", 175), row("2026-10-08", 172), row("2026-10-06", 171)];
+    expect(weekBefore(rows)?.taken_on).toBe("2026-10-08");
+    expect(changeWords(177, 172)).toBe("5 nye ift. sidste uge");
+    expect(changeWords(169, 172)).toBe("3 færre ift. sidste uge");
+    expect(changeWords(173, 172)).toBe("1 ny ift. sidste uge");
+    expect(membersTile("", rows)).toContain('<b>177<span class="delta up">+5</span></b><span class="sub">betalende medlemmer · 5 nye ift. sidste uge</span>');
+    expect(weekBefore(rows.slice(0, 2))).toBeUndefined();
+  });
+});

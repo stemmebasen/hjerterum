@@ -215,7 +215,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // Telegram and Matrix: with one shared login, anyone could say they are the chair.
   if (path === "/" && request.method === "GET") {
     const [{ picture, summary, at }, minutes, list, progress, events, month, memberStats, newEnquiries] = await Promise.all([boardPicture(db, now), approvedMinutes(db), meetings(db), minutesInProgress(db),
-      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db), openEnquiryCount(db, now)]);
+      comingEvents(db, now, 30, 4), db.prepare("SELECT COUNT(*) AS n FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms >= ? AND starts_at_ms < ?").bind(now, now + 30 * 86_400_000).first<{ n: number }>(), latestStats(db, 12), openEnquiryCount(db, now)]);
     const [eventsToReview, boardNow, votes, openProposals, held, posts] = await Promise.all([reviewCount(db, now), latestBoardNow(db), awaitingVote(db, who, now), proposals(db, now).catch(() => []),
       db.prepare("SELECT COUNT(*) AS n, MIN(starts_at_ms) AS first FROM house_events WHERE removed_at_ms IS NULL AND starts_at_ms < ?").bind(now).first<{ n: number; first: number | null }>().catch(() => null), boardPosts(db, now).catch(() => [])]);
     const isChair = Boolean(who && members.chair && who === members.chair);
@@ -622,13 +622,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
 
   // MembershipWorks' figures from a screenshot (members.ts) - now under Medlemmer → Tal fra MembershipWorks.
   if (path === "/medlemmer/tal" && request.method === "GET") {
-    const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
+    const [rows, history] = await Promise.all([latestStats(db, 12), latestStats(db, 12)]);
     return html(membersPage(base, { who, rows, history, today, notice: url.searchParams.has("gemt") ? "Medlemstallene er gemt." : "" }));
   }
   if (path === "/medlemmer/laes" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
     const file = (await request.formData().catch(() => null))?.get("billede");
-    const [rows, history] = await Promise.all([latestStats(db), latestStats(db, 12)]);
+    const [rows, history] = await Promise.all([latestStats(db, 12), latestStats(db, 12)]);
     if (!(file instanceof File) || !IMAGE_TYPES.has(file.type) || !file.size || file.size > IMAGE_MAX || !env.AI_API_KEY || !env.AI_MODEL)
       return html(membersPage(base, { who, rows, history, today, read: null }));
     const read = await readScreenshot(env, deps, { type: file.type, base64: toBase64(new Uint8Array(await file.arrayBuffer())) }, today)
