@@ -135,3 +135,14 @@ describe("Bestyrelsen lige nu", () => {
     expect(page).toContain('href="/status">Mere i Status →');
   });
 });
+
+// Reported: "Det er underligt, at hun siger eller taler negativt om medlemmer, når vi faktisk bliver ved med at få forhøjet medlemstallet."
+describe("the members as the numbers say", () => {
+  it("gives Saga the newest count and the change over about a month", async () => {
+    const { memberTrend } = await import("./boardNow.js");
+    const row = (taken_on: string, paying: number, with_membership: number) => ({ id: 0, taken_on, total_accounts: 0, with_membership, paying, free: null, past_due: null, pending_cancellation: null, cancelled: null, annual_revenue_kr: null, plans: [], added_by: "", created_at_ms: 0 });
+    expect(memberTrend([row("2026-10-15", 177, 390), row("2026-10-09", 172, 380), row("2026-09-14", 160, 360)], Date.parse("2026-10-15T10:00:00Z")))
+      .toBe("MEDLEMSTAL (MembershipWorks - det er dem, medlemsudviklingen vurderes ud fra):\n- 2026-10-15: 177 betalende, 390 med medlemskab i alt\n- Siden 2026-09-14: betalende 160 → 177 (+17), med medlemskab 360 → 390 (+30)");
+    expect(memberTrend([], Date.now())).toBe("");
+  });
+});
