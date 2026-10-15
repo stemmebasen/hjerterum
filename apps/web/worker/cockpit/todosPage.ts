@@ -3,6 +3,7 @@ import type { BoardPicture } from "../saga/picture.js";
 import { esc, layout, shortDay } from "./page.js";
 import { voteTodo, type Proposal } from "./votes.js";
 import { postTodo, type PostView } from "./board.js";
+import { prTodo, type PrTodo } from "./prWishes.js";
 import { signTodo } from "./signReminder.js";
 
 /** Requested: "vi skal have en påmindelsesliste / to do-liste, hvor man skal krydse af de opgaver der
@@ -30,6 +31,12 @@ details.done-list summary{cursor:pointer;color:var(--muted);font-weight:600;marg
 .todo-row{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:20px;align-items:start;margin:0 0 20px}.todo-row>.card{margin:0}.todo-row .add{grid-template-columns:1fr}
 @media (max-width:860px){.todo-row{grid-template-columns:1fr;gap:16px}}
 ${WHO_CHIP_STYLE}.who-filter{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.cat-filter{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}.cat-filter .cat{padding:5px 12px;min-height:0;font-size:13px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+.cat-filter .cat[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.todo{flex-wrap:wrap}.todo .pen{border:0;background:transparent;color:var(--faint);padding:2px 6px;min-height:0;font-size:15px}
+.todo-edit{display:none;flex:1 1 100%;flex-wrap:wrap;justify-content:flex-end;gap:8px}.todo-edit textarea{flex:1 1 100%;font:inherit;line-height:1.4;resize:vertical;min-height:0}
+.todo-edit button{min-height:36px;padding:6px 14px;font-size:14px}.todo.editing .todo-edit{display:flex}.todo.editing .what,.todo.editing .pen,.todo.editing form:not(.todo-edit),.todo.editing .check{display:none}
+ul.plain li .pr-done{display:inline;margin:0}ul.plain li .pr-done .linkbtn{font-size:12.5px;padding:0;min-height:0;border:0;background:none;color:var(--accent);text-decoration:underline;cursor:pointer}
 ul.moves{list-style:none;margin:0;padding:0;display:grid}ul.moves li{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:baseline;padding:11px 0;border-top:1px solid var(--line)}
 ul.moves li:first-child{border-top:0}ul.moves li.is-done>span:last-child{color:var(--muted)}ul.moves .tick{color:var(--accent);font-weight:800}ul.moves .who{cursor:default}ul.moves .when{font-size:12.5px;color:var(--faint);white-space:nowrap;margin-left:6px}
 @media (max-width:760px){ul.moves li{grid-template-columns:1fr;gap:4px}ul.moves .who{justify-self:start}}
@@ -51,7 +58,9 @@ export type TodosData = { who: string; members: string[]; tasks: Task[]; checked
   /** The board's posts that wait on this member (cockpit/board.ts). */
   posts?: PostView[];
   /** Minutes this member has not approved yet (signReminder.ts). */
-  toSign?: ApprovedMinutes[] };
+  toSign?: ApprovedMinutes[];
+  /** Gitta's: the PR wishes not yet made (prWishes.ts). */
+  prs?: PrTodo[] };
 
 type Kind = "opgave" | "punkt" | "saga";
 /** The same task's other lines (kind:id), checked or removed with the one shown. */
@@ -97,12 +106,31 @@ function taskItem(base: string, task: Task, done: boolean, also: string[] = [], 
 <div class="small muted">${esc(agreedLabel(task.meeting))}${task.who ? ` · ${esc(task.who)}` : ""}</div></div>${done ? "" : removeButton(base, "opgave", taskKey(task), also, back)}</li>`;
 }
 
+/** Requested (Gitta): "Det ville være nice hvis man kunne redigere sine egne to do's, sådan at når jeg skriver en ting til mig selv og laver en fejl ... så kan
+ * jeg rette det." The pencil on an open to-do written by or to you: the text in a field the whole width, Gem and Annullér under it. */
 function todoItem(base: string, todo: Todo, who: string, also: string[] = [], back?: Back): string {
-  const done = todo.done_at_ms !== null;
+  const done = todo.done_at_ms !== null, editable = !done && (todo.created_by === who || todo.owner === who);
   return `<li class="todo${done ? " is-done" : ""}">${box(base, "punkt", String(todo.id), done, also, back)}<div class="what">${esc(sentence(todo.text))}${dueLabel(todo.due)}
 <div class="small muted">${todo.owner === EVERYONE ? `Til alle · ${todo.created_by === who ? "skrevet af dig" : `fra ${esc(todo.created_by)}`}` : todo.created_by === who ? "Skrevet af dig" : `Fra ${esc(todo.created_by)}`}</div></div>
-${removeButton(base, "punkt", String(todo.id), also, back)}</li>`;
+${editable ? `<button type="button" class="pen" data-todo-edit aria-label="Ret opgaven" title="Ret opgaven">✎</button>` : ""}${removeButton(base, "punkt", String(todo.id), also, back)}
+${editable ? `<form class="todo-edit" method="post" action="${base}/opgaver/ret"><input type="hidden" name="id" value="${todo.id}">${backField(back)}<textarea name="text" rows="2" required maxlength="300" aria-label="Ret opgaven">${esc(todo.text)}</textarea><button>Gem</button><button type="button" class="ghost" data-todo-cancel>Annullér</button></form>` : ""}</li>`;
 }
+
+/** Requested (Gitta): "Det ville også være nice at kunne sortere to do listen, så jeg feks kan vælge at få alle pr ønsker efter hinanden ... Måske kategorier er:
+ * mails, PR/SoMe, Beslutninger, bestyrelse". Each line says what it is (data-cat), and buttons over the list show one kind at a time. */
+export const CATEGORIES = [["mails", "Mails"], ["pr", "PR/SoMe"], ["beslutninger", "Beslutninger"], ["bestyrelse", "Bestyrelse"], ["egne", "Egne"]] as const;
+export type Category = typeof CATEGORIES[number][0];
+export const withCat = (line: string, cat: Category) => line.replace(/^<li(?![^>]*data-cat)/, `<li data-cat="${cat}"`);
+const catFilter = (lines: string[]) => {
+  const present = CATEGORIES.filter(([id]) => lines.some(l => l.includes(`data-cat="${id}"`)));
+  return present.length > 1 ? `<div class="cat-filter" role="group" aria-label="Vis kun"><button type="button" class="cat" aria-pressed="true" data-cat="">Alle</button>${present.map(([id, name]) => `<button type="button" class="cat" aria-pressed="false" data-cat="${id}">${name}</button>`).join("")}</div>` : "";
+};
+export const TODO_SCRIPT = `<script>(()=>{const fit=t=>{t.style.height="auto";t.style.height=t.scrollHeight+2+"px"};
+document.querySelectorAll("[data-todo-edit]").forEach(b=>b.onclick=()=>{const li=b.closest("li");li.classList.add("editing");const t=li.querySelector(".todo-edit textarea");fit(t);t.focus();t.setSelectionRange(t.value.length,t.value.length)});
+document.querySelectorAll("[data-todo-cancel]").forEach(b=>b.onclick=()=>b.closest("li").classList.remove("editing"));
+document.querySelectorAll(".todo-edit textarea").forEach(t=>{t.addEventListener("input",()=>fit(t));t.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();t.form.requestSubmit()}})});
+document.querySelectorAll(".cat-filter .cat").forEach(b=>b.onclick=()=>{document.querySelectorAll(".cat-filter .cat").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+const c=b.dataset.cat;b.closest(".card").querySelectorAll("ul.open-list>li").forEach(li=>{li.hidden=Boolean(c)&&li.dataset.cat!==c})})})()</script>`;
 
 type SagaItem = { key: string; kind: string; text: string; source: string; since?: string; from?: string | null; link?: string };
 
@@ -113,13 +141,13 @@ export function openLines(base: string, d: { who: string; tasks: Task[]; todos: 
   type Line = { kind: Kind; id: string; text: string; render: (also: string[]) => string };
   const sagaLine = (f: SagaItem): Line => ({ kind: "saga", id: f.key, text: f.text, render: also => `<li class="todo">${box(base, "saga", f.key, false, also, d.back)}<div class="what">${f.kind === "spørgsmål" ? "Svar på: " : ""}${esc(sharp(f.text))}
 <div class="small muted">${esc(sagaSource(f, "Fra Saga"))}${f.link ? ` · <a href="${esc(f.link)}"${f.link.startsWith("http") ? ' target="_blank" rel="noopener"' : ""}>${f.source === "mail" ? "Svar i Posthuset" : "Svar i gruppen"} →</a>` : ""}</div></div>${removeButton(base, "saga", f.key, also, d.back)}</li>` });
-  const lines: Line[] = [
-    ...d.tasks.filter(t => t.source !== "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),
-    ...d.tasks.filter(t => t.source === "dokument").map((t): Line => ({ kind: "opgave", id: taskKey(t), text: t.what, render: also => taskItem(base, t, false, also, d.back) })),
-    ...d.saga.map(sagaLine),
-    ...d.todos.map((t): Line => ({ kind: "punkt", id: String(t.id), text: t.text, render: also => todoItem(base, t, d.who, also, d.back) })),
+  const lines: Array<Line & { cat: Category }> = [
+    ...d.tasks.filter(t => t.source !== "dokument").map(t => ({ kind: "opgave" as const, cat: "bestyrelse" as const, id: taskKey(t), text: t.what, render: (also: string[]) => taskItem(base, t, false, also, d.back) })),
+    ...d.tasks.filter(t => t.source === "dokument").map(t => ({ kind: "opgave" as const, cat: "bestyrelse" as const, id: taskKey(t), text: t.what, render: (also: string[]) => taskItem(base, t, false, also, d.back) })),
+    ...d.saga.map(f => ({ ...sagaLine(f), cat: (f.source === "mail" ? "mails" : "bestyrelse") as Category })),
+    ...d.todos.map(t => ({ kind: "punkt" as const, cat: (/^svar på mail/i.test(t.text) ? "mails" : "egne") as Category, id: String(t.id), text: t.text, render: (also: string[]) => todoItem(base, t, d.who, also, d.back) })),
   ];
-  return mergeSame(lines, l => l.text).map(({ item, twins }) => item.render(twins.map(t => `${t.kind}:${t.id}`)));
+  return mergeSame(lines, l => l.text).map(({ item, twins }) => withCat(item.render(twins.map(t => `${t.kind}:${t.id}`)), item.cat));
 }
 
 const SEVEN_DAYS = 7 * 86_400_000;
@@ -133,7 +161,8 @@ export function todosPage(base: string, data: TodosData): string {
   const doneTasks = data.tasks.filter(t => data.checked.has(taskKey(t)) && !removed.has(taskKey(t)) && recent(data.checked.get(taskKey(t))));
   const openTodos = data.todos.filter(t => t.done_at_ms === null), doneTodos = data.todos.filter(t => t.done_at_ms !== null && recent(t.done_at_ms));
   const merged = openLines(base, { who: data.who, tasks: openTasks, todos: openTodos, saga: data.saga ?? [] });
-  const open = [...(data.toSign ?? []).map(m => signTodo(base, m, nowMs)), ...(data.votes ?? []).map(p => voteTodo(base, p)), ...(data.posts ?? []).map(p => postTodo(base, p)), ...merged];
+  const open = [...(data.toSign ?? []).map(m => withCat(signTodo(base, m, nowMs), "bestyrelse")), ...(data.votes ?? []).map(p => withCat(voteTodo(base, p), "beslutninger")),
+    ...(data.posts ?? []).map(p => withCat(postTodo(base, p), "bestyrelse")), ...(data.prs ?? []).map(w => prTodo(base, w)), ...merged];
   const done = [...doneTodos.map(t => todoItem(base, t, data.who)), ...doneTasks.map(t => taskItem(base, t, true))];
   const others = data.members.filter(m => m !== data.who);
   const add = `<div class="card"><h2>Skriv en opgave</h2><form class="add" method="post" action="${base}/opgaver/ny">
@@ -144,7 +173,7 @@ export function todosPage(base: string, data: TodosData): string {
 <p class="small" style="margin:12px 0 0"><a href="${base}/opslag?art=afstemning#nyt">Stil et forslag til afstemning i bestyrelsen →</a></p></div>`;
   // Requested: "At gøre = Dine to-do's".
   const list = `<div class="card"><h2>Dine to-do's${open.length ? ` <span class="pill">${open.length}</span>` : ""}</h2>
-${open.length ? `<ul class="plain">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
+${catFilter(open)}${open.length ? `<ul class="plain open-list">${open.join("")}</ul>` : `<p class="muted">Intet venter på dig. Godt gået.</p>`}
 ${done.length ? `<details class="done-list"><summary>Klaret de sidste 7 dage (${done.length})</summary><ul class="plain">${done.join("")}</ul></details>` : ""}
 <p class="small muted done-note">Opgaver, der er klaret, forsvinder automatisk efter syv dage.</p></div>`;
   const everyone = uniqueTasks(data.everyone ?? []), checks = data.boardChecks ?? new Map(), now = data.now ?? Date.now();
@@ -170,5 +199,5 @@ ${archived.length ? `<details class="done-list"><summary>Arkiv (${archived.lengt
 <script>document.querySelectorAll(".who-filter .who").forEach(b=>b.onclick=()=>{const on=b.getAttribute("aria-pressed")!=="true";document.querySelectorAll(".who-filter .who").forEach(x=>x.setAttribute("aria-pressed","false"));
 b.setAttribute("aria-pressed",String(on));document.querySelectorAll("ul.moves li").forEach(li=>{li.hidden=on&&li.dataset.who!==b.dataset.who})})</script>` : "";
   return layout(base, "Opgaver", `<main><h1>Dine opgaver</h1><p class="muted">Opgaver fra referaterne, og dem du eller andre i bestyrelsen skriver til dig - de nyeste øverst. Tryk på firkanten, når en er klaret.</p>
-${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}<div class="todo-row">${list}${add}</div>${board}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}<div class="todo-row">${list}${add}</div>${board}${TODO_SCRIPT}</main>`, { section: "/opgaver", who: data.who, style: TODOS_STYLE });
 }

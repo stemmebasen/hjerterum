@@ -14,6 +14,8 @@ const BRICOLAGE_FONT_URL = "https://fonts.googleapis.com/css2?family=Bricolage+G
  * install, and nothing of the board's in a script. Every value from the database is escaped. */
 
 export const esc = (value: unknown) => String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+/** Asked: 'Kommer: Jacob, Gitta (2) - Hvad betyder "(2)"?' - the names say it; "Jacob og Gitta", "Jacob, Gitta og Lisbeth". */
+export const comingNames = (coming: string[]) => { const n = coming.map(name => name.trim().split(/\s+/)[0] ?? name); return n.length > 1 ? `${n.slice(0, -1).join(", ")} og ${n[n.length - 1]}` : n.join(""); };
 
 const DANISH_DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 const DANISH_SHORT = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -383,7 +385,7 @@ ${rolesLine(m) ? `<p class="small muted" style="margin:-6px 0 8px">${esc(rolesLi
 ${items.length ? `<div class="agenda-box"><ol class="agenda">${items.slice(0, SHOWN).map(item => point(item)).join("")}</ol>${items.length > SHOWN ? fold("Klik her for detaljer", "Skjul detaljer", `<ol class="agenda" start="${SHOWN + 1}">${items.slice(SHOWN).map(item => point(item)).join("")}</ol>`, items.length - SHOWN) : ""}</div>` : `<p class="muted small">${all.length ? "Kun Sagas forslag endnu - du finder dem under Rediger møde." : "Ingen dagsorden endnu."}</p>`}
 <p class="meet-actions"><a class="button ghost" href="${base}/moder/${m.id}">Rediger møde</a>${coming === undefined ? "" : `<span class="small muted">${coming.length
     // Requested: "Der skal så stå deltagere diskret til højre for Rediger møde-knappen" - who pressed "Jeg kommer" (assocEvents.ts).
-    ? `Deltagere: ${esc(coming.map(n => n.trim().split(/\s+/)[0] ?? n).join(", "))} (${coming.length})` : "Ingen har meldt sig endnu"}</span>`}</p>`;
+    ? `Deltagere: ${esc(comingNames(coming))}` : "Ingen har meldt sig endnu"}</span>`}</p>`;
 }
 
 const md = (text: string) => /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(text))?.[1] ?? "";

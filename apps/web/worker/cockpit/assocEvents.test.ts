@@ -79,7 +79,7 @@ describe("the association's own gatherings on the admin's front page", () => {
     expect(said.headers.get("location")).toBe("/");
     home = await (await ask("/", { headers: { cookie } })).text();
     expect(home).toContain('<button class="is-coming" aria-pressed="true">✓ Du kommer</button>');
-    expect(home).toContain('<span class="assoc-who">Kommer: Jacob (1)</span>');
+    expect(home).toContain('<span class="assoc-who">Kommer: Jacob</span>');
     await ask("/kommer", { method: "POST", headers: { origin: ORIGIN, cookie }, body: form("hus:gf1") });
     home = await (await ask("/", { headers: { cookie } })).text();
     expect(home).not.toContain("Kommer: Jacob");
@@ -92,6 +92,6 @@ describe("the association's own gatherings on the admin's front page", () => {
     expect(meetings).toContain(`Rediger møde</a><span class="small muted">Ingen har meldt sig endnu</span>`);
     await ask("/kommer", { method: "POST", headers: { origin: ORIGIN, cookie }, body: form(`moede:${meetingId}`) });
     meetings = await (await ask("/moder", { headers: { cookie } })).text();
-    expect(meetings).toContain(`Rediger møde</a><span class="small muted">Deltagere: Jacob (1)</span>`);
+    expect(meetings).toContain(`Rediger møde</a><span class="small muted">Deltagere: Jacob</span>`);
   });
 });

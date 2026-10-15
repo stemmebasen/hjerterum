@@ -367,7 +367,7 @@ describe("the board cockpit", () => {
     const front = await (await call("/cockpit/", { cookie: chair })).text();
     const panel = front.slice(front.indexOf('id="dine-opgaver"'));
     // The checkbox stands to the left of the text, in the same markup as Opgaver, and brings the member back to the panel.
-    expect(panel).toMatch(/<li class="todo"><form method="post" action="\/cockpit\/opgaver\/afkryds">[^]*?<input type="hidden" name="back" value="forside">\s*<button class="check"[^]*?<div class="what">Ring til udlejeren/);
+    expect(panel).toMatch(/<li data-cat="egne" class="todo"><form method="post" action="\/cockpit\/opgaver\/afkryds">[^]*?<input type="hidden" name="back" value="forside">\s*<button class="check"[^]*?<div class="what">Ring til udlejeren/);
     expect(panel).toContain('<ul class="plain">');
     const todos = [...panel.matchAll(/name="kind" value="punkt"><input type="hidden" name="id" value="(\d+)">/g)].map(m => m[1]!);
     expect(todos.length).toBeGreaterThanOrEqual(2);

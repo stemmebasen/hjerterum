@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { Meeting } from "./data.js";
-import { esc } from "./page.js";
+import { comingNames, esc } from "./page.js";
 
 /** Requested: "Når foreningen har arrangementer som teammøder og generalforsamlinger, skal det nævnes på forsiden af admin. Vi har for eksempel
  * generalforsamling i morgen. Det bør nævnes på forsiden med en flot gradient guldbaggrund." The association's own gatherings of the coming week -
@@ -82,7 +82,7 @@ const first = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 export function rsvpLine(base: string, key: string, who: string | null, coming: string[]): string {
   const mine = Boolean(who && coming.includes(who));
   return `<div class="rsvp-line">${who ? `<form method="post" action="${base}/kommer"><input type="hidden" name="key" value="${esc(key)}"><button class="rsvp-plain${mine ? " is-coming" : ""}" aria-pressed="${mine}">${mine ? "✓ Du kommer" : "Jeg kommer"}</button></form>` : ""}
-<span class="small muted">${coming.length ? `Kommer: ${esc(coming.map(first).join(", "))} (${coming.length})` : "Ingen har meldt sig endnu"}</span></div>`;
+<span class="small muted">${coming.length ? `Kommer: ${esc(comingNames(coming))}` : "Ingen har meldt sig endnu"}</span></div>`;
 }
 
 export function assocCard(events: AssocEvent[], today: string, rsvp: { base: string; who: string | null; coming: Map<string, string[]> } = { base: "", who: null, coming: new Map() }): string {
@@ -94,7 +94,7 @@ export function assocCard(events: AssocEvent[], today: string, rsvp: { base: str
     return `<div class="assoc"><a class="assoc-main" href="${esc(e.href)}">
 <span class="assoc-when">${esc(when(e.day, today))}</span><strong>${esc(e.title)}</strong>
 <span class="assoc-meta">${esc(LONG.format(new Date(`${e.day}T12:00:00Z`)).replace(/^\p{Ll}/u, c => c.toLocaleUpperCase("da-DK")))}${e.time ? ` kl. ${esc(e.time.replace(":", "."))}` : ""}${e.place ? ` · ${esc(e.place)}` : ""}</span>
-${coming.length ? `<span class="assoc-who">Kommer: ${esc(coming.map(first).join(", "))} (${coming.length})</span>` : ""}</a>${button}</div>`;
+${coming.length ? `<span class="assoc-who">Kommer: ${esc(comingNames(coming))}</span>` : ""}</a>${button}</div>`;
   }).join("")}</section>`;
 }
 

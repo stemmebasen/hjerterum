@@ -538,6 +538,14 @@ export async function setTodoDone(db: D1Database, id: number, owner: string, don
   // A to-do made from a mail: checking it off answers the mail.
   await db.prepare("UPDATE board_mail SET handled_at_ms = ?, handled_by = ? WHERE assigned_todo_id = ?").bind(done ? nowMs : null, done ? owner : null, id).run();
 }
+/** One's own to-do rewritten (written by or to them, still open). */
+export async function editTodo(db: D1Database, id: number, who: string, text: string): Promise<boolean> {
+  const clean = text.replace(/\s+/g, " ").trim().slice(0, 300);
+  if (!clean) return false;
+  const done = await db.prepare("UPDATE cockpit_todos SET text = ? WHERE id = ? AND (created_by = ? OR owner = ?) AND done_at_ms IS NULL").bind(clean, id, who, who).run();
+  return Number(done.meta?.changes ?? 0) === 1;
+}
+
 export async function removeTodo(db: D1Database, id: number, who: string): Promise<void> {
   await db.prepare("DELETE FROM cockpit_todos WHERE id = ? AND (created_by = ? OR owner = ?)").bind(id, who, who).run();
 }

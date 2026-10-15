@@ -77,3 +77,18 @@ export const PR_STYLE = `.pr{margin-top:6px}.pr summary{cursor:pointer;list-styl
 .pr form{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:8px}.pr form input[name=note]{flex:1 1 140px;min-width:0}.pr .pick{font-size:13px}
 .pr-list ul{display:grid;gap:12px}.pr-list li{display:grid;gap:4px}.pr-kinds{display:grid;gap:4px}.pr-kind{display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:14px}
 .pr-kind.done>span{text-decoration:line-through;color:var(--muted)}`;
+
+/** Requested (Gitta): "i andres PR ønsker, dukker op på min todo ... Det ville være lækkert at det også dukker op på min todo/opgave liste." - "Ja på Gittas liste."
+ * Each wish not yet made, for an event still to come, is a line on Gitta's list (her first name; until the chair gives out powers), with Lavet. */
+export const isPrOwner = (who: string | null) => Boolean(who && /^gitta\b/i.test(who.trim()));
+export type PrTodo = { event_id: string; kind: PrKind; note: string | null; wished_by: string[]; title: string; starts_at_ms: number };
+export async function openPrWishes(db: D1Database, nowMs: number): Promise<PrTodo[]> {
+  const rows = (await db.prepare(`SELECT w.event_id, w.kind, w.note, w.wished_by, e.title, e.starts_at_ms FROM event_pr_wishes w JOIN house_events e ON e.id = w.event_id
+    WHERE w.done_at_ms IS NULL AND e.removed_at_ms IS NULL AND e.starts_at_ms >= ? ORDER BY e.starts_at_ms LIMIT 60`).bind(nowMs - 86_400_000)
+    .all<{ event_id: string; kind: PrKind; note: string | null; wished_by: string; title: string; starts_at_ms: number }>().catch(() => ({ results: [] }))).results ?? [];
+  return rows.map(r => ({ ...r, wished_by: names(r.wished_by) }));
+}
+const TODO_DAY = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "short", day: "numeric", month: "short" });
+export const prTodo = (base: string, w: PrTodo, back: "opgaver" | "forside" = "opgaver") => `<li data-cat="pr"><a href="${base}/arrangementer#pr"><strong>${label(w.kind)}${w.kind === "andet" && w.note ? `: ${esc(w.note)}` : ""} - ${esc(w.title)}</strong></a>`
+  + `<span class="ctx">PR-ønske · ${esc(TODO_DAY.format(w.starts_at_ms))} · ønsket af ${w.wished_by.map(first).map(esc).join(", ")}</span>`
+  + `<form method="post" action="${base}/arrangementer/pr/lavet" class="pr-done"><input type="hidden" name="event" value="${esc(w.event_id)}"><input type="hidden" name="kind" value="${w.kind}"><input type="hidden" name="done" value="1"><input type="hidden" name="back" value="${back}"><button class="linkbtn">Markér lavet</button></form></li>`;
