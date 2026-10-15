@@ -13,7 +13,7 @@ import { scheduledBackup } from "./backup.js";
 import { writeProgramIntro } from "../program.js";
 import { getExternalEvents } from "../external-events.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
-import { removeDuplicateTodos } from "../cockpit/data.js";
+import { EDIT_DAYS, inEditWindow, removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
 import { completeAs } from "./ai.js";
@@ -277,13 +277,29 @@ export async function publishMinutes(env: SagaEnv, deps: SagaDeps, id: number, n
   const stored = await approveMinutes(env, deps, id, true, { quiet: true });
   const link = cockpitLink(env, `/referat/${id}`);
   const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), item.draft_markdown,
-    `${note} Det er lagt op${link ? `: ${link}` : " i admin"}, og bestyrelsen godkender det dér. ${stored} Svar på denne besked for at rette referatet.`);
+    `${note} Det er lagt op${link ? `: ${link}` : " i admin"}. Bestyrelsen kan rette i det i ${EDIT_DAYS} dage og godkender det derefter. ${stored} Svar på denne besked for at rette referatet.`);
   await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
   // Requested: "Referatet er ikke endnu gengivet/inkluderet på forsiden" - Saga's picture of the board
   // (the front page's "Lige nu") is written again at once from the new minutes.
   if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY) await draftOverview(env, deps).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
-  // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL".
-  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} klar til godkendelse:\n${link || "Se det i admin."}`);
+  // Requested: "Hej alle sammen 😊 / Så er referatet klar til godkendelse: / URL" - then: "Referat-udkast kan tilrettes og ændres i 3 dage.
+  // Herefter ... skal bestyrelsesmedlemmerne godkende det hver især." Now they are told to correct it; approving comes when the three days are over.
+  await pingBoard(env, deps, `Hej alle sammen 😊\nSå er referatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} lagt op. I kan rette i det de næste ${EDIT_DAYS} dage - derefter godkender I det hver især:\n${link || "Se det i admin."}`);
+}
+
+/** When the three days of corrections are over, the board is told once that the minutes can no longer be changed and are now to be approved. */
+export async function scheduledApprovalOpen(env: SagaEnv, deps: SagaDeps): Promise<number> {
+  const db = requireDb(env), now = deps.now();
+  const rows = (await db.prepare(`SELECT id, meeting_date FROM board_minutes WHERE status = 'approved' AND source != 'document' AND locked_at_ms IS NULL
+    AND created_at_ms <= ? AND created_at_ms > ? ORDER BY created_at_ms`).bind(now - EDIT_DAYS * DAY, now - (EDIT_DAYS + 2) * DAY).all<{ id: number; meeting_date: string | null }>()).results ?? [];
+  let sent = 0;
+  for (const row of rows) {
+    if (!await claimJob(db, "minutes_approval_open", row.id, now)) continue;
+    const link = cockpitLink(env, `/referat/${row.id}`);
+    await pingBoard(env, deps, `Rettelsesperioden er slut 🌿\nReferatet${row.meeting_date ? ` fra mødet ${danishDate(row.meeting_date)}` : ""} kan ikke længere ændres. Nu godkender I det hver især - når alle har godkendt, låses det:\n${link || "Se det i admin."}`);
+    sent++;
+  }
+  return sent;
 }
 
 /** Minutes drafted before they went up on their own (they waited for the chair) are put up now. */
@@ -327,9 +343,10 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(id).run();
     const link = cockpitLink(env, `/referat/${id}`);
     const sent = await telegramClient(env, deps).sendDocument(owner(env), `Referat ${item.meeting_date ?? ""}.md`.replace(/\s+\.md$/, ".md"), draft,
-      `Rettet og lagt op${link ? `: ${link}` : ""}. Bestyrelsen godkender den rettede udgave. Svar på denne besked for at rette igen.`);
+      `Rettet og lagt op${link ? `: ${link}` : ""}. ${inEditWindow(item, deps.now()) ? "Bestyrelsen kan stadig rette i det" : "Bestyrelsen godkender den rettede udgave"}. Svar på denne besked for at rette igen.`);
     await updateMinutes(db, id, { approvalMessageId: sent.message_id }, deps.now());
-    await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i admin."}`);
+    // In the three days of corrections no one has approved yet, so the group hears nothing; after them, the board approves the corrected text.
+    if (!inEditWindow(item, deps.now())) await pingBoard(env, deps, `Hej alle sammen 😊\nReferatet${item.meeting_date ? ` fra mødet ${danishDate(item.meeting_date)}` : ""} er rettet og klar til godkendelse igen:\n${link || "Se det i admin."}`);
     return;
   }
   const draft = await completeAs("referat-ret", false, 12000)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
@@ -423,6 +440,7 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   await queueDriveRecordings(env, deps).catch(error => console.warn("saga_drive_poll_failed", error instanceof Error ? error.message : error));
   await handlePendingCorrections(env, deps).catch(error => console.warn("saga_corrections_failed", error instanceof Error ? error.message : error));
   await publishDraftedMinutes(env, deps).catch(error => console.warn("saga_minutes_publish_failed", error instanceof Error ? error.message : error));
+  await scheduledApprovalOpen(env, deps).catch(error => console.warn("saga_minutes_approval_open_failed", error instanceof Error ? error.message : error));
   // The document's meetings first: a recording of one of them then has its agenda to follow.
   await importDocMinutes(env, deps).catch(error => console.warn("saga_minutes_import_failed", error instanceof Error ? error.message : error));
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));

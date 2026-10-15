@@ -1,5 +1,5 @@
 import { markdownToHtml, section, strictSection } from "../saga/markdown.js";
-import { minutesTasks, type ApprovedMinutes, type Meeting, type Signoff } from "./data.js";
+import { editUntil, inEditWindow, minutesTasks, type ApprovedMinutes, type Meeting, type Signoff } from "./data.js";
 import { esc, longDay } from "./page.js";
 import type { Correction } from "./corrections.js";
 
@@ -38,10 +38,11 @@ export function parseMinutes(markdown: string): ParsedMinutes | null {
     next: plain(section(markdown, /næste møde/i).replace(/^\s*[-*]\s+/gm, "").trim()) };
 }
 
+const UNTIL = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 const DECIDED = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Copenhagen" });
 
 /** Who has approved the minutes, who asked for a correction, who is missing - and the buttons for the one looking. */
-export function signoffPanel(base: string, minutes: ApprovedMinutes, data: { members: string[]; signoffs: Signoff[]; who: string | null; notice: string }): string {
+export function signoffPanel(base: string, minutes: ApprovedMinutes, data: { members: string[]; signoffs: Signoff[]; who: string | null; notice: string; nowMs: number }): string {
   if (minutes.source === "document") return "";
   const by = new Map(data.signoffs.map(s => [s.member, s]));
   const approved = data.signoffs.filter(s => s.status === "approved").map(s => s.member);
@@ -52,19 +53,28 @@ export function signoffPanel(base: string, minutes: ApprovedMinutes, data: { mem
   // Requested: "Når et referat er blevet godkendt af alle bestyrelsesmedlemmer, skal det låses fast, ingen ændringer mulige."
   if (minutes.locked_at_ms) return `<section class="card m-sign m-locked"><h2>Bestyrelsens godkendelse</h2>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
 <p><strong>Godkendt af alle og låst ${esc(DECIDED.format(minutes.locked_at_ms))}.</strong> Referatet kan ikke længere ændres.</p>${approved.length ? `<p class="small muted">Godkendt af ${esc(approved.join(", "))}</p>` : ""}</section>`;
-  return `<section class="card m-sign"><h2>Bestyrelsens godkendelse</h2>${data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : ""}
+  const notice = data.notice ? `<p class="notice good">${esc(data.notice)}</p>` : "";
+  // Requested: "Referat-udkast kan tilrettes og ændres i 3 dage. Herefter kan man ikke længere ændre det: nu skal bestyrelsesmedlemmerne godkende det hver især."
+  const until = UNTIL.format(editUntil(minutes));
+  const toChair = (summary: string, placeholder: string, button: string) => `<details${mine?.status === "correction" ? " open" : ""}><summary>${summary}</summary><form class="stack" method="post" action="${action}/rettelse">
+<textarea name="comment" required maxlength="2000" placeholder="${placeholder}">${esc(mine?.comment ?? "")}</textarea><button>${button}</button></form></details>`;
+  const notes = corrections.length ? `<ul class="plain">${corrections.map(c => `<li><strong>${esc(c.member)}</strong> skrev til formanden: ${esc(c.comment ?? "")}</li>`).join("")}</ul>` : "";
+  if (inEditWindow(minutes, data.nowMs)) return `<section class="card m-sign"><h2>Kan rettes til ${esc(until)}</h2>${notice}
+<p>Ret punkterne herunder indtil <strong>${esc(until)}</strong>. Derefter kan referatet ikke længere ændres, og I godkender det hver især. Når alle har godkendt, låses det.</p>
+${notes}${data.who ? `<div class="m-sign-actions">${toChair("Skriv til formanden", "Noget, der ikke hører til et bestemt punkt?", "Send til formanden")}</div>` : `<p><a href="${base}/hvem">Vælg hvem du er</a> for at rette.</p>`}</section>`;
+  return `<section class="card m-sign"><h2>Bestyrelsens godkendelse</h2>${notice}
+<p class="small muted">Rettelsesperioden sluttede ${esc(until)}. Nu godkender I referatet hver især; når alle har godkendt, låses det.</p>
 <p>${approved.length ? `<strong>Godkendt af:</strong> ${esc(approved.join(", "))}` : "Ingen har godkendt endnu."}${missing.length ? ` <span class="muted">· Mangler: ${esc(missing.join(", "))}</span>` : ""}</p>
-${corrections.length ? `<ul class="plain">${corrections.map(c => `<li><strong>${esc(c.member)}</strong> har en rettelse: ${esc(c.comment ?? "")}</li>`).join("")}</ul>` : ""}
+${notes}
 ${!data.who ? `<p><a href="${base}/hvem">Vælg hvem du er</a> for at godkende.</p>` : mine?.status === "approved" ? `<p class="muted small">Du har godkendt referatet.</p>`
     : `<div class="m-sign-actions"><form method="post" action="${action}/godkend"><button>Jeg godkender referatet</button></form>
-<details${mine?.status === "correction" ? " open" : ""}><summary>Jeg har en rettelse</summary><form class="stack" method="post" action="${action}/rettelse">
-<textarea name="comment" required maxlength="2000" placeholder="Hvad skal rettes?">${esc(mine?.comment ?? "")}</textarea><button>Send rettelsen til formanden</button></form></details></div>`}</section>`;
+${toChair("Jeg kan ikke godkende det", "Hvorfor? Formanden får din besked.", "Send til formanden")}</div>`}</section>`;
 }
 
 /** Requested: "Der skal ved hvert punkt være mulighed for hvert medlem af indsende rettelse - herefter vil
  * Saga omskrive punktet. Hun skal spørge hvis hun er usikker på hvad der menes." Under each point: the
  * corrections sent to it, Saga's question to the one who sent it, and the form to correct it. */
-function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: { who: string | null; corrections: Correction[] } | undefined): string {
+function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: { who: string | null; corrections: Correction[]; open?: boolean } | undefined): string {
   if (!fix) return "";
   const action = `${base}/referat/${minutes.id}`;
   // One open question per member and point: the newest; while Saga works on a correction, none.
@@ -77,16 +87,16 @@ function pointFixes(base: string, minutes: ApprovedMinutes, point: number, fix: 
   const own = history + shown.filter(c => c.status !== "applied").map(c => {
     if (c.status === "pending") return `<p class="m-fixnote">Saga er ved at rette punktet efter ${esc(c.member)}s rettelse …</p>`;
     if (c.status === "failed") return `<p class="m-fixnote warn">Saga kunne ikke rette punktet efter ${esc(c.member)}s rettelse. Skriv den gerne lidt mere præcist.</p>`;
-    return c.member === fix.who ? `<div class="m-ask"><p><strong>Saga spørger dig:</strong> ${esc(c.question ?? "")}</p>
+    return c.member === fix.who && fix.open !== false ? `<div class="m-ask"><p><strong>Saga spørger dig:</strong> ${esc(c.question ?? "")}</p>
 <form class="stack" data-saga method="post" action="${action}/rettelse/${c.id}/svar"><textarea name="answer" required maxlength="2000" rows="2" placeholder="Dit svar til Saga"></textarea><button>Svar Saga</button></form></div>`
       : `<p class="m-fixnote">Saga har spurgt ${esc(c.member)} om rettelsen.</p>`;
   }).join("");
-  const form = fix.who && !minutes.locked_at_ms ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" data-saga method="post" action="${action}/punkt/${point}">
+  const form = fix.who && !minutes.locked_at_ms && fix.open !== false ? `<details class="m-fixform"><summary>Ret dette punkt</summary><form class="stack" data-saga method="post" action="${action}/punkt/${point}">
 <textarea name="correction" required maxlength="2000" rows="3" placeholder="Hvad skal rettes i punktet? Saga omskriver det - eller spørger dig, hvis hun er i tvivl."></textarea><button>Send rettelsen til Saga</button></form></details>` : "";
   return own || form ? `<div class="m-fix">${own}${form}</div>` : "";
 }
 
-export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting: Meeting | null, fallbackHtml: string, fix?: { who: string | null; corrections: Correction[] }): string {
+export function minutesDocument(base: string, minutes: ApprovedMinutes, meeting: Meeting | null, fallbackHtml: string, fix?: { who: string | null; corrections: Correction[]; open?: boolean }): string {
   const parsed = parseMinutes(minutes.draft_markdown ?? "");
   const agenda = meeting?.agenda.split("\n").map(line => line.trim()).filter(Boolean) ?? [];
   const agendaItems = agenda.length ? agenda : parsed?.points.map(p => p.title) ?? [];

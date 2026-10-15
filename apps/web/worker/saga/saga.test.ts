@@ -268,7 +268,7 @@ describe("Saga's minutes", () => {
     const published = (await getMinutes(db, 1))!;
     expect(published).toMatchObject({ status: "approved", draft_markdown: MINUTES });
     const pings = () => services.telegram("sendMessage").filter(c => (c.body as { chat_id: string }).chat_id === BOARD).map(c => (c.body as { text: string }).text);
-    expect(pings()).toEqual(["Hej alle sammen 😊\nSå er referatet fra mødet 23. september 2026 klar til godkendelse:\nhttps://cockpit.hjerterum.info/referat/1"]);
+    expect(pings()).toEqual(["Hej alle sammen 😊\nSå er referatet fra mødet 23. september 2026 lagt op. I kan rette i det de næste 3 dage - derefter godkender I det hver især:\nhttps://cockpit.hjerterum.info/referat/1"]);
 
     // The same recording again is not transcribed twice.
     await webhook(env, services.fetcher, privateMessage(6, { voice: { file_id: "voice-1", file_size: 5000 } }));
@@ -280,6 +280,10 @@ describe("Saga's minutes", () => {
     expect(await getMinutes(db, 1)).toMatchObject({ status: "approved", draft_markdown: expect.stringContaining("8. oktober") });
     expect(await count(db, "board_minutes_signoffs")).toBe(0);
     expect(services.telegram("sendDocument")).toHaveLength(2);
+    // In the three days of corrections no one approves yet, so the group hears nothing of it; after them, the board approves the corrected text.
+    expect(pings()).toHaveLength(1);
+    await db.prepare("UPDATE board_minutes SET created_at_ms = created_at_ms - 4 * 86400000 WHERE id = 1").run();
+    await webhook(env, services.fetcher, privateMessage(8, { text: "Næste møde er 8. oktober", reply_to_message: { message_id: (await getMinutes(db, 1))!.approval_message_id } }));
     expect(pings()[1]).toBe("Hej alle sammen 😊\nReferatet fra mødet 23. september 2026 er rettet og klar til godkendelse igen:\nhttps://cockpit.hjerterum.info/referat/1");
     // Without the ping turned on, Saga stays silent in the group.
     const quiet = testDatabase(), other = fakeServices({ ai: () => MINUTES });

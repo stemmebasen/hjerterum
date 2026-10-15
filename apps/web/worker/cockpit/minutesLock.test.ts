@@ -26,13 +26,31 @@ describe("locked minutes", () => {
     const as = await memberCookies(session);
     const locked = async () => (await db.prepare("SELECT locked_at_ms FROM board_minutes WHERE id = 1").first<{ locked_at_ms: number | null }>())?.locked_at_ms ?? null;
 
-    // Two of three approve: still open, and a point can still be corrected.
+    // Requested: "Referat-udkast kan tilrettes og ændres i 3 dage. Herefter kan man ikke længere ændre det: nu skal bestyrelsesmedlemmerne godkende
+    // det hver især. Når alle har godkendt låses det." In the three days a point can be corrected, and no one approves yet.
+    const early = await (await call("/referat/1", { cookie: as("Gitta") })).text();
+    expect(early).toContain("Kan rettes til 14. oktober kl. 12.00");
+    expect(early).toContain("Ret dette punkt");
+    expect(early).not.toContain("Jeg godkender referatet");
+    expect((await call("/referat/1/godkend", { method: "POST", cookie: as("Lisbeth") })).headers.get("location")).toBe("/referat/1?retperiode=1");
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_signoffs").first()).toEqual({ n: 0 });
+
+    // After the three days the text stands: no correction is taken, and each member approves.
+    await db.prepare("UPDATE board_minutes SET created_at_ms = ? WHERE id = 1").bind(NOW - 4 * DAY).run();
+    const late = await (await call("/referat/1", { cookie: as("Gitta") })).text();
+    expect(late).toContain("Rettelsesperioden sluttede 11. oktober kl. 12.00.");
+    expect(late).toContain("Jeg godkender referatet");
+    expect(late).not.toContain("Ret dette punkt");
+    const tooLate = await call("/referat/1/punkt/1", { method: "POST", cookie: as("Lisbeth"), body: form({ correction: "Budgettet blev ikke godkendt" }) });
+    expect(tooLate.headers.get("location")).toBe("/referat/1?lukket=1");
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_corrections").first()).toEqual({ n: 0 });
+
+    // Two of three approve: still open.
     for (const who of ["Jacob Hauge", "Lisbeth"]) {
       const done = await call("/referat/1/godkend", { method: "POST", cookie: as(who) });
       expect(done.headers.get("location")).toBe("/referat/1?godkendt=1");
     }
     expect(await locked()).toBeNull();
-    expect(await (await call("/referat/1", { cookie: as("Gitta") })).text()).toContain("Ret dette punkt");
 
     // The last one approves: locked.
     const last = await call("/referat/1/godkend", { method: "POST", cookie: as("Gitta") });
@@ -42,7 +60,7 @@ describe("locked minutes", () => {
     expect(page).toContain("Godkendt af alle og låst 12. oktober 2026.");
     expect(page).toContain("Referatet kan ikke længere ændres.");
     expect(page).not.toContain("Ret dette punkt");
-    expect(page).not.toContain("Jeg har en rettelse");
+    expect(page).not.toContain("Jeg kan ikke godkende det");
 
     // No correction is taken any more, from the page or from Saga's round.
     const fix = await call("/referat/1/punkt/1", { method: "POST", cookie: as("Lisbeth"), body: form({ correction: "Budgettet blev ikke godkendt" }) });

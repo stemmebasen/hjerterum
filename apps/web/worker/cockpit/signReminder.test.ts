@@ -6,10 +6,10 @@ import { reminderLevel, signReminder } from "./signReminder.js";
 const NOW = Date.parse("2026-10-13T10:00:00Z");
 const DAY = 86_400_000;
 const minutes = (id: number, date: string, ageDays: number) =>
-  ({ id, source: "upload", meeting_date: date, draft_markdown: "# Referat", drive_document_url: null, created_at_ms: NOW - ageDays * DAY - 60_000, updated_at_ms: NOW - ageDays * DAY - 60_000 });
+  ({ id, source: "upload", meeting_date: date, draft_markdown: "# Referat", drive_document_url: null, created_at_ms: NOW - (ageDays + 3) * DAY - 60_000, updated_at_ms: NOW - (ageDays + 3) * DAY - 60_000 });
 
 describe("the reminder to approve minutes", () => {
-  it("turns amber after two days and red after five, counted from when the minutes were put up or corrected", () => {
+  it("turns amber after two days and red after five, counted from when the three days of corrections ended", () => {
     expect([0, 1, 2, 4, 5, 9].map(reminderLevel)).toEqual(["ny", "ny", "gul", "gul", "roed", "roed"]);
     expect(signReminder("", [], NOW)).toBe("");
     expect(signReminder("/c", [minutes(3, "2026-10-06", 0)], NOW)).toBe('<div class="sign-bar ny" role="status"><div class="sign-inner"><span>Husk at godkende referatet fra mødet 6. oktober.</span><a class="button" href="/c/referat/3">Læs og godkend →</a></div></div>');
