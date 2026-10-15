@@ -950,3 +950,11 @@ h3 { font-size: 25px; line-height: 1.2; }
 .booking-choice-card h3 { margin: 0; font: 400 1.5rem/1.2 var(--lys-serif, Georgia, serif); }
 .booking-choice-card p { margin: 0; }
 .booking-choice-card .lys-btn { justify-self: start; margin-top: 6px; }
+
+/* Requested (Gitta): the teachers' PR material - their photos as a grid, the status as a badge. */
+.pr-editor h3 { margin: 26px 0 6px; font-size: 1.05rem; }
+.pr-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 12px; align-items: start; margin: 10px 0 4px; }
+.pr-photos figure { margin: 0; display: grid; gap: 4px; justify-items: start; }
+.pr-photos img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 12px; background: var(--soft, #f3efe9); }
+.pr-add { display: grid; place-items: center; aspect-ratio: 4 / 5; width: 100%; border-radius: 12px; cursor: pointer; }
+.profile-badge.ok { background: #e6f4ea; color: #1e6b35; }

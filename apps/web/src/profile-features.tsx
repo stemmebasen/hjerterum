@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { PublicProfileEditor } from "./public-profiles";
+import { PrMaterialEditor } from "./pr-material-editor";
 import { openCirklerHandoff } from "./cirkler-card";
 
 export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: ClerkBrowser }) {
-  const [section, setSection] = useState<"overview" | "public" | "cirkler">("overview");
+  // "Del mit PR-materiale" on Mine events comes here with #pr.
+  const [section, setSection] = useState<"overview" | "public" | "cirkler" | "pr">(() => typeof location !== "undefined" && location.hash === "#pr" ? "pr" : "overview");
   const [opening, setOpening] = useState(false);
   const [cirklerError, setCirklerError] = useState<string | null>(null);
 
@@ -14,6 +16,7 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
     setCirklerError(await openCirklerHandoff(clerk));
     setOpening(false);
   }
+  if (section === "pr") return <PrMaterialEditor clerk={clerk} onBack={() => setSection("overview")} />;
   if (section === "public") return <PublicProfileEditor clerk={clerk} fullName={fullName} onBack={() => setSection("overview")} />;
 
   if (section === "cirkler") return <section className="profile-editor" aria-label="Min CIRKLER-profil">
@@ -38,6 +41,14 @@ export function ProfileFeatures({ fullName, clerk }: { fullName: string; clerk: 
         <p>Vis, hvem du er, og hvad du tilbyder. Dit visitkort bliver en del af oversigten over undervisere og behandlere på hjemmesiden.</p>
         <p className="profile-scope">Kun de oplysninger, du vælger til visitkortet, bliver offentlige.</p>
         <button className="pill-button dark" onClick={() => setSection("public")}>Åbn mit visitkort</button>
+      </section>
+      {/* Requested (Gitta): "At de udtrykkeligt bliver opfordret til at dele minimun 3 billeder ... til PR" - with "vi kan ikke reklamere for dem uden". */}
+      <section className="profile-feature-card" aria-label="PR-materiale til undervisere">
+        <div className="profile-card-top"><span className="profile-emblem" aria-hidden="true">✦</span><span className="profile-badge">For undervisere</span></div>
+        <p className="kicker">Billeder, citater og samtykke</p><h2>Mit PR-materiale</h2>
+        <p>Vil du have hjælp til at fylde dine events? Del mindst 3 billeder og et par citater, så kan vi reklamere for dig på Instagram, Facebook og i nyhedsbrevet.</p>
+        <p className="profile-scope">Uden billeder og samtykke kan vi ikke lave opslag om dine events.</p>
+        <button className="pill-button dark" onClick={() => setSection("pr")}>Åbn mit PR-materiale</button>
       </section>
       <section className="profile-feature-card" aria-label="CIRKLER-profil og tilmelding">
         <div className="profile-card-top"><span className="profile-emblem profile-emblem-cirkler" aria-hidden="true"><span className="cirkler-logo-mark" /></span><span className="profile-badge">Gratis for medlemmer</span></div>

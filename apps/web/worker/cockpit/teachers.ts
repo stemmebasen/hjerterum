@@ -2,6 +2,7 @@ import { cleanMailText } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
+import { PR_MATERIAL_STYLE } from "./prMaterial.js";
 import { esc, layout } from "./page.js";
 
 /** Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere, hvor vi samler alle
@@ -189,13 +190,13 @@ form.search{display:flex;gap:8px;flex-wrap:wrap}form.search input{flex:1 1 220px
 
 const year = (ms: number | null) => ms ? String(new Date(ms).getUTCFullYear()) : "";
 
-export function teachersPage(base: string, data: { teachers: TeacherRow[]; query: string; sort: TeacherSort; nowMs: number; who: string | null }): string {
+export function teachersPage(base: string, data: { teachers: TeacherRow[]; query: string; sort: TeacherSort; nowMs: number; who: string | null; prReady?: Set<string> }): string {
   const q = teacherKey(data.query);
   const hiddenRows = data.teachers.filter(t => t.hidden);
   const shown = (q ? data.teachers.filter(t => t.key.includes(q)) : data.teachers).filter(t => !t.hidden);
   const item = (t: TeacherRow) => `<li><a href="${base}/arrangementer/undervisere/${encodeURIComponent(t.key)}">${esc(t.name)}</a>
 <span class="meta">${t.events} arrangement${t.events === 1 ? "" : "er"}${t.first ? ` · ${year(t.first)}${year(t.last) !== year(t.first) ? `-${year(t.last)}` : ""}` : ""}${t.upcoming ? ` · ${t.upcoming} kommende` : ""}</span>
-<span class="badges">${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span>${!t.hasContact && !t.fixed && t.upcoming === 0 ? `<form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="1"><button class="x" aria-label="Fjern ${esc(t.name)} fra listen" title="Fjern fra listen">×</button></form>` : ""}</li>`;
+<span class="badges">${data.prReady?.has(t.name.trim().toLocaleLowerCase("da-DK")) ? `<span class="badge ok" title="Har delt PR-materiale og givet samtykke">PR ✓</span>` : ""}${t.fixed ? `<span class="badge">Fast</span>` : ""}${t.hasContact ? "" : `<span class="badge dim">Mangler kontakt</span>`}</span>${!t.hasContact && !t.fixed && t.upcoming === 0 ? `<form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="1"><button class="x" aria-label="Fjern ${esc(t.name)} fra listen" title="Fjern fra listen">×</button></form>` : ""}</li>`;
   const missing = data.teachers.filter(t => !t.hasContact && !t.hidden).length;
   const active = shown.filter(t => isActive(t, data.nowMs)), earlier = shown.filter(t => !isActive(t, data.nowMs));
   return layout(base, "Undervisere", `<main><p class="small"><a href="${base}/arrangementer">← Events</a></p><h1>Undervisere</h1>
@@ -206,10 +207,10 @@ ${missing ? `<p class="small" style="margin:12px 0 0"><a href="${base}/arrangeme
 <div class="card"><h2>Aktive <span class="pill">${active.length}</span></h2><p class="small muted">Kommende arrangementer eller aktive det seneste år.</p>${active.length ? `<ul class="tl">${active.map(item).join("")}</ul>` : `<p class="muted">Ingen.</p>`}</div>
 ${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}
 ${hiddenRows.length ? `<details class="card"><summary class="small muted">Fjernet fra listen (${hiddenRows.length})</summary><ul class="tl">${hiddenRows.map(t => `<li><span>${esc(t.name)}</span><form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="0"><button class="ghost">Sæt tilbage</button></form></li>`).join("")}</ul></details>` : ""}</main>`,
-  { section: "/arrangementer", who: data.who, style: STYLE });
+  { section: "/arrangementer", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
 }
 
-export function teacherPage(base: string, data: { name: string; record: TeacherRecord | null; known: KnownContact[]; events: TeacherEvent[]; fixed: boolean; nowMs: number; notice: string; aiReady: boolean; who: string | null }): string {
+export function teacherPage(base: string, data: { name: string; record: TeacherRecord | null; known: KnownContact[]; events: TeacherEvent[]; fixed: boolean; nowMs: number; notice: string; aiReady: boolean; who: string | null; pr?: string }): string {
   const r = data.record, key = encodeURIComponent(teacherKey(data.name));
   const firstKnown = (kind: KnownContact["kind"]) => data.known.find(k => k.kind === kind)?.value ?? "";
   const upcoming = data.events.filter(e => e.starts_at_ms >= data.nowMs).reverse(), past = data.events.filter(e => e.starts_at_ms < data.nowMs);
@@ -228,9 +229,9 @@ ${data.known.length ? `<p class="small muted" style="margin:0 0 4px">Systemet ke
 ${data.aiReady ? `<form method="post" action="${base}/arrangementer/undervisere/${key}" id="sum"><input type="hidden" name="name" value="${esc(data.name)}"><button name="action" value="summary" class="${r?.summary ? "ghost" : ""}">${r?.summary ? "Bed Saga om et nyt resumé" : "Bed Saga om et resumé af samarbejdet"}</button></form>
 <script>document.getElementById("sum").addEventListener("submit",e=>{const b=e.currentTarget.querySelector("button");setTimeout(()=>{b.disabled=true},0);b.textContent="Saga læser …"})</script>` : ""}
 <p class="small muted">Saga læser arrangementerne, mails til team@, bestyrelsens gruppe og referaterne - hun finder ikke på noget.</p></div></div>
-<div class="card"><h2>Events</h2>${upcoming.length ? `<h3>Kommende</h3><ul class="plain evlist">${upcoming.map(evLine).join("")}</ul>` : ""}
+${data.pr ?? ""}<div class="card"><h2>Events</h2>${upcoming.length ? `<h3>Kommende</h3><ul class="plain evlist">${upcoming.map(evLine).join("")}</ul>` : ""}
 ${past.length ? `<details${upcoming.length ? "" : " open"}><summary>Afholdte (${past.length})</summary><ul class="plain evlist">${past.slice(0, 200).map(evLine).join("")}</ul></details>` : ""}${data.events.length ? "" : `<p class="muted">Ingen arrangementer fundet.</p>`}</div></main>`,
-  { section: "/arrangementer", who: data.who, style: STYLE });
+  { section: "/arrangementer", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
 }
 
 /** Saga's points as a small list, escaped. */

@@ -36,6 +36,7 @@ import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
+import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -858,7 +859,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // Requested: "Vi skal også have en underside til arrangementer, som hedder Undervisere" (cockpit/teachers.ts).
   if (path === "/arrangementer/undervisere" && request.method === "GET") {
     const sort = teacherSort(url.searchParams.get("sorter"));
-    return html(teachersPage(base, { teachers: await listTeachers(db, now, sort), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), sort, nowMs: now, who }));
+    return html(teachersPage(base, { teachers: await listTeachers(db, now, sort), query: (url.searchParams.get("q") ?? "").trim().slice(0, 80), sort, nowMs: now, who, prReady: await prReadyNames(db) }));
   }
   // "Ja" to suggestions for teachers' mail and phone, accepted one by one (cockpit/teacherSuggestions.ts).
   if (path === "/arrangementer/undervisere/forslag") {
@@ -907,7 +908,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const NOTICE: Record<string, string> = { gemt: "Kontaktoplysningerne er gemt.", resume: "Saga har lavet et nyt resumé.", fejl: "Saga kunne ikke lave et resumé lige nu. Prøv igen om lidt." };
     const [known, events] = await Promise.all([knownContacts(db, name), teacherEvents(db, name)]);
     return html(teacherPage(base, { name, record, known, events, fixed: found?.fixed ?? false, nowMs: now, notice: NOTICE[url.searchParams.get("besked") ?? ""] ?? "",
-      aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), who }));
+      aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), who, pr: prMaterialCard(await prMaterialForTeacher(db, name)) }));
   }
 
   // Requested: "Vi skal også forberede Saga til at kunne hjælpe med at sætte et event op" (cockpit/eventDesk.ts).
