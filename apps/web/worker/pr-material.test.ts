@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { D1Database } from "./db.js";
 import { testDatabase } from "./saga/test-support.js";
 import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
+import { ownPublicProfile, publicProfiles } from "./public-profiles.js";
 import { readyForPr } from "../pr-material.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./cockpit/prMaterial.js";
 
@@ -69,5 +70,18 @@ describe("a teacher's PR material", () => {
     expect(card).toContain("<q>Det bedste i år.</q> <span class=\"small muted\">- Mette</span>");
     expect(await prReadyNames(db)).toEqual(new Set(["anna andersen"]));
     expect(prMaterialCard(await prMaterialForTeacher(db, "Ukendt Person"))).toContain("Har ikke delt PR-materiale endnu.");
+  });
+
+  it("puts the photos and quotes on the teacher's public page - only with consent", async () => {
+    const profile = { name: "Anna Andersen", title: "Yogalærer", bio: "Om Anna.", topics: "Yoga", teaching: true, treatment: false };
+    await ownPublicProfile(new Request("https://x.test/api/members/me/public-profile", { method: "PUT", headers: { authorization: "owner" }, body: JSON.stringify({ action: "publish", revision: 0, profile, consent: true }) }), env());
+    await upload(png(1200, 1500));
+    await material({ quotes: { offering: "Mere ro i kroppen." } });
+    const list = async () => await (await publicProfiles(new Request("https://x.test/api/public-profiles"), env())).json() as Array<Record<string, unknown>>;
+    expect((await list())[0]).not.toHaveProperty("pr");
+    await material({ consent: true });
+    expect((await list())[0]).toMatchObject({ name: "Anna Andersen", pr: { photos: [expect.stringMatching(/^\/api\/pr-photos\/[0-9a-f-]{36}$/)], quotes: { offering: "Mere ro i kroppen." } } });
+    await material({ consent: false });
+    expect((await list())[0]).not.toHaveProperty("pr");
   });
 });

@@ -1,3 +1,4 @@
+import type { PrQuotes } from "../pr-material";
 import { useEffect, useState } from "react";
 import { parsePublicProfile, isCompleteProfile, type OwnPublicProfile, type PublicProfile } from "../public-profile";
 import { apiFetch, type ClerkBrowser } from "./clerk";
@@ -8,6 +9,15 @@ import { slugify } from "../site/markdown";
 export function profileSlug(profile: { name: string; id: string }, all: Array<{ name: string; id: string }>): string {
   const base = slugify(profile.name) || "behandler";
   return all.filter(other => (slugify(other.name) || "behandler") === base).length > 1 ? `${base}-${profile.id.slice(0, 6)}` : base;
+}
+
+/** Requested (Gitta): "at events, bliver connected til underviseren på en måde (måske har de hver deres side, man kan trykke ind på, ved at trykke på deres
+ * navn?)". The published visit card behind an event's host: the same name, or a name the host line holds in full (two words or more) - "Anna & Bo". */
+export function teacherFor(host: string, profiles: SiteProfile[]): { profile: SiteProfile; href: string } | null {
+  const norm = (s: string) => s.toLocaleLowerCase("da-DK").replace(/\s+/g, " ").trim();
+  const h = norm(host);
+  const profile = profiles.find(p => norm(p.name) === h) ?? profiles.find(p => norm(p.name).includes(" ") && h.includes(norm(p.name)));
+  return profile ? { profile, href: `/behandlere/${profileSlug(profile, profiles)}` } : null;
 }
 
 export function ProfileCard({ profile, href }: { profile: PublicProfile; href?: string }) {
@@ -180,14 +190,17 @@ export function PublicProfiles({ bare = false }: { bare?: boolean }) {
 }
 
 /** One teacher's or practitioner's page: the photo, who they are, what they offer, how to reach them. */
+/** A published visit card as the website gets it: with the teacher's PR material when they have consented to it (pr-material.ts). */
+export type SiteProfile = PublicProfile & { id: string; pr?: { photos: string[]; quotes: PrQuotes } };
+
 export function ProfilePage({ slug, header, footer }: { slug: string; header: React.ReactNode; footer: React.ReactNode }) {
-  const [profiles, setProfiles] = useState<Array<PublicProfile & { id: string }> | null>(null);
+  const [profiles, setProfiles] = useState<SiteProfile[] | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let active = true;
     void fetch("/api/public-profiles", { cache: "no-store" }).then(async response => {
       if (!response.ok) throw new Error();
-      const data = await response.json() as Array<PublicProfile & { id: string }>;
+      const data = await response.json() as SiteProfile[];
       if (active) setProfiles(data);
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
@@ -216,6 +229,11 @@ export function ProfilePage({ slug, header, footer }: { slug: string; header: Re
         <div className="site-body"><div className="site-prose">
           <p className="profile-page-bio">{profile.bio}</p>
           {profile.topics && <><h2>Specialer</h2><p>{profile.topics}</p></>}
+          {/* Requested (Gitta): the teacher's photos and quotes on their page - shown only with their consent. */}
+          {profile.pr?.quotes.facilitator && <blockquote className="profile-quote">{profile.pr.quotes.facilitator}</blockquote>}
+          {profile.pr?.quotes.offering && <><h2>Det får du med</h2><p>{profile.pr.quotes.offering}</p></>}
+          {profile.pr?.quotes.participant && <><h2>Det siger deltagerne</h2><blockquote className="profile-quote">{profile.pr.quotes.participant}{profile.pr.quotes.participantName && <cite> - {profile.pr.quotes.participantName}</cite>}</blockquote></>}
+          {!!profile.pr?.photos.length && <div className="profile-gallery">{profile.pr.photos.map(src => <img key={src} src={src} alt={profile.name} loading="lazy" />)}</div>}
           {(contact.publicEmail || contact.publicPhone || contact.websiteUrl) && <><h2>Kontakt</h2>
             <ul>
               {contact.publicEmail && <li><a href={"mailto:" + encodeURIComponent(contact.publicEmail)}>{contact.publicEmail}</a></li>}

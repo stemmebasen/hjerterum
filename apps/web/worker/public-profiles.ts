@@ -5,6 +5,7 @@ import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
 import { imageSize, sniff, type EventMediaBucket } from "./event-files.js";
 import { PHOTO_SIZE } from "../public-profile.js";
+import { parsePrQuotes, type PrQuotes } from "../pr-material.js";
 
 type Env = { DB?: D1Database; CLERK_JWT_ISSUER?: string; CLERK_SECRET_KEY?: string; EVENT_MEDIA?: EventMediaBucket };
 type Row = { draft_json: string; published_json: string | null; revision: number };
@@ -15,17 +16,29 @@ export async function publicProfiles(request: Request, env: Env): Promise<Respon
   if (!env.DB) return json({ error: "database_unavailable" }, 503);
   try {
     // Native membership is authoritative if present. Never expose drafts or owner identifiers.
-    const result = await env.DB.prepare(`SELECT p.public_id, p.published_json,
+    // Requested (Gitta): the teacher's PR material "ligger inde på deres siden" - photos and quotes, only with their consent.
+    const result = await env.DB.prepare(`SELECT p.public_id, p.published_json, p.clerk_user_id, pm.quotes_json AS pr_quotes,
+      (SELECT json_group_array(id) FROM (SELECT id FROM pr_photos WHERE clerk_user_id = p.clerk_user_id ORDER BY created_at_ms, id)) AS pr_photos,
       CASE WHEN m.id IS NOT NULL THEN m.tier ELSE e.membership_level END AS tier
       FROM public_profiles p
       LEFT JOIN members m ON m.clerk_user_id = p.clerk_user_id
       LEFT JOIN external_memberships e ON e.id = p.external_member_id
+      LEFT JOIN pr_material pm ON pm.clerk_user_id = p.clerk_user_id AND pm.consent_at_ms IS NOT NULL
       WHERE p.published_json IS NOT NULL AND
         ((m.id IS NOT NULL AND m.status = 'active' AND m.access_blocked = 0) OR
          (m.id IS NULL AND e.status = 'active' AND e.access_blocked = 0))
-      ORDER BY p.public_id`).all<{ public_id: string; published_json: string; tier: string | null }>();
-    return json((result.results ?? []).filter(row => includesMemberBenefits(row.tier)).map(row => ({ id: row.public_id, ...parsePublicProfile(JSON.parse(row.published_json)) })));
+      ORDER BY p.public_id`).all<{ public_id: string; published_json: string; tier: string | null; pr_quotes: string | null; pr_photos: string | null }>();
+    return json((result.results ?? []).filter(row => includesMemberBenefits(row.tier)).map(row => ({ id: row.public_id, ...parsePublicProfile(JSON.parse(row.published_json)), ...prOf(row) })));
   } catch { return json({ error: "profiles_unavailable" }, 503); }
+}
+
+/** The PR material shown on a published visit card: present only when the teacher has consented. */
+function prOf(row: { pr_quotes: string | null; pr_photos: string | null }): { pr?: { photos: string[]; quotes: PrQuotes } } {
+  if (row.pr_quotes === null) return {};
+  let quotes: PrQuotes, photos: string[];
+  try { quotes = parsePrQuotes(JSON.parse(row.pr_quotes)); photos = (JSON.parse(row.pr_photos ?? "[]") as unknown[]).filter((id): id is string => typeof id === "string").map(id => `/api/pr-photos/${id}`); }
+  catch { return {}; }
+  return photos.length || Object.values(quotes).some(Boolean) ? { pr: { photos, quotes } } : {};
 }
 
 export async function ownPublicProfile(request: Request, env: Env): Promise<Response> {
