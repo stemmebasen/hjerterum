@@ -65,16 +65,16 @@ async function openAsk(db: D1Database, telegramId: string, nowMs: number) {
 /** Admin's Markdown as Telegram's plain text: links as "text: url", no stars. */
 export const plainForTelegram = (markdown: string) => markdown.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1: $2").replace(/\*\*(.+?)\*\*/g, "$1").replace(/^#+\s+/gm, "");
 
-/** A board member writes to Saga privately: answered as in admin's chat, in their language. The chair's private chat stays his own (minutes,
- * summaries, questions) - except while her question about a coming meeting is open, when he answers it like everyone else. False when this is
- * not hers to answer here. */
+/** A board member - the chair too - writes to Saga privately: answered as in admin's chat, in their language. The chair's recordings, /commands and
+ * replies to what waits for his approval keep their own way. False when this is not hers to answer here. */
 export async function answerMemberPrivately(env: SagaEnv, deps: SagaDeps, db: D1Database, telegramId: string, text: string, replying = false): Promise<boolean> {
   const now = deps.now();
   const member = await memberByTelegram(env, db, telegramId);
   if (!member) return false;
   const ask = await openAsk(db, telegramId, now);
-  // His replies to minutes and posts waiting for his approval stay his.
-  if (env.SAGA_OWNER_TELEGRAM_ID && telegramId === env.SAGA_OWNER_TELEGRAM_ID && (!ask || replying)) return false;
+  // His replies to minutes and posts waiting for his approval stay where they were. Otherwise he gets the same Saga as in admin - she can change
+  // meetings, agendas and his lists ("Frederik er ordstyrer i dag" - "Hun bør kunne forstå og rette i mødet"), which the old private chat could not.
+  if (env.SAGA_OWNER_TELEGRAM_ID && telegramId === env.SAGA_OWNER_TELEGRAM_ID && replying) return false;
   const telegram = telegramClient(env, deps);
   if (await stillOnBoard(env, deps, telegramId) === false) return true;
   const lang = await memberLang(db, member);
