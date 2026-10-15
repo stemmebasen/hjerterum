@@ -37,6 +37,7 @@ import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
+import { savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
 import { fileForDownload, filesByBooking } from "../event-files.js";
 import { addFixedTeacher, createFromDraft, decideEvent, deskSection, discardDraft, draftEvent, draftFrom, draftPage, eventDraft, eventsForReview, fixedTeachers, openDrafts, parseDraft, removeFixedTeacher, reviewCount, removeDraftCover, saveDraft, saveDraftCover, DESK_STYLE } from "./eventDesk.js";
 import { englishMinutes, minutesDocument, MINUTES_STYLE, signoffPanel } from "./minutesDoc.js";
@@ -978,7 +979,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       try { history = splitMinutesDoc(await minutesDocText(env, deps)).map(({ day, label, text }) => ({ day, label, text })); }
       catch { docError = "Referatdokumentet kunne ikke læses lige nu. Prøv igen om lidt."; }
     }
-    return html(archivePage(base, { minutes, history, docUrl: minutesDocUrl(env), docError, who }));
+    return html(archivePage(base, { minutes, history, docUrl: minutesDocUrl(env), docError, who, texts: savedTextsCard(base, await savedTexts(db)) }));
+  }
+  // What Saga was asked to keep (savedTexts.ts).
+  const textPath = /^\/tekster\/(\d+)$/.exec(path);
+  if (textPath && request.method === "GET") {
+    const t = await savedText(db, Number(textPath[1]));
+    return t ? html(savedTextPage(base, t, who)) : html(notFound(base, who), 404);
   }
 
   // Saga in the corner of every page: the answer goes only to the one asking.

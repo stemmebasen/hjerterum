@@ -85,7 +85,7 @@ export async function answerMemberPrivately(env: SagaEnv, deps: SagaDeps, db: D1
   // What she asked is the start of the conversation, so "Budget for the Christmas party" is read as a point for that meeting.
   const context: AskTurn[] = ask ? [{ role: "user", content: lang === "en" ? "(What you wrote to me privately in Telegram:)" : "(Det, du skrev til mig privat i Telegram:)" }, { role: "assistant", content: ask.text }] : [];
   const base = env.COCKPIT_URL ? env.COCKPIT_URL.replace(/\/+$/, "") : "";
-  const answer = await askSagaMarkdown(env, deps, db, member, { question: text.slice(0, 1500), history: [], conversation: `tg-${telegramId}`, context }, base, lang)
+  const answer = await askSagaMarkdown(env, deps, db, member, { question: text.slice(0, 12_000), history: [], conversation: `tg-${telegramId}`, context }, base, lang)
     .catch(() => lang === "en" ? "I could not answer right now. Please try again in a moment." : "Jeg kunne ikke svare lige nu. Prøv igen om lidt.");
   await telegram.sendMessage(telegramId, plainForTelegram(answer)).catch(() => undefined);
   return true;
