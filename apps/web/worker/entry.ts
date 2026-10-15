@@ -1,4 +1,5 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
+import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
 import { memberSagaChat } from "./member-saga.js";
 import { memberSavings } from "./member-savings.js";
 import { authenticateAdmin } from "./admin-auth.js";
@@ -384,6 +385,12 @@ export default {
     if (url.pathname === "/api/public-profiles") return publicProfiles(request, env);
     if (url.pathname === "/api/members/me/public-profile") return ownPublicProfile(request, env);
     if (url.pathname === "/api/members/me/public-profile/photo") return uploadProfilePhoto(request, env);
+    // Requested (Gitta): the teachers' PR material - photos, quotes and their consent (pr-material.ts).
+    if (url.pathname === "/api/members/me/pr-material") return ownPrMaterial(request, env);
+    const prOwn = /^\/api\/members\/me\/pr-material\/photos(?:\/([0-9a-f-]{36}))?$/.exec(url.pathname);
+    if (prOwn) return ownPrPhotos(request, env, prOwn[1] ?? null);
+    const prPic = /^\/api\/pr-photos\/([0-9a-f-]{36})$/.exec(url.pathname);
+    if (prPic && request.method === "GET") return prPhoto(prPic[1]!, env);
     const photo = /^\/api\/profile-photos\/([0-9a-f-]{36})\.jpg$/.exec(url.pathname);
     if (photo && request.method === "GET") return profilePhoto(photo[1]!, env);
 

@@ -2,6 +2,7 @@ import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
+import { PrNudge } from "./pr-material-editor";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -493,6 +494,8 @@ function MemberEvents({
                 <button type="button" className="pill-button subtle" disabled={saving}
                   onClick={() => void startPayoutOnboarding()}>Klargør udbetaling med Stripe</button>}
             </div>
+            {/* Requested (Gitta): a strong encouragement to share PR material - "gøre det helt klart at vi ikke kan reklamere for dem uden". */}
+            <PrNudge clerk={clerk} />
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
               <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
