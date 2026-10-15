@@ -141,10 +141,12 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
           {parent && <a className="site-back" href={parent.path}>← {parent.card.title}</a>}
           <p className="lys-kicker">{page.kicker}</p>
           <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
+          {/* Asked (screenshot of /medlemskab): "Is this layout intended?" - with a picture, the words go under the headline and the picture
+              stands alone beside them, so neither column is left half empty. */}
+          {page.image && <p className="site-intro-lead">{page.lead}</p>}
         </div>
         <div className="site-intro-side">
-          {page.image && <img className="site-intro-image" src={page.image.src} alt={page.image.alt} />}
-          <p>{page.lead}</p>
+          {page.image ? <img className="site-intro-image" src={page.image.src} alt={page.image.alt} /> : <p>{page.lead}</p>}
         </div>
       </section>
       <div className="site-body">

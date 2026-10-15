@@ -23,7 +23,8 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--cream);
 a { color: inherit; }
 button, input, textarea { font: inherit; }
 
-.page-shell { width: min(1220px, calc(100% - 34px)); margin: 0 auto; padding: 18px 0 52px; }
+/* Asked: "create a little more margin in both sides so its more balanced" - the side margin grows with the window. */
+.page-shell { width: min(1160px, calc(100% - clamp(40px, 9vw, 160px))); margin: 0 auto; padding: 18px 0 52px; }
 .site-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 10px 4px 24px; }
 .brand { display:inline-flex; align-items:center; text-decoration: none; }
 .brand img { display:block; height:96px !important; width:auto !important; max-width:340px !important; object-fit:contain; }
@@ -171,7 +172,7 @@ p { line-height: 1.7; }
 .booking-list time { color:var(--muted); font-size:.82rem; }
 
 @media (max-width: 900px) {
-  .page-shell { width:min(100% - 20px,1220px); padding-top:8px; }
+  .page-shell { width:min(100% - 40px,1160px); padding-top:8px; }
   .site-header { padding:8px 4px 18px; }
   .brand img { height:80px !important; max-width:290px !important; }
   .auth-brand img { height:78px !important; max-width:290px !important; }
