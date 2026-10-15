@@ -603,6 +603,7 @@ ${data.aiReady ? `<p class="small muted">Saga laver kun forslag, når du beder h
 <form class="stack" method="post" action="${base}/moder/${m.id}"><div class="row"><label>Dato<input type="date" name="meeting_date" required value="${esc(m.meeting_date)}"></label>
 <label>Tid<input type="time" name="start_time" value="${esc(m.start_time ?? "")}"></label><label>Slut<input type="time" name="end_time" value="${esc(m.end_time ?? "")}"></label><label>Sted<input name="place" maxlength="200" value="${esc(m.place || DEFAULT_PLACE)}"></label></div>
 ${roleSelects(data.members, m)}
+<label>Deltagere<input name="attendees" maxlength="400" value="${esc(m.attendees ?? "")}" placeholder="Fx Jacob, Douglas, Frederik, Gitta, Lisbeth, Line (suppleant)"></label>
 <div><label class="pick"><input type="checkbox" name="kind" value="team"${m.kind === "team" ? " checked" : ""}> Teammøde</label><input type="hidden" name="kind_sent" value="1">
 <p class="small muted" style="margin:6px 0 0">Sæt kryd, hvis det er et teammøde - så kan Saga foreslå punkter, når du beder hende om det på mødets side.</p></div>
 <div class="actions"><button class="ghost">Gem ændringer</button></div></form>

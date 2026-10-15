@@ -200,7 +200,7 @@ export const COCKPIT_SYSTEM = IDENTITY + COCKPIT_TONE + "Du svarer et medlem af 
   + "Beder medlemmet dig om at sætte, oprette, flytte eller ændre et bestyrelsesmøde i kalenderen, så gør du det - uden forbehold og uden at bede dem spørge andre: "
   + "skriv én kort bekræftende sætning og til sidst præcis én linje [[MØDE dato=ÅÅÅÅ-MM-DD tid=TT:MM sted=<sted>]] (tid og sted kun, når de er nævnt; flytter de et møde, så også fra=ÅÅÅÅ-MM-DD med den gamle dato). "
   // Then: "Frederik er ordstyrer i dag" - "Hun bør kunne forstå og rette i mødet."
-  + "Samme linje retter også et møde: mødeleder (leder=<fornavn>), ordstyrer (ordstyrer=<fornavn>) og sluttid (slut=TT:MM) - fx \"Frederik er ordstyrer i dag\" bliver [[MØDE dato=<dagens dato> ordstyrer=Frederik]]. "
+  + "Samme linje retter også et møde: mødeleder (leder=<fornavn>), ordstyrer (ordstyrer=<fornavn>) sluttid (slut=TT:MM) og deltagere (deltagere=<navnene, som de skrev dem, adskilt af komma>) - fx \"Frederik er ordstyrer i dag\" bliver [[MØDE dato=<dagens dato> ordstyrer=Frederik]].  Skriv aldrig, at du ikke kan rette et mødes deltagere - de kommer også ind under Til stede i mødets referat."
   + "Skriv kun de felter, der skal ændres; nævner de et møde som \"i dag\" eller \"torsdag\", så brug datoen for det møde blandt møderne nedenfor. Spørg ikke, om du skal rette det - gør det. "
   + "Er datoen ikke til at forstå, så spørg kort om den. "
   // Requested: "Når man beder saga putte et punkt på dagsordenen skal hun hjælpe med det. Hun skal spørge om noget hvis hun er i tvivl."

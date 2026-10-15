@@ -288,11 +288,11 @@ describe("Saga's minutes", () => {
     expect(await getMinutes(db, 1)).toMatchObject({ status: "approved", draft_markdown: expect.stringContaining("8. oktober") });
     expect(await count(db, "board_minutes_signoffs")).toBe(0);
     expect(services.telegram("sendDocument")).toHaveLength(2);
-    // In the three days of corrections no one approves yet, so the group hears nothing of it; after them, the board approves the corrected text.
+    // Requested: "Ingen skal have en besked når noget rettes i referatet" - the group hears nothing of a correction, also after the three days.
     expect(pings()).toHaveLength(1);
     await db.prepare("UPDATE board_minutes SET created_at_ms = created_at_ms - 4 * 86400000 WHERE id = 1").run();
     await webhook(env, services.fetcher, privateMessage(8, { text: "Næste møde er 8. oktober", reply_to_message: { message_id: (await getMinutes(db, 1))!.approval_message_id } }));
-    expect(pings()[1]).toBe("Hej alle sammen 😊\nReferatet fra mødet 23. september 2026 er rettet og klar til godkendelse igen:\nhttps://cockpit.hjerterum.info/referat/1");
+    expect(pings()).toHaveLength(1);
     // Without the ping turned on, Saga stays silent in the group.
     const quiet = testDatabase(), other = fakeServices({ ai: () => MINUTES });
     await webhook(sagaEnv(quiet), other.fetcher, privateMessage(5, { voice: { file_id: "voice-2", file_size: 5000 } }));

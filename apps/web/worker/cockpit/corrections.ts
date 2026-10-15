@@ -148,10 +148,7 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
   // Requested: "spørgsmålene skal lukke helt når rettelsen er lavet" - nothing about this point stays open for them.
   await closeDuplicates(db, id);
   await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(row.minutes_id).run();
-  if (env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) {
-    const link = env.COCKPIT_URL ? `\n${env.COCKPIT_URL.replace(/\/+$/, "")}/referat/${row.minutes_id}` : "";
-    await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${row.member} rettede punkt ${row.point} i referatet${minutes.meeting_date ? ` fra ${minutes.meeting_date}` : ""}, og jeg har omskrevet det: ${answer.summary || "se referatet"}.${link}`).catch(() => undefined);
-  }
+  // Requested: "Ingen skal have en besked når noget rettes i referatet" - not even the chair.
   return "applied";
 }
 

@@ -579,6 +579,11 @@ Uanset om du søger ro, inspiration eller nye bekendtskaber, er du velkommen. Vi
 
 Velkommen til et sted, der **giver plads til at være** ♡
 
+## Formandens beretning 2026 {#beretning}
+> „Ti år er lang tid. Mere end 4.000 arrangementer er mange møder mellem mennesker. Hvis Hjerterum har gjort en forskel i bare en del af de menneskers liv, der har været her, så har vi skabt noget, der er større end det, vi kan gøre op i kroner og øre."
+>
+> Jacob Hauge, formand – generalforsamlingen 14. oktober 2026. [Læs hele beretningen →](/om-os/formandens-beretning)
+
 ## En forening
 Hjerterum er en forening, Hjerterum F.M.B.A., som drives af medlemmernes kontingent, leje af salen og donationer – og af et team af ildsjæle. [Læs om foreningen, vedtægterne og generalforsamlingen](/om-os/foreningen).
 
@@ -587,7 +592,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
 
 {{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
-    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen"],
+    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/formandens-beretning"],
     sources: ["vision"]
   },
   {
@@ -621,6 +626,98 @@ At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst mu
 
 [Kontakt os](/kontakt)`,
     sources: ["teamet"]
+  },
+  {
+    // Requested: "Tilføj en rubrik med Formandens beretning that links to the full speech" - "Om Hjerterum". The chair's report to the general assembly, as he gave it.
+    path: "/om-os/formandens-beretning", lang: "da", section: "om-os",
+    kicker: "Om Hjerterum", title: "Formandens beretning", em: "2026",
+    lead: "Jacob Hauges beretning til generalforsamlingen 14. oktober 2026 – om ti år med Hjerterum, året der gik, og det næste kapitel, vi skal skrive sammen.",
+    description: "Formandens beretning til Hjerterums generalforsamling 14. oktober 2026.",
+    card: { title: "Formandens beretning 2026", text: "Ti år med Hjerterum, året der gik, og det næste kapitel." },
+    body: `Kære alle sammen.
+
+Hjerterum har faktisk eksisteret i ti år nu.
+
+Når jeg tænker over det, bliver jeg både ydmyg og taknemmelig. Gennem årene har der været mere end 4.000 events her i huset og de 3 hjem vi havde før dette. Mange medarbejdere, bestyrelsesmedlemmer og frivillige har lagt tid, idéer og hjerte i at skabe stedet. Og mennesker er kommet ind ad døren og har fundet fællesskaber, inspiration og måske en lettere måde at være sig selv på.
+
+Nogle har været her én gang. Andre har været her i årevis. Og vi er her stadig. Det synes jeg er værd at standse op ved.
+
+Hjerterum har ikke altid haft en stærk økonomi, og vi har ikke altid haft alle svarene. Men der har igen og igen været mennesker, som troede på stedet og bidrog til, at huset kunne eksistere.
+
+Nogle gange tænker jeg, at der måske er nogen, der passer lidt på Hjerterum. At den ubeskrivelige følelse jeg havde da det første fundament blev lagt i 2017 - en vild oplevelse af usynlige og også synlige væsener, der bakkede op og som gjorde første version af Hjerterum ikke bare lige muligt, men jeg havde en utrolig oplevelse af rygstøtte og at dette er ikke bare muligt, men MEANT TO BE!
+
+Og måske skal vi også selv huske at gøre det. Ikke ved at lade stå til, men ved at udvikle Hjerterum og samtidig passe på det, der gør stedet til Hjerterum.
+
+For mig er det blevet et af de vigtigste spørgsmål i mit første år som formand: Hvordan sikrer vi, at Hjerterum også er her om ti år, uden at miste det, der gjorde stedet værdifuldt i første omgang? Det spørgsmål har været den røde tråd i bestyrelsens arbejde.
+
+For omkring et år siden begyndte et nyt kapitel. Soroush overdrog stafetten, en ny bestyrelse kom til, og jeg blev formand igen. Vi fik også et fantastisk og velfungerende team!
+
+Når roller skifter, er der noget, der skal gives videre, noget der skal bevares, og noget der skal have lov til at ændre sig. Vi har brugt en stor del af året på at se på økonomi, priser, medlemskaber, arbejdsgange og identitet.
+
+Vi har spurgt os selv: Hvem er Hjerterum? Hvad vil vi gerne stå for? Hvem vil vi gerne tiltrække?
+
+Hvordan kan vi blive ved med at eksistere uden at slide de mennesker op, som får huset til at fungere?
+
+Det har været et år med oprydning og professionalisering, men også med gode samtaler og sjove øjeblikke. Jeg er taknemmelig for samarbejdet. Vi har haft meget få konflikter, og når vi har været uenige, har vi kunnet tale om tingene og finde løsninger. Det betyder noget, at fællesskab og menneskelighed også kan mærkes i den måde, vi arbejder sammen på.
+
+En vigtig del af arbejdet har handlet om arbejdsgangene. Hvordan skaber vi rammer, hvor engagement ikke bliver til overbelastning, og hvor mennesker kan holde til at blive ved? Hjerterum må ikke bygge på, at mennesker giver mere af selv end de kan holde til, selvom de måske godt synes de kan i en periode. Vi skal passe på Hjerterum, og det betyder også, at vi skal passe på de mennesker, der hver dag er med til at holde huset levende.
+
+I løbet af sommeren blev vi konfronteret med en økonomisk situation, der krævede handling. Medarbejdernes timetal blev sat ned, og de reducerede timer er foreløbig fastholdt. Det var ikke et mål i sig selv, men en nødvendig reaktion på situationen. Det understreger, hvor vigtigt det er, at vi har et realistisk blik på vores økonomi og vores ressourcer.
+
+Vi har set grundigt på priserne. Jeg kommer selv fra en mere kommerciel og virksomhedsorienteret arbejdskultur, så i begyndelsen undrede jeg mig over, hvor billigt det var at bruge Hjerterums lokaler. Jeg tænkte lidt hardcore og tunnelsynet at nu skal vi tage en pris, der afspejler den værdi, huset tilbyder. Det mener jeg egentlig stadig.
+
+Men jeg har også lært noget siden: at Hjerterum er et sted, man kan have brug for på forskellige tidspunkter i livet. Nogle har ikke mange penge mellem hænderne, selvom behovet for fællesskab og nye forbindelser er stort. Jeg kan godt lide tanken om, at Hjerterum ikke behøver at være en stor, kommerciel organisation for at være en succes. Vi må gerne være professionelle og økonomisk ansvarlige, samtidig med at det fortsat er muligt at være med.
+
+Derfor arbejder vi med en tydeligere model for lokaleleje, der skelner mellem A- og B-tid. Når et arrangement er gratis for medlemmerne, kan lokalet stilles gratis til rådighed efter de gældende vilkår. I A-tid gives der 25 procent rabat.
+
+Vi tilbyder også indimellem en gratis prøveperiode på medlemskabet i 30 dage for at se om vi kan få nye sjæle med ombord.
+
+Målet er ikke bare at gøre alting dyrere eller billigere. Vi forsøger at finde en model, hvor økonomien kan hænge sammen, og Hjerterum fortsat er tilgængeligt. Vi har taget et skridt mod større gennemsigtighed, men vi skal blive ved med at følge, hvordan det virker i praksis.
+
+Vi har arbejdet med medlemsmodellerne og med, hvordan vi både gør medlemskabet attraktivt og giver plads til forskellige økonomiske vilkår.
+
+Et medlemskab handler ikke kun om indtægter. Det handler også om, hvem vi inviterer indenfor, og hvilke fællesskaber vi gør mulige. Vi må samtidig erkende, at medlemstallet fortsat ligger nogenlunde stabilt. Hvis Hjerterum er så særligt, som vi oplever, hvorfor er der så ikke flere, der bliver medlemmer? Måske skal vi blive bedre til at fortælle, hvem vi er, og hvad man får ud af at være en del af huset.
+
+Vi ved fra tilbagemeldinger, at Hjerterum har haft betydning for mange. Mennesker har fundet nye forbindelser, fællesskaber og plads til at udforske nye sider af sig selv. Men vi kan ikke regne med, at alle i Aarhus ved, at Hjerterum findes, eller hvad det kan betyde. Så markedsføring er noget af det vi vil satse endnu mere på i den kommende tid.
+
+Fundraising-weekenden viste også, hvad opbakning kan føre til. Den gav et overskud på cirka 8.000 til 8.500 kroner. Det er et konkret bidrag til økonomien, og samtidig et tegn på, at mennesker har lyst til at engagere sig og hjælpe med at holde stedet levende.
+
+Hjerterums værdi kan ikke kun aflæses i et regnskab. Men den skal kunne holde til at møde virkeligheden i et regnskab. Det er den balance, vi skal finde: at tage økonomien alvorligt uden at gøre penge til det vigtigste, og at skabe struktur uden at fjerne det frie og menneskelige.
+
+En af de store opgaver, vi arbejder videre med, er et nyt digitalt system og Hjerterums digitale hjem på hjerterum.info. Det er stadig under udvikling. Målet er lancering indenfor de næste måneder.
+
+Det handler ikke kun om teknik. Vi har stadig timer, hvor salen står tom, samtidig med at medlemmer og brugere har idéer og lyst til at skabe noget. Ambitionen er at gøre vejen fra idé til arrangement langt kortere og mindske ventetiden på at få sit event op og ud til omverdenen.
+
+Tanken er, at man på den nye hjemmeside kan betjene sig selv langt mere og bedre. Man kommer til at kunne se ledige tider i salen og oprette et arrangement og arbejde med tekst, billede og praktiske oplysninger på egen hånd - fra ide til event der ligger i kalenderen. Fra medlemssiden kan man holde øje med tilmeldinger. Og planen er at der også kan ske en automatisk udbetaling efter eventet er færdigt.
+
+I princippet vil man kunne komme live med sit event på et kvarter.
+
+Saga er tænkt som en digital assistent, der skal hjælpe med at formulere teksten, kontrollere billedet og gennemgå arrangementet - passer dette event til Hjerterum? Møder det Hjerterums fundamentale krav?, inden det offentliggøres.
+
+Hvis man ikke selv kan stå for oprettelsen, skal teamet fortsat kunne hjælpe mod et mindre gebyr. Vi arbejder også på profiler for behandlere og undervisere og et bedre overblik for medlemmer over deres medlemskab og besparelser.
+
+Vi vil gerne flytte Hjerterum fra kun at være et sted, man kommer og deltager, til også at være et sted, man selv er med til at skabe. Fra medlem til medlem. Vi kan stille rammerne til rådighed og gøre det lettere at bruge huset, men vi kan og skal som bestyrelse ikke alene skabe det liv, der skal fylde det.
+
+Det liv kommer fra jer.
+
+Fra jeres idéer, interesser, faglighed og lyst til at mødes. Måske har du længe haft en idé til en workshop, en gruppe, en koncert eller noget helt andet. Jeg håber, at det kommende system vil gøre det lettere at komme i gang.
+
+På generalforsamlingen skal vi også have valgt nye suppleanter. Jeg håber, at flere har lyst til at tage del i ansvaret for Hjerterums fremtid. Hjerterum er ikke kun bestyrelsens eller medarbejdernes ansvar. Det er et fællesskab, som kun kan eksistere, hvis mennesker bliver ved med at tage del i det.
+
+Når jeg ser tilbage på året, er jeg først og fremmest taknemmelig. For arbejdet, samarbejdet, de ærlige samtaler og viljen til at finde løsninger, også når de ikke er enkle. Og for, at vi stadig har et sted, hvor mennesker kan mødes, finde hinanden og måske opdage nye sider af sig selv.
+
+Jeg ved ikke præcis, hvordan Hjerterum ser ud om ti år. Men jeg håber, at det stadig er et sted, hvor man kan komme, som man er, og finde fællesskab og nye muligheder. Et sted, der er økonomisk bæredygtigt uden at blive utilgængeligt.
+
+Måske behøver Hjerterum ikke at blive noget helt andet for at lykkes. Måske skal vi først og fremmest blive bedre til at forstå, hvad vi er, og tage ansvar for at passe på det.
+
+Ti år er lang tid. Mere end 4.000 arrangementer er mange møder mellem mennesker. Hvis Hjerterum har gjort en forskel i bare en del af de menneskers liv, der har været her, så har vi skabt noget, der er større end det, vi kan gøre op i kroner og øre.
+
+Det forpligter os, men det giver os også en god grund til at fortsætte.
+
+Tak for jeres tillid, jeres engagement og jeres bidrag til Hjerterum. Jeg glæder mig til det næste kapitel, vi skal skrive sammen.
+
+*Jacob Hauge, formand for Hjerterum – generalforsamlingen 14. oktober 2026*`,
+    sources: []
   },
   {
     path: "/om-os/historien", lang: "da", section: "om-os",
