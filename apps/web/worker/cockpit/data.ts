@@ -382,10 +382,18 @@ export async function lockIfApproved(db: D1Database, minutesId: number, members:
   return Number(result.meta?.changes ?? 0) === 1;
 }
 
-/** Saga's minutes from the last 90 days that this member has not yet approved (or asked to correct). */
+/** Requested: "Referat-udkast kan tilrettes og ændres i 3 dage. Herefter kan man ikke længere ændre det: nu skal bestyrelsesmedlemmerne godkende
+ * det hver især. Når alle har godkendt låses det." - "for at undgå at alle skal godkende det forfra hver eneste gang, der er en ændring."
+ * For three days from when the minutes were put up, everyone may correct them and no one approves; then they can no longer be
+ * corrected in admin, and each member approves; when all have, they lock. */
+export const EDIT_DAYS = 3;
+export const editUntil = (minutes: { created_at_ms: number }) => minutes.created_at_ms + EDIT_DAYS * 86_400_000;
+export const inEditWindow = (minutes: { created_at_ms: number; locked_at_ms?: number | null }, nowMs: number) => !minutes.locked_at_ms && nowMs < editUntil(minutes);
+
+/** Saga's minutes from the last 90 days, out of their three days of corrections, that this member has not yet approved (or said why not). */
 export async function unsignedFor(db: D1Database, member: string, nowMs: number): Promise<ApprovedMinutes[]> {
-  const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes m WHERE status = 'approved' AND source != 'document' AND draft_markdown IS NOT NULL AND created_at_ms >= ?
-    AND NOT EXISTS (SELECT 1 FROM board_minutes_signoffs s WHERE s.minutes_id = m.id AND s.member = ?) ORDER BY COALESCE(meeting_date, '') DESC LIMIT 10`).bind(nowMs - 90 * 86_400_000, member).all<ApprovedMinutes>();
+  const rows = await db.prepare(`SELECT ${MINUTES} FROM board_minutes m WHERE status = 'approved' AND source != 'document' AND draft_markdown IS NOT NULL AND created_at_ms >= ? AND created_at_ms <= ?
+    AND NOT EXISTS (SELECT 1 FROM board_minutes_signoffs s WHERE s.minutes_id = m.id AND s.member = ?) ORDER BY COALESCE(meeting_date, '') DESC LIMIT 10`).bind(nowMs - 90 * 86_400_000, nowMs - EDIT_DAYS * 86_400_000, member).all<ApprovedMinutes>();
   return rows.results ?? [];
 }
 

@@ -287,11 +287,22 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
  * write in Telegram, though she is in the group. Her [[GRUPPEN: ...]] line is sent there as her own message, for the member who asked; the
  * answer says it was sent, and what. Only for a member who is known, and one message per answer. */
 const GROUP_LINE = /\[\[GRUPPEN:\s*([\s\S]*?)\]\]/i;
+
+/** Requested: "Når jeg beder Saga om at sige noget til de andre, skal beskeden komme fra hende, og aldrig ala 'Jacob spørger' eller 'Jacob beder
+ * dig om'. Beskeden kommer fra hende!" Should she still open with who asked ("Jacob spørger: ...", "Fra Jacob: ..."), that goes. */
+export function ownVoice(message: string): string {
+  const name = "\\p{Lu}[\\p{L}-]*(?:\\s+\\p{Lu}[\\p{L}-]*)?";
+  const opener = new RegExp(`^((?:[Hh]ej|[Hh]i)[^\\n:]{0,30}?[,!.]?\\s+)?(?:${name}\\s+(?:spørger|siger|skriver|beder om|vil gerne vide|asks|says|wants to know)|(?:[Ff]ra|[Ff]rom|[Pp]å vegne af|[Oo]n behalf of)\\s+${name})\\s*:\\s*`, "u");
+  const found = opener.exec(message);
+  if (!found || !message.slice(found[0].length).trim()) return message;
+  const rest = message.slice(found[0].length);
+  return (found[1] ?? "") + (found[1] ? rest : rest.charAt(0).toLocaleUpperCase("da-DK") + rest.slice(1));
+}
 export async function applyGroupMessage(env: SagaEnv, deps: SagaDeps, db: D1Database, answer: string, who: string | null): Promise<string> {
   const line = GROUP_LINE.exec(answer);
   if (!line) return answer;
   const text = answer.replace(GROUP_LINE, "").replace(GROUP_LINE, "").trim();
-  const message = line[1]!.trim().slice(0, 1500);
+  const message = ownVoice(line[1]!.trim().slice(0, 1500));
   if (!message || !who) return text;
   const quoted = message.split("\n").map(l => `> ${l}`).join("\n");
   if (!env.SAGA_BOARD_CHAT_ID || !env.SAGA_TELEGRAM_BOT_TOKEN) return `${text}\n\nJeg kan ikke nå gruppen lige nu, så her er beskeden, du kan sende selv:\n\n${quoted}`;
@@ -314,7 +325,7 @@ export async function applyDirectMessages(env: SagaEnv, deps: SagaDeps, db: D1Da
   const lower = (s: string) => s.trim().toLocaleLowerCase("da-DK");
   const telegram = telegramClient(env, deps);
   for (const [, to, body] of lines.slice(0, 8)) {
-    const name = lower(to!), message = body!.trim().slice(0, 1500);
+    const name = lower(to!), message = ownVoice(body!.trim().slice(0, 1500));
     const person = people.find(p => lower(p.author_name) === name) ?? people.find(p => lower(p.author_name).split(/\s+/)[0] === name.split(/\s+/)[0]);
     const quoted = message.split("\n").map(l => `> ${l}`).join("\n");
     if (!person || !message) { text += `\n\nJeg kender ingen ${to!.trim()} i bestyrelsens gruppe, så beskeden er ikke sendt.`; continue; }

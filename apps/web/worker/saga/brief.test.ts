@@ -134,8 +134,8 @@ describe("Saga's brief for Matrix' front page", () => {
       await updateMinutes(db, id, { status: "drafted", draft: "# Referat" }, NOW - DAY);
     }
     await createPostDraft(db, { kind: "weekly_summary", text: "Ugen der gik", nowMs: NOW - DAY });
-    const signed = (await queueMinutes(db, { source: "telegram", fileId: "ok", fileName: "a.m4a", mimeType: null, meetingDate: "2026-09-23", nowMs: NOW - 2 * DAY }))!;
-    await updateMinutes(db, signed, { status: "approved", draft: "# Referat" }, NOW - 2 * DAY);
+    const signed = (await queueMinutes(db, { source: "telegram", fileId: "ok", fileName: "a.m4a", mimeType: null, meetingDate: "2026-09-23", nowMs: NOW - 4 * DAY }))!;
+    await updateMinutes(db, signed, { status: "approved", draft: "# Referat" }, NOW - 4 * DAY);
     const lost = (await queueMinutes(db, { source: "upload", fileId: "lost", fileName: "b.m4a", mimeType: null, meetingDate: "2026-09-16", nowMs: NOW - 4 * DAY }))!;
     await updateMinutes(db, lost, { status: "failed", error: "ai_failed" }, NOW - 4 * DAY);
     await db.prepare("INSERT INTO board_meetings (meeting_date, start_time, agenda, created_at_ms, updated_at_ms) VALUES ('2026-10-06', '19:00', '', ?, ?), ('2026-10-01', '19:00', 'Budget', ?, ?)").bind(NOW, NOW, NOW, NOW).run();

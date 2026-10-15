@@ -13,7 +13,7 @@ import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsor
 import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
-  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, answerLinks, tasksFor, unsignedFor, weeklySummary,
+  minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
 import { todosPage } from "./todosPage.js";
 import { statsPage } from "./statsPage.js";
@@ -345,6 +345,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     // Approved by all and locked: nothing more to approve or correct.
     if (minutes.locked_at_ms) return redirect(`${base}/referat/${id}?laast=1`);
     if (signPath[2] === "godkend") {
+      // The first three days are for corrections; approving comes after, so no one approves a text that still changes.
+      if (inEditWindow(minutes, now)) return redirect(`${base}/referat/${id}?retperiode=1`);
       await signOff(db, id, who, "approved", null, now);
       const locked = await lockIfApproved(db, id, members.names, now);
       return redirect(`${base}/referat/${id}?${locked ? "laast" : "godkendt"}=1`);
@@ -364,6 +366,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!minutes) return html(notFound(base, who), 404);
     if (!who) return redirect(`${base}/hvem`);
     if (minutes.locked_at_ms) return redirect(`${base}/referat/${id}?laast=1`);
+    // After the three days of corrections the text stands; the board approves it.
+    if (!inEditWindow(minutes, now)) return redirect(`${base}/referat/${id}?lukket=1`);
     const form = await request.formData().catch(() => null);
     let correctionId = 0, point = 0;
     if (fixPath[2]) {
@@ -390,16 +394,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     await closeSettled(db, minutes.id);
     // Lock it here too, should everyone already have approved (or the board have become smaller).
     if (!minutes.locked_at_ms && await lockIfApproved(db, minutes.id, members.names, now)) minutes.locked_at_ms = now;
-    const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din rettelse."
+    const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din besked."
+      : url.searchParams.get("retperiode") ? "Referatet kan stadig rettes. Du godkender det, når rettelsesperioden er slut." : url.searchParams.get("lukket") ? "Rettelsesperioden er slut, så referatet kan ikke længere ændres. Nu godkender I det hver især."
       : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt." : "";
-    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice });
+    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now });
     // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
     const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
     if (english) return html(layout(base, `Summary ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));
     const body = /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(minutes.draft_markdown ?? ""))?.[1] ?? "";
     const readEnglish = state.lang === "en" && minutes.draft_markdown ? `<form method="post" action="${base}/referat/${minutes.id}/engelsk" class="m-sign" style="margin-bottom:12px" onsubmit="const b=this.querySelector('button');b.disabled=true;b.textContent='Saga is translating … (up to a minute)'"><button>Read in English</button></form>` : "";
     const planned = minutes.meeting_date ? await meetingOn(db, minutes.meeting_date) : null;
-    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${readEnglish}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id) })}</main>`,
+    return html(layout(base, `Referat ${minutes.meeting_date ? shortDay(minutes.meeting_date) : ""}`.trim(), `<main>${panel}${readEnglish}${minutesDocument(base, minutes, planned, body, { who, corrections: await corrections(db, minutes.id), open: inEditWindow(minutes, now) })}</main>`,
       { section: "/moder", who, style: MINUTES_STYLE }));
   }
 

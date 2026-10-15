@@ -172,9 +172,14 @@ describe("the board cockpit", () => {
     // Requested: "Referatet skal op uden godkendelse, men alle medlemmer skal pinges til at godkende referatet".
     const minutes = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(minutes).toContain("<li>Budgettet er vedtaget</li>");
-    expect(minutes).toContain("Ingen har godkendt endnu.");
-    expect(minutes).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
+    // Then: "Referat-udkast kan tilrettes og ændres i 3 dage. Herefter ... skal bestyrelsesmedlemmerne godkende det hver især."
+    expect(minutes).toContain("Kan rettes til 4. oktober kl. 12.00");
+    expect(await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text()).not.toContain("sign-bar");
     expect(await (await call("/cockpit/moder", { cookie: session })).text()).toContain(`/cockpit/referat/${queued!.id}`);
+    await db.prepare("UPDATE board_minutes SET created_at_ms = created_at_ms - 3 * 86400000, updated_at_ms = updated_at_ms - 3 * 86400000 WHERE id = ?").bind(queued!.id).run();
+    const open = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
+    expect(open).toContain("Ingen har godkendt endnu.");
+    expect(open).toContain("Mangler: Gitta, Jacob Hauge, Lisbeth");
     // Requested: the reminder is one coloured bar under the header, and "den eneste notifikation om godkendelsen".
     const front = await (await call("/cockpit/", { cookie: await memberCookie(session, "Gitta") })).text();
     expect(front).toContain('<div class="sign-bar ny" role="status">');
@@ -189,7 +194,7 @@ describe("the board cockpit", () => {
     expect(correction.status).toBe(303);
     const after = await (await call(`/cockpit/referat/${queued!.id}`, { cookie: await memberCookie(session, "Lisbeth") })).text();
     expect(after).toContain("<strong>Godkendt af:</strong> Lisbeth");
-    expect(after).toContain("<strong>Gitta</strong> har en rettelse: Fristen er 20. oktober");
+    expect(after).toContain("<strong>Gitta</strong> skrev til formanden: Fristen er 20. oktober");
     expect(after).toContain("Mangler: Jacob Hauge");
     expect(after).toContain("Du har godkendt referatet.");
     expect(await (await call("/cockpit/", { cookie: await memberCookie(session, "Lisbeth") })).text()).not.toContain("Godkend referatet");
@@ -484,7 +489,7 @@ describe("the board cockpit", () => {
     const page = await (await call(`/cockpit/referat/${id}`, { cookie: session })).text();
     for (const text of ["Referat af bestyrelsesmøde", "<dd>onsdag den 30. september 2026</dd>", "<dd>kl. 17:00</dd>", "<dd>Hjerterum, Valby</dd>", "<dd>Jacob, Lisbeth, Gitta</dd>", "<dd>Blanka</dd>",
       '<span class="m-label">Beslutning</span>Budget 2027 vedtaget', "m-decision m-none", "<td data-label=\"Hvem\">Gitta</td><td data-label=\"Hvad\">Send budgettet ud</td><td data-label=\"Frist\">5. oktober</td>", "28. oktober kl. 17 i Hjerterum",
-      "Lagt op 1. oktober 2026", "Bestyrelsens godkendelse", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
+      "Lagt op 1. oktober 2026", "Kan rettes til", "Print / gem som PDF", "@media print"]) expect(page).toContain(text);
     expect(page.indexOf('class="m-agenda"')).toBeLessThan(page.indexOf('class="m-point"'));
     // Reported (screenshot): "Der er to lag" - the minutes' own heading stuck to the top like the page bar.
     expect(page).toContain('<div class="m-head">');
@@ -836,7 +841,10 @@ describe("each member's task list", () => {
     expect(page).toContain("Klaret de sidste 7 dage (1)");
     // What is left is the minutes she has not approved yet.
     expect(page.slice(0, page.indexOf("Klaret de sidste 7 dage"))).not.toContain("Lav event-mail");
-    expect(page).toContain("<strong>Godkend referatet");
+    // Approving comes when the three days of corrections are over.
+    expect(page).not.toContain("<strong>Godkend referatet");
+    await db.prepare("UPDATE board_minutes SET created_at_ms = created_at_ms - 3 * 86400000").run();
+    expect(await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text()).toContain("<strong>Godkend referatet");
     expect(await (await call("/cockpit/", { cookie: as("Gitta") })).text()).not.toContain("Lav event-mail");
 
     // Your own item, and one written to Lisbeth: only on her list, with who wrote it.

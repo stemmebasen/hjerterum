@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { askInput, askSagaMarkdown, boardKnowledge, LONG_VIEW, sectionsFor } from "./ask.js";
+import { askInput, askSagaMarkdown, boardKnowledge, LONG_VIEW, ownVoice, sectionsFor } from "./ask.js";
 import { meetingOn, saveMeeting } from "./data.js";
 import { setMemberLang } from "./i18n.js";
 import { saveBoardMessage } from "../saga/store.js";
@@ -43,12 +43,12 @@ describe("Saga writes to a board member privately when asked", () => {
       await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: id, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
     await setMemberLang(db, "Douglas Crawford", "en", NOW);
     let system = "", first = "";
-    const services = fakeServices({ ai: (s, f) => { system = s; first = f; return "Done.\n[[BESKED til=Douglas: Jacob asked me to say thank you for all the good work you do. 🧡]]\n[[BESKED til=Nobody: Hej]]"; } });
+    const services = fakeServices({ ai: (s, f) => { system = s; first = f; return "Done.\n[[BESKED til=Douglas: Thank you for all the good work you do. 🧡]]\n[[BESKED til=Nobody: Hej]]"; } });
     const out = await askSagaMarkdown(sagaEnv(db), deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Send an encouraging message to Douglas directly on Telegram", history: [] });
     expect(first).toContain("Jacob Hauge (formand og superadmin) spørger");
     expect(system).toContain("BESTYRELSENS SPROG (det sprog, hver har valgt i admin):\nDouglas Crawford: engelsk\nJacob Hauge: dansk");
-    expect(services.telegram("sendMessage").map(m => m.body)).toMatchObject([{ chat_id: "203", text: "Jacob asked me to say thank you for all the good work you do. 🧡" }]);
-    expect(out).toContain("✓ Sendt privat til Douglas:\n\n> Jacob asked me to say thank you for all the good work you do. 🧡");
+    expect(services.telegram("sendMessage").map(m => m.body)).toMatchObject([{ chat_id: "203", text: "Thank you for all the good work you do. 🧡" }]);
+    expect(out).toContain("✓ Sendt privat til Douglas:\n\n> Thank you for all the good work you do. 🧡");
     expect(out).toContain("Jeg kender ingen Nobody i bestyrelsens gruppe, så beskeden er ikke sendt.");
   });
 });
@@ -60,8 +60,8 @@ describe("Saga writes in the board's group when asked", () => {
     const services = fakeServices({ ai: () => "Det spørger jeg om.\n[[GRUPPEN: Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften.]]" });
     const env = sagaEnv(db);
     const out = await askSagaMarkdown(env, deps(services.fetcher, NOW), db, "Jacob Hauge", { question: "Kan du spørge i telegram gruppen om nogen har nogle punkter til dagsordenen i morgen?", history: [] });
-    expect(services.telegram("sendMessage").map(m => (m.body as { text: string }).text)).toEqual(["Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften."]);
-    expect(out).toBe("Det spørger jeg om.\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n> Jacob spørger: Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften.");
+    expect(services.telegram("sendMessage").map(m => (m.body as { text: string }).text)).toEqual(["Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften."]);
+    expect(out).toBe("Det spørger jeg om.\n\n✓ Sendt i bestyrelsens Telegram-gruppe:\n\n> Har I punkter til dagsordenen til mødet i morgen kl. 13.30? Skriv dem gerne her i aften.");
     expect(await db.prepare("SELECT author_name, from_assistant FROM board_messages").all()).toMatchObject({ results: [{ author_name: "Saga", from_assistant: 1 }] });
     // Without knowing who asks, nothing is sent.
     await askSagaMarkdown(env, deps(services.fetcher, NOW), db, null, { question: "Skriv i gruppen", history: [] });
@@ -144,5 +144,17 @@ describe("only what the question needs", () => {
     expect(systems).toHaveLength(1);
     // The calls are told apart in the usage log.
     expect(await db.prepare("SELECT purpose, COUNT(*) AS n FROM ai_usage GROUP BY purpose ORDER BY purpose").all()).toMatchObject({ results: [{ purpose: "spoergsmaal", n: 3 }, { purpose: "spoergsmaal-udvidet", n: 2 }] });
+  });
+});
+
+describe("Saga's messages to the others are her own", () => {
+  // Requested: "Når jeg beder Saga om at sige noget til de andre, skal beskeden komme fra hende, og aldrig ala 'Jacob spørger' eller 'Jacob beder dig om'. Beskeden kommer fra hende!"
+  it("drops an opening that says who asked, and leaves everything else as it is", () => {
+    expect(ownVoice("Jacob spørger: har I punkter til i morgen?")).toBe("Har I punkter til i morgen?");
+    expect(ownVoice("Hej alle 😊 Jacob Hauge spørger: har I punkter til i morgen?")).toBe("Hej alle 😊 har I punkter til i morgen?");
+    expect(ownVoice("Fra Jacob: Tak for i dag!")).toBe("Tak for i dag!");
+    expect(ownVoice("Jacob asks: could you send the agenda?")).toBe("Could you send the agenda?");
+    expect(ownVoice("Dagsorden til i morgen: 1. Velkommen")).toBe("Dagsorden til i morgen: 1. Velkommen");
+    expect(ownVoice("Har I punkter til i morgen?")).toBe("Har I punkter til i morgen?");
   });
 });

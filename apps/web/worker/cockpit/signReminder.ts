@@ -1,10 +1,10 @@
-import type { ApprovedMinutes } from "./data.js";
+import { editUntil, type ApprovedMinutes } from "./data.js";
 import { esc } from "./page.js";
 
 /** Requested: "Hvis et medlem ikke har godkendt referatet efter to dage, skal der komme en gul ring omkring påmindelsen, og hvis
  * der går fem dage, skal der komme en rød ring." - "Påmindelsen bør ligge i toppen som en bar med farvet baggrund - enten grå,
  * orange/gul eller rød baggrund lige under headeren." A bar under the menu on every page while the member has minutes to approve:
- * grey at first, amber from two days, red from five - counted from when the minutes were put up or last corrected. */
+ * grey at first, amber from two days, red from five - counted from when the three days of corrections ended (or the chair last corrected them). */
 const DAY = 86_400_000;
 const DATE = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", timeZone: "UTC" });
 
@@ -14,7 +14,7 @@ export const reminderLevel = (days: number): ReminderLevel => days >= 5 ? "roed"
 export function signReminder(base: string, toSign: ApprovedMinutes[], nowMs: number): string {
   if (!toSign.length) return "";
   // The oldest decides the colour and is the one to read first.
-  const since = (m: ApprovedMinutes) => Math.max(m.created_at_ms, m.updated_at_ms ?? 0);
+  const since = (m: ApprovedMinutes) => Math.max(editUntil(m), m.updated_at_ms ?? 0);
   const oldest = [...toSign].sort((a, b) => since(a) - since(b))[0]!;
   const days = Math.max(0, Math.floor((nowMs - since(oldest)) / DAY));
   const level = reminderLevel(days);
@@ -29,7 +29,7 @@ export function signReminder(base: string, toSign: ApprovedMinutes[], nowMs: num
 /** Requested: "Det ville også være godt, hvis godkendelse af referatet kommer på den individuelle opgaveliste for dem, der ikke har godkendt
  * det endnu." - one line on Dine opgaver per minutes still to approve; it goes when they are approved. */
 export function signTodo(base: string, m: ApprovedMinutes, nowMs: number): string {
-  const days = Math.max(0, Math.floor((nowMs - Math.max(m.created_at_ms, m.updated_at_ms ?? 0)) / DAY));
+  const days = Math.max(0, Math.floor((nowMs - Math.max(editUntil(m), m.updated_at_ms ?? 0)) / DAY));
   const which = m.meeting_date ? `referatet fra ${DATE.format(new Date(`${m.meeting_date}T12:00:00Z`))}` : "referatet";
   return `<li><a href="${base}/referat/${m.id}"><strong>Godkend ${esc(which)}</strong></a><span class="ctx">Referat · ${days >= 2 ? `har ventet i ${days} dage` : "nyt"}</span></li>`;
 }
