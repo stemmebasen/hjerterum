@@ -316,7 +316,8 @@ const STYLE = `
 /* Requested: "Also add a little cross by each so we can delete them immediately." */
 .urgent-item{position:relative}.urgent-item summary{padding-right:40px}.x-form{position:absolute;top:8px;right:0;margin:0;z-index:1}
 .x-form .x{width:30px;height:30px;min-height:0;padding:0;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--muted);font-size:18px;line-height:1;cursor:pointer}.x-form .x:hover{color:var(--warn);border-color:var(--warn)}.inbox .kind{font-size:11px;font-weight:700;color:var(--accent);margin-right:4px}
-@media (max-width:760px){.enq li{grid-template-columns:1fr}.enq form{grid-row:auto;grid-column:1;margin-top:4px}}
+/* Reported (a phone): "Her bør bruges mere plads til tekst - halvdelen af kortet står tomt" - Tildel and the check went on in a column of their own; on a phone they go under the text. */
+@media (max-width:760px){.enq li{grid-template-columns:minmax(0,1fr)}.enq form{grid-row:auto;grid-column:1;margin-top:4px}.enq .acts-col{grid-row:auto;grid-column:1;margin-top:8px;justify-content:space-between;flex-wrap:wrap}}
 `;
 
 const DAY_MONTH = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", day: "numeric", month: "short" });
