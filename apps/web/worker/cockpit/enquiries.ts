@@ -113,7 +113,7 @@ export async function setLabel(db: D1Database, id: number, label: string): Promi
 
 /** Requested: "Man skal også kunne tildele hver mail til et medlem af bestyrelsen. Mailen skal så vises på to do-listen" + "hold det helt simpelt":
  * the mail gets an owner and the owner a to-do "Svar på mail fra <afsender>". No member = the mail is taken back and its open to-do removed. */
-/** `why`: Saga's reason when she assigned it (autoAssignMail); a member's choice has none - and a member who takes Saga's choice away
+/** `why`: Saga's reason when she assigned it (before "Slet automatisk tildeling af mails"); a member's choice has none - and a member who takes Saga's choice away
  * leaves the mail to them ('fravalgt'). */
 export async function assignMail(db: D1Database, id: number, member: string, by: string, nowMs: number, why: string | null = null): Promise<boolean> {
   const mail = await db.prepare("SELECT sender, assigned_to, assigned_todo_id FROM board_mail WHERE id = ?").bind(id).first<{ sender: string; assigned_to: string | null; assigned_todo_id: number | null }>();
@@ -126,15 +126,8 @@ export async function assignMail(db: D1Database, id: number, member: string, by:
   return true;
 }
 
-/** Requested: "Is it possible that Saga learns or checks the email (the IMAP) to see if there is a contact person from the team that normally deals
- * with this sender, and then assigns that email automatically to that person?" - "Ja". No AI: for an important or critical mail no one has, Saga
- * looks at the same sender's earlier mails - whom the members assigned them to (counts double) and who answered them from team@ (the name on the
- * answer) - and, with no history, whose responsibilities cover the mail's label. Only a clear first choice is assigned; a tie is left to the board. */
-const RESPONSIBLE: Record<string, RegExp> = {
-  Økonomi: /økonomi|regnskab|kasserer|betaling|faktura|bogføring/i,
-  Medlem: /medlem/i,
-  Event: /event|arrangement|undervis|lokale|udlej|booking|kalender/i
-};
+/** Asked first: "Is it possible that Saga ... assigns that email automatically to that person?" - then: "Slet automatisk tildeling af mails". Saga no longer
+ * assigns mails; a member does. What she had assigned was taken back (assigned_why 'fravalgt'). */
 const firstName = (text: string) => text.trim().split(/[\s|,–-]+/)[0]?.toLocaleLowerCase("da-DK") ?? "";
 /** The board member a name on an answer belongs to ("Gitta | Hjerterum", "Gitta Hansen"), when only one fits. */
 export function memberOf(nameOnMail: string, members: string[]): string | null {
@@ -143,37 +136,6 @@ export function memberOf(nameOnMail: string, members: string[]): string | null {
   return hits.length === 1 ? hits[0]! : null;
 }
 
-export async function autoAssignMail(db: D1Database, members: string[], responsibilities: Map<string, string>, nowMs: number): Promise<number> {
-  if (!members.length) return 0;
-  const open = (await db.prepare(`SELECT id, sender, label FROM board_mail WHERE assigned_to IS NULL AND assigned_why IS NULL AND handled_at_ms IS NULL AND answered_at_ms IS NULL
-    AND (enquiry_kind IS NOT NULL OR urgent_why IS NOT NULL) AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 50`).bind(nowMs - 14 * DAY)
-    .all<{ id: number; sender: string; label: string | null }>()).results ?? [];
-  let assigned = 0;
-  for (const mail of open) {
-    const from = address(mail.sender).toLowerCase();
-    if (!from) continue;
-    const earlier = (await db.prepare(`SELECT assigned_to, assigned_why, answered_by FROM board_mail WHERE id != ? AND lower(sender) LIKE ? AND received_at_ms >= ?`)
-      .bind(mail.id, `%${from}%`, nowMs - 365 * DAY).all<{ assigned_to: string | null; assigned_why: string | null; answered_by: string | null }>()).results ?? [];
-    const score = new Map<string, number>(), why = new Map<string, string>();
-    const add = (member: string, points: number, reason: string) => { score.set(member, (score.get(member) ?? 0) + points); if (!why.has(member) || points > 1) why.set(member, reason); };
-    for (const e of earlier) {
-      if (e.assigned_to && members.includes(e.assigned_to) && (e.assigned_why === null || e.assigned_why === "fravalgt")) add(e.assigned_to, 2, `plejer at få mails fra ${name(mail.sender)}`);
-      const answeredBy = e.answered_by ? memberOf(e.answered_by, members) : null;
-      if (answeredBy) add(answeredBy, 1, `har svaret ${name(mail.sender)} før`);
-    }
-    const ranked = [...score.entries()].sort((a, b) => b[1] - a[1]);
-    let member: string | null = null, reason = "";
-    if (ranked.length && (ranked.length === 1 || ranked[0]![1] > ranked[1]![1])) { member = ranked[0]![0]; reason = why.get(member)!; }
-    else if (!ranked.length && mail.label && RESPONSIBLE[mail.label]) {
-      const fits = members.filter(m => RESPONSIBLE[mail.label!]!.test(responsibilities.get(m) ?? ""));
-      if (fits.length === 1) { member = fits[0]!; reason = `har ${mail.label.toLocaleLowerCase("da-DK")} som ansvarsområde`; }
-    }
-    if (!member) continue;
-    await assignMail(db, mail.id, member, "Saga", nowMs, reason);
-    assigned++;
-  }
-  return assigned;
-}
 
 /** Asked: "How come an email from Laila Pedersen for instance, is not shown in Vigtige mails?" - when Saga did not see a mail as one to answer,
  * a member can move it there. */
