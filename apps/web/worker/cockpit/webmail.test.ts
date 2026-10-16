@@ -19,6 +19,7 @@ const RAW = [
 
 function fakeWebmail() {
   const seen: Array<[string, number, boolean]> = [];
+  const done: string[] = [];
   const listed: Array<[string, number, string]> = [];
   const folders: WebFolder[] = [
     { path: "INBOX.Trash", name: "Papirkurv", special: "\\Trash", depth: 0, unseen: 0, total: 3, selectable: true },
@@ -33,10 +34,12 @@ function fakeWebmail() {
     async folders() { return folders; },
     async list(path, page, size, query) { listed.push([path, page, query]); const found = query ? items.filter(i => i.subject.toLowerCase().includes(query.toLowerCase())) : items; return { total: found.length, items: found }; },
     async source(_path, uid) { return uid === 7 ? { source: new TextEncoder().encode(RAW), seen: false, flagged: true } : null; },
-    async setSeen(path, uid, value) { seen.push([path, uid, value]); },
+    async setFlag(path, uids, flag, on) { if (flag === "\\Seen") for (const uid of uids) seen.push([path, uid, on]); else done.push(`${on ? "flag" : "unflag"} ${path} ${uids.join(",")}`); },
+    async move(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { uidValidity: "77" }; },
+    async remove(path, uids) { done.push(`delete ${path} ${uids.join(",")}`); return { uidValidity: "88" }; },
     async close() { /* nothing */ },
   });
-  return { opener, seen, listed };
+  return { opener, seen, listed, done };
 }
 
 async function setup(connected = true) {
@@ -111,12 +114,57 @@ describe("the mailbox in admin", () => {
 
   it("marks a mail unread again, and asks who you are first", async () => {
     const { call, gitta, session, mail, form } = await setup();
-    const back = await call("/posthus/mail/ulaest", { method: "POST", cookie: gitta, body: form({ mappe: "INBOX", uid: "7" }) });
-    expect(back.headers.get("location")).toBe("/posthus/mail?mappe=INBOX");
+    const back = await call("/posthus/mail/handling", { method: "POST", cookie: gitta, body: form({ mappe: "INBOX", uid: "7", handling: "ulaest", tilbage: "vis" }) });
+    expect(back.headers.get("location")).toBe("/posthus/mail?mappe=INBOX&udfoert=ulaest&n=1");
     expect(mail.seen).toEqual([["INBOX", 7, false]]);
     expect((await call("/posthus/mail", { cookie: session })).headers.get("location")).toBe("/hvem");
     // Posthus leads there.
     expect(await (await call("/posthus", { cookie: gitta })).text()).toContain('href="/posthus/mail">Åbn mailboksen →</a>');
+    // Requested: "Skriv gerne (Testversion) et sted".
+    expect(await (await call("/posthus/mail", { cookie: gitta })).text()).toContain('Mailboks <span class="wm-test">Testversion</span>');
+  });
+
+  // Step 2: archive, delete, spam, flag, move - one mail or the ones ticked.
+  it("archives, deletes, marks spam, flags and moves - and what leaves for Papirkurv or Spam is done in Posthus too", async () => {
+    const { call, gitta, mail, db } = await setup();
+    const many = (pairs: Array<[string, string]>) => { const f = new FormData(); for (const [k, v] of pairs) f.append(k, v); return f; };
+    const post = (pairs: Array<[string, string]>) => call("/posthus/mail/handling", { method: "POST", cookie: gitta, body: many(pairs) });
+    const insert = (ref: string) => db.prepare("INSERT INTO board_mail (message_ref, sender, subject, received_at_ms, preview, created_at_ms) VALUES (?, 'Pia <pia@example.dk>', 'Leje', ?, 'Hej', ?)").bind(ref, NOW, NOW).run();
+    await insert("imap:77:7"); await insert("imap:77:5"); await insert("imap:INBOX.Trash:88:3");
+    const handled = async (ref: string) => (await db.prepare("SELECT handled_by FROM board_mail WHERE message_ref = ?").bind(ref).first<{ handled_by: string | null }>())!.handled_by;
+
+    // The list has the buttons; Arkivér only where there is an Arkiv folder (here none).
+    const list = await (await call("/posthus/mail", { cookie: gitta })).text();
+    expect(list).toContain('form="wm-bulk" aria-label="Vælg: Leje af salen"');
+    expect(list).toContain('value="spam">Spam</button>');
+    expect(list).not.toContain('value="arkiv"');
+
+    // Delete from the inbox: to Papirkurv, and done in Posthus.
+    let r = await post([["mappe", "INBOX"], ["uid", "7"], ["uid", "5"], ["handling", "slet"]]);
+    expect(r.headers.get("location")).toBe("/posthus/mail?mappe=INBOX&udfoert=slet&n=2");
+    expect(mail.done.at(-1)).toBe("move INBOX 7,5 -> INBOX.Trash");
+    expect([await handled("imap:77:7"), await handled("imap:77:5")]).toEqual(["Gitta", "Gitta"]);
+    expect(await (await call("/posthus/mail?mappe=INBOX&udfoert=slet&n=2", { cookie: gitta })).text()).toContain("2 mails er lagt i papirkurven.");
+    // From Papirkurv: for good.
+    await post([["mappe", "INBOX.Trash"], ["uid", "3"], ["handling", "slet"]]);
+    expect(mail.done.at(-1)).toBe("delete INBOX.Trash 3");
+    expect(await handled("imap:INBOX.Trash:88:3")).toBe("Gitta");
+    // Spam, and back.
+    await post([["mappe", "INBOX"], ["uid", "7"], ["handling", "spam"]]);
+    expect(mail.done.at(-1)).toBe("move INBOX 7 -> INBOX.Junk");
+    await post([["mappe", "INBOX.Junk"], ["uid", "4"], ["handling", "ikkespam"]]);
+    expect(mail.done.at(-1)).toBe("move INBOX.Junk 4 -> INBOX");
+    // Flag from the mail goes back to it; move to the board's own folder; nothing ticked says so.
+    r = await post([["mappe", "INBOX"], ["uid", "7"], ["handling", "flag"], ["tilbage", "vis"]]);
+    expect(r.headers.get("location")).toBe("/posthus/mail/vis?mappe=INBOX&uid=7");
+    expect(mail.done.at(-1)).toBe("flag INBOX 7");
+    await post([["mappe", "INBOX"], ["uid", "5"], ["handling", "flyt"], ["til", "INBOX.Bestyrelsen"]]);
+    expect(mail.done.at(-1)).toBe("move INBOX 5 -> INBOX.Bestyrelsen");
+    expect((await post([["mappe", "INBOX"], ["uid", "5"], ["handling", "flyt"], ["til", "Findes.ikke"]])).headers.get("location")).toContain("udfoert=mappe");
+    expect((await post([["mappe", "INBOX"], ["handling", "slet"]])).headers.get("location")).toContain("udfoert=ingen");
+    // The mail's own buttons.
+    const page = await (await call("/posthus/mail/vis?mappe=INBOX&uid=7", { cookie: gitta })).text();
+    for (const text of ['value="slet">Slet</button>', 'value="spam">Spam</button>', 'value="fjernflag">Fjern flag</button>', 'value="ulaest">Markér som ulæst</button>', '<option value="INBOX.Bestyrelsen">Bestyrelsen</option>']) expect(page).toContain(text);
   });
 
   it("says so when team@ is not connected", async () => {
