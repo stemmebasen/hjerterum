@@ -2,6 +2,7 @@ import type { D1Database } from "../db.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { openPassword, teamMailAccount } from "../saga/teamMail.js";
 import { esc, layout } from "./page.js";
+import { composeRoute } from "./webmailCompose.js";
 
 /** Requested: "Posthus skal udbygges så det er en sand webmail med alle mapper, med alle svarmuligheder, og alle almindelige funktioner. Findes der
  * ikke en skabelon du kan bruge så vi ikke skal starte helt forfra med børnesygdomme?" - then: "Det vigtige er at alt kan holdes indenfor admin og at
@@ -23,7 +24,10 @@ export type WebmailSession = {
   /** The whole message as it is on the server; null when it is not there (any more). */
   source(path: string, uid: number): Promise<{ source: Uint8Array; seen: boolean; flagged: boolean } | null>;
   /** Sets or takes a flag (\\Seen read, \\Flagged flagged) on mails in a folder. */
-  setFlag(path: string, uids: number[], flag: "\\Seen" | "\\Flagged", on: boolean): Promise<void>;
+  setFlag(path: string, uids: number[], flag: "\\Seen" | "\\Flagged" | "\\Answered", on: boolean): Promise<void>;
+  /** Lays a whole message in a folder (a sent mail in Sendt, a draft in Kladder). */
+  append(path: string, raw: Uint8Array, flags: string[]): Promise<void>;
+  uidValidity(path: string): Promise<string>;
   /** Moves mails to another folder; the folder's UIDVALIDITY says which mails they were (Posthus knows them by it). */
   move(path: string, uids: number[], dest: string): Promise<{ uidValidity: string }>;
   /** Deletes mails for good (from Papirkurv). */
@@ -118,6 +122,11 @@ export const imapflowWebmail: WebmailOpener = async login => {
       if (on) await client.messageFlagsAdd(uids.join(","), [flag], { uid: true });
       else await client.messageFlagsRemove(uids.join(","), [flag], { uid: true });
     },
+    async append(path, raw, flags) {
+      const bytes = (globalThis as unknown as { Buffer: { from(bytes: Uint8Array): unknown } }).Buffer.from(raw);
+      await (client as unknown as { append(path: string, content: unknown, flags?: string[]): Promise<unknown> }).append(path, bytes, flags);
+    },
+    async uidValidity(path) { return String((await client.mailboxOpen(path, { readOnly: true })).uidValidity); },
     async move(path, uids, dest) {
       const box = await client.mailboxOpen(path, { readOnly: false });
       if (uids.length) await client.messageMove(uids.join(","), dest, { uid: true });
@@ -192,8 +201,8 @@ export function shortWhen(ms: number, nowMs: number): string {
 const size = (bytes: number) => bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 const CLIP = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Vedhæftning"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7L14 4a3.3 3.3 0 0 1 4.7 4.7L10 17.4a1.7 1.7 0 0 1-2.4-2.4l8-8"/></svg>';
 
-const folderUrl = (base: string, path: string, extra = "") => `${base}/posthus/mail?mappe=${encodeURIComponent(path)}${extra}`;
-const mailUrl = (base: string, path: string, uid: number, extra = "") => `${base}/posthus/mail/vis?mappe=${encodeURIComponent(path)}&uid=${uid}${extra}`;
+export const folderUrl = (base: string, path: string, extra = "") => `${base}/posthus/mail?mappe=${encodeURIComponent(path)}${extra}`;
+export const mailUrl = (base: string, path: string, uid: number, extra = "") => `${base}/posthus/mail/vis?mappe=${encodeURIComponent(path)}&uid=${uid}${extra}`;
 
 export const WEBMAIL_STYLE = `
 .wm{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px;align-items:start}
@@ -253,6 +262,13 @@ ${inJunk ? `<button class="ghost" name="handling" value="ikkespam">Ikke spam</bu
 ${moveSelect(folders, current)}</form>`;
 }
 
+/** Answer, answer all, forward - and a draft is written on. */
+function replyButtons(base: string, folders: WebFolder[], current: string, uid: number): string {
+  const write = (kind: string, label: string, ghost = true) => `<a class="button${ghost ? " ghost" : ""}" href="${base}/posthus/mail/skriv?type=${kind}&mappe=${encodeURIComponent(current)}&uid=${uid}">${label}</a>`;
+  if (specialOf(folders, current) === "\\Drafts") return `<div class="wm-acts">${write("kladde", "Fortsæt kladden", false)}</div>`;
+  return `<div class="wm-acts">${write("svar", "Svar", false)}${write("svaralle", "Svar alle")}${write("videresend", "Videresend")}</div>`;
+}
+
 /** The buttons on a mail. */
 function messageActions(base: string, folders: WebFolder[], current: string, uid: number, flagged: boolean): string {
   const special = specialOf(folders, current);
@@ -277,7 +293,7 @@ export function folderPage(base: string, data: { who: string | null; address: st
   const nav = pages > 1 ? `<div class="wm-pages"><span>${data.page > 0 ? `<a href="${folderUrl(base, data.path, `&side=${data.page - 1}${q}`)}">← Nyere</a>` : ""}</span><span class="muted">Side ${data.page + 1} af ${pages}</span><span>${data.page + 1 < pages ? `<a href="${folderUrl(base, data.path, `&side=${data.page + 1}${q}`)}">Ældre →</a>` : ""}</span></div>` : "";
   return layout(base, `Mailboks · ${title}`, `<main><p class="small"><a href="${base}/posthus">← Posthus</a></p><h1>Mailboks <span class="wm-test">Testversion</span></h1><p class="muted small">${esc(data.address)}</p>
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}<div class="wm">${folderNav(base, data.folders, data.path)}<section class="card">
-<div class="wm-head"><h2>${esc(title)}${data.query ? ` <span class="small muted">· søgning: ${esc(data.query)}</span>` : ""}</h2>
+<div class="wm-head"><h2>${esc(title)}${data.query ? ` <span class="small muted">· søgning: ${esc(data.query)}</span>` : ""}</h2><a class="button" href="${base}/posthus/mail/skriv?type=ny&mappe=${encodeURIComponent(data.path)}">Ny mail</a>
 <form class="wm-search" method="get" action="${base}/posthus/mail"><input type="hidden" name="mappe" value="${esc(data.path)}"><input type="search" name="q" value="${esc(data.query)}" placeholder="Søg i afsender, emne og tekst" aria-label="Søg"><button class="ghost">Søg</button></form></div>
 ${list}${nav}</section></div></main>
 <script>document.getElementById("wm-all")?.addEventListener("change",e=>document.querySelectorAll(".wm-check").forEach(c=>{c.checked=e.target.checked}))</script>`, { section: "/posthus", who: data.who, style: WEBMAIL_STYLE });
@@ -291,7 +307,7 @@ export function messagePage(base: string, data: { who: string | null; path: stri
   return layout(base, m.subject, `<main class="wm-msg"><p class="small"><a href="${folderUrl(base, data.path)}">← ${esc(data.folderName)}</a> · Mailboks <span class="wm-test">Testversion</span></p>
 <h1>${esc(m.subject)}${data.flagged ? ' <span class="small" style="color:var(--warn)" aria-label="Flaget">⚑</span>' : ""}</h1>
 <div class="wm-meta"><span><b>Fra:</b> ${esc(m.from)}</span>${m.to ? `<span><b>Til:</b> ${esc(m.to)}</span>` : ""}${m.cc ? `<span><b>Cc:</b> ${esc(m.cc)}</span>` : ""}${m.replyTo && m.replyTo !== m.from ? `<span><b>Svar til:</b> ${esc(m.replyTo)}</span>` : ""}${m.date ? `<span>${esc(WHEN_FULL.format(m.date))}</span>` : ""}</div>
-${messageActions(base, data.folders ?? [], data.path, data.uid, data.flagged)}
+${replyButtons(base, data.folders ?? [], data.path, data.uid)}${messageActions(base, data.folders ?? [], data.path, data.uid, data.flagged)}
 ${files.length ? `<div class="wm-files">${files.map(a => `<a href="${base}/posthus/mail/fil?mappe=${encodeURIComponent(data.path)}&uid=${data.uid}&nr=${a.index}">${CLIP}<span>${esc(a.filename)}</span><span class="s">${size(a.size)}</span></a>`).join("")}</div>` : ""}
 ${remotePictures(m) && !data.pictures ? `<p class="wm-note">Billeder fra afsenderens server er ikke hentet, så afsenderen ikke kan se, at mailen er læst. <a href="${mailUrl(base, data.path, data.uid, "&billeder=1")}">Vis billeder</a></p>` : ""}
 <iframe class="wm-frame" title="Mailen" src="${base}/posthus/mail/indhold?mappe=${encodeURIComponent(data.path)}&uid=${data.uid}${asked}" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" loading="lazy"
@@ -306,13 +322,14 @@ export type WebmailContext = { base: string; path: string; url: URL; request: Re
 /** The admin page's own rules, and a frame for the mail from the same place. */
 export const WEBMAIL_PAGE_HEADERS = { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'; form-action 'self'; base-uri 'none'" };
 
-async function session(ctx: WebmailContext): Promise<{ s: WebmailSession; address: string } | { error: string }> {
+async function session(ctx: WebmailContext): Promise<{ s: WebmailSession; address: string; login: WebmailLogin } | { error: string }> {
   const account = await teamMailAccount(ctx.db);
   if (!account) return { error: "team@ er ikke forbundet. Formanden forbinder den under Posthus." };
   try {
     const password = await openPassword(ctx.env, account.password_sealed);
-    const s = await (ctx.deps.webmail ?? imapflowWebmail)({ host: account.imap_host, user: account.address, password });
-    return { s, address: account.address };
+    const login = { host: account.imap_host, user: account.address, password };
+    const s = await (ctx.deps.webmail ?? imapflowWebmail)(login);
+    return { s, address: account.address, login };
   } catch (error) {
     console.warn("webmail_login_failed", error instanceof Error ? error.message : error);
     return { error: "Mailserveren svarede ikke. Prøv igen om lidt." };
@@ -320,14 +337,14 @@ async function session(ctx: WebmailContext): Promise<{ s: WebmailSession; addres
 }
 
 const folderOf = (url: URL) => (url.searchParams.get("mappe") ?? "INBOX").slice(0, 300) || "INBOX";
-const uidOf = (value: unknown) => { const n = Number(value); return Number.isSafeInteger(n) && n > 0 ? n : 0; };
+export const uidOf = (value: unknown) => { const n = Number(value); return Number.isSafeInteger(n) && n > 0 ? n : 0; };
 
 const DONE: Record<string, (n: number) => string> = {
   arkiv: n => n === 1 ? "Mailen er arkiveret." : `${n} mails er arkiveret.`, slet: n => n === 1 ? "Mailen er lagt i papirkurven." : `${n} mails er lagt i papirkurven.`,
   sletaltid: n => n === 1 ? "Mailen er slettet for altid." : `${n} mails er slettet for altid.`, spam: n => n === 1 ? "Mailen er flyttet til spam." : `${n} mails er flyttet til spam.`,
   ikkespam: n => n === 1 ? "Mailen er flyttet til indbakken." : `${n} mails er flyttet til indbakken.`, flyt: n => n === 1 ? "Mailen er flyttet." : `${n} mails er flyttet.`,
   laest: n => n === 1 ? "Markeret som læst." : `${n} mails markeret som læst.`, ulaest: n => n === 1 ? "Markeret som ulæst." : `${n} mails markeret som ulæst.`,
-  flag: n => n === 1 ? "Flaget." : `${n} mails flaget.`, fjernflag: () => "Flaget er fjernet.", ingen: () => "Vælg en eller flere mails først.", mappe: () => "Mappen findes ikke i mailboksen."
+  flag: n => n === 1 ? "Flaget." : `${n} mails flaget.`, sendt: () => "Mailen er sendt og ligger i Sendt.", kladde: () => "Kladden er gemt.", fjernflag: () => "Flaget er fjernet.", ingen: () => "Vælg en eller flere mails først.", mappe: () => "Mappen findes ikke i mailboksen."
 };
 
 /** Requested: "... med alle mapper, med alle svarmuligheder, og alle almindelige funktioner" - step 2: archive, delete (to Papirkurv; from there for good),
@@ -380,13 +397,15 @@ export async function webmailRoute(ctx: WebmailContext): Promise<Response | null
   const { path, url, request } = ctx;
   if (!path.startsWith("/posthus/mail")) return null;
   if (!ctx.who) return ctx.redirect(`${ctx.base}/hvem`);
-  const known = ["/posthus/mail", "/posthus/mail/vis", "/posthus/mail/indhold", "/posthus/mail/fil", "/posthus/mail/handling"];
+  const known = ["/posthus/mail", "/posthus/mail/vis", "/posthus/mail/indhold", "/posthus/mail/fil", "/posthus/mail/handling", "/posthus/mail/skriv", "/posthus/mail/send"];
   if (!known.includes(path)) return ctx.notFound();
   const opened = await session(ctx);
   if ("error" in opened) return ctx.html(layout(ctx.base, "Mailboks", `<main><p class="small"><a href="${ctx.base}/posthus">← Posthus</a></p><h1>Mailboks</h1><p class="notice">${esc(opened.error)}</p></main>`, { section: "/posthus", who: ctx.who }), 503, WEBMAIL_PAGE_HEADERS);
-  const { s, address } = opened;
+  const { s, address, login } = opened;
   try {
     if (path === "/posthus/mail/handling" && request.method === "POST") return await act(ctx, s, await request.formData().catch(() => null));
+    const composed = await composeRoute(ctx, s, login);
+    if (composed) return composed;
     if (request.method !== "GET") return ctx.notFound();
     const folder = folderOf(url);
     if (path === "/posthus/mail") {
