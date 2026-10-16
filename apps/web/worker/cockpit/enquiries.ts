@@ -412,7 +412,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
 ${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
-${data.who ? `<p><a class="button" href="${base}/posthus/mail">Åbn mailboksen →</a> <span class="small muted">Alle mapper i team@</span></p>` : ""}
+${data.who ? `<p><a class="button" href="${base}/posthus/mail">Åbn mailboksen →</a> <span class="small muted">Alle mapper i team@ · Testversion</span></p>` : ""}
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${labelBar}${urgentCard}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}${data.tidied ?? ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }
 
