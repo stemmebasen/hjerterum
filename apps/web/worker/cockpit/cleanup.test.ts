@@ -103,3 +103,31 @@ describe("Saga's nightly tidy-up", () => {
     expect((await boardPicture(db, NOW)).picture?.forJacob.map(f => f.text)).toEqual(["Kontakt udlejeren om en ny nøgle til salen"]);
   });
 });
+
+describe("Saga's nightly tidy-up of team@", () => {
+  // Requested: "Saga skal en gang i døgnet sørge for oprydning i systemet og slette eventuelle dubletter, spam, og andet der ligger og roder unødvendigt".
+  it("puts away system mail no one has taken, once a night, as one line the chair can undo", async () => {
+    const db = testDatabase();
+    const add = async (ref: string, sender: string, at: number, label: string | null, preview = "Hej") => {
+      const id = (await insertMail(db, { ref, sender, subject: `Mail ${ref}`, receivedAtMs: at, preview, nowMs: at }))!;
+      await db.prepare("UPDATE board_mail SET label = ? WHERE id = ?").bind(label, id).run();
+      return id;
+    };
+    const news = await add("a", "Nyhedsbrev <newsletter@shop.dk>", NOW - 2 * DAY, null);
+    const tagged = await add("b", "Facebook <info@facebook.com>", NOW - 3 * DAY, "Automatisk");
+    const person = await add("c", "Pia <pia@example.dk>", NOW - 2 * DAY, "Generel");
+    const fresh = await add("d", "Nyhedsbrev <newsletter@shop.dk>", NOW - 3_600_000, null);
+    const claim = (key: string, slot: number) => claimJob(db, key, slot, NOW);
+    await scheduledCleanup(sagaEnv(db, { AI_API_KEY: "", AI_MODEL: "" }), deps(fakeServices().fetcher, NOW), db, claim);
+    const handled = async (id: number) => (await db.prepare("SELECT handled_by FROM board_mail WHERE id = ?").bind(id).first<{ handled_by: string | null }>())!.handled_by;
+    expect([await handled(news), await handled(tagged), await handled(person), await handled(fresh)]).toEqual(["Saga", "Saga", null, null]);
+    const [action] = await cleanupForChair(db, NOW);
+    expect(action).toMatchObject({ kind: "spam", text: "2 automatiske mails", status: "gjort" });
+    expect(cleanupCard("/c", [action!])).toContain("Spam");
+    // The same night again does nothing; Fortryd brings them back.
+    await scheduledCleanup(sagaEnv(db, { AI_API_KEY: "", AI_MODEL: "" }), deps(fakeServices().fetcher, NOW + 600_000), db, claim);
+    expect(await cleanupForChair(db, NOW)).toHaveLength(1);
+    await decideCleanup(db, action!.id, "fortryd", "Jacob Hauge", NOW);
+    expect(await handled(news)).toBeNull();
+  });
+});

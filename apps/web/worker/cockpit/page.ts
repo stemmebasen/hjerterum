@@ -161,6 +161,7 @@ const ICONS: Record<string, string> = {
   "/moder": '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',
   "/status": '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   "/beslutninger": '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14l2 2 4-4"/>',
+  "/posthus": '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/>',
   "/opgaver": '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
   "/arrangementer": '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
   "/mere": '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
@@ -193,9 +194,10 @@ export function layout(base: string, title: string, body: string, options: { sec
   const desk = places.filter(([path]) => !tucked.includes(path!)).map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
   // On a phone the five labels must fit side by side.
   const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Events" };
-  // The phone's tab bar keeps five places; Posthus, Medlemmer and Statistik are on Overblik and under the initials.
+  // The phone's tab bar keeps five places; Medlemmer, Statistik and Beslutninger are under the initials.
   // The phone keeps five tabs: Opslag is reached from Overblik ("Dine opgaver" and "+ Nyt opslag").
-  const tabs = places.filter(([path]) => path !== "/posthus" && path !== "/statistik" && path !== "/medlemmer" && path !== "/opslag").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  // Requested: "Posthus bør være i mobilmenuen fremfor Beslutter".
+  const tabs = places.filter(([path]) => path !== "/beslutninger" && path !== "/statistik" && path !== "/medlemmer" && path !== "/opslag").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
   // The tab on the right edge on every page, for whoever has said who they are.
   const drawer = options.section !== undefined && Boolean(options.who);
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
@@ -251,7 +253,7 @@ export function morePage(base: string, who: string | null, options: { lang?: "da
 ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
-<a href="${base}/posthus">Posthus</a><a href="${base}/statistik">Statistik</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
+<a href="${base}/beslutninger">Beslutninger</a><a href="${base}/statistik">Statistik</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
 <form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? memoryCard(base) : ""}${options.chair ? adminsCard(base) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
