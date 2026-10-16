@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { hasAttachment, mailboxLink, orderFolders, parseMail, type WebFolder, type WebListItem, type WebmailOpener } from "./webmail.js";
 import { connectTeamMail, type ImapOpener } from "../saga/teamMail.js";
+import { nodemailerSender, parseRecipients, startDraft, type MailSender, type Outgoing } from "./webmailCompose.js";
 import { deps, fakeServices, memberCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
 
 // Requested: "Posthus skal udbygges så det er en sand webmail med alle mapper, med alle svarmuligheder, og alle almindelige funktioner" - "Det vigtige er at
@@ -10,7 +11,7 @@ const NOW = Date.parse("2026-10-16T10:00:00Z");
 const ORIGIN = "https://admin.hjerterum.example";
 
 const RAW = [
-  "From: Pia Lund <pia@example.dk>", "To: team@holistisk.org", "Subject: Leje af salen", "Date: Thu, 15 Oct 2026 09:30:00 +0200", "MIME-Version: 1.0",
+  "From: Pia Lund <pia@example.dk>", "To: team@holistisk.org, Bo <bo@example.dk>", "Cc: Gitta <gitta@example.dk>", "Message-ID: <leje-1@example.dk>", "Subject: Leje af salen", "Date: Thu, 15 Oct 2026 09:30:00 +0200", "MIME-Version: 1.0",
   'Content-Type: multipart/mixed; boundary="b1"', "", "--b1", 'Content-Type: multipart/related; boundary="b2"', "", "--b2", "Content-Type: text/html; charset=utf-8", "",
   '<p>Hej, kan vi leje salen?</p><script>alert(1)</script><img src="https://tracker.example/pixel.png"><img src="cid:logo@pia">', "",
   "--b2", "Content-Type: image/png", "Content-ID: <logo@pia>", "Content-Disposition: inline", "Content-Transfer-Encoding: base64", "", "iVBORw0KGgo=", "--b2--",
@@ -26,7 +27,8 @@ function fakeWebmail() {
     { path: "INBOX", name: "Indbakke", special: "\\Inbox", depth: 0, unseen: 2, total: 2, selectable: true },
     { path: "INBOX.Bestyrelsen", name: "Bestyrelsen", special: null, depth: 0, unseen: 0, total: 1, selectable: true },
     { path: "INBOX.Sent", name: "Sendt", special: "\\Sent", depth: 0, unseen: 0, total: 9, selectable: true },
-    { path: "INBOX.Junk", name: "Spam", special: "\\Junk", depth: 0, unseen: 4, total: 4, selectable: true }];
+    { path: "INBOX.Junk", name: "Spam", special: "\\Junk", depth: 0, unseen: 4, total: 4, selectable: true },
+    { path: "INBOX.Drafts", name: "Kladder", special: "\\Drafts", depth: 0, unseen: 0, total: 0, selectable: true }];
   const items: WebListItem[] = [
     { uid: 7, date: NOW - 3_600_000, from: "Pia Lund", fromAddress: "pia@example.dk", to: "team@holistisk.org", subject: "Leje af salen", seen: false, flagged: true, answered: false, attachments: true },
     { uid: 5, date: NOW - 3 * 86_400_000, from: "Bo", fromAddress: "bo@example.dk", to: "team@holistisk.org", subject: "Tak for sidst", seen: true, flagged: false, answered: true, attachments: false }];
@@ -34,15 +36,17 @@ function fakeWebmail() {
     async folders() { return folders; },
     async list(path, page, size, query) { listed.push([path, page, query]); const found = query ? items.filter(i => i.subject.toLowerCase().includes(query.toLowerCase())) : items; return { total: found.length, items: found }; },
     async source(_path, uid) { return uid === 7 ? { source: new TextEncoder().encode(RAW), seen: false, flagged: true } : null; },
-    async setFlag(path, uids, flag, on) { if (flag === "\\Seen") for (const uid of uids) seen.push([path, uid, on]); else done.push(`${on ? "flag" : "unflag"} ${path} ${uids.join(",")}`); },
+    async setFlag(path, uids, flag, on) { if (flag === "\\Seen") for (const uid of uids) seen.push([path, uid, on]); else done.push(`${on ? (flag === "\\Answered" ? "answered" : "flag") : "unflag"} ${path} ${uids.join(",")}`); },
     async move(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { uidValidity: "77" }; },
     async remove(path, uids) { done.push(`delete ${path} ${uids.join(",")}`); return { uidValidity: "88" }; },
+    async append(path, raw, flags) { done.push(`append ${path} ${flags.join(" ")} ${raw.length}`); },
+    async uidValidity() { return "77"; },
     async close() { /* nothing */ },
   });
   return { opener, seen, listed, done };
 }
 
-async function setup(connected = true) {
+async function setup(connected = true, sendFails = false) {
   const db = testDatabase();
   const env = sagaEnv(db, { COCKPIT_PASSWORD: "hjerte-2026", SAGA_TELEGRAM_WEBHOOK_SECRET: "webhook-secret-0123456789" });
   if (connected) {
@@ -50,11 +54,13 @@ async function setup(connected = true) {
     await connectTeamMail(env, db, { address: "team@holistisk.org", password: "rigtig", by: "Jacob Hauge", nowMs: NOW }, imap);
   }
   const mail = fakeWebmail();
+  const outgoing: Array<{ mail: Outgoing; draft: boolean }> = [];
+  const send: MailSender = async (_login, m, options) => { if (sendFails && !options.draft) throw new Error("smtp down"); outgoing.push({ mail: m, draft: options.draft }); return { raw: new TextEncoder().encode("raw mail"), messageId: "<new@holistisk.org>" }; };
   const call = (path: string, init: RequestInit & { cookie?: string } = {}) => handleCockpitRequest(new Request(ORIGIN + path, {
-    ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, { ...deps(fakeServices().fetcher, NOW), webmail: mail.opener });
+    ...init, headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, { ...deps(fakeServices().fetcher, NOW), webmail: mail.opener, webmailSend: send });
   const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
   const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-  return { db, call, form, session, mail, gitta: await memberCookie(session, "Gitta") };
+  return { db, call, form, session, mail, outgoing, gitta: await memberCookie(session, "Gitta") };
 }
 
 describe("the mailbox in admin", () => {
@@ -167,11 +173,92 @@ describe("the mailbox in admin", () => {
     for (const text of ['value="slet">Slet</button>', 'value="spam">Spam</button>', 'value="fjernflag">Fjern flag</button>', 'value="ulaest">Markér som ulæst</button>', '<option value="INBOX.Bestyrelsen">Bestyrelsen</option>']) expect(page).toContain(text);
   });
 
+  // Step 3: write, answer, answer all, forward, drafts - sent from team@ and kept in Sendt; Saga never sends.
+  it("answers a mail from team@ with the writer's name, keeps it in Sendt, and marks the mail answered in the mailbox and in Posthus", async () => {
+    const { call, gitta, mail, outgoing, db, form } = await setup();
+    await db.prepare("INSERT INTO board_mail (message_ref, sender, subject, received_at_ms, preview, created_at_ms) VALUES ('imap:77:7', 'Pia <pia@example.dk>', 'Leje', ?, 'Hej', ?)").bind(NOW, NOW).run();
+    const page = await (await call("/posthus/mail/vis?mappe=INBOX&uid=7", { cookie: gitta })).text();
+    expect(page).toContain('href="/posthus/mail/skriv?type=svar&mappe=INBOX&uid=7">Svar</a>');
+    expect(page).toContain(">Svar alle</a>");
+    expect(page).toContain(">Videresend</a>");
+
+    const reply = await (await call("/posthus/mail/skriv?type=svar&mappe=INBOX&uid=7", { cookie: gitta })).text();
+    expect(reply).toContain('name="til" value="Pia Lund &lt;pia@example.dk&gt;"');
+    expect(reply).toContain('name="emne" value="Re: Leje af salen"');
+    expect(reply).toContain("Venlig hilsen\nGitta\nHjerterum");
+    expect(reply).toContain("&gt; Hej, kan vi leje salen?");
+    expect(reply).toContain("Fra: Gitta | Hjerterum &lt;team@holistisk.org&gt;");
+    const all = await (await call("/posthus/mail/skriv?type=svaralle&mappe=INBOX&uid=7", { cookie: gitta })).text();
+    expect(all).toContain('name="cc" value="Bo &lt;bo@example.dk&gt;, Gitta &lt;gitta@example.dk&gt;"');
+
+    const sent = await call("/posthus/mail/send", { method: "POST", cookie: gitta, body: form({ type: "svar", mappe: "INBOX", uid: "7", til: "Pia Lund <pia@example.dk>", cc: "", bcc: "", emne: "Re: Leje af salen", tekst: "Ja, den er ledig.", handling: "send" }) });
+    expect(sent.headers.get("location")).toBe("/posthus/mail?mappe=INBOX&udfoert=sendt&n=1");
+    expect(outgoing[0]).toMatchObject({ draft: false, mail: { from: '"Gitta | Hjerterum" <team@holistisk.org>', to: ["Pia Lund <pia@example.dk>"], subject: "Re: Leje af salen", text: "Ja, den er ledig.",
+      inReplyTo: "<leje-1@example.dk>", references: "<leje-1@example.dk>" } });
+    expect(mail.done).toEqual(["append INBOX.Sent \\Seen 8", "answered INBOX 7"]);
+    expect(await db.prepare("SELECT answered_how, answered_by FROM board_mail WHERE message_ref = 'imap:77:7'").first()).toEqual({ answered_how: "svar", answered_by: "Gitta | Hjerterum" });
+    expect(await (await call("/posthus/mail?mappe=INBOX&udfoert=sendt&n=1", { cookie: gitta })).text()).toContain("Mailen er sendt og ligger i Sendt.");
+  });
+
+  it("forwards with the mail's files, keeps a draft in Kladder, and never loses the text when something is wrong", async () => {
+    const { call, gitta, mail, outgoing, form } = await setup();
+    const forward = await (await call("/posthus/mail/skriv?type=videresend&mappe=INBOX&uid=7", { cookie: gitta })).text();
+    expect(forward).toContain('name="emne" value="Fwd: Leje af salen"');
+    expect(forward).toContain('name="medtag" value="1" checked> program.pdf');
+    expect(forward).toContain("---------- Videresendt mail ----------");
+    const body = form({ type: "videresend", mappe: "INBOX", uid: "7", til: "lisbeth@example.dk", cc: "", bcc: "", emne: "Fwd: Leje af salen", tekst: "Se her", handling: "send" });
+    body.append("medtag", "1");
+    body.append("filer", new File([new Uint8Array([1, 2, 3])], "plan.txt", { type: "text/plain" }));
+    await call("/posthus/mail/send", { method: "POST", cookie: gitta, body });
+    expect(outgoing[0]!.mail.attachments.map(a => a.filename)).toEqual(["plan.txt", "program.pdf"]);
+    expect(outgoing[0]!.mail.inReplyTo).toBeUndefined();
+
+    // A new mail saved as a draft goes to Kladder.
+    const saved = await call("/posthus/mail/send", { method: "POST", cookie: gitta, body: form({ type: "ny", mappe: "INBOX", uid: "0", til: "", cc: "", bcc: "", emne: "Udkast", tekst: "Halvfærdig", handling: "kladde" }) });
+    expect(saved.headers.get("location")).toBe("/posthus/mail?mappe=INBOX.Drafts&udfoert=kladde&n=1");
+    expect(outgoing[1]!.draft).toBe(true);
+    expect(mail.done.at(-1)).toBe("append INBOX.Drafts \\Draft \\Seen 8");
+
+    // A wrong address, or a server that says no: the page comes back with the text.
+    const wrong = await call("/posthus/mail/send", { method: "POST", cookie: gitta, body: form({ type: "ny", mappe: "INBOX", uid: "0", til: "pia@", cc: "", bcc: "", emne: "Hej", tekst: "Min lange tekst", handling: "send" }) });
+    expect(wrong.status).toBe(400);
+    const again = await wrong.text();
+    expect(again).toContain("En af adresserne er ikke en mailadresse");
+    expect(again).toContain("Min lange tekst");
+    const down = await setup(true, true);
+    const failed = await down.call("/posthus/mail/send", { method: "POST", cookie: down.gitta, body: down.form({ type: "ny", mappe: "INBOX", uid: "0", til: "pia@example.dk", cc: "", bcc: "", emne: "Hej", tekst: "Vigtig tekst", handling: "send" }) });
+    expect(failed.status).toBe(400);
+    expect(await failed.text()).toContain("Vigtig tekst");
+    expect(down.mail.done).toEqual([]);
+  });
+
   it("says so when team@ is not connected", async () => {
     const { call, gitta } = await setup(false);
     const page = await call("/posthus/mail", { cookie: gitta });
     expect(page.status).toBe(503);
     expect(await page.text()).toContain("team@ er ikke forbundet");
+  });
+});
+
+describe("writing a mail", () => {
+  it("reads written addresses, starts an answer, and builds a real message with nodemailer", async () => {
+    expect(parseRecipients('Pia Lund <pia@x.dk>, "Hansen, Bo" <bo@y.dk>; ann@z.dk')).toEqual(["Pia Lund <pia@x.dk>", '"Hansen, Bo" <bo@y.dk>', "ann@z.dk"]);
+    expect(parseRecipients("pia@x.dk, ikke en adresse")).toBeNull();
+    expect(parseRecipients("")).toEqual([]);
+    const draft = startDraft("ny", "Douglas Crawford", "team@holistisk.org", null);
+    expect(draft.text).toBe("\n\nVenlig hilsen\nDouglas\nHjerterum");
+    const built = await nodemailerSender({ host: "imap.one.com", user: "team@holistisk.org", password: "x" }, { from: '"Gitta | Hjerterum" <team@holistisk.org>', to: ["Pia <pia@example.dk>"], cc: [], bcc: ["skjult@example.dk"],
+      subject: "Re: Leje af salen", text: "Ja, den er ledig. Æble.", inReplyTo: "<leje-1@example.dk>", references: "<leje-1@example.dk>",
+      attachments: [{ filename: "program.pdf", contentType: "application/pdf", content: new TextEncoder().encode("%PDF-1.4") }] }, { draft: true, fetcher: fetch });
+    const raw = new TextDecoder().decode(built.raw);
+    expect(raw).toContain("Subject: Re: Leje af salen");
+    expect(raw).toContain("In-Reply-To: <leje-1@example.dk>");
+    expect(raw).toContain('From: "Gitta | Hjerterum" <team@holistisk.org>');
+    expect(raw).toContain('filename=program.pdf');
+    expect(raw).not.toContain("skjult@example.dk");
+    expect(built.messageId).toMatch(/^<.+@.+>$/);
+    const back = await parseMail(built.raw);
+    expect(back.text.trim()).toBe("Ja, den er ledig. Æble.");
   });
 });
 
@@ -185,7 +272,7 @@ describe("the mailbox's pieces", () => {
     expect(mailboxLink("/c", "imap:INBOX.Bestyrelsen:77:3")).toBe("/c/posthus/mail/vis?mappe=INBOX.Bestyrelsen&uid=3");
     expect(mailboxLink("/c", "relay:abc")).toBeNull();
     const parsed = await parseMail(new TextEncoder().encode(RAW));
-    expect(parsed).toMatchObject({ subject: "Leje af salen", from: "Pia Lund <pia@example.dk>", to: "team@holistisk.org" });
+    expect(parsed).toMatchObject({ subject: "Leje af salen", from: "Pia Lund <pia@example.dk>", to: "team@holistisk.org, Bo <bo@example.dk>", cc: "Gitta <gitta@example.dk>" });
     expect(parsed.attachments.map(a => [a.filename, a.contentType, a.inline])).toEqual([["vedhæftning-1", "image/png", true], ["program.pdf", "application/pdf", false]]);
   });
 });

@@ -73,6 +73,8 @@ export interface SagaDeps {
   waitUntil?: (work: Promise<unknown>) => void;
   /** The mailbox in admin (cockpit/webmail.ts) - ImapFlow when not given; tests give a fake. */
   webmail?: import("../cockpit/webmail.js").WebmailOpener;
+  /** Sends (and builds) a mail from the mailbox in admin (cockpit/webmailCompose.ts) - nodemailer when not given; tests give a fake. */
+  webmailSend?: import("../cockpit/webmailCompose.js").MailSender;
 }
 
 export const SAGA_NAME = "Saga";
