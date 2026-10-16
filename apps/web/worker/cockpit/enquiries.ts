@@ -1,3 +1,4 @@
+import { mailboxLink } from "./webmail.js";
 import { cleanMailText, mailSnippet, readableMail } from "../saga/mailText";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
@@ -217,7 +218,7 @@ export async function scheduledEnquiryScan(env: SagaEnv, deps: SagaDeps, db: D1D
   await scanEnquiries(env, deps, db);
 }
 
-export type BoardMailRow = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string | null; handled_at_ms: number | null; urgent_why?: string | null; label?: string | null; assigned_to?: string | null };
+export type BoardMailRow = { id: number; message_ref?: string; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string | null; handled_at_ms: number | null; urgent_why?: string | null; label?: string | null; assigned_to?: string | null };
 const INBOX = 60;
 
 export async function enquiries(db: D1Database, nowMs: number, all = false, label = ""): Promise<{ open: Enquiry[]; handled: Enquiry[]; unscanned: number; inbox: BoardMailRow[]; inboxTotal: number; urgent: BoardMailRow[]; labelCounts: Record<string, number> }> {
@@ -226,7 +227,7 @@ export async function enquiries(db: D1Database, nowMs: number, all = false, labe
     db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, enquiry_summary, handled_at_ms, handled_by, answered_at_ms, answered_how, reply_address, label, assigned_to, assigned_why FROM board_mail WHERE enquiry_kind IS NOT NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 200")
       .bind(nowMs - 90 * DAY).all<Enquiry>().then(r => r.results ?? []).catch(() => [] as Enquiry[]),
     db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE scanned_at_ms IS NULL AND received_at_ms >= ?").bind(nowMs - 30 * DAY).first<{ n: number }>().catch(() => null),
-    db.prepare(`SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms, urgent_why, label, assigned_to FROM board_mail ${where} ORDER BY received_at_ms DESC LIMIT ?`).bind(...(label ? [label] : []), all ? 500 : INBOX)
+    db.prepare(`SELECT id, message_ref, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms, urgent_why, label, assigned_to FROM board_mail ${where} ORDER BY received_at_ms DESC LIMIT ?`).bind(...(label ? [label] : []), all ? 500 : INBOX)
       .all<BoardMailRow>().then(r => r.results ?? []).catch(() => [] as BoardMailRow[]),
     db.prepare(`SELECT COUNT(*) AS n FROM board_mail ${where}`).bind(...(label ? [label] : [])).first<{ n: number }>().catch(() => null),
     db.prepare("SELECT id, sender, subject, received_at_ms, preview, enquiry_kind, handled_at_ms, urgent_why FROM board_mail WHERE urgent_why IS NOT NULL AND handled_at_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms DESC LIMIT 60")
@@ -391,7 +392,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const labelForm = (m: BoardMailRow) => data.who ? `<form class="labelform" method="post" action="${base}/posthus/maerkat"><input type="hidden" name="id" value="${m.id}"><input type="hidden" name="back" value="${esc(data.label ?? "")}">
 <label>Mærkat <select name="label" onchange="this.form.submit()"><option value="">Intet</option>${LABELS.map(l => `<option${m.label === l ? " selected" : ""}>${l}</option>`).join("")}</select></label><noscript><button class="ghost">Gem</button></noscript></form>` : "";
   const mailItem = (m: BoardMailRow) => `<li><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span>
-<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${m.enquiry_kind || m.urgent_why ? "" : `<form method="post" action="${base}/posthus/vigtig" class="inline-form"><input type="hidden" name="id" value="${m.id}"><button class="fold-up" title="Saga så den ikke som en mail, der skal svares på">☆ Flyt til Vigtige mails</button></form> `}${FOLD}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
+<span class="subj">${m.urgent_why ? `<span class="kind urgent">Kritisk</span> ` : ""}${labelTag(m.label)}${assignedTag(m.assigned_to)}${m.enquiry_kind ? `<span class="kind">${esc(m.enquiry_kind)}</span> ` : ""}${esc(m.subject)}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary><p class="body">${esc(readableMail(m.preview))}</p>${m.message_ref && mailboxLink(base, m.message_ref) ? `<p class="small" style="margin:8px 0 0"><a href="${mailboxLink(base, m.message_ref)}">Åbn i mailboksen →</a></p>` : ""}${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${labelForm(m)}${m.enquiry_kind || m.urgent_why ? "" : `<form method="post" action="${base}/posthus/vigtig" class="inline-form"><input type="hidden" name="id" value="${m.id}"><button class="fold-up" title="Saga så den ikke som en mail, der skal svares på">☆ Flyt til Vigtige mails</button></form> `}${FOLD}</details>${assignForm(base, m.id, m.assigned_to, data.members ?? [])}</li>`;
   // Requested: "gøre det muligt at sortere under de forskellige mærkater" + "andre forslag for at gøre det mere overskueligt": the labels as chips with how many each has, and a search over what is on the page.
   const counts = data.labelCounts ?? {};
   const totalLabelled = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -411,6 +412,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
 ${data.inbox.length ? `<ul class="inbox">${data.inbox.slice(0, SHOWN).map(mailItem).join("")}</ul>${data.inbox.length > SHOWN ? fold("Klik her for at se flere mails", "Skjul de ældre mails", `<ul class="inbox">${data.inbox.slice(SHOWN).map(mailItem).join("")}</ul>`, data.inbox.length - SHOWN) : ""}` : `<p class="muted">Ingen mails endnu.</p>`}
 ${!data.all && data.inboxTotal > data.inbox.length ? `<p class="small" style="margin:10px 0 0"><a href="${base}/posthus?alle=1">Vis alle ${data.inboxTotal} mails</a></p>` : ""}</div>`;
   return layout(base, "Posthus", `<main><h1>Posthus</h1><p class="muted">Hjerterums fælles mail (team@). Øverst de vigtige mails, der stadig venter på svar - nedenunder hele indbakken.</p>
+${data.who ? `<p><a class="button" href="${base}/posthus/mail">Åbn mailboksen →</a> <span class="small muted">Alle mapper i team@</span></p>` : ""}
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.mailbox && !data.mailbox.address ? mailboxCard(base, data.mailbox) : ""}${labelBar}${urgentCard}${important}${inbox}${data.mailbox?.address ? mailboxCard(base, data.mailbox) : ""}${data.tidied ?? ""}</main>`, { section: "/posthus", who: data.who, style: STYLE });
 }
 

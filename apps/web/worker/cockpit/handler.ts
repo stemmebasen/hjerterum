@@ -1,3 +1,4 @@
+import { webmailRoute } from "./webmail.js";
 import { adminsPage, aiUsage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import { allMemories, forget, memoryPage } from "./memory.js";
@@ -462,6 +463,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for Forespørgsler".
   // Requested: "Lad \"Forespørgsler\" blive til \"Posthus\" med alm mailboks" - the old address leads there.
   if (path === "/foresporgsler" && request.method === "GET") return redirect(`${base}/posthus${url.search}`);
+  // Requested: "Posthus skal udbygges så det er en sand webmail med alle mapper" - the mailbox itself, in admin (webmail.ts).
+  if (path.startsWith("/posthus/mail")) {
+    const answer = await webmailRoute({ base, path, url, request, env, deps, db, who, html, redirect: location => redirect(location), notFound: () => html(notFound(base, who), 404) });
+    if (answer) return answer;
+  }
   if (path === "/posthus" && request.method === "GET") {
     const all = url.searchParams.get("alle") === "1";
     const label = (LABELS as readonly string[]).includes(url.searchParams.get("maerkat") ?? "") ? url.searchParams.get("maerkat")! : "";

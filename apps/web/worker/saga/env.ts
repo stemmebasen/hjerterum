@@ -71,6 +71,8 @@ export interface SagaDeps {
   fetcher: typeof fetch;
   now: () => number;
   waitUntil?: (work: Promise<unknown>) => void;
+  /** The mailbox in admin (cockpit/webmail.ts) - ImapFlow when not given; tests give a fake. */
+  webmail?: import("../cockpit/webmail.js").WebmailOpener;
 }
 
 export const SAGA_NAME = "Saga";
