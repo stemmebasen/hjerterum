@@ -1,7 +1,7 @@
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
-import { eventDetail } from "./event-detail.js";
-import { program, programCandidates, upcomingFeed } from "./program.js";
+import { eventDetail, withDescriptions } from "./event-detail.js";
+import { program, programCandidates, upcomingFeed, UPCOMING_DAYS } from "./program.js";
 import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
@@ -122,7 +122,8 @@ export default {
       const db = (env as { DB?: D1Database }).DB;
       if (!db) return Response.json({ error: "database_unbound" }, { status: 503 });
       const now = Date.now();
-      return Response.json(upcomingFeed(await programCandidates(db, await getExternalEvents().catch(() => []), now), now, url.origin), { headers: { "cache-control": "public, max-age=300" } });
+      const external = await withDescriptions(await getExternalEvents().catch(() => []), now + UPCOMING_DAYS * 86_400_000, fetch, now);
+      return Response.json(upcomingFeed(await programCandidates(db, external, now), now, url.origin), { headers: { "cache-control": "public, max-age=300" } });
     }
     // An event from the membership system's calendar, on its own page (event-detail.ts).
     const detailMatch = /^\/api\/events\/external\/([0-9a-f]{24})$/.exec(url.pathname);
