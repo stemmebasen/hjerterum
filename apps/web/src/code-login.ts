@@ -15,7 +15,8 @@ export type CodeLoginClerk = {
   setActive(params: { session: string | null }): Promise<void>;
 };
 
-export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string };
+/** signedIn: the browser already has a session (Clerk says "session_exists"), so the member can simply go on. */
+export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string; signedIn?: true };
 
 /** Clerk's error codes, in plain words with what to do next. */
 const MESSAGES: Record<string, string> = {
@@ -27,10 +28,19 @@ const MESSAGES: Record<string, string> = {
   too_many_requests: "For mange forsøg lige nu. Vent et øjeblik, og prøv igen."
 };
 
+const errorCode = (error: unknown) => (error as { errors?: Array<{ code?: string }> } | null)?.errors?.[0]?.code;
+
+/** A known code in plain words; any other with its code, so a screenshot says what went wrong. */
 export function messageFor(error: unknown): string {
-  const code = (error as { errors?: Array<{ code?: string }> } | null)?.errors?.[0]?.code;
-  return (code && MESSAGES[code]) || "Det gik ikke. Prøv igen om lidt.";
+  const code = errorCode(error);
+  if (code && MESSAGES[code]) return MESSAGES[code]!;
+  console.warn("code_login_failed", error);
+  return `Det gik ikke${code ? ` (${code})` : ""}. Prøv igen om lidt, eller log ind med adgangskode.`;
 }
+
+const failure = (error: unknown): Step => errorCode(error) === "session_exists"
+  ? { ok: false, message: "Du er allerede logget ind.", signedIn: true }
+  : { ok: false, message: messageFor(error) };
 
 export const looksLikeEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
@@ -45,7 +55,7 @@ export async function sendCode(clerk: CodeLoginClerk, email: string): Promise<St
     if (!factor?.emailAddressId) return { ok: false, message: "Din konto kan ikke logge ind med en kode. Log ind med adgangskode i stedet." };
     return { ok: true, attempt: await attempt.prepareFirstFactor({ strategy: "email_code", emailAddressId: factor.emailAddressId }) };
   } catch (error) {
-    return { ok: false, message: messageFor(error) };
+    return failure(error);
   }
 }
 
@@ -59,6 +69,6 @@ export async function checkCode(clerk: CodeLoginClerk, attempt: SignInAttempt, c
     await clerk.setActive({ session: done.createdSessionId });
     return { ok: true, attempt: done };
   } catch (error) {
-    return { ok: false, message: messageFor(error) };
+    return failure(error);
   }
 }
