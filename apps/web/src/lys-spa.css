@@ -513,3 +513,24 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .nl-sub { margin-top: 60px; }
 }
 @media (max-width: 760px) { .site-body.is-article .site-prose { font-size: 17px; } }
+
+/* The member area's sign-in with a code (code-sign-in.tsx): one calm card, the e-mail, then the code. */
+.code-signin { display: grid; gap: 16px; width: min(440px, calc(100% - 32px)); margin: 0 auto; padding: clamp(28px, 5vw, 44px); background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow); }
+.code-signin h1 { margin: 0; font: italic 400 clamp(36px, 6vw, 48px)/1.05 var(--lys-serif); color: var(--lys-ink); }
+.code-signin .lys-kicker { margin: 0; }
+.code-signin-lead { margin: 0; color: var(--lys-muted); font: 400 16.5px/1.6 var(--lys-sans); }
+.code-signin-lead b { color: var(--lys-ink); font-weight: 600; overflow-wrap: anywhere; }
+.code-signin-field { display: grid; gap: 8px; font: 600 13px/1.2 var(--lys-sans); letter-spacing: .04em; color: var(--lys-muted); }
+.code-signin-field input { width: 100%; min-height: 54px; padding: 0 16px; font: 400 17px var(--lys-sans); color: var(--lys-ink); background: var(--lys-bg); border: 1px solid var(--lys-line); border-radius: 12px; letter-spacing: normal; }
+.code-signin-field input:focus { outline: 2px solid var(--lys-terra); outline-offset: 1px; border-color: transparent; }
+.code-signin-field .code-signin-code { font: 500 28px/1 var(--lys-sans); letter-spacing: .5em; text-align: center; padding-left: .5em; font-variant-numeric: tabular-nums; }
+.code-signin-btn { justify-content: center; min-height: 52px; width: 100%; font-size: 16px; }
+.code-signin-btn:disabled { opacity: .55; cursor: default; }
+.code-signin-error { margin: 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--lys-terra) 12%, transparent); color: var(--lys-ink); font: 400 15px/1.5 var(--lys-sans); }
+.code-signin-notice { margin: 0; color: var(--lys-muted); font: 400 15px/1.5 var(--lys-sans); }
+.code-signin-foot { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 4px 0 0; }
+.code-signin-hint { margin: 0; color: var(--lys-muted); font: 400 14px/1.5 var(--lys-sans); }
+.code-signin-link { padding: 0; border: 0; background: none; font: 500 14.5px var(--lys-sans); color: var(--lys-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.code-signin-hint .code-signin-link { font-size: inherit; }
+.code-signin-link:hover { color: var(--lys-terra); }
+.code-signin-back { text-align: center; margin: 16px 0 0; }

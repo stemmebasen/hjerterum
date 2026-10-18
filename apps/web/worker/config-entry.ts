@@ -34,6 +34,16 @@ interface ScheduledControllerLike {
 /** medlem.<domain>: the member area's own address. */
 export const isMemberHost = (hostname: string) => /^medlem\./i.test(hostname);
 
+/** Asked: "The sign in seems broken - I keep getting message: You are signed out". The login (Clerk) belongs to medlem.<domain>;
+ * on the website's own address (hjerterum.info, www.hjerterum.info) its session cannot hold. So signing in, signing up, the member
+ * area and the members' admin open on medlem.<domain>. Other addresses (previews, local) are left as they are. */
+export function memberAddress(url: URL): string | null {
+  const site = /^(?:www\.)?([a-z0-9-]+\.[a-z]+)$/i.exec(url.hostname)?.[1];
+  if (!site || isMemberHost(url.hostname)) return null;
+  if (!/^\/(?:sign-in|sign-up|signup|login|member-portal|admin)(?:\/|$)/.test(url.pathname)) return null;
+  return `https://medlem.${site.toLowerCase()}${url.pathname}${url.search}`;
+}
+
 const app = appWorker as unknown as {
   fetch(request: Request, env: Env): Promise<Response>;
   scheduled(controller: ScheduledControllerLike, env: Env): Promise<void>;
@@ -54,6 +64,9 @@ export default {
     if (isMemberHost(url.hostname) && url.pathname === "/" && (request.method === "GET" || request.method === "HEAD")) {
       return new Response(null, { status: 302, headers: { location: "/member-portal" + url.search, "cache-control": "no-store" } });
     }
+
+    const member = (request.method === "GET" || request.method === "HEAD") ? memberAddress(url) : null;
+    if (member) return new Response(null, { status: 302, headers: { location: member, "cache-control": "no-store" } });
 
     // Hjerterum Lys (apps/web/lys.ts): one top on every page, so the hands are served on every address, not only the cockpit's.
     if (url.pathname === "/logo.png" && (request.method === "GET" || request.method === "HEAD")) return logoResponse();
