@@ -24,6 +24,7 @@ export function CodeSignIn({ clerk, signedIn, redirectUrl, onPassword }: { clerk
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
     const sent = await sendCode(clerk, email);
+    if (!sent.ok && sent.signedIn) return window.location.assign(target);
     setBusy(false);
     if (!sent.ok) return setError(sent.message);
     setAttempt(sent.attempt);
@@ -36,6 +37,7 @@ export function CodeSignIn({ clerk, signedIn, redirectUrl, onPassword }: { clerk
     if (!attempt || busy) return;
     setBusy(true); setError("");
     const done = await checkCode(clerk, attempt, value);
+    if (!done.ok && done.signedIn) return window.location.assign(target);
     if (!done.ok) { setBusy(false); setError(done.message); return; }
     window.location.assign(target);
   };
