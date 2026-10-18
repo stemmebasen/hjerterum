@@ -30,11 +30,12 @@ export type SitePage = {
   sources: string[];
 };
 
-export const NAV: Array<{ section: Section; label: string; href: string }> = [
+/** sub: the item opens a menu of its own pages - requested for Brug Hjerterum ("Altså under punktet: Brug Hjerterum"). */
+export const NAV: Array<{ section: Section; label: string; href: string; sub?: boolean }> = [
   { section: "events", label: "Events", href: "/events" },
   { section: "behandlere", label: "Behandlere & undervisere", href: "/behandlere" },
   { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
-  { section: "lej", label: "Brug Hjerterum", href: "/brug-hjerterum" },
+  { section: "lej", label: "Brug Hjerterum", href: "/brug-hjerterum", sub: true },
   { section: "om-os", label: "Om Hjerterum", href: "/om-os" },
   { section: "kontakt", label: "Kontakt", href: "/kontakt" }
 ];

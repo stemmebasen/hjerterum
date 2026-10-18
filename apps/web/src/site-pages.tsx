@@ -10,9 +10,45 @@ import { EnquiryForm } from "./enquiry-form";
 
 export type Widgets = Partial<Record<string, ReactNode>>;
 
+/** A section's own pages, two levels deep: its groups (Booking & leje …) and the pages in each. */
+function sectionTree(href: string): { root: SitePage; groups: Array<{ page: SitePage; pages: SitePage[] }> } | null {
+  const root = pageAt(href);
+  if (!root) return null;
+  const groups = (root.children ?? []).map(pageAt).filter((page): page is SitePage => !!page)
+    .map(page => ({ page, pages: (page.children ?? []).map(pageAt).filter((child): child is SitePage => !!child) }));
+  return { root, groups };
+}
+
 export function SiteNav({ current, open = false }: { current?: Section | undefined; open?: boolean }) {
   return <nav id="site-menu" className={"lys-nav site-nav" + (open ? " is-open" : "")} aria-label="Hovednavigation">
-    {NAV.map(item => <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>)}
+    {NAV.map(item => {
+      const link = <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>;
+      const tree = item.sub ? sectionTree(item.href) : null;
+      if (!tree) return link;
+      // Under Brug Hjerterum: its groups and their pages, opened by pointing at or tabbing to the item.
+      return <div key={item.href} className="site-nav-item">
+        {link}
+        <div className="site-sub" role="group" aria-label={item.label}>
+          <a className="site-sub-head" href={tree.root.path}>{tree.root.card.title}</a>
+          {tree.groups.map(group => <div key={group.page.path} className="site-sub-group">
+            <a className="site-sub-head" href={group.page.path}>{group.page.card.title}</a>
+            {group.pages.map(page => <a key={page.path} href={page.path}>{page.card.title}</a>)}
+          </div>)}
+        </div>
+      </div>;
+    })}
+  </nav>;
+}
+
+/** The section's groups as tabs at the top of each of its pages (Gitta's "fane-orden"). */
+function SectionTabs({ page }: { page: SitePage }) {
+  const item = NAV.find(entry => entry.sub && entry.section === page.section);
+  const tree = item && sectionTree(item.href);
+  if (!tree) return null;
+  const tabs = [tree.root, ...tree.groups.map(group => group.page)];
+  const here = tabs.find(tab => tab.path === page.path) ?? tree.groups.find(group => group.pages.some(child => child.path === page.path))?.page;
+  return <nav className="site-tabs" aria-label={item.label}>
+    {tabs.map(tab => <a key={tab.path} href={tab.path} aria-current={tab === here ? "page" : undefined}>{tab.card.title}</a>)}
   </nav>;
 }
 
@@ -168,6 +204,7 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
   const parent = SITE_PAGES.find(candidate => candidate.children?.includes(page.path) && candidate.section === page.section);
   return <main className="page-shell site-page">
     {header}
+    <SectionTabs page={page} />
     <SitePageInner page={page} widgets={widgets} parent={parent} />
     {page.gallery && <section className="site-gallery" aria-label={page.gallery.title}>
       <h2>{page.gallery.title}</h2>

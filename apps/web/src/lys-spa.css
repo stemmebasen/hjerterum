@@ -26,12 +26,29 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
    the logo they take their own row and scroll sideways, like the member area's. */
 .lys-nav.site-nav { gap: 0; }
 .lys-nav.site-nav { flex-wrap: nowrap; }
-.lys-nav.site-nav > a { color: var(--lys-ink); padding: 8px 8px; font-size: 13.5px; white-space: nowrap; }
+.lys-nav.site-nav > a, .site-nav-item > a { color: var(--lys-ink); padding: 8px 8px; font-size: 13.5px; white-space: nowrap; }
+/* Brug Hjerterum's own menu: its groups and their pages, shown when the item is pointed at or tabbed to. */
+.site-nav-item { position: relative; display: flex; }
+.site-sub { display: none; position: absolute; z-index: 40; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; max-width: min(760px, calc(100vw - 32px));
+  grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 6px 22px; padding: 16px 20px 18px; background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow); }
+.site-nav-item:hover .site-sub, .site-nav-item:focus-within .site-sub { display: grid; }
+.site-sub > .site-sub-head { grid-column: 1 / -1; padding-bottom: 8px; border-bottom: 1px solid var(--lys-line); margin-bottom: 4px; }
+.site-sub-group { display: grid; align-content: start; gap: 2px; }
+.site-sub a { color: var(--lys-muted); font-size: 13.5px; padding: 3px 0; text-decoration: none; white-space: nowrap; }
+.site-sub a:hover { color: var(--lys-terra); }
+.site-sub .site-sub-head { color: var(--lys-ink); font-weight: 650; }
+/* The same groups as tabs at the top of each Brug Hjerterum page. */
+.site-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 18px 0 0; }
+.site-tabs a { padding: 8px 16px; border-radius: 999px; border: 1px solid var(--lys-line); color: var(--lys-ink); text-decoration: none; font-size: 14px; white-space: nowrap; }
+.site-tabs a:hover { border-color: var(--lys-terra); color: var(--lys-terra); }
+.site-tabs a[aria-current="page"] { background: var(--lys-ink); border-color: var(--lys-ink); color: var(--lys-bg); }
 @media (max-width: 1220px) {
   .page-shell .lys-top { flex-wrap: wrap; row-gap: 6px; }
   .lys-nav.site-nav { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
   .lys-nav.site-nav::-webkit-scrollbar { display: none; }
   .page-shell .lys-me { margin-left: auto; }
+  /* The menu scrolls sideways here, so the drop-down would be cut off: the tabs on the pages take over. */
+  .site-nav-item:hover .site-sub, .site-nav-item:focus-within .site-sub { display: none; }
 }
 /* Requested: "Menuen skal pakkes ind i en hamburger" - on a phone the menu hides behind a button beside Log ind and opens
    as a list under the top row; the top row (logo, EN, Log ind, the button) gets room to breathe. */
@@ -47,6 +64,16 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .lys-nav.site-nav.is-open > a { padding: 13px 2px; font-size: 17px; border: 0; border-top: 1px solid var(--lys-line); border-radius: 0; background: none; }
   .lys-nav.site-nav.is-open > a:first-child { border-top: 0; }
   .lys-nav.site-nav.is-open > a[aria-current="page"] { color: var(--lys-terra); }
+  .lys-nav.site-nav.is-open .site-nav-item { display: grid; border-top: 1px solid var(--lys-line); }
+  .lys-nav.site-nav.is-open .site-nav-item > a { padding: 13px 2px; font-size: 17px; }
+  .lys-nav.site-nav.is-open .site-nav-item > a[aria-current="page"] { color: var(--lys-terra); }
+  /* In the phone's menu, Brug Hjerterum lists its groups under it, indented; the tabs on the pages show the rest. */
+  .lys-nav.site-nav.is-open .site-sub, .lys-nav.site-nav.is-open .site-nav-item:hover .site-sub, .lys-nav.site-nav.is-open .site-nav-item:focus-within .site-sub {
+    display: grid; position: static; transform: none; width: auto; max-width: none; grid-template-columns: 1fr; gap: 0; padding: 0 0 10px 16px; border: 0; box-shadow: none; background: none; }
+  .lys-nav.site-nav.is-open .site-sub > .site-sub-head { border: 0; margin: 0; padding-bottom: 3px; }
+  .lys-nav.site-nav.is-open .site-sub a { font-size: 15.5px; padding: 7px 0; }
+  .lys-nav.site-nav.is-open .site-sub-group > a:not(.site-sub-head) { display: none; }
+  .lys-nav.site-nav.is-open .site-sub .site-sub-head { font-weight: 500; color: var(--lys-muted); }
   .page-shell .lys-me { gap: 6px; }
   .page-shell .lys-me > a.lys-pill { padding: 8px 15px; font-size: 14px; }
   .site-lang { padding: 6px 4px; }
