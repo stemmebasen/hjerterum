@@ -885,13 +885,13 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* Sagas speaker-tekst, diskret på hjemmesidens forside over kalenderen. */
 .speaker-line { font: italic 1.05rem/1.6 Georgia, "Times New Roman", serif; color: var(--lys-muted, var(--muted)); max-width: 70ch; margin: -6px 0 18px; }
 
-/* Visitkortets foto: rundt, med beskæring i en cirkel. */
-.profile-portrait-photo { width: 120px; height: 120px; object-fit: cover; padding: 0; border-radius: 50%; }
+/* Visitkortets foto: et kvadrat med bløde hjørner, som de faste underviseres (.site-teacher). */
+.profile-portrait-photo { width: 120px; height: 120px; object-fit: cover; padding: 0; border-radius: 14px; }
 .profile-photo-field { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
 .profile-photo-field .profile-portrait { width: 88px; height: 88px; flex: 0 0 88px; }
 .profile-photo-field label.pill-button { cursor: pointer; display: inline-flex; }
 .photo-cropper { display: grid; gap: 10px; justify-items: start; }
-.photo-crop-view { position: relative; overflow: hidden; border-radius: 50%; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 0 0 3px var(--profile-line, rgba(0, 0, 0, .12)); background: #000; }
+.photo-crop-view { position: relative; overflow: hidden; border-radius: 22px; cursor: grab; touch-action: none; user-select: none; box-shadow: 0 0 0 3px var(--profile-line, rgba(0, 0, 0, .12)); background: #000; }
 .photo-crop-view:active { cursor: grabbing; }
 .photo-crop-view img { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; }
 .photo-zoom { display: flex; gap: 10px; align-items: center; width: 260px; }
@@ -939,7 +939,7 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-panel textarea { flex: 1; resize: none; border-radius: 12px; border: 1px solid var(--lys-line, rgba(255,255,255,.15)); background: transparent; color: inherit; padding: 8px 10px; font: inherit; font-size: 14px; }
 /* En behandlers egen side: rundt foto til højre for navnet. */
 .profile-page-side { display: flex; justify-content: flex-end; }
-.profile-page-photo { width: 220px; height: 220px; border-radius: 50%; object-fit: cover; }
+.profile-page-photo { width: 220px; height: 220px; border-radius: 24px; object-fit: cover; }
 .profile-page-initials { display: grid; place-items: center; background: var(--lys-sage, #e4eadc); font: 64px var(--lys-serif, Georgia, serif); }
 .profile-page-bio { font-size: 1.1rem; line-height: 1.65; white-space: pre-wrap; }
 @media (max-width: 760px) { .profile-page-side { justify-content: flex-start; } .profile-page-photo { width: 160px; height: 160px; } }

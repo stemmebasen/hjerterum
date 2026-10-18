@@ -119,7 +119,7 @@ export function PublicProfileEditor({ clerk, fullName, onBack }: { clerk: ClerkB
             {draft.photoUrl ? <img className="profile-portrait profile-portrait-photo" src={draft.photoUrl} alt="Dit billede" /> : <div className="profile-portrait" aria-hidden="true">{draft.name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?"}</div>}
             <div><label className="pill-button">{draft.photoUrl ? "Skift billede" : "Upload et billede"}<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) setPicked(f); }} /></label>
               {draft.photoUrl && <button type="button" className="text-button" onClick={() => change({ photoUrl: "" })}>Fjern billedet</button>}
-              <p className="profile-note">Billedet vises rundt på visitkortet. Du kan flytte og zoome, før du gemmer.</p></div>
+              <p className="profile-note">Billedet vises med bløde hjørner på visitkortet. Du kan flytte og zoome, før du gemmer.</p></div>
           </>}
         </div>
         <div className="workspace-form-row">
@@ -177,11 +177,18 @@ export function PublicProfiles({ bare = false }: { bare?: boolean }) {
     }).catch(() => { if (active) setError(true); });
     return () => { active = false; };
   }, [reload]);
+  const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?";
+  // Requested: "Der er nu to forskellige layouts. Vi skal bruge det nederste." On the website the visit cards are drawn as the regular teachers are (Teachers in site-pages.tsx).
+  if (bare) return error || !profiles?.length ? null : <div className="site-teachers">
+    {profiles.map(profile => { const href = `/behandlere/${profileSlug(profile, profiles)}`; return <article key={profile.id} className="site-teacher">
+      <a href={href} tabIndex={-1} aria-hidden="true">{profile.photoUrl ? <img src={profile.photoUrl} alt="" loading="lazy" width="160" height="160" /> : <span className="site-teacher-initials">{initials(profile.name)}</span>}</a>
+      <h3><a href={href}>{profile.name}</a></h3>
+      {profile.title && <p>{profile.title}</p>}
+    </article>; })}
+  </div>;
   const list = error ? <p role="alert">Profilerne kunne ikke hentes. <button className="text-button" onClick={() => setReload(n => n + 1)}>Prøv igen</button></p> : !profiles ? <p role="status">Henter profiler …</p> : profiles.length ?
     <div className="public-profile-grid">{profiles.map(profile => <ProfileCard key={profile.id} profile={profile} href={`/behandlere/${profileSlug(profile, profiles)}`} />)}</div> :
-    bare ? null : <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>;
-  // On the website's page the heading and the regular teachers come from site/pages.ts.
-  if (bare) return <div className="profile-workspace public-profile-directory">{list}</div>;
+    <div className="profile-editor"><h2>Her er plads til mennesker</h2><p>De første offentlige profiler kommer snart. Indtil da kan du møde husets undervisere gennem vores events.</p><a className="text-link" href="/events">Se kommende events →</a></div>;
   return <section className="workspace-section member-profile-page public-profile-directory">
     <p className="kicker">Menneskene i huset</p><h1>Undervisere & behandlere</h1>
     <p className="profile-lead">Mød dem, der deler deres faglighed i Hjerterum.</p>

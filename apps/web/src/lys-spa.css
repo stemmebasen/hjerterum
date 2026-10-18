@@ -191,6 +191,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-card .lys-link { margin-top: auto; }
 .site-teachers { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 18px; margin: 4px 0 8px; }
 .site-teacher img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 18px; display: block; background: var(--lys-soft); }
+.site-teacher > a { display: block; text-decoration: none; }
+.site-teacher-initials { height: 160px; display: grid; place-items: center; border-radius: 18px; background: color-mix(in srgb, var(--lys-ink) 7%, transparent); color: var(--lys-muted); font: 400 44px/1 var(--lys-serif); }
 .site-teacher h3 { font: 400 20px/1.25 var(--lys-serif); margin: 12px 0 4px; }
 .site-teacher h3 a { color: var(--lys-ink); text-decoration: none; }
 .site-teacher h3 a:hover { color: var(--lys-accent); }
