@@ -47,7 +47,7 @@ export function PhotoCropper({ file, onDone, onCancel }: { file: File; onDone: (
         <img src={image.src} alt="" draggable={false} style={{ width: w, height: h, transform: `translate(${offset.x}px, ${offset.y}px)` }} />
       </div>
       <label className="photo-zoom">Zoom<input type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} /></label>
-      <p className="profile-note">Træk billedet på plads i cirklen, og zoom ind med skyderen.</p>
+      <p className="profile-note">Træk billedet på plads i rammen, og zoom ind med skyderen.</p>
       <div className="workspace-actions">
         <button type="button" className="pill-button dark" onClick={done}>Brug billedet</button>
         <button type="button" className="text-button" onClick={onCancel}>Fortryd</button>
