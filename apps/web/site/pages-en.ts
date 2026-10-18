@@ -179,7 +179,7 @@ Email is the first channel: always write to [hjerterum@holistisk.org](mailto:hje
 Log in to the [member area](/member-portal/events) and choose **My events** to see sign-ups, edit or cancel. Events in the former calendar on holistisk.org are still managed there ([video guide](https://www.youtube.com/watch?v=aKVv_aVjuTA)).
 
 ## Marketing {#marketing}
-Your event is published on our website and on our Facebook page with more than 6,000 followers. Beyond that, promoting it is up to you – e.g. Facebook ads, inviting your network and sharing in relevant groups (read each group's rules first): [Events in Aarhus](https://www.facebook.com/groups/281989928869750), [Aarhus Events Community](https://www.facebook.com/groups/1972770316279876), [Spiritual Events in Denmark](https://www.facebook.com/groups/spiritualseventsindenmark), and the Danish groups on [our list](/lej-hjerterum/markedsfoering).
+Your event is published on our website and on our Facebook page with more than 6,000 followers. Beyond that, promoting it is up to you – e.g. Facebook ads, inviting your network and sharing in relevant groups (read each group's rules first): [Events in Aarhus](https://www.facebook.com/groups/281989928869750), [Aarhus Events Community](https://www.facebook.com/groups/1972770316279876), [Spiritual Events in Denmark](https://www.facebook.com/groups/spiritualseventsindenmark), and the Danish groups on [our list](/brug-hjerterum/markedsfoering).
 
 +++ Disclaimer
 ${DISCLAIMER_EN}

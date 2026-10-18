@@ -36,7 +36,7 @@ async function setup(connected = true) {
 describe("the website's enquiry forms", () => {
   it("lays an enquiry in team@'s inbox under its topic, answered to the sender, and counts nothing but day, topic and page", async () => {
     const { env, box, send, counted } = await setup();
-    const response = await send({ topic: "event-opsaetning", detail: "En lørdag i november, ca. 25 deltagere", phone: "+45 12 34 56 78", callback: true, path: "/lej-hjerterum" });
+    const response = await send({ topic: "event-opsaetning", detail: "En lørdag i november, ca. 25 deltagere", phone: "+45 12 34 56 78", callback: true, path: "/brug-hjerterum" });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
     expect(box.appended).toHaveLength(1);
@@ -45,9 +45,9 @@ describe("the website's enquiry forms", () => {
     expect(raw).toMatch(/^Reply-To: Mette Holm <mette@example\.dk>/m);
     expect(raw).toMatch(/^To: Hjerterum <team@holistisk\.org>/m);
     for (const text of ["Emne: Henvendelse vedr. opsætning af event", "Navn: Mette Holm", "E-mail: mette@example.dk", "Telefon: +45 12 34 56 78", "Ring op: Ja, vil gerne ringes op",
-      "Ønsket dato og forventet antal deltagere: En lørdag i november, ca. 25 deltagere", "Sendt fra: https://hjerterum.info/lej-hjerterum", "Besked: Hvordan får jeg reduceret pris?"]) expect(body).toContain(text);
+      "Ønsket dato og forventet antal deltagere: En lørdag i november, ca. 25 deltagere", "Sendt fra: https://hjerterum.info/brug-hjerterum", "Besked: Hvordan får jeg reduceret pris?"]) expect(body).toContain(text);
     const rows = await counted();
-    expect(rows).toEqual([{ id: 1, day: "2026-10-04", at_ms: NOW, topic: "event-opsaetning", path: "/lej-hjerterum" }]);
+    expect(rows).toEqual([{ id: 1, day: "2026-10-04", at_ms: NOW, topic: "event-opsaetning", path: "/brug-hjerterum" }]);
 
     // The statistics count it: enquiries, conversion, and the day it came.
     const stats = await (await handleStatsApi(new Request(`${SITE}/api/stats/site?days=7`, { headers: { authorization: "Bearer stats-secret" } }), env, NOW)).json() as Record<string, any>;
@@ -107,8 +107,8 @@ describe("the website's enquiry forms", () => {
     const placed = SITE_PAGES.flatMap(page => [...page.body.matchAll(/^\{\{enquiry-([a-z-]+)\}\}$/gm)].map(m => ({ path: page.path, topic: m[1]! })));
     for (const { topic } of placed) expect(ENQUIRY_TOPICS.map(t => t.key)).toContain(topic);
     expect(placed).toEqual(expect.arrayContaining([
-      { path: "/kontakt", topic: "generel" }, { path: "/events", topic: "event-deltagelse" }, { path: "/lej-hjerterum", topic: "event-opsaetning" },
-      { path: "/medlemskab", topic: "medlemskab" }, { path: "/om-os", topic: "samarbejde" }, { path: "/lej-hjerterum/vilkaar", topic: "oekonomi" }, { path: "/en", topic: "generel" }]));
+      { path: "/kontakt", topic: "generel" }, { path: "/events", topic: "event-deltagelse" }, { path: "/brug-hjerterum", topic: "event-opsaetning" }, { path: "/brug-hjerterum/lejepriser", topic: "event-opsaetning" },
+      { path: "/medlemskab", topic: "medlemskab" }, { path: "/om-os", topic: "samarbejde" }, { path: "/brug-hjerterum/vilkaar", topic: "oekonomi" }, { path: "/en", topic: "generel" }]));
     expect(SITE_PAGES.find(page => page.path === "/privatliv")!.body).toContain("{#henvendelser}");
   });
 });

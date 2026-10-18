@@ -224,7 +224,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
       {plans}
     </section>
     <section className="site-home-section site-use">
-      <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/lej-hjerterum">Lej Hjerterum →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/brug-hjerterum">Brug Hjerterum →</a></div>
       <BookingChoice />
     </section>
     <section className="site-cirkler">
@@ -238,7 +238,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
         <div><p className="lys-kicker">Om Hjerterum</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
         <div><p>{ABOUT_WORDS.intro}</p><p>{ABOUT_WORDS.welcome}</p></div>
       </div>
-      <Cards paths={["/behandlere", "/lej-hjerterum", "/om-os", "/kontakt", "/en"]} />
+      <Cards paths={["/behandlere", "/brug-hjerterum", "/om-os", "/kontakt", "/en"]} />
     </section>
     <Newsletter />
     <SiteFooter />
