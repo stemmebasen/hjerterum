@@ -23,16 +23,16 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 
 | holistisk.org | Titel | Ændret | Står nu | Note |
 |---|---|---|---|---|
-| [administrer-dine-events](https://holistisk.org/administrer-dine-events/) | Administrer dine events | 2026-08-24 | [/lej-hjerterum/dine-events](/lej-hjerterum/dine-events) | Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender. |
+| [administrer-dine-events](https://holistisk.org/administrer-dine-events/) | Administrer dine events | 2026-08-24 | [/brug-hjerterum/aendr-event](/brug-hjerterum/aendr-event) | Vejledningen er skrevet om til medlemsområdet (Mine events); den gamle vejledning er bevaret for events i den tidligere kalender. |
 | [artikler](https://holistisk.org/artikler/) | Artikler | 2026-04-10 | – (/om-os) | Artikler er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
 | [become-a-member](https://holistisk.org/become-a-member/) | Become a member of Hjerterum | 2026-09-29 | [/en/membership](/en/membership) |  |
 | [behandling-terapi](https://holistisk.org/behandling-terapi/) | Behandlere i Hjerterum | 2024-02-04 | – (/behandlere) | Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere. |
 | [benefits-of-membership](https://holistisk.org/benefits-of-membership/) | Benefits of membership | 2026-08-16 | [/en/membership#benefits](/en/membership#benefits) |  |
-| [betingelser-for-leje-af-sal](https://holistisk.org/betingelser-for-leje-af-sal/) | Vilkår for leje af sal | 2026-06-05 | [/lej-hjerterum/vilkaar](/lej-hjerterum/vilkaar) |  |
+| [betingelser-for-leje-af-sal](https://holistisk.org/betingelser-for-leje-af-sal/) | Vilkår for leje af sal | 2026-06-05 | [/brug-hjerterum/vilkaar](/brug-hjerterum/vilkaar) |  |
 | [bliv-medlem](https://holistisk.org/bliv-medlem/) | Bliv medlem af Hjerterum | 2026-09-29 | [/medlemskab](/medlemskab) | Indmeldelse sker fortsat på holistisk.org (som fra hjerterum.info), indtil betaling kører på platformen. |
-| [book-dit-event](https://holistisk.org/book-dit-event/) | Book dit event | 2026-04-24 | [/lej-hjerterum#booking](/lej-hjerterum#booking) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
+| [book-dit-event](https://holistisk.org/book-dit-event/) | Book dit event | 2026-04-24 | [/brug-hjerterum/lejepriser#booking](/brug-hjerterum/lejepriser#booking) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
 | [book-your-event](https://holistisk.org/book-your-event/) | Book your Event | 2026-03-25 | [/en/rent#booking](/en/rent#booking) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
-| [brug-centret](https://holistisk.org/brug-centret/) | Om Vores Sal | 2026-08-28 | [/lej-hjerterum](/lej-hjerterum) |  |
+| [brug-centret](https://holistisk.org/brug-centret/) | Om Vores Sal | 2026-08-28 | [/brug-hjerterum](/brug-hjerterum) |  |
 | [conditions-for-renting-the-room](https://holistisk.org/conditions-for-renting-the-room/) | Conditions for renting the room | 2026-06-05 | [/en/rent#conditions](/en/rent#conditions) |  |
 | [conditions-of-membership](https://holistisk.org/conditions-of-membership/) | Terms and Conditions of Membership | 2026-07-25 | [/en/membership#terms](/en/membership#terms) |  |
 | [contact-us](https://holistisk.org/contact-us/) | Contact Us | 2026-06-04 | [/en#contact](/en#contact) |  |
@@ -41,26 +41,26 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [events](https://holistisk.org/events/) | Events | 2026-09-29 | [/events](/events) |  |
 | [events-en](https://holistisk.org/events-en/) | Events | 2026-09-29 | [/en#events](/en#events) |  |
 | [faellesspisning-i-hjerterum](https://holistisk.org/faellesspisning-i-hjerterum/) | Fællesspisning i Hjerterum | 2019-08-26 | [/events#hjerterum-open](/events#hjerterum-open) | De 8 billeder fra 2019 vises som galleri under Hjerterum Open. |
-| [fakturaer](https://holistisk.org/fakturaer/) | Betal din faktura | 2026-04-24 | [/lej-hjerterum/vilkaar#betaling](/lej-hjerterum/vilkaar#betaling) | WordPress' fakturalogin er udgået; faktura sendes pr. mail. |
+| [fakturaer](https://holistisk.org/fakturaer/) | Betal din faktura | 2026-04-24 | [/brug-hjerterum/vilkaar#betaling](/brug-hjerterum/vilkaar#betaling) | WordPress' fakturalogin er udgået; faktura sendes pr. mail. |
 | [faste-laerere-regular-teachers](https://holistisk.org/faste-laerere-regular-teachers/) | Faste undervisere / Regular teachers | 2026-06-23 | [/behandlere#faste-undervisere](/behandlere#faste-undervisere) |  |
 | [fordele-ved-medlemskab](https://holistisk.org/fordele-ved-medlemskab/) | Fordele ved et medlemskab | 2026-09-29 | [/medlemskab#fordele](/medlemskab#fordele) |  |
 | [generalforsamling-general-assembly](https://holistisk.org/generalforsamling-general-assembly/) | Generalforsamling/møder | 2026-05-17 | [/om-os/foreningen#generalforsamling](/om-os/foreningen#generalforsamling) |  |
 | [guidelines-for-teachers](https://holistisk.org/guidelines-for-teachers/) | Practical Information | 2026-08-24 | [/en/rent#practical](/en/rent#practical) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |
-| [guidelines-for-undervisere](https://holistisk.org/guidelines-for-undervisere/) | Praktisk Information | 2026-06-05 | [/lej-hjerterum/praktisk](/lej-hjerterum/praktisk) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |
+| [guidelines-for-undervisere](https://holistisk.org/guidelines-for-undervisere/) | Praktisk Information | 2026-06-05 | [/brug-hjerterum/praktisk](/brug-hjerterum/praktisk) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |
 | [himalayan-hermitage](https://holistisk.org/himalayan-hermitage/) | Himalayan Hermitage | 2026-03-03 | – (/om-os) | Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
 | [himalayan-hermitage-2](https://holistisk.org/himalayan-hermitage-2/) | Himalayan Hermitage | 2020-11-23 | – (/om-os) | Himalayan Hermitage er slettet fra hjemmesiden (10. oktober 2026); adressen fører til Om Hjerterum. |
 | [historien-bag-hjerterum](https://holistisk.org/historien-bag-hjerterum/) | Historien bag Hjerterum | 2026-05-17 | [/om-os/historien](/om-os/historien) |  |
-| [hjerterum-betalinger](https://holistisk.org/hjerterum-betalinger/) | Hjerterum payments | 2019-12-13 | [/lej-hjerterum/vilkaar#betaling](/lej-hjerterum/vilkaar#betaling) | Tom side; betaling via faktura pr. mail. |
+| [hjerterum-betalinger](https://holistisk.org/hjerterum-betalinger/) | Hjerterum payments | 2019-12-13 | [/brug-hjerterum/vilkaar#betaling](/brug-hjerterum/vilkaar#betaling) | Tom side; betaling via faktura pr. mail. |
 | [hjerterum-tribes](https://holistisk.org/hjerterum-tribes/) | Hjerterum Tribes! | 2026-06-13 | – (/om-os) | Tribes er ikke længere en del af Hjerterum (fjernet 4. oktober 2026); adressen fører til Vision / om os. |
 | [hvad-er-breathwork](https://holistisk.org/hvad-er-breathwork/) | Hvad er breathwork? | 2020-11-23 | – (/behandlere) | Behandling og Terapi er fjernet fra hjemmesiden (4. oktober 2026); adressen fører til Behandlere & undervisere. |
 | [kalendervisning](https://holistisk.org/kalendervisning/) | Kalender | 2024-10-03 | [/events](/events) |  |
 | [kontakt](https://holistisk.org/kontakt/) | Tag Kontakt | 2019-08-28 | [/kontakt](/kontakt) | Kontaktside fra 2019 (Mejlgade 95, daværende team); erstattet af den nuværende kontaktside. |
 | [kontakt-os](https://holistisk.org/kontakt-os/) | Kontakt os | 2026-08-05 | [/kontakt](/kontakt) |  |
 | [lav-indkomst-medlemskab-low-income-membership](https://holistisk.org/lav-indkomst-medlemskab-low-income-membership/) | – | 2026-04-29 | [/medlemskab#reduceret](/medlemskab#reduceret) |  |
-| [lejepriser](https://holistisk.org/lejepriser/) | Lej Sal | 2026-08-28 | [/lej-hjerterum#priser](/lej-hjerterum#priser) |  |
+| [lejepriser](https://holistisk.org/lejepriser/) | Lej Sal | 2026-08-28 | [/brug-hjerterum/lejepriser#priser](/brug-hjerterum/lejepriser#priser) |  |
 | [log-ud](https://holistisk.org/log-ud/) | Log out | 2024-10-03 | – (/) | WordPress' log-ud-side uden indhold; log ud sker nu i medlemsområdet. |
 | [managing-your-event](https://holistisk.org/managing-your-event/) | Managing Your Event | 2026-08-24 | [/en/rent#your-events](/en/rent#your-events) |  |
-| [markedsforing](https://holistisk.org/markedsforing/) | Markedsføring af dit event | 2026-05-17 | [/lej-hjerterum/markedsfoering](/lej-hjerterum/markedsfoering) |  |
+| [markedsforing](https://holistisk.org/markedsforing/) | Markedsføring af dit event | 2026-05-17 | [/brug-hjerterum/markedsfoering](/brug-hjerterum/markedsfoering) |  |
 | [marketing-of-your-event](https://holistisk.org/marketing-of-your-event/) | Marketing of your Event | 2026-05-17 | [/en/rent#marketing](/en/rent#marketing) |  |
 | [medlems-login](https://holistisk.org/medlems-login/) | Members-login | 2026-05-17 | – (/sign-in) | WordPress' login-side uden indhold; login er nu /sign-in. |
 | [medlemskabs-betingelser](https://holistisk.org/medlemskabs-betingelser/) | Vilkår for medlemskab | 2026-07-25 | [/medlemskab/vilkaar](/medlemskab/vilkaar) |  |

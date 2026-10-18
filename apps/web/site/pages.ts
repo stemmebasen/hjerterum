@@ -34,7 +34,7 @@ export const NAV: Array<{ section: Section; label: string; href: string }> = [
   { section: "events", label: "Events", href: "/events" },
   { section: "behandlere", label: "Behandlere & undervisere", href: "/behandlere" },
   { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
-  { section: "lej", label: "Lej Hjerterum", href: "/lej-hjerterum" },
+  { section: "lej", label: "Brug Hjerterum", href: "/brug-hjerterum" },
   { section: "om-os", label: "Om Hjerterum", href: "/om-os" },
   { section: "kontakt", label: "Kontakt", href: "/kontakt" }
 ];
@@ -211,7 +211,7 @@ Har du spørgsmål om tilmelding, pladser eller et bestemt event, så skriv til 
 {{enquiry-event-deltagelse}}
 
 ## Vil du holde et event?
-Undervisere og arrangører kan leje salen og nå ud til husets store fællesskab. [Læs om at leje Hjerterum](/lej-hjerterum), eller [skriv til os om dit event](/lej-hjerterum#skriv).
+Undervisere og arrangører kan leje salen og nå ud til husets store fællesskab. [Læs om at bruge Hjerterum](/brug-hjerterum), eller [skriv til os om dit event](/brug-hjerterum#skriv).
 
 +++ Politik om fotografering og video
 ${PHOTO_POLICY}
@@ -241,7 +241,7 @@ Disse undervisere har faste hold og forløb i Hjerterum. Klik på navnet for at 
 
 {{teachers}}
 
-Vil du selv undervise i Hjerterum? [Læs om at leje salen](/lej-hjerterum). Er du medlem og underviser eller behandler, kan du lave dit eget visitkort i [medlemsområdet](/member-portal/profil).`,
+Vil du selv undervise i Hjerterum? [Læs om at bruge Hjerterum](/brug-hjerterum). Er du medlem og underviser eller behandler, kan du lave dit eget visitkort i [medlemsområdet](/member-portal/profil).`,
     sources: ["faste-laerere-regular-teachers"]
   },
 
@@ -330,16 +330,57 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
     sources: ["medlemskabs-betingelser"]
   },
 
-  // ---------------------------------------------------------------- Lej Hjerterum
+  // ---------------------------------------------------------------- Brug Hjerterum
+  // Requested by Gitta (18 October 2026): "Forslag til ny mere simpel fane-orden under Brug Hjerterum" - Om at bruge Hjerterum,
+  // then Booking & leje, Praktisk information and Eventguides & PR, each with its own short pages. The old /lej-hjerterum
+  // addresses lead here (site/redirects.ts).
   {
-    path: "/lej-hjerterum", lang: "da", section: "lej",
-    kicker: "Lej Hjerterum", title: "Et rum til det,", em: "du vil skabe",
+    path: "/brug-hjerterum", lang: "da", section: "lej",
+    kicker: "Brug Hjerterum", title: "Et rum til det,", em: "du vil skabe",
     lead: "Har du en workshop, et foredrag, et forløb eller en lille begivenhed på hjerte? Lej vores sal på ca. 110 m² – fra tidlig morgen til sen aften, alle ugens dage.",
-    description: "Lej Hjerterums sal på ca. 110 m² i Aarhus C: faciliteter, priser, prisberegner og sådan booker du dit event.",
-    card: { title: "Et rum til det, du vil skabe", text: "Faciliteter, priser og sådan booker du salen." },
+    description: "Brug Hjerterums sal på ca. 110 m² i Aarhus C: booking og priser, praktisk information og guides til dit event.",
+    card: { title: "Om at bruge Hjerterum", text: "Salen, priserne og alt det praktiske – samlet ét sted." },
     body: `Du får et smukt rum på ca. 110 m² – og et fællesskab: dit event kommer på vores hjemmeside og Facebook-side, så du når ud til vores mange medlemmer og følgere. Du står selv for at planlægge og afvikle eventet, men vores frivillige giver gerne en hånd.
 
-## Sådan kommer du i gang {#booking}
+{{booking-choice}}
+
+## Her finder du
+- **[Booking & leje](/brug-hjerterum/booking)** – [lejepriser og booking](/brug-hjerterum/lejepriser), [vilkår for leje](/brug-hjerterum/vilkaar) og [ofte stillede spørgsmål](/brug-hjerterum/faq).
+- **[Praktisk information](/brug-hjerterum/praktisk)** – [adgang og nøgle](/brug-hjerterum/adgang), [køkken og faciliteter](/brug-hjerterum/koekken), [lydanlæg og udstyr](/brug-hjerterum/udstyr), [rengøring](/brug-hjerterum/rengoering), [wifi og praktiske detaljer](/brug-hjerterum/wifi) og [husregler og hensyn](/brug-hjerterum/husregler).
+- **[Eventguides & PR](/brug-hjerterum/eventguides)** – [kom godt i gang](/brug-hjerterum/kom-i-gang), [Facebook-begivenhed](/brug-hjerterum/facebook), [eventbillede og grafik](/brug-hjerterum/eventbillede), [markedsføring](/brug-hjerterum/markedsfoering), [ændr dit event](/brug-hjerterum/aendr-event) og [aflys dit event](/brug-hjerterum/aflys-event).
+
++++ Ansvarsfraskrivelse
+${DISCLAIMER}
++++
+
+## Spørgsmål? {#skriv}
+Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
+
+{{enquiry-event-opsaetning}}`,
+    image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
+    gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
+    children: ["/brug-hjerterum/booking", "/brug-hjerterum/praktisk", "/brug-hjerterum/eventguides"],
+    sources: ["brug-centret"]
+  },
+
+  // Booking & leje
+  {
+    path: "/brug-hjerterum/booking", lang: "da", section: "lej",
+    kicker: "Brug Hjerterum", title: "Booking", em: "& leje",
+    lead: "Priser, sådan booker du, vilkårene for leje – og svar på de spørgsmål, vi oftest får.",
+    description: "Booking og leje af Hjerterums sal: lejepriser og booking, vilkår for leje og ofte stillede spørgsmål.",
+    card: { title: "Booking & leje", text: "Lejepriser, vilkår og ofte stillede spørgsmål." },
+    body: `Planlæg gerne 4–8 uger før dit event. Find prisen i [prisberegneren](/brug-hjerterum/lejepriser#beregner), og læs [vilkårene](/brug-hjerterum/vilkaar), før du booker.`,
+    children: ["/brug-hjerterum/lejepriser", "/brug-hjerterum/vilkaar", "/brug-hjerterum/faq"],
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/lejepriser", lang: "da", section: "lej",
+    kicker: "Booking & leje", title: "Lejepriser", em: "& booking",
+    lead: "Tre måder at leje salen på, prisberegneren – og det, du sender med, når du booker.",
+    description: "Lejepriser for Hjerterums sal: standardpris, medlemsrabat og gratis leje, prisberegner og sådan booker du.",
+    card: { title: "Lejepriser & booking", text: "Priser, prisberegner og sådan booker du." },
+    body: `## Sådan kommer du i gang {#booking}
 1. **Find prisen.** Vælg lejetype og tidspunkt i [prisberegneren](#beregner) herunder.
 2. **Book.** Er du medlem og vil du bruge Hjerterum til reduceret pris eller med helt gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – vores digitale assistent, Saga, hjælper dig gerne. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
 3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
@@ -393,103 +434,23 @@ Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-me
 - **Pris og betaling** – pris for medlemmer og ikke-medlemmer, og hvordan der betales
 - **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig
 - **Datoforslag og tidspunkt** – tjek [kalenderen](/events); eventets tid og bookingens tid med forberedelse og oprydning
-- **Coverbillede** – 1920 × 1005 px, jpg eller png, uden ophavsret (gerne ikke AI). Gratis billeder: unsplash.com; opsætning: canva.com.
+- **Coverbillede** – se [eventbillede og grafik](/brug-hjerterum/eventbillede)
 
-Har du en Facebook-side, så opret gerne eventet dér, når bookingen er bekræftet, og send os linket. Markedsføring ud over vores hjemmeside og Facebook er dit ansvar – [se vores råd og grupper](/lej-hjerterum/markedsfoering).
-
-## Faciliteter {#faciliteter}
-- Sal på ca. 110 m², 2 toiletter og trådløst internet
-- Fuldt udstyret køkken med service til 40 personer
-- 20 yogamåtter, 22 madrasser, 16 meditationsstole, 20 yogablokke, puder og tæpper
-- Stole til 40 personer og 8 borde
-- Musikanlæg (minijack og Bluetooth) og projektor med HDMI
-
-Nøgler, lyd, køkken og oprydning: se [praktisk information](/lej-hjerterum/praktisk). Betaling og aflysning: se [vilkår](/lej-hjerterum/vilkaar).
-
-+++ Ansvarsfraskrivelse
-${DISCLAIMER}
-+++
+Når bookingen er bekræftet, kan du [oprette eventet på Facebook](/brug-hjerterum/facebook). Markedsføring ud over vores hjemmeside og Facebook er dit ansvar – [se vores råd og grupper](/brug-hjerterum/markedsfoering).
 
 ## Spørgsmål? {#skriv}
 Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
 
 {{enquiry-event-opsaetning}}`,
-    image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
-    gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
-    children: ["/lej-hjerterum/praktisk", "/lej-hjerterum/vilkaar", "/lej-hjerterum/markedsfoering", "/lej-hjerterum/dine-events"],
-    sources: ["brug-centret", "lejepriser", "book-dit-event"]
+    sources: ["lejepriser", "book-dit-event"]
   },
   {
-    path: "/lej-hjerterum/praktisk", lang: "da", section: "lej",
-    kicker: "Lej Hjerterum", title: "Praktisk", em: "information",
-    lead: "Alt det praktiske, når du bruger Hjerterum: nøgler, dørtelefon, køkken, lyd, projektor og oprydning.",
-    description: "Praktisk information til undervisere i Hjerterum: nøgler, dørtelefon, køkken, lydanlæg, projektor og rengøring.",
-    card: { title: "Praktisk information", text: "Nøgler, dørtelefon, køkken, lyd og oprydning." },
-    body: `## Nøgler
-Du finder to sæt nøgler i en lille nøgleboks på ydervæggen ved jernlågerne ud mod Guldsmedgade. Du skal bruge ét af sættene. Et sæt består af en grøn chip til porten og kælderdøren og en almindelig nøgle til Hjerterums hoveddør og hængelåsen på kælderens inderdør. Koden til nøgleboksen får du på mail.
-
-Chippen er nem at bruge: hold den op foran den sorte "dims" på væggen under nøgleboksen. Når lyset bliver grønt, drejer du dimsen med uret, og lågen åbner langsomt.
-
-**Husk at lægge nøglesættet tilbage i nøgleboksen efter dit arrangement.**
-
-![Nøgleboksen og den sorte dims til chippen ved lågen i Guldsmedgade](/media/2022-06-key-boxes.webp)
-
-## Dørtelefon
-Dine deltagere kan ringe på dørtelefonen ved gitterlågen i Guldsmedgade. Du lukker dem ind fra dørtelefonen i forgangen ved at trykke på nøgleikonet. Lyser den nederste knap med klokken rødt, er lyden slået fra – tryk på knappen for at slå den til igen.
-
-## Køkken
-I køkkenet er der køleskab, fryser, ovn, 2 kogeplader og elkedel, som du gerne må bruge. Medbring selv te, kaffe og lignende. Ryd op efter dig, så køkkenet ser ud, som da du kom.
-
-## Lydanlæg
-I salen er der et anlæg med minijack og Bluetooth. Medbring evt. din egen adapter, hvis din telefon ikke har et jackstik. [Se videoen om, hvordan du sætter lydanlægget op](https://www.youtube.com/watch?v=UoYa4tEqANY).
-
-## Høj musik og lyd
-Hold vinduer og dør lukket, hvis du bruger høj musik, trommer og lignende – og luft gerne ud i pauserne. Vi tager hensyn til naboerne.
-
-## Projektor
-Der er et HDMI-kabel fastgjort til søjlen, der kommer ned fra projektoren. Har din computer ikke HDMI, skal du medbringe en adapter. Fjernbetjeningen skal sidde i søjlens "V".
-
-## Trådløst internet
-Netværksnavn og kode får du sammen med din booking – eller spørg os.
-
-## Oprydning og rengøring {#rengoering}
-Efterlad stedet rent og pænt, så salen er klar til dem, der kommer efter dig. Book tid nok til rengøringen – vi anbefaler 30 minutter efter dit event.
-
-**Salen**
-- Støvsug salen (har I kun brugt et mindre område, er det nok at støvsuge dér)
-- Stil stole og måtter tilbage bag gardinet
-- Fold puder og tæpper sammen, og læg dem på hylden
-- Sæt andre lånte ting tilbage, hvor de stod
-- Luft ud
-
-**Køkken og toiletter**
-- Vask op i hånden eller fyld opvaskemaskinen – sæt den i gang, hvis den er mere end halvt fuld (tabs står under køkkenvasken)
-- Har du dagens sidste booking, så sæt altid opvaskemaskinen i gang, eller vask de få ting op i hånden
-- Ryd op i køkkenet
-- Tjek håndvaske og toiletter, og tør efter behov over med rengøringsservietter
-- Rengør toiletkummen efter behov
-- Tøm skraldespandene, når de er halvt fulde, og sæt nye poser i
-
-Støvsuger, rengøringsservietter, klude og rengøringsmidler står i gangen ved toiletterne. Affald kan smides i containeren bag træporten til højre for enden af bygningen eller i containeren på Guldsmedgade.
-
-Er rengøringen ikke i orden, opkræver vi et rengøringsgebyr på 250 kr.
-
-## Gården
-Vi deler gården med naboerne. Hold derfor dine deltagere nær Hjerterums hoveddør, og undgå længere pauser og høj larm i gården. Korte pauser på 10 minutter til frisk luft eller en smøg er selvfølgelig fint – så er der plads til alle.
-
-## Ansvar
-${DISCLAIMER}
-
-Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
-    sources: ["guidelines-for-undervisere"]
-  },
-  {
-    path: "/lej-hjerterum/vilkaar", lang: "da", section: "lej",
-    kicker: "Lej Hjerterum", title: "Vilkår", em: "for leje af sal",
+    path: "/brug-hjerterum/vilkaar", lang: "da", section: "lej",
+    kicker: "Booking & leje", title: "Vilkår", em: "for leje",
     lead: "Betaling, aflysning, rengøring – og hvordan du bedst kommunikerer med os.",
     description: "Vilkår for leje af salen i Hjerterum: betaling, aflysningspolitik, rengøringsgebyr og kommunikationspolitik.",
-    card: { title: "Vilkår for leje af sal", text: "Betaling, aflysning, rengøring og kommunikation." },
-    body: `Priser og sådan booker du: se [Lej Hjerterum](/lej-hjerterum#booking). Har du spørgsmål, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
+    card: { title: "Vilkår for leje", text: "Betaling, aflysning, rengøring og kommunikation." },
+    body: `Priser og sådan booker du: se [lejepriser og booking](/brug-hjerterum/lejepriser). Har du spørgsmål, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
 
 ## Betaling og oprettelse af event {#betaling}
 Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [skriv til os](#skriv) eller til [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
@@ -502,12 +463,10 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 | 100 % | ved aflysning 4 uger før | ved aflysning 8 uger før |
 | 50 % | ved aflysning 3 uger før | ved aflysning 6 uger før |
 
-**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00.
-
-Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik – ikke ved almindelige aflysninger. Send altid en mail til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) om, at du har aflyst. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
+**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Sådan gør du: [aflys dit event](/brug-hjerterum/aflys-event).
 
 ## Rengøring efter event
-Efterlad salen ren og pæn – se [kravene til rengøring](/lej-hjerterum/praktisk#rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
+Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
 
 ## Kommunikation {#kommunikation}
 **Mail er kommunikationsvej nr. 1.** Skriv altid først til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org). Her fanger du os bedst, og alle bookinger, spørgsmål og henvendelser håndteres via mail.
@@ -526,8 +485,260 @@ ${DISCLAIMER}
     sources: ["betingelser-for-leje-af-sal", "fakturaer", "hjerterum-betalinger"]
   },
   {
-    path: "/lej-hjerterum/markedsfoering", lang: "da", section: "lej",
-    kicker: "Lej Hjerterum", title: "Markedsføring", em: "af dit event",
+    path: "/brug-hjerterum/faq", lang: "da", section: "lej",
+    kicker: "Booking & leje", title: "Ofte stillede", em: "spørgsmål",
+    lead: "Korte svar på det, undervisere og arrangører oftest spørger om. Står dit spørgsmål her ikke, så skriv til os.",
+    description: "Ofte stillede spørgsmål om at leje Hjerterum: priser, booking, betaling, aflysning, nøgler, wifi og rengøring.",
+    card: { title: "FAQ", text: "Korte svar på de spørgsmål, vi oftest får." },
+    body: `+++ Hvor stor er salen, og hvornår kan den lejes?
+Salen er på ca. 110 m², og den kan lejes fra tidlig morgen til sen aften, alle ugens dage. Se [køkken og faciliteter](/brug-hjerterum/koekken).
++++
+
++++ Hvad koster det at leje salen?
+Det afhænger af, om du lejer til standardpris, med medlemsrabat eller gratis, og af tidspunktet. Standardprisen starter ved 720 kr. for 2 timer. Se alle [lejepriser](/brug-hjerterum/lejepriser#priser), eller brug [prisberegneren](/brug-hjerterum/lejepriser#beregner).
++++
+
++++ Skal jeg være medlem for at leje?
+Nej. Alle kan leje til standardpris. Reduceret pris med medlemsrabat og gratis leje kræver, at du selv er betalende medlem af Hjerterum.
++++
+
++++ Hvor lang tid kan jeg booke?
+Mindst 2 og højst 10 timer pr. booking. Opsætning og oprydning skal ligge inden for den bookede tid – vi anbefaler 30 minutter før og efter.
++++
+
++++ Hvor lang tid før skal jeg booke?
+Planlæg gerne 4–8 uger før. Ved standardpris lægger vi eventet på hjemmesiden og Facebook, når fakturaen er betalt – det tager op til ca. 5 hverdage.
++++
+
++++ Hvordan betaler jeg?
+Når vi har aftalt en booking, sender vi en faktura pr. mail. Se [betaling](/brug-hjerterum/vilkaar#betaling).
++++
+
++++ Hvad sker der, hvis jeg aflyser?
+Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser. Se [aflysning](/brug-hjerterum/vilkaar#aflysning) og [aflys dit event](/brug-hjerterum/aflys-event).
++++
+
++++ Hvordan kommer jeg ind?
+Nøglerne ligger i en nøgleboks ved lågen i Guldsmedgade, og koden får du på mail. Se [adgang og nøgle](/brug-hjerterum/adgang).
++++
+
++++ Hvad er koden til wifi?
+Netværksnavn og kode får du sammen med din booking – eller spørg os.
++++
+
++++ Skal jeg selv gøre rent?
+Ja. Efterlad salen, køkkenet og toiletterne, som du fandt dem. Ellers opkræver vi et rengøringsgebyr på 250 kr. Se [rengøring](/brug-hjerterum/rengoering).
++++
+
++++ Hvem markedsfører mit event?
+Vi lægger dit event på vores hjemmeside og Facebook-side. Markedsføring ud over det er dit ansvar – se [markedsføring af dit event](/brug-hjerterum/markedsfoering).
++++
+
+## Fandt du ikke svaret? {#skriv}
+{{enquiry-event-opsaetning}}`,
+    sources: []
+  },
+
+  // Praktisk information
+  {
+    path: "/brug-hjerterum/praktisk", lang: "da", section: "lej",
+    kicker: "Brug Hjerterum", title: "Praktisk", em: "information",
+    lead: "Alt det praktiske, når du bruger Hjerterum: nøgler, køkken, lyd og udstyr, rengøring, wifi og husregler.",
+    description: "Praktisk information til undervisere i Hjerterum: nøgler, dørtelefon, køkken, lydanlæg, projektor, rengøring og husregler.",
+    card: { title: "Praktisk information", text: "Nøgler, køkken, lyd, rengøring, wifi og husregler." },
+    body: `Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
+    children: ["/brug-hjerterum/adgang", "/brug-hjerterum/koekken", "/brug-hjerterum/udstyr", "/brug-hjerterum/rengoering", "/brug-hjerterum/wifi", "/brug-hjerterum/husregler"],
+    sources: ["guidelines-for-undervisere"]
+  },
+  {
+    path: "/brug-hjerterum/adgang", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Adgang", em: "& nøgle",
+    lead: "Sådan kommer du og dine deltagere ind: nøgleboksen, chippen til lågen og dørtelefonen.",
+    description: "Adgang til Hjerterum: nøgleboksen ved lågen i Guldsmedgade, chippen og dørtelefonen.",
+    card: { title: "Adgang & nøgle", text: "Nøgleboksen, chippen og dørtelefonen." },
+    body: `## Nøgler
+Du finder to sæt nøgler i en lille nøgleboks på ydervæggen ved jernlågerne ud mod Guldsmedgade. Du skal bruge ét af sættene. Et sæt består af en grøn chip til porten og kælderdøren og en almindelig nøgle til Hjerterums hoveddør og hængelåsen på kælderens inderdør. Koden til nøgleboksen får du på mail.
+
+Chippen er nem at bruge: hold den op foran den sorte "dims" på væggen under nøgleboksen. Når lyset bliver grønt, drejer du dimsen med uret, og lågen åbner langsomt.
+
+**Husk at lægge nøglesættet tilbage i nøgleboksen efter dit arrangement.**
+
+![Nøgleboksen og den sorte dims til chippen ved lågen i Guldsmedgade](/media/2022-06-key-boxes.webp)
+
+## Dørtelefon
+Dine deltagere kan ringe på dørtelefonen ved gitterlågen i Guldsmedgade. Du lukker dem ind fra dørtelefonen i forgangen ved at trykke på nøgleikonet. Lyser den nederste knap med klokken rødt, er lyden slået fra – tryk på knappen for at slå den til igen.`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/koekken", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Køkken", em: "& faciliteter",
+    lead: "Salen, køkkenet og det, du kan låne, når du bruger Hjerterum.",
+    description: "Faciliteterne i Hjerterum: sal på ca. 110 m², køkken med service til 40, måtter, stole, borde og toiletter.",
+    card: { title: "Køkken & faciliteter", text: "Salen, køkkenet og det, du kan låne." },
+    body: `## Faciliteter {#faciliteter}
+- Sal på ca. 110 m², 2 toiletter og trådløst internet
+- Fuldt udstyret køkken med service til 40 personer
+- 20 yogamåtter, 22 madrasser, 16 meditationsstole, 20 yogablokke, puder og tæpper
+- Stole til 40 personer og 8 borde
+- Musikanlæg (minijack og Bluetooth) og projektor med HDMI – se [lydanlæg og udstyr](/brug-hjerterum/udstyr)
+
+## Køkken
+I køkkenet er der køleskab, fryser, ovn, 2 kogeplader og elkedel, som du gerne må bruge. Medbring selv te, kaffe og lignende. Ryd op efter dig, så køkkenet ser ud, som da du kom.`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/udstyr", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Lydanlæg", em: "& udstyr",
+    lead: "Sådan bruger du lydanlægget og projektoren i salen.",
+    description: "Lydanlæg og projektor i Hjerterum: minijack, Bluetooth og HDMI – og hvad du selv skal medbringe.",
+    card: { title: "Lydanlæg & udstyr", text: "Lydanlæg, projektor og adaptere." },
+    body: `## Lydanlæg
+I salen er der et anlæg med minijack og Bluetooth. Medbring evt. din egen adapter, hvis din telefon ikke har et jackstik. [Se videoen om, hvordan du sætter lydanlægget op](https://www.youtube.com/watch?v=UoYa4tEqANY).
+
+## Projektor
+Der er et HDMI-kabel fastgjort til søjlen, der kommer ned fra projektoren. Har din computer ikke HDMI, skal du medbringe en adapter. Fjernbetjeningen skal sidde i søjlens "V".
+
+## Måtter, puder og stole
+Yogamåtter, madrasser, meditationsstole, yogablokke, puder, tæpper, stole og borde – se [køkken og faciliteter](/brug-hjerterum/koekken). Sæt det hele tilbage, hvor det stod, når du er færdig.`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/rengoering", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Rengøring", em: "efter dit event",
+    lead: "Efterlad stedet rent og pænt, så salen er klar til dem, der kommer efter dig.",
+    description: "Rengøring efter dit event i Hjerterum: salen, køkkenet, toiletterne, affald og rengøringsgebyret.",
+    card: { title: "Rengøring", text: "Tjeklisten til salen, køkkenet og toiletterne." },
+    body: `Book tid nok til rengøringen – vi anbefaler 30 minutter efter dit event.
+
+## Salen
+- Støvsug salen (har I kun brugt et mindre område, er det nok at støvsuge dér)
+- Stil stole og måtter tilbage bag gardinet
+- Fold puder og tæpper sammen, og læg dem på hylden
+- Sæt andre lånte ting tilbage, hvor de stod
+- Luft ud
+
+## Køkken og toiletter
+- Vask op i hånden eller fyld opvaskemaskinen – sæt den i gang, hvis den er mere end halvt fuld (tabs står under køkkenvasken)
+- Har du dagens sidste booking, så sæt altid opvaskemaskinen i gang, eller vask de få ting op i hånden
+- Ryd op i køkkenet
+- Tjek håndvaske og toiletter, og tør efter behov over med rengøringsservietter
+- Rengør toiletkummen efter behov
+- Tøm skraldespandene, når de er halvt fulde, og sæt nye poser i
+
+## Rengøringsmidler og affald
+Støvsuger, rengøringsservietter, klude og rengøringsmidler står i gangen ved toiletterne. Affald kan smides i containeren bag træporten til højre for enden af bygningen eller i containeren på Guldsmedgade.
+
+Er rengøringen ikke i orden, opkræver vi et rengøringsgebyr på 250 kr.`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/wifi", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Wifi", em: "& praktiske detaljer",
+    lead: "Internet, adresse og hvem du kontakter, hvis noget går galt.",
+    description: "Wifi og praktiske detaljer i Hjerterum: trådløst internet, adressen og hvem du kontakter ved akutte problemer.",
+    card: { title: "WiFi & praktiske detaljer", text: "Internet, adresse og akut kontakt." },
+    body: `## Trådløst internet
+Netværksnavn og kode får du sammen med din booking – eller spørg os.
+
+## Adressen
+Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C. Indgangen er ved gitterlågen i Guldsmedgade – se [adgang og nøgle](/brug-hjerterum/adgang).
+
+## Hvis noget går galt
+Skriv til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) ved akutte henvendelser, der kræver hurtigt svar, og skriv gerne dit telefonnummer, så kontakter vi dig hurtigst muligt. Alt andet går til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) – se [kommunikation](/brug-hjerterum/vilkaar#kommunikation).`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/husregler", lang: "da", section: "lej",
+    kicker: "Praktisk information", title: "Husregler", em: "& hensyn",
+    lead: "Vi deler huset og gården med naboerne – og passer på hinandens tryghed.",
+    description: "Husregler i Hjerterum: høj musik, gården og naboerne, foto og video, og ansvar ved events.",
+    card: { title: "Husregler & hensyn", text: "Musik, gården, foto og video, og ansvar." },
+    body: `## Høj musik og lyd
+Hold vinduer og dør lukket, hvis du bruger høj musik, trommer og lignende – og luft gerne ud i pauserne. Vi tager hensyn til naboerne.
+
+## Gården
+Vi deler gården med naboerne. Hold derfor dine deltagere nær Hjerterums hoveddør, og undgå længere pauser og høj larm i gården. Korte pauser på 10 minutter til frisk luft eller en smøg er selvfølgelig fint – så er der plads til alle.
+
+## Foto og video
+${PHOTO_POLICY}
+
+## Ansvar
+${DISCLAIMER}`,
+    sources: []
+  },
+
+  // Eventguides & PR
+  {
+    path: "/brug-hjerterum/eventguides", lang: "da", section: "lej",
+    kicker: "Brug Hjerterum", title: "Eventguides", em: "& PR",
+    lead: "Fra idé til event i kalenderen: sådan kommer du i gang, laver dit billede, når ud til flere – og ændrer eller aflyser.",
+    description: "Guides til dit event i Hjerterum: kom godt i gang, Facebook-begivenhed, eventbillede, markedsføring, ændring og aflysning.",
+    card: { title: "Eventguides & PR", text: "Fra idé til event – og ud til flere." },
+    body: `Har du ønsker eller idéer til indhold, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).`,
+    children: ["/brug-hjerterum/kom-i-gang", "/brug-hjerterum/facebook", "/brug-hjerterum/eventbillede", "/brug-hjerterum/markedsfoering", "/brug-hjerterum/aendr-event", "/brug-hjerterum/aflys-event"],
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/kom-i-gang", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Kom godt", em: "i gang",
+    lead: "Sådan får du dit event i Hjerterums kalender – trin for trin.",
+    description: "Kom godt i gang med dit event i Hjerterum: vælg lejetype, find en dato, book og få dit event i kalenderen.",
+    card: { title: "Kom godt i gang", text: "Fra idé til event i kalenderen, trin for trin." },
+    body: `1. **Vælg, hvordan du lejer.** Standardpris for alle – eller, hvis du er medlem, med medlemsrabat eller helt gratis. Se [lejepriser](/brug-hjerterum/lejepriser#priser).
+2. **Find en dato.** Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før.
+3. **Book.**
+   - Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – Saga hjælper dig. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
+   - Ved standardpris sender du en bookingforespørgsel med [det, vi skal bruge](/brug-hjerterum/lejepriser#materiale).
+4. **Lav et godt eventbillede.** Se [eventbillede og grafik](/brug-hjerterum/eventbillede).
+5. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage).
+6. **Del dit event.** [Opret det på Facebook](/brug-hjerterum/facebook), og [nå endnu længere ud](/brug-hjerterum/markedsfoering).
+
+Du står selv for at planlægge og afvikle eventet, men vores frivillige giver gerne en hånd. Læs [det praktiske](/brug-hjerterum/praktisk), før du kommer.`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/facebook", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Opret", em: "Facebook-begivenhed",
+    lead: "Vi lægger dit event på Hjerterums Facebook-side. Har du din egen side, kan du også oprette det dér.",
+    description: "Sådan opretter du en Facebook-begivenhed for dit event i Hjerterum og sender os linket.",
+    card: { title: "Opret Facebook-begivenhed", text: "Sådan opretter du eventet på din egen Facebook-side." },
+    body: `Når din booking er bekræftet, lægger vi dit event på Hjerterums hjemmeside og Facebook-side. Har du en Facebook-side, så opret gerne eventet dér også, og send os linket.
+
+## Sådan gør du
+1. Gå til din Facebook-side, og vælg at oprette en begivenhed.
+2. Giv den samme titel, dato og tidspunkt som dit event i Hjerterum.
+3. Skriv stedet: Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C.
+4. Brug samme eventtekst og [coverbillede](/brug-hjerterum/eventbillede) som til Hjerterum.
+5. Skriv, hvor man tilmelder sig – på Hjerterums hjemmeside eller direkte hos dig.
+6. Offentliggør begivenheden, og send linket til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr), som bruges til PR-materiale for allerede oprettede events.
+
+Vil du nå endnu længere ud, så se [markedsføring af dit event](/brug-hjerterum/markedsfoering).`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/eventbillede", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Eventbillede", em: "& grafik",
+    lead: "Et godt coverbillede er det første, folk ser. Sådan skal det være.",
+    description: "Eventbillede til dit event i Hjerterum: format 1920 × 1005 px, jpg eller png, uden ophavsret – og hvor du finder billeder.",
+    card: { title: "Eventbillede & grafik", text: "Format, rettigheder og hvor du finder billeder." },
+    body: `## Coverbilledet
+- **Format:** 1920 × 1005 px, jpg eller png
+- **Rettigheder:** uden ophavsret – du skal have lov til at bruge billedet
+- **Gerne ikke AI:** brug helst rigtige billeder
+
+## Hvor finder jeg billeder?
+- Gratis billeder: [unsplash.com](https://unsplash.com)
+- Opsætning med tekst og grafik: [canva.com](https://www.canva.com)
+
+## Opretter du dit event som medlem?
+Så uploader du billedet, når du opretter eventet på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga tjekker format, opløsning og kvalitet.
+
+Billeder fra selve eventet er gode til at dele bagefter – men husk [reglerne for foto og video](/brug-hjerterum/husregler).`,
+    sources: []
+  },
+  {
+    path: "/brug-hjerterum/markedsfoering", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Markedsføring", em: "af dit event",
     lead: "Dit event bliver vist på vores hjemmeside og Facebook-side med over 6.000 følgere. Her er, hvordan du når endnu længere ud.",
     description: "Sådan markedsfører du dit event i Hjerterum – med en liste over relevante Facebook-grupper.",
     card: { title: "Markedsføring af dit event", text: "Råd og en liste over relevante Facebook-grupper." },
@@ -539,25 +750,44 @@ ${FACEBOOK_GROUPS}`,
     sources: ["markedsforing"]
   },
   {
-    path: "/lej-hjerterum/dine-events", lang: "da", section: "lej",
-    kicker: "Lej Hjerterum", title: "Administrér", em: "dine events",
-    lead: "Se, hvor mange der er tilmeldt, ret dit event, eller aflys det – i medlemsområdet.",
-    description: "Sådan administrerer du dine events i Hjerterum: deltagere, redigering og aflysning.",
-    card: { title: "Administrér dine events", text: "Deltagere, redigering og aflysning." },
+    path: "/brug-hjerterum/aendr-event", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Ændr", em: "dit event",
+    lead: "Ret titel, tekst, tidspunkt eller pris – og se, hvor mange der er tilmeldt.",
+    description: "Sådan ændrer du dit event i Hjerterum og ser dine deltagere i medlemsområdet.",
+    card: { title: "Ændr dit event", text: "Ret dit event, og se dine deltagere." },
     body: `Events, du har oprettet i medlemsområdet, administrerer du samme sted:
 
 1. Log ind i [medlemsområdet](/member-portal/events).
 2. Vælg **Mine events**.
 3. Her ser du dine kommende events, hvor mange der er tilmeldt, og om eventet er godkendt.
-4. Vælg **Redigér** for at rette titel, tekst, tidspunkt eller pris – eller **Annullér event** for at aflyse.
+4. Vælg **Redigér** for at rette titel, tekst, tidspunkt eller pris.
 
-Aflyser du tæt på eventet, så læs [reglerne for aflysning](/lej-hjerterum/vilkaar#aflysning), og send altid en mail til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
+Har du booket til standardpris, så skriv til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org), hvis noget skal ændres.
 
 ## Events i den tidligere kalender
 Events, der er oprettet i den tidligere kalender på holistisk.org, administrerer du stadig dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
     sources: ["administrer-dine-events"]
   },
+  {
+    path: "/brug-hjerterum/aflys-event", lang: "da", section: "lej",
+    kicker: "Eventguides & PR", title: "Aflys", em: "dit event",
+    lead: "Sådan aflyser du – og hvad det koster.",
+    description: "Sådan aflyser du dit event i Hjerterum: i medlemsområdet, i sidste øjeblik, og hvad du får tilbage.",
+    card: { title: "Aflys dit event", text: "Sådan aflyser du, og hvad det koster." },
+    body: `## Sådan aflyser du
+1. Log ind i [medlemsområdet](/member-portal/events), og vælg **Mine events**.
+2. Vælg **Annullér event** ved det event, du vil aflyse.
+3. Send altid en mail til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) om, at du har aflyst.
 
+## Hvad koster det?
+Hjerterum beholder altid grundprisen, og hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser. Se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
+
+## Aflysning i sidste øjeblik
+Aflysning i sidste øjeblik koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00.
+
+Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik – ikke ved almindelige aflysninger. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).`,
+    sources: []
+  },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)
   {
     path: "/om-os", lang: "da", section: "om-os",
@@ -573,7 +803,7 @@ Lad os starte med at sige, hvad vi **ikke** er:
 - Ikke bundet til én bestemt tro, religion eller politisk holdning.
 - Ikke et sted uden plads til humor og lethed.
 
-**Hjerterum er for alle.** Hjerterum er et åbent og trygt rum for fællesskab, kreativitet og personlig udvikling. Her kan du deltage i en masse nærende og meningsfulde events – fx foredrag, koncerter, yoga, breathwork, workshops og sociale arrangementer. Er du underviser eller facilitator, er du altid velkommen til at [bruge vores sted](/lej-hjerterum).
+**Hjerterum er for alle.** Hjerterum er et åbent og trygt rum for fællesskab, kreativitet og personlig udvikling. Her kan du deltage i en masse nærende og meningsfulde events – fx foredrag, koncerter, yoga, breathwork, workshops og sociale arrangementer. Er du underviser eller facilitator, er du altid velkommen til at [bruge vores sted](/brug-hjerterum).
 
 Uanset om du søger ro, inspiration eller nye bekendtskaber, er du velkommen. Vi tror på, at god energi og åbenhed skaber gode møder – mellem mennesker og med sig selv.
 
@@ -865,7 +1095,7 @@ Medlemskabet løber pr. måned eller pr. år, alt efter hvad du vælger, og forn
 Køber du billet til et event, er købet bindende. Aflyser Hjerterum eller arrangøren eventet, får du pengene tilbage. Arrangøren er ansvarlig for indholdet af sit event.
 
 ## Leje af salen {#leje}
-For leje af salen gælder [vilkårene for leje](/lej-hjerterum/vilkaar), herunder aflysning og rengøring.
+For leje af salen gælder [vilkårene for leje](/brug-hjerterum/vilkaar), herunder aflysning og rengøring.
 
 ## Fortrydelsesret {#fortrydelse}
 Når du køber medlemskab, har du 14 dages fortrydelsesret fra købet. Beder du os om at starte medlemskabet med det samme, og fortryder du inden for de 14 dage, betaler du for den del, du har haft. Fortryd ved at skrive til [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) inden fristen. Billetter til events på en bestemt dato og leje af salen til en bestemt tid er undtaget fra fortrydelsesretten (forbrugeraftalelovens § 18, stk. 2, nr. 12).
@@ -923,7 +1153,7 @@ Vælg, hvad din henvendelse handler om, så kommer den til de rette i teamet. Du
 
 Send venligst kun din henvendelse ét sted – med formularen eller til én af adresserne.
 
-**Undervisere i nødstilfælde:** se [kommunikationspolitikken](/lej-hjerterum/vilkaar#kommunikation). Teamet kan ikke kontaktes via privat Messenger eller sms.
+**Undervisere i nødstilfælde:** se [kommunikationspolitikken](/brug-hjerterum/vilkaar#kommunikation). Teamet kan ikke kontaktes via privat Messenger eller sms.
 
 ## Betaling og foreningsoplysninger
 - **MobilePay:** 734388
