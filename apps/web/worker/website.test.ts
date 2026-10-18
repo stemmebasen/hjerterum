@@ -80,6 +80,17 @@ describe("the website from holistisk.org", () => {
     }
   });
 
+  it("opens signing in and the member area on medlem.hjerterum.info, where the login can hold", async () => {
+    const env = { ...sagaEnv(testDatabase(), { COCKPIT_PASSWORD: "x" }), ASSETS: { fetch: async (request: Request) => new Response(`spa ${new URL(request.url).pathname}`) } } as never;
+    const at = async (address: string) => { const r = await config.fetch(new Request(address), env); return r.status === 302 ? r.headers.get("location") : await r.text(); };
+    expect(await at("https://www.hjerterum.info/sign-in")).toBe("https://medlem.hjerterum.info/sign-in");
+    expect(await at("https://hjerterum.info/member-portal/events?tab=mine")).toBe("https://medlem.hjerterum.info/member-portal/events?tab=mine");
+    expect(await at("https://www.hjerterum.info/admin/")).toBe("https://medlem.hjerterum.info/admin/");
+    expect(await at("https://www.hjerterum.info/brug-hjerterum")).toBe("spa /brug-hjerterum");
+    expect(await at("https://medlem.hjerterum.info/sign-in")).toBe("spa /sign-in");
+    expect(await at("https://hjerterum-preview.example.workers.dev/sign-in")).toBe("spa /sign-in");
+  });
+
   it("answers the old addresses with a permanent redirect on the platform's addresses", async () => {
     const env = { ...sagaEnv(testDatabase(), { COCKPIT_PASSWORD: "x" }), ASSETS: { fetch: async (request: Request) => new Response(`spa ${new URL(request.url).pathname}`) } } as never;
     const old = await config.fetch(new Request("https://medlem.hjerterum.info/fordele-ved-medlemskab/"), env);

@@ -11,6 +11,7 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
+import { CodeSignIn } from "./code-sign-in";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 import "./lys-spa.css";
@@ -111,8 +112,11 @@ function AuthPage({
   redirectUrl?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Requested: "Maybe just with a code" - signing in starts with a code by e-mail; the usual login with a password is one click away.
+  const [password, setPassword] = useState(false);
+  const clerkForm = mode === "sign-up" || password;
   useEffect(() => {
-    if (!clerk || !ref.current) return;
+    if (!clerk || !ref.current || !clerkForm) return;
     const node = ref.current;
     if (mode === "sign-in") clerk.mountSignIn(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
     else clerk.mountSignUp(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
@@ -120,7 +124,7 @@ function AuthPage({
       if (mode === "sign-in") clerk.unmountSignIn(node);
       else clerk.unmountSignUp(node);
     };
-  }, [clerk, mode, redirectUrl]);
+  }, [clerk, mode, redirectUrl, clerkForm]);
 
   return (
     <main className="auth-shell">
@@ -132,7 +136,10 @@ function AuthPage({
             <h1>Login er på vej</h1>
             <p>Den nye medlemsportal er ved at blive koblet til Hjerterums login.</p>
           </div>
-        ) : <div ref={ref} />}
+        ) : clerkForm ? <div>
+          <div ref={ref} />
+          {password && <p className="code-signin-back"><button type="button" className="code-signin-link" onClick={() => setPassword(false)}>← Log ind med en kode i stedet</button></p>}
+        </div> : <CodeSignIn clerk={clerk} signedIn={Boolean(clerk.user)} redirectUrl={redirectUrl} onPassword={() => setPassword(true)} />}
       </div>
     </main>
   );

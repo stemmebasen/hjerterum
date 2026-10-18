@@ -1,4 +1,5 @@
 import { CLERK_LOCALIZATION } from "./clerk-localization";
+import type { CodeLoginClerk } from "./code-login";
 
 export type ClerkSession = {
   getToken(options?: { skipCache?: boolean }): Promise<string | null>;
@@ -16,7 +17,7 @@ export type ClerkState = {
   user?: ClerkUser | null;
 };
 
-export type ClerkBrowser = {
+export type ClerkBrowser = CodeLoginClerk & {
   load(options?: Record<string, unknown>): Promise<void>;
   session?: ClerkSession | null;
   user?: ClerkUser | null;
