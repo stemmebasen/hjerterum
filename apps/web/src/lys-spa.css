@@ -143,6 +143,11 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-back:hover { color: var(--lys-accent); }
 .site-body { display: grid; gap: 28px; padding: 24px 0 8px; }
 .site-prose { max-width: 760px; font: 400 17px/1.75 var(--lys-sans); color: var(--lys-ink); overflow-wrap: anywhere; }
+/* A long text (the chair's report): headline, introduction and text in one centred reading column. */
+.site-intro.is-article { display: block; width: 100%; max-width: 720px; margin-inline: auto; }
+.site-intro.is-article .site-intro-lead { max-width: none; }
+.site-body.is-article { justify-items: center; }
+.site-body.is-article .site-prose { width: 100%; max-width: 720px; font-size: 18px; line-height: 1.8; }
 .site-prose > :first-child { margin-top: 0; }
 .site-prose h2 { font: 400 clamp(28px, 3.2vw, 36px)/1.15 var(--lys-serif); letter-spacing: -.01em; margin: 56px 0 14px; scroll-margin-top: 96px; }
 .site-prose h3 { font: 400 23px/1.25 var(--lys-serif); margin: 34px 0 10px; scroll-margin-top: 96px; }
@@ -507,3 +512,4 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .nl-month { padding-top: 56px; }
   .nl-sub { margin-top: 60px; }
 }
+@media (max-width: 760px) { .site-body.is-article .site-prose { font-size: 17px; } }
