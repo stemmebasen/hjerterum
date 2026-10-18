@@ -25,6 +25,9 @@ export type SitePage = {
   image?: Picture;
   gallery?: { title: string; pictures: Picture[] };
   children?: string[];
+  /** A long text read from one end to the other (the chair's report): the headline, the introduction and the text in one
+   * centred column instead of the headline beside the introduction. Asked of the report: "Er det meningen at layoutet skal være sådan her?" */
+  article?: boolean;
   /** How the page appears as a card on the page above it. */
   card: { title: string; text: string };
   sources: string[];
@@ -860,7 +863,7 @@ At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst mu
   },
   {
     // Requested: "Tilføj en rubrik med Formandens beretning that links to the full speech" - "Om Hjerterum". The chair's report to the general assembly, as he gave it.
-    path: "/om-os/formandens-beretning", lang: "da", section: "om-os",
+    path: "/om-os/formandens-beretning", lang: "da", section: "om-os", article: true,
     kicker: "Om Hjerterum", title: "Formandens beretning", em: "2026",
     lead: "Jacob Hauges beretning til generalforsamlingen 14. oktober 2026 – om ti år med Hjerterum, året der gik, og det næste kapitel, vi skal skrive sammen.",
     description: "Formandens beretning til Hjerterums generalforsamling 14. oktober 2026.",

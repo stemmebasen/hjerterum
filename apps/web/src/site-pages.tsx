@@ -172,20 +172,20 @@ function Cards({ paths }: { paths: string[] }) {
 export function SitePageInner({ page, widgets, parent }: { page: SitePage; widgets: Widgets; parent?: SitePage | undefined }) {
   const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
   return <>
-    <section className="lys-intro site-intro">
+    <section className={"lys-intro site-intro" + (page.article ? " is-article" : "")}>
         <div>
-          {parent && <a className="site-back" href={parent.path}>← {parent.card.title}</a>}
+          {parent && <a className="site-back" href={parent.path}>← {NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
           <p className="lys-kicker">{page.kicker}</p>
           <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
           {/* Asked (screenshot of /medlemskab): "Is this layout intended?" - with a picture, the words go under the headline and the picture
-              stands alone beside them, so neither column is left half empty. */}
-          {page.image && <p className="site-intro-lead">{page.lead}</p>}
+              stands alone beside them, so neither column is left half empty. A long text keeps its words under the headline too. */}
+          {(page.image || page.article) && <p className="site-intro-lead">{page.lead}</p>}
         </div>
-        <div className="site-intro-side">
+        {!page.article && <div className="site-intro-side">
           {page.image ? <img className="site-intro-image" src={page.image.src} alt={page.image.alt} /> : <p>{page.lead}</p>}
-        </div>
+        </div>}
       </section>
-      <div className="site-body">
+      <div className={"site-body" + (page.article ? " is-article" : "")}>
         {parts.map((part, index) => index % 2
           ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
             : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
