@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMembershipWorksRss } from "./external-events.js";
+import { getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss } from "./external-events.js";
 
 describe("MembershipWorks RSS parser", () => {
   it("parses the documented event tags", () => {
@@ -48,5 +48,40 @@ describe("MembershipWorks RSS parser", () => {
     </item></channel></rss>`;
     const event = parseMembershipWorksRss(xml)[0];
     expect(event?.description).toBe("En håndfuld æbler, øvelser og plads til ro.");
+  });
+});
+
+// Asked: "All of these appear in Membership works" - the categories left out of the RSS feed come from the widget's list.
+describe("MembershipWorks event list", () => {
+  const LIST = {
+    evt: [
+      { grp: 7, ttl: "F&#230;llesspisning med &#197;BEN SCENE &#128214;", sdp: 1792427400, edp: 1792438200, url: "2026/10/19/faellesspisning", lgo: { l: "https://img/f.jpg" }, eid: "6a0000000000000000000007" },
+      { grp: 0, ttl: "RELAX YOUR EYES<br>A feldenkrais workshop", sdp: 1792400000, eid: "6a0000000000000000000001" },
+      { grp: 0, ttl: "Uden id", sdp: 1792400000 }
+    ],
+    _st: { evg: [{ ttl: "Events &amp; Workshops" }, {}, {}, {}, {}, {}, {}, { ttl: "Hjerterum events" }] }
+  };
+
+  it("reads title, time, category, picture and link", () => {
+    const [meal, workshop, ...rest] = parseMembershipWorksList(LIST);
+    expect(rest).toEqual([]);
+    expect(meal).toMatchObject({
+      id: "SF6a0000000000000000000007", title: "Fællesspisning med ÅBEN SCENE 📖", startsAt: "2026-10-19T16:30:00.000Z", endsAt: "2026-10-19T19:30:00.000Z",
+      category: "Hjerterum events", imageUrl: "https://img/f.jpg", link: "https://holistisk.org/events/#!event/2026/10/19/faellesspisning", description: null
+    });
+    expect(workshop).toMatchObject({ title: "RELAX YOUR EYES – A feldenkrais workshop", category: "Events & Workshops", endsAt: null, link: null });
+  });
+
+  it("keeps the feed's richer copy and adds only what the feed lacks", () => {
+    const feed = parseMembershipWorksList({ evt: [{ ttl: "Fra feedet", sdp: 1792500000, eid: "6a0000000000000000000001" }] }).map(e => ({ ...e, description: "Tekst" }));
+    const merged = mergeExternalEvents(feed, parseMembershipWorksList(LIST));
+    expect(merged.map(e => e.title)).toEqual(["Fællesspisning med ÅBEN SCENE 📖", "Fra feedet"]);
+    expect(merged[1]!.description).toBe("Tekst");
+  });
+
+  it("shows the feed's events when the list cannot be read", async () => {
+    const rss = `<rss><channel><item><guid>SF6a0000000000000000000009</guid><title>Qi Gong</title><ev:startdate>2026-10-23T10:30:00+02:00</ev:startdate></item></channel></rss>`;
+    const fetcher = (async (input: RequestInfo | URL) => String(input).includes("_op=rss") ? new Response(rss) : new Response("nej", { status: 500 })) as typeof fetch;
+    expect((await getExternalEvents(true, fetcher)).map(e => e.title)).toEqual(["Qi Gong"]);
   });
 });

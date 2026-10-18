@@ -1,4 +1,10 @@
 const MEMBERSHIPWORKS_FEED_URL = "https://api.membershipworks.com/v2/events?_op=rss&org=22308";
+/** The list the membership system's own calendar widget reads. It holds every public event, also those in the categories that
+ * are left out of the RSS feed ("Hjerterum events", "Dans & Bevægelse") - asked: "All of these appear in Membership works". */
+const membershipWorksListUrl = (fromMs: number, toMs: number) =>
+  `https://api.membershipworks.com/v2/events?sdp=${Math.floor(fromMs / 1000)}&edp=${Math.floor(toMs / 1000)}&org=22308&_st`;
+const LIST_DAYS = 183;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const CACHE_MS = 5 * 60 * 1000;
 
 export type ExternalEvent = {
@@ -117,18 +123,58 @@ export function parseMembershipWorksRss(xml: string): ExternalEvent[] {
   });
 }
 
+type MembershipWorksList = {
+  evt?: Array<{ eid?: string; ttl?: string; sdp?: number; edp?: number; grp?: number; url?: string; lgo?: { l?: string } }>;
+  _st?: { evg?: Array<{ ttl?: string }> };
+};
+
+/** The widget's list: title, time, category, picture and address of each event. The text is read on the event's own page (event-detail.ts). */
+export function parseMembershipWorksList(data: MembershipWorksList): ExternalEvent[] {
+  const groups = data._st?.evg ?? [];
+  return (data.evt ?? []).flatMap((item) => {
+    const title = item.ttl ? decodeXml(item.ttl.replace(/<br\s*\/?>/gi, " – ")).replace(/\s+/g, " ") : "";
+    if (!item.eid || !/^[0-9a-f]{24}$/.test(item.eid) || !title || typeof item.sdp !== "number") return [];
+    const category = item.grp === undefined ? null : groups[item.grp]?.ttl ?? null;
+    return [{
+      id: `SF${item.eid}`,
+      source: "membershipworks" as const,
+      title,
+      startsAt: new Date(item.sdp * 1000).toISOString(),
+      endsAt: typeof item.edp === "number" ? new Date(item.edp * 1000).toISOString() : null,
+      location: null,
+      imageUrl: item.lgo?.l ?? null,
+      link: item.url ? `https://holistisk.org/events/#!event/${item.url}` : null,
+      host: null,
+      description: null,
+      category: category ? decodeXml(category) : null
+    }];
+  });
+}
+
+/** The feed's events with their text, and the events only the widget's list has. */
+export function mergeExternalEvents(feed: ExternalEvent[], list: ExternalEvent[]): ExternalEvent[] {
+  const known = new Set(feed.map((event) => event.id));
+  return [...feed, ...list.filter((event) => !known.has(event.id))]
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+}
+
 export async function getExternalEvents(force = false, fetcher: typeof fetch = fetch): Promise<ExternalEvent[]> {
   const now = Date.now();
   if (!force && cachedEvents && now < cacheExpiresAt) return cachedEvents;
 
-  const response = await fetcher(MEMBERSHIPWORKS_FEED_URL, {
-    headers: { accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" }
-  });
-  if (!response.ok) throw new Error(`membershipworks_fetch_failed_${response.status}`);
-
-  const xml = await response.text();
-  const events = parseMembershipWorksRss(xml)
-    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const [feed, list] = await Promise.all([
+    fetcher(MEMBERSHIPWORKS_FEED_URL, {
+      headers: { accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" }
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`membershipworks_fetch_failed_${response.status}`);
+      return parseMembershipWorksRss(await response.text());
+    }),
+    // The list only adds to the feed; without it the feed's events are still shown.
+    fetcher(membershipWorksListUrl(now - DAY_MS, now + LIST_DAYS * DAY_MS), { headers: { accept: "application/json" } })
+      .then(async (response) => response.ok ? parseMembershipWorksList(await response.json() as MembershipWorksList) : [])
+      .catch(() => [] as ExternalEvent[])
+  ]);
+  const events = mergeExternalEvents(feed, list);
 
   cachedEvents = events;
   cacheExpiresAt = now + CACHE_MS;
