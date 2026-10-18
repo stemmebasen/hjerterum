@@ -87,3 +87,14 @@ export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now
   cache.set(id, { at: now, detail });
   return detail;
 }
+
+/** Events from the widget's list come without their text (external-events.ts). Where the text is wanted - the radio spots' feed - it is
+ * read from each event's own details, for the events up to untilMs only. */
+export async function withDescriptions(events: ExternalEvent[], untilMs: number, fetcher: typeof fetch = fetch, now = Date.now()): Promise<ExternalEvent[]> {
+  return Promise.all(events.map(async (event) => {
+    const id = eventIdOf(event);
+    if (event.description || !id || Date.parse(event.startsAt) > untilMs || Date.parse(event.endsAt ?? event.startsAt) < now) return event;
+    const detail = await eventDetail(id, fetcher, now).catch(() => null);
+    return { ...event, description: detail?.paragraphs.join("\n") || null };
+  }));
+}
