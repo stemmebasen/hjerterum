@@ -178,7 +178,7 @@ export function PublicProfiles({ bare = false }: { bare?: boolean }) {
     return () => { active = false; };
   }, [reload]);
   const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join("") || "?";
-  // Requested: "Der er nu to forskellige layouts. Vi skal bruge det nederste." On the website the visit cards are drawn as the regular teachers are (Teachers in site-pages.tsx).
+  // Requested: "Der er nu to forskellige layouts. Vi skal bruge det nederste." On the website the visit cards are drawn as the regular teachers were (.site-teacher); "Fjern alle de statiske kort" took those away.
   if (bare) return error || !profiles?.length ? null : <div className="site-teachers">
     {profiles.map(profile => { const href = `/behandlere/${profileSlug(profile, profiles)}`; return <article key={profile.id} className="site-teacher">
       <a href={href} tabIndex={-1} aria-hidden="true">{profile.photoUrl ? <img src={profile.photoUrl} alt="" loading="lazy" width="160" height="160" /> : <span className="site-teacher-initials">{initials(profile.name)}</span>}</a>

@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, TEACHERS, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { EnquiryForm } from "./enquiry-form";
 
 /** The public website in Hjerterum Lys (site/pages.ts): the homepage modelled on hjerterum.info ("En forside som denne
@@ -19,21 +19,25 @@ function sectionTree(href: string): { root: SitePage; groups: Array<{ page: Site
   return { root, groups };
 }
 
+const menuTitle = (page: SitePage) => page.menu ?? page.card.title;
+
 export function SiteNav({ current, open = false }: { current?: Section | undefined; open?: boolean }) {
   return <nav id="site-menu" className={"lys-nav site-nav" + (open ? " is-open" : "")} aria-label="Hovednavigation">
     {NAV.map(item => {
       const link = <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>;
       const tree = item.sub ? sectionTree(item.href) : null;
       if (!tree) return link;
-      // Under Brug Hjerterum: its groups and their pages, opened by pointing at or tabbing to the item.
+      // Under Brug Hjerterum: its groups and their pages; under Om Hjerterum, whose pages have none of their own, a plain list. Opened by pointing at or tabbing to the item.
+      const list = tree.groups.every(group => !group.pages.length);
       return <div key={item.href} className="site-nav-item">
         {link}
-        <div className="site-sub" role="group" aria-label={item.label}>
-          <a className="site-sub-head" href={tree.root.path}>{tree.root.card.title}</a>
-          {tree.groups.map(group => <div key={group.page.path} className="site-sub-group">
-            <a className="site-sub-head" href={group.page.path}>{group.page.card.title}</a>
-            {group.pages.map(page => <a key={page.path} href={page.path}>{page.card.title}</a>)}
-          </div>)}
+        <div className={"site-sub" + (list ? " is-list" : "")} role="group" aria-label={item.label}>
+          <a className="site-sub-head" href={tree.root.path}>{menuTitle(tree.root)}</a>
+          {list ? tree.groups.map(group => <a key={group.page.path} href={group.page.path}>{menuTitle(group.page)}</a>)
+            : tree.groups.map(group => <div key={group.page.path} className="site-sub-group">
+              <a className="site-sub-head" href={group.page.path}>{menuTitle(group.page)}</a>
+              {group.pages.map(page => <a key={page.path} href={page.path}>{menuTitle(page)}</a>)}
+            </div>)}
         </div>
       </div>;
     })}
@@ -47,8 +51,10 @@ function SectionTabs({ page }: { page: SitePage }) {
   if (!tree) return null;
   const tabs = [tree.root, ...tree.groups.map(group => group.page)];
   const here = tabs.find(tab => tab.path === page.path) ?? tree.groups.find(group => group.pages.some(child => child.path === page.path))?.page;
+  // The legal pages share Om Hjerterum's section without being in its menu.
+  if (!here) return null;
   return <nav className="site-tabs" aria-label={item.label}>
-    {tabs.map(tab => <a key={tab.path} href={tab.path} aria-current={tab === here ? "page" : undefined}>{tab.card.title}</a>)}
+    {tabs.map(tab => <a key={tab.path} href={tab.path} aria-current={tab === here ? "page" : undefined}>{menuTitle(tab)}</a>)}
   </nav>;
 }
 
@@ -84,16 +90,6 @@ export function Newsletter({ lang = "da" }: { lang?: "da" | "en" }) {
       <button className="lys-btn" type="submit">{en ? "Subscribe" : "Tilmeld"}</button>
     </div>
   </form>;
-}
-
-export function Teachers() {
-  return <div className="site-teachers">
-    {TEACHERS.map(teacher => <article key={teacher.name} className="site-teacher">
-      <img src={teacher.image} alt={teacher.name} loading="lazy" width="160" height="160" />
-      <h3>{teacher.url ? <a href={teacher.url} target="_blank" rel="noopener noreferrer">{teacher.name}</a> : teacher.name}</h3>
-      {teacher.focus && <p>{teacher.focus}</p>}
-    </article>)}
-  </div>;
 }
 
 /** The board, as on Om Hjerterum and Teamet: the photo and a card for each (site/pages.ts BOARD). */
@@ -187,7 +183,7 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
       </section>
       <div className={"site-body" + (page.article ? " is-article" : "")}>
         {parts.map((part, index) => index % 2
-          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "teachers" ? <Teachers /> : part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
+          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
             : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
           : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
       </div>
