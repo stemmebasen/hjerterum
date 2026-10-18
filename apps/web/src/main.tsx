@@ -301,7 +301,7 @@ function PublicContentPage({ path }: { path: string }) {
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
   const eventMatch = /^\/events\/([0-9a-f]{24})\/?$/.exec(path);
   if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
-  if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="behandlere" />} footer={<SiteFooter />} />;
+  if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="om-os" />} footer={<SiteFooter />} />;
   return <SiteContentPage path={path} />;
 }
 

@@ -42,7 +42,7 @@ Vision / om os · Kontakt · English. The content pages live in `apps/web/site/p
 | [events-en](https://holistisk.org/events-en/) | Events | 2026-09-29 | [/en#events](/en#events) |  |
 | [faellesspisning-i-hjerterum](https://holistisk.org/faellesspisning-i-hjerterum/) | Fællesspisning i Hjerterum | 2019-08-26 | [/events#hjerterum-open](/events#hjerterum-open) | De 8 billeder fra 2019 vises som galleri under Hjerterum Open. |
 | [fakturaer](https://holistisk.org/fakturaer/) | Betal din faktura | 2026-04-24 | [/brug-hjerterum/vilkaar#betaling](/brug-hjerterum/vilkaar#betaling) | WordPress' fakturalogin er udgået; faktura sendes pr. mail. |
-| [faste-laerere-regular-teachers](https://holistisk.org/faste-laerere-regular-teachers/) | Faste undervisere / Regular teachers | 2026-06-23 | [/behandlere#faste-undervisere](/behandlere#faste-undervisere) |  |
+| [faste-laerere-regular-teachers](https://holistisk.org/faste-laerere-regular-teachers/) | Faste undervisere / Regular teachers | 2026-06-23 | [/behandlere](/behandlere) |  |
 | [fordele-ved-medlemskab](https://holistisk.org/fordele-ved-medlemskab/) | Fordele ved et medlemskab | 2026-09-29 | [/medlemskab#fordele](/medlemskab#fordele) |  |
 | [generalforsamling-general-assembly](https://holistisk.org/generalforsamling-general-assembly/) | Generalforsamling/møder | 2026-05-17 | [/om-os/foreningen#generalforsamling](/om-os/foreningen#generalforsamling) |  |
 | [guidelines-for-teachers](https://holistisk.org/guidelines-for-teachers/) | Practical Information | 2026-08-24 | [/en/rent#practical](/en/rent#practical) | WiFi-koden står ikke på den offentlige side; den følger bookingen. |

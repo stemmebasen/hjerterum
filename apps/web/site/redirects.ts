@@ -16,7 +16,7 @@ export const REDIRECTS: Record<string, string> = {
   "/behandling": "/behandlere",
   "/behandling/breathwork": "/om-os",
   // Behandlere & undervisere
-  "/faste-laerere-regular-teachers": "/behandlere#faste-undervisere",
+  "/faste-laerere-regular-teachers": "/behandlere",
   // Medlemskab
   "/bliv-medlem": "/medlemskab",
   "/fordele-ved-medlemskab": "/medlemskab#fordele",

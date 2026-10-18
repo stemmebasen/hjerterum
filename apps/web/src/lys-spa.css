@@ -27,11 +27,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .lys-nav.site-nav { gap: 0; }
 .lys-nav.site-nav { flex-wrap: nowrap; }
 .lys-nav.site-nav > a, .site-nav-item > a { color: var(--lys-ink); padding: 8px 8px; font-size: 13.5px; white-space: nowrap; }
-/* Brug Hjerterum's own menu: its groups and their pages, shown when the item is pointed at or tabbed to. */
+/* Brug Hjerterum's and Om Hjerterum's own menus: groups and their pages (or a plain list), shown when the item is pointed at or tabbed to. */
 .site-nav-item { position: relative; display: flex; }
 .site-sub { display: none; position: absolute; z-index: 40; top: 100%; left: 50%; transform: translateX(-50%); width: max-content; max-width: min(760px, calc(100vw - 32px));
   grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 6px 22px; padding: 16px 20px 18px; background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow); }
 .site-nav-item:hover .site-sub, .site-nav-item:focus-within .site-sub { display: grid; }
+.site-sub.is-list { grid-template-columns: minmax(200px, 1fr); }
 .site-sub > .site-sub-head { grid-column: 1 / -1; padding-bottom: 8px; border-bottom: 1px solid var(--lys-line); margin-bottom: 4px; }
 .site-sub-group { display: grid; align-content: start; gap: 2px; }
 .site-sub a { color: var(--lys-muted); font-size: 13.5px; padding: 3px 0; text-decoration: none; white-space: nowrap; }

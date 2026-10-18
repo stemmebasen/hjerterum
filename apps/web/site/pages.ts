@@ -8,7 +8,7 @@ import { SITE_PAGES_EN } from "./pages-en.js";
 import { STATUTES } from "./statutes.js";
 
 export type Lang = "da" | "en";
-export type Section = "events" | "behandlere" | "medlemskab" | "lej" | "om-os" | "kontakt" | "en";
+export type Section = "events" | "medlemskab" | "lej" | "om-os" | "kontakt" | "en";
 export type Picture = { src: string; alt: string };
 
 export type SitePage = {
@@ -30,16 +30,18 @@ export type SitePage = {
   article?: boolean;
   /** How the page appears as a card on the page above it. */
   card: { title: string; text: string };
+  /** Its name in the menu and the tabs, when the card's title is a headline rather than a name. */
+  menu?: string;
   sources: string[];
 };
 
-/** sub: the item opens a menu of its own pages - requested for Brug Hjerterum ("Altså under punktet: Brug Hjerterum"). */
+/** sub: the item opens a menu of its own pages - requested for Brug Hjerterum ("Altså under punktet: Brug Hjerterum") and for Om Hjerterum:
+ * "Menupunktet for behandlere skal ikke være i menuen men appear under Om Hjerterum som menupunkt. Det samme skal de undersider du finder via Om Hjerterums side". */
 export const NAV: Array<{ section: Section; label: string; href: string; sub?: boolean }> = [
   { section: "events", label: "Events", href: "/events" },
-  { section: "behandlere", label: "Behandlere & undervisere", href: "/behandlere" },
   { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
   { section: "lej", label: "Brug Hjerterum", href: "/brug-hjerterum", sub: true },
-  { section: "om-os", label: "Om Hjerterum", href: "/om-os" },
+  { section: "om-os", label: "Om Hjerterum", href: "/om-os", sub: true },
   { section: "kontakt", label: "Kontakt", href: "/kontakt" }
 ];
 /** Requested: "English skal stå på en anden måde så det ikke fylder i menuen" - a small language switch beside the menu. */
@@ -74,21 +76,6 @@ export const SIGNUP_URL = "https://holistisk.org/bliv-medlem/";
 export const CIRKLER_URL = "https://cirkler.net";
 export const NEWSLETTER_ACTION = "https://holistisk.us6.list-manage.com/subscribe/post?u=e41afd3f798957ec11726bf83&id=0070dc72a9&f_id=00b8ede5f0";
 export const NEWSLETTER_HONEYPOT = "b_e41afd3f798957ec11726bf83_0070dc72a9";
-
-export type Teacher = { name: string; focus: string; url?: string; image: string };
-export const TEACHERS: Teacher[] = [
-  { name: "Sissel Bronée", focus: "Conscious Dance", url: "https://www.facebook.com/profile.php?id=61557265805074", image: "/media/2025-04-1-small.webp" },
-  { name: "Douglas Crawford", focus: "Rebirthing · A Course in Miracles", url: "http://www.masteringlife.dk/", image: "/media/2025-04-douglas-close-up-1.webp" },
-  { name: "Anna Carolina", focus: "", image: "/media/2025-04-2-small.webp" },
-  { name: "Luca Hillen", focus: "NVC · Kakao · Movement Research", url: "https://www.facebook.com/profile.php?id=100068577652230", image: "/media/2025-04-10-small.webp" },
-  { name: "Ras Jensen", focus: "Regressionsterapi · Te-ceremonier · Soul Meditation · Life & Soul Guide", url: "https://www.rasjensenhealing.com/", image: "/media/2025-04-4-small.webp" },
-  { name: "Laufey Karítas Einarsdóttir", focus: "Kundalini- og flowyoga · Danceflows · Meditation", url: "https://karitasflow.dk/", image: "/media/2025-04-5-small.webp" },
-  { name: "Anna Ananda", focus: "Gong og tibetanske skåle · Lydbade · Ceremoniel kakao · Rene olier", image: "/media/2025-04-6-small.webp" },
-  { name: "Sarah Bjørk Lundsberg", focus: "Healing · Yin yoga · Shamanistisk tromme · Skovarbejde · Meditation", url: "https://behandlerhusetstavtrup.dk/sarah_lundsberg/", image: "/media/2025-04-8-small.webp" },
-  { name: "Lisa Mai Karina Toft", focus: "Shamanistisk healing · Clairvoyance · Kropsterapi", url: "https://kropsterapi-healing.dk", image: "/media/2025-04-7-small.webp" },
-  { name: "Gitta Kaas", focus: "Sanger · Spirituel sangcoach · Lydhealer", url: "https://gittakaas.dk/", image: "/media/2025-04-gitta-small.webp" },
-  { name: "Kasper Frausing", focus: "Yoga", image: "/media/2025-04-kasper-frausing-small.webp" }
-];
 
 const HENVENDELSER = `## Når du skriver til os {#henvendelser}
 Sender du en henvendelse med en af formularerne på hjemmesiden, kommer den som en mail i Hjerterums fælles indbakke, så teamet kan svare dig. Vi bruger dine oplysninger til at besvare henvendelsen og gemmer dem ikke på hjemmesiden. Mails i indbakken sorteres med hjælp fra Saga, så de rigtige i bestyrelsen ser dem. I statistikken tæller vi kun, at der kom en henvendelse – hvilken dag, om hvilket emne og fra hvilken side.`;
@@ -233,17 +220,12 @@ ${DISCLAIMER}
 
   // ---------------------------------------------------------------- Behandlere & undervisere
   {
-    path: "/behandlere", lang: "da", section: "behandlere",
+    path: "/behandlere", lang: "da", section: "om-os", menu: "Behandlere & undervisere",
     kicker: "Behandlere & undervisere", title: "Mennesker med", em: "noget på hjerte",
     lead: "Mød de behandlere, undervisere og værter, som deler deres faglighed og skaber oplevelser i Hjerterum.",
     description: "Behandlere, undervisere og faste hold i Hjerterum i Aarhus.",
     card: { title: "Mennesker med noget på hjerte", text: "Mød behandlerne, underviserne og værterne i huset." },
     body: `{{profiles}}
-
-## Faste undervisere {#faste-undervisere}
-Disse undervisere har faste hold og forløb i Hjerterum. Klik på navnet for at læse mere om dem.
-
-{{teachers}}
 
 Vil du selv undervise i Hjerterum? [Læs om at bruge Hjerterum](/brug-hjerterum). Er du medlem og underviser eller behandler, kan du lave dit eget visitkort i [medlemsområdet](/member-portal/profil).`,
     sources: ["faste-laerere-regular-teachers"]
@@ -794,7 +776,7 @@ Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed s
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)
   {
-    path: "/om-os", lang: "da", section: "om-os",
+    path: "/om-os", lang: "da", section: "om-os", menu: "Hvad er Hjerterum?",
     kicker: "Om Hjerterum", title: "Mere nærvær.", em: "Mindre støj.",
     lead: "Hjerterum er skabt omkring troen på, at de bedste oplevelser vokser frem, når mennesker mødes med åbenhed og tid. Vi samler foredrag, behandlinger, musik, samtaler og små pauser i hverdagen – i et rum, hvor man må komme, som man er.",
     description: "Hvad er Hjerterum? Visionen, teamet, historien og foreningen.",
@@ -826,7 +808,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
 
 {{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
-    children: ["/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/formandens-beretning"],
+    children: ["/behandlere", "/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/formandens-beretning"],
     sources: ["vision"]
   },
   {
