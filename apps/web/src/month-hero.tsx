@@ -1,7 +1,7 @@
 /** Requested: "Have a look at this PDF and come up with a suggestion on how we can make our web design a little bit more like it" - then:
  * "It just looks like a business card at the top ... just take the design of the heading, the fonts, and the colors from the PDF and adapt
  * that to our website" - and, of the sketch, "Er dit forslag, at oktober i hjerterum skal være forsidens hero?" - "Ja" (to moving it down) -
- * "Ja den er godt". The front page's calendar section reads like the monthly newsletter: "Det sker / i Hjerterum", three highlighted events,
+ * "Ja den er godt". The front page's calendar section reads like the monthly newsletter: "Om lidt / i Hjerterum", three highlighted events,
  * the general assembly in a blush box, the coming weeks week by week in columns, and the Mornings banner. */
 
 export type MonthEvent = { key: string; title: string; startsAt: string; imageUrl: string | null; page?: string | null; link: string | null;
@@ -60,7 +60,7 @@ const WEEKDAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", timeZone: ZO
 const DAY_NUM = new Intl.DateTimeFormat("da-DK", { day: "numeric", timeZone: ZONE });
 /** "LØRDAG 24. OKTOBER · KL. 20.00" - the newsletter's line over a highlighted event. */
 export const featureLine = (iso: string) => `${LONG_DAY.format(Date.parse(iso)).replace(/^(\p{L}+) den /u, "$1 ")} · kl. ${TIME.format(Date.parse(iso)).replace(":", ".")}`.toLocaleUpperCase("da-DK");
-const plain = (html: string | null | undefined, max = 150) => {
+const plain = (html: string | null | undefined, max = 400) => {
   const text = (html ?? "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max).replace(/\s+\S*$/, "")} …` : text;
 };
@@ -97,8 +97,8 @@ export function monthSections(events: MonthEvent[], now: number) {
 
 export function MonthSection({ events, now, reachable }: { events: MonthEvent[]; now: number; reachable: boolean }) {
   const { featured, announce, weeks, mornings } = monthSections(events, now);
-  return <section className="nl-month" aria-label="Det sker i Hjerterum">
-    <div className="nl-head"><p className="lys-kicker">Kalender</p><h2 className="nl-big">Det sker<em>i Hjerterum</em></h2><span className="nl-rule" aria-hidden="true" /></div>
+  return <section className="nl-month" aria-label="Om lidt i Hjerterum">
+    <div className="nl-head"><p className="lys-kicker">Kalender</p><h2 className="nl-big">Om lidt<em>i Hjerterum</em></h2><span className="nl-rule" aria-hidden="true" /></div>
     {/* While the calendar is on its way, nothing is said; only a calendar that came back empty says so. */}
     {!featured.length && !weeks.length && reachable && <p className="nl-empty">Kalenderen for de kommende uger kommer snart.</p>}
     {featured.length > 0 && <div className="nl-featured">{featured.map(e => <article key={e.key} className="nl-feat"><a href={href(e)}>

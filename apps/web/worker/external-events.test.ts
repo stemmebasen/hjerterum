@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss } from "./external-events.js";
+import { getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
 
 describe("MembershipWorks RSS parser", () => {
   it("parses the documented event tags", () => {
@@ -83,5 +83,25 @@ describe("MembershipWorks event list", () => {
     const rss = `<rss><channel><item><guid>SF6a0000000000000000000009</guid><title>Qi Gong</title><ev:startdate>2026-10-23T10:30:00+02:00</ev:startdate></item></channel></rss>`;
     const fetcher = (async (input: RequestInfo | URL) => String(input).includes("_op=rss") ? new Response(rss) : new Response("nej", { status: 500 })) as typeof fetch;
     expect((await getExternalEvents(true, fetcher)).map(e => e.title)).toEqual(["Qi Gong"]);
+  });
+});
+
+// Asked: "Hvorfor er der den forskel på tekst? Alle events har jo en beskrivelse."
+describe("the text of events only the list has", () => {
+  const listed = parseMembershipWorksList({ evt: [{ ttl: "Satsãnga", sdp: 1792427400, eid: "6aaa8347f1a29b96a0031976" }, { ttl: "Har tekst", sdp: 1792427400, eid: "6aaa8347f1a29b96a0031977" }] })
+    .map((e, i) => i === 1 ? { ...e, description: "Fra feedet" } : e);
+
+  it("is read from the event's details once, and kept", async () => {
+    let calls = 0;
+    const fetcher = (async (input: RequestInfo | URL) => {
+      calls++;
+      expect(String(input)).toContain("eid=6aaa8347f1a29b96a0031976");
+      return new Response(JSON.stringify({ dtl: "<p>Sats&atilde;nga: mantra &amp; dans</p><p>Med Marin</p>" }));
+    }) as typeof fetch;
+    const [first, second] = await withTexts(listed, fetcher, 1);
+    expect(first!.description).toBe("Satsãnga: mantra & dans\nMed Marin");
+    expect(second!.description).toBe("Fra feedet");
+    await withTexts(listed, fetcher, 2);
+    expect(calls).toBe(1);
   });
 });
