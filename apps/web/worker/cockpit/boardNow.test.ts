@@ -146,17 +146,17 @@ describe("the members as the numbers say", () => {
     expect(memberTrend([], Date.now())).toBe("");
   });
 
-  // Reported: "Der er en sjov og unødvendig ting ved dette Saga-resume" - "Jørgen har selv købt en ny moppe, som kommer i morgen."
-  it("rewrites a text that tells of a small errand, and asks Saga to leave such things out", async () => {
+  // Reported: "Betina har desværre meldt afbud til åben scene i aften, fordi hun er syg" - "a member is not showing!! That's not important for the board".
+  it("rewrites a text that tells of a member's cancellation, and asks Saga to leave such things out", async () => {
     const db = testDatabase();
-    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Jørgen har selv købt en ny moppe, som kommer i morgen.", NOW, NOW).run();
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Betina har desværre meldt afbud til åben scene i aften, fordi hun er syg.", NOW, NOW).run();
     expect((await latestBoardNow(db))?.newest).toBe(-1);
-    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger.", NOW, NOW + HOUR).run();
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Jørgen har købt en ny moppe.", NOW, NOW + HOUR).run();
     expect((await latestBoardNow(db))?.newest).toBe(NOW);
     let system = "";
     const ai = fakeServices({ ai: (sys) => { system = sys; return "Roligt."; } });
-    await saveBoardMessage(db, { chatId: BOARD, messageId: 9, author: "Jørgen", authorId: "301", text: "Ny moppe på vej", sentAtMs: NOW + 2 * HOUR, fromAssistant: false });
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 9, author: "Gitta", authorId: "301", text: "Betina er syg i aften", sentAtMs: NOW + 2 * HOUR, fromAssistant: false });
     await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW + 3 * HOUR), db);
-    expect(system).toContain("en moppe");
+    expect(system).toContain("melder afbud");
   });
 });
