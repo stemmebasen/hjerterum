@@ -19,7 +19,7 @@ export function MembershipPlans({ lang = "da" }: { lang?: "da" | "en" }) {
     {Object.entries(membershipPlans).map(([id, plan]) => {
       const text = en ? EN[id]! : plan;
       const saving = plan.month * 12 - plan.year;
-      return <article className={"site-plan" + (id === "standard" ? " featured" : "")} key={id}>
+      return <article className={`site-plan plan-${id}` + (id === "standard" ? " featured" : "")} key={id}>
         {id === "standard" && <span className="site-plan-badge">{en ? "Most popular" : "Mest populær"}</span>}
         <p className="lys-kicker">{text.name.replace(/ (medlemskab|membership)$/i, "")}</p>
         <p className="site-plan-price"><b>{(plan.month / 100).toLocaleString("da-DK")}</b> {en ? "DKK/month" : "kr./md."}</p>
