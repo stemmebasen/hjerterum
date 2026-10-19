@@ -226,7 +226,7 @@ const CATEGORIES = [
  * kinds of evenings, the calendar, membership, CIRKLER, and "Mere nærvær. Mindre støj." with the ways in. */
 /** Requested: "just take the design of the heading, the fonts, and the colors from the PDF and adapt that to our website" - "Ja den er godt".
  * The house's own words in the newsletter's heading: a wide-spaced kicker, Playfair with the italic "af", the camel rule, square dark buttons -
- * the next event beside it, and the house's own pictures beneath. */
+ * and the hall itself beside it, bleeding to the edge with the camel stripe. */
 function SiteHero({ coming }: { coming?: ReactNode }) {
   return <section className="nl-hero">
     <div className="nl-hero-text">
@@ -237,10 +237,7 @@ function SiteHero({ coming }: { coming?: ReactNode }) {
       <p className="lys-kicker nl-motto">Et rum for det menneskelige</p>
       <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se hele kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
     </div>
-    {coming && <div className="nl-hero-coming">{coming}</div>}
-    {/* The house's own pictures, sent by the chair for the hero: wide, so shown whole beneath the words instead of cropped beside them. */}
-    <div className="nl-hero-img"><img src="/media/2026-10-hjerterum-collage.webp" width="2000" height="833"
-      alt="Øjeblikke fra Hjerterum: lydhealing med tromme, afspænding på måtter, en stund ved bogreolen, hænder hvilende på et tæppe, stemmearbejde og bevægelse på gulvet" /></div>
+    <div className="nl-hero-img"><img src="/media/2026-10-hjerterum-venstre.webp" alt="Øjeblikke fra Hjerterum: lydhealing med tromme, afspænding på måtter og en stund ved bogreolen" />{coming}</div>
   </section>;
 }
 
