@@ -43,7 +43,7 @@ describe("critical mail", () => {
     const cookie = await memberCookie(((await handleCockpitRequest(new Request(`${ORIGIN}/login`, { method: "POST", headers: { origin: ORIGIN }, body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() }), env, deps(services.fetcher, NOW))).headers.get("set-cookie") ?? "").split(";")[0]!, "Jacob Hauge");
     const page = await (await handleCockpitRequest(new Request(`${ORIGIN}/posthus`, { headers: { cookie } }), env, deps(services.fetcher, NOW))).text();
     expect(page).toContain('<h2>Kritiske mails <span class="count">1</span></h2>');
-    expect(page).toContain("<strong>Hvorfor:</strong> Advokat kræver svar inden fredag");
+    expect(page).toContain("<strong>Angående:</strong> Advokat kræver svar inden fredag");
     expect(page.indexOf("Kritiske mails")).toBeLessThan(page.indexOf("<h2>Indbakke"));
     expect(page).toContain('<span class="kind urgent">Kritisk</span>');
   });

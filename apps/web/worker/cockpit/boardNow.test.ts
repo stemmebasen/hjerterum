@@ -145,4 +145,18 @@ describe("the members as the numbers say", () => {
       .toBe("MEDLEMSTAL (MembershipWorks - det er dem, medlemsudviklingen vurderes ud fra):\n- 2026-10-15: 177 betalende, 390 med medlemskab i alt\n- Siden 2026-09-14: betalende 160 → 177 (+17), med medlemskab 360 → 390 (+30)");
     expect(memberTrend([], Date.now())).toBe("");
   });
+
+  // Reported: "Betina har desværre meldt afbud til åben scene i aften, fordi hun er syg" - "a member is not showing!! That's not important for the board".
+  it("rewrites a text that tells of a member's cancellation, and asks Saga to leave such things out", async () => {
+    const db = testDatabase();
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Betina har desværre meldt afbud til åben scene i aften, fordi hun er syg.", NOW, NOW).run();
+    expect((await latestBoardNow(db))?.newest).toBe(-1);
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Jørgen har købt en ny moppe.", NOW, NOW + HOUR).run();
+    expect((await latestBoardNow(db))?.newest).toBe(NOW);
+    let system = "";
+    const ai = fakeServices({ ai: (sys) => { system = sys; return "Roligt."; } });
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 9, author: "Gitta", authorId: "301", text: "Betina er syg i aften", sentAtMs: NOW + 2 * HOUR, fromAssistant: false });
+    await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW + 3 * HOUR), db);
+    expect(system).toContain("melder afbud");
+  });
 });

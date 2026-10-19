@@ -160,7 +160,7 @@ export async function tellChairAboutUrgentMail(env: SagaEnv, deps: SagaDeps, db:
     if (told.has(matterKey(row))) { await db.prepare("UPDATE board_mail SET urgent_notified_ms = ? WHERE id = ?").bind(now, row.id).run(); continue; }
     told.add(matterKey(row));
     try {
-      await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `⚠️ Kritisk mail i team@\nFra: ${row.sender}\nEmne: ${row.subject}\nHvorfor: ${row.urgent_why}${link}`);
+      await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `⚠️ Kritisk mail i team@\nFra: ${row.sender}\nEmne: ${row.subject}\nAngående: ${row.urgent_why}${link}`);
     } catch { continue; }
     await db.prepare("UPDATE board_mail SET urgent_notified_ms = ? WHERE id = ?").bind(now, row.id).run();
     sent++;
@@ -405,7 +405,7 @@ ${data.handled.length ? `<details class="done-list older"><summary>Besvaret (${d
   const urgentCard = matters.length ? `<div class="card urgent-card" id="kritiske"><h2>Kritiske mails <span class="count">${matters.length}</span></h2>
 <p class="small muted" style="margin:0 0 8px">Saga vurderer, at de skal tages stilling til hurtigst muligt.</p>
 <ul class="inbox">${matters.map(m => `<li class="urgent-item"><form method="post" action="${base}/posthus/ikke-kritisk" class="x-form"><input type="hidden" name="id" value="${m.ids.join(",")}"><button class="x" aria-label="Ikke kritisk - fjern fra listen" title="Ikke kritisk - fjern fra listen">×</button></form><details><summary><span class="from">${esc(name(m.sender))}</span><span class="at">${esc(WHEN.format(m.received_at_ms))}</span><span class="subj">${esc(m.subject)}${m.count > 1 ? ` <span class="kind">${m.count} mails</span>` : ""}</span>
-<span class="why"><strong>Hvorfor:</strong> ${esc(m.urgent_why ?? "")}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary>
+<span class="why"><strong>Angående:</strong> ${esc(m.urgent_why ?? "")}</span><span class="snip">${esc(mailSnippet(m.preview))}</span></summary>
 <p class="body">${esc(readableMail(m.preview))}</p>${address(m.sender) ? `<p class="small" style="margin:8px 0 0"><a href="mailto:${esc(address(m.sender))}">${esc(address(m.sender))}</a></p>` : ""}${FOLD}</details></li>`).join("")}</ul></div>` : "";
   const inbox = `<div class="card"><h2>Indbakke <span class="pill">${data.inboxTotal}</span></h2>
 <p class="small ${data.watchOk ? "muted" : "warn"}" style="margin:0 0 6px">${esc(data.watch)}</p>
