@@ -36,7 +36,10 @@ function decodeXml(value: string): string {
     aelig: "æ",
     AElig: "Æ",
     oslash: "ø",
-    Oslash: "Ø"
+    Oslash: "Ø",
+    aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú", Eacute: "É", agrave: "à", egrave: "è",
+    atilde: "ã", otilde: "õ", ntilde: "ñ", auml: "ä", ouml: "ö", uuml: "ü", Auml: "Ä", Ouml: "Ö", Uuml: "Ü", ccedil: "ç",
+    ndash: "–", mdash: "—", hellip: "…", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", laquo: "«", raquo: "»"
   };
 
   return value
@@ -46,7 +49,7 @@ function decodeXml(value: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;|&apos;/g, "'")
-    .replace(/&(nbsp|aring|Aring|aelig|AElig|oslash|Oslash);/g, (_match, name: string) => htmlEntities[name] ?? _match)
+    .replace(/&([a-zA-Z]+);/g, (_match, name: string) => htmlEntities[name] ?? _match)
     .replace(/&#(\d+);/g, (_match, code: string) => String.fromCodePoint(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_match, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
     .trim();
@@ -151,6 +154,33 @@ export function parseMembershipWorksList(data: MembershipWorksList): ExternalEve
   });
 }
 
+/** Asked: "Hvorfor er der den forskel på tekst? Alle events har jo en beskrivelse." The list has no text, so an event only the list has
+ * gets its text from MembershipWorks' event details - the soonest first, at most MAX_TEXTS fetched in one round, each kept for hours. */
+const TEXT_CACHE_MS = 6 * 60 * 60 * 1000;
+const MAX_TEXTS = 40;
+const textCache = new Map<string, { at: number; text: string | null }>();
+
+async function eventText(eid: string, fetcher: typeof fetch, now: number): Promise<string | null> {
+  const response = await fetcher(`https://api.membershipworks.com/v2/event?eid=${eid}&org=22308`, { headers: { accept: "application/json" } });
+  const text = response.ok ? ((await response.json()) as { dtl?: string }).dtl : undefined;
+  const plain = text ? stripHtml(text) || null : null;
+  textCache.set(eid, { at: now, text: plain });
+  return plain;
+}
+
+export async function withTexts(events: ExternalEvent[], fetcher: typeof fetch, now: number): Promise<ExternalEvent[]> {
+  let fetches = 0;
+  return Promise.all(events.map(async (event) => {
+    const eid = /^SF([0-9a-f]{24})$/.exec(event.id)?.[1];
+    if (event.description || !eid) return event;
+    const hit = textCache.get(eid);
+    if (hit && now - hit.at < TEXT_CACHE_MS) return { ...event, description: hit.text };
+    if (fetches >= MAX_TEXTS) return event;
+    fetches++;
+    return { ...event, description: await eventText(eid, fetcher, now).catch(() => null) };
+  }));
+}
+
 /** The feed's events with their text, and the events only the widget's list has. */
 export function mergeExternalEvents(feed: ExternalEvent[], list: ExternalEvent[]): ExternalEvent[] {
   const known = new Set(feed.map((event) => event.id));
@@ -174,7 +204,7 @@ export async function getExternalEvents(force = false, fetcher: typeof fetch = f
       .then(async (response) => response.ok ? parseMembershipWorksList(await response.json() as MembershipWorksList) : [])
       .catch(() => [] as ExternalEvent[])
   ]);
-  const events = mergeExternalEvents(feed, list);
+  const events = await withTexts(mergeExternalEvents(feed, list), fetcher, now);
 
   cachedEvents = events;
   cacheExpiresAt = now + CACHE_MS;

@@ -472,7 +472,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .nl-feat img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; margin-bottom: 18px; background: var(--nl-panel); }
 .nl-when { margin: 0; font: 900 12.5px/1.4 var(--lys-sans); letter-spacing: .06em; }
 .nl-feat h3 { margin: 6px 0 8px; font: italic 400 25px/1.2 var(--lys-serif); }
-.nl-text { margin: 0; color: var(--lys-muted); font-size: 15.5px; line-height: 1.55; }
+/* Requested: "Kan der ikke være tre linjer ved hver?" - three lines of each event's text, the cards' links on one line. */
+.nl-text { margin: 0; color: var(--lys-muted); font-size: 15.5px; line-height: 1.55; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; min-height: calc(1.55em * 3); }
 .nl-more { display: inline-block; margin-top: 12px; font-weight: 700; font-size: 14px; border-bottom: 1.5px solid var(--lys-camel); }
 .nl-feat a:hover h3 { text-decoration: underline; text-underline-offset: 4px; }
 .nl-announce { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 28px; align-items: center; background: var(--nl-blush); padding: 32px 40px; margin-top: 56px; line-height: 1.55; }
