@@ -296,7 +296,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .planner > legend { font-size: .9rem; font-weight: 650; padding: 0; margin-bottom: 10px; }
 .planner-top { display: grid; grid-template-columns: minmax(0, 270px) minmax(0, 1fr); gap: 26px; align-items: start; }
 @container (max-width: 620px) { .planner-top { grid-template-columns: minmax(0, 1fr); } }
-.planner-cal { background: var(--lys-soft); border-radius: 18px; padding: 14px; }
+.planner-cal { background: var(--lys-soft); border-radius: 18px; padding: 14px; position: sticky; top: 96px; }
 .planner-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .planner-cal-head strong { font: 500 1.05rem var(--lys-serif); }
 .planner-nav { width: 34px; height: 34px; border-radius: 50%; border: 0; background: var(--lys-surface); color: var(--lys-ink); font-size: 1.2rem; line-height: 1; cursor: pointer; }
@@ -340,7 +340,16 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .planner-resize::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 28px; height: 3px; margin-left: -14px; border-radius: 3px; background: var(--lys-accent); opacity: .8; }
 .planner-chosen.bad { background: var(--lys-rose); border-color: var(--lys-rose-ink); color: var(--lys-rose-ink); }
 .planner-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.planner-times { grid-template-columns: repeat(2, minmax(0, 10rem)); }
+.planner-times { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@container (max-width: 560px) { .planner-times { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.planner-summary { margin: -6px 0 0; font-size: .86rem; line-height: 1.5; color: var(--lys-muted); }
+.planner-summary b { color: var(--lys-ink); font-weight: 650; }
+/* Before a date is chosen: a quiet panel beside the calendar instead of a lone heading. */
+.planner-dayview:has(.planner-empty) { align-self: stretch; display: flex; }
+.planner-empty { flex: 1; display: grid; place-content: center; justify-items: center; gap: 6px; text-align: center; padding: 28px 24px; border: 1.5px dashed var(--lys-line); border-radius: 18px; color: var(--lys-muted); }
+.planner-empty svg { width: 30px; height: 30px; fill: none; stroke: var(--lys-terra); stroke-width: 1.5; stroke-linecap: round; margin-bottom: 4px; }
+.planner-empty h3 { margin: 0; font: 500 1.2rem var(--lys-serif); color: var(--lys-ink); }
+.planner-empty p { margin: 0; max-width: 30ch; font-size: .88rem; line-height: 1.5; }
 .planner-problem { margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--lys-rose); color: var(--lys-rose-ink); font-size: .9rem; }
 .planner-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .planner-type { display: grid; gap: 4px; align-content: start; padding: 14px 16px; border: 1.5px solid var(--lys-line); border-radius: 16px; background: var(--lys-surface); cursor: pointer; position: relative; font-weight: 400; }
@@ -354,7 +363,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-numbers { grid-template-columns: 8rem minmax(0, 15rem); }
 .event-numbers label:first-child input { max-width: 8rem; }
 .workspace-form .planner-type, .workspace-form label small { font-weight: 400; }
-@media (max-width: 760px) { .planner-top { grid-template-columns: minmax(0, 1fr); } .planner-times, .event-numbers { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+@media (max-width: 760px) { .planner-top { grid-template-columns: minmax(0, 1fr); } .planner-cal { position: static; } .planner-times, .event-numbers { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .planner-empty { padding: 18px; } }
 
 /* Photo and files on an event. */
 .event-files-field { display: grid; gap: 14px; border: 0; padding: 0; margin: 0; min-width: 0; }

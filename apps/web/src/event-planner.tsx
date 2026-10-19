@@ -162,7 +162,11 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
 
         <div className="planner-dayview">
           {!plan.date ? (
-            <><h3>Vælg en dato</h3><p className="lys-sub">Så kan du se, hvad der sker i salen den dag, og vælge et tidspunkt, der er ledigt.</p></>
+            <div className="planner-empty">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4" /></svg>
+              <h3>Vælg en dato</h3>
+              <p>Så ser du, hvad der sker i salen den dag, og kan vælge et ledigt tidspunkt.</p>
+            </div>
           ) : (
             <>
               <h3>{longDay(plan.date)}</h3>
@@ -193,7 +197,9 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
         </div>
       </div>
 
-      <div className="workspace-form-row planner-times">
+      {/* Requested: "Du må kunne lave et meget pænere layout til denne side. Det ser rodet ud - især midterdelen". The four times on one row,
+          and one line under them instead of a note squeezed under two of them. */}
+      <div className="planner-times">
         <label>Starter
           <select value={plan.start} disabled={!plan.date} onChange={(e) => setStart(e.target.value)}>
             {startOptions().map((t) => <option key={t} value={t}>{danishClock(minutesOf(t))}</option>)}
@@ -203,10 +209,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
           <select value={plan.end} disabled={!plan.date} onChange={(e) => setEnd(e.target.value)}>
             {endChoices.map((t) => <option key={t} value={t}>{danishClock(endMinutes(t))}</option>)}
           </select>
-          <small>{chosenOk ? `Salen er din ${danishClock(room.from)}–${danishClock(room.to)} med klargøring og oprydning. Lejen regnes for ${hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.` : "Salen lejes 2-10 timer med klargøring og oprydning, i halve timer."}</small>
         </label>
-      </div>
-      <div className="workspace-form-row planner-times">
         <label>Klargøring før
           <select value={plan.setup} disabled={!plan.date} onChange={(e) => setBuffer("setup", Number(e.target.value))}>
             {BUFFER_CHOICES.map((m) => <option key={m} value={m}>{bufferText(m)}</option>)}
@@ -216,9 +219,11 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
           <select value={plan.cleanup} disabled={!plan.date} onChange={(e) => setBuffer("cleanup", Number(e.target.value))}>
             {BUFFER_CHOICES.map((m) => <option key={m} value={m}>{bufferText(m)}</option>)}
           </select>
-          <small>Tiden til at gøre klar og rydde op lejes med, så næste event ikke står i døren. Lejen regnes i halve timer.</small>
         </label>
       </div>
+      <p className="planner-summary">{plan.date && chosenOk
+        ? <>Salen er din <b>{danishClock(room.from)}–{danishClock(room.to)}</b> med klargøring og oprydning. Lejen regnes for {hoursText(pricedSpan(room.from, room.to).to - pricedSpan(room.from, room.to).from)}.</>
+        : "Salen lejes 2–10 timer i halve timer. Klargøring og oprydning lejes med, så næste event ikke står i døren."}</p>
       {plan.date && problem && <p className="planner-problem" role="alert">{PROBLEM_TEXT[problem]}</p>}
 
       <div className="planner-types" role="radiogroup" aria-label="Lejetype">
