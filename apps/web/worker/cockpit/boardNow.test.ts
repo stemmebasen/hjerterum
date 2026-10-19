@@ -145,4 +145,18 @@ describe("the members as the numbers say", () => {
       .toBe("MEDLEMSTAL (MembershipWorks - det er dem, medlemsudviklingen vurderes ud fra):\n- 2026-10-15: 177 betalende, 390 med medlemskab i alt\n- Siden 2026-09-14: betalende 160 → 177 (+17), med medlemskab 360 → 390 (+30)");
     expect(memberTrend([], Date.now())).toBe("");
   });
+
+  // Reported: "Der er en sjov og unødvendig ting ved dette Saga-resume" - "Jørgen har selv købt en ny moppe, som kommer i morgen."
+  it("rewrites a text that tells of a small errand, and asks Saga to leave such things out", async () => {
+    const db = testDatabase();
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger. Jørgen har selv købt en ny moppe, som kommer i morgen.", NOW, NOW).run();
+    expect((await latestBoardNow(db))?.newest).toBe(-1);
+    await db.prepare("INSERT INTO board_now (text, newest_source_ms, created_at_ms) VALUES (?, ?, ?)").bind("Medlemstallet stiger.", NOW, NOW + HOUR).run();
+    expect((await latestBoardNow(db))?.newest).toBe(NOW);
+    let system = "";
+    const ai = fakeServices({ ai: (sys) => { system = sys; return "Roligt."; } });
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 9, author: "Jørgen", authorId: "301", text: "Ny moppe på vej", sentAtMs: NOW + 2 * HOUR, fromAssistant: false });
+    await writeBoardNow(sagaEnv(db), deps(ai.fetcher, NOW + 3 * HOUR), db);
+    expect(system).toContain("en moppe");
+  });
 });
