@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLine, featureLine, isoWeek, monthOf, monthSections, type MonthEvent } from "./month-hero";
+import { comingWeeks, dayLine, featureLine, isoWeek, monthSections, type MonthEvent } from "./month-hero";
 
 // Requested: the front page's calendar like the monthly newsletter - "Oktober i Hjerterum", three highlighted events, the general assembly
 // in its own box, the rest of the month week by week, and the Mornings.
@@ -17,19 +17,25 @@ const EVENTS = [
 describe("the month on the front page", () => {
   it("highlights one-off events with a picture, gives the general assembly its own box, and finds the Mornings", () => {
     const m = monthSections(EVENTS, NOW);
-    expect(m.name).toBe("Oktober");
     expect(m.featured.map(e => e.key)).toEqual(["s", "k", "r"]);
     expect(m.announce?.key).toBe("gf");
     expect(m.mornings?.key).toBe("m1");
     // The rest of the month, week by week, without what is shown above.
-    expect(m.weeks.map(w => [w.week, w.events.map(e => e.key)])).toEqual([[42, ["y1"]], [43, ["m1", "y2", "m2"]]]);
+    expect(m.weeks.map(w => [w.week, w.events.map(e => e.key)])).toEqual([[42, ["y1"]], [43, ["m1", "y2", "m2"]], [45, ["nov"]]]);
   });
 
-  it("writes the dates as the newsletter does, and moves on to next month near its end", () => {
+  it("writes the dates as the newsletter does", () => {
     expect(featureLine(EVENTS[3]!.startsAt)).toBe("LØRDAG 24. OKTOBER · KL. 19.30");
     expect(dayLine(EVENTS[3]!.startsAt)).toBe("LØR. 24/10 · 19.30");
     expect(isoWeek(EVENTS[0]!.startsAt)).toBe(42);
-    expect(monthOf(EVENTS, Date.parse("2026-10-25T20:00:00Z")).name).toBe("November");
+  });
+
+  // Asked: "Nu står der 'Resten af oktober' på forsiden. Men hvad hvis det er den 28. oktober?" - "Er det ikke bedre at undlade månedsnavne?"
+  it("shows the coming four weeks across the turn of the month", () => {
+    const late = Date.parse("2026-10-28T08:00:00Z");
+    const list = [ev("a", "Fri morgendans", "2026-10-30T09:00", null), ev("b", "Talk", "2026-11-04T19:00", null), ev("c", "Yoga", "2026-11-20T10:30", null), ev("far", "Jul", "2026-12-20T10:30", null)];
+    expect(comingWeeks(list, late).map(e => e.key)).toEqual(["a", "b", "c"]);
+    expect(monthSections(list, late).weeks.flatMap(w => w.events.map(e => e.key))).toEqual(["a", "b", "c"]);
   });
 
   it("shows at most six a week, and says how many more", () => {
