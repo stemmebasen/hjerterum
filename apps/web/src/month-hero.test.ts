@@ -22,7 +22,8 @@ describe("the month on the front page", () => {
     expect(m.announce?.key).toBe("gf");
     expect(m.mornings?.key).toBe("m1");
     // The rest of the month, week by week, without what is shown above.
-    expect(m.weeks.map(w => [w.week, w.events.map(e => e.key)])).toEqual([[42, ["y1"]], [43, ["m1", "y2", "m2"]]]);
+    expect(m.weeks.map(w => [w.week, w.events.map(e => e.key)])).toEqual([[42, ["y1"]], [43, ["m1", "y2", "m2"]], [45, ["nov"]]]);
+    expect(m.restIn).toBe(false);
   });
 
   it("writes the dates as the newsletter does, and moves on to next month near its end", () => {
@@ -30,6 +31,22 @@ describe("the month on the front page", () => {
     expect(dayLine(EVENTS[3]!.startsAt)).toBe("LØR. 24/10 · 19.30");
     expect(isoWeek(EVENTS[0]!.startsAt)).toBe(42);
     expect(monthOf(EVENTS, Date.parse("2026-10-25T20:00:00Z")).name).toBe("November");
+  });
+
+  // Asked: "Nu står der 'Resten af oktober' på forsiden. Men hvad hvis det er den 28. oktober?"
+  it("shows the coming four weeks across the turn of the month, named after the next month in the last week", () => {
+    const late = Date.parse("2026-10-28T08:00:00Z");
+    const list = [ev("a", "Fri morgendans", "2026-10-30T09:00", null), ev("b", "Talk", "2026-11-04T19:00", null), ev("c", "Yoga", "2026-11-20T10:30", null), ev("far", "Jul", "2026-12-20T10:30", null)];
+    const m = monthSections(list, late);
+    expect(m.name).toBe("November");
+    expect(m.weeks.flatMap(w => w.events.map(e => e.key))).toEqual(["a", "b", "c"]);
+    expect(m.restIn).toBe(false);
+    // The highlighted events follow the heading's month.
+    const pictured = [ev("p1", "Koncert", "2026-10-29T19:00"), ev("p2", "Foredrag", "2026-11-03T19:00"), ev("p3", "Dans", "2026-11-10T19:00"), ev("p4", "Film", "2026-11-12T19:00")];
+    expect(monthSections(pictured, late).featured.map(e => e.key)).toEqual(["p2", "p3", "p4"]);
+    const oct = [ev("o1", "Yoga", "2026-10-20T10:30", null), ev("o2", "Yoga", "2026-10-21T10:30", null), ev("o3", "Yoga", "2026-10-22T10:30", null)];
+    expect(monthOf([...oct, ...list], Date.parse("2026-10-19T08:00:00Z")).name).toBe("Oktober");
+    expect(monthSections([ev("d", "Yoga", "2026-10-05T10:30", null)], Date.parse("2026-10-01T08:00:00Z")).restIn).toBe(true);
   });
 
   it("shows at most six a week, and says how many more", () => {

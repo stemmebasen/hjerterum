@@ -32,16 +32,22 @@ export function isoWeek(iso: string): number {
   return Math.ceil(((date.getTime() - start.getTime()) / 86_400_000 + 1) / 7);
 }
 
-/** The month the front page is about: this month, or the next once only a few events are left in it. */
+/** Asked: "Nu står der 'Resten af oktober' på forsiden. Men hvad hvis det er den 28. oktober?" The front page shows the coming four weeks,
+ * across the turn of the month, so it is never down to a few days.
+ * Its name is this month's, or the next one's in the last week of the month or once only a few events are left in it. */
+const WINDOW_DAYS = 28;
+const LAST_WEEK_DAYS = 7;
 export function monthOf(events: MonthEvent[], now: number): { name: string; key: string; events: MonthEvent[] } {
-  const upcoming = events.filter(e => Date.parse(e.startsAt) > now).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  const until = now + WINDOW_DAYS * 86_400_000;
+  const upcoming = events.filter(e => Date.parse(e.startsAt) > now && Date.parse(e.startsAt) <= until).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const thisKey = monthKey(now);
   const inThis = upcoming.filter(e => monthKey(Date.parse(e.startsAt)) === thisKey);
   const nextKey = upcoming.find(e => monthKey(Date.parse(e.startsAt)) !== thisKey);
-  const useNext = inThis.length < 3 && nextKey;
+  const lastWeek = monthKey(now + LAST_WEEK_DAYS * 86_400_000) !== thisKey;
+  const useNext = (inThis.length < 3 || lastWeek) && nextKey;
   const key = useNext ? monthKey(Date.parse(nextKey.startsAt)) : thisKey;
   const ms = useNext ? Date.parse(nextKey.startsAt) : now;
-  return { name: capital(MONTH.format(ms)), key, events: upcoming.filter(e => monthKey(Date.parse(e.startsAt)) === key) };
+  return { name: capital(MONTH.format(ms)), key, events: upcoming };
 }
 
 const href = (e: MonthEvent) => e.page ?? e.link ?? "/events";
@@ -84,7 +90,10 @@ export function monthSections(events: MonthEvent[], now: number) {
   const mornings = month.events.filter(e => /mornings/i.test(`${e.title} ${e.category ?? ""}`));
   const candidates = month.events.filter(e => e !== announce && e.imageUrl && !mornings.includes(e));
   const seen = new Set<string>(), featured: MonthEvent[] = [];
-  for (const e of [...candidates.filter(e => count.get(name(e)) === 1), ...candidates.filter(e => count.get(name(e))! > 1)]) {
+  // The month in the heading first, so "November i Hjerterum" highlights November's events; one-off events before repeated ones.
+  const inMonth = (e: MonthEvent) => monthKey(Date.parse(e.startsAt)) === month.key;
+  const rank = (e: MonthEvent) => (inMonth(e) ? 0 : 2) + (count.get(name(e)) === 1 ? 0 : 1);
+  for (const e of [...candidates].sort((a, b) => rank(a) - rank(b))) {
     if (seen.has(name(e))) continue;
     seen.add(name(e)); featured.push(e);
     if (featured.length === 3) break;
@@ -98,11 +107,13 @@ export function monthSections(events: MonthEvent[], now: number) {
     const into = last && last.week === week ? last : (weeks.push({ week, events: [], more: 0 }), weeks[weeks.length - 1]!);
     if (into.events.length < WEEK_SHOWN) into.events.push(e); else into.more++;
   }
-  return { name: month.name, featured, announce, weeks, mornings: mornings.find(e => e.imageUrl) ?? mornings[0] ?? null };
+  // "Resten af oktober" only while the weeks are all in the month named; across the turn of the month they are "de kommende uger".
+  const restIn = weeks.every(w => w.events.every(e => monthKey(Date.parse(e.startsAt)) === month.key));
+  return { name: month.name, featured, announce, weeks, restIn, mornings: mornings.find(e => e.imageUrl) ?? mornings[0] ?? null };
 }
 
 export function MonthSection({ events, now, reachable }: { events: MonthEvent[]; now: number; reachable: boolean }) {
-  const { name, featured, announce, weeks, mornings } = monthSections(events, now);
+  const { name, featured, announce, weeks, restIn, mornings } = monthSections(events, now);
   const lower = name.toLocaleLowerCase("da-DK");
   return <section className="nl-month" aria-label={`${name} i Hjerterum`}>
     <div className="nl-head"><p className="lys-kicker">Kalender · Månedens events</p><h2 className="nl-big">{name}<em>i Hjerterum</em></h2><span className="nl-rule" aria-hidden="true" /></div>
@@ -115,7 +126,7 @@ export function MonthSection({ events, now, reachable }: { events: MonthEvent[];
       <div><b>{announce.title}</b>{capital(WEEKDAY.format(Date.parse(announce.startsAt)))} kl. {TIME.format(Date.parse(announce.startsAt)).replace(":", ".")}{announce.location ? ` i ${announce.location}` : ""}. Alle medlemmer er hjerteligt velkomne.</div>
       <a className="lys-btn" href={href(announce)}>Læs mere</a></div>}
     {weeks.length > 0 && <>
-      <h3 className="nl-sub">Resten af {lower}</h3>
+      <h3 className="nl-sub">{restIn ? `Resten af ${lower}` : "De kommende uger"}</h3>
       <div className="nl-weeks">{weeks.map(w => <div key={w.week} className="nl-week"><h4>Uge {w.week}</h4><ul>
         {w.events.map(e => <li key={e.key}><span className="nl-d">{dayLine(e.startsAt)}</span><a href={href(e)}>{e.title}</a></li>)}
         {w.more > 0 && <li className="nl-flere"><a href="/events">+ {w.more} flere</a></li>}</ul></div>)}</div>
