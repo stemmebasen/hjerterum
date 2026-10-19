@@ -424,8 +424,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .nl-rule { display: block; width: 96px; height: 5px; background: var(--lys-camel); }
 
 /* The hero: the house's own words in the newsletter's heading, and the hall beside it. */
-/* Requested: "Gør billedet lidt mindre, og træk event kassen lidt til højre". */
-.nl-hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); min-height: 480px; margin: 10px calc(50% - 50vw) 0 0; }
+/* Requested: "Gør billedet lidt mindre ..." - then "en bette smule større, og eventboksen skal horisontalt sidde halv over fotoet". */
+.nl-hero { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); min-height: 480px; margin: 10px calc(50% - 50vw) 0 0; }
 .nl-hero-text { padding: 60px 48px 56px 0; display: flex; flex-direction: column; justify-content: center; }
 .nl-tagline { margin: 24px 0 0; font: 400 clamp(40px, 4.4vw, 62px)/1.04 var(--lys-serif); letter-spacing: -.01em; }
 .nl-tagline em { display: block; font-style: normal; }
@@ -442,7 +442,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 @property --nl-beam { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 @keyframes nl-beam { to { --nl-beam: 360deg; } }
 /* Requested: "Lad coming up kortet stå mere centreret horisontalt og vertikalt" - centred on the picture's left edge, halfway down. */
-.nl-coming { position: absolute; z-index: 1; left: 0; top: 50%; translate: -25% -50%; width: min(370px, 78%); display: grid; gap: 8px; padding: 28px 30px 26px; border-radius: 18px;
+.nl-coming { position: absolute; z-index: 1; left: 0; top: 50%; translate: -50% -50%; width: min(370px, 78%); display: grid; gap: 8px; padding: 28px 30px 26px; border-radius: 18px;
   color: var(--lys-ink); text-decoration: none; isolation: isolate;
   background: color-mix(in srgb, var(--lys-bg) 84%, transparent); -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lys-camel) 28%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent), 0 30px 70px -28px rgba(20, 16, 12, .55);
