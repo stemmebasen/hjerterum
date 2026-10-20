@@ -30,7 +30,9 @@ export const EVENT_CRITERIA: ReadonlyArray<{ key: string; text: string }> = [
   { key: "vaerdier", text: "Det strider ikke mod det, Hjerterum ikke er (holistisk.org/vision): ikke færdige svar eller quick-fixes, ikke en lukket gruppe eller sekt, ikke bundet til én bestemt tro, religion eller politisk holdning." },
   { key: "aabent", text: "Det er åbent og trygt: ingen udelukkes på grund af alder, køn, seksualitet, etnicitet eller religiøs overbevisning (vedtægternes § 4, stk. 1)." },
   { key: "redeligt", text: "Teksten lover ikke helbredelse af sygdom eller garanterede resultater, og der er intet ulovligt, krænkende, politisk agiterende eller rent salg af produkter." },
-  { key: "tekst", text: "Titel og beskrivelse siger, hvad der sker, for hvem, og hvem der underviser eller arrangerer (som holistisk.org/teamet beder om)." }
+  // Reported: Gitta's "Stopdans" ("Vi danser - vi stopper - vi hygger og leger. Gratis for medlemmer.") went to the board because it did not say for whom -
+  // "vi har egentlig aftalt at hvis Saga godkender eventet så ryger det direkte på hjemmesiden". An event that names no audience is for everyone.
+  { key: "tekst", text: "Titel og beskrivelse siger kort, hvad der sker. Arrangøren står i feltet arrangoer. Nævner teksten ikke, hvem eventet er for, så er det for alle - det er ikke en grund til at sende det til bestyrelsen. Kun en tom eller uforståelig beskrivelse opfylder ikke kriteriet." }
 ];
 
 const REVIEW_SYSTEM = "Du er Saga, assistent for bestyrelsen i foreningen Hjerterum - et hus i Aarhus for meditation, yoga, personlig udvikling, undervisning og events. "
