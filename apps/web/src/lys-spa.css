@@ -134,6 +134,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-intro { padding: clamp(28px, 6vh, 64px) 0 12px; }
 .site-intro .lys-title { font-size: clamp(40px, 4.8vw, 62px); }
 .site-intro-side { display: grid; gap: 18px; }
+/* A page with words beside its headline: they share one row and are centred on the headline's height. */
+.site-intro-row .site-intro-head { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.site-intro-row .site-intro-head .lys-title { margin: 0; }
+.site-intro-row > .lys-kicker { margin-bottom: 18px; }
+.site-intro-aside { margin: 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
+@media (max-width: 760px) { .site-intro-row .site-intro-head { grid-template-columns: 1fr; gap: 14px; } }
 .site-intro-side > p { margin: 30px 0 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
 .site-intro-image { width: 100%; max-height: 300px; object-fit: cover; border-radius: var(--lys-radius); }
 .site-intro-image + p { margin-top: 0; }
@@ -567,5 +573,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .trial-note span { color: var(--lys-muted); flex: 1 1 320px; }
 .trial-note a { color: var(--lys-ink); font-weight: 600; white-space: nowrap; }
 @media (max-width: 760px) { .trial-note { margin: 10px 16px 0; } }
-/* The calendar's kinds (event-kinds.ts) above the months. */
-.site-tabs.event-kinds { margin: 0 0 26px; }
+/* The same round icons in the calendar (event-kinds.ts), a little smaller, with the chosen kind marked. */
+.site-categories.is-compact { gap: 8px 26px; padding: 16px 0 4px; margin: 0 0 26px; }
+.site-categories.is-compact a { font-size: 10.5px; gap: 7px; padding-bottom: 10px; }
+.site-categories.is-compact a span { width: 40px; height: 40px; }
+.site-categories.is-compact svg { width: 18px; height: 18px; }
+.site-categories a[aria-current="page"] { color: var(--lys-ink); }
+.site-categories a[aria-current="page"] span { background: var(--lys-terra); color: var(--lys-bg); box-shadow: none; }

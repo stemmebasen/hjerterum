@@ -1,8 +1,8 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
 import { ComingUp, comingUp, MonthSection } from "./month-hero";
-import { EVENT_KINDS, isKind, kindOf } from "./event-kinds";
-import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
+import { isKind, kindOf } from "./event-kinds";
+import { CategoryNav, LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
 import type { Section } from "../site/pages";
@@ -168,10 +168,7 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
   </EventCard>;
   const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
-    {full && <nav className="site-tabs event-kinds" aria-label="Vis kun">
-      <a href="/events" aria-current={kind ? undefined : "page"}>Alle</a>
-      {EVENT_KINDS.map(k => <a key={k.key} href={`/events?vis=${k.key}`} aria-current={kind?.key === k.key ? "page" : undefined}>{k.label}</a>)}
-    </nav>}
+    {full && <CategoryNav current={kind?.key ?? null} />}
     {reachable && visible.length ? months.map(month => <section className="calendar-month" key={month} aria-label={month}>
       <h2>{month}</h2><div className="member-event-grid">
         {visible.map(event => calendarMonth(event.startsAt) !== month ? null : card(event))}
