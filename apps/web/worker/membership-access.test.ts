@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { D1Database, D1PreparedStatement } from "./db.js";
-import { resolveActiveMembership } from "./membership-access.js";
+import { membershipFromUpload, resolveActiveMembership } from "./membership-access.js";
+import { testDatabase } from "./saga/test-support.js";
 
 class MemberStatement implements D1PreparedStatement {
   constructor(private readonly row: Record<string, unknown> | null) {}
@@ -62,5 +63,18 @@ describe("active membership resolution", () => {
       "user_1"
     );
     expect(result).toBeNull();
+  });
+
+  // Reported: "Hvorfor kan Frederik ikke oprette en bruger" - he is in the MembershipWorks export uploaded in admin, which the login did not read.
+  it("finds a member in the uploaded MembershipWorks export, and keeps support members out of the benefits", async () => {
+    const db = testDatabase();
+    await db.prepare("INSERT INTO membershipworks_uploads (filename, uploaded_by, accounts, uploaded_at_ms) VALUES ('x.csv', 'Jacob', 2, 1)").run();
+    const add = (email: string, name: string, tier: string | null) => db.prepare(`INSERT INTO membershipworks_accounts (email, full_name, tier, row_json, upload_id) VALUES (?, ?, ?, '{}', 1)`).bind(email, name, tier).run();
+    await add("frederik@example.dk", "Frederik", "standard");
+    await add("stoette@example.dk", "Støtte", "support");
+    expect(await membershipFromUpload(db, " Frederik@Example.dk ")).toMatchObject({ source: "membershipworks", fullName: "Frederik", membershipLevel: "standard", externalId: 1_000_001 });
+    expect(await membershipFromUpload(db, "stoette@example.dk")).toBeNull();
+    expect(await membershipFromUpload(db, "stoette@example.dk", false)).toMatchObject({ fullName: "Støtte" });
+    expect(await membershipFromUpload(db, "ukendt@example.dk")).toBeNull();
   });
 });
