@@ -45,7 +45,7 @@ describe("signing in with a code", () => {
   });
 
   it("says what to do when the e-mail is unknown, wrongly written, or the code is short", async () => {
-    expect(await sendCode(fakeClerk({ known: false }).clerk, "ny@example.dk")).toEqual({ ok: false, message: "Vi kan ikke finde en konto med den e-mail. Er du ny i Hjerterum, så opret dig først." });
+    expect(await sendCode(fakeClerk({ known: false }).clerk, "ny@example.dk")).toEqual({ ok: false, message: "Der er endnu ingen bruger med den e-mail. Første gang opretter du dig - også hvis du allerede er medlem.", notFound: true });
     expect(await sendCode(fakeClerk().clerk, "ikke en mail")).toEqual({ ok: false, message: "Skriv en gyldig e-mail." });
     const { clerk } = fakeClerk();
     const sent = await sendCode(clerk, "jacob@example.dk");

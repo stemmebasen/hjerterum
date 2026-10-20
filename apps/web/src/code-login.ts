@@ -16,11 +16,12 @@ export type CodeLoginClerk = {
 };
 
 /** signedIn: the browser already has a session (Clerk says "session_exists"), so the member can simply go on. */
-export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string; signedIn?: true };
+/** notFound: there is no account with the e-mail yet - the member is offered to create one with it. */
+export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string; signedIn?: true; notFound?: true };
 
 /** Clerk's error codes, in plain words with what to do next. */
 const MESSAGES: Record<string, string> = {
-  form_identifier_not_found: "Vi kan ikke finde en konto med den e-mail. Er du ny i Hjerterum, så opret dig først.",
+  form_identifier_not_found: "Der er endnu ingen bruger med den e-mail. Første gang opretter du dig - også hvis du allerede er medlem.",
   form_param_format_invalid: "Skriv en gyldig e-mail.",
   form_code_incorrect: "Koden passer ikke. Tjek den, og prøv igen.",
   verification_expired: "Koden er udløbet. Send en ny kode.",
@@ -40,6 +41,7 @@ export function messageFor(error: unknown): string {
 
 const failure = (error: unknown): Step => errorCode(error) === "session_exists"
   ? { ok: false, message: "Du er allerede logget ind.", signedIn: true }
+  : errorCode(error) === "form_identifier_not_found" ? { ok: false, message: messageFor(error), notFound: true }
   : { ok: false, message: messageFor(error) };
 
 export const looksLikeEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());

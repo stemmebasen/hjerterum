@@ -119,7 +119,11 @@ function AuthPage({
     if (!clerk || !ref.current || !clerkForm) return;
     const node = ref.current;
     if (mode === "sign-in") clerk.mountSignIn(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
-    else clerk.mountSignUp(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
+    else {
+      // From "Opret dig med <e-mail>" on the code login: the e-mail is filled in already.
+      const emailAddress = new URLSearchParams(window.location.search).get("email")?.trim() ?? "";
+      clerk.mountSignUp(node, { ...(redirectUrl ? { forceRedirectUrl: redirectUrl } : {}), ...(emailAddress ? { initialValues: { emailAddress } } : {}) });
+    }
     return () => {
       if (mode === "sign-in") clerk.unmountSignIn(node);
       else clerk.unmountSignUp(node);

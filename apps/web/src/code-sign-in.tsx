@@ -9,6 +9,7 @@ export function CodeSignIn({ clerk, signedIn, redirectUrl, onPassword }: { clerk
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [newHere, setNewHere] = useState(false);
   const codeInput = useRef<HTMLInputElement>(null);
   const target = redirectUrl ?? "/member-portal";
 
@@ -26,6 +27,7 @@ export function CodeSignIn({ clerk, signedIn, redirectUrl, onPassword }: { clerk
     const sent = await sendCode(clerk, email);
     if (!sent.ok && sent.signedIn) return window.location.assign(target);
     setBusy(false);
+    setNewHere(!sent.ok && sent.notFound === true);
     if (!sent.ok) return setError(sent.message);
     setAttempt(sent.attempt);
     setCode("");
@@ -50,7 +52,9 @@ export function CodeSignIn({ clerk, signedIn, redirectUrl, onPassword }: { clerk
       <input id="code-signin-email" type="email" inputMode="email" autoComplete="email" autoFocus required value={email} onChange={event => setEmail(event.target.value)} placeholder="din@mail.dk" />
     </label>
     {error && <p className="code-signin-error" role="alert">{error}</p>}
-    <button className="lys-btn code-signin-btn" type="submit" disabled={busy}>{busy ? "Sender …" : "Send mig en kode"}</button>
+    {/* Reported: Gitta, a member, got "Vi kan ikke finde en konto med den e-mail" - members from MembershipWorks have no login here until they create one. */}
+    {newHere && <a className="lys-btn code-signin-btn" href={`/sign-up?email=${encodeURIComponent(email.trim())}`}>Opret dig med {email.trim()}</a>}
+    <button className={"lys-btn code-signin-btn" + (newHere ? " ghost" : "")} type="submit" disabled={busy}>{busy ? "Sender …" : "Send mig en kode"}</button>
     <p className="code-signin-foot">
       <button type="button" className="code-signin-link" onClick={onPassword}>Log ind med adgangskode</button>
       <a className="code-signin-link" href="/sign-up">Ny her? Opret dig</a>
