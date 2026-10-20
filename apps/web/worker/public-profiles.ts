@@ -19,14 +19,17 @@ export async function publicProfiles(request: Request, env: Env): Promise<Respon
     // Requested (Gitta): the teacher's PR material "ligger inde på deres siden" - photos and quotes, only with their consent.
     const result = await env.DB.prepare(`SELECT p.public_id, p.published_json, p.clerk_user_id, pm.quotes_json AS pr_quotes,
       (SELECT json_group_array(id) FROM (SELECT id FROM pr_photos WHERE clerk_user_id = p.clerk_user_id ORDER BY created_at_ms, id)) AS pr_photos,
-      CASE WHEN m.id IS NOT NULL THEN m.tier ELSE e.membership_level END AS tier
+      CASE WHEN m.id IS NOT NULL THEN m.tier WHEN e.id IS NOT NULL THEN e.membership_level ELSE a.tier END AS tier
       FROM public_profiles p
       LEFT JOIN members m ON m.clerk_user_id = p.clerk_user_id
       LEFT JOIN external_memberships e ON e.id = p.external_member_id
+      -- A member from the uploaded MembershipWorks export (membership-access.ts membershipFromUpload: row number + 1 000 000).
+      LEFT JOIN membershipworks_accounts a ON e.id IS NULL AND a.rowid = p.external_member_id - 1000000
       LEFT JOIN pr_material pm ON pm.clerk_user_id = p.clerk_user_id AND pm.consent_at_ms IS NOT NULL
       WHERE p.published_json IS NOT NULL AND
         ((m.id IS NOT NULL AND m.status = 'active' AND m.access_blocked = 0) OR
-         (m.id IS NULL AND e.status = 'active' AND e.access_blocked = 0))
+         (m.id IS NULL AND e.status = 'active' AND e.access_blocked = 0) OR
+         (m.id IS NULL AND e.id IS NULL AND a.email IS NOT NULL))
       ORDER BY p.public_id`).all<{ public_id: string; published_json: string; tier: string | null; pr_quotes: string | null; pr_photos: string | null }>();
     return json((result.results ?? []).filter(row => includesMemberBenefits(row.tier)).map(row => ({ id: row.public_id, ...parsePublicProfile(JSON.parse(row.published_json)), ...prOf(row) })));
   } catch { return json({ error: "profiles_unavailable" }, 503); }
