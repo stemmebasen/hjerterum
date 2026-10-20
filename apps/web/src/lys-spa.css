@@ -567,3 +567,5 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .trial-note span { color: var(--lys-muted); flex: 1 1 320px; }
 .trial-note a { color: var(--lys-ink); font-weight: 600; white-space: nowrap; }
 @media (max-width: 760px) { .trial-note { margin: 10px 16px 0; } }
+/* The calendar's kinds (event-kinds.ts) above the months. */
+.site-tabs.event-kinds { margin: 0 0 26px; }

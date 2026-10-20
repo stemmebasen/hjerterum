@@ -164,6 +164,8 @@ function WorkspaceHeader({
     ["/member-portal/kalender", "Kalender"],
     // Requested: "Lad Medlemskab blive knyttet ind under Min profil".
     ["/member-portal/profil", "Min profil"],
+    // Reported (Gitta): "Når man er logget ind, forsvinder hele 'Brug Hjerterum'-menuen. Den bør nok blive, så medlemmer stadig kan læse betingelserne."
+    ["https://www.hjerterum.info/brug-hjerterum", "Brug Hjerterum"],
     // Requested: one "Om Hjerterum" page, the same here and on the website (site/pages.ts).
     ["/member-portal/kontakt", "Om Hjerterum"]
   ];
@@ -459,7 +461,7 @@ function MemberEvents({
   }
 
   async function cancelEvent(booking: Booking) {
-    if (!window.confirm("Vil du annullere “" + booking.title + "”? Tilmeldingerne bevares i historikken, og betalte billetter refunderes ikke automatisk.")) return;
+    if (!window.confirm("Vil du annullere “" + booking.title + "”?\n\nEventet forsvinder fra kalenderen. Listen over tilmeldte gemmes, så du stadig kan se, hvem der var tilmeldt. Har nogen betalt for en billet, bliver pengene ikke betalt tilbage af sig selv - det skal gøres manuelt.")) return;
     setMessage("");
     const response = await apiFetch(clerk, "/api/room-bookings/" + booking.id, { method: "DELETE" });
     if (!response.ok) {

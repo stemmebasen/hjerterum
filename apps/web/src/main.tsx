@@ -1,6 +1,7 @@
 import { EventCard, calendarMonth } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
 import { ComingUp, comingUp, MonthSection } from "./month-hero";
+import { EVENT_KINDS, isKind, kindOf } from "./event-kinds";
 import { LanguageSwitch, SiteFooter, SiteHome, SiteNav, SitePageView } from "./site-pages";
 import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { redirectFor, sitePage } from "../site/redirects";
@@ -150,7 +151,10 @@ function AuthPage({
 }
 
 function EventSection({ events, reachable, full = false, limit = 6 }: { events: CalendarEvent[]; reachable: boolean; full?: boolean; limit?: number }) {
-  const house = events.filter(event => !isPartnerEvent(event)), partners = events.filter(event => isPartnerEvent(event));
+  // The front page's icons open the full calendar with one kind (event-kinds.ts): /events?vis=koncerter.
+  const kind = full && typeof window !== "undefined" ? kindOf(new URLSearchParams(window.location.search).get("vis")) : null;
+  const shown = kind ? events.filter(event => isKind(event, kind.key)) : events;
+  const house = shown.filter(event => !isPartnerEvent(event)), partners = shown.filter(event => isPartnerEvent(event));
   const visible = full ? house : house.slice(0, limit);
   // Requested: "Hjerteland events skal ikke være på forsiden" - partners' events only in the full calendar.
   const partnersShown = full ? partners : [];
@@ -164,10 +168,14 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
   </EventCard>;
   const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
+    {full && <nav className="site-tabs event-kinds" aria-label="Vis kun">
+      <a href="/events" aria-current={kind ? undefined : "page"}>Alle</a>
+      {EVENT_KINDS.map(k => <a key={k.key} href={`/events?vis=${k.key}`} aria-current={kind?.key === k.key ? "page" : undefined}>{k.label}</a>)}
+    </nav>}
     {reachable && visible.length ? months.map(month => <section className="calendar-month" key={month} aria-label={month}>
       <h2>{month}</h2><div className="member-event-grid">
         {visible.map(event => calendarMonth(event.startsAt) !== month ? null : card(event))}
-      </div></section>) : <div className="calendar-empty"><p>{reachable ? "Der er ingen kommende events i kalenderen endnu." : "Kalenderen indlæses."}</p></div>}
+      </div></section>) : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
     {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
       <h2>{PARTNER_HEADING}</h2><div className="member-event-grid">{partnersShown.map(card)}</div></section>}
   </section>;

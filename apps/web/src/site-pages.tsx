@@ -167,6 +167,8 @@ function Cards({ paths }: { paths: string[] }) {
 /** A page's headline and text with its live parts - on the website and, for Om Hjerterum, in the member area too. */
 export function SitePageInner({ page, widgets, parent }: { page: SitePage; widgets: Widgets; parent?: SitePage | undefined }) {
   const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
+  // Reported (Gitta): on the "Om at bruge Hjerterum" pages the line on the right "ser ud til at høre til i venstre side" - there it goes under the headline.
+  const leadUnder = Boolean(page.image || page.article || page.section === "lej");
   return <>
     <section className={"lys-intro site-intro" + (page.article ? " is-article" : "")}>
         <div>
@@ -175,9 +177,9 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
           <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
           {/* Asked (screenshot of /medlemskab): "Is this layout intended?" - with a picture, the words go under the headline and the picture
               stands alone beside them, so neither column is left half empty. A long text keeps its words under the headline too. */}
-          {(page.image || page.article) && <p className="site-intro-lead">{page.lead}</p>}
+          {leadUnder && <p className="site-intro-lead">{page.lead}</p>}
         </div>
-        {!page.article && <div className="site-intro-side">
+        {!page.article && (page.image || !leadUnder) && <div className="site-intro-side">
           {page.image ? <img className="site-intro-image" src={page.image.src} alt={page.image.alt} /> : <p>{page.lead}</p>}
         </div>}
       </section>
@@ -215,11 +217,11 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
 }
 
 const CATEGORIES = [
-  { label: "Events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
-  { label: "Foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
-  { label: "Koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
-  { label: "Café", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
-  { label: "Filmaftener", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" }
+  { label: "Events", href: "/events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
+  { label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
+  { label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
+  { label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
+  { label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" }
 ];
 
 /** hjerterum.info's front page, in Lys: the welcome with the living geometry and what is about to happen, the
@@ -247,7 +249,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
     {header}
     <SiteHero coming={coming} />
     <nav className="site-categories" aria-label="Det sker i Hjerterum">
-      {CATEGORIES.map(category => <a key={category.label} href="/events"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
+      {CATEGORIES.map(category => <a key={category.label} href={category.href}><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
     </nav>
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     {/* "Oktober i Hjerterum" - the month as in the newsletter (month-hero.tsx); "Se hele kalenderen" under the events. */}

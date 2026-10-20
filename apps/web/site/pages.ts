@@ -596,20 +596,15 @@ Yogamåtter, madrasser, meditationsstole, yogablokke, puder, tæpper, stole og b
     card: { title: "Rengøring", text: "Tjeklisten til salen, køkkenet og toiletterne." },
     body: `Book tid nok til rengøringen – vi anbefaler 30 minutter efter dit event.
 
-## Salen
-- Støvsug salen (har I kun brugt et mindre område, er det nok at støvsuge dér)
-- Stil stole og måtter tilbage bag gardinet
-- Fold puder og tæpper sammen, og læg dem på hylden
-- Sæt andre lånte ting tilbage, hvor de stod
-- Luft ud
+## Oprydning
+- Alt kommer tilbage på plads i salen, køkkenet, på toilettet og i gangen: køkkengrej, puder, tæpper, måtter, stole, bolstre og så videre. Stole og måtter står bag gardinet, puder og tæpper ligger sammenfoldet på hylden.
+- Opvasken tager du med dig eller sætter i opvaskemaskinen. Er maskinen mere end halvt fuld, så sæt den i gang (tabs står under køkkenvasken). Har du dagens sidste booking, så sæt den altid i gang.
 
-## Køkken og toiletter
-- Vask op i hånden eller fyld opvaskemaskinen – sæt den i gang, hvis den er mere end halvt fuld (tabs står under køkkenvasken)
-- Har du dagens sidste booking, så sæt altid opvaskemaskinen i gang, eller vask de få ting op i hånden
-- Ryd op i køkkenet
-- Tjek håndvaske og toiletter, og tør efter behov over med rengøringsservietter
-- Rengør toiletkummen efter behov
-- Tøm skraldespandene, når de er halvt fulde, og sæt nye poser i
+## Rengøring
+- Køkkenet skal altid se ud som før – tør bordene over.
+- Håndvaske og toiletter skal altid tørres af med rengøringsservietter.
+- Gulvet skal altid fejes med tørmoppen.
+- Skraldespandene tømmes, når de er halvt fulde, og der sættes nye poser i.
 
 ## Rengøringsmidler og affald
 Støvsuger, rengøringsservietter, klude og rengøringsmidler står i gangen ved toiletterne. Affald kan smides i containeren bag træporten til højre for enden af bygningen eller i containeren på Guldsmedgade.
