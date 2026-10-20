@@ -234,6 +234,8 @@ export async function listMemberCalendarBookings(
   const result = await db.prepare(
     `SELECT b.id, b.clerk_user_id, b.teacher_name, b.teacher_email, b.title, b.description,
             b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.ticket_price_minor, b.booking_type, b.status,
+            -- Reported (Gitta): her event waiting for the board said "Godkendt og offentligt" - the review status was not read, so it counted as approved.
+            b.non_member_price_minor, b.setup_minutes, b.cleanup_minutes, b.review_status, b.review_note,
             b.cancelled_at_ms,
             SUM(CASE WHEN a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS attendee_count,
             MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,

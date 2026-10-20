@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
+import { endFromText, getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
 
 describe("MembershipWorks RSS parser", () => {
   it("parses the documented event tags", () => {
@@ -103,5 +103,19 @@ describe("the text of events only the list has", () => {
     expect(second!.description).toBe("Fra feedet");
     await withTexts(listed, fetcher, 2);
     expect(calls).toBe(1);
+  });
+});
+
+// Reported (Gitta): "Fri morgendans den 30. oktober fra kl. 9 til 22" - MembershipWorks' end is 22.00, its text says "kl 10.00".
+describe("an end time that contradicts the event's own text", () => {
+  const start = Date.parse("2026-10-30T08:00:00Z"); // 09.00 in Copenhagen
+  it("follows the clock in the text", () => {
+    expect(new Date(endFromText(start, Date.parse("2026-10-30T21:00:00Z"), "Fredag. d. 30. Oktober kl 10.00")).toISOString()).toBe("2026-10-30T09:00:00.000Z");
+    expect(new Date(endFromText(Date.parse("2026-10-24T17:30:00Z"), Date.parse("2026-10-24T21:00:00Z"), "Sat Oct 24 2026, 9:15pm CET")).toISOString()).toBe("2026-10-24T19:15:00.000Z");
+  });
+  it("keeps the end when the text agrees, has no clock, or would end before the start", () => {
+    expect(endFromText(start, Date.parse("2026-10-30T09:00:00Z"), "kl 10.00")).toBe(Date.parse("2026-10-30T09:00:00Z"));
+    expect(endFromText(start, Date.parse("2026-10-30T21:00:00Z"), "Fredag")).toBe(Date.parse("2026-10-30T21:00:00Z"));
+    expect(endFromText(start, Date.parse("2026-10-30T21:00:00Z"), "kl 08.00")).toBe(Date.parse("2026-10-30T21:00:00Z"));
   });
 });

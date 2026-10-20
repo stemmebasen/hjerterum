@@ -145,10 +145,11 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
           {existingCover && !cover && <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(existingCover)}>Fjern det nuværende foto</button>}
         </label>
       </div>
-      <label>Andre filer ({existingOthers.length + extra.length} af {OTHER_MAX})
+      {/* Asked (Gitta): "'Andre filer (0/5)' under Opret event: Er det til PR-materiale til PR-arkivet? - Det må gerne stå tydeligere". It is for the attendees. */}
+      <label>Filer til deltagerne ({existingOthers.length + extra.length} af {OTHER_MAX})
         <input type="file" multiple accept={FILE_ACCEPT} disabled={room <= 0}
           onChange={(e) => { onExtra([...extra, ...Array.from(e.target.files ?? [])].slice(0, Math.max(room, 0))); e.target.value = ""; }} />
-        <small>Fx program og praktisk information (pdf, Word, Excel, PowerPoint, tekst eller billeder), højst 10 MB hver. Filerne kan ses af dig, af bestyrelsen og af dem, der er tilmeldt eventet.</small>
+        <small>Fx program og praktisk information (pdf, Word, Excel, PowerPoint, tekst eller billeder), højst 10 MB hver. Filerne kan ses af dig, af bestyrelsen og af dem, der er tilmeldt eventet. Det er ikke PR-materiale: billeder og citater til PR deler du under Min profil → PR-materiale, hvor du også giver samtykke.</small>
       </label>
       {(existingOthers.length > 0 || extra.length > 0) && <ul className="event-file-list">
         {existingOthers.map((file) => <li key={file.id}><span>{file.filename} <span className="lys-meta">{megabytes(file.sizeBytes)}</span></span>

@@ -127,9 +127,28 @@ export function parseMembershipWorksRss(xml: string): ExternalEvent[] {
 }
 
 type MembershipWorksList = {
-  evt?: Array<{ eid?: string; ttl?: string; sdp?: number; edp?: number; grp?: number; url?: string; lgo?: { l?: string } }>;
+  evt?: Array<{ eid?: string; ttl?: string; sdp?: number; edp?: number; ezp?: string; grp?: number; url?: string; lgo?: { l?: string } }>;
   _st?: { evg?: Array<{ ttl?: string }> };
 };
+
+const COPENHAGEN_CLOCK = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+/** Reported (Gitta): "Fri morgendans den 30. oktober fra kl. 9 til 22" - in MembershipWorks the end is set to 22.00 while the event's own text
+ * says "kl 10.00". When the end text has a clock that differs from the end time, the text wins (the same day, at most a day's shift). */
+export function endFromText(startMs: number, endMs: number, text: string | undefined): number {
+  const plain = text ? decodeXml(text) : "";
+  const danish = /kl\.?\s*(\d{1,2})[.:](\d{2})/i.exec(plain);
+  const english = danish ? null : /\b(\d{1,2}):(\d{2})\s*(am|pm)\b/i.exec(plain);
+  const match = danish ?? english;
+  if (!match) return endMs;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (english) hour = (hour % 12) + (english[3]!.toLowerCase() === "pm" ? 12 : 0);
+  if (hour > 24 || minute > 59) return endMs;
+  const [h, m] = COPENHAGEN_CLOCK.format(endMs).split(":").map(Number);
+  const shift = ((hour % 24) * 60 + minute - (h! * 60 + m!)) * 60_000;
+  const end = endMs + shift;
+  return shift !== 0 && Math.abs(shift) < 24 * 3_600_000 && end > startMs ? end : endMs;
+}
 
 /** The widget's list: title, time, category, picture and address of each event. The text is read on the event's own page (event-detail.ts). */
 export function parseMembershipWorksList(data: MembershipWorksList): ExternalEvent[] {
@@ -143,7 +162,7 @@ export function parseMembershipWorksList(data: MembershipWorksList): ExternalEve
       source: "membershipworks" as const,
       title,
       startsAt: new Date(item.sdp * 1000).toISOString(),
-      endsAt: typeof item.edp === "number" ? new Date(item.edp * 1000).toISOString() : null,
+      endsAt: typeof item.edp === "number" ? new Date(endFromText(item.sdp * 1000, item.edp * 1000, item.ezp)).toISOString() : null,
       location: null,
       imageUrl: item.lgo?.l ?? null,
       link: item.url ? `https://holistisk.org/events/#!event/${item.url}` : null,
