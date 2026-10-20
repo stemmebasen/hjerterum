@@ -165,10 +165,31 @@ function Cards({ paths }: { paths: string[] }) {
 }
 
 /** A page's headline and text with its live parts - on the website and, for Om Hjerterum, in the member area too. */
+function body(page: SitePage, parts: string[], widgets: Widgets) {
+  return <div className={"site-body" + (page.article ? " is-article" : "")}>
+    {parts.map((part, index) => index % 2
+      ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
+        : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
+      : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
+  </div>;
+}
+
 export function SitePageInner({ page, widgets, parent }: { page: SitePage; widgets: Widgets; parent?: SitePage | undefined }) {
   const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
   // Reported (Gitta): on the "Om at bruge Hjerterum" pages the line on the right "ser ud til at høre til i venstre side" - there it goes under the headline.
   const leadUnder = Boolean(page.image || page.article || page.section === "lej");
+  // Requested: the words beside the headline "bør vertikalt centreres mellem h1'erens øverste og nederste kant" - the headline and the words share a row.
+  if (!leadUnder) return <>
+    <section className="site-intro site-intro-row">
+      {parent && <a className="site-back" href={parent.path}>← {NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
+      <p className="lys-kicker">{page.kicker}</p>
+      <div className="site-intro-head">
+        <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
+        <p className="site-intro-aside">{page.lead}</p>
+      </div>
+    </section>
+    {body(page, parts, widgets)}
+  </>;
   return <>
     <section className={"lys-intro site-intro" + (page.article ? " is-article" : "")}>
         <div>
@@ -183,12 +204,7 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
           {page.image ? <img className="site-intro-image" src={page.image.src} alt={page.image.alt} /> : <p>{page.lead}</p>}
         </div>}
       </section>
-      <div className={"site-body" + (page.article ? " is-article" : "")}>
-        {parts.map((part, index) => index % 2
-          ? <div key={index} className={`site-widget site-widget-${part}`}>{part === "board" ? <Board /> : part === "booking-choice" ? <BookingChoice /> : part === "newsletter" ? <Newsletter lang={page.lang} />
-            : part.startsWith("enquiry-") ? <EnquiryForm topic={part.slice("enquiry-".length)} lang={page.lang} /> : widgets[part]}</div>
-          : part.trim() && <div key={index} className="site-prose" dangerouslySetInnerHTML={{ __html: renderMarkdown(part) }} />)}
-      </div>
+      {body(page, parts, widgets)}
   </>;
 }
 
@@ -217,12 +233,23 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
 }
 
 const CATEGORIES = [
-  { label: "Events", href: "/events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
-  { label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
-  { label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
-  { label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
-  { label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" }
+  { key: null, label: "Events", href: "/events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
+  { key: "foredrag", label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
+  { key: "koncerter", label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
+  { key: "cafe", label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
+  { key: "film", label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" }
 ];
+
+/** The kinds of evenings as round icons. Requested: "Knappelayoutet bør være det samme på forsiden som på /events?vis=koncerter - på
+ * undersiderne bare lidt mindre. Husk at markere den kategori der er valgt." On the front page nothing is chosen; in the calendar the chosen
+ * kind is marked (current: its key, or null for all events). */
+export function CategoryNav({ current }: { current?: string | null }) {
+  const inCalendar = current !== undefined;
+  return <nav className={"site-categories" + (inCalendar ? " is-compact" : "")} aria-label={inCalendar ? "Vis kun" : "Det sker i Hjerterum"}>
+    {CATEGORIES.map(category => <a key={category.label} href={category.href} aria-current={inCalendar && category.key === current ? "page" : undefined}>
+      <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{inCalendar && category.key === null ? "Alle" : category.label}</a>)}
+  </nav>;
+}
 
 /** hjerterum.info's front page, in Lys: the welcome with the living geometry and what is about to happen, the
  * kinds of evenings, the calendar, membership, CIRKLER, and "Mere nærvær. Mindre støj." with the ways in. */
@@ -248,9 +275,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
   return <main className="page-shell site-home">
     {header}
     <SiteHero coming={coming} />
-    <nav className="site-categories" aria-label="Det sker i Hjerterum">
-      {CATEGORIES.map(category => <a key={category.label} href={category.href}><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{category.label}</a>)}
-    </nav>
+    <CategoryNav />
     <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
     {/* "Oktober i Hjerterum" - the month as in the newsletter (month-hero.tsx); "Se hele kalenderen" under the events. */}
     {month}
