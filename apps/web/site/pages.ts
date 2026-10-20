@@ -597,7 +597,7 @@ Yogamåtter, madrasser, meditationsstole, yogablokke, puder, tæpper, stole og b
     body: `Book tid nok til rengøringen – vi anbefaler 30 minutter efter dit event.
 
 ## Oprydning
-- Alt kommer tilbage på plads i salen, køkkenet, på toilettet og i gangen: køkkengrej, puder, tæpper, måtter, stole, bolstre og så videre. Stole og måtter står bag gardinet, puder og tæpper ligger sammenfoldet på hylden.
+- Alt kommer tilbage på plads i salen, køkkenet, på toilettet og i gangen: køkkengrej, puder, tæpper, måtter, stole, yogapøller og så videre. Stole og måtter står bag gardinet, puder og tæpper ligger sammenfoldet på hylden.
 - Opvasken tager du med dig eller sætter i opvaskemaskinen. Er maskinen mere end halvt fuld, så sæt den i gang (tabs står under køkkenvasken). Har du dagens sidste booking, så sæt den altid i gang.
 
 ## Rengøring
