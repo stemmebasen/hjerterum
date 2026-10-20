@@ -559,3 +559,11 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .code-signin-hint .code-signin-link { font-size: inherit; }
 .code-signin-link:hover { color: var(--lys-terra); }
 .code-signin-back { text-align: center; margin: 16px 0 0; }
+
+/* Prøveadgang: a quiet band under the top while someone looks around without a membership. */
+.trial-note { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; max-width: 1180px; margin: 14px auto 0; padding: 12px 18px; border-radius: 14px;
+  background: color-mix(in srgb, var(--lys-camel, #c9976f) 14%, var(--lys-surface)); border: 1px solid color-mix(in srgb, var(--lys-camel, #c9976f) 35%, transparent); font-size: .92rem; color: var(--lys-ink); }
+.trial-note b { font-weight: 700; letter-spacing: .02em; }
+.trial-note span { color: var(--lys-muted); flex: 1 1 320px; }
+.trial-note a { color: var(--lys-ink); font-weight: 600; white-space: nowrap; }
+@media (max-width: 760px) { .trial-note { margin: 10px 16px 0; } }

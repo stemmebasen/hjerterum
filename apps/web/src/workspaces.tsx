@@ -897,6 +897,12 @@ function MemberProfile({
   );
 }
 
+/** Shown on every page while someone is in on trial access. */
+function TrialNote() {
+  return <div className="trial-note" role="note"><b>Prøveadgang</b><span>Du kan se dig omkring og udfylde din profil. Salen, dine egne events og Saga får du adgang til, når du er medlem.</span>
+    <a href="https://www.hjerterum.info/medlemskab">Bliv medlem →</a></div>;
+}
+
 export function MemberWorkspace({
   clerk,
   user,
@@ -911,6 +917,9 @@ export function MemberWorkspace({
   const [externalEvents, setExternalEvents] = useState<ExternalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [accessError, setAccessError] = useState("");
+  // Asked: "du må gerne nu gøre siden offentlig så alle vil kunne oprette sig" - "Prøveadgang til alle": someone without a membership comes in and
+  // can look around and fill in their profile, but the hall, own events and Saga stay with the members (the worker refuses them as before).
+  const [trial, setTrial] = useState(false);
 
   async function loadCalendar() {
     const response = await apiFetch(clerk, "/api/room-bookings/calendar");
@@ -932,7 +941,9 @@ export function MemberWorkspace({
         if (active && calendarResponse.ok) setCalendar(await calendarResponse.json() as Booking[]);
         if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
       } else if (memberResponse.status === 403) {
-        setAccessError("Der er ikke knyttet et aktivt medlemskab til din verificerede e-mail.");
+        setTrial(true);
+        const externalResponse = await fetch("/api/events/external");
+        if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
       } else {
         setAccessError("Medlemsområdet kunne ikke indlæses.");
       }
@@ -950,6 +961,7 @@ export function MemberWorkspace({
   return (
     <main className="workspace-shell profile-workspace">
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
+      {trial && !loading && <TrialNote />}
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError && normalized !== "/member-portal/profil" ? <>
           <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section>
@@ -959,6 +971,10 @@ export function MemberWorkspace({
           <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div></>
         ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
+        ) : trial && normalized === "/member-portal/events" ? (
+          <section className="workspace-section member-page"><div className="workspace-title-row"><div><p className="kicker">Events</p><h1>Mine events</h1></div></div>
+            <div className="workspace-card"><h2>Opret event og reservér salen</h2><p>Når du er medlem, kan du oprette dine egne events her og reservere salen til dem.</p></div>
+            <p className="kicker">Bliv medlem</p><MembershipPlans /></section>
         ) : normalized === "/member-portal/events" ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
