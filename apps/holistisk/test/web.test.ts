@@ -31,7 +31,9 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain("<h1>Find et event – og en flok at følges med</h1>");
+    expect(body).toContain('<h1>Find et event – <span class="accent-line">og en flok at følges med.</span></h1>');
+    expect(body).toContain("Spar på billetten");
+    expect(body).toContain('class="word-strip"');
     expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
@@ -49,6 +51,19 @@ describe("front page", () => {
     const week = rows((await text("/kalender?periode=uge")).body);
     expect(week.length).toBeGreaterThan(5);
     expect(rows((await text("/")).body)).toEqual(week);
+  });
+});
+
+describe("spar på billetten", () => {
+  it("lists free and cheap events from their own prices and promises no benefit that is not confirmed", async () => {
+    const { status, body } = await text("/spar-paa-billetten");
+    expect(status).toBe(200);
+    expect(body).toContain("Medlemsfordele");
+    expect(body).toContain("Vi er ved at aftale billetfordele");
+    expect(body).not.toContain("Medlemsfordel</span>");
+    expect(rows(body).length).toBeGreaterThan(3);
+    expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));
+    expect((await text("/kalender?pris=gratis")).body).toContain('<span class="price-chip">Gratis</span>');
   });
 });
 

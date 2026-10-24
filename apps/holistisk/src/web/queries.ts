@@ -55,6 +55,7 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
   if (f.area) { w.sql.push("e.area = ?"); w.params.push(f.area); }
   if (f.city) { w.sql.push("e.city = ?"); w.params.push(f.city); }
   if (f.price === "gratis") w.sql.push("e.is_free = 1");
+  if (f.price === "under-100") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 10000)");
   if (f.price === "under-200") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 20000)");
   if (f.price === "under-500") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 50000)");
   if (f.topic && activityBySlug(f.topic)?.groups) {

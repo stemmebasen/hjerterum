@@ -111,7 +111,8 @@ jobs:
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html
-          grep -q 'Find et event – og en flok at følges med' /tmp/home.html
+          grep -q 'og en flok at følges med' /tmp/home.html
+          retry "$URL/spar-paa-billetten" > /tmp/save.html && grep -q 'Medlemsfordele' /tmp/save.html
           grep -q 'Sådan virker Flokken' /tmp/home.html
           retry "$URL/kalender" > /tmp/events.html
           EVENT_PATH="$(grep -o 'href="/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="//;s/"$//')"

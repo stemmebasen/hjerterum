@@ -6,7 +6,7 @@ import { organizerBySlug } from "./organizers.js";
 import { ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { parseFilters } from "./web/filters.js";
 import type { PageContext } from "./web/layout.js";
-import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, type View } from "./web/pages.js";
+import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
 import { sitemapPages } from "./web/sitemap.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
@@ -149,6 +149,7 @@ async function route(request: Request, env: Env, now: number, mount: { origin: s
   if (path === "/events") return redirect(`/kalender${url.search}`);
   if (path === "/i-dag") return view(env, await periodPage(db, pc, regions, "idag"));
   if (path === "/weekend") return view(env, await periodPage(db, pc, regions, "weekend"));
+  if (path === "/spar-paa-billetten") return view(env, await savingsPage(db, pc, regions));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
   if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));

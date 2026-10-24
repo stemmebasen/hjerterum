@@ -5,6 +5,7 @@ import { capitalize, dayLabel, hhmm, localDate, timeRangeLabel } from "../time.j
 import { PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
+import { offersFor } from "../flokken/partners.js";
 
 export const eventPath = (e: Pick<EventRow, "slug">) => `/events/${e.slug}`;
 const cats = (e: Pick<EventRow, "categories">) => (e.categories ?? "").split(",").filter(Boolean);
@@ -35,6 +36,13 @@ export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_
     : html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
 }
 
+/** The chips under a card or row: free, a confirmed member benefit, and the flock line. */
+export function eventChips(e: EventRow, now: number): SafeHtml {
+  const free = e.is_free === 1;
+  const benefit = offersFor(e).length > 0;
+  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
+}
+
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
 
 /** A picture, or for events without one we may show, a quiet typographic stand-in with the date. */
@@ -55,7 +63,7 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
     ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
     <p class="meta"><span class="visually-hidden">Tid: </span>${when(e, now)}</p>
     <p class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? ` · ${price}` : ""}</p>
-    ${flockBadge(e, now)}
+    ${eventChips(e, now)}
   </a>
 </article>`;
 }
@@ -79,7 +87,7 @@ export function dayList(events: EventRow[], now: number): SafeHtml {
     const price = priceLabel(e);
     return html`<li class="row${e.status === "cancelled" ? " is-cancelled" : ""}"><a href="${eventPath(e)}">
       <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
-      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === d.date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${flockBadge(e, now)}</span>
+      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === d.date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${eventChips(e, now)}</span>
       ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
     </a></li>`;
   })}</ol>
@@ -202,3 +210,32 @@ export function pagination(f: Filters, total: number, pageSize: number, basePath
 </nav>`;
 }
 
+
+/** The front page's drawing: three friends on their way to a concert under the sun, in Flokken's colours. */
+export const HERO_ART = raw(`<svg class="hero-art" viewBox="0 0 420 330" role="img" aria-label="Tre venner på vej til en koncert">
+  <circle cx="318" cy="92" r="62" fill="#f4bd3a"/>
+  <ellipse cx="96" cy="78" rx="52" ry="34" fill="#f6b3cf"/>
+  <ellipse cx="210" cy="300" rx="176" ry="17" fill="#e6ddcf"/>
+  <g fill="#d4452a"><path d="M62 150c0-4 3-7 7-7h2v-30l26-6v34c0 6-5 10-11 10s-10-4-10-9 4-9 9-9h3v-14l-14 3v24c0 6-5 10-11 10s-10-4-10-9z" transform="translate(-30 -40) scale(.8)"/><circle cx="384" cy="190" r="7"/><rect x="389" y="160" width="4" height="31" rx="2"/></g>
+  <g class="friend">
+    <rect x="96" y="226" width="12" height="66" rx="6" fill="#17172b"/><rect x="122" y="226" width="12" height="66" rx="6" fill="#17172b"/>
+    <rect x="88" y="150" width="56" height="88" rx="28" fill="#3b8bd0"/>
+    <rect x="132" y="120" width="12" height="52" rx="6" fill="#3b8bd0" transform="rotate(28 138 160)"/>
+    <rect x="150" y="96" width="30" height="20" rx="4" fill="#ffffff" stroke="#17172b" stroke-width="3" transform="rotate(-14 165 106)"/>
+    <circle cx="116" cy="124" r="24" fill="#8d5524"/><path d="M92 122c0-16 12-27 25-27s25 9 25 22c-8-6-22-8-33-3-6 3-12 6-17 8z" fill="#17172b"/>
+  </g>
+  <g class="friend">
+    <rect x="190" y="222" width="12" height="70" rx="6" fill="#17172b"/><rect x="216" y="222" width="12" height="70" rx="6" fill="#17172b"/>
+    <rect x="180" y="132" width="58" height="102" rx="29" fill="#8b4fb5"/>
+    <rect x="166" y="86" width="12" height="60" rx="6" fill="#8b4fb5" transform="rotate(-24 172 140)"/><rect x="240" y="86" width="12" height="60" rx="6" fill="#8b4fb5" transform="rotate(24 246 140)"/>
+    <circle cx="160" cy="86" r="8" fill="#f1c27d"/><circle cx="258" cy="86" r="8" fill="#f1c27d"/>
+    <circle cx="209" cy="104" r="25" fill="#f1c27d"/><circle cx="209" cy="74" r="12" fill="#d4452a"/><path d="M184 100c2-15 13-23 25-23s23 8 25 23c-7-7-16-10-25-10s-18 3-25 10z" fill="#d4452a"/>
+  </g>
+  <g class="friend">
+    <rect x="282" y="230" width="12" height="62" rx="6" fill="#17172b"/><rect x="306" y="230" width="12" height="62" rx="6" fill="#17172b"/>
+    <rect x="274" y="156" width="52" height="84" rx="26" fill="#2e9a5f"/>
+    <rect x="252" y="170" width="12" height="46" rx="6" fill="#2e9a5f" transform="rotate(52 258 172)"/>
+    <circle cx="300" cy="130" r="23" fill="#c68642"/><path d="M277 128c0-14 10-25 23-25 14 0 24 10 24 24-3-5-9-9-15-10-10 6-22 9-32 11z" fill="#3a2418"/>
+  </g>
+  <g fill="#3b8bd0"><circle cx="40" cy="250" r="6"/></g><g fill="#2e9a5f"><circle cx="372" cy="262" r="5"/></g><g fill="#ef94b8"><circle cx="250" cy="30" r="5"/></g>
+</svg>`);

@@ -36,7 +36,7 @@ export type PageMeta = {
 const SITE = "Flokken";
 
 /** The main navigation in the header. */
-const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/i-dag", "I dag"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
+const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/spar-paa-billetten", "Spar på billetten"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
 /** The site's mark: three friends, overlapping. */
 export const MARK = raw('<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="12.5" r="7.5" fill="#ff7a59"/><circle cx="21" cy="12.5" r="7.5" fill="#ffc23d" opacity=".92"/><circle cx="16" cy="21" r="7.5" fill="#16a093" opacity=".9"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
@@ -85,11 +85,12 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
-<meta name="theme-color" content="#fff6ea">
+<meta name="theme-color" content="#fbf7f0">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=5">
-<script src="/assets/site.js?v=5" defer></script>
+<link rel="preload" href="/assets/fonts/figtree-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=6">
+<script src="/assets/site.js?v=6" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
 <body>
@@ -107,7 +108,7 @@ ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Te
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Flokken</p><ul><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
@@ -125,7 +126,7 @@ ${body}
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
       <p>Find lokale events i ${ctx.regionLabel} – og nogen at følges med. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
-      <p><a href="/find-en-flok">Find en flok</a> · <a href="/tryghed">Tryghed</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
+      <p><a href="/find-en-flok">Find en flok</a> · <a href="/spar-paa-billetten">Spar på billetten</a> · <a href="/tryghed">Tryghed</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
       <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul></nav>

@@ -21,7 +21,7 @@ export type Filters = {
 };
 
 export type Period = "idag" | "imorgen" | "weekend" | "uge" | "maaned";
-export type PriceFilter = "gratis" | "under-200" | "under-500";
+export type PriceFilter = "gratis" | "under-100" | "under-200" | "under-500";
 
 export const PERIODS: Array<{ value: Period; label: string }> = [
   { value: "idag", label: "I dag" },
@@ -33,6 +33,7 @@ export const PERIODS: Array<{ value: Period; label: string }> = [
 
 export const PRICES: Array<{ value: PriceFilter; label: string }> = [
   { value: "gratis", label: "Gratis" },
+  { value: "under-100", label: "Op til 100 kr." },
   { value: "under-200", label: "Op til 200 kr." },
   { value: "under-500", label: "Op til 500 kr." }
 ];

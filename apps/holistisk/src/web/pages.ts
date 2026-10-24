@@ -8,9 +8,9 @@ import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
-import { offersBlock, offersFor } from "../flokken/partners.js";
+import { KIND_LABELS, offersBlock, offersFor, PARTNER_OFFERS } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
-import { activeFilterChips, cardGrid, chipLinks, dayList, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, HERO_ART, dayList, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
@@ -76,29 +76,42 @@ const FRONT_WEEK_LIMIT = 80;
 
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const areas = activeAreas(regions);
-  const [featured, byArea, week, flocks] = await Promise.all([
+  const [featured, byArea, week, flocks, freeWeek] = await Promise.all([
     featuredEvents(db, regions, ctx.now, 4), areaCounts(db, regions, ctx.now),
     listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
-    upcomingFlocks(db, regions, ctx.now, 6)
+    upcomingFlocks(db, regions, ctx.now, 6),
+    listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 4)
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
   const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: activityCounts[ACTIVITIES.indexOf(a)] ?? 0 })));
+  // The strip names only the kinds of events there are right now.
+  const kinds = ACTIVITIES.filter(a => a.category && (activityCounts[ACTIVITIES.indexOf(a)] ?? 0) > 0).map(a => a.name);
+  const strip = [...kinds, ...(freeWeek.total ? ["Gratis events"] : [])];
   const body = html`
 <div class="hero">
   <div class="wrap hero-inner">
-    <p class="hero-kicker">Flokken · ${ctx.regionLabel}</p>
-    <h1>Find et event – og en flok at følges med</h1>
-    <p class="standfirst">Flokken samler lokale events i Aarhus og omegn. Find en flok, der skal det samme som dig, eller opret din egen – og mød hinanden et offentligt sted før eventet.</p>
-    ${searchForm(areas, {})}
-    <ul class="quick-links" aria-label="Genveje">
-      <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender?pris=gratis">Gratis</a></li><li><a href="/workshops">Workshops</a></li><li><a href="/yoga">Yoga</a></li>
-    </ul>
+    <div class="hero-text">
+      <p class="hero-kicker"><span class="dot" aria-hidden="true"></span>Nyt i Aarhus · under udvikling</p>
+      <h1>Find et event – <span class="accent-line">og en flok at følges med.</span></h1>
+      <p class="standfirst">Flokken samler lokale events i Aarhus og omegn. Find en flok, der skal det samme som dig – eller opret din egen – og spar på billetten med gratis og billige events og medlemsfordele, efterhånden som spillesteder og foreninger bliver partnere.</p>
+      ${searchForm(areas, {})}
+      <ul class="quick-links" aria-label="Genveje">
+        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender?pris=gratis">Gratis</a></li>
+      </ul>
+    </div>
+    <div class="hero-visual">${HERO_ART}</div>
   </div>
 </div>
+${strip.length ? html`<div class="word-strip" aria-hidden="true"><div class="word-strip-track">${[0, 1].map(() => html`<span class="word-strip-set">${strip.map((w, i) => html`<span class="word${i % 3 === 1 ? " word-outline" : ""}">${w}</span><span class="word-dot word-dot-${i % 4}"></span>`)}</span>`)}</div></div>` : ""}
 <div class="wrap">
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
+  <section class="section savings" aria-labelledby="h-save">
+    <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
+    ${freeWeek.events.length ? cardGrid(freeWeek.events.slice(0, 4), ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}
+    <p class="savings-note">Som medlem af Flokken får du billetfordele hos vores partnere, når de er aftalt – de vises på eventet. <a href="/spar-paa-billetten">Sådan sparer du</a></p>
+  </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
   ${featured.length ? section("h-featured", "Snart i kalenderen", cardGrid(featured, ctx.now)) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
@@ -478,6 +491,40 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     // The flocks and the viewer's own place in them change all the time, so the page is never cached.
     headers: { "cache-control": "private, no-store", ...(source?.canonicalToSource && e.source_url ? { link: `<${e.source_url}>; rel="canonical"` } : {}) }
   };
+}
+
+// ————————————————————————————————————————— Spar på billetten
+
+/** Free and cheap events, and the member benefits partners have confirmed. Everything on it comes from the events'
+ * own prices and from PARTNER_OFFERS; nothing is promised that has not been agreed. */
+export async function savingsPage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
+  const [free, cheap] = await Promise.all([
+    listEvents(db, emptyFilters({ price: "gratis", period: "maaned" }), regions, ctx.now, 40),
+    listEvents(db, emptyFilters({ price: "under-100", period: "maaned" }), regions, ctx.now, 80)
+  ]);
+  const cheapPaid = cheap.events.filter(e => e.is_free !== 1).slice(0, 30);
+  const offers = PARTNER_OFFERS.filter(o => o.confirmedBy.trim() && /^\d{4}-\d{2}-\d{2}$/.test(o.confirmedOn));
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Spar på billetten", path: "/spar-paa-billetten" }];
+  const body = html`
+<div class="wrap">
+  <header class="page-head">
+    ${crumbsNav(crumbs)}
+    <p class="section-kicker">Spar på billetten</p>
+    <h1>Det skal ikke koste en formue <span class="accent-line">at komme ud.</span></h1>
+    <p class="standfirst">Gratis og billige events i ${ctx.regionLabel} den næste måned – og billetfordele for Flokkens medlemmer, så snart vores partnere tilbyder dem.</p>
+    <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis events</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
+  </header>
+  <section class="section savings-offers" aria-labelledby="h-member">
+    <div class="section-head"><h2 id="h-member">Medlemsfordele</h2></div>
+    ${offers.length ? html`<ul class="offer-list">${offers.map(o => html`<li><strong>${organizerBySlug(o.organizerSlug)?.name ?? o.organizerSlug}</strong> · ${KIND_LABELS[o.kind]}: ${o.text}</li>`)}</ul>`
+      : html`<p>Vi er ved at aftale billetfordele med spillesteder, caféer og foreninger i Aarhus. Når en arrangør har bekræftet en fordel, står den her og på eventet – og du får den som medlem af Flokken.</p>
+      <p><a class="button button-alt" href="/samarbejde">Er du arrangør? Bliv partner</a></p>`}
+  </section>
+  ${section("h-free", `Gratis – ${eventsLabel(free.total)} den næste måned`, free.events.length ? html`${dayList(free.events, ctx.now)}${free.total > free.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?pris=gratis&periode=maaned">Se alle ${free.total}</a></p>` : ""}` : html`<p class="empty">Ingen gratis events med kendt pris den næste måned lige nu.</p>`, { href: "/kalender?pris=gratis", label: "Alle gratis →" })}
+  ${cheapPaid.length ? section("h-cheap", "Op til 100 kr.", dayList(cheapPaid, ctx.now), { href: "/kalender?pris=under-100", label: "Alle op til 100 kr. →" }) : ""}
+  <p class="meta-muted small">Priserne er arrangørernes egne og hentes hver nat. Events uden oplyst pris er ikke med her.</p>
+</div>`;
+  return { status: 200, body: page(ctx, { title: `Spar på billetten – gratis og billige events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned – og billetfordele for Flokkens medlemmer.`, canonical: "/spar-paa-billetten", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Index pages
