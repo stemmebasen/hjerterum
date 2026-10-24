@@ -24,7 +24,7 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
   const town = e.city?.replace(/\s+[A-ZÆØÅ]{1,2}$/, "") ?? null;
   const area = e.area ? areaBySlug(e.area) : null;
   const place = town && area && !area.towns.includes(town.toLowerCase()) && town.toLowerCase() !== area.place.toLowerCase() ? town : area?.place ?? town;
-  return html`<p class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</p>`;
+  return html`<span class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</span>`;
 }
 
 /** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for
@@ -37,8 +37,9 @@ export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_
 }
 
 /** The chips under a card or row: free, a confirmed member benefit, and the flock line. */
-export function eventChips(e: EventRow, now: number): SafeHtml {
-  const free = e.is_free === 1;
+export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
+  // A card with a picture panel already carries the round "Gratis" stamp.
+  const free = e.is_free === 1 && !options.freeStamped;
   const benefit = offersFor(e).length > 0;
   return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
 }
@@ -46,26 +47,50 @@ export function eventChips(e: EventRow, now: number): SafeHtml {
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
 
 /** A picture, or for events without one we may show, a quiet typographic stand-in with the date. */
-function media(e: EventRow): SafeHtml {
-  if (e.image_url) return html`<figure class="media"><img src="${e.image_url}" alt="" loading="lazy" decoding="async"></figure>`;
+const MONTHS_SHORT = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
+
+/** The ticket's stub: day, month and time, as on a printed ticket. */
+function stub(e: EventRow): SafeHtml {
   const [, m, day] = localDate(e.starts_at).split("-");
-  const months = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
-  return html`<figure class="media media-plain" aria-hidden="true"><span class="plain-day">${String(Number(day))}</span><span class="plain-month">${months[Number(m) - 1]}</span></figure>`;
+  return html`<span class="ticket-stub" aria-hidden="true"><span class="stub-day">${String(Number(day))}</span><span class="stub-month">${MONTHS_SHORT[Number(m) - 1]}</span><span class="stub-time">${e.all_day ? "hele dagen" : hhmm(e.starts_at)}</span></span>`;
 }
 
+/** The picture, or a patterned panel naming the activity when the event has none. A free event gets the round stamp. */
+function media(e: EventRow): SafeHtml {
+  const stamp = e.is_free === 1 ? html`<span class="stamp" aria-hidden="true">Gratis</span>` : "";
+  if (e.image_url) return html`<span class="media"><img src="${e.image_url}" alt="" loading="lazy" decoding="async">${stamp}</span>`;
+  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event";
+  return html`<span class="media media-plain" aria-hidden="true"><span class="plain-word">${what}</span>${stamp}</span>`;
+}
+
+/** An event as a ticket: the picture, then the stub (date and time) torn off from the details along a perforation. */
 export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 | 3 } = {}): SafeHtml {
   const price = priceLabel(e);
   const heading = options.headingLevel === 2 ? "h2" : "h3";
-  return html`<article class="card${e.status === "cancelled" ? " is-cancelled" : ""}">
+  return html`<article class="card ticket${e.status === "cancelled" ? " is-cancelled" : ""}">
   <a class="card-link" href="${eventPath(e)}">
     ${media(e)}
-    ${kicker(e)}
-    ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
-    <p class="meta"><span class="visually-hidden">Tid: </span>${when(e, now)}</p>
-    <p class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? ` · ${price}` : ""}</p>
-    ${eventChips(e, now)}
+    <span class="ticket-body">
+      ${stub(e)}
+      <span class="ticket-main">
+        ${kicker(e)}
+        ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
+        <span class="visually-hidden">Tid: ${when(e, now)}. </span>
+        <span class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? html` · <strong class="price">${price}</strong>` : ""}</span>
+        ${eventChips(e, now, { freeStamped: true })}
+      </span>
+    </span>
   </a>
 </article>`;
+}
+
+/** The front page's fanned stack of three coming events, as small tickets. */
+export function ticketStack(events: EventRow[], now: number): SafeHtml {
+  if (!events.length) return html``;
+  return html`<div class="ticket-stack">${events.slice(0, 3).map((e, i) => {
+    const price = priceLabel(e);
+    return html`<a class="mini-ticket mini-ticket-${i + 1}" href="${eventPath(e)}">${stub(e)}<span class="mini-main"><span class="mini-kicker">${capitalize(dayLabel(e.starts_at, now))}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${placeLine(e)}${price ? ` · ${price}` : ""}</span></span></a>`;
+  })}</div>`;
 }
 
 export function cardGrid(events: EventRow[], now: number, headingLevel: 2 | 3 = 3): SafeHtml {
@@ -209,33 +234,3 @@ export function pagination(f: Filters, total: number, pageSize: number, basePath
   ${f.page < pages ? html`<a href="${link(f.page + 1)}" rel="next">Næste →</a>` : html`<span></span>`}
 </nav>`;
 }
-
-
-/** The front page's drawing: three friends on their way to a concert under the sun, in Flokken's colours. */
-export const HERO_ART = raw(`<svg class="hero-art" viewBox="0 0 420 330" role="img" aria-label="Tre venner på vej til en koncert">
-  <circle cx="318" cy="92" r="62" fill="#f4bd3a"/>
-  <ellipse cx="96" cy="78" rx="52" ry="34" fill="#f6b3cf"/>
-  <ellipse cx="210" cy="300" rx="176" ry="17" fill="#e6ddcf"/>
-  <g fill="#d4452a"><path d="M62 150c0-4 3-7 7-7h2v-30l26-6v34c0 6-5 10-11 10s-10-4-10-9 4-9 9-9h3v-14l-14 3v24c0 6-5 10-11 10s-10-4-10-9z" transform="translate(-30 -40) scale(.8)"/><circle cx="384" cy="190" r="7"/><rect x="389" y="160" width="4" height="31" rx="2"/></g>
-  <g class="friend">
-    <rect x="96" y="226" width="12" height="66" rx="6" fill="#17172b"/><rect x="122" y="226" width="12" height="66" rx="6" fill="#17172b"/>
-    <rect x="88" y="150" width="56" height="88" rx="28" fill="#3b8bd0"/>
-    <rect x="132" y="120" width="12" height="52" rx="6" fill="#3b8bd0" transform="rotate(28 138 160)"/>
-    <rect x="150" y="96" width="30" height="20" rx="4" fill="#ffffff" stroke="#17172b" stroke-width="3" transform="rotate(-14 165 106)"/>
-    <circle cx="116" cy="124" r="24" fill="#8d5524"/><path d="M92 122c0-16 12-27 25-27s25 9 25 22c-8-6-22-8-33-3-6 3-12 6-17 8z" fill="#17172b"/>
-  </g>
-  <g class="friend">
-    <rect x="190" y="222" width="12" height="70" rx="6" fill="#17172b"/><rect x="216" y="222" width="12" height="70" rx="6" fill="#17172b"/>
-    <rect x="180" y="132" width="58" height="102" rx="29" fill="#8b4fb5"/>
-    <rect x="166" y="86" width="12" height="60" rx="6" fill="#8b4fb5" transform="rotate(-24 172 140)"/><rect x="240" y="86" width="12" height="60" rx="6" fill="#8b4fb5" transform="rotate(24 246 140)"/>
-    <circle cx="160" cy="86" r="8" fill="#f1c27d"/><circle cx="258" cy="86" r="8" fill="#f1c27d"/>
-    <circle cx="209" cy="104" r="25" fill="#f1c27d"/><circle cx="209" cy="74" r="12" fill="#d4452a"/><path d="M184 100c2-15 13-23 25-23s23 8 25 23c-7-7-16-10-25-10s-18 3-25 10z" fill="#d4452a"/>
-  </g>
-  <g class="friend">
-    <rect x="282" y="230" width="12" height="62" rx="6" fill="#17172b"/><rect x="306" y="230" width="12" height="62" rx="6" fill="#17172b"/>
-    <rect x="274" y="156" width="52" height="84" rx="26" fill="#2e9a5f"/>
-    <rect x="252" y="170" width="12" height="46" rx="6" fill="#2e9a5f" transform="rotate(52 258 172)"/>
-    <circle cx="300" cy="130" r="23" fill="#c68642"/><path d="M277 128c0-14 10-25 23-25 14 0 24 10 24 24-3-5-9-9-15-10-10 6-22 9-32 11z" fill="#3a2418"/>
-  </g>
-  <g fill="#3b8bd0"><circle cx="40" cy="250" r="6"/></g><g fill="#2e9a5f"><circle cx="372" cy="262" r="5"/></g><g fill="#ef94b8"><circle cx="250" cy="30" r="5"/></g>
-</svg>`);

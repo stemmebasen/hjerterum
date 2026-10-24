@@ -31,13 +31,13 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain('<h1>Find et event – <span class="accent-line">og en flok at følges med.</span></h1>');
+    expect(body).toContain('<h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>');
+    expect(body).toContain('class="ticket-stack"');
     expect(body).toContain("Spar på billetten");
-    expect(body).toContain('class="word-strip"');
     expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
-    expect(body).toContain('class="card-grid');
+    expect(body).toContain('class="card ticket');
     expect(body).toContain('action="/kalender"');
     expect(body).toContain('href="/aarhus"');
     expect(body).toContain('href="/klarsyn"');

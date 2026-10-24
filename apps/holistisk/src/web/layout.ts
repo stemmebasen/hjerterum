@@ -37,8 +37,8 @@ const SITE = "Flokken";
 
 /** The main navigation in the header. */
 const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/spar-paa-billetten", "Spar på billetten"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
-/** The site's mark: three friends, overlapping. */
-export const MARK = raw('<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="12.5" r="7.5" fill="#ff7a59"/><circle cx="21" cy="12.5" r="7.5" fill="#ffc23d" opacity=".92"/><circle cx="16" cy="21" r="7.5" fill="#16a093" opacity=".9"/></svg>');
+/** The site's mark: two friends side by side on a butter tile. */
+export const MARK = raw('<svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" fill="#ffe08a" stroke="#17332d" stroke-width="2"/><path d="M5.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#b3164f" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#1e6b56" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/><circle cx="26" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
 
@@ -85,12 +85,12 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
-<meta name="theme-color" content="#fbf7f0">
+<meta name="theme-color" content="#f6efe2">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/assets/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/assets/fonts/figtree-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=6">
-<script src="/assets/site.js?v=6" defer></script>
+<link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=7">
+<script src="/assets/site.js?v=7" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
 <body>

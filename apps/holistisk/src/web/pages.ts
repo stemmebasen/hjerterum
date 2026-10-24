@@ -10,7 +10,7 @@ import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
 import { KIND_LABELS, offersBlock, offersFor, PARTNER_OFFERS } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
-import { activeFilterChips, cardGrid, chipLinks, HERO_ART, dayList, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
@@ -82,33 +82,29 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     upcomingFlocks(db, regions, ctx.now, 6),
     listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24)
   ]);
-  // One card per production: a free concert played twice should not fill two of the four places.
-  const freeCards = freeWeek.events.filter((e, i, all) => all.findIndex(x => x.title === e.title) === i).slice(0, 4);
+  // One card per production: a free concert played twice should not fill two of the three places.
+  const freeCards = freeWeek.events.filter((e, i, all) => all.findIndex(x => x.title === e.title) === i).slice(0, 3);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
   const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: activityCounts[ACTIVITIES.indexOf(a)] ?? 0 })));
-  // The strip names only the kinds of events there are right now.
   const countOf = (a: Activity) => activityCounts[ACTIVITIES.indexOf(a)] ?? 0;
   const byCount = (list: Activity[]) => [...list].sort((a, b) => countOf(b) - countOf(a));
-  const kinds = byCount(ACTIVITIES.filter(a => a.category && countOf(a) > 0)).map(a => a.name);
-  const strip = [...kinds, ...(freeWeek.total ? ["Gratis events"] : [])];
   const body = html`
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <p class="hero-kicker"><span class="dot" aria-hidden="true"></span>Nyt i Aarhus · under udvikling</p>
-      <h1>Find et event – <span class="accent-line">og en flok at følges med.</span></h1>
+      <p class="hero-kicker">Aarhus · ${eventsLabel(total)} lige nu</p>
+      <h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>
       <p class="standfirst">Koncerter, teater, foredrag, caféjazz, workshops og meget mere i Aarhus – samlet ét sted. Find en flok, der skal det samme som dig, eller opret din egen. Og spar på billetten: se de gratis og billige events, og få medlemsfordele, efterhånden som spillesteder og foreninger bliver partnere.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
         <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
       </ul>
     </div>
-    <div class="hero-visual">${HERO_ART}</div>
+    <div class="hero-visual">${ticketStack(featured, ctx.now)}</div>
   </div>
 </div>
-${strip.length ? html`<div class="word-strip" aria-hidden="true"><div class="word-strip-track">${[0, 1].map(() => html`<span class="word-strip-set">${strip.map((w, i) => html`<span class="word${i % 3 === 1 ? " word-outline" : ""}">${w}</span><span class="word-dot word-dot-${i % 4}"></span>`)}</span>`)}</div></div>` : ""}
 <div class="wrap">
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
@@ -117,7 +113,6 @@ ${strip.length ? html`<div class="word-strip" aria-hidden="true"><div class="wor
     <p class="savings-note">Som medlem af Flokken får du billetfordele hos vores partnere, når de er aftalt – de vises på eventet. <a href="/spar-paa-billetten">Sådan sparer du</a></p>
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
-  ${featured.length ? section("h-featured", "Snart i kalenderen", cardGrid(featured, ctx.now)) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
     ? html`${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se alle ${week.total} events de næste 7 dage</a></p>` : ""}`
     : html`<p class="empty">Der er ingen events de næste 7 dage endnu. <a href="/kalender">Se hele kalenderen</a>.</p>`,
@@ -514,7 +509,7 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <p class="section-kicker">Spar på billetten</p>
-    <h1>Det skal ikke koste en formue <span class="accent-line">at komme ud.</span></h1>
+    <h1>Det skal ikke koste en formue <span class="marker">at komme ud.</span></h1>
     <p class="standfirst">Gratis og billige events i ${ctx.regionLabel} den næste måned – og billetfordele for Flokkens medlemmer, så snart vores partnere tilbyder dem.</p>
     <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis events</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
   </header>
