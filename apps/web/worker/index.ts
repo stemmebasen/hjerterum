@@ -14,6 +14,7 @@ import {
   processMemberStripeEvent
 } from "./members.js";
 import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
+import { clerkPerson } from "./admin-auth.js";
 import {
   createEventCheckout,
   createPayoutOnboarding,
@@ -87,6 +88,22 @@ async function requireUser(request: Request, env: Env): Promise<AuthenticatedUse
 
 function isResponse(value: unknown): value is Response {
   return value instanceof Response;
+}
+
+/** Who signs up for an event: a member with benefits, or - requested: "Man skal også kunne tilmelde sig et event som ikke-medlem" - anyone
+ * signed in with a verified e-mail, as a non-member. */
+async function attendeeFor(env: Env, clerkUserId: string): Promise<{ fullName: string; email: string; member: boolean } | Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  try {
+    const membership = await resolveActiveMembership(env.DB, clerkUserId, env.CLERK_SECRET_KEY);
+    if (membership) return { fullName: membership.fullName, email: membership.email, member: true };
+    if (!env.CLERK_SECRET_KEY) return json({ error: "membership_lookup_not_configured" }, { status: 503 });
+    const person = await clerkPerson(clerkUserId, env.CLERK_SECRET_KEY);
+    return { ...person, member: false };
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "identity_lookup_failed";
+    return json({ error: code }, { status: code === "identity_email_unverified" ? 403 : 503 });
+  }
 }
 
 async function requireActiveMembershipForUser(
@@ -349,14 +366,14 @@ async function attendBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
-  const membership = await requireActiveMembershipForUser(env, user.userId);
+  const membership = await attendeeFor(env, user.userId);
   if (isResponse(membership)) return membership;
 
   try {
     await attendRoomBooking(env.DB, user.userId, bookingId, {
       memberName: membership.fullName,
       memberEmail: membership.email
-    });
+    }, !membership.member);
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
@@ -380,7 +397,7 @@ async function attendBooking(
       }
     }
     if (code === "booking_not_found") return json({ error: code }, { status: 404 });
-    if (code === "booking_started") return json({ error: code }, { status: 409 });
+    if (code === "booking_started" || code === "non_member_payment_unavailable") return json({ error: code }, { status: 409 });
     if (code === "already_attending" || code === "booking_full" ||
         code === "booking_full_or_pending") {
       return json({ error: code }, { status: 409 });
@@ -398,9 +415,8 @@ async function unattendBooking(
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
-  const membership = await requireActiveMembershipForUser(env, user.userId);
-  if (isResponse(membership)) return membership;
 
+  // A non-member can take back their own registration too; it only ever touches the caller's own.
   try {
     await unattendRoomBooking(env.DB, user.userId, bookingId);
     return json({ status: "not_attending" });
@@ -417,8 +433,7 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
   const user = await requireUser(request, env);
   if (isResponse(user)) return user;
-  const membership = await requireActiveMembershipForUser(env, user.userId);
-  if (isResponse(membership)) return membership;
+  // Signed in is enough: the calendar holds the approved events and the caller's own (non-members sign up from it too).
 
   try {
     const rows = await listMemberCalendarBookings(env.DB, user.userId);

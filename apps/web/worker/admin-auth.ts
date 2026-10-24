@@ -6,6 +6,8 @@ export type AdminIdentity = {
 };
 
 export type ClerkUser = {
+  first_name?: string | null;
+  last_name?: string | null;
   primary_email_address_id?: string | null;
   email_addresses?: Array<{
     id?: string;
@@ -49,6 +51,18 @@ export async function clerkPrimaryEmail(userId: string, secretKey: string): Prom
   if (!response.ok) throw new Error("admin_identity_lookup_failed");
 
   return verifiedPrimaryEmail((await response.json()) as ClerkUser);
+}
+
+/** Someone signed in without a membership: the verified e-mail and the name they gave Clerk (or the e-mail, when they gave none). */
+export async function clerkPerson(userId: string, secretKey: string): Promise<{ email: string; fullName: string }> {
+  const response = await fetch(`https://api.clerk.com/v1/users/${encodeURIComponent(userId)}`, {
+    headers: { authorization: `Bearer ${secretKey}`, accept: "application/json" }
+  });
+  if (!response.ok) throw new Error("identity_lookup_failed");
+  const user = (await response.json()) as ClerkUser;
+  const email = verifiedPrimaryEmail(user);
+  const name = [user.first_name, user.last_name].map((part) => (part ?? "").trim()).filter(Boolean).join(" ");
+  return { email, fullName: (name || email).slice(0, 160) };
 }
 
 export async function authenticateAdmin(
