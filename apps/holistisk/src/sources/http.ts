@@ -1,5 +1,6 @@
 /** Outbound HTTP for the collector: a clear user agent, a timeout, a few retries with backoff for temporary failures
- * (network errors, 429, 5xx), and robots.txt honoured for sources that ask for it. */
+ * (network errors, 429, 5xx), robots.txt honoured for sources that ask for it, and a request budget (a Worker may
+ * only send so many requests per invocation; past it every fetch fails, which would look like a broken site). */
 
 export const USER_AGENT = "holistisk.org-eventportal/0.1 (+https://holistisk.org/om)";
 
@@ -7,11 +8,18 @@ export class HttpError extends Error {
   constructor(message: string, readonly status: number | null, readonly attempts: number) { super(message); }
 }
 
+/** The run's request budget is spent: the source was not tried, it waits for the next run. */
+export class BudgetError extends HttpError {
+  constructor() { super("request_budget_exhausted", null, 0); }
+}
+
 export type HttpOptions = {
   fetcher?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
   attempts?: number;
   timeoutMs?: number;
+  /** Requests this client may send in all, retries and robots.txt included (default: no limit). */
+  requestBudget?: number;
 };
 
 export type HttpResponse = { status: number; headers: Headers; body: ArrayBuffer; attempts: number; url: string };
@@ -20,6 +28,8 @@ export interface HttpClient {
   get(url: string, init?: { headers?: Record<string, string>; respectRobots?: boolean }): Promise<HttpResponse>;
   /** Total requests sent, for the run log and the Workers subrequest budget. */
   readonly requests: number;
+  /** Requests left in the budget. */
+  readonly remaining: number;
 }
 
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -29,6 +39,7 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
   const sleep = options.sleep ?? (ms => new Promise<void>(resolve => setTimeout(resolve, ms)));
   const maxAttempts = options.attempts ?? 3;
   const timeoutMs = options.timeoutMs ?? 20_000;
+  const budget = options.requestBudget ?? Infinity;
   const robots = new Map<string, Promise<RobotsRules>>();
   const delays = new Map<string, number>();
   const lastRequest = new Map<string, number>();
@@ -37,6 +48,7 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
   async function send(url: string, headers: Record<string, string>): Promise<HttpResponse> {
     let lastError: HttpError | null = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      if (requests >= budget) throw new BudgetError();
       requests++;
       try {
         const response = await fetcher(url, { headers: { "user-agent": USER_AGENT, ...headers }, signal: AbortSignal.timeout(timeoutMs), redirect: "follow" });
@@ -57,6 +69,7 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
 
   return {
     get requests() { return requests; },
+    get remaining() { return Math.max(0, budget - requests); },
     async get(url, init = {}) {
       if (init.respectRobots !== false) {
         const origin = new URL(url).origin;
@@ -68,6 +81,8 @@ export function createHttpClient(options: HttpOptions = {}): HttpClient {
             if (delay) delays.set(origin, delay);
             return parseRobots(text);
           }, (e: unknown) => {
+            // Out of budget says nothing about the site: asked again next run.
+            if (e instanceof BudgetError) { robots.delete(origin); throw e; }
             // No robots.txt (404) means no restrictions; an unreachable one means we do not know, so we stay away.
             if (e instanceof HttpError && e.status !== null && e.status >= 400 && e.status < 500) return ALLOW_ALL;
             return DISALLOW_ALL;

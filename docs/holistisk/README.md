@@ -69,12 +69,13 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 
 ## The collector
 
-- **Schedule.** Cron `17 3 * * *` collects every night (05:17 Danish summer time). Cron `47 */6 * * *` collects only if no run has succeeded in the last 20 hours (the nightly run failed), and otherwise only retires ended events. No visitor, browser or person is needed.
+- **Schedule.** Cron `17 3 * * *` (05:17 Danish summer time) and cron `47 * * * *` (hourly) each collect the sources that are due: not collected in the last 20 hours, and not failed in the last 3. A trigger with nothing due only retires ended events. No visitor, browser or person is needed.
+- **Request budget.** A Worker invocation may send 50 requests on Workers Free; past that every fetch fails, which looks like a broken site. So a run sends at most `INGEST_REQUEST_BUDGET` (default 45) requests, robots.txt and retries included. Sources take turns, the longest without a successful collection first; a source the budget no longer covers is *deferred* (logged as skipped, not failed) and goes first in the next run, so all sources are collected within a few hourly runs. Detail lookups get what is left after a reserve for the next listing; a lookup the budget cuts off is stored as not yet checked and done in a later run. A source that needs more than the whole budget fails with `request_budget_exceeded`. `POST /api/ingest/run` collects what is due like the cron (a source that just failed included); `?alle=1` takes every source, stalest first, as far as the budget goes.
 - **Per source.** Each enabled source is fetched with a timeout and up to three attempts with backoff for network errors, 429 and 5xx (Retry-After honoured). robots.txt is honoured for open web sources. A failing source does not stop the others.
 - **Writing.** A source record is known by `(source, source id)`. Unchanged records only get "last checked". Changed ones are updated, and the change is logged in `event_changes` (`rescheduled`, `cancelled`, `reinstated`, `updated`). A new record that matches an event already stored (start within 30 minutes, nearly the same title, same area) is linked to it as a duplicate (`merged_duplicate`): the higher-priority source supplies the details, the other fills gaps. An event that disappears from a complete listing for two runs is `withdrawn` (hidden), and comes back if it reappears. Ended events become `past`.
 - **Details lookups.** MembershipWorks' per-event endpoint (address, coordinates) is called for new or changed events, at most 25 per run; the rest are looked up in the next runs.
-- **Log.** `ingest_runs` and `ingest_source_runs` (kept 120 days), JSON lines in Workers Logs (`ingest_source`, `ingest_run`, `cron`, `cron_failed`). `/api/status` shows the last run per source; `/api/health` reports `ingest.healthy: false` when nothing has succeeded for 36 hours.
-- **Re-processing.** Raising `NORMALIZE_VERSION` (src/ingest/normalize.ts) re-reads every stored event once in the next run (for example after changing categories).
+- **Log.** `ingest_runs` and `ingest_source_runs` (kept 120 days), JSON lines in Workers Logs (`ingest_source`, `ingest_run`, `cron`, `cron_failed`). `/api/status` shows each source's latest collection (time, requests, result); `/api/health` reports `ingest.healthy: false` when nothing has succeeded for 36 hours.
+- **Re-processing.** Raising `NORMALIZE_VERSION` (src/ingest/normalize.ts) re-reads every stored event once, at each source's next collection (for example after changing categories).
 
 ## Configuration
 
@@ -84,6 +85,7 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 | `ACTIVE_REGIONS` | var | Regions shown, e.g. `ostjylland` or `ostjylland,fyn` (slugs in `src/geo.ts`). Events elsewhere are stored but not listed. |
 | `PUBLIC_BASE_URL` | secret/var | The portal's address for canonical links and the sitemap. |
 | `INGEST_TOKEN` | secret | Enables `POST /api/ingest/run` (at least 24 characters). The staging workflow sets a fresh one per deploy. |
+| `INGEST_REQUEST_BUDGET` | var | Requests one collection run may send (default 45, under Workers Free's 50 per invocation; can be raised on a paid plan). |
 | `BILLETTO_API_KEYPAIR` | secret | Turns the Billetto source on (GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`). |
 | `CONTACT_EMAIL` | var | Shown on the safety page for concerns (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
 | `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated (www.jacobhauge.com/flokken is built in). |

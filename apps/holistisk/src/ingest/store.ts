@@ -1,6 +1,7 @@
 import { chunk, MAX_BOUND, runBatched, type D1Database, type D1PreparedStatement } from "../db.js";
 import { normalizeTitle, titleSimilarity } from "../text.js";
 import type { AdapterContext, SourceAdapter, SourceConfig, SourceEvent } from "../sources/types.js";
+import { BudgetError } from "../sources/http.js";
 import { contentHash, normalize, type EventRecord } from "./normalize.js";
 
 /** Writing one source's events: new events are created, changed ones updated (with a change log), the same event from
@@ -132,7 +133,11 @@ export async function processSource(
       enrichBudget--;
       stats.enriched++;
       try { event = await adapter.enrich(raw, config, ctx); }
-      catch (error) { event = { ...raw, qualityFlags: [...raw.qualityFlags, "enrich_failed"] }; console.warn(JSON.stringify({ event: "enrich_failed", source: config.id, id: raw.sourceEventId, error: String(error instanceof Error ? error.message : error) })); }
+      catch (error) {
+        // The run's request budget ran out: the rest are looked up on a later run.
+        if (error instanceof BudgetError) { enrichBudget = 0; stats.enriched--; storedHash = `pending:${hash}`; }
+        else { event = { ...raw, qualityFlags: [...raw.qualityFlags, "enrich_failed"] }; console.warn(JSON.stringify({ event: "enrich_failed", source: config.id, id: raw.sourceEventId, error: String(error instanceof Error ? error.message : error) })); }
+      }
     }
     const normalized = await normalize(event, config);
     if (!normalized.ok) { stats.rejected++; continue; }

@@ -105,9 +105,16 @@ jobs:
           retry() { curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 60 "$@"; }
           retry "$URL/api/health" | tee /tmp/health.json
           grep -q '"environment": "staging"' /tmp/health.json
-          # Run the collector once now (the cron runs it daily) and require the first source to succeed.
-          retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
-          node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,sources:r.sources},null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret","favn-aarhus"]){const x=r.sources.find(s=>s.id===id);if(!x||x.status!=="ok"){console.error("source failed: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(r.sources.find(s=>s.id==="hjerterum").fetched>0))process.exit(1)'
+          # Run the collector now (the cron runs it hourly). One run stays within the request budget, so the sources
+          # take turns: run until none is deferred, then require the core sources to have been collected (the venues are
+          # listed; one being down for a day does not stop a deploy).
+          for i in 1 2 3 4 5 6 7 8; do
+            retry -X POST -H "authorization: Bearer $TOKEN" "$URL/api/ingest/run" > /tmp/run.json
+            node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,reason:r.reason,deferred:r.deferred,sources:r.sources.map(s=>[s.id,s.status,s.error??s.fetched])}))'
+            node -e 'process.exit(require("/tmp/run.json").deferred?.length ? 1 : 0)' && break
+          done
+          retry "$URL/api/status" > /tmp/sources.json
+          node -e 'const s=require("/tmp/sources.json");console.log(JSON.stringify(s.sources,null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret","favn-aarhus"]){const x=s.sources.find(y=>y.id===id);if(!x||x.status!=="ok"){console.error("source not collected: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(s.sources.find(y=>y.id==="hjerterum").fetched>0))process.exit(1)'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html

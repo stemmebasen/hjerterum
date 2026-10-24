@@ -128,11 +128,13 @@ describe("collecting Hjerterum's calendar", () => {
 
   it("retires ended events", async () => {
     const db = testDb();
-    await runIngest({ DB: db }, { trigger: "test", now: Date.parse("2026-10-11T10:00:00Z"), fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep, sources: hjerterum });
+    const first = await runIngest({ DB: db }, { trigger: "test", now: Date.parse("2026-10-11T10:00:00Z"), fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep, requestBudget: 1000 });
+    expect(first.deferred).toEqual([]);
+    // Every source was collected 14 hours ago: the hourly cron only retires ended events.
     const later = Date.parse("2026-10-12T00:00:00Z");
-    const out = await scheduledRun({ DB: db }, "47 */6 * * *", { now: later, fetcher: fakeFetch({}).fetcher, sleep: noSleep });
+    const out = await scheduledRun({ DB: db }, "47 * * * *", { now: later, fetcher: fakeFetch({}).fetcher, sleep: noSleep });
     expect(out.status).toBe("skipped");
-    expect(out.reason).toBe("recent_success");
+    expect(out.reason).toBe("nothing_due");
     expect(rows(db, "SELECT status FROM events WHERE title = 'Deep Shamanic Healing Journey'")[0]!.status).toBe("past");
     expect(rows(db, "SELECT status FROM events WHERE title = 'Dhyana Yoga'")[0]!.status).toBe("scheduled");
   });
@@ -161,8 +163,8 @@ describe("collecting Hjerterum's calendar", () => {
     expect(status.healthy).toBe(false);
     expect(status.lastRun?.status).toBe("failed");
     expect(status.sources[0]).toMatchObject({ id: "hjerterum", status: "failed" });
-    // The six-hourly catch-up collects again because nothing has succeeded.
-    const retry = await scheduledRun({ DB: db }, "47 */6 * * *", { now: NOW + 6 * 3600_000, fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep });
+    // The hourly cron collects it again (a failed source is retried after three hours).
+    const retry = await scheduledRun({ DB: db }, "47 * * * *", { now: NOW + 6 * 3600_000, fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep });
     expect(retry.status).toBe("ok");
     expect((await ingestStatus(db, NOW + 6 * 3600_000)).healthy).toBe(true);
   });
@@ -182,9 +184,49 @@ describe("collecting Hjerterum's calendar", () => {
     expect(out).toMatchObject({ status: "skipped", reason: "already_running" });
   });
 
-  it("the daily cron always collects; a disabled source is logged as skipped", async () => {
+  it("a run stays within its request budget: sources take turns, stalest first, and wait instead of failing", async () => {
     const db = testDb();
-    const out = await scheduledRun({ DB: db }, DAILY_CRON, { now: NOW, fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep });
+    const { fetcher, calls } = fakeFetch(routes(fixture("hjerterum-rss.xml")));
+    const run = (at: number, requestBudget: number) => scheduledRun({ DB: db, INGEST_REQUEST_BUDGET: String(requestBudget) }, "47 * * * *", { now: at, fetcher, sleep: noSleep });
+    const first = await run(NOW, 20);
+    expect(calls.length).toBeLessThanOrEqual(20);
+    expect(first.status).toBe("ok");
+    expect(first.sources.filter(s => s.status === "failed")).toEqual([]);
+    const done = first.sources.filter(s => s.status === "ok").map(s => s.id);
+    expect(done.length).toBeGreaterThan(1);
+    expect(first.deferred.length).toBeGreaterThan(1);
+    expect(first.deferred).not.toContain("billetto");
+    // The next runs take the deferred sources, not the ones just collected, until every source has had its turn.
+    let seen = new Set(done);
+    for (let i = 1; i <= 10 && seen.size < SOURCES.filter(s => s.id !== "billetto").length; i++) {
+      const before = calls.length;
+      const next = await run(NOW + i * 3600_000, 20);
+      expect(calls.length - before).toBeLessThanOrEqual(20);
+      expect(next.sources.filter(s => s.status === "ok").some(s => seen.has(s.id))).toBe(false);
+      for (const s of next.sources) if (s.status === "ok") seen.add(s.id);
+    }
+    expect(seen.size).toBe(SOURCES.filter(s => s.id !== "billetto").length);
+    const status = await ingestStatus(db, NOW + 11 * 3600_000);
+    expect(status.sources.filter(s => s.id !== "billetto").every(s => s.status === "ok")).toBe(true);
+    expect((await run(NOW + 12 * 3600_000, 20)).reason).toBe("nothing_due");
+    // A day later the first batch is due again.
+    expect((await run(NOW + 21 * 3600_000, 20)).sources.filter(s => s.status === "ok").map(s => s.id)).toEqual(done);
+  });
+
+  it("detail lookups stop at the budget and are stored as not yet checked; a source that needs more than the whole budget fails", async () => {
+    const db = testDb();
+    const { fetcher } = fakeFetch(routes(fixture("hjerterum-rss.xml")));
+    const godsbanen = SOURCES.filter(s => s.id === "godsbanen");
+    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: godsbanen, requestBudget: 7 });
+    expect(out.sources[0]).toMatchObject({ status: "ok", enriched: 3 });
+    expect(rows(db, "SELECT COUNT(*) AS n FROM event_sources WHERE source_id = 'godsbanen' AND content_hash LIKE 'pending:%'")[0]!.n).toBeGreaterThan(0);
+    const tight = await runIngest({ DB: testDb() }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: SOURCES.filter(s => s.id === "voxhall"), requestBudget: 2 });
+    expect(tight.sources[0]).toMatchObject({ status: "failed", error: "request_budget_exceeded (2)" });
+  });
+
+  it("the daily cron collects what is due; a disabled source is logged as skipped", async () => {
+    const db = testDb();
+    const out = await scheduledRun({ DB: db, INGEST_REQUEST_BUDGET: "1000" }, DAILY_CRON, { now: NOW, fetcher: fakeFetch(routes(fixture("hjerterum-rss.xml"))).fetcher, sleep: noSleep });
     expect(out.status).toBe("ok");
     expect(out.sources.find(s => s.id === "billetto")).toMatchObject({ status: "skipped", error: "disabled" });
     expect(out.sources.find(s => s.id === "hjerterum")).toMatchObject({ status: "ok", created: 7 });

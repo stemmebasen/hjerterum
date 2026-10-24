@@ -104,6 +104,16 @@ describe("robots.txt and HTTP", () => {
     expect(missing.calls.filter(c => c.endsWith("/gone"))).toHaveLength(1);
   });
 
+  it("sends no more than its request budget, and a spent budget is not taken as a closed robots.txt", async () => {
+    const site = fakeFetch({ "https://x.example/robots.txt": { body: "User-agent: *\nAllow: /\n" }, "https://x.example/a": { body: "a" }, "https://y.example/robots.txt": { status: 404 } });
+    const http = createHttpClient({ fetcher: site.fetcher, sleep: noSleep, requestBudget: 2 });
+    await http.get("https://x.example/a");
+    expect(http.remaining).toBe(0);
+    await expect(http.get("https://x.example/a")).rejects.toMatchObject({ message: "request_budget_exhausted" });
+    await expect(http.get("https://y.example/b")).rejects.toMatchObject({ message: "request_budget_exhausted" });
+    expect(site.calls).toHaveLength(2);
+  });
+
   it("reads UTF-8 even when a feed claims Latin-1", () => {
     const bytes = new TextEncoder().encode('<?xml version="1.0" encoding="ISO-8859-1"?><t>Jørgen</t>');
     expect(decodeBody(bytes.buffer as ArrayBuffer, null)).toContain("Jørgen");

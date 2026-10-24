@@ -107,7 +107,8 @@ async function route(request: Request, env: Env, now: number, mount: { origin: s
     const token = env.INGEST_TOKEN;
     const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
     if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
-    const outcome = await runIngest(env, { trigger: "manual", now });
+    // The sources that are due, a failed one included; ?alle=1 takes every source (stalest first, as far as the budget goes).
+    const outcome = await runIngest(env, { trigger: "manual", now, onlyDue: url.searchParams.get("alle") !== "1", retryFailed: true });
     return json(env, outcome, outcome.status === "failed" ? 502 : 200);
   }
   const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
