@@ -43,9 +43,17 @@ Outside production every response carries `X-Robots-Tag: noindex` and robots.txt
 - **Partners** (`/samarbejde`): the planned model (a ticket benefit for members in return for visibility and possible radio mention) and an inquiry form stored in `partner_inquiries`. Member offers live in `PARTNER_OFFERS` in `src/flokken/partners.ts` and are shown on an event only with `confirmedBy` and `confirmedOn` filled in; the list is empty.
 - **Under another site**: a proxy can show the portal under a path (www.jacobhauge.com/flokken, see the jacobhauge repo's `functions/flokken`) by stripping the prefix and sending `x-flokken-mount: https://www.jacobhauge.com/flokken`. The Worker accepts only addresses in `MOUNTS` (`src/index.ts`) or `PUBLIC_MOUNTS`, then prefixes every link, form, redirect and the cookie path, uses that address for canonical links, and checks forms against its origin.
 
+## Spar på billetten
+
+`/spar-paa-billetten` lists free and cheap events (up to 100 kr.) from the events' own prices, and member benefits from `PARTNER_OFFERS` – only confirmed ones; until there are any it says they are being agreed. Cards and calendar rows carry a "Gratis" chip and, when a confirmed offer applies, "Medlemsfordel". The front page has a "Gratis de næste 7 dage" section. The calendar's price filter has Gratis, up to 100, 200 and 500 kr.
+
+## Everyday events
+
+Besides the holistic organisers, Flokken collects concert venues, culture houses, the main library and a café (SOURCES.md). Six categories cover them: Koncerter og musik (`/koncerter`), Foredrag og debat (`/foredrag`), Kunst og udstillinger (`/kunst`), Teater, comedy og scenekunst (`/scenekunst`), Børn og familie (`/boern-og-familie`) and Quiz, fest og spilaftener (`/quiz-og-fest`). A source can give all its events a category (`alwaysCategories`, e.g. a concert venue) or map its own genres to categories (`hintCategories`, e.g. Musikhuset's "comedy" → scenekunst).
+
 ## Design
 
-Social, colourful and warm: cream paper, a sunny hero with three overlapping circles (the mark: three friends), coral for actions, teal for labels, plum for "Mine flokke" and day headings, yellow for flock badges; rounded cards. Headings in Bricolage Grotesque (SIL OFL, `public/assets/fonts`, instanced to ~73 kB); body text in the system sans-serif. Every text colour pair meets WCAG AA. Every event card and calendar row says how many flocks are going ("2 flokke · Find en flok") or invites "Opret en flok"; the event page has a "Find en flok" panel right under the details. The front page explains Flokken in three steps, shows open flocks, a few events with pictures and then every event of the coming 7 days.
+Warm, round and social, in the same family as Oluna (jacobhauge.com/oluna): cream paper, deep ink, coral for actions, with sun, plum, pink, leaf and sky; very large, tight headings with a coral second line; pill buttons with an arrow; a flat drawing of three friends on their way to a concert; a sliding strip of the kinds of events there are right now; round drops instead of bullets. Headings in Bricolage Grotesque, text in Figtree (both SIL OFL, `public/assets/fonts`). Every event card and calendar row says how many flocks are going ("2 flokke · Find en flok") or invites "Opret en flok"; the event page has a "Find en flok" panel right under the details. The front page explains Flokken in three steps, shows open flocks, a few events with pictures and then every event of the coming 7 days.
 
 ## Search engines
 

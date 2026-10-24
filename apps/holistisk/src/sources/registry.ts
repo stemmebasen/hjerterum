@@ -9,6 +9,13 @@ import { diamondWay } from "./diamondway.js";
 import { typo3Events } from "./typo3events.js";
 import { vaekstcenteret } from "./vaekstcenteret.js";
 import { favn } from "./favn.js";
+import { voxhall } from "./voxhall.js";
+import { godsbanen } from "./godsbanen.js";
+import { train } from "./train.js";
+import { musikhuset } from "./musikhuset.js";
+import { aakb } from "./aakb.js";
+import { resonans } from "./resonans.js";
+import { folkestedet } from "./folkestedet.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -25,7 +32,14 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   diamondway: diamondWay,
   typo3events: typo3Events,
   vaekstcenteret,
-  favn
+  favn,
+  voxhall,
+  godsbanen,
+  train,
+  musikhuset,
+  aakb,
+  resonans,
+  folkestedet
 };
 
 export const SOURCES: SourceConfig[] = [
@@ -197,6 +211,182 @@ export const SOURCES: SourceConfig[] = [
       venues: [{ match: /./, name: "Favn Aarhus", address: "Jægergårdsgade 14, 2.", postalCode: "8000", city: "Aarhus C", lat: 56.147952, lon: 10.197783 }]
     },
     options: { url: "https://favnaarhus.dk/workshop-kalender-aarhus/", defaultCategories: ["workshops-kurser"], descriptionIsSummary: true }
+  },
+  {
+    id: "voxhall",
+    name: "VoxHall",
+    adapter: "voxhall",
+    homepageUrl: "https://voxhall.dk/koncerter/",
+    permissionBasis: "VoxHalls offentlige koncertliste (voxhall.dk/koncerter) og WordPress REST API; robots.txt udelukker kun /wp-admin/.",
+    attribution: "VoxHall, Vester Allé 15, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "VoxHall",
+      organizerUrl: "https://voxhall.dk/",
+      // Coordinates: OpenStreetMap.
+      venues: [{ match: /./, name: "VoxHall", address: "Vester Allé 15", postalCode: "8000", city: "Aarhus C", lat: 56.156055, lon: 10.198522 }]
+    },
+    options: { url: "https://voxhall.dk/koncerter/", defaultCategories: ["koncerter-musik"], alwaysCategories: ["koncerter-musik"] }
+  },
+  {
+    id: "godsbanen",
+    name: "Godsbanen",
+    adapter: "godsbanen",
+    homepageUrl: "https://godsbanen.dk/kalender/",
+    permissionBasis: "Godsbanens offentlige kalender (godsbanen.dk/kalender) og eventsiderne; robots.txt tillader alt.",
+    attribution: "Godsbanen, Skovgaardsgade 3, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Godsbanen",
+      organizerUrl: "https://godsbanen.dk/",
+      // Coordinates: OpenStreetMap.
+      venues: [{ match: /./, name: "Godsbanen", address: "Skovgaardsgade 3", postalCode: "8000", city: "Aarhus C", lat: 56.154048, lon: 10.195083 }]
+    },
+    options: { url: "https://godsbanen.dk/kalender/", maxDays: 14, enrichBudget: 20, defaultCategories: ["sociale-faellesskaber"] }
+  },
+  {
+    id: "train",
+    name: "Train",
+    adapter: "train",
+    homepageUrl: "https://train.dk/kalender",
+    permissionBasis: "Trains offentlige koncertkalender (train.dk/kalender), hentet fra sidens eget offentlige indholds-API; robots.txt tillader alt.",
+    attribution: "Train, Kalkværksvej 13, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Train",
+      organizerUrl: "https://train.dk/",
+      venues: []
+    },
+    options: { project: "zr3nrpl4", dataset: "production", defaultCategories: ["koncerter-musik"], alwaysCategories: ["koncerter-musik"] }
+  },
+  {
+    id: "musikhuset",
+    name: "Musikhuset Aarhus",
+    adapter: "musikhuset",
+    homepageUrl: "https://www.musikhuset.dk/kalender",
+    permissionBasis: "Musikhusets offentlige kalender (musikhuset.dk/kalender), hentet fra sidens eget JSON-API; robots.txt tillader alt.",
+    attribution: "Musikhuset Aarhus, Thomas Jensens Allé 2, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Musikhuset Aarhus",
+      organizerUrl: "https://www.musikhuset.dk/",
+      // Coordinates: OpenStreetMap.
+      venues: [{ match: /./, name: "Musikhuset Aarhus", address: "Thomas Jensens Allé 2", postalCode: "8000", city: "Aarhus C", lat: 56.152699, lon: 10.199353 }]
+    },
+    options: {
+      base: "https://www.musikhuset.dk", daysAhead: 120, defaultCategories: ["koncerter-musik"],
+      // Musikhuset's own genres, as Flokken's categories.
+      hintCategories: {
+        "comedy": "scenekunst", "dans": "dans-bevaegelse", "elektronisk": "koncerter-musik", "familie-born": "boern-familie",
+        "foredrag-talk": "foredrag-debat", "jazz": "koncerter-musik", "klassisk": "koncerter-musik", "musical": "scenekunst",
+        "opera": "scenekunst", "pop-rock": "koncerter-musik", "show": "scenekunst", "teater": "scenekunst", "udstilling": "kunst-udstillinger"
+      }
+    }
+  },
+  {
+    id: "dokk1",
+    name: "Dokk1 – Aarhus Kommunes Biblioteker",
+    adapter: "aakb",
+    homepageUrl: "https://dokk1.dk/alle-arrangementer",
+    permissionBasis: "Bibliotekernes offentlige arrangements-API (aakb.dk/api/v1/events); robots.txt tillader /api/ med 10 sekunder mellem kald – her ét kald i døgnet.",
+    attribution: "Aarhus Kommunes Biblioteker / Dokk1",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Dokk1",
+      organizerUrl: "https://dokk1.dk/",
+      venues: [{ match: /./, name: "Dokk1", address: "Hack Kampmanns Plads 2", postalCode: "8000", city: "Aarhus C", lat: 56.153436, lon: 10.213776 }]
+    },
+    options: {
+      url: "https://www.aakb.dk/api/v1/events/happening?_format=json", branches: ["Hovedbiblioteket"], daysAhead: 30, maxDays: 14,
+      skipCategories: ["Hjælp og vejledning", "Dagtilbud"], defaultCategories: ["foredrag-debat"],
+      hintCategories: { "litteratur": "foredrag-debat", "viden og demokrati": "foredrag-debat", "udstilling": "kunst-udstillinger", "kreativitet": "kunst-udstillinger", "børn": "boern-familie", "lyd og musik": "koncerter-musik", "bæredygtighed og natur": "natur", "spil og teknologi": "quiz-fest" }
+    }
+  },
+  {
+    id: "resonans",
+    name: "Resonans Bistro & Bar",
+    adapter: "resonans",
+    homepageUrl: "https://resonansbistro.dk/",
+    permissionBasis: "Resonans' offentlige koncertliste (resonansbistro.dk); robots.txt tillader alt.",
+    attribution: "Resonans Bistro & Bar, Jægergårdsgade 150, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Resonans Bistro & Bar",
+      organizerUrl: "https://resonansbistro.dk/",
+      venues: [{ match: /./, name: "Resonans Bistro & Bar", address: "Jægergårdsgade 150", postalCode: "8000", city: "Aarhus C", lat: 56.148185, lon: 10.209 }]
+    },
+    options: { url: "https://resonansbistro.dk/public/events/upcoming?limit=200", defaultCategories: ["koncerter-musik"], alwaysCategories: ["koncerter-musik"] }
+  },
+  {
+    id: "folkestedet",
+    name: "Folkestedet",
+    adapter: "folkestedet",
+    homepageUrl: "https://folkestedet.aarhus.dk/kalender",
+    permissionBasis: "Folkestedets offentlige kalender (folkestedet.aarhus.dk/kalender), Aarhus Kommune; ingen robots.txt.",
+    attribution: "Folkestedet, Carl Blochs Gade 28, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Folkestedet",
+      organizerUrl: "https://folkestedet.aarhus.dk/",
+      venues: [{ match: /./, name: "Folkestedet", address: "Carl Blochs Gade 28", postalCode: "8000", city: "Aarhus C", lat: 56.154924, lon: 10.19369 }]
+    },
+    options: { url: "https://folkestedet.aarhus.dk/kalender", defaultCategories: ["sociale-faellesskaber"] }
   },
   {
     id: "billetto",

@@ -80,14 +80,18 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     featuredEvents(db, regions, ctx.now, 4), areaCounts(db, regions, ctx.now),
     listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
     upcomingFlocks(db, regions, ctx.now, 6),
-    listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 4)
+    listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24)
   ]);
+  // One card per production: a free concert played twice should not fill two of the four places.
+  const freeCards = freeWeek.events.filter((e, i, all) => all.findIndex(x => x.title === e.title) === i).slice(0, 4);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
   const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: activityCounts[ACTIVITIES.indexOf(a)] ?? 0 })));
   // The strip names only the kinds of events there are right now.
-  const kinds = ACTIVITIES.filter(a => a.category && (activityCounts[ACTIVITIES.indexOf(a)] ?? 0) > 0).map(a => a.name);
+  const countOf = (a: Activity) => activityCounts[ACTIVITIES.indexOf(a)] ?? 0;
+  const byCount = (list: Activity[]) => [...list].sort((a, b) => countOf(b) - countOf(a));
+  const kinds = byCount(ACTIVITIES.filter(a => a.category && countOf(a) > 0)).map(a => a.name);
   const strip = [...kinds, ...(freeWeek.total ? ["Gratis events"] : [])];
   const body = html`
 <div class="hero">
@@ -95,10 +99,10 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <div class="hero-text">
       <p class="hero-kicker"><span class="dot" aria-hidden="true"></span>Nyt i Aarhus · under udvikling</p>
       <h1>Find et event – <span class="accent-line">og en flok at følges med.</span></h1>
-      <p class="standfirst">Flokken samler lokale events i Aarhus og omegn. Find en flok, der skal det samme som dig – eller opret din egen – og spar på billetten med gratis og billige events og medlemsfordele, efterhånden som spillesteder og foreninger bliver partnere.</p>
+      <p class="standfirst">Koncerter, teater, foredrag, caféjazz, workshops og meget mere i Aarhus – samlet ét sted. Find en flok, der skal det samme som dig, eller opret din egen. Og spar på billetten: se de gratis og billige events, og få medlemsfordele, efterhånden som spillesteder og foreninger bliver partnere.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
-        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender?pris=gratis">Gratis</a></li>
+        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
       </ul>
     </div>
     <div class="hero-visual">${HERO_ART}</div>
@@ -109,7 +113,7 @@ ${strip.length ? html`<div class="word-strip" aria-hidden="true"><div class="wor
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
-    ${freeWeek.events.length ? cardGrid(freeWeek.events.slice(0, 4), ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}
+    ${freeCards.length ? cardGrid(freeCards, ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}
     <p class="savings-note">Som medlem af Flokken får du billetfordele hos vores partnere, når de er aftalt – de vises på eventet. <a href="/spar-paa-billetten">Sådan sparer du</a></p>
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
@@ -119,7 +123,7 @@ ${strip.length ? html`<div class="word-strip" aria-hidden="true"><div class="wor
     : html`<p class="empty">Der er ingen events de næste 7 dage endnu. <a href="/kalender">Se hele kalenderen</a>.</p>`,
     { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
-  ${section("h-activities", "Find din aktivitet", activityChips(ACTIVITIES.filter(a => a.category)), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
+  ${section("h-activities", "Find din aktivitet", activityChips(byCount(ACTIVITIES.filter(a => a.category && countOf(a) > 0))), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
   ${section("h-cities", "Events i din by", html`${chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place, count: byArea.get(a.slug) ?? 0 })))}
     <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
   <aside class="partner-teaser" aria-labelledby="h-partner">

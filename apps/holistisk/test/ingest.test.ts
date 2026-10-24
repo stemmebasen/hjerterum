@@ -27,7 +27,23 @@ function routes(feed: string) {
     "https://vaekstcenteret.dk/kurser/": { body: fixture("vaekstcenteret-kurser.html") },
     "https://vaekstcenteret.dk/kursus/": { body: fixture("vaekstcenteret-meditationsdage.html") },
     "https://favnaarhus.dk/robots.txt": { status: 404 },
-    "https://favnaarhus.dk/workshop-kalender-aarhus/": { body: fixture("favn-workshops.html") }
+    "https://favnaarhus.dk/workshop-kalender-aarhus/": { body: fixture("favn-workshops.html") },
+    "https://zr3nrpl4.apicdn.sanity.io/robots.txt": { status: 404 },
+    "https://zr3nrpl4.apicdn.sanity.io/v2021-10-21/data/query/production": { body: fixture("train-sanity.json"), headers: { "content-type": "application/json" } },
+    "https://www.musikhuset.dk/robots.txt": { body: "User-agent: *\nAllow: /\n" },
+    "https://www.musikhuset.dk/api/v2/events/showings": { body: fixture("musikhuset-showings.json"), headers: { "content-type": "application/json" } },
+    "https://www.musikhuset.dk/api/v2/events": { body: fixture("musikhuset-events.json"), headers: { "content-type": "application/json" } },
+    "https://www.aakb.dk/robots.txt": { body: "User-agent: *\nCrawl-delay: 10\n" },
+    "https://www.aakb.dk/api/v1/events/happening": { body: fixture("aakb-events.json"), headers: { "content-type": "application/json" } },
+    "https://resonansbistro.dk/robots.txt": { body: "User-agent: *\nAllow: /\n" },
+    "https://resonansbistro.dk/public/events/upcoming": { body: fixture("resonans-events.json"), headers: { "content-type": "application/json" } },
+    "https://folkestedet.aarhus.dk/robots.txt": { status: 404 },
+    "https://folkestedet.aarhus.dk/kalender": { body: fixture("folkestedet-kalender.html") },
+    "https://godsbanen.dk/robots.txt": { body: "User-agent: *\nDisallow:\n" },
+    "https://godsbanen.dk/kalender/": { body: fixture("godsbanen-kalender.html") },
+    "https://voxhall.dk/robots.txt": { body: "User-agent: *\nDisallow: /wp-admin/\n" },
+    "https://voxhall.dk/koncerter/": { body: fixture("voxhall-koncerter.html") },
+    "https://voxhall.dk/wp-json/wp/v2/voxhall-event": { body: fixture("voxhall-events.json"), headers: { "content-type": "application/json" } }
   };
 }
 

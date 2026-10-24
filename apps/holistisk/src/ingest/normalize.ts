@@ -50,7 +50,7 @@ export type EventRecord = {
 export type Normalized = { ok: true; record: EventRecord } | { ok: false; reason: string };
 
 /** Raised when the way events are read or categorised changes, so every stored event is processed again once. */
-export const NORMALIZE_VERSION = 5;
+export const NORMALIZE_VERSION = 6;
 
 /** The fields that decide whether a source's record changed (before any enrichment). */
 export async function contentHash(e: SourceEvent): Promise<string> {
@@ -102,7 +102,13 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
   let categories = (opt.descriptionIsSummary
     ? classify({ title, summary: description, hints: e.categoryHints })
     : classify({ title, description, hints: e.categoryHints })).filter(c => !list(opt.excludeCategories).includes(c));
+  // A source's own genre names that map straight to a category (Musikhuset's "comedy" -> scenekunst) come first.
+  const hintMap = opt.hintCategories && typeof opt.hintCategories === "object" ? opt.hintCategories as Record<string, string> : {};
+  const fromHints = e.categoryHints.map(h => hintMap[h.toLowerCase()]).filter((c): c is string => !!c);
+  if (fromHints.length) categories = [...new Set([...fromHints, ...categories])].slice(0, 3);
   if (!categories.length) categories = list(opt.defaultCategories);
+  // A venue that is one kind of place (a concert venue) always gives its events that category, first.
+  if (list(opt.alwaysCategories).length) categories = [...new Set([...list(opt.alwaysCategories), ...categories])].slice(0, 3);
   const topics = [...new Set([...classifyTopics({ title, description }), ...list(opt.alwaysTopics)])];
   const flags = new Set(e.qualityFlags);
   if (!area) flags.add(regionOnly ? "region_only" : "area_unknown");
