@@ -13,12 +13,14 @@ export type PageContext = {
   contactEmail: string | null;
   /** The areas shown on the portal, for the footer's "Events i din by". */
   areas: Area[];
+  /** The path prefix when served under another site (e.g. "/flokken"), or "". Links are prefixed after rendering. */
+  base: string;
 };
 
 export type Crumb = { name: string; path: string };
 
 export type PageMeta = {
-  /** The full <title>. Kept short and led by the search words ("Meditation og mindfulness i Aarhus ✨"). */
+  /** The full <title>. Kept short and led by the search words ("Meditation og mindfulness i Aarhus"). */
   title: string;
   description: string;
   /** Path (or absolute URL, when a source's terms require its own page as canonical). */
@@ -31,12 +33,12 @@ export type PageMeta = {
   breadcrumbs?: Crumb[];
 };
 
-const SITE = "holistisk.org";
+const SITE = "Flokken";
 
-/** The main navigation in the header: the calendar and the most searched activities. */
-const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/meditation", "Meditation"], ["/yoga", "Yoga"], ["/spiritualitet", "Spiritualitet"], ["/healing", "Healing"], ["/retreat", "Retreats"]];
-/** The site's mark: a sun over a horizon, drawn in the accent colour. */
-const MARK = raw('<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="currentColor" opacity=".14"/><circle cx="16" cy="17" r="6.5" fill="currentColor"/><path d="M5 21.5h22M8.5 25h15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>');
+/** The main navigation in the header. */
+const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/i-dag", "I dag"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
+/** The site's mark: three friends, overlapping. */
+export const MARK = raw('<svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="12.5" r="7.5" fill="#ff7a59"/><circle cx="21" cy="12.5" r="7.5" fill="#ffc23d" opacity=".92"/><circle cx="16" cy="21" r="7.5" fill="#16a093" opacity=".9"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
 
@@ -56,15 +58,17 @@ function breadcrumbJsonLd(crumbs: Crumb[], origin: string) {
 }
 
 export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
+  // Every title names the site, at the end so the search words come first.
+  const title = meta.title.includes(SITE) ? meta.title : `${meta.title} – ${SITE}`;
   const canonical = /^https?:\/\//.test(meta.canonical) ? meta.canonical : ctx.origin + meta.canonical;
   const robots = meta.noindex || ctx.environment !== "production" ? "noindex, nofollow" : "index, follow, max-image-preview:large";
   const image = meta.image ?? ctx.origin + SHARE_IMAGE;
   const jsonLd = [...(meta.jsonLd ?? []), ...(meta.breadcrumbs && meta.breadcrumbs.length > 1 ? [breadcrumbJsonLd(meta.breadcrumbs, ctx.origin)] : [])];
-  return "<!doctype html>" + html`<html lang="da">
+  return "<!doctype html>" + html`<html lang="da" data-base="/">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${meta.title}</title>
+<title>${title}</title>
 <meta name="description" content="${meta.description}">
 <meta name="robots" content="${robots}">
 <link rel="canonical" href="${canonical}">
@@ -73,36 +77,38 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta property="og:site_name" content="${SITE}">
 <meta property="og:locale" content="da_DK">
 <meta property="og:type" content="${meta.type ?? "website"}">
-<meta property="og:title" content="${meta.title}">
+<meta property="og:title" content="${title}">
 <meta property="og:description" content="${meta.description}">
 <meta property="og:url" content="${canonical}">
 <meta property="og:image" content="${image}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${meta.title}">
+<meta name="twitter:title" content="${title}">
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
-<meta name="theme-color" content="#f7f1e8">
+<meta name="theme-color" content="#fff6ea">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/assets/fonts/fraunces-latin-normal.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=4">
-<script src="/assets/site.js?v=4" defer></script>
+<link rel="preload" href="/assets/fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/assets/site.css?v=5">
+<script src="/assets/site.js?v=5" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
 <body>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion (${ctx.environment}) – ikke offentlig endnu</div>` : ""}
+${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – Flokken er under udvikling</div>` : ""}
 <header class="masthead">
   <div class="wrap masthead-inner">
-    <a class="wordmark" href="/" aria-label="holistisk.org – forsiden">${MARK}<span>holistisk<span class="tld">.org</span></span></a>
+    <a class="wordmark" href="/" aria-label="Flokken – forsiden">${MARK}<span>Flokken</span></a>
     <nav class="nav" aria-label="Hovedmenu">
       <ul>${NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
     </nav>
     <div class="masthead-tools">
+      <a class="my-flocks" href="/flokke"${ctx.path === "/flokke" ? raw(' aria-current="page"') : ""}>Mine flokke</a>
       <a class="icon-button" href="/kalender#soeg" aria-label="Søg i kalenderen"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/om#arrangoerer">Er du arrangør?</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
+          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
@@ -117,9 +123,9 @@ ${body}
 <footer class="site-footer">
   <div class="wrap footer-inner">
     <div class="footer-about">
-      <p class="footer-brand">${MARK}<span>holistisk<span class="tld">.org</span></span></p>
-      <p>Spirituel og holistisk kalender for ${ctx.regionLabel}. Events fra mange arrangører, samlet ét sted og opdateret hver nat. Tilmelding sker altid hos arrangøren.</p>
-      <p><a href="/om">Om portalen og kilderne</a> · <a href="/om#arrangoerer">Er du arrangør?</a></p>
+      <p class="footer-brand">${MARK}<span>Flokken</span></p>
+      <p>Find lokale events i ${ctx.regionLabel} – og nogen at følges med. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
+      <p><a href="/find-en-flok">Find en flok</a> · <a href="/tryghed">Tryghed</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
       <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul></nav>

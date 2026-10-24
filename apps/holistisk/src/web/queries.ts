@@ -17,12 +17,15 @@ export type EventRow = {
   status: "scheduled" | "cancelled" | "past" | "withdrawn";
   quality_flags: string; last_checked_at: number; updated_at: number; first_seen_at: number;
   categories: string | null;
+  /** Open flocks going to the event (Flokken). */
+  flock_count: number | null;
 };
 
 const ENDS = "COALESCE(e.ends_at, e.starts_at + 10800000)";
 const SELECT = `SELECT e.*, s.name AS source_name, s.attribution AS source_attribution, s.homepage_url AS source_homepage,
   o.name AS organizer_name, o.website_url AS organizer_url,
-  (SELECT group_concat(category, ',') FROM (SELECT category FROM event_categories c WHERE c.event_id = e.id ORDER BY c.rank)) AS categories
+  (SELECT group_concat(category, ',') FROM (SELECT category FROM event_categories c WHERE c.event_id = e.id ORDER BY c.rank)) AS categories,
+  (SELECT COUNT(*) FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') AS flock_count
   FROM events e JOIN sources s ON s.id = e.primary_source_id LEFT JOIN organizers o ON o.id = e.organizer_id`;
 
 type Where = { sql: string[]; params: unknown[] };

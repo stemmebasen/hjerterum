@@ -1,6 +1,6 @@
-# holistisk.org – the event portal
+# Flokken – the event portal with flocks
 
-`apps/holistisk` is a public portal for holistic events in Denmark (first Østjylland). It collects events from permitted sources every night, removes duplicates, keeps them up to date and shows them with search and filters. Sign-up always happens with the organiser. Why it lives here and how it is kept apart from Hjerterum: [ADR 0006](../decisions/0006-holistisk-event-portal.md).
+`apps/holistisk` is Flokken: a public event portal for Aarhus and Østjylland where people find local events – and others to go with. It collects events from permitted sources every night, removes duplicates, keeps them up to date and shows them with search and filters. On top of that, members create and join flocks (flokke): small groups going to one event together, meeting at a public place before it. Tickets and sign-up always happen with the organiser. Why it lives here and how it is kept apart from Hjerterum: [ADR 0006](../decisions/0006-holistisk-event-portal.md); the move to Flokken: [ADR 0007](../decisions/0007-flokken.md). The code and the Cloudflare names still say "holistisk" (`apps/holistisk`, `holistisk-portal-staging`); only what visitors see is Flokken.
 
 ## Run it
 
@@ -23,19 +23,29 @@ curl "http://localhost:8787/__scheduled?cron=17+3+*+*+*"   # runs the daily coll
 | `src/sources/` | One adapter per kind of feed (`membershipworks`, `ical`, `jsonld`, `billetto`), the HTTP client (retries, timeouts, robots.txt) and `registry.ts`, the list of sources |
 | `src/ingest/` | Normalising, duplicate detection, updates, withdrawal, expiry and the run log |
 | `src/web/` | Pages (server-rendered HTML), filters, queries, SEO (schema.org, sitemap, robots, .ics) |
+| `src/flokken/` | Flokken: login (`auth.ts`), flocks (`store.ts`, `forms.ts`), their pages and routes, and partners (`partners.ts`: the collaboration page, inquiries and confirmed member offers) |
 | `src/geo.ts`, `src/categories.ts` | Regions/areas by postcode and town; the 14 categories and the keyword classifier |
 | `migrations/` | The portal's own D1 schema |
 | `public/` | Stylesheet, script, icon |
 
 ## Pages
 
-`/` front page · `/kalender` the calendar with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `emne`, `side`) · `/i-dag` · `/weekend` · `/<activity>` (e.g. `/meditation`, `/klarsyn`) · `/<activity>/<city>` (e.g. `/meditation/aarhus`) · `/<city>` (e.g. `/aarhus`) · `/kategorier` · `/arrangoerer` · `/arrangoerer/<slug>` · `/events/<slug>` (+ `.ics`) · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`). Earlier addresses answer 301: `/events` → `/kalender`, `/kategori/<x>` → `/<activity>`, `/omraade/<city>` and `/<city>/<activity>` → the new form.
+`/` front page · `/find-en-flok` open flocks · `/flokke` Mine flokke · `/flokke/<id>` a flock (`POST …/bliv-del-af`, `…/forlad`, `…/eftermoedet`; `…/ret` for the one who looks after it) · `/events/<slug>/opret-flok` · `/log-ind`, `POST /bliv-medlem`, `POST /log-ud` · `/tryghed` · `/samarbejde` (+ `POST`; `GET /api/samarbejde` lists inquiries with bearer `INGEST_TOKEN`) · `/kalender` the calendar with filters (`q`, `periode`, `fra`, `til`, `kategori` (repeatable), `omraade`, `by`, `pris`, `emne`, `side`) · `/i-dag` · `/weekend` · `/<activity>` (e.g. `/meditation`, `/klarsyn`) · `/<activity>/<city>` (e.g. `/meditation/aarhus`) · `/<city>` (e.g. `/aarhus`) · `/kategorier` · `/arrangoerer` · `/arrangoerer/<slug>` · `/events/<slug>` (+ `.ics`) · `/om` · `/sitemap.xml` · `/robots.txt` · `/api/health` · `/api/status` · `POST /api/ingest/run` (bearer `INGEST_TOKEN`). Earlier addresses answer 301: `/events` → `/kalender`, `/kategori/<x>` → `/<activity>`, `/omraade/<city>` and `/<city>/<activity>` → the new form.
 
 Outside production every response carries `X-Robots-Tag: noindex` and robots.txt disallows everything.
 
+## Flokken
+
+- **Members** are a first name and a personal code (12 characters, shown once at sign-up, stored only as SHA-256). No e-mail, phone, age or picture. The code logs in on another device; a lost code cannot be recovered. A login is a random token in an HttpOnly, Secure, SameSite=Lax cookie (`flok_session`, 90 days), stored hashed in `member_sessions`. Hjerterum's login (Clerk) is not used: Flokken's members are kept apart from Hjerterum's.
+- **Flocks** belong to one event. The person who creates one sets a public meeting place (confirmed by a tick box; the event's entrance is suggested), a time (from 6 hours before the event until it ends), a size (2–10, default 6) and an optional note. Anyone logged in can join a flock with room; a member is in at most one flock per event and can leave at any time; an empty flock closes. Names are visible only to the flock's members; others see how many are in it. Nobody is ever put in a flock automatically. Limit: 5 new flocks per member per day.
+- **Eftermødet**: each member answers whether they want to find something to do together again (any time, highlighted after the event). Someone who said yes can start a new flock for another event "from" that flock; the others who said yes then see it under Mine flokke and choose themselves whether to join.
+- **Not built yet**: blocking, reporting, verified profiles, messages between members, e-mail notifications. The safety page says so.
+- **Partners** (`/samarbejde`): the planned model (a ticket benefit for members in return for visibility and possible radio mention) and an inquiry form stored in `partner_inquiries`. Member offers live in `PARTNER_OFFERS` in `src/flokken/partners.ts` and are shown on an event only with `confirmedBy` and `confirmedOn` filled in; the list is empty.
+- **Under another site**: a proxy can show the portal under a path (www.jacobhauge.com/flokken, see the jacobhauge repo's `functions/flokken`) by stripping the prefix and sending `x-flokken-mount: https://www.jacobhauge.com/flokken`. The Worker accepts only addresses in `MOUNTS` (`src/index.ts`) or `PUBLIC_MOUNTS`, then prefixes every link, form, redirect and the cookie path, uses that address for canonical links, and checks forms against its origin.
+
 ## Design
 
-Warm and calm rather than a news site: cream paper, a sand-coloured hero, terracotta for actions and sage for labels, rounded pictures and soft cards. Headings are set in Fraunces (SIL OFL, `public/assets/fonts`, instanced to weights 300–700 with a fixed softness so the files stay ~65 kB), a soft old-style serif with curled terminals in the spirit of Playfair; body text uses the system sans-serif. The header has the sun mark, the main activities and a menu. The front page shows a few upcoming events with pictures, then every event of the coming 7 days, day by day, so no organiser's events are left out. The calendar is a list of day cards.
+Social, colourful and warm: cream paper, a sunny hero with three overlapping circles (the mark: three friends), coral for actions, teal for labels, plum for "Mine flokke" and day headings, yellow for flock badges; rounded cards. Headings in Bricolage Grotesque (SIL OFL, `public/assets/fonts`, instanced to ~73 kB); body text in the system sans-serif. Every text colour pair meets WCAG AA. Every event card and calendar row says how many flocks are going ("2 flokke · Find en flok") or invites "Opret en flok"; the event page has a "Find en flok" panel right under the details. The front page explains Flokken in three steps, shows open flocks, a few events with pictures and then every event of the coming 7 days.
 
 ## Search engines
 
@@ -67,7 +77,8 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 | `PUBLIC_BASE_URL` | secret/var | The portal's address for canonical links and the sitemap. |
 | `INGEST_TOKEN` | secret | Enables `POST /api/ingest/run` (at least 24 characters). The staging workflow sets a fresh one per deploy. |
 | `BILLETTO_API_KEYPAIR` | secret | Turns the Billetto source on (GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`). |
-| `CONTACT_EMAIL` | var | Shown on the about page for organisers (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
+| `CONTACT_EMAIL` | var | Shown on the safety page for concerns (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
+| `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated (www.jacobhauge.com/flokken is built in). |
 
 ## Covering more of Denmark
 

@@ -31,8 +31,10 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain("<h1>Spirituelle og holistiske events i Østjylland</h1>");
-    expect(body).toContain("<title>Spirituelle og holistiske events i Østjylland – kalender ✨</title>");
+    expect(body).toContain("<h1>Find et event – og en flok at følges med</h1>");
+    expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
+    expect(body).toContain("Sådan virker Flokken");
+    expect(body).toContain('href="/samarbejde"');
     expect(body).toContain('class="card-grid');
     expect(body).toContain('action="/kalender"');
     expect(body).toContain('href="/aarhus"');
@@ -82,9 +84,9 @@ describe("the calendar", () => {
 
   it("today and the weekend have their own pages", async () => {
     const weekend = await text("/weekend");
-    expect(weekend.body).toContain("<h1>Spirituel weekend i Østjylland</h1>");
+    expect(weekend.body).toContain("<h1>Det sker i weekenden i Østjylland</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Spirituelle og holistiske events i Østjylland</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Events i Østjylland – Flokken</title>");
   });
 });
 
@@ -95,8 +97,8 @@ describe("landing pages: activity, then city", () => {
     const aarhus = await text("/meditation/aarhus");
     expect(aarhus.status).toBe(200);
     expect(aarhus.body).toContain("<h1>Meditation i Aarhus</h1>");
-    expect(aarhus.body).toContain("<title>Meditation i Aarhus ✨</title>");
-    expect(aarhus.body).toMatch(/<meta name="description" content="Oplev guidede meditationer, mindfulness og stilhed i Aarhus\. Find ro og nærvær ✨ Find events nu\.">/);
+    expect(aarhus.body).toContain("<title>Meditation i Aarhus – Flokken</title>");
+    expect(aarhus.body).toMatch(/<meta name="description" content="Oplev guidede meditationer, mindfulness og stilhed i Aarhus\. Find ro og nærvær – og find en flok at følges med\.">/);
     expect(aarhus.body).toContain("Faste tilbud i Aarhus");
     expect(aarhus.body).toContain('href="/arrangoerer/buddhistisk-center-aarhus"');
     expect(aarhus.body).toContain('href="/meditation/randers"');
@@ -125,8 +127,8 @@ describe("landing pages: activity, then city", () => {
 
   it("a city's page", async () => {
     const { body } = await text("/aarhus");
-    expect(body).toContain("<h1>Spirituelle og holistiske events i Aarhus</h1>");
-    expect(body).toContain("<title>Hvad sker der i Aarhus? Spirituelle og holistiske events ✨</title>");
+    expect(body).toContain("<h1>Events i Aarhus</h1>");
+    expect(body).toContain("<title>Hvad sker der i Aarhus? Events og flokke – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
     expect(body).toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");

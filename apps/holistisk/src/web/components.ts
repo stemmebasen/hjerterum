@@ -26,6 +26,15 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
   return html`<p class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</p>`;
 }
 
+/** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for
+ * events that have started or are cancelled. */
+export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_at">, now: number): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now) return html``;
+  const n = e.flock_count ?? 0;
+  return n ? html`<span class="flock-badge"><span aria-hidden="true">●●●</span> ${n === 1 ? "1 flok" : `${n} flokke`} · Find en flok</span>`
+    : html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
+}
+
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
 
 /** A picture, or for events without one we may show, a quiet typographic stand-in with the date. */
@@ -46,6 +55,7 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
     ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
     <p class="meta"><span class="visually-hidden">Tid: </span>${when(e, now)}</p>
     <p class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? ` · ${price}` : ""}</p>
+    ${flockBadge(e, now)}
   </a>
 </article>`;
 }
@@ -69,7 +79,7 @@ export function dayList(events: EventRow[], now: number): SafeHtml {
     const price = priceLabel(e);
     return html`<li class="row${e.status === "cancelled" ? " is-cancelled" : ""}"><a href="${eventPath(e)}">
       <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
-      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === d.date ? ` · til ${hhmm(e.ends_at)}` : ""}</span></span>
+      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === d.date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${flockBadge(e, now)}</span>
       ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
     </a></li>`;
   })}</ol>
@@ -79,7 +89,7 @@ export function dayList(events: EventRow[], now: number): SafeHtml {
 export function searchForm(areas: Area[], selected: { q?: string; area?: string | null }, options: { compact?: boolean } = {}): SafeHtml {
   return html`<form class="search${options.compact ? " search-compact" : ""}" action="/kalender" method="get" role="search">
   <label class="visually-hidden" for="s-q">Søg i kalenderen</label>
-  <input id="s-q" name="q" type="search" value="${selected.q ?? ""}" placeholder="Søg: meditation, klarsyn, soundbath …" autocomplete="off" maxlength="80">
+  <input id="s-q" name="q" type="search" value="${selected.q ?? ""}" placeholder="Søg: workshop, yoga, foredrag …" autocomplete="off" maxlength="80">
   <label class="visually-hidden" for="s-area">By</label>
   <select id="s-area" name="omraade">
     <option value="">Hele Østjylland</option>

@@ -6,6 +6,10 @@ import { ORGANIZERS, organizerBySlug, organizersFor, type OrganizerProfile } fro
 import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
+import type { Member } from "../flokken/auth.js";
+import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
+import { offersBlock, offersFor } from "../flokken/partners.js";
+import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, type SafeHtml } from "./html.js";
@@ -72,9 +76,10 @@ const FRONT_WEEK_LIMIT = 80;
 
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const areas = activeAreas(regions);
-  const [featured, byArea, week] = await Promise.all([
+  const [featured, byArea, week, flocks] = await Promise.all([
     featuredEvents(db, regions, ctx.now, 4), areaCounts(db, regions, ctx.now),
-    listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT)
+    listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
+    upcomingFlocks(db, regions, ctx.now, 6)
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
@@ -83,15 +88,18 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   const body = html`
 <div class="hero">
   <div class="wrap hero-inner">
-    <h1>Spirituelle og holistiske events i ${ctx.regionLabel}</h1>
-    <p class="standfirst">Meditation, yoga, breathwork, healing, klarsyn, foredrag, cirkler og retreats fra mange arrangører – samlet i én kalender og opdateret hver nat.</p>
+    <p class="hero-kicker">Flokken · ${ctx.regionLabel}</p>
+    <h1>Find et event – og en flok at følges med</h1>
+    <p class="standfirst">Flokken samler lokale events i Aarhus og omegn. Find en flok, der skal det samme som dig, eller opret din egen – og mød hinanden et offentligt sted før eventet.</p>
     ${searchForm(areas, {})}
     <ul class="quick-links" aria-label="Genveje">
-      <li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/meditation">Meditation</a></li><li><a href="/yoga">Yoga</a></li><li><a href="/healing">Healing</a></li><li><a href="/retreat">Retreats</a></li>
+      <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender?pris=gratis">Gratis</a></li><li><a href="/workshops">Workshops</a></li><li><a href="/yoga">Yoga</a></li>
     </ul>
   </div>
 </div>
 <div class="wrap">
+  ${section("h-how", "Sådan virker Flokken", howItWorks)}
+  ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
   ${featured.length ? section("h-featured", "Snart i kalenderen", cardGrid(featured, ctx.now)) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
     ? html`${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se alle ${week.total} events de næste 7 dage</a></p>` : ""}`
@@ -99,23 +107,28 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
   ${section("h-activities", "Find din aktivitet", activityChips(ACTIVITIES.filter(a => a.category)), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
-  ${section("h-topics", "Populære emner", activityChips(TOPICS))}
   ${section("h-cities", "Events i din by", html`${chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place, count: byArea.get(a.slug) ?? 0 })))}
     <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
+  <aside class="partner-teaser" aria-labelledby="h-partner">
+    <div><p class="hero-kicker">For foreninger og kultursteder</p><h2 id="h-partner">Vil I have flere med?</h2>
+    <p>Tilbyd Flokkens medlemmer en billetfordel og få synlighed på Flokken – og mulighed for radioomtale.</p></div>
+    <p><a class="button button-alt" href="/samarbejde">Læs om samarbejde</a></p>
+  </aside>
+  ${section("h-topics", "Populære emner", activityChips(TOPICS))}
   ${section("h-regular", "Faste ugentlige tilbud", offeringsBlock(ORGANIZERS.filter(o => areas.some(a => a.slug === o.area))), { href: "/arrangoerer", label: "Alle arrangører →" })}
 </div>`;
   return {
     status: 200,
     body: page(ctx, {
-      title: `Spirituelle og holistiske events i ${ctx.regionLabel} – kalender ✨`,
-      description: `Spirituel og holistisk kalender for ${ctx.regionLabel}: meditation, yoga, breathwork, healing, klarsyn, foredrag og retreats. ${total} kommende events fra mange arrangører ✨`,
+      title: `Flokken – find events i Aarhus og nogen at følges med`,
+      description: `Find lokale events i ${ctx.regionLabel} – og en flok at følges med. ${total} kommende events fra mange arrangører. Opret en flok eller bliv en del af en.`,
       canonical: "/",
       jsonLd: [
         {
-          "@context": "https://schema.org", "@type": "WebSite", name: "holistisk.org", url: ctx.origin + "/", inLanguage: "da-DK",
+          "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK",
           potentialAction: { "@type": "SearchAction", target: `${ctx.origin}/kalender?q={search_term_string}`, "query-input": "required name=search_term_string" }
         },
-        { "@context": "https://schema.org", "@type": "Organization", name: "holistisk.org", url: ctx.origin + "/", logo: ctx.origin + "/favicon.svg" }
+        { "@context": "https://schema.org", "@type": "Organization", name: "Flokken", url: ctx.origin + "/", logo: ctx.origin + "/favicon.svg" }
       ]
     }, body)
   };
@@ -136,7 +149,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
-    <p class="standfirst">Spirituel og holistisk kalender: alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter dato, by, aktivitet og pris.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter dato, by, aktivitet og pris – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
   <div class="list-layout" id="soeg">
     <aside class="list-filters">
@@ -159,8 +172,8 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   return {
     status: 200,
     body: page(ctx, {
-      title: f.page > 1 ? `Spirituel og holistisk kalender – side ${f.page}` : `Spirituel og holistisk kalender for ${ctx.regionLabel} ✨`,
-      description: `Alternativ og spirituel kalender for ${ctx.regionLabel}: meditation, yoga, breathwork, healing, klarsyn, foredrag og retreats – dag for dag. ${total} kommende events ✨`,
+      title: f.page > 1 ? `Kalender – side ${f.page}` : `Kalender – events i ${ctx.regionLabel}`,
+      description: `Kalender for ${ctx.regionLabel}: ${total} kommende events fra lokale arrangører – dag for dag. Find en flok at følges med.`,
       canonical: "/kalender" + (f.page > 1 ? toQuery({ page: f.page }) : ""),
       breadcrumbs: crumbs,
       noindex: filtered || total === 0,
@@ -169,13 +182,13 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   };
 }
 
-/** /i-dag and /weekend: "hvad sker der i dag", "spirituel weekend". */
+/** /i-dag and /weekend: "hvad sker der i dag", "hvad sker der i weekenden". */
 export async function periodPage(db: D1Database, ctx: PageContext, regions: string[], period: "idag" | "weekend"): Promise<View> {
   const { events, total } = await listEvents(db, emptyFilters({ period }), regions, ctx.now);
   const path = period === "idag" ? "/i-dag" : "/weekend";
   const name = period === "idag" ? "Det sker i dag" : "I weekenden";
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name, path }];
-  const heading = period === "idag" ? `Det sker i dag i ${ctx.regionLabel}` : `Spirituel weekend i ${ctx.regionLabel}`;
+  const heading = period === "idag" ? `Det sker i dag i ${ctx.regionLabel}` : `Det sker i weekenden i ${ctx.regionLabel}`;
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
@@ -190,8 +203,8 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
   return {
     status: 200,
     body: page(ctx, {
-      title: period === "idag" ? `Hvad sker der i dag? Spirituelle og holistiske events i ${ctx.regionLabel}` : `Spirituel weekend – holistiske events i weekenden i ${ctx.regionLabel} ✨`,
-      description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: meditation, yoga, healing, foredrag og fællesskaber. ${total} events i dag ✨` : `Spirituelle og holistiske events i weekenden i ${ctx.regionLabel}: retreats, workshops, ceremonier og meditation. ${total} events ✨`,
+      title: period === "idag" ? `Hvad sker der i dag? Events i ${ctx.regionLabel}` : `Hvad sker der i weekenden? Events i ${ctx.regionLabel}`,
+      description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: ${total} events. Find en flok at følges med.` : `Det sker i weekenden i ${ctx.regionLabel}: ${total} events. Find en flok at følges med.`,
       canonical: path,
       breadcrumbs: crumbs,
       jsonLd: events.length ? [itemList(events, ctx)] : []
@@ -236,8 +249,8 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
   return {
     status: 200,
     body: page(ctx, {
-      title: `${heading} ✨`,
-      description: `Oplev ${activity.phrase} i ${place}. ${activity.promise} ✨ Find events nu.`,
+      title: `${heading}`,
+      description: `Oplev ${activity.phrase} i ${place}. ${activity.promise} – og find en flok at følges med.`,
       canonical: basePath + (pageNo > 1 ? `?side=${pageNo}` : ""),
       breadcrumbs: crumbs,
       // A page with neither events nor organisers to show has nothing for a search engine.
@@ -264,8 +277,8 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Spirituelle og holistiske events i ${area.place}</h1>
-    <p class="standfirst">Hvad sker der i ${area.place}? Meditation, yoga, breathwork, healing, klarsyn, spirituelle foredrag og fællesskaber – fra lokale arrangører, opdateret hver nat.</p>
+    <h1>Events i ${area.place}</h1>
+    <p class="standfirst">Hvad sker der i ${area.place}? Events fra lokale arrangører, opdateret hver nat – find en flok at følges med, eller opret din egen.</p>
   </header>
   <div class="main-aside">
     <div>
@@ -286,8 +299,8 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
   return {
     status: 200,
     body: page(ctx, {
-      title: `Hvad sker der i ${area.place}? Spirituelle og holistiske events ✨`,
-      description: `Det sker i ${area.place}: meditation, yoga, breathwork, healing, klarsyn, spirituelle foredrag og fællesskaber. ${upcoming.total} kommende events – find dit næste ✨`,
+      title: `Hvad sker der i ${area.place}? Events og flokke`,
+      description: `Det sker i ${area.place}: ${upcoming.total} kommende events fra lokale arrangører. Find en flok at følges med.`,
       canonical: `/${area.slug}`,
       breadcrumbs: crumbs,
       noindex: upcoming.total === 0 && profiles.length === 0,
@@ -306,8 +319,8 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Arrangører af spirituelle og holistiske events</h1>
-    <p class="standfirst">Centre, foreninger og huse i ${ctx.regionLabel}, der holder meditation, yoga, healing, foredrag, retreats og fællesskaber – med deres faste tilbud og kommende events.</p>
+    <h1>Arrangører</h1>
+    <p class="standfirst">Foreninger, huse og studier i ${ctx.regionLabel}, hvis events du finder på Flokken – med deres faste tilbud og kommende events. <a href="/samarbejde">Vil I være med?</a></p>
   </header>
   ${byArea.map(x => section(`h-${x.a.slug}`, x.a.place, html`<ul class="org-list">${x.list.map(o => html`<li>
     <h3><a href="/arrangoerer/${o.slug}">${o.name}</a></h3>
@@ -315,7 +328,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
     <p class="meta meta-muted">${[o.address, [o.postalCode, o.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>
   </li>`)}</ul>`))}
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Arrangører – spirituelle og holistiske centre i ${ctx.regionLabel}`, description: `Meditationscentre, spirituelle foreninger, yogastudier og retreatsteder i ${ctx.regionLabel} – med faste tilbud og kommende events.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Arrangører i ${ctx.regionLabel}`, description: `Foreninger, huse og studier i ${ctx.regionLabel} – med faste tilbud og kommende events.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
 }
 
 export async function organizerPage(db: D1Database, ctx: PageContext, regions: string[], profile: OrganizerProfile): Promise<View | null> {
@@ -366,10 +379,22 @@ export async function organizerPage(db: D1Database, ctx: PageContext, regions: s
 
 // ————————————————————————————————————————— An event
 
-export async function eventPage(db: D1Database, ctx: PageContext, regions: string[], slug: string): Promise<View | null> {
+export type EventPageExtras = {
+  member: Member | null;
+  message: string | null;
+  flocks: (eventId: string) => Promise<FlockRow[]>;
+  myFlock: (eventId: string) => Promise<string | null>;
+};
+
+export async function eventPage(db: D1Database, ctx: PageContext, regions: string[], slug: string, extras?: EventPageExtras): Promise<View | null> {
   const e = await eventBySlug(db, slug);
   if (!e || !e.region || !regions.includes(e.region)) return null;
-  const related = await relatedEvents(db, e, regions, ctx.now);
+  const [related, flocks, myFlockId] = await Promise.all([
+    relatedEvents(db, e, regions, ctx.now),
+    extras ? extras.flocks(e.id) : Promise.resolve([] as FlockRow[]),
+    extras ? extras.myFlock(e.id) : Promise.resolve(null)
+  ]);
+  const offers = offersFor(e);
   const source = sourceById(e.primary_source_id);
   const categories = (e.categories ?? "").split(",").filter(Boolean);
   const price = priceLabel(e);
@@ -405,11 +430,15 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
     <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
     ${notice}
+    ${flash(extras?.message ?? null)}
     <div class="event-actions">
       ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren<span class="visually-hidden"> (åbner i nyt vindue)</span></a>` : ""}
       ${!over && e.status !== "withdrawn" ? html`<a class="button-secondary" href="${eventPath(e)}.ics" download>Tilføj til kalender</a>` : ""}
+      ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Find en flok</a>` : ""}
     </div>
   </header>
+  ${offersBlock(offers)}
+  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
   ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   <div class="main-aside">
     <div class="event-text">
@@ -446,7 +475,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
       noindex: e.status === "withdrawn" || over,
       jsonLd: [eventJsonLd(e, ctx.origin)]
     }, body),
-    ...(source?.canonicalToSource && e.source_url ? { headers: { link: `<${e.source_url}>; rel="canonical"` } } : {})
+    // The flocks and the viewer's own place in them change all the time, so the page is never cached.
+    headers: { "cache-control": "private, no-store", ...(source?.canonicalToSource && e.source_url ? { link: `<${e.source_url}>; rel="canonical"` } : {}) }
   };
 }
 
@@ -466,33 +496,32 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
   ${section("h-acts", "Aktiviteter", list(ACTIVITIES.filter(a => a.category)))}
   ${section("h-topics", "Emner", list(TOPICS))}
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – spirituelle og holistiske events i ${ctx.regionLabel}`, description: `Meditation, yoga, breathwork, healing, klarsyn, soundbath, kakaoceremoni, MBSR og retreats i ${ctx.regionLabel} ✨`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – events i ${ctx.regionLabel}`, description: `Meditation, yoga, breathwork, healing, klarsyn, soundbath, kakaoceremoni, MBSR og retreats i ${ctx.regionLabel}.`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
 }
 
 export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[]): Promise<View> {
   const sources = (await sourcesForAbout(db)).filter(s => s.enabled === 1);
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Om portalen", path: "/om" }];
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Om Flokken", path: "/om" }];
   const body = html`
 <div class="wrap narrow prose">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Om holistisk.org</h1>
-    <p class="standfirst">holistisk.org samler spirituelle og holistiske events fra mange arrangører, så du nemt kan finde oplevelser i dit nærområde.</p>
+    <h1>Om Flokken</h1>
+    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde lokale events – og andre, der gerne vil opleve det samme. Eventet er udgangspunktet for at mødes.</p>
   </header>
-  <h2>Hvad finder du her?</h2>
-  <p>Meditation og mindfulness, yoga, breathwork, lydhealing, dans og bevægelse, kvinde- og mandegrupper, samtalegrupper, workshops, retreats, healing, spirituelle foredrag, naturaktiviteter og fællesskaber. Vi starter i ${ctx.regionLabel} (${areas.map(a => a.place).join(", ")}) og udvider til resten af Danmark.</p>
-  <h2>Hvor kommer eventsene fra?</h2>
-  <p>Hver nat henter portalen events fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi tilføjer kun kilder, hvor vi har lov, og vi opfinder aldrig events eller oplysninger. Hvert event viser, hvor det kommer fra.</p>
+  <h2>Hvad er en flok?</h2>
+  <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet, og bagefter vælger hver især, om de vil finde på noget sammen igen – det kalder vi Eftermødet. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
+  <h2>Hvor finder du events?</h2>
+  <p>Vi starter i ${ctx.regionLabel} (${areas.map(a => a.place).join(", ")}). Hver nat henter Flokken events fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig events eller oplysninger, og hvert event viser, hvor det kommer fra.</p>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
   </ul>
-  <h2>Tilmelding</h2>
-  <p>Du tilmelder dig altid hos arrangøren. holistisk.org sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
+  <h2>Billet og tilmelding</h2>
+  <p>Du køber billet eller tilmelder dig altid hos arrangøren. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
   <h2 id="arrangoerer">For arrangører</h2>
-  <p>Vil du have dine events med? Det letteste er en offentlig kalender (fx en delt Google-kalender som iCal-link), et RSS-feed eller strukturerede eventdata (schema.org) på din hjemmeside – sammen med dit samtykke til, at vi viser titel, tidspunkt, sted, beskrivelse og eventuelt billede med henvisning til dig.${ctx.contactEmail ? html` Skriv til <a href="mailto:${ctx.contactEmail}">${ctx.contactEmail}</a>.` : ""}</p>
-  <p>Ser du en fejl ved et af dine events, så ret det i din egen kalender – portalen henter ændringen ved næste opdatering. Vil du ikke være med, fjerner vi dine events.</p>
+  <p>Vil I samarbejde med Flokken – eller have jeres events med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres events, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres events.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: "Om holistisk.org – kilder og arrangører", description: "Hvad holistisk.org er, hvor eventsene kommer fra, og hvordan arrangører får deres events med.", canonical: "/om", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Hvad Flokken er, hvordan en flok virker, hvor eventsene kommer fra, og hvordan arrangører kommer med.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
 
 export function notFoundPage(ctx: PageContext): View {
@@ -504,5 +533,5 @@ export function notFoundPage(ctx: PageContext): View {
     <p><a class="button" href="/kalender">Se kalenderen</a></p>
   </header>
 </div>`;
-  return { status: 404, body: page(ctx, { title: "Siden findes ikke · holistisk.org", description: "Siden findes ikke.", canonical: ctx.path, noindex: true }, body) };
+  return { status: 404, body: page(ctx, { title: "Siden findes ikke", description: "Siden findes ikke.", canonical: ctx.path, noindex: true }, body) };
 }

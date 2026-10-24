@@ -1,4 +1,4 @@
-name: holistisk.org portal – staging
+name: Flokken (holistisk portal) – staging
 
 # The event portal (apps/holistisk) deploys on its own: its own Worker (holistisk-portal-staging on workers.dev),
 # its own D1 database and its own cron. It never deploys or configures Hjerterum (apps/web), and it sets no routes
@@ -111,17 +111,25 @@ jobs:
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
           retry "$URL/" > /tmp/home.html
-          grep -q 'Spirituelle og holistiske events i Østjylland' /tmp/home.html
+          grep -q 'Find et event – og en flok at følges med' /tmp/home.html
+          grep -q 'Sådan virker Flokken' /tmp/home.html
           retry "$URL/kalender" > /tmp/events.html
           EVENT_PATH="$(grep -o 'href="/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="//;s/"$//')"
           test -n "$EVENT_PATH"
           retry "$URL$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
           grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
+          grep -q 'id="flokke"' /tmp/event.html
           retry "$URL/kalender?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
           grep -q 'class="results-count"' /tmp/filtered.html
           retry "$URL/aarhus" > /tmp/aarhus.html
-          grep -q '<h1>Spirituelle og holistiske events i Aarhus</h1>' /tmp/aarhus.html
+          grep -q '<h1>Events i Aarhus</h1>' /tmp/aarhus.html
+          # Flokken: the flock pages answer (the flocks tables exist) and forms from other sites are refused.
+          retry "$URL/find-en-flok" > /tmp/find.html && grep -q '<h1>Find en flok</h1>' /tmp/find.html
+          retry "$URL/log-ind" > /tmp/login.html && grep -q 'action="/bliv-medlem"' /tmp/login.html
+          retry "$URL/samarbejde" > /tmp/partner.html && grep -q 'billetfordel' /tmp/partner.html
+          retry "$URL/tryghed" > /tmp/safety.html && grep -q 'offentligt sted' /tmp/safety.html
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
           retry "$URL/spiritualitet/aarhus" > /tmp/aarhus-spirit.html
           grep -q '<h1>Spirituelle arrangementer i Aarhus</h1>' /tmp/aarhus-spirit.html
           retry "$URL/klarsyn/aarhus" > /tmp/klarsyn.html

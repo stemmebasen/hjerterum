@@ -10,8 +10,11 @@ import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventP
 import { sitemapPages } from "./web/sitemap.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
+import { currentMember, sameOrigin, sameSecret } from "./flokken/auth.js";
+import { flokkenRoute } from "./flokken/routes.js";
+import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
 
-/** holistisk.org: the public event portal (server-rendered pages) and its daily collector (the cron). */
+/** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
 
 interface ExecutionContextLike { waitUntil(promise: Promise<unknown>): void }
 interface ScheduledControllerLike { cron: string; scheduledTime: number }
@@ -34,7 +37,8 @@ const json = (env: Env, data: unknown, status = 200, cache = "no-store") => resp
 const redirect = (location: string) => new Response(null, { status: 301, headers: { location, "cache-control": "public, max-age=86400" } });
 const view = (env: Env, v: View) => respond(env, v.body, { status: v.status, ...(v.headers ? { headers: v.headers } : {}), ...(v.status !== 200 ? { cache: "no-store" } : {}) });
 
-function context(env: Env, url: URL, now: number, regions: string[]): PageContext {
+function context(env: Env, url: URL, now: number, regions: string[], mount: { origin: string; base: string } | null): PageContext {
+  if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
     origin: configured ?? url.origin,
@@ -43,23 +47,50 @@ function context(env: Env, url: URL, now: number, regions: string[]): PageContex
     now,
     regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og "),
     contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
-    areas: activeAreas(regions)
+    areas: activeAreas(regions),
+    base: ""
   };
 }
 
-/** Constant-time comparison for the manual-run token. */
-function sameSecret(a: string, b: string): boolean {
-  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
-  let diff = x.length ^ y.length;
-  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
-  return diff === 0;
+/** Addresses the portal may also be served under, through a proxy that strips the path prefix and names the address in
+ * the x-flokken-mount header (www.jacobhauge.com/flokken, see docs/holistisk/README.md). PUBLIC_MOUNTS adds more. */
+const MOUNTS = ["https://www.jacobhauge.com/flokken"];
+
+function mountOf(request: Request, env: Env): { origin: string; base: string } | null {
+  const given = request.headers.get("x-flokken-mount");
+  if (!given) return null;
+  const allowed = [...MOUNTS, ...(env.PUBLIC_MOUNTS ?? "").split(",").map(s => s.trim()).filter(Boolean)];
+  if (!allowed.includes(given)) return null;
+  const m = /^(https:\/\/[a-z0-9.-]+)(\/[a-z0-9-]+)$/.exec(given);
+  return m ? { origin: m[1]!, base: m[2]! } : null;
+}
+
+/** Under a mount, every link, form, redirect and cookie of the page gets the path prefix. */
+async function underMount(response: Response, base: string): Promise<Response> {
+  const headers = new Headers(response.headers);
+  const location = headers.get("location");
+  if (location && /^\/(?!\/)/.test(location)) headers.set("location", base + location);
+  const cookies = headers.getSetCookie?.() ?? [];
+  if (cookies.length) {
+    headers.delete("set-cookie");
+    for (const c of cookies) headers.append("set-cookie", c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`));
+  }
+  if (!(headers.get("content-type") ?? "").startsWith("text/html") || !response.body) return new Response(response.body, { status: response.status, headers });
+  const text = (await response.text()).replace(/(\s(?:href|src|action|data-base)=")\/(?!\/)/g, `$1${base}/`);
+  return new Response(text, { status: response.status, headers });
 }
 
 export async function handle(request: Request, env: Env, now = Date.now()): Promise<Response> {
+  const mount = mountOf(request, env);
+  const response = await route(request, env, now, mount);
+  return mount ? underMount(response, mount.base) : response;
+}
+
+async function route(request: Request, env: Env, now: number, mount: { origin: string; base: string } | null): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const regions = activeRegions(env.ACTIVE_REGIONS);
-  const pc = context(env, url, now, regions);
+  const pc = context(env, url, now, regions, mount);
 
   if (path === "/api/health") {
     const db = env.DB;
@@ -78,6 +109,19 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
     if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
     const outcome = await runIngest(env, { trigger: "manual", now });
     return json(env, outcome, outcome.status === "failed" ? 502 : 200);
+  }
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
+  if (flokkenPaths.test(path)) {
+    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
+    const result = await flokkenRoute(request, env, env.DB, pc, regions, path, url, now, () => notFoundPage(pc));
+    if (result) {
+      const cookie = "cookie" in result && result.cookie ? { "set-cookie": result.cookie } : {};
+      if ("json" in result) return json(env, result.json, result.status);
+      if ("redirect" in result) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
+      return respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers, ...cookie } });
+    }
   }
   if (request.method !== "GET" && request.method !== "HEAD") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
 
@@ -154,7 +198,12 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   }
   const slug = /^\/events\/([a-z0-9-]{1,90})$/.exec(path)?.[1];
   if (slug) {
-    const v = await eventPage(db, pc, regions, slug);
+    const member = await currentMember(db, request, now);
+    const v = await eventPage(db, pc, regions, slug, {
+      member, message: url.searchParams.get("besked"),
+      flocks: (eventId: string) => flocksForEvent(db, eventId, member?.id ?? null),
+      myFlock: (eventId: string) => member ? memberFlockForEvent(db, eventId, member.id) : Promise.resolve(null)
+    });
     return view(env, v ?? notFoundPage(pc));
   }
   return view(env, notFoundPage(pc));

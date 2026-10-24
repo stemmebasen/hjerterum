@@ -65,7 +65,7 @@ const icsDate = (ms: number, tz: string) => isoWithOffset(ms, tz).slice(0, 10).r
 /** A single event as an .ics file, for "Tilføj til kalender". Lines are folded at 75 octets as RFC 5545 asks. */
 export function eventIcs(e: EventRow, origin: string, now: number): string {
   const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//holistisk.org//eventportal//DA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Flokken//eventportal//DA", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     "BEGIN:VEVENT",
     `UID:${e.id}@holistisk.org`,
     `DTSTAMP:${icsUtc(now)}`,
