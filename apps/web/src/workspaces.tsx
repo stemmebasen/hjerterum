@@ -513,7 +513,7 @@ function MemberEvents({
                 </label>
                 <label>Pris for ikke-medlemmer (kr.)
                   <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder="Valgfri" defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
-                  <small>Det, et ikke-medlem betaler. Bruges til at vise medlemmerne, hvad de sparer.</small>
+                  <small>Det, et ikke-medlem betaler, når de tilmelder sig. Tomt felt: samme pris som medlemmer. Prisen viser også medlemmerne, hvad de sparer.</small>
                 </label>
               </div>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
@@ -556,12 +556,15 @@ function MemberCalendar({
   clerk,
   bookings,
   externalEvents,
-  reload
+  reload,
+  nonMember = false
 }: {
   clerk: ClerkBrowser;
   bookings: Booking[];
   externalEvents: ExternalEvent[];
   reload: () => Promise<void>;
+  /** Signed in without a membership: the non-member price, where the event has one. */
+  nonMember?: boolean;
 }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [message, setMessage] = useState(() => {
@@ -580,7 +583,8 @@ function MemberCalendar({
     });
     const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
-      setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : "Tilmeldingen kunne ikke ændres.");
+      setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : body.error === "non_member_payment_unavailable"
+        ? "Tilmelding med betaling for ikke-medlemmer åbner snart. Indtil da kan du skrive til arrangøren eller blive medlem." : "Tilmeldingen kunne ikke ændres.");
     } else if (body.checkoutUrl) {
       window.location.assign(body.checkoutUrl);
       return;
@@ -612,11 +616,12 @@ function MemberCalendar({
           {entries.filter(entry => calendarMonth(entry.startsAt) === month).map(({ key, booking, external }) => {
             const event = booking ?? external!;
             const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
+            const priceKr = booking ? (nonMember ? booking.nonMemberPriceKr ?? booking.ticketPriceKr : booking.ticketPriceKr) : 0;
             return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
               host={booking?.teacherName || external?.host || null} location={external?.location || "Hjerterum"}
               imageUrl={booking?.imageUrl || external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
                   {booking ? <>
-                    <p className="member-event-price">{booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
+                    <p className="member-event-price">{nonMember ? (priceKr > 0 ? priceKr.toLocaleString("da-DK") + " kr. for ikke-medlemmer" : "Gratis") : booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
               {booking.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
               {booking.isOwner ? (
                 <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
@@ -627,7 +632,7 @@ function MemberCalendar({
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
                   onClick={() => void toggleAttendance(booking)}
                 >
-                  {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : booking.ticketPriceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
+                  {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>
               )}
                   </> : external && eventPagePath(external.id) ? <a className="text-link" href={eventPagePath(external.id)!}>Læs mere og tilmeld →</a> : external?.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
@@ -901,7 +906,7 @@ function MemberProfile({
 
 /** Shown on every page while someone is in on trial access. */
 function TrialNote() {
-  return <div className="trial-note" role="note"><b>Prøveadgang</b><span>Du kan se dig omkring og udfylde din profil. Salen, dine egne events og Saga får du adgang til, når du er medlem.</span>
+  return <div className="trial-note" role="note"><b>Prøveadgang</b><span>Du kan se dig omkring, udfylde din profil og tilmelde dig events som ikke-medlem. Salen, dine egne events og Saga får du adgang til, når du er medlem.</span>
     <a href="https://www.hjerterum.info/medlemskab">Bliv medlem →</a></div>;
 }
 
@@ -944,7 +949,9 @@ export function MemberWorkspace({
         if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
       } else if (memberResponse.status === 403) {
         setTrial(true);
-        const externalResponse = await fetch("/api/events/external");
+        // Requested: "Man skal også kunne tilmelde sig et event som ikke-medlem" - the calendar with the members' events, to sign up from.
+        const [calendarResponse, externalResponse] = await Promise.all([apiFetch(clerk, "/api/room-bookings/calendar"), fetch("/api/events/external")]);
+        if (active && calendarResponse.ok) setCalendar(await calendarResponse.json() as Booking[]);
         if (active && externalResponse.ok) setExternalEvents(await externalResponse.json() as ExternalEvent[]);
       } else {
         setAccessError("Medlemsområdet kunne ikke indlæses.");
@@ -983,7 +990,7 @@ export function MemberWorkspace({
           normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
           <section className="workspace-section member-page site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
         ) : normalized === "/member-portal/kalender" ? (
-          <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} />
+          <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} nonMember={trial} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
       <footer className="member-foot"><LegalLine /></footer>
       {member && !loading && includesMemberBenefits(member.tier) && <SagaWidget clerk={clerk} path={path} firstName={member.fullName.trim().split(/\s+/)[0] ?? ""} />}

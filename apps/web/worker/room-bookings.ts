@@ -462,18 +462,22 @@ export async function attendRoomBooking(
   db: D1Database,
   clerkUserId: string,
   bookingId: number,
-  attendee: { memberName: string; memberEmail: string }
+  attendee: { memberName: string; memberEmail: string },
+  /** Requested: "Man skal også kunne tilmelde sig et event som ikke-medlem" - a non-member pays the non-member price, when the event has one. */
+  nonMember = false
 ): Promise<void> {
   const now = Date.now();
   const booking = await db.prepare(
-    `SELECT id, clerk_user_id, starts_at_ms, max_attendees, ticket_price_minor
+    `SELECT id, clerk_user_id, starts_at_ms, max_attendees, ticket_price_minor, non_member_price_minor
      FROM room_bookings WHERE id = ? AND status = 'scheduled' AND review_status = 'approved'`
   ).bind(bookingId).first<{
     id: number; clerk_user_id: string; starts_at_ms: number;
-    max_attendees: number | null; ticket_price_minor: number;
+    max_attendees: number | null; ticket_price_minor: number; non_member_price_minor: number | null;
   }>();
   if (!booking) throw new Error("booking_not_found");
   if (booking.starts_at_ms <= now) throw new Error("booking_started");
+  // Checkout charges the members' price, so a non-member's paid ticket waits until it can charge theirs.
+  if (nonMember && (booking.non_member_price_minor ?? booking.ticket_price_minor) > 0) throw new Error("non_member_payment_unavailable");
   if (booking.ticket_price_minor > 0) throw new Error("event_payment_required");
 
   const existing = await db.prepare(
