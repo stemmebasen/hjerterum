@@ -10,7 +10,7 @@ import { emptyInterestForm, emptyPickForm, pickForm, readInterestForm, readPickF
 import * as pages from "./pages.js";
 import { adminPicks, countInterests, createPick, deleteInterests, eventById, fieldsFromEvent, isAdmin, listInterests, pickById, pickBySlug, saveInterest, suggestions, upcomingPicks, updatePick } from "./store.js";
 
-/** Flokken as an association: every page and form. Returns null for an address it does not have. */
+/** Flokk as an association: every page and form. Returns null for an address it does not have. */
 
 export type ForeningResult =
   | { view: View; cookie?: string }

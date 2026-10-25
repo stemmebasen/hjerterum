@@ -2,6 +2,7 @@ import { CATEGORIES } from "../categories.js";
 import { TOPICS } from "../activities.js";
 import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
+import { FLOKK_MARK } from "../forening/brand.js";
 
 export type PageContext = {
   /** The portal's own origin (PUBLIC_BASE_URL or the request's), without a trailing slash. */
@@ -15,7 +16,7 @@ export type PageContext = {
   areas: Area[];
   /** The path prefix when served under another site (e.g. "/flokken"), or "". Links are prefixed after rendering. */
   base: string;
-  /** "forening": Flokken as an association (hand-picked events, interest list); "portal": the event portal. */
+  /** "forening": Flokk, the association (hand-picked events, interest list); "portal": the event portal. */
   edition: "forening" | "portal";
 };
 
@@ -48,6 +49,7 @@ const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/kort", "Kort
 export const MARK = raw('<svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" fill="#ffe08a" stroke="#17332d" stroke-width="2"/><path d="M5.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#b3164f" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#1e6b56" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/><circle cx="26" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
+export const FLOKK_SHARE_IMAGE = "/assets/og-flokk.jpg";
 /** The same picture with the name the portal goes by under another address (see MOUNTS in src/index.ts). */
 export const SHARE_IMAGES: Record<string, string> = { Socialklubben: "/assets/og-socialklubben.jpg" };
 
@@ -66,12 +68,17 @@ function breadcrumbJsonLd(crumbs: Crumb[], origin: string) {
   };
 }
 
+/** The name a page goes by: Flokk for the association, Flokken for the event portal (renamed again under a mount). */
+export const siteName = (ctx: Pick<PageContext, "edition">): string => ctx.edition === "forening" ? "Flokk" : SITE;
+
 export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
+  const name = siteName(ctx);
+  const forening = ctx.edition === "forening";
   // Every title names the site, at the end so the search words come first.
-  const title = meta.title.includes(SITE) ? meta.title : `${meta.title} – ${SITE}`;
+  const title = meta.title.includes(name) ? meta.title : `${meta.title} – ${name}`;
   const canonical = /^https?:\/\//.test(meta.canonical) ? meta.canonical : ctx.origin + meta.canonical;
   const robots = meta.noindex || ctx.environment !== "production" ? "noindex, nofollow" : "index, follow, max-image-preview:large";
-  const image = meta.image ?? ctx.origin + SHARE_IMAGE;
+  const image = meta.image ?? ctx.origin + (forening ? FLOKK_SHARE_IMAGE : SHARE_IMAGE);
   const jsonLd = [...(meta.jsonLd ?? []), ...(meta.breadcrumbs && meta.breadcrumbs.length > 1 ? [breadcrumbJsonLd(meta.breadcrumbs, ctx.origin)] : [])];
   return "<!doctype html>" + html`<html lang="da" data-base="/" data-edition="${ctx.edition}">
 <head>
@@ -83,7 +90,7 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <link rel="canonical" href="${canonical}">
 <link rel="alternate" hreflang="da-DK" href="${canonical}">
 <link rel="alternate" hreflang="x-default" href="${canonical}">
-<meta property="og:site_name" content="${SITE}">
+<meta property="og:site_name" content="${name}">
 <meta property="og:locale" content="da_DK">
 <meta property="og:type" content="${meta.type ?? "website"}">
 <meta property="og:title" content="${title}">
@@ -95,10 +102,12 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="twitter:description" content="${meta.description}">
 <meta name="twitter:image" content="${image}">
 <meta name="theme-color" content="#f6efe2">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+${forening ? html`<link rel="icon" href="/assets/flokk-icon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/atkinson-400-latin.woff2" as="font" type="font/woff2" crossorigin>` : html`<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=12">
+<link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
+<link rel="stylesheet" href="/assets/site.css?v=13">
 <script src="/assets/site.js?v=7" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -106,7 +115,7 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – Flokken er under udvikling</div>` : ""}
+${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">
 ${body}
@@ -159,13 +168,13 @@ function portalFooter(ctx: PageContext): SafeHtml {
 </footer>`;
 }
 
-/** Flokken as an association: a few calm links, and the interest list as the one thing to do. */
-const FORENING_NAV: Array<[string, string]> = [["/maanedens-events", "Månedens events"], ["/#saadan", "Sådan virker det"], ["/tryghed", "Tryghed"], ["/for-foreninger", "For foreninger"], ["/om", "Om Flokken"]];
+/** Flokk, the association: a few calm links, and the interest list as the one thing to do. */
+const FORENING_NAV: Array<[string, string]> = [["/maanedens-events", "Månedens events"], ["/#saadan", "Sådan virker det"], ["/tryghed", "Tryghed"], ["/for-foreninger", "For foreninger"], ["/om", "Om Flokk"]];
 
 function foreningHeader(ctx: PageContext): SafeHtml {
   return html`<header class="masthead">
   <div class="wrap masthead-inner">
-    <a class="wordmark" href="/" aria-label="Flokken – forsiden">${MARK}<span>Flokken</span></a>
+    <a class="wordmark wordmark-flokk" href="/" aria-label="Flokk – forsiden">${FLOKK_MARK}<span>flokk</span></a>
     <nav class="nav" aria-label="Hovedmenu">
       <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
     </nav>
@@ -186,10 +195,10 @@ function foreningFooter(ctx: PageContext): SafeHtml {
   return html`<footer class="site-footer">
   <div class="wrap footer-inner footer-forening">
     <div class="footer-about">
-      <p class="footer-brand">${MARK}<span>Flokken</span></p>
-      <p>Kultur i en lille, tryg flok – for dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker. Flokken er en forening under stiftelse i ${ctx.regionLabel} og finansieres af medlemmernes kontingent.</p>
+      <p class="footer-brand wordmark-flokk">${FLOKK_MARK}<span>flokk</span></p>
+      <p>Nye oplevelser, nye mennesker – i trygge rammer. For dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker. Flokk er en forening under stiftelse i ${ctx.regionLabel} og finansieres af medlemmernes kontingent.</p>
     </div>
-    <nav aria-label="Flokken"><ul class="footer-links">${[...FORENING_NAV, ["/skriv-dig-op", "Skriv dig op"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
+    <nav aria-label="Flokk"><ul class="footer-links">${[...FORENING_NAV, ["/skriv-dig-op", "Skriv dig op"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
   </div>
 </footer>`;
 }

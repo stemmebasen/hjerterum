@@ -13,7 +13,7 @@ import type { Interest, PickRow } from "./store.js";
 
 function adminPage(ctx: PageContext, title: string, body: SafeHtml, status = 200): View {
   const nav = html`<nav class="admin-nav" aria-label="Admin"><a href="/admin">Oversigt</a><a href="/admin/forslag">Forslag</a><a href="/admin/events/ny">Skriv et event ind</a><a href="/admin/interesseliste">Interesseliste</a><a href="/admin/henvendelser">Henvendelser</a><form method="post" action="/log-ud"><button type="submit" class="link-button">Log ud</button></form></nav>`;
-  return { status, headers: { "cache-control": "no-store" }, body: page(ctx, { title: `${title} – admin`, description: "Flokkens administration.", canonical: ctx.path, noindex: true }, html`<div class="wrap admin">${nav}${body}</div>`) };
+  return { status, headers: { "cache-control": "no-store" }, body: page(ctx, { title: `${title} – admin`, description: "Flokks administration.", canonical: ctx.path, noindex: true }, html`<div class="wrap admin">${nav}${body}</div>`) };
 }
 
 const flash = (message: string | null) => message ? html`<p class="flash" role="status">${message}</p>` : "";
@@ -21,14 +21,14 @@ const flash = (message: string | null) => message ? html`<p class="flash" role="
 export function loginPage(ctx: PageContext, state: { error?: string; status?: number } = {}): View {
   const body = html`
 <div class="wrap narrow">
-  <header class="page-head"><h1>Log ind</h1><p class="standfirst">For Flokkens frivillige.</p></header>
+  <header class="page-head"><h1>Log ind</h1><p class="standfirst">For Flokks frivillige.</p></header>
   ${state.error ? html`<p class="flash flash-error" role="alert">${state.error}</p>` : ""}
   <form class="form-card" method="post" action="/log-ind" novalidate>
     <div class="field"><label for="l-code">Din kode</label><input id="l-code" name="kode" type="text" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required placeholder="XXXX-XXXX-XXXX"></div>
     <div class="form-actions"><button type="submit">Log ind</button></div>
   </form>
 </div>`;
-  return { status: state.status ?? 200, headers: { "cache-control": "no-store" }, body: page(ctx, { title: "Log ind", description: "Log ind for Flokkens frivillige.", canonical: "/log-ind", noindex: true }, body) };
+  return { status: state.status ?? 200, headers: { "cache-control": "no-store" }, body: page(ctx, { title: "Log ind", description: "Log ind for Flokks frivillige.", canonical: "/log-ind", noindex: true }, body) };
 }
 
 export function overviewPage(ctx: PageContext, picks: Array<PickRow & { interested: number }>, people: number, inquiries: number, message: string | null): View {
@@ -47,7 +47,7 @@ export function overviewPage(ctx: PageContext, picks: Array<PickRow & { interest
 export function suggestionsPage(ctx: PageContext, events: EventRow[], q: string): View {
   return adminPage(ctx, "Forslag", html`
   <h1>Forslag fra foreningernes kalendere</h1>
-  <p class="standfirst">Kommende events, som Flokken henter automatisk. Et event vises først på siden, når I har godkendt det og tjekket oplysningerne.</p>
+  <p class="standfirst">Kommende events, som Flokk henter automatisk. Et event vises først på siden, når I har godkendt det og tjekket oplysningerne.</p>
   <form class="admin-search" method="get" action="/admin/forslag"><label for="q">Søg</label><input id="q" name="q" type="search" value="${q}" placeholder="Titel, forening eller sted"><button type="submit">Søg</button></form>
   ${events.length ? html`<table class="admin-table"><thead><tr><th>Hvornår</th><th>Event</th><th>Arrangør og sted</th><th></th></tr></thead><tbody>
     ${events.map(e => html`<tr><td>${capitalize(dayLabel(e.starts_at, ctx.now))}${e.all_day ? "" : ` kl. ${hhmm(e.starts_at)}`}</td>
@@ -87,7 +87,7 @@ export function pickFormPage(ctx: PageContext, f: PickForm, state: { id?: string
     ${field("e-beskrivelse", "Beskrivelse", html`<textarea id="e-beskrivelse" name="beskrivelse" rows="6" maxlength="4000">${f.description}</textarea>`, errors, "description", "(med egne ord, eller et kort uddrag)")}
     ${field("e-billede", "Billede", text("billede", f.imageUrl, ' maxlength="500"'), errors, "imageUrl", "(https-adresse, valgfrit – brug kun billeder, I må vise)")}
     <div class="two-fields">
-      ${field("e-pladser", "Pladser til Flokken", html`<input id="e-pladser" name="pladser" type="number" min="1" max="200" value="${f.places}">`, errors, "places", "(valgfrit)")}
+      ${field("e-pladser", "Pladser til Flokk", html`<input id="e-pladser" name="pladser" type="number" min="1" max="200" value="${f.places}">`, errors, "places", "(valgfrit)")}
       ${field("e-egenbetaling", "Egenbetaling", text("egenbetaling", f.ownPayment, ' maxlength="120" placeholder="Tom = Fastsættes"'), errors, "ownPayment")}
     </div>
     ${field("e-eftermoede", "Eftermødet", text("eftermoede", f.aftermeeting, ' maxlength="200" placeholder="Tom = En lille en til ganen bagefter"'), errors, "aftermeeting", "(hvor og hvad)")}

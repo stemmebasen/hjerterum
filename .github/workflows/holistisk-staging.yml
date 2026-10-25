@@ -117,12 +117,12 @@ jobs:
           node -e 'const s=require("/tmp/sources.json");console.log(JSON.stringify(s.sources,null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret","favn-aarhus"]){const x=s.sources.find(y=>y.id===id);if(!x||x.status!=="ok"){console.error("source not collected: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(s.sources.find(y=>y.id==="hjerterum").fetched>0))process.exit(1)'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
-          # Flokken as an association: the Worker's own address.
+          # Flokk, the association: the Worker's own address.
           # Each page is saved and then searched: a grep -q that stops early would cut curl off under pipefail.
           G() { retry "$URL$1" > /tmp/page.html; grep -q "$2" /tmp/page.html; }
           retry "$URL/" > /tmp/home.html
           grep -q 'data-edition="forening"' /tmp/home.html
-          grep -q 'Kultur i en lille' /tmp/home.html
+          grep -q 'Nye oplevelser, nye mennesker' /tmp/home.html
           retry "$URL/maanedens-events" > /dev/null
           G /skriv-dig-op 'name="samtykke"'
           G /for-foreninger 'Det får I ud af det'

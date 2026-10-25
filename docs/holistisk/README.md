@@ -1,19 +1,19 @@
-# Flokken – kultur i en lille, tryg flok
+# Flokk – nye oplevelser, nye mennesker, i trygge rammer
 
 `apps/holistisk` runs two editions from one Worker:
 
-- **Flokken** (www.jacobhauge.com/flokken, and the Worker's own address): an association under formation for people who do not find meeting new people the easiest thing in the world. Each month it hand-picks cultural events from associations it works with and takes small flocks (4–6 and a host) along – planning, ticket and a little something afterwards. For now: the concept, the approved events, an interest list, a page for associations, and admin pages for the volunteers. [ADR 0008](../decisions/0008-flokken-forening.md).
+- **Flokk** (www.jacobhauge.com/flokk – /flokken sends on to it – and the Worker's own address): an association under formation for people who do not find meeting new people the easiest thing in the world. Each month it hand-picks cultural events from associations it works with and takes small flocks (4–6 and a host) along – planning, ticket and a little something afterwards. For now: the concept, the approved events, an interest list, a page for associations, and admin pages for the volunteers. [ADR 0008](../decisions/0008-flokken-forening.md).
 - **The event portal** (www.jacobhauge.com/socialklubben, as Socialklubben): events collected every night from permitted sources, with search, filters, a map and member-made flocks. [ADR 0006](../decisions/0006-holistisk-event-portal.md), [ADR 0007](../decisions/0007-flokken.md).
 
 The collector serves both: the portal shows its events, Flokken's volunteers pick from them. The code and the Cloudflare names still say "holistisk" (`apps/holistisk`, `holistisk-portal-staging`).
 
-## Flokken as an association
+## Flokk, the association
 
 - **Pages** (`src/forening/`): `/` (the concept, how it works, the month's events, the four promises, price model, associations), `/maanedens-events`, `/events/<slug>` (an approved event: the plan with Flokken and "Jeg vil gerne med"), `/skriv-dig-op` (interest list), `/for-foreninger` (what associations get, inquiry form), `/tryghed`, `/om`, `/privatliv` (what is stored, delete by e-mail). Every other address is a 404; `/samarbejde` points to `/for-foreninger`.
 - **Approved events** (`picks`, migration 0004): copied from a collected event or typed in, then edited; only `approved` ones are shown. Nothing is shown before a volunteer approves it.
 - **Interest list** (`interests`): one line per e-mail and event; signing up again updates it. Consent is required; a hidden field catches robots. No mails are sent yet.
 - **Admin** (`/log-ind`, `/admin`): suggestions from the collector (search, "Godkend"), a form for an event typed in, editing and withdrawing, the interest list (and CSV, safe against spreadsheet formulas) and inquiries from associations. Only members with `is_admin = 1`; create one with `node apps/holistisk/scripts/new-admin.mjs "Fornavn"` and run the printed SQL with `wrangler d1 execute`.
-- **Design**: `data-edition="forening"` on `<html>` switches to the calm version of the look (thin lines, soft shadows, no tilted tickets).
+- **Look**: its own, on the portal's colours. The mark is the open circle – five people in a ring with one place free, "there is always room for one more" (`src/forening/brand.ts`; large on the front page, `public/assets/flokk-icon.svg` in the tab, `public/assets/og-flokk.jpg` when shared). Fraunces for headings and Atkinson Hyperlegible, drawn to be easy to read, for text (both SIL OFL, `public/assets/fonts`). Thin lines, soft shadows, more air. `data-edition="forening"` on `<html>` switches it on.
 
 ## Run it
 

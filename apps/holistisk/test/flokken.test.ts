@@ -227,7 +227,12 @@ describe("served under www.jacobhauge.com", () => {
     // Any other value of the header is ignored.
     expect((await call("/", { headers: { "x-flokken-mount": "https://evil.example/flokken" } })).body).toContain('href="/kalender"');
   });
-  it("shows Flokken as an association under /flokken, whatever the Worker's own edition", async () => {
+  it("shows Flokk, the association, under /flokk (and its earlier /flokken), whatever the Worker's own edition", async () => {
+    const flokk = await call("/", { headers: { "x-flokken-mount": "https://www.jacobhauge.com/flokk" } });
+    expect(flokk.body).toContain('data-edition="forening"');
+    expect(flokk.body).toContain('href="/flokk/skriv-dig-op"');
+    expect(flokk.body).toContain("<span>flokk</span>");
+    expect(flokk.body).not.toContain("Flokken");
     const home = await call("/", { headers: mount });
     expect(home.body).toContain('data-edition="forening"');
     expect(home.body).toContain('href="/flokken/skriv-dig-op"');
@@ -245,7 +250,7 @@ describe("served under www.jacobhauge.com", () => {
     const r = await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk, origin: "https://www.jacobhauge.com" });
     expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben;");
     expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).body).toContain("Socialklubbens egne sider");
-    // The Flokken address keeps its name.
-    expect((await call("/", { headers: mount })).body).toContain("<span>Flokken</span>");
+    // The Worker's own name, without a mount.
+    expect((await call("/")).body).toContain("<span>Flokken</span>");
   });
 });

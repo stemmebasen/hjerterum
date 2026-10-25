@@ -1,4 +1,4 @@
-# 0008 – Flokken becomes an association that takes people out
+# 0008 – Flokk: an association that takes people out
 
 Status: accepted (staging), 2026-10-25
 
@@ -28,6 +28,10 @@ together small flocks with a host, and takes care of planning, the ticket and "a
   settings. Flocks are 4–6 people and a host; one friend may come along.
 - Membership fee plus a small payment per event; the amounts are not set and the site says so. Nothing is charged.
 - A calmer version of the design: the same colours and mark, thin lines, soft shadows, no tilted tickets.
+
+- Named Flokk (www.jacobhauge.com/flokk) with its own mark and type, so it does not look like Socialklubben; the
+  colours are shared. The mark, the open circle, says the promise: there is always room for one more. Headline: "Nye
+  oplevelser, nye mennesker – i trygge rammer."
 
 ## Open
 

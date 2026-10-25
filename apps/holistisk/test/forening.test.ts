@@ -46,12 +46,17 @@ beforeAll(async () => {
   db.raw.prepare("INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at, is_admin) VALUES ('admin-1', 'Sofie', ?, ?, ?, 1)").run(await sha256(adminCode), NOW, NOW);
 });
 
-describe("Flokken as an association", () => {
+describe("Flokk, the association", () => {
   it("is what the Worker shows by default: the concept, the steps, the promises – and no events before any are picked", async () => {
     const home = await call("/");
     expect(home.status).toBe(200);
     expect(home.body).toContain('data-edition="forening"');
-    expect(home.body).toContain("Kultur i en lille, <span class=\"f-soft\">tryg flok.</span>");
+    expect(home.body).toContain("<h1>Nye oplevelser, nye mennesker – <em>i trygge rammer.</em></h1>");
+    expect(home.body).toContain("<title>Flokk – nye oplevelser, nye mennesker, i trygge rammer</title>");
+    expect(home.body).toContain('class="mark mark-flokk"');
+    expect(home.body).toContain('href="/assets/flokk-icon.svg"');
+    expect(home.body).toContain("/assets/og-flokk.jpg");
+    expect(home.body).not.toContain("Flokken");
     expect(home.body).toContain("ikke synes, det er det nemmeste i verden at møde nye mennesker");
     expect(home.body).toContain("De første events er ved at blive valgt");
     for (const promise of ["Ingen overraskelser", "Værten tager imod", "Ingen pres", "Rolige rammer"]) expect(home.body).toContain(promise);

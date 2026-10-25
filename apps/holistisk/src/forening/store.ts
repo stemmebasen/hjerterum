@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { slugify } from "../text.js";
 import type { EventRow } from "../web/queries.js";
 
-/** Flokken as an association: the events it has picked with the associations behind them, and the interest list. */
+/** Flokk as an association: the events it has picked with the associations behind them, and the interest list. */
 
 export type PickRow = {
   id: string; slug: string; event_id: string | null; title: string; starts_at: number; ends_at: number | null;
