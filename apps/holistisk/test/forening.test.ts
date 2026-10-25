@@ -89,6 +89,11 @@ describe("Flokken as an association", () => {
     const cookie = cookieOf(login);
     expect((await call("/admin", { cookie })).body).toContain("Ingen godkendte events endnu");
 
+    // Search by title, organiser or place.
+    const found = await call("/admin/forslag?q=lysets hus", { cookie });
+    expect(found.status).toBe(200);
+    expect(found.body).toContain('name="event"');
+    expect((await call("/admin/forslag?q=findesikke", { cookie })).body).toContain("Ingen forslag for den søgning");
     const list = await call("/admin/forslag", { cookie });
     const eventId = /name="event" value="([^"]+)"/.exec(list.body)![1]!;
     const approve = await call("/admin/forslag", { form: { event: eventId }, cookie });

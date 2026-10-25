@@ -68,7 +68,7 @@ export async function suggestions(db: D1Database, regions: string[], now: number
   const params: unknown[] = [now, now + 120 * 86_400_000, ...regions];
   const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5);
   for (const w of words) {
-    where.push("(lower(e.title) LIKE ? OR lower(COALESCE(e.organizer_name, '')) LIKE ? OR lower(COALESCE(e.venue_name, '')) LIKE ?)");
+    where.push("(lower(e.title) LIKE ? OR lower(COALESCE(o.name, '')) LIKE ? OR lower(COALESCE(e.venue_name, '')) LIKE ?)");
     params.push(`%${w}%`, `%${w}%`, `%${w}%`);
   }
   const { results } = await db.prepare(`SELECT e.*, s.name AS source_name, s.attribution AS source_attribution, s.homepage_url AS source_homepage,
