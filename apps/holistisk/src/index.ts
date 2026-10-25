@@ -5,7 +5,7 @@ import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
 import { ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { parseFilters } from "./web/filters.js";
-import type { PageContext } from "./web/layout.js";
+import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
 import { sitemapPages } from "./web/sitemap.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
@@ -37,7 +37,7 @@ const json = (env: Env, data: unknown, status = 200, cache = "no-store") => resp
 const redirect = (location: string) => new Response(null, { status: 301, headers: { location, "cache-control": "public, max-age=86400" } });
 const view = (env: Env, v: View) => respond(env, v.body, { status: v.status, ...(v.headers ? { headers: v.headers } : {}), ...(v.status !== 200 ? { cache: "no-store" } : {}) });
 
-function context(env: Env, url: URL, now: number, regions: string[], mount: { origin: string; base: string } | null): PageContext {
+function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null): PageContext {
   if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
@@ -53,20 +53,28 @@ function context(env: Env, url: URL, now: number, regions: string[], mount: { or
 }
 
 /** Addresses the portal may also be served under, through a proxy that strips the path prefix and names the address in
- * the x-flokken-mount header (www.jacobhauge.com/flokken, see docs/holistisk/README.md). PUBLIC_MOUNTS adds more. */
-const MOUNTS = ["https://www.jacobhauge.com/flokken"];
+ * the x-flokken-mount header (see docs/holistisk/README.md), with the name the portal goes by there. PUBLIC_MOUNTS adds
+ * more ("address" or "address=Name"). */
+const MOUNTS: Record<string, string> = {
+  "https://www.jacobhauge.com/flokken": "Flokken",
+  "https://www.jacobhauge.com/socialklubben": "Socialklubben"
+};
 
-function mountOf(request: Request, env: Env): { origin: string; base: string } | null {
+type Mount = { origin: string; base: string; name: string };
+
+function mountOf(request: Request, env: Env): Mount | null {
   const given = request.headers.get("x-flokken-mount");
   if (!given) return null;
-  const allowed = [...MOUNTS, ...(env.PUBLIC_MOUNTS ?? "").split(",").map(s => s.trim()).filter(Boolean)];
-  if (!allowed.includes(given)) return null;
+  const extra = (env.PUBLIC_MOUNTS ?? "").split(",").map(s => s.trim()).filter(Boolean).map(s => s.split("=").map(p => p.trim()));
+  const allowed: Record<string, string> = { ...MOUNTS, ...Object.fromEntries(extra.map(([address, name]) => [address!, name || SITE])) };
+  const name = allowed[given];
   const m = /^(https:\/\/[a-z0-9.-]+)(\/[a-z0-9-]+)$/.exec(given);
-  return m ? { origin: m[1]!, base: m[2]! } : null;
+  return name && m ? { origin: m[1]!, base: m[2]!, name } : null;
 }
 
-/** Under a mount, every link, form, redirect and cookie of the page gets the path prefix. */
-async function underMount(response: Response, base: string): Promise<Response> {
+/** Under a mount, every link, form, redirect and cookie of the page gets the path prefix, and pages and messages carry
+ * the name the portal goes by there (the share image too). */
+async function underMount(response: Response, { base, name }: Mount): Promise<Response> {
   const headers = new Headers(response.headers);
   const location = headers.get("location");
   if (location && /^\/(?!\/)/.test(location)) headers.set("location", base + location);
@@ -75,18 +83,24 @@ async function underMount(response: Response, base: string): Promise<Response> {
     headers.delete("set-cookie");
     for (const c of cookies) headers.append("set-cookie", c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`));
   }
-  if (!(headers.get("content-type") ?? "").startsWith("text/html") || !response.body) return new Response(response.body, { status: response.status, headers });
-  const text = (await response.text()).replace(/(\s(?:href|src|action|data-base)=")\/(?!\/)/g, `$1${base}/`);
+  const type = headers.get("content-type") ?? "";
+  const rename = name !== SITE && type.startsWith("text/");
+  if ((!type.startsWith("text/html") && !rename) || !response.body) return new Response(response.body, { status: response.status, headers });
+  let text = await response.text();
+  if (type.startsWith("text/html")) text = text.replace(/(\s(?:href|src|action|data-base)=")\/(?!\/)/g, `$1${base}/`);
+  // The name only ever appears capitalised ("Flokken", "Flokkens"); paths, classes and "flokken" as a word are untouched.
+  if (rename) text = text.replace(/Flokken/g, name).replaceAll(SHARE_IMAGE, SHARE_IMAGES[name] ?? SHARE_IMAGE);
+  headers.delete("content-length");
   return new Response(text, { status: response.status, headers });
 }
 
 export async function handle(request: Request, env: Env, now = Date.now()): Promise<Response> {
   const mount = mountOf(request, env);
   const response = await route(request, env, now, mount);
-  return mount ? underMount(response, mount.base) : response;
+  return mount ? underMount(response, mount) : response;
 }
 
-async function route(request: Request, env: Env, now: number, mount: { origin: string; base: string } | null): Promise<Response> {
+async function route(request: Request, env: Env, now: number, mount: Mount | null): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const regions = activeRegions(env.ACTIVE_REGIONS);

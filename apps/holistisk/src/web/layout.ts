@@ -33,7 +33,7 @@ export type PageMeta = {
   breadcrumbs?: Crumb[];
 };
 
-const SITE = "Flokken";
+export const SITE = "Flokken";
 
 /** The main navigation in the header. */
 const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/spar-paa-billetten", "Spar på billetten"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
@@ -41,6 +41,8 @@ const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok
 export const MARK = raw('<svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" fill="#ffe08a" stroke="#17332d" stroke-width="2"/><path d="M5.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#b3164f" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#1e6b56" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/><circle cx="26" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
 export const SHARE_IMAGE = "/assets/og.jpg";
+/** The same picture with the name the portal goes by under another address (see MOUNTS in src/index.ts). */
+export const SHARE_IMAGES: Record<string, string> = { Socialklubben: "/assets/og-socialklubben.jpg" };
 
 /** The visible breadcrumb; the last crumb is the page itself. */
 export function crumbsNav(crumbs: Crumb[]): SafeHtml {

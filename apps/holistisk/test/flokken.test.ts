@@ -226,4 +226,19 @@ describe("served under www.jacobhauge.com/flokken", () => {
     // Any other value of the header is ignored.
     expect((await call("/", { headers: { "x-flokken-mount": "https://evil.example/flokken" } })).body).toContain('href="/kalender"');
   });
+  it("goes by the name Socialklubben under www.jacobhauge.com/socialklubben", async () => {
+    const sk = { "x-flokken-mount": "https://www.jacobhauge.com/socialklubben" };
+    const home = await call("/", { headers: sk });
+    expect(home.body).toContain("<span>Socialklubben</span>");
+    expect(home.body).toContain("Sådan virker Socialklubben");
+    expect(home.body).toContain("<title>Socialklubben – find events");
+    expect(home.body).toContain('content="https://www.jacobhauge.com/socialklubben/assets/og-socialklubben.jpg"');
+    expect(home.body).toContain('href="/socialklubben/find-en-flok"');
+    expect(home.body).not.toContain("Flokken");
+    const r = await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk, origin: "https://www.jacobhauge.com" });
+    expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben;");
+    expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).body).toContain("Socialklubbens egne sider");
+    // The Flokken address keeps its name.
+    expect((await call("/", { headers: mount })).body).toContain("<span>Flokken</span>");
+  });
 });

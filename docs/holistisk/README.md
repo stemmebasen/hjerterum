@@ -41,7 +41,8 @@ Outside production every response carries `X-Robots-Tag: noindex` and robots.txt
 - **Eftermødet**: each member answers whether they want to find something to do together again (any time, highlighted after the event). Someone who said yes can start a new flock for another event "from" that flock; the others who said yes then see it under Mine flokke and choose themselves whether to join.
 - **Not built yet**: blocking, reporting, verified profiles, messages between members, e-mail notifications. The safety page says so.
 - **Partners** (`/samarbejde`): the planned model (a ticket benefit for members in return for visibility and possible radio mention) and an inquiry form stored in `partner_inquiries`. Member offers live in `PARTNER_OFFERS` in `src/flokken/partners.ts` and are shown on an event only with `confirmedBy` and `confirmedOn` filled in; the list is empty.
-- **Under another site**: a proxy can show the portal under a path (www.jacobhauge.com/flokken, see the jacobhauge repo's `functions/flokken`) by stripping the prefix and sending `x-flokken-mount: https://www.jacobhauge.com/flokken`. The Worker accepts only addresses in `MOUNTS` (`src/index.ts`) or `PUBLIC_MOUNTS`, then prefixes every link, form, redirect and the cookie path, uses that address for canonical links, and checks forms against its origin.
+- **Under another site**: a proxy can show the portal under a path (www.jacobhauge.com/flokken and www.jacobhauge.com/socialklubben, see the jacobhauge repo's `worker/flokken.js`) by stripping the prefix and sending `x-flokken-mount: https://www.jacobhauge.com/flokken`. The Worker accepts only addresses in `MOUNTS` (`src/index.ts`) or `PUBLIC_MOUNTS`, then prefixes every link, form, redirect and the cookie path, uses that address for canonical links, and checks forms against its origin.
+- **Another name**: each address in `MOUNTS` has the name the portal goes by there. Under www.jacobhauge.com/socialklubben it is *Socialklubben*: every "Flokken" in pages and messages is shown as "Socialklubben", with its own share image (`SHARE_IMAGES` in `src/web/layout.ts`). Events, flocks and members are the same; the login is kept per address (the cookie path).
 
 ## Spar på billetten
 
@@ -88,7 +89,7 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 | `INGEST_REQUEST_BUDGET` | var | Requests one collection run may send (default 45, under Workers Free's 50 per invocation; can be raised on a paid plan). |
 | `BILLETTO_API_KEYPAIR` | secret | Turns the Billetto source on (GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`). |
 | `CONTACT_EMAIL` | var | Shown on the safety page for concerns (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
-| `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated (www.jacobhauge.com/flokken is built in). |
+| `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated, each optionally with a name (`https://example.dk/klub=Klubben`; www.jacobhauge.com/flokken and /socialklubben are built in). |
 
 ## Covering more of Denmark
 

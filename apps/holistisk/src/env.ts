@@ -18,7 +18,8 @@ export interface Env {
   INGEST_REQUEST_BUDGET?: string;
   /** Secret. Billetto's publisher API key pair; the Billetto source stays off until it is set. */
   BILLETTO_API_KEYPAIR?: string;
-  /** More addresses the portal may be served under through a proxy (comma-separated, e.g. "https://example.dk/flokken"). */
+  /** More addresses the portal may be served under through a proxy (comma-separated, e.g. "https://example.dk/flokken",
+   * or "https://example.dk/klub=Klubben" to go by another name there). */
   PUBLIC_MOUNTS?: string;
   /** Optional address shown on the about page for organisers and corrections. */
   CONTACT_EMAIL?: string;
