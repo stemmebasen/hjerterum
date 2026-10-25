@@ -15,6 +15,8 @@ export type PageContext = {
   areas: Area[];
   /** The path prefix when served under another site (e.g. "/flokken"), or "". Links are prefixed after rendering. */
   base: string;
+  /** "forening": Flokken as an association (hand-picked events, interest list); "portal": the event portal. */
+  edition: "forening" | "portal";
 };
 
 export type Crumb = { name: string; path: string };
@@ -71,7 +73,7 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
   const robots = meta.noindex || ctx.environment !== "production" ? "noindex, nofollow" : "index, follow, max-image-preview:large";
   const image = meta.image ?? ctx.origin + SHARE_IMAGE;
   const jsonLd = [...(meta.jsonLd ?? []), ...(meta.breadcrumbs && meta.breadcrumbs.length > 1 ? [breadcrumbJsonLd(meta.breadcrumbs, ctx.origin)] : [])];
-  return "<!doctype html>" + html`<html lang="da" data-base="/">
+  return "<!doctype html>" + html`<html lang="da" data-base="/" data-edition="${ctx.edition}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -96,7 +98,7 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=11">
+<link rel="stylesheet" href="/assets/site.css?v=12">
 <script src="/assets/site.js?v=7" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -105,7 +107,17 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
 ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – Flokken er under udvikling</div>` : ""}
-<header class="masthead">
+${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
+<main id="indhold">
+${body}
+</main>
+${meta.bare ? "" : ctx.edition === "forening" ? foreningFooter(ctx) : portalFooter(ctx)}
+</body>
+</html>`.value;
+}
+
+function portalHeader(ctx: PageContext): SafeHtml {
+  return html`<header class="masthead">
   <div class="wrap masthead-inner">
     <a class="wordmark" href="/" aria-label="Flokken – forsiden">${MARK}<span>Flokken</span></a>
     <nav class="nav" aria-label="Hovedmenu">
@@ -126,11 +138,11 @@ ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Te
       </details>
     </div>
   </div>
-</header>
-<main id="indhold">
-${body}
-</main>
-${meta.bare ? "" : html`<footer class="site-footer">
+</header>`;
+}
+
+function portalFooter(ctx: PageContext): SafeHtml {
+  return html`<footer class="site-footer">
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
@@ -144,7 +156,40 @@ ${meta.bare ? "" : html`<footer class="site-footer">
     <nav aria-labelledby="f-topics"><p class="footer-head" id="f-topics">Populære emner</p>
       <ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></nav>
   </div>
-</footer>`}
-</body>
-</html>`.value;
+</footer>`;
+}
+
+/** Flokken as an association: a few calm links, and the interest list as the one thing to do. */
+const FORENING_NAV: Array<[string, string]> = [["/maanedens-events", "Månedens events"], ["/#saadan", "Sådan virker det"], ["/tryghed", "Tryghed"], ["/for-foreninger", "For foreninger"], ["/om", "Om Flokken"]];
+
+function foreningHeader(ctx: PageContext): SafeHtml {
+  return html`<header class="masthead">
+  <div class="wrap masthead-inner">
+    <a class="wordmark" href="/" aria-label="Flokken – forsiden">${MARK}<span>Flokken</span></a>
+    <nav class="nav" aria-label="Hovedmenu">
+      <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
+    </nav>
+    <div class="masthead-tools">
+      <a class="my-flocks" href="/skriv-dig-op"${ctx.path === "/skriv-dig-op" ? raw(' aria-current="page"') : ""}>Skriv dig op</a>
+      <details class="menu">
+        <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
+        <div class="menu-panel menu-panel-small">
+          <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}<li><a href="/skriv-dig-op">Skriv dig op</a></li><li><a href="/privatliv">Privatliv</a></li></ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</header>`;
+}
+
+function foreningFooter(ctx: PageContext): SafeHtml {
+  return html`<footer class="site-footer">
+  <div class="wrap footer-inner footer-forening">
+    <div class="footer-about">
+      <p class="footer-brand">${MARK}<span>Flokken</span></p>
+      <p>Kultur i en lille, tryg flok – for dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker. Flokken er en forening under stiftelse i ${ctx.regionLabel} og finansieres af medlemmernes kontingent.</p>
+    </div>
+    <nav aria-label="Flokken"><ul class="footer-links">${[...FORENING_NAV, ["/skriv-dig-op", "Skriv dig op"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
+  </div>
+</footer>`;
 }

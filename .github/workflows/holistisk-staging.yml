@@ -117,35 +117,47 @@ jobs:
           node -e 'const s=require("/tmp/sources.json");console.log(JSON.stringify(s.sources,null,1));for(const id of ["hjerterum","lysetshus","brahma-kumaris-aarhus","buddhistisk-center-aarhus","dansk-center-for-mindfulness","vaekstcenteret","favn-aarhus"]){const x=s.sources.find(y=>y.id===id);if(!x||x.status!=="ok"){console.error("source not collected: "+id+" "+JSON.stringify(x));process.exit(1)}}if(!(s.sources.find(y=>y.id==="hjerterum").fetched>0))process.exit(1)'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
+          # Flokken as an association: the Worker's own address.
+          # Each page is saved and then searched: a grep -q that stops early would cut curl off under pipefail.
+          G() { retry "$URL$1" > /tmp/page.html; grep -q "$2" /tmp/page.html; }
           retry "$URL/" > /tmp/home.html
-          grep -q 'flok at følges med' /tmp/home.html
-          retry "$URL/spar-paa-billetten" > /tmp/save.html && grep -q 'Medlemsfordele' /tmp/save.html
-          grep -q 'Sådan virker Flokken' /tmp/home.html
-          retry "$URL/kalender" > /tmp/events.html
-          EVENT_PATH="$(grep -o 'href="/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="//;s/"$//')"
+          grep -q 'data-edition="forening"' /tmp/home.html
+          grep -q 'Kultur i en lille' /tmp/home.html
+          retry "$URL/maanedens-events" > /dev/null
+          G /skriv-dig-op 'name="samtykke"'
+          G /for-foreninger 'Det får I ud af det'
+          G /tryghed 'Værten tager imod'
+          G /privatliv 'Slet mine oplysninger'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/admin")" = 303
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/kalender")" = 404
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/skriv-dig-op")" = 403
+          # The event portal, as shown at www.jacobhauge.com/socialklubben.
+          MOUNT='x-flokken-mount: https://www.jacobhauge.com/socialklubben'
+          P() { retry -H "$MOUNT" "$URL$1"; }
+          PG() { P "$1" > /tmp/page.html; grep -q "$2" /tmp/page.html; }
+          P / > /tmp/portal.html
+          grep -q 'flok at følges med' /tmp/portal.html
+          grep -q 'Sådan virker Socialklubben' /tmp/portal.html
+          PG /spar-paa-billetten 'Medlemsfordele'
+          P /kalender > /tmp/events.html
+          EVENT_PATH="$(grep -o 'href="/socialklubben/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="\/socialklubben//;s/"$//')"
           test -n "$EVENT_PATH"
-          retry "$URL$EVENT_PATH" > /tmp/event.html
+          P "$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
           grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
           grep -q 'id="flokke"' /tmp/event.html
-          retry "$URL/kalender?kategori=yoga&periode=maaned&omraade=aarhus" > /tmp/filtered.html
-          grep -q 'class="results-count"' /tmp/filtered.html
-          retry "$URL/aarhus" > /tmp/aarhus.html
-          grep -q '<h1>Events i Aarhus</h1>' /tmp/aarhus.html
-          # Flokken: the flock pages answer (the flocks tables exist) and forms from other sites are refused.
-          retry "$URL/find-en-flok" > /tmp/find.html && grep -q '<h1>Find en flok</h1>' /tmp/find.html
-          retry "$URL/log-ind" > /tmp/login.html && grep -q 'action="/bliv-medlem"' /tmp/login.html
-          retry "$URL/samarbejde" > /tmp/partner.html && grep -q 'billetfordel' /tmp/partner.html
-          retry "$URL/tryghed" > /tmp/safety.html && grep -q 'offentligt sted' /tmp/safety.html
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
-          retry "$URL/spiritualitet/aarhus" > /tmp/aarhus-spirit.html
-          grep -q '<h1>Spirituelle arrangementer i Aarhus</h1>' /tmp/aarhus-spirit.html
-          retry "$URL/klarsyn/aarhus" > /tmp/klarsyn.html
-          grep -q '<h1>Klarsynsaftener i Aarhus</h1>' /tmp/klarsyn.html
-          retry "$URL/arrangoerer/buddhistisk-center-aarhus" > /tmp/org.html
-          grep -q 'Karmapa' /tmp/org.html
-          retry "$URL/sitemap.xml" > /tmp/sitemap.xml
-          grep -q '/meditation/aarhus' /tmp/sitemap.xml
+          PG "/kalender?kategori=yoga&periode=maaned&omraade=aarhus" 'class="results-count"'
+          PG /aarhus '<h1>Events i Aarhus</h1>'
+          PG /kort 'id="kort-data"'
+          PG /find-en-flok '<h1>Find en flok</h1>'
+          PG /log-ind 'action="/socialklubben/bliv-medlem"'
+          PG /samarbejde 'billetfordel'
+          PG /tryghed 'offentligt sted'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
+          PG /spiritualitet/aarhus '<h1>Spirituelle arrangementer i Aarhus</h1>'
+          PG /klarsyn/aarhus '<h1>Klarsynsaftener i Aarhus</h1>'
+          PG /arrangoerer/buddhistisk-center-aarhus 'Karmapa'
+          PG /sitemap.xml '/meditation/aarhus'
           retry "$URL/robots.txt" | grep -q 'Disallow: /'
           curl --silent --head "$URL/" | grep -qi '^x-robots-tag: noindex'
           echo "Staging verified: $URL"

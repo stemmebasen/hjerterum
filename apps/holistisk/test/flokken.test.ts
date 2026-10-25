@@ -24,7 +24,7 @@ beforeAll(async () => {
     "https://lysetshus.dk/robots.txt": { status: 404 }, "https://lysetshus.dk/": { body: fixture("lysetshus.html") }
   });
   await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: SOURCES.filter(s => ["hjerterum", "lysetshus"].includes(s.id)) });
-  env = { DB: db, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", INGEST_TOKEN: "x".repeat(32) };
+  env = { DB: db, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", INGEST_TOKEN: "x".repeat(32), EDITION: "portal" };
   const rows = db.raw.prepare("SELECT id, slug, starts_at, title FROM events WHERE status = 'scheduled' AND starts_at > ? AND venue_name IS NOT NULL ORDER BY starts_at").all(NOW + 86_400_000) as Array<typeof event>;
   event = rows[0]!;
   later = rows.find(r => r.starts_at > event.starts_at + 7 * 86_400_000)!;
@@ -66,7 +66,7 @@ describe("membership", () => {
     expect(normalizeCode(code)).toBe(code);
     expect((await call("/flokke", { cookie })).body).toContain("Hej Maria");
     const stored = db.raw.prepare("SELECT * FROM members WHERE first_name = 'Maria'").all()[0] as Record<string, unknown>;
-    expect(Object.keys(stored).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "last_seen_at"]);
+    expect(Object.keys(stored).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "is_admin", "last_seen_at"]);
     expect(String(stored.code_hash)).not.toContain(code);
     const login = await call("/log-ind", { form: { kode: code.toLowerCase().replace(/-/g, " "), naeste: "/flokke" } });
     expect(login.status).toBe(303);
@@ -208,26 +208,33 @@ describe("partners", () => {
   });
 });
 
-describe("served under www.jacobhauge.com/flokken", () => {
+describe("served under www.jacobhauge.com", () => {
   const mount = { "x-flokken-mount": "https://www.jacobhauge.com/flokken" };
+  const sk = { "x-flokken-mount": "https://www.jacobhauge.com/socialklubben" };
   it("prefixes links, forms, redirects and the login cookie, and checks forms against that site", async () => {
-    const home = await call("/", { headers: mount });
-    expect(home.body).toContain('href="/flokken/kalender"');
-    expect(home.body).toContain('href="/flokken/assets/site.css');
-    expect(home.body).toContain('action="/flokken/kalender"');
-    expect(home.body).toContain('<link rel="canonical" href="https://www.jacobhauge.com/flokken/">');
-    expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!flokken\/|\/)/);
-    const r = await call("/bliv-medlem", { form: { fornavn: "Kim", naeste: "/flokke" }, headers: mount, origin: "https://www.jacobhauge.com" });
+    const home = await call("/", { headers: sk });
+    expect(home.body).toContain('href="/socialklubben/kalender"');
+    expect(home.body).toContain('href="/socialklubben/assets/site.css');
+    expect(home.body).toContain('action="/socialklubben/kalender"');
+    expect(home.body).toContain('<link rel="canonical" href="https://www.jacobhauge.com/socialklubben/">');
+    expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!socialklubben\/|\/)/);
+    const r = await call("/bliv-medlem", { form: { fornavn: "Kim", naeste: "/flokke" }, headers: sk, origin: "https://www.jacobhauge.com" });
     expect(r.status).toBe(200);
-    expect(r.headers.get("set-cookie")).toContain("Path=/flokken;");
-    expect(r.body).toContain('href="/flokken/flokke"');
-    expect((await call("/flokke", { headers: mount })).headers.get("location")).toBe("/flokken/log-ind?naeste=%2Fflokke");
-    expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: mount })).status).toBe(403);
+    expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben;");
+    expect(r.body).toContain('href="/socialklubben/flokke"');
+    expect((await call("/flokke", { headers: sk })).headers.get("location")).toBe("/socialklubben/log-ind?naeste=%2Fflokke");
+    expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).status).toBe(403);
     // Any other value of the header is ignored.
     expect((await call("/", { headers: { "x-flokken-mount": "https://evil.example/flokken" } })).body).toContain('href="/kalender"');
   });
+  it("shows Flokken as an association under /flokken, whatever the Worker's own edition", async () => {
+    const home = await call("/", { headers: mount });
+    expect(home.body).toContain('data-edition="forening"');
+    expect(home.body).toContain('href="/flokken/skriv-dig-op"');
+    expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!flokken\/|\/)/);
+    expect((await call("/kalender", { headers: mount })).status).toBe(404);
+  });
   it("goes by the name Socialklubben under www.jacobhauge.com/socialklubben", async () => {
-    const sk = { "x-flokken-mount": "https://www.jacobhauge.com/socialklubben" };
     const home = await call("/", { headers: sk });
     expect(home.body).toContain("<span>Socialklubben</span>");
     expect(home.body).toContain("Sådan virker Socialklubben");

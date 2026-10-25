@@ -1,6 +1,19 @@
-# Flokken – the event portal with flocks
+# Flokken – kultur i en lille, tryg flok
 
-`apps/holistisk` is Flokken: a public event portal for Aarhus and Østjylland where people find local events – and others to go with. It collects events from permitted sources every night, removes duplicates, keeps them up to date and shows them with search and filters. On top of that, members create and join flocks (flokke): small groups going to one event together, meeting at a public place before it. Tickets and sign-up always happen with the organiser. Why it lives here and how it is kept apart from Hjerterum: [ADR 0006](../decisions/0006-holistisk-event-portal.md); the move to Flokken: [ADR 0007](../decisions/0007-flokken.md). The code and the Cloudflare names still say "holistisk" (`apps/holistisk`, `holistisk-portal-staging`); only what visitors see is Flokken.
+`apps/holistisk` runs two editions from one Worker:
+
+- **Flokken** (www.jacobhauge.com/flokken, and the Worker's own address): an association under formation for people who do not find meeting new people the easiest thing in the world. Each month it hand-picks cultural events from associations it works with and takes small flocks (4–6 and a host) along – planning, ticket and a little something afterwards. For now: the concept, the approved events, an interest list, a page for associations, and admin pages for the volunteers. [ADR 0008](../decisions/0008-flokken-forening.md).
+- **The event portal** (www.jacobhauge.com/socialklubben, as Socialklubben): events collected every night from permitted sources, with search, filters, a map and member-made flocks. [ADR 0006](../decisions/0006-holistisk-event-portal.md), [ADR 0007](../decisions/0007-flokken.md).
+
+The collector serves both: the portal shows its events, Flokken's volunteers pick from them. The code and the Cloudflare names still say "holistisk" (`apps/holistisk`, `holistisk-portal-staging`).
+
+## Flokken as an association
+
+- **Pages** (`src/forening/`): `/` (the concept, how it works, the month's events, the four promises, price model, associations), `/maanedens-events`, `/events/<slug>` (an approved event: the plan with Flokken and "Jeg vil gerne med"), `/skriv-dig-op` (interest list), `/for-foreninger` (what associations get, inquiry form), `/tryghed`, `/om`, `/privatliv` (what is stored, delete by e-mail). Every other address is a 404; `/samarbejde` points to `/for-foreninger`.
+- **Approved events** (`picks`, migration 0004): copied from a collected event or typed in, then edited; only `approved` ones are shown. Nothing is shown before a volunteer approves it.
+- **Interest list** (`interests`): one line per e-mail and event; signing up again updates it. Consent is required; a hidden field catches robots. No mails are sent yet.
+- **Admin** (`/log-ind`, `/admin`): suggestions from the collector (search, "Godkend"), a form for an event typed in, editing and withdrawing, the interest list (and CSV, safe against spreadsheet formulas) and inquiries from associations. Only members with `is_admin = 1`; create one with `node apps/holistisk/scripts/new-admin.mjs "Fornavn"` and run the printed SQL with `wrangler d1 execute`.
+- **Design**: `data-edition="forening"` on `<html>` switches to the calm version of the look (thin lines, soft shadows, no tilted tickets).
 
 ## Run it
 
@@ -34,7 +47,7 @@ curl "http://localhost:8787/__scheduled?cron=17+3+*+*+*"   # runs the daily coll
 
 Outside production every response carries `X-Robots-Tag: noindex` and robots.txt disallows everything.
 
-## Flokken
+## Flocks (the event portal)
 
 - **Members** are a first name and a personal code (12 characters, shown once at sign-up, stored only as SHA-256). No e-mail, phone, age or picture. The code logs in on another device; a lost code cannot be recovered. A login is a random token in an HttpOnly, Secure, SameSite=Lax cookie (`flok_session`, 90 days), stored hashed in `member_sessions`. Hjerterum's login (Clerk) is not used: Flokken's members are kept apart from Hjerterum's.
 - **Flocks** belong to one event. The person who creates one sets a public meeting place (confirmed by a tick box; the event's entrance is suggested), a time (from 6 hours before the event until it ends), a size (2–10, default 6) and an optional note. Anyone logged in can join a flock with room; a member is in at most one flock per event and can leave at any time; an empty flock closes. Names are visible only to the flock's members; others see how many are in it. Nobody is ever put in a flock automatically. Limit: 5 new flocks per member per day.
@@ -43,6 +56,10 @@ Outside production every response carries `X-Robots-Tag: noindex` and robots.txt
 - **Partners** (`/samarbejde`): the planned model (a ticket benefit for members in return for visibility and possible radio mention) and an inquiry form stored in `partner_inquiries`. Member offers live in `PARTNER_OFFERS` in `src/flokken/partners.ts` and are shown on an event only with `confirmedBy` and `confirmedOn` filled in; the list is empty.
 - **Under another site**: a proxy can show the portal under a path (www.jacobhauge.com/flokken and www.jacobhauge.com/socialklubben, see the jacobhauge repo's `worker/flokken.js`) by stripping the prefix and sending `x-flokken-mount: https://www.jacobhauge.com/flokken`. The Worker accepts only addresses in `MOUNTS` (`src/index.ts`) or `PUBLIC_MOUNTS`, then prefixes every link, form, redirect and the cookie path, uses that address for canonical links, and checks forms against its origin.
 - **Another name**: each address in `MOUNTS` has the name the portal goes by there. Under www.jacobhauge.com/socialklubben it is *Socialklubben*: every "Flokken" in pages and messages is shown as "Socialklubben", with its own share image (`SHARE_IMAGES` in `src/web/layout.ts`). Events, flocks and members are the same; the login is kept per address (the cookie path).
+
+## The map (the event portal)
+
+`/kort` shows the coming 14 days' events with a position as pins (one per place; pins close together are counted), with a panel: the area in view, a bar per day, all / with a flock / free, the activities, and a place's events. The page carries the data as JSON; `public/assets/map.js` draws it with Leaflet (served from `public/assets/vendor/leaflet`, BSD-2) on OpenStreetMap's tiles. Events whose source gives only an address get a position from the source's venue or a known Aarhus address (`src/places.ts`, coordinates from OpenStreetMap).
 
 ## Spar på billetten
 
@@ -89,6 +106,7 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 | `INGEST_REQUEST_BUDGET` | var | Requests one collection run may send (default 45, under Workers Free's 50 per invocation; can be raised on a paid plan). |
 | `BILLETTO_API_KEYPAIR` | secret | Turns the Billetto source on (GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`). |
 | `CONTACT_EMAIL` | var | Shown on the safety page for concerns (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
+| `EDITION` | var | `portal` shows the event portal at the Worker's own address; otherwise Flokken as an association. Under a mount, the mount decides. |
 | `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated, each optionally with a name (`https://example.dk/klub=Klubben`; www.jacobhauge.com/flokken and /socialklubben are built in). |
 
 ## Covering more of Denmark

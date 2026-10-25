@@ -21,6 +21,9 @@ export interface Env {
   /** More addresses the portal may be served under through a proxy (comma-separated, e.g. "https://example.dk/flokken",
    * or "https://example.dk/klub=Klubben" to go by another name there). */
   PUBLIC_MOUNTS?: string;
+  /** "portal" shows the event portal at the Worker's own address; anything else (the default) Flokken as an association.
+   * Under a mount, the mount decides (src/index.ts). */
+  EDITION?: string;
   /** Optional address shown on the about page for organisers and corrections. */
   CONTACT_EMAIL?: string;
 }
