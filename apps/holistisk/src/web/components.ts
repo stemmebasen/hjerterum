@@ -1,7 +1,7 @@
 import { CATEGORIES, categoryBySlug } from "../categories.js";
 import { areaBySlug, type Area } from "../geo.js";
 import { priceLabel } from "../price.js";
-import { capitalize, dayLabel, hhmm, localDate, timeRangeLabel } from "../time.js";
+import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallClock } from "../time.js";
 import { PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
@@ -85,11 +85,25 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
 }
 
 /** The front page's fanned stack of three coming events, as small tickets. */
-export function ticketStack(events: EventRow[], now: number): SafeHtml {
+/** When in the day an event starts, for the hero tickets' stub. */
+function partOfDay(ms: number): string {
+  const h = wallClock(ms).hour;
+  return h < 10 ? "morgen" : h < 12 ? "formiddag" : h < 17 ? "dag" : h < 23 ? "aften" : "nat";
+}
+
+/** The front page's tickets, as on the share image: weekday and part of the day on the stub, the activity and the
+ * title on the ticket, and the round stamp on a free one. */
+export function ticketStack(events: EventRow[]): SafeHtml {
   if (!events.length) return html``;
+  const stamped = events.findIndex(e => e.is_free === 1);
   return html`<div class="ticket-stack">${events.slice(0, 3).map((e, i) => {
-    const price = priceLabel(e);
-    return html`<a class="mini-ticket mini-ticket-${i + 1}" href="${eventPath(e)}">${stub(e)}<span class="mini-main"><span class="mini-kicker">${capitalize(dayLabel(e.starts_at, now))}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${placeLine(e)}${price ? ` · ${price}` : ""}</span></span></a>`;
+    const { weekday, day, month } = dateBadge(e.starts_at);
+    const label = [categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event", e.is_free === 1 ? "gratis" : null].filter(Boolean).join(" · ");
+    return html`<a class="mini-ticket mini-ticket-${i + 1}" href="${eventPath(e)}">
+      <span class="mini-stub" aria-hidden="true"><span class="mini-weekday">${weekday}</span><span class="mini-part">${partOfDay(e.starts_at)}</span></span>
+      <span class="mini-main"><span class="mini-kicker">${label}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${capitalize(weekday)}. ${day}. ${month}. kl. ${hhmm(e.starts_at)} · ${placeLine(e)}</span></span>
+      ${i === stamped ? html`<span class="stamp" aria-hidden="true">Gratis</span>` : ""}
+    </a>`;
   })}</div>`;
 }
 

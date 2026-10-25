@@ -14,7 +14,7 @@ import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, cities, countByArea, countEvents, eventBySlug, featuredEvents, hasPrices, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, cities, countByArea, countEvents, eventBySlug, heroEvents, hasPrices, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
@@ -76,8 +76,8 @@ const FRONT_WEEK_LIMIT = 80;
 
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const areas = activeAreas(regions);
-  const [featured, byArea, week, flocks, freeWeek] = await Promise.all([
-    featuredEvents(db, regions, ctx.now, 4), areaCounts(db, regions, ctx.now),
+  const [heroTickets, byArea, week, flocks, freeWeek] = await Promise.all([
+    heroEvents(db, regions, ctx.now), areaCounts(db, regions, ctx.now),
     listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
     upcomingFlocks(db, regions, ctx.now, 6),
     listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24)
@@ -94,15 +94,14 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <p class="hero-kicker">Aarhus · ${eventsLabel(total)} lige nu</p>
       <h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>
-      <p class="standfirst">Koncerter, teater, foredrag, caféjazz, workshops og meget mere i Aarhus – samlet ét sted. Find en flok, der skal det samme som dig, eller opret din egen. Og spar på billetten: se de gratis og billige events, og få medlemsfordele, efterhånden som spillesteder og foreninger bliver partnere.</p>
+      <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
         <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
       </ul>
     </div>
-    <div class="hero-visual">${ticketStack(featured, ctx.now)}</div>
+    <div class="hero-visual">${ticketStack(heroTickets)}</div>
   </div>
 </div>
 <div class="wrap">

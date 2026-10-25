@@ -91,7 +91,7 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v=8">
+<link rel="stylesheet" href="/assets/site.css?v=9">
 <script src="/assets/site.js?v=7" defer></script>
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>

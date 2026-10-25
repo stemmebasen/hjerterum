@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { nextLocalDate, startOfLocalDay } from "../time.js";
+import { localDate, nextLocalDate, startOfLocalDay, wallClock } from "../time.js";
 import { dateWindow, type Filters } from "./filters.js";
 import { activityBySlug } from "../activities.js";
 
@@ -96,25 +96,25 @@ export async function listEvents(db: D1Database, f: Filters, regions: string[], 
 
 /** A few upcoming events to show with pictures on the front page: soonest first, at most two per organiser, preferring
  * events with a picture. */
-export async function featuredEvents(db: D1Database, regions: string[], now: number, count = 6): Promise<EventRow[]> {
+/** The front page's three tickets: coming events on three different days of the next week, an evening one where the day
+ * has one, from different organisers, and a free one among them when the week has one. */
+export async function heroEvents(db: D1Database, regions: string[], now: number): Promise<EventRow[]> {
   const w = visible(regions, now);
-  w.sql.push("e.status = 'scheduled'", "e.starts_at >= ?");
-  w.params.push(now);
-  const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 60`).bind(...w.params).all<EventRow>();
-  const perOrganizer = new Map<string, number>();
+  w.sql.push("e.status = 'scheduled'", "e.all_day = 0", "e.starts_at >= ?", "e.starts_at < ?");
+  w.params.push(now, now + 7 * 86400_000);
+  const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 400`).bind(...w.params).all<EventRow>();
+  const evening = (e: EventRow) => wallClock(e.starts_at).hour >= 17;
+  const pool = [...results.filter(evening), ...results.filter(e => !evening(e))];
   const picked: EventRow[] = [];
-  const pool = [...results.filter(e => e.image_url), ...results.filter(e => !e.image_url)];
-  for (const e of pool) {
-    if (picked.length === count) break;
-    const key = e.organizer_id ?? e.id;
-    if ((perOrganizer.get(key) ?? 0) >= 2) continue;
-    perOrganizer.set(key, (perOrganizer.get(key) ?? 0) + 1);
-    picked.push(e);
-  }
-  // Too few organisers yet to vary: fill up with the next ones.
-  for (const e of pool) {
-    if (picked.length >= count) break;
-    if (!picked.includes(e)) picked.push(e);
+  const sameDay = (a: EventRow, b: EventRow) => localDate(a.starts_at) === localDate(b.starts_at);
+  const sameOrganizer = (a: EventRow, b: EventRow) => (a.organizer_id ?? a.id) === (b.organizer_id ?? b.id);
+  // Different days and organisers; failing that, different days; failing that, what there is.
+  for (const differs of [(e: EventRow) => !picked.some(p => sameDay(p, e) || sameOrganizer(p, e)), (e: EventRow) => !picked.some(p => sameDay(p, e)), (e: EventRow) => !picked.includes(e)])
+    for (const e of pool) if (picked.length < 3 && differs(e)) picked.push(e);
+  const free = pool.find(e => e.is_free === 1);
+  if (free && !picked.some(e => e.is_free === 1)) {
+    const onItsDay = picked.findIndex(p => sameDay(p, free));
+    picked[onItsDay >= 0 ? onItsDay : picked.length - 1] = free;
   }
   return picked.sort((a, b) => a.starts_at - b.starts_at);
 }

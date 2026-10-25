@@ -33,6 +33,10 @@ describe("front page", () => {
     expect(status).toBe(200);
     expect(body).toContain('<h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>');
     expect(body).toContain('class="ticket-stack"');
+    // The hero's tickets: coming events on different days, weekday and part of the day on the stub.
+    const stubs = [...body.matchAll(/<span class="mini-weekday">(\w+)<\/span><span class="mini-part">(\w+)<\/span>/g)].map(m => m[1]);
+    expect(stubs.length).toBeGreaterThan(0);
+    expect(new Set(stubs).size).toBe(stubs.length);
     expect(body).toContain("Spar på billetten");
     expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");

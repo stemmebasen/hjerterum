@@ -124,26 +124,38 @@ strong { font-weight: 800; }
 
 /* Front page hero: text and search on one side, a fanned stack of real tickets on the other */
 .hero { background: var(--paper); background-image: radial-gradient(rgba(23, 51, 45, .08) 1.2px, transparent 1.3px); background-size: 22px 22px; border-bottom: 2px solid var(--ink); }
-.hero-inner { padding-top: 36px; padding-bottom: 48px; display: grid; gap: 30px; align-items: center; }
-@media (min-width: 940px) { .hero-inner { grid-template-columns: 1.12fr .88fr; padding-top: 52px; padding-bottom: 64px; } }
-.hero h1 { max-width: 13em; }
-.hero .standfirst { max-width: 36em; }
+.hero-inner { padding-top: 40px; padding-bottom: 52px; display: grid; gap: 34px; align-items: center; }
+@media (min-width: 940px) { .hero-inner { grid-template-columns: 1fr 1fr; gap: 48px; padding-top: 64px; padding-bottom: 76px; } }
+.hero h1 { font-size: clamp(2.6rem, 1.4rem + 4.4vw, 4.9rem); line-height: 1.02; max-width: 7.8em; margin-bottom: .45em; }
+.hero .standfirst { max-width: 32em; }
 .hero-kicker { display: inline-block; font: 600 .95rem var(--display); color: var(--green-2); background: var(--green-soft); border-radius: 999px; padding: 4px 14px; margin: 0 0 1em; }
-.ticket-stack { position: relative; display: grid; gap: 14px; max-width: 440px; margin: 0 auto; }
-.mini-ticket { display: grid; grid-template-columns: 82px 1fr; background: var(--card); border: 2px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); overflow: hidden; transition: transform .2s ease; }
+/* The hero's tickets, drawn like the share image: three real coming events, fanned, the free one stamped. */
+.ticket-stack { position: relative; display: grid; gap: 20px; max-width: 470px; margin: 0 auto; padding: 26px 26px 0 0; }
+.mini-ticket { position: relative; display: grid; grid-template-columns: 100px 1fr; min-height: 104px; background: var(--card); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 6px 0 var(--ink); color: var(--ink); transition: transform .2s ease; }
 .mini-ticket:hover { text-decoration: none; transform: rotate(0deg) translateY(-3px) !important; }
-.mini-ticket-1 { transform: rotate(-2.5deg); }
-.mini-ticket-2 { transform: rotate(1.8deg) translateX(18px); }
-.mini-ticket-3 { transform: rotate(-1deg) translateX(-6px); }
-.mini-ticket .ticket-stub { border-right: 2px dashed var(--ink); }
-.mini-ticket-1 .ticket-stub { background: var(--butter); }
-.mini-ticket-2 .ticket-stub { background: var(--berry-soft); }
-.mini-ticket-3 .ticket-stub { background: var(--green-soft); }
-.mini-main { display: flex; flex-direction: column; justify-content: center; padding: 12px 16px; min-width: 0; }
-.mini-kicker { font-size: .8rem; font-weight: 800; color: var(--berry); }
-.mini-title { font: 600 1.12rem/1.2 var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mini-meta { font-size: .86rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 939px) { .mini-ticket-2 { transform: rotate(1.2deg) translateX(8px); } .mini-ticket-3 { display: none; } }
+.mini-ticket-1 { transform: rotate(-3deg); }
+.mini-ticket-2 { transform: rotate(2deg) translateX(26px); }
+.mini-ticket-3 { transform: rotate(-1deg); }
+.mini-stub { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-right: 3px dashed var(--ink); border-radius: 15px 0 0 15px; padding: 10px 4px; text-align: center; }
+.mini-ticket-1 .mini-stub { background: var(--butter); }
+.mini-ticket-2 .mini-stub { background: var(--berry-soft); }
+.mini-ticket-3 .mini-stub { background: var(--green-soft); }
+.mini-weekday { font: 700 2.5rem/1 var(--display); text-transform: uppercase; letter-spacing: -.01em; }
+.mini-part { font: 700 .82rem/1.1 var(--display); text-transform: uppercase; color: var(--berry); }
+.mini-main { display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 12px 18px; min-width: 0; }
+.mini-kicker { font-size: .86rem; font-weight: 800; color: var(--berry); }
+.mini-title { font: 600 1.4rem/1.15 var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-meta { font-size: .84rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-ticket .stamp { top: -30px; right: -24px; width: 92px; height: 92px; font-size: 1.05rem; z-index: 2; }
+@media (max-width: 939px) { .ticket-stack { max-width: 520px; } .mini-ticket-2 { transform: rotate(1.5deg) translateX(10px); } }
+@media (max-width: 480px) {
+  .ticket-stack { gap: 16px; padding-right: 14px; }
+  .mini-ticket { grid-template-columns: 78px 1fr; min-height: 88px; }
+  .mini-weekday { font-size: 1.9rem; } .mini-part { font-size: .7rem; }
+  .mini-main { padding: 10px 12px; } .mini-title { font-size: 1.12rem; }
+  .mini-ticket-2 { transform: rotate(1.5deg) translateX(6px); }
+  .mini-ticket .stamp { top: -24px; right: -12px; width: 72px; height: 72px; font-size: .85rem; }
+}
 
 /* Page headings */
 .page-head { padding: 32px 0 8px; }
