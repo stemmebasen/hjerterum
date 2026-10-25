@@ -35,9 +35,9 @@
   L.control.zoom({ position: "topright", zoomInTitle: "Zoom ind", zoomOutTitle: "Zoom ud" }).addTo(map);
   // At the top, so the panel at the bottom never covers it.
   L.control.attribution({ position: "topleft", prefix: false }).addTo(map);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-    subdomains: "abcd", maxZoom: 19, detectRetina: false,
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragydere © <a href="https://carto.com/attributions">CARTO</a>'
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, referrerPolicy: "strict-origin-when-cross-origin",
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragydere'
   }).addTo(map);
   window.addEventListener("resize", function () { fit(); map.invalidateSize(); });
 
@@ -206,9 +206,21 @@
   // "Vis på kortet" from an event: centred on its place, with the place's events open.
   var wanted = params.get("event");
   var target = wanted ? data.events.filter(function (e) { return e.p === "/events/" + wanted; })[0] : null;
+  // The panel covers the bottom (on a phone) or the bottom left (wider): keep the pins in the part that shows.
+  var sheet = $("[data-sheet]");
+  function padding() {
+    var wide = window.innerWidth > 640;
+    return { paddingTopLeft: [wide ? sheet.offsetWidth + 40 : 24, 40], paddingBottomRight: [60, wide ? 40 : sheet.offsetHeight + 30], maxZoom: 16 };
+  }
   if (target) {
     state.day = null;
     map.setView([target.y, target.x], 17);
+    map.panBy(window.innerWidth > 640 ? [-(sheet.offsetWidth / 2), 0] : [0, sheet.offsetHeight / 2], { animate: false });
+  } else {
+    // The city's pins: those within 6 km of its centre, so one event in another town does not zoom the map out.
+    var centre = L.latLng(data.centre.lat, data.centre.lon);
+    var near = data.events.filter(function (e) { return centre.distanceTo([e.y, e.x]) < 6000; });
+    if (near.length) map.fitBounds(L.latLngBounds(near.map(function (e) { return [e.y, e.x]; })), padding());
   }
   update();
   if (target) openPlace(places(data.events.filter(function (e) { return e.y === target.y && e.x === target.x; })));

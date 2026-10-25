@@ -491,6 +491,22 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .item-meta { grid-column: 1; font-size: .85rem; color: var(--muted); }
 .item-flock { grid-column: 2; grid-row: 1 / span 3; align-self: center; font-size: .78rem; font-weight: 800; color: var(--green-2); border: 2px dashed var(--green-2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 .item-flock.has-flock { background: var(--green-soft); border-style: solid; }
+/* The panel's buttons are not the site's big pressable buttons. */
+.map-page button { min-height: 0; box-shadow: none; gap: 0; transition: background .12s; }
+.map-page button:active { transform: none; }
+.map-page .seg button:hover { background: var(--card); }
+.map-page .seg button[aria-pressed="true"] { background: var(--ink); }
+.map-page .day-bar:hover { background: var(--paper); }
+.map-page .day-bar.is-selected { background: var(--butter-soft); }
+.map-page .chip-button:hover { background: var(--card); }
+.map-page .chip-button[aria-pressed="true"] { background: var(--ink); }
+.map-page .link-button, .map-page .link-button:hover { background: none; border: 0; }
+.map-page .back-button { padding: 0; }
+.map-page .back-button:hover { background: var(--butter-soft); }
+.map-page .map-locate { padding: 0; box-shadow: 0 3px 0 var(--ink); }
+.map-page .map-locate:hover { background: var(--butter-soft); }
+/* OpenStreetMap's map, toned towards the paper and ink of the site. */
+.map .leaflet-tile-pane { filter: saturate(.5) sepia(.18) contrast(.94) brightness(1.04); }
 @media (max-width: 640px) {
   .map-page { min-height: 520px; }
   .map-sheet { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 12px 12px 10px; border-radius: 20px; }

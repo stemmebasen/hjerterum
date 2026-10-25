@@ -93,7 +93,7 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
       description: `Se de næste ${MAP_DAYS} dages koncerter, foredrag, workshops og flokke i ${ctx.regionLabel} på et kort – dag for dag, gratis eller med en flok.`,
       canonical: "/kort", breadcrumbs: crumbs, bare: true,
       styles: ["/assets/vendor/leaflet/leaflet.css?v=1.9.4"],
-      scripts: ["/assets/vendor/leaflet/leaflet.js?v=1.9.4", "/assets/map.js?v=1"]
+      scripts: ["/assets/vendor/leaflet/leaflet.js?v=1.9.4", "/assets/map.js?v=2"]
     }, body)
   };
 }
