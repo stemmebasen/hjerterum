@@ -5,7 +5,6 @@ import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { esc, fold, layout, SHOWN } from "./page.js";
 import { replyTarget } from "../saga/teamMail.js";
-import { telegramClient } from "../saga/telegram.js";
 
 /** Requested: "Lav også plads til en ny underside: Forespørgsler. Her scanner Saga mailboksen for
  * Forespørgsler". The mails to team@ are already kept (relayed from Matrix, never judged one by one).
@@ -68,7 +67,7 @@ export async function scanEnquiries(env: SagaEnv, deps: SagaDeps, db: D1Database
     if (!batch?.scanned) break;
   }
   await labelUnlabelled(env, deps, db).catch(error => console.warn("saga_mail_labels_failed", error instanceof Error ? error.message : error));
-  await tellChairAboutUrgentMail(env, deps, db).catch(error => console.warn("saga_urgent_mail_failed", error instanceof Error ? error.message : error));
+  // Requested: "Saga skal ikke længere underrette mig om mails i telegram" - critical mails stand first in Posthus, and nowhere else.
   return found;
 }
 
@@ -144,29 +143,6 @@ export async function markImportant(db: D1Database, id: number): Promise<void> {
   await db.prepare("UPDATE board_mail SET enquiry_kind = COALESCE(enquiry_kind, 'Andet'), enquiry_summary = COALESCE(enquiry_summary, subject), handled_at_ms = NULL, handled_by = NULL WHERE id = ?").bind(id).run();
 }
 
-/** Requested: "Bare mig nu": a mail Saga judges critical is sent to the chair on Telegram at once - privately, never in the group - once, with who, what and why, and the way to Posthus.
- * Only mails from the last three days, so a first scan of old mail does not flood. A send that fails is tried again in the next scan. Returns how many were sent. */
-export async function tellChairAboutUrgentMail(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
-  if (!env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return 0;
-  const now = deps.now();
-  const rows = (await db.prepare("SELECT id, sender, subject, urgent_why FROM board_mail WHERE urgent_why IS NOT NULL AND urgent_notified_ms IS NULL AND received_at_ms >= ? ORDER BY received_at_ms ASC LIMIT 5")
-    .bind(now - 3 * DAY).all<{ id: number; sender: string; subject: string; urgent_why: string }>()).results ?? [];
-  const link = env.COCKPIT_URL ? `\n${env.COCKPIT_URL.replace(/\/+$/, "")}/posthus#kritiske` : "";
-  let sent = 0;
-  // One message per matter: a mail like one the chair has already heard about this week is marked, not sent again.
-  const told = new Set(((await db.prepare("SELECT sender, subject FROM board_mail WHERE urgent_notified_ms > 0 AND received_at_ms >= ?").bind(now - 7 * DAY)
-    .all<{ sender: string; subject: string }>()).results ?? []).map(matterKey));
-  for (const row of rows) {
-    if (told.has(matterKey(row))) { await db.prepare("UPDATE board_mail SET urgent_notified_ms = ? WHERE id = ?").bind(now, row.id).run(); continue; }
-    told.add(matterKey(row));
-    try {
-      await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `⚠️ Kritisk mail i team@\nFra: ${row.sender}\nEmne: ${row.subject}\nAngående: ${row.urgent_why}${link}`);
-    } catch { continue; }
-    await db.prepare("UPDATE board_mail SET urgent_notified_ms = ? WHERE id = ?").bind(now, row.id).run();
-    sent++;
-  }
-  return sent;
-}
 
 /** One AI call over the newest unread mails (the last 30 days): how many it read and how many enquiries it found. */
 async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<{ scanned: number; found: number } | null> {
