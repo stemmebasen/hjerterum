@@ -552,10 +552,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 [data-edition="forening"] h1, [data-edition="forening"] h2, [data-edition="forening"] h3 { font-weight: 600; letter-spacing: -.015em; font-variation-settings: "SOFT" 100, "WONK" 0; }
 [data-edition="forening"] h1 em, [data-edition="forening"] h2 em { font-style: italic; color: var(--green-2); font-weight: 500; }
 .wordmark-flokk { font: 600 1.9rem/1 var(--display); letter-spacing: -.02em; gap: 10px; }
-.wordmark-flokk .mark-flokk { width: 40px; height: 40px; }
+.wordmark-flokk .mark-flokk { width: 60px; height: 32px; }
 .site-footer .wordmark-flokk { color: #fff; }
-.site-footer .wordmark-flokk .mark-flokk circle[fill="#17332d"] { fill: #f6efe2; }
-.site-footer .wordmark-flokk .mark-flokk circle[stroke-dasharray] { stroke: #f6efe2; }
+.site-footer .wordmark-flokk .mark-flokk [fill="#17332d"] { fill: #f6efe2; }
+.site-footer .wordmark-flokk .mark-flokk g { stroke: #f6efe2; }
 [data-edition="forening"] .masthead { border-bottom: 1px solid var(--rule); }
 [data-edition="forening"] .my-flocks { background: var(--green-2); color: #fff; box-shadow: none; border-radius: 999px; }
 [data-edition="forening"] .my-flocks:hover, [data-edition="forening"] .my-flocks[aria-current="page"] { background: var(--ink); color: #fff; }
@@ -585,9 +585,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .f-hero h1 em { display: inline-block; }
 .f-hero .standfirst { font-size: 1.14rem; line-height: 1.7; max-width: 34em; color: var(--ink-2); }
 .f-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 30px; }
-.f-circle { max-width: 420px; width: 100%; margin: 0 auto; }
-.f-circle-art { display: block; width: 100%; height: auto; }
-@media (max-width: 939px) { .f-circle { max-width: 300px; order: -1; } }
+.f-row { max-width: 480px; width: 100%; margin: 0 auto; }
+.f-row-art { display: block; width: 100%; height: auto; }
+@media (max-width: 939px) { .f-row { max-width: 340px; order: -1; } }
 .f-evening h2 { margin-bottom: 20px; }
 .f-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; counter-reset: step; }
 @media (min-width: 820px) { .f-timeline { grid-template-columns: repeat(4, 1fr); gap: 0; } }
@@ -680,3 +680,4 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .admin-list li { background: var(--card); border: 1px solid var(--rule); border-radius: 14px; padding: 12px 16px; margin-bottom: 10px; }
 .admin-list p { margin: 0 0 4px; }
 .field input[type="number"] { width: 100%; min-height: 48px; border: 2px solid var(--rule); border-radius: var(--radius-s); padding: 8px 12px; font: inherit; box-sizing: border-box; }
+@media (max-width: 700px) { .wordmark-flokk { font-size: 1.55rem; } .wordmark-flokk .mark-flokk { width: 48px; height: 26px; } }

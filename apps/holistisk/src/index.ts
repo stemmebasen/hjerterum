@@ -117,7 +117,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/api/health") {
     const db = env.DB;
     if (!db) return json(env, { status: "error", error: "database_unbound", environment: pc.environment }, 503);
-    const status = await ingestStatus(db, now);
+    const status = await ingestStatus(db, now, false);
     return json(env, { status: "ok", environment: pc.environment, regions, ingest: { healthy: status.healthy, lastRun: status.lastRun, lastSuccessAt: status.lastSuccessAt }, events: status.events });
   }
   if (path === "/api/status") {

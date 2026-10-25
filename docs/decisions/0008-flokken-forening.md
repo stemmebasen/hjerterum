@@ -30,7 +30,8 @@ together small flocks with a host, and takes care of planning, the ticket and "a
 - A calmer version of the design: the same colours and mark, thin lines, soft shadows, no tilted tickets.
 
 - Named Flokk (www.jacobhauge.com/flokk) with its own mark and type, so it does not look like Socialklubben; the
-  colours are shared. The mark, the open circle, says the promise: there is always room for one more. Headline: "Nye
+  colours are shared. The mark, a row of people with one place free, says the promise: there is always room for one
+  more – in a row in front of a stage, not a circle (Flokk is not a support group). Headline: "Nye
   oplevelser, nye mennesker – i trygge rammer."
 
 ## Open

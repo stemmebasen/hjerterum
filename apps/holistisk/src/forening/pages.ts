@@ -3,7 +3,7 @@ import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import type { View } from "../web/pages.js";
 import type { InquiryErrors, InquiryForm } from "../flokken/partners.js";
-import { OPEN_CIRCLE_ART } from "./brand.js";
+import { ROW_ART } from "./brand.js";
 import { AGE_GROUPS, AGE_LABELS, INTERESTS, type FormErrors, type InterestForm } from "./forms.js";
 import type { PickRow } from "./store.js";
 
@@ -58,7 +58,7 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
       <p class="standfirst">Flokk er for dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker – men gerne vil. Vi tager dig med til håndplukkede kulturevents i foreningslivet i en lille flok med en vært. Vi står for planlægningen, billetten og en lille en til ganen bagefter. Du skal bare møde op.</p>
       <p class="f-actions"><a class="button" href="/skriv-dig-op">Skriv dig på interesselisten</a> <a class="button-secondary" href="/#saadan">Sådan virker det</a></p>
     </div>
-    <div class="f-circle">${OPEN_CIRCLE_ART}</div>
+    <div class="f-row">${ROW_ART}</div>
   </div>
 </section>
 <div class="wrap">

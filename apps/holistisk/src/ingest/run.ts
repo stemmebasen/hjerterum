@@ -149,15 +149,17 @@ export type IngestStatus = {
 };
 
 /** For /api/status and the health check: healthy when a run succeeded in the last 36 hours. */
-export async function ingestStatus(db: D1Database, now: number): Promise<IngestStatus> {
+export async function ingestStatus(db: D1Database, now: number, withSources = true): Promise<IngestStatus> {
   const last = await db.prepare("SELECT id, trigger, status, started_at, finished_at FROM ingest_runs ORDER BY started_at DESC LIMIT 1")
     .first<{ id: string; trigger: string; status: string; started_at: number; finished_at: number | null }>();
   const ok = await db.prepare("SELECT MAX(started_at) AS at FROM ingest_runs WHERE status IN ('ok', 'partial')").first<{ at: number | null }>();
-  const sources = (await db.prepare(
-    `SELECT source_id, status, started_at, attempts, fetched, created, updated, error FROM ingest_source_runs s
-     WHERE rowid = (SELECT rowid FROM ingest_source_runs t WHERE t.source_id = s.source_id ORDER BY COALESCE(t.error, '') = 'deferred', t.started_at DESC LIMIT 1)
-     ORDER BY source_id`
-  ).all<{ source_id: string; status: string; started_at: number; attempts: number; fetched: number; created: number; updated: number; error: string | null }>()).results;
+  // One pass over the last 30 days' rows (D1 bills every row read; a lookup per row grew with the square of the log).
+  const sources = withSources ? (await db.prepare(
+    `SELECT source_id, status, started_at, attempts, fetched, created, updated, error FROM (
+       SELECT s.*, ROW_NUMBER() OVER (PARTITION BY source_id ORDER BY COALESCE(error, '') = 'deferred', started_at DESC) AS n
+       FROM ingest_source_runs s WHERE started_at >= ?)
+     WHERE n = 1 ORDER BY source_id`
+  ).bind(now - 30 * 86_400_000).all<{ source_id: string; status: string; started_at: number; attempts: number; fetched: number; created: number; updated: number; error: string | null }>()).results : [];
   const counts = await db.prepare("SELECT COUNT(*) AS total, SUM(CASE WHEN status IN ('scheduled', 'cancelled') AND COALESCE(ends_at, starts_at + 10800000) >= ? THEN 1 ELSE 0 END) AS upcoming FROM events")
     .bind(now).first<{ total: number; upcoming: number | null }>();
   return {
