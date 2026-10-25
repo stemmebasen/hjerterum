@@ -48,13 +48,20 @@ const PROMISES: Array<[string, string]> = [
   ["Rolige rammer", "Vi vælger events og steder med siddepladser, overskuelig lyd og et roligt sted til Eftermødet bagefter."]
 ];
 
-export function homePage(ctx: PageContext, picks: PickRow[]): View {
+/** The front page's headline takes turns between these, one per visit. */
+export const HEADLINES: SafeHtml[] = [
+  html`Nye oplevelser, nye mennesker – <em>i trygge rammer.</em>`,
+  html`Kom med ud – <em>vi har gemt en plads til dig.</em>`,
+  html`Oplev mere sammen med nye mennesker – <em>trygt og uden pres.</em>`
+];
+
+export function homePage(ctx: PageContext, picks: PickRow[], headline = 0): View {
   const body = html`
 <section class="f-hero">
   <div class="wrap f-hero-inner">
     <div class="f-hero-text">
       <p class="f-kicker">Der er altid plads til én mere</p>
-      <h1>Nye oplevelser, nye mennesker – <em>i trygge rammer.</em></h1>
+      <h1>${HEADLINES[headline % HEADLINES.length]!}</h1>
       <p class="standfirst">Flokk er for dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker – men gerne vil. Vi tager dig med til håndplukkede kulturevents i foreningslivet i en lille flok med en vært. Vi står for planlægningen, billetten og en lille en til ganen bagefter. Du skal bare møde op.</p>
       <p class="f-actions"><a class="button" href="/skriv-dig-op">Skriv dig på interesselisten</a> <a class="button-secondary" href="/#saadan">Sådan virker det</a></p>
     </div>
@@ -106,6 +113,8 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
 </div>`;
   return {
     status: 200,
+    // Not kept by the browser, so the next visit may show another headline.
+    headers: { "cache-control": "no-cache" },
     body: page(ctx, {
       title: "Flokk – nye oplevelser, nye mennesker, i trygge rammer",
       description: "For dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker: håndplukkede kulturevents i foreningslivet i en lille, tryg flok – med planlægning, billet og en lille en til ganen bagefter.",

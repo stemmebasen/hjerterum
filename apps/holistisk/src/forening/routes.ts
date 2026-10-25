@@ -27,7 +27,7 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
   // Forms carry a field people never see; a filled one is a robot, answered as if all went well.
   const robot = !!form && String(form.get("website_url") ?? "") !== "";
 
-  if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now)) };
+  if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now), Math.floor(Math.random() * pages.HEADLINES.length)) };
   if (path === "/maanedens-events" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
   if (path === "/tryghed" && !post) return { view: pages.safetyPage(ctx) };
   if (path === "/om" && !post) return { view: pages.aboutPage(ctx) };
