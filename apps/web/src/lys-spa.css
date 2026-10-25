@@ -580,3 +580,14 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-categories.is-compact svg { width: 18px; height: 18px; }
 .site-categories a[aria-current="page"] { color: var(--lys-ink); }
 .site-categories a[aria-current="page"] span { background: var(--lys-terra); color: var(--lys-bg); box-shadow: none; }
+
+/* Requested: "Kan du lave en mild farveforskel mellem sektionerne på forsiden" - every other section on a warm band, full width,
+   so the page reads in calm chapters: the calendar, renting the hall and "Mere nærvær. Mindre støj." */
+.site-home { --home-band: color-mix(in srgb, var(--lys-camel) 8%, var(--lys-bg)); }
+@media (prefers-color-scheme: dark) { .site-home { --home-band: color-mix(in srgb, #fff 4%, var(--lys-bg)); } }
+.site-home .nl-month, .site-home .site-use, .site-home .site-vision {
+  background: var(--home-band); box-shadow: 0 0 0 100vmax var(--home-band); clip-path: inset(0 -100vmax); }
+.site-home .nl-month { margin-top: 48px; padding-bottom: 64px; }
+.site-home .site-use, .site-home .site-vision { margin-top: 64px; padding-bottom: 64px; }
+.site-home .site-vision + .site-newsletter { margin-top: 64px; }
+@media (max-width: 760px) { .site-home .nl-month, .site-home .site-use, .site-home .site-vision { padding-bottom: 44px; } }
