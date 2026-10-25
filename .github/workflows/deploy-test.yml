@@ -1,0 +1,111 @@
+name: Deploy Test
+
+# The test site (test.medlem.hjerterum.info): its own Worker and its own D1 database, so payments can be tried with
+# Stripe's test cards before anything reaches hjerterum.info. No Saga, Telegram, team mail or scheduled jobs here.
+# Run it from any branch (workflow_dispatch) to try a change before it is merged.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hjerterum-test
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLERK_JWT_ISSUER: ${{ secrets.CLERK_JWT_ISSUER }}
+      CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_TEST_PUBLISHABLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_TEST_WEBHOOK_SECRET }}
+      STRIPE_MEMBER_WEBHOOK_SECRET: ${{ secrets.STRIPE_TEST_MEMBER_WEBHOOK_SECRET }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      TEST_URL: https://test.medlem.hjerterum.info
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Refuse live Stripe keys on the test site
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${STRIPE_SECRET_KEY:-}" in ""|sk_test_*|rk_test_*) ;; *) echo "STRIPE_TEST_SECRET_KEY is not a test key." >&2; exit 1;; esac
+          case "${STRIPE_PUBLISHABLE_KEY:-}" in ""|pk_test_*) ;; *) echo "STRIPE_TEST_PUBLISHABLE_KEY is not a test key." >&2; exit 1;; esac
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      - name: Resolve or create test D1 database
+        shell: bash
+        run: |
+          set -euo pipefail
+          DATABASE_NAME="hjerterum-test"
+          D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$DATABASE_NAME")"
+          if [ -z "$D1_ID" ]; then
+            pnpm --dir apps/web exec wrangler d1 create "$DATABASE_NAME" --location weur >/tmp/d1-create.log
+            D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs "$DATABASE_NAME")"
+          fi
+          test -n "$D1_ID"
+          node .github/scripts/configure-staging-d1.mjs "$D1_ID" test "$DATABASE_NAME"
+
+      - name: Apply test D1 migrations
+        run: pnpm --dir apps/web exec wrangler d1 migrations apply DB --remote --env test
+
+      - run: pnpm build
+
+      - name: Deploy test Worker and assets
+        id: deploy
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --dir apps/web deploy:test 2>&1 | node .github/scripts/capture-workers-url.mjs
+
+      - name: Sync secrets to the test Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          put_if_set() {
+            if [ -n "$2" ]; then
+              printf '%s' "$2" | pnpm --dir apps/web exec wrangler secret put "$1" --env test >/dev/null
+            fi
+          }
+          put_if_set CLERK_JWT_ISSUER "${CLERK_JWT_ISSUER:-}"
+          put_if_set CLERK_PUBLISHABLE_KEY "${CLERK_PUBLISHABLE_KEY:-}"
+          put_if_set CLERK_SECRET_KEY "${CLERK_SECRET_KEY:-}"
+          put_if_set STRIPE_PUBLISHABLE_KEY "${STRIPE_PUBLISHABLE_KEY:-}"
+          put_if_set STRIPE_SECRET_KEY "${STRIPE_SECRET_KEY:-}"
+          put_if_set STRIPE_WEBHOOK_SECRET "${STRIPE_WEBHOOK_SECRET:-}"
+          put_if_set STRIPE_MEMBER_WEBHOOK_SECRET "${STRIPE_MEMBER_WEBHOOK_SECRET:-}"
+          put_if_set RESEND_API_KEY "${RESEND_API_KEY:-}"
+          put_if_set APP_BASE_URL "$TEST_URL"
+
+      - name: Smoke test the test site
+        env:
+          WORKER_URL: ${{ steps.deploy.outputs.worker_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/api/health" | tee /tmp/health.json
+          grep -q '"environment":"test"' /tmp/health.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/api/readiness" | tee /tmp/readiness.json
+          grep -q '"database":"ready"' /tmp/readiness.json
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/" | grep -q '<div id="root"></div>'
+          # The custom domain may take a few minutes to get its certificate the first time; warn, don't fail.
+          curl --fail --silent --show-error --max-time 20 "$TEST_URL/api/health" || echo "::warning::$TEST_URL is not answering yet"
