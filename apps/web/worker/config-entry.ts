@@ -155,6 +155,11 @@ export default {
 
   async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
     const deps = { fetcher: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), now: () => Date.now() };
+    // The test site (wrangler.jsonc env "test") runs only the platform's own jobs: no Saga, no team mail, no Telegram.
+    if (env.ENVIRONMENT === "test") {
+      await app.scheduled(controller, env).catch(error => console.warn("app_scheduled_failed", error instanceof Error ? error.message : error));
+      return;
+    }
     // team@ in a run of its own (saga.ts isMailRun): a mailbox that stops the run can no longer take Saga's other jobs with it.
     if (isMailRun(controller.scheduledTime)) {
       await runTeamMailRound(env as SagaEnv, deps).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));

@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "deploy:staging": "CLOUDFLARE_ENV=staging vite build && CLOUDFLARE_ENV=staging wrangler deploy",
+    "deploy:test": "CLOUDFLARE_ENV=test vite build && CLOUDFLARE_ENV=test wrangler deploy",
     "deploy:production": "CLOUDFLARE_ENV=production vite build && CLOUDFLARE_ENV=production wrangler deploy"
   },
   "dependencies": {

@@ -44,6 +44,20 @@
         }
       ]
     },
+    "test": {
+      "name": "hjerterum-platform-test",
+      "workers_dev": true,
+      "vars": {
+        "ENVIRONMENT": "test",
+        "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>"
+      },
+      "routes": [
+        { "pattern": "test.medlem.hjerterum.info", "custom_domain": true }
+      ],
+      "triggers": {
+        "crons": []
+      }
+    },
     "production": {
       "name": "hjerterum-platform-production",
       "vars": {
