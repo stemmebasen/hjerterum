@@ -99,7 +99,7 @@ export function ticketStack(events: EventRow[]): SafeHtml {
   return html`<div class="ticket-stack">${events.slice(0, 3).map((e, i) => {
     const { weekday, day, month } = dateBadge(e.starts_at);
     const label = [categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event", e.is_free === 1 ? "gratis" : null].filter(Boolean).join(" · ");
-    return html`<a class="mini-ticket mini-ticket-${i + 1}" href="${eventPath(e)}">
+    return html`<a class="mini-ticket mini-ticket-${i + 1}${i === stamped ? " is-stamped" : ""}" href="${eventPath(e)}">
       <span class="mini-stub" aria-hidden="true"><span class="mini-weekday">${weekday}</span><span class="mini-part">${partOfDay(e.starts_at)}</span></span>
       <span class="mini-main"><span class="mini-kicker">${label}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${capitalize(weekday)}. ${day}. ${month}. kl. ${hhmm(e.starts_at)} · ${placeLine(e)}</span></span>
       ${i === stamped ? html`<span class="stamp" aria-hidden="true">Gratis</span>` : ""}
