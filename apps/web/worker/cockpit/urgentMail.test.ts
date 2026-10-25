@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAutomatic, scanEnquiries, scheduledEnquiryScan, tellChairAboutUrgentMail } from "./enquiries.js";
+import { isAutomatic, scanEnquiries, scheduledEnquiryScan } from "./enquiries.js";
 import { handleCockpitRequest } from "./handler.js";
 import { insertMail } from "../saga/store.js";
 import { deps, fakeServices, memberCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -19,7 +19,7 @@ describe("critical mail", () => {
     return { db, services, env, mail, system: () => system };
   };
 
-  it("judges every new mail for urgency, tells the chair on Telegram once - privately - and shows it first in Posthus", async () => {
+  it("judges every new mail for urgency and shows it first in Posthus - without a word on Telegram", async () => {
     const { db, services, env, mail, system } = await setup(ids => ids.map(id => id === 1
       ? { id, enquiry: false, urgent: true, why: "Advokat kræver svar inden fredag" } : { id, enquiry: true, kind: "Lokaleleje", summary: "Maria vil leje salen", urgent: false }));
     const letter = await mail("m1", "Varsel om retssag", "Advokat <jura@example.com>");
@@ -28,17 +28,8 @@ describe("critical mail", () => {
     expect(await scanEnquiries(env, deps(services.fetcher, NOW), db)).toBe(1);
     expect(system()).toContain("kritisk");
     expect(await db.prepare("SELECT id, urgent_why FROM board_mail WHERE urgent_why IS NOT NULL").all()).toMatchObject({ results: [{ id: letter, urgent_why: "Advokat kræver svar inden fredag" }] });
-    // One message, to the chair's own chat, with who, what, why and the way to Posthus.
-    const sent = services.calls.filter(c => c.url.includes("sendMessage"));
-    expect(sent).toHaveLength(1);
-    const body = sent[0]!.body as { chat_id: string | number; text: string };
-    expect(String(body.chat_id)).toBe(String(env.SAGA_OWNER_TELEGRAM_ID));
-    expect(body.text).toContain("Kritisk mail i team@");
-    expect(body.text).toContain("Varsel om retssag");
-    expect(body.text).toContain("Advokat kræver svar inden fredag");
-    expect(body.text).toContain("https://admin.hjerterum.info/posthus#kritiske");
-    // Once: a second look sends nothing more.
-    expect(await tellChairAboutUrgentMail(env, deps(services.fetcher, NOW), db)).toBe(0);
+    // Requested: "Saga skal ikke længere underrette mig om mails i telegram" - nothing goes to Telegram.
+    expect(services.calls.filter(c => c.url.includes("sendMessage"))).toHaveLength(0);
     // Posthus has them first, marked, with why.
     const cookie = await memberCookie(((await handleCockpitRequest(new Request(`${ORIGIN}/login`, { method: "POST", headers: { origin: ORIGIN }, body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() }), env, deps(services.fetcher, NOW))).headers.get("set-cookie") ?? "").split(";")[0]!, "Jacob Hauge");
     const page = await (await handleCockpitRequest(new Request(`${ORIGIN}/posthus`, { headers: { cookie } }), env, deps(services.fetcher, NOW))).text();
@@ -48,16 +39,6 @@ describe("critical mail", () => {
     expect(page).toContain('<span class="kind urgent">Kritisk</span>');
   });
 
-  it("does not flood: an old mail is not announced, a failed send is tried again, and no Telegram means nothing happens", async () => {
-    const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: true, why: "Haster" })));
-    await mail("old", "Gammel klage", "x@example.com", NOW - 5 * 86_400_000);
-    await mail("new", "Ny klage", "y@example.com");
-    await scanEnquiries(env, deps(services.fetcher, NOW), db);
-    expect(services.calls.filter(c => c.url.includes("sendMessage"))).toHaveLength(1);
-    expect(await db.prepare("SELECT COUNT(*) AS n FROM board_mail WHERE urgent_why IS NOT NULL AND urgent_notified_ms IS NULL").first()).toEqual({ n: 1 });
-    // Without a bot or an owner, nothing is sent and nothing is marked.
-    expect(await tellChairAboutUrgentMail({ ...env, SAGA_OWNER_TELEGRAM_ID: "" }, deps(services.fetcher, NOW), db)).toBe(0);
-  });
 
   // Asked: "How often is the email checked? Maybe that's why." - sorted in the same ten-minute round as team@ is read, every day.
   it("sorts new mail every ten minutes, also at the weekend, and only calls Saga when there is new mail", async () => {
@@ -112,15 +93,14 @@ describe("critical mail", () => {
   });
 
   // Requested: "Der bør i øvrigt ikke være mere end én advarsel pr. sag. Lige nu er der fem advarsler om den samme ting."
-  it("gives one warning per matter - on the page and on Telegram - and one cross takes them all", async () => {
+  it("gives one warning per matter on the page, and one cross takes them all", async () => {
     const { db, services, env, mail } = await setup(ids => ids.map(id => ({ id, enquiry: false, urgent: true, why: "Kunden kræver pengene tilbage" })));
     const first = await mail("k1", "Klage over kursus", "Bo <bo@example.com>", NOW - 3_000_000);
     const second = await mail("k2", "Re: Klage over kursus", "Bo <bo@example.com>", NOW - 2_000_000);
     const third = await mail("k3", "RE: SV: Klage over kursus", "Bo <bo@example.com>", NOW - 1_000_000);
     await mail("o1", "Inkasso", "Firma <inkasso@example.com>");
     await scanEnquiries(env, deps(services.fetcher, NOW), db);
-    const sent = services.calls.filter(c => c.url.includes("sendMessage")).map(c => (c.body as { text: string }).text);
-    expect(sent).toHaveLength(2);
+    expect(services.calls.filter(c => c.url.includes("sendMessage"))).toHaveLength(0);
     const ask = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(`${ORIGIN}${path}`, init), env, deps(services.fetcher, NOW));
     const session = ((await ask("/login", { method: "POST", headers: { origin: ORIGIN }, body: (() => { const f = new FormData(); f.append("password", "hjerte-2026"); return f; })() })).headers.get("set-cookie") ?? "").split(";")[0]!;
     const cookie = await memberCookie(session, "Gitta");
