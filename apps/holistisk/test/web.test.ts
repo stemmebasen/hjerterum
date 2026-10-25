@@ -190,6 +190,35 @@ describe("organisers", () => {
   });
 });
 
+describe("the map", () => {
+  it("is its own page with the coming two weeks' events as data, days, activities and the map's scripts", async () => {
+    const { status, body } = await text("/kort");
+    expect(status).toBe(200);
+    expect(body).toContain('class="map" data-map');
+    expect(body).toContain('src="/assets/vendor/leaflet/leaflet.js?v=1.9.4"');
+    expect(body).toContain('src="/assets/map.js?v=1"');
+    expect(body).not.toContain('class="site-footer"');
+    const data = JSON.parse(/<script type="application\/json" id="kort-data">([\s\S]*?)<\/script>/.exec(body)![1]!);
+    expect(data.days).toHaveLength(14);
+    expect(data.days[0]).toMatchObject({ label: "I dag" });
+    expect(data.events.length).toBeGreaterThan(0);
+    for (const e of data.events) {
+      expect(e.p).toMatch(/^\/events\/[a-z0-9-]+$/);
+      expect(typeof e.y).toBe("number");
+      expect(data.days.some((d: { d: string }) => d.d === e.d)).toBe(true);
+    }
+    expect(data.categories.length).toBeGreaterThan(0);
+  });
+
+  it("is reached from the menu, the front page, the calendar and an event's page", async () => {
+    expect((await text("/")).body).toContain('href="/kort"');
+    expect((await text("/kalender")).body).toContain('class="map-link" href="/kort"');
+    const { body } = await text("/kort");
+    const path = JSON.parse(/id="kort-data">([\s\S]*?)<\/script>/.exec(body)![1]!).events[0].p as string;
+    expect((await text(path)).body).toContain(`href="/kort?event=${path.slice(8)}"`);
+  });
+});
+
 describe("an event's page", () => {
   it("details, sign-up link, source, breadcrumb into the activity and city, schema.org data", async () => {
     const list = (await text("/kalender?q=shamanic")).body;

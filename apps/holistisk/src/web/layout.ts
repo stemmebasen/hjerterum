@@ -31,12 +31,17 @@ export type PageMeta = {
   jsonLd?: unknown[];
   /** The page's place in the site, shown as a breadcrumb and given to search engines as a BreadcrumbList. */
   breadcrumbs?: Crumb[];
+  /** Extra stylesheets and scripts (site paths), e.g. the map's. */
+  styles?: string[];
+  scripts?: string[];
+  /** Hide the footer (a page that fills the screen, like the map). */
+  bare?: boolean;
 };
 
 export const SITE = "Flokken";
 
 /** The main navigation in the header. */
-const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/find-en-flok", "Find en flok"], ["/spar-paa-billetten", "Spar på billetten"], ["/weekend", "Weekend"], ["/samarbejde", "For arrangører"]];
+const NAV: Array<[string, string]> = [["/kalender", "Kalender"], ["/kort", "Kort"], ["/find-en-flok", "Find en flok"], ["/spar-paa-billetten", "Spar på billetten"], ["/samarbejde", "For arrangører"]];
 /** The site's mark: two friends side by side on a butter tile. */
 export const MARK = raw('<svg class="mark" viewBox="0 0 40 40" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" fill="#ffe08a" stroke="#17332d" stroke-width="2"/><path d="M5.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#b3164f" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 35c0-6.5 3.6-10 8.5-10s8.5 3.5 8.5 10z" fill="#1e6b56" stroke="#17332d" stroke-width="2" stroke-linejoin="round"/><circle cx="14" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/><circle cx="26" cy="15.5" r="5.5" fill="#fffdf8" stroke="#17332d" stroke-width="2"/></svg>');
 /** The default picture for links shared on social media (public/assets/og.jpg, 1200×630). */
@@ -93,9 +98,11 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/assets/site.css?v=10">
 <script src="/assets/site.js?v=7" defer></script>
+${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
+${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
 </head>
-<body>
+<body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
 ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – Flokken er under udvikling</div>` : ""}
 <header class="masthead">
@@ -111,7 +118,7 @@ ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Te
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
           <div><p class="menu-head">Flokken</p><ul><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
-          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
+          <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
           <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
@@ -123,7 +130,7 @@ ${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Te
 <main id="indhold">
 ${body}
 </main>
-<footer class="site-footer">
+${meta.bare ? "" : html`<footer class="site-footer">
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
@@ -137,7 +144,7 @@ ${body}
     <nav aria-labelledby="f-topics"><p class="footer-head" id="f-topics">Populære emner</p>
       <ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></nav>
   </div>
-</footer>
+</footer>`}
 </body>
 </html>`.value;
 }

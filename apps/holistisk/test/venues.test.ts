@@ -9,6 +9,7 @@ import { aakbEvents, type AakbEvent } from "../src/sources/aakb.js";
 import { resonansEvents, type ResonansEvent } from "../src/sources/resonans.js";
 import { parseFolkestedet } from "../src/sources/folkestedet.js";
 import { applyGodsPage, godsEvents, parseGodsDate, parseGodsList, parseGodsPage, parseGodsTime } from "../src/sources/godsbanen.js";
+import { coordinatesFor } from "../src/places.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, noSleep } from "./helpers.js";
 
@@ -233,5 +234,22 @@ describe("everyday categories", () => {
     expect(classify({ title: "Børneteater for hele familien" })).toContain("boern-familie");
     expect(classify({ title: "Pubquiz i baren" })).toContain("quiz-fest");
     expect(classify({ title: "Festival for nye stemmer" })).not.toContain("quiz-fest");
+  });
+});
+
+describe("positions for the map", () => {
+  const at = (venueName: string | null, address: string | null, city = "Aarhus C", postalCode: string | null = "8000") => ({ venueName, address, postalCode, city, locationText: null });
+  it("finds a known Aarhus address, and a source's own venue only when the event names no other address", () => {
+    expect(coordinatesFor(at("TRACK", "Kalkværksvej 13"), [])).toEqual({ lat: 56.149355, lon: 10.211238 });
+    expect(coordinatesFor(at("HeadQuarters", "Valdemarsgade 1A"), [])).toEqual({ lat: 56.151826, lon: 10.199036 });
+    expect(coordinatesFor(at("Et andet sted", "Kalkværksvej 130"), [])).toBeNull();
+    expect(coordinatesFor(at("TRAIN", "Kalkværksvej 13", "Odense C", "5000"), [])).toBeNull();
+    const dokk1 = SOURCES.find(s => s.id === "dokk1")!.defaults.venues;
+    expect(coordinatesFor(at("Hovedbiblioteket", null), dokk1)).toEqual({ lat: 56.153436, lon: 10.213776 });
+    const voxhall = SOURCES.find(s => s.id === "voxhall")!.defaults.venues;
+    expect(coordinatesFor(at("VoxHall", "Vester Allé 15"), voxhall)).toEqual({ lat: 56.156055, lon: 10.198522 });
+    // A VoxHall concert at Radar is at Radar.
+    expect(coordinatesFor(at("Radar", "Karen Wegeners Gade 6"), voxhall)).toEqual({ lat: 56.153242, lon: 10.194083 });
+    expect(coordinatesFor(at("Et tredje sted", "Østergade 1"), voxhall)).toBeNull();
   });
 });

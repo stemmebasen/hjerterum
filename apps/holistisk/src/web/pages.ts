@@ -12,7 +12,7 @@ import { KIND_LABELS, offersBlock, offersFor, PARTNER_OFFERS } from "../flokken/
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
-import { html, type SafeHtml } from "./html.js";
+import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
 import { areaCounts, categoryCounts, cities, countByArea, countEvents, eventBySlug, heroEvents, hasPrices, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
@@ -69,6 +69,9 @@ function organizerList(profiles: OrganizerProfile[]): SafeHtml {
   return linkList(profiles.map(p => ({ href: `/arrangoerer/${p.slug}`, label: p.name, note: [p.address, p.city].filter(Boolean).join(", ") })), { columns: false });
 }
 
+/** A small map pin for links to the map. */
+const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="9.8" r="2.3" fill="currentColor"/></svg>');
+
 // ————————————————————————————————————————— Front page
 
 /** How many of the coming week's events the front page lists before pointing to the calendar. */
@@ -98,7 +101,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
-        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
+        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/kort">Kort</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
       </ul>
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
@@ -172,6 +175,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
     <section class="list-results" aria-labelledby="h-results">
       <div class="results-head">
         <h2 id="h-results" class="results-count" aria-live="polite">${eventsLabel(total)}</h2>
+        <a class="map-link" href="/kort${f.price === "gratis" ? "?vis=gratis" : ""}">${MAP_PIN} Se på kort</a>
         ${activeFilterChips(f)}
       </div>
       ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, en anden by eller færre aktiviteter.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
@@ -460,7 +464,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     <aside class="aside facts" aria-label="Fakta">
       <dl class="facts-list">
         <dt>Hvornår</dt><dd>${capitalize(dayLabel(e.starts_at, ctx.now))}<br>${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</dd>
-        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere events i ${area.place}</a>` : ""}</dd>
+        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.lat !== null && e.lon !== null && !over ? html`<br><a href="/kort?event=${e.slug}">Vis på kortet</a>${mapUrl ? html` · <a href="${mapUrl}" rel="noopener" target="_blank">OpenStreetMap</a>` : ""}` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere events i ${area.place}</a>` : ""}</dd>
         ${e.organizer_name ? html`<dt>Arrangør</dt><dd>${profile ? html`<a href="/arrangoerer/${profile.slug}">${e.organizer_name}</a>` : e.organizer_url ? html`<a href="${e.organizer_url}" rel="noopener">${e.organizer_name}</a>` : e.organizer_name}</dd>` : ""}
         ${e.host_name ? html`<dt>Underviser / vært</dt><dd>${e.host_name}</dd>` : ""}
         <dt>Pris</dt><dd>${price ?? "Se arrangørens side"}${e.price_text ? html`<br><span class="meta-muted small">Ifølge beskrivelsen: ${e.price_text}</span>` : ""}</dd>

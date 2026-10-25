@@ -12,7 +12,7 @@ export async function sitemapPages(db: D1Database, regions: string[], now: numbe
   const inRegions = ORGANIZERS.filter(o => areas.some(a => a.slug === o.area));
   const byArea = await areaCounts(db, regions, now);
   const perActivity = await Promise.all(ACTIVITIES.map(a => countByArea(db, activityFilters(a), regions, now)));
-  const pages = ["/", "/kalender", "/i-dag", "/weekend", "/kategorier", "/arrangoerer", "/om", ...inRegions.map(o => `/arrangoerer/${o.slug}`)];
+  const pages = ["/", "/kalender", "/i-dag", "/weekend", "/kort", "/kategorier", "/arrangoerer", "/om", ...inRegions.map(o => `/arrangoerer/${o.slug}`)];
   for (const area of areas) if ((byArea.get(area.slug) ?? 0) > 0 || inRegions.some(o => o.area === area.slug)) pages.push(`/${area.slug}`);
   ACTIVITIES.forEach((activity, i) => {
     const counts = perActivity[i]!;

@@ -322,6 +322,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .filter-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .reset { font-size: .92rem; font-weight: 700; color: var(--berry); }
 .results-head { display: flex; flex-direction: column; gap: 8px; }
+.map-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--butter); color: var(--ink); font-weight: 800; font-size: .9rem; box-shadow: 0 2px 0 var(--ink); }
+.map-link:hover { text-decoration: none; background: var(--butter-soft); }
 .results-count { font: 600 1rem var(--display); color: var(--muted); margin: 0 0 6px; }
 .active-filters { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .active-filters a { display: inline-block; padding: 4px 12px; border-radius: 999px; background: var(--green-soft); color: #17543f; font-size: .86rem; font-weight: 700; }
@@ -432,3 +434,70 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .site-footer li { margin: 0 0 .35em; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* The map (/kort): the map fills the screen below the header; a panel floats at the bottom like a card. */
+
+.map-page { position: relative; height: calc(100svh - var(--map-top, 108px)); min-height: 560px; border-top: 2px solid var(--ink); }
+.map { position: absolute; inset: 0; z-index: 0; isolation: isolate; background: var(--paper-2); font: inherit; }
+.map .leaflet-control-zoom { border: 2px solid var(--ink); border-radius: var(--radius-s); box-shadow: 0 3px 0 var(--ink); overflow: hidden; }
+.map .leaflet-control-zoom a { width: 40px; height: 40px; line-height: 38px; font: 700 1.3rem/38px var(--display); color: var(--ink); background: var(--card); }
+.map .leaflet-control-attribution { background: rgba(255, 253, 248, .85); border-radius: 0 0 8px 0; font-size: .68rem; }
+.map .leaflet-control-attribution a { color: var(--ink-2); }
+.map-locate { position: absolute; z-index: 1000; top: 112px; right: 10px; width: 44px; height: 44px; border-radius: var(--radius-s); border: 2px solid var(--ink); background: var(--card); color: #2f6fde; box-shadow: 0 3px 0 var(--ink); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.map-locate[hidden] { display: none; }
+
+/* Pins: a round tag with a tail; butter for events, berry where a flock is going. */
+.pin-wrap { background: none; border: 0; }
+.pin { position: absolute; left: 0; top: 0; transform: translate(-50%, calc(-100% - 8px)); display: inline-flex; align-items: center; gap: 5px; height: 42px; min-width: 42px; padding: 0 10px; box-sizing: border-box; justify-content: center; border-radius: 999px; border: 2px solid var(--ink); background: var(--butter); color: var(--ink); box-shadow: 0 3px 0 var(--ink); font: 700 1.05rem/1 var(--display); white-space: nowrap; cursor: pointer; }
+.pin::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 11px; height: 11px; background: inherit; border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: translateX(-50%) rotate(45deg); }
+.pin svg { width: 21px; height: 21px; flex: none; }
+.pin-flock { background: var(--berry); color: var(--butter); }
+.pin-flock b { color: #fff; }
+.pin-wrap:hover .pin, .pin-wrap:focus-visible .pin { transform: translate(-50%, calc(-100% - 11px)); }
+.pin-wrap:focus-visible { outline: none; }
+.pin-wrap:focus-visible .pin { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+.map-sheet { position: absolute; z-index: 1000; left: 16px; bottom: 16px; width: min(540px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; box-sizing: border-box; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 6px 0 var(--ink); padding: 16px 18px 14px; }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.sheet-title { font-size: 1.55rem; line-height: 1.1; margin: 0; }
+.seg { display: inline-flex; gap: 2px; background: var(--paper-2); border: 2px solid var(--ink); border-radius: 999px; padding: 3px; }
+.seg button { border: 0; background: none; font: 800 .86rem var(--sans); color: var(--ink); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--butter); }
+.day-bars { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 3px; margin: 14px 0 4px; }
+.day-bar { border: 0; background: none; padding: 4px 0 3px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border-radius: 10px; font: inherit; color: var(--ink); }
+.day-bar:hover { background: var(--paper); }
+.day-bar.is-selected { background: var(--butter-soft); }
+.bar-col { height: 60px; width: 72%; max-width: 18px; background: var(--paper-2); border-radius: 6px; display: flex; align-items: flex-end; overflow: hidden; }
+.bar-fill { width: 100%; background: var(--green-2); border-radius: 6px; }
+.day-bar.is-selected .bar-fill { background: var(--berry); }
+.bar-letter { font-size: .7rem; font-weight: 800; color: var(--muted); line-height: 1; }
+.bar-num { font: 700 .92rem/1 var(--display); }
+.day-bar.is-today .bar-num { color: var(--berry); }
+.sheet-count { margin: 8px 0 10px; font-size: .95rem; }
+.link-button { border: 0; background: none; padding: 0; margin-left: 6px; color: var(--berry); font: 800 .9rem var(--sans); text-decoration: underline; cursor: pointer; }
+.link-button[hidden] { display: none; }
+.map-chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 4px; scrollbar-width: none; }
+.map-chips::-webkit-scrollbar { display: none; }
+.chip-button { flex: none; border: 2px solid var(--rule); background: var(--card); border-radius: 999px; padding: 6px 14px; font: 800 .88rem var(--sans); color: var(--ink); cursor: pointer; }
+.chip-button:hover { border-color: var(--ink); }
+.chip-button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--butter); }
+.sheet-place .sheet-head { justify-content: flex-start; flex-wrap: nowrap; }
+.back-button { flex: none; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--ink); background: var(--butter); font: 700 1.2rem/1 var(--display); color: var(--ink); cursor: pointer; }
+.sheet-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 44vh; overflow: auto; }
+.sheet-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding: 10px 2px; border-top: 2px dashed var(--rule); color: var(--ink); }
+.sheet-item:hover { text-decoration: none; background: var(--paper); }
+.item-when { grid-column: 1; font-size: .8rem; font-weight: 800; color: var(--berry); }
+.item-title { grid-column: 1; font: 600 1.06rem/1.2 var(--display); }
+.item-meta { grid-column: 1; font-size: .85rem; color: var(--muted); }
+.item-flock { grid-column: 2; grid-row: 1 / span 3; align-self: center; font-size: .78rem; font-weight: 800; color: var(--green-2); border: 2px dashed var(--green-2); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.item-flock.has-flock { background: var(--green-soft); border-style: solid; }
+@media (max-width: 640px) {
+  .map-page { min-height: 520px; }
+  .map-sheet { left: 8px; right: 8px; bottom: 8px; width: auto; padding: 12px 12px 10px; border-radius: 20px; }
+  .sheet-title { font-size: 1.3rem; }
+  .seg button { padding: 5px 9px; font-size: .8rem; }
+  .bar-col { height: 46px; }
+  .bar-num { font-size: .8rem; }
+  .day-bars { gap: 1px; margin-top: 10px; }
+  .sheet-list { max-height: 40vh; }
+}

@@ -119,6 +119,15 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
   return picked.sort((a, b) => a.starts_at - b.starts_at);
 }
 
+/** Every coming event with a position, for the map: from now until `days` days ahead. */
+export async function mapEvents(db: D1Database, regions: string[], now: number, until: number): Promise<EventRow[]> {
+  const w = visible(regions, now);
+  w.sql.push("e.status = 'scheduled'", "e.lat IS NOT NULL", "e.lon IS NOT NULL", "e.starts_at < ?");
+  w.params.push(until);
+  const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 3000`).bind(...w.params).all<EventRow>();
+  return results;
+}
+
 export async function categoryCounts(db: D1Database, regions: string[], now: number, area: string | null = null): Promise<Map<string, number>> {
   const w = visible(regions, now);
   if (area) { w.sql.push("e.area = ?"); w.params.push(area); }

@@ -5,6 +5,7 @@ import { collapse, normalizeTitle, searchText, sha256Hex, slugify, summarize } f
 import type { SourceConfig, SourceEvent } from "../sources/types.js";
 import { categoryName } from "../categories.js";
 import { classifyTopics } from "../activities.js";
+import { coordinatesFor } from "../places.js";
 
 /** An event as the portal stores it (the events table), plus its categories. */
 export type EventRecord = {
@@ -50,7 +51,7 @@ export type EventRecord = {
 export type Normalized = { ok: true; record: EventRecord } | { ok: false; reason: string };
 
 /** Raised when the way events are read or categorised changes, so every stored event is processed again once. */
-export const NORMALIZE_VERSION = 6;
+export const NORMALIZE_VERSION = 7;
 
 /** The fields that decide whether a source's record changed (before any enrichment). */
 export async function contentHash(e: SourceEvent): Promise<string> {
@@ -114,7 +115,9 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
   if (!area) flags.add(regionOnly ? "region_only" : "area_unknown");
   if (!categories.length) flags.add("uncategorized");
   if (e.endsAt === null) flags.add("no_end_time");
-  if (e.lat === null) flags.add("no_coordinates");
+  // A position for the map: the source's own, else its venue's or a known address's.
+  const position = e.lat !== null && e.lon !== null ? { lat: e.lat, lon: e.lon } : coordinatesFor(e, config.defaults.venues);
+  if (!position) flags.add("no_coordinates");
   if (!e.price) flags.add("price_unknown");
 
   const id = await eventIdFor(config.id, e.sourceEventId);
@@ -146,8 +149,8 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
       city: e.city ? collapse(e.city).slice(0, 80) : null,
       area: area?.slug ?? null,
       region: area?.region ?? regionOnly?.slug ?? null,
-      lat: e.lat,
-      lon: e.lon,
+      lat: position?.lat ?? null,
+      lon: position?.lon ?? null,
       price_min_minor: e.price?.minMinor ?? null,
       price_max_minor: e.price?.maxMinor ?? null,
       price_currency: e.price ? e.price.currency : null,

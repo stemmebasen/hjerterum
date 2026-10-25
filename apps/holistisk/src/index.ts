@@ -8,6 +8,7 @@ import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
 import { sitemapPages } from "./web/sitemap.js";
+import { mapPage } from "./web/map.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
 import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
 import { currentMember, sameOrigin, sameSecret } from "./flokken/auth.js";
@@ -165,6 +166,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/i-dag") return view(env, await periodPage(db, pc, regions, "idag"));
   if (path === "/weekend") return view(env, await periodPage(db, pc, regions, "weekend"));
   if (path === "/spar-paa-billetten") return view(env, await savingsPage(db, pc, regions));
+  if (path === "/kort") return view(env, await mapPage(db, pc, regions));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
   if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));
