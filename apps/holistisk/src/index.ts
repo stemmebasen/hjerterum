@@ -61,9 +61,10 @@ function context(env: Env, url: URL, now: number, regions: string[], mount: Moun
  * the x-flokken-mount header (see docs/holistisk/README.md), with the name the portal goes by there. PUBLIC_MOUNTS adds
  * more ("address" or "address=Name"). */
 const MOUNTS: Record<string, { name: string; edition: "forening" | "portal" }> = {
-  "https://www.jacobhauge.com/flokk": { name: "Flokk", edition: "forening" },
-  // The earlier address of Flokk; www.jacobhauge.com sends it on to /flokk.
-  "https://www.jacobhauge.com/flokken": { name: "Flokk", edition: "forening" },
+  "https://www.jacobhauge.com/samfolk": { name: "Samfolk", edition: "forening" },
+  // Earlier addresses of the association (Flokk, Flokken); www.jacobhauge.com sends them on to /samfolk.
+  "https://www.jacobhauge.com/flokk": { name: "Samfolk", edition: "forening" },
+  "https://www.jacobhauge.com/flokken": { name: "Samfolk", edition: "forening" },
   // Socialklubben keeps the event portal.
   "https://www.jacobhauge.com/socialklubben": { name: "Socialklubben", edition: "portal" }
 };
@@ -133,9 +134,9 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     const outcome = await runIngest(env, { trigger: "manual", now, onlyDue: url.searchParams.get("alle") !== "1", retryFailed: true });
     return json(env, outcome, outcome.status === "failed" ? 502 : 200);
   }
-  // Flokk, the association, has its own pages; the event portal's are not shown there.
+  // Foreningen Samfolk has its own pages; the event portal's are not shown there.
   if (pc.edition === "forening" && !path.startsWith("/assets/") && path !== "/favicon.svg" && path !== "/robots.txt") {
-    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokks egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Samfolks egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
     const result = await foreningRoute(request, env, env.DB, pc, regions, path, url, now);

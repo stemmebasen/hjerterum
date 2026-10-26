@@ -954,3 +954,28 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 @media (max-width: 600px) { [data-edition="forening"] .f-hero .f-kicker { border-radius: 16px; } }
 /* The label above the headline is a full sentence: plain sun-yellow text, not a pill. */
 [data-edition="forening"] .f-hero .f-kicker { display: block; background: none; color: var(--sun); padding: 0; border-radius: 0; font-size: 1.08rem; font-weight: 500; max-width: 34em; }
+
+/* ————————————————————————————————————————— Foreningen Samfolk: the new parts */
+.f-badge { display: inline-block; align-self: flex-start; background: var(--sun, #f6c445); color: var(--night, #1d3a33); border-radius: 999px; padding: 2px 12px; font-size: .78rem; font-weight: 600; margin-bottom: 6px; }
+.f-card-cancelled { display: inline-block; margin-top: 6px; color: var(--berry-dark); font-weight: 600; }
+.f-cards-one { grid-template-columns: minmax(0, 520px); }
+.f-card-samfolk { box-shadow: 0 0 0 3px var(--sun, #f6c445), var(--soft-shadow, none); }
+.f-for-all { background: var(--night, #1d3a33); color: #d9e4de; border-radius: var(--radius); padding: 32px 34px; }
+.f-for-all h2 { color: #fbf3e6; margin-top: 0; }
+.f-for-all p { margin: 0; max-width: 42em; font-size: 1.12rem; }
+.f-prices { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0 0 12px; color: var(--ink-2); }
+.f-prices strong { font: 800 2rem/1 var(--display); color: var(--ink); letter-spacing: -.02em; }
+.f-letter-form { display: grid; gap: 10px; }
+.f-letter-form .field { margin: 0; }
+.f-letter-form .field label { color: inherit; }
+.f-plans { display: flex; flex-wrap: wrap; gap: 8px; }
+.f-plan-option { align-items: center; background: var(--paper-2); border-radius: 999px; padding: 8px 16px; font-weight: 500; }
+.f-plan-option:has(input:checked) { background: var(--green-soft); box-shadow: inset 0 0 0 1.5px var(--green-2); }
+.f-plan-option input { margin: 0; }
+.f-manage { display: flex; flex-wrap: wrap; gap: 10px; }
+.f-people { padding-left: 1.4em; }
+.f-people li { padding: 4px 0; }
+.f-people li.is-muted { color: var(--muted); text-decoration: line-through; }
+.my-list h3 { margin: 4px 0 6px; font-size: 1.3rem; }
+[data-edition="forening"] .f-panel-alt .f-letter-form input[type="email"] { background: #fbf3e6; }
+[data-edition="forening"] .f-panel-alt .f-letter-form button { background: var(--sun); color: var(--night); }

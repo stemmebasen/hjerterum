@@ -124,18 +124,19 @@ jobs:
           node -e 'const s=require("/tmp/sources.json");console.log(JSON.stringify(s.sources,null,1));for(const x of s.sources)if(x.status==="failed")console.log("::warning::source failed: "+x.id+" "+x.error);const h=s.sources.find(y=>y.id==="hjerterum");if(!h||h.status!=="ok"||!(h.fetched>0)){console.error("hjerterum not collected: "+JSON.stringify(h));process.exit(1)}'
           retry "$URL/api/status" | tee /tmp/status.json
           node -e 'const s=require("/tmp/status.json");if(!s.healthy||s.events.upcoming<1)process.exit(1)'
-          # Flokk: the Worker's own address.
+          # Foreningen Samfolk: the Worker's own address.
           # Each page is saved and then searched: a grep -q that stops early would cut curl off under pipefail.
           G() { retry "$URL$1" > /tmp/page.html; grep -q "$2" /tmp/page.html; }
           retry "$URL/" > /tmp/home.html
           grep -q 'data-edition="forening"' /tmp/home.html
-          grep -q '<title>Flokk – nye oplevelser' /tmp/home.html
+          grep -q '<title>Foreningen Samfolk – oplevelser sammen' /tmp/home.html
           retry "$URL/ture" > /dev/null
-          G /bliv-medlem 'name="samtykke"'
+          G /bliv-medlem 'name="medlemskab"'
           G /log-ind 'name="kode"'
-          G /for-arrangoerer 'Sådan kan et samarbejde se ud'
+          G /samfolk-brevet 'action="/samfolk-brevet"'
           G /saadan-fungerer-det 'først til mølle'
-          G /privatliv 'Slet mig fra interesselisten'
+          G /privatliv 'Slet mig fra den tidligere interesseliste'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/ture/ny")" = 303
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/admin")" = 303
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/kalender")" = 404
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403

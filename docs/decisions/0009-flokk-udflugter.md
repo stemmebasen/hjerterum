@@ -1,6 +1,6 @@
 # 0009 – Flokk: Udflugter in a small flock, on your own terms
 
-Status: accepted (staging), 2026-10-26. Replaces the concept parts of [ADR 0008](0008-flokken-forening.md).
+Status: superseded by [ADR 0010](0010-samfolk.md) (Foreningen Samfolk), 2026-10-26. Was accepted (staging) the same day. Replaces the concept parts of [ADR 0008](0008-flokken-forening.md).
 
 ## Context
 

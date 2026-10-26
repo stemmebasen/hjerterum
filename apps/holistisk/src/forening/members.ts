@@ -2,49 +2,73 @@ import type { D1Database } from "../db.js";
 import { currentMember, newCode, sha256 } from "../flokken/auth.js";
 import type { PickRow } from "./store.js";
 
-/** Flokk's members and their sign-ups for ture, by the rules decided (docs/decisions/0009-flokk-udflugter.md):
- * only members take part; places go first come, first served, then an automatic waiting list in the same order; a
- * flock is confirmed at four sign-ups and stays confirmed; sign-up and ordinary cancellation close seven days before,
- * after which the list is locked; a place given up before that goes to the first on the waiting list; if Flokk cancels
- * its participation, that is recorded apart from the organiser's event. No payment yet. */
+/** Samfolk's members and their sign-ups, by the rules decided (docs/decisions/0010-samfolk.md): only members with a
+ * complete profile take part; the one who creates a tur sets its places and its deadline; places go first come, first
+ * served, then an automatic waiting list in the same order; until the deadline a member can cancel, and the place goes
+ * to the first on the waiting list; after it the list is locked. Membership is by the month or the year; paying opens
+ * later. Columns named flokk_* are from an earlier version. */
 
-export const CLOSE_MS = 7 * 86_400_000;
-export const CONFIRM_AT = 4;
+export type Plan = "month" | "year";
+export const PLANS: Record<Plan, { label: string; price: string }> = {
+  month: { label: "Måned", price: "50 kr. om måneden" },
+  year: { label: "År", price: "500 kr. om året" }
+};
 
-export type FlokkMember = {
+export type SamfolkMember = {
   id: string; first_name: string; email: string | null; flokk_joined_at: number | null; is_admin: number;
-  interests: string | null; area: string | null; age_group: string | null;
+  interests: string | null; area: string | null; plan: Plan | null;
 };
 export type SignupStatus = "registered" | "waitlist" | "cancelled";
 
-const MEMBER_COLUMNS = "id, first_name, email, flokk_joined_at, is_admin, interests, area, age_group";
+const MEMBER_COLUMNS = "id, first_name, email, flokk_joined_at, is_admin, interests, area, plan";
 
-export const closesAt = (p: Pick<PickRow, "starts_at">) => p.starts_at - CLOSE_MS;
-export const isOpen = (p: Pick<PickRow, "starts_at" | "flokk_cancelled_at" | "status">, now: number) =>
+/** Sign-up and cancellation close at the deadline the creator set, else when the tur starts. */
+export const closesAt = (p: Pick<PickRow, "starts_at" | "closes_at">) => p.closes_at ?? p.starts_at;
+export const isOpen = (p: Pick<PickRow, "starts_at" | "closes_at" | "flokk_cancelled_at" | "status">, now: number) =>
   p.status === "approved" && !p.flokk_cancelled_at && now < closesAt(p);
-/** A Flokk member, or a volunteer (an admin may take part too). Members of the event portal are not. */
-export const isFlokkMember = (m: FlokkMember | null): m is FlokkMember => !!m && (!!m.flokk_joined_at || m.is_admin === 1);
+/** A Samfolk member, or a volunteer (an admin may take part too). Members of the event portal are not. */
+export const isSamfolkMember = (m: SamfolkMember | null): m is SamfolkMember => !!m && (!!m.flokk_joined_at || m.is_admin === 1);
+/** Using the site – signing up, creating a tur – takes a complete profile: name, mail, interests, area and a membership. */
+export const profileComplete = (m: SamfolkMember) => !!(m.first_name && m.email && m.interests && m.area && m.plan);
+/** The one who created a tur, or a volunteer, may change and cancel it. */
+export const mayManage = (m: SamfolkMember | null, p: Pick<PickRow, "created_by">) => !!m && (m.is_admin === 1 || (!!p.created_by && p.created_by === m.id));
 
-export async function memberById(db: D1Database, id: string): Promise<FlokkMember | null> {
-  return db.prepare(`SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`).bind(id).first<FlokkMember>();
+export async function memberById(db: D1Database, id: string): Promise<SamfolkMember | null> {
+  return db.prepare(`SELECT ${MEMBER_COLUMNS} FROM members WHERE id = ?`).bind(id).first<SamfolkMember>();
 }
 
-export async function currentFlokkMember(db: D1Database, request: Request, now: number): Promise<FlokkMember | null> {
+export async function currentSamfolkMember(db: D1Database, request: Request, now: number): Promise<SamfolkMember | null> {
   const session = await currentMember(db, request, now);
   return session ? memberById(db, session.id) : null;
 }
 
-export type JoinFields = { first_name: string; email: string; interests: string | null; area: string | null; age_group: string | null };
+export type ProfileFields = { first_name: string; email: string; interests: string; area: string; plan: Plan };
+
+const emailTaken = async (db: D1Database, email: string, exceptId = "") =>
+  !!(await db.prepare("SELECT 1 AS x FROM members WHERE email = ? AND id != ?").bind(email, exceptId).first());
 
 /** A new member and the personal code they log in with (shown once). Null when the e-mail already has a profile. */
-export async function joinFlokk(db: D1Database, f: JoinFields, now: number): Promise<{ member: FlokkMember; code: string } | null> {
+export async function joinSamfolk(db: D1Database, f: ProfileFields, now: number): Promise<{ member: SamfolkMember; code: string } | null> {
   const email = f.email.trim().toLowerCase();
-  if (await db.prepare("SELECT 1 AS x FROM members WHERE email = ?").bind(email).first()) return null;
+  if (await emailTaken(db, email)) return null;
   const code = newCode();
-  const member: FlokkMember = { id: crypto.randomUUID(), first_name: f.first_name, email, flokk_joined_at: now, is_admin: 0, interests: f.interests, area: f.area, age_group: f.age_group };
-  await db.prepare(`INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at, email, flokk_joined_at, interests, area, age_group)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(member.id, member.first_name, await sha256(code), now, now, email, now, f.interests, f.area, f.age_group).run();
+  const member: SamfolkMember = { id: crypto.randomUUID(), first_name: f.first_name, email, flokk_joined_at: now, is_admin: 0, interests: f.interests, area: f.area, plan: f.plan };
+  await db.prepare(`INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at, email, flokk_joined_at, interests, area, plan)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(member.id, member.first_name, await sha256(code), now, now, email, now, f.interests, f.area, f.plan).run();
   return { member, code };
+}
+
+/** Saves a member's profile. False when the e-mail belongs to another member. */
+export async function updateProfile(db: D1Database, memberId: string, f: ProfileFields): Promise<boolean> {
+  const email = f.email.trim().toLowerCase();
+  if (await emailTaken(db, email, memberId)) return false;
+  const before = await memberById(db, memberId);
+  await db.batch([
+    db.prepare("UPDATE members SET first_name = ?, email = ?, interests = ?, area = ?, plan = ? WHERE id = ?").bind(f.first_name, email, f.interests, f.area, f.plan, memberId),
+    // A new e-mail keeps the letter going to the member.
+    db.prepare("UPDATE newsletter SET email = ? WHERE member_id = ? AND email = ? AND NOT EXISTS (SELECT 1 FROM newsletter WHERE email = ?)").bind(email, memberId, before?.email ?? "", email)
+  ]);
+  return true;
 }
 
 /** A new code for a member who lost theirs (given out by a volunteer); the old code and every login stop working. */
@@ -77,17 +101,13 @@ export async function mySignup(db: D1Database, pickId: string, memberId: string)
   return r ?? null;
 }
 
-async function markConfirmed(db: D1Database, pickId: string, now: number): Promise<void> {
-  await db.prepare(`UPDATE picks SET confirmed_at = ? WHERE id = ? AND confirmed_at IS NULL
-    AND (SELECT COUNT(*) FROM signups WHERE pick_id = picks.id AND status = 'registered') >= ?`).bind(now, pickId, CONFIRM_AT).run();
-}
-
-export type SignupResult = { ok: SignupStatus } | { error: "closed" | "cancelled" | "not_member" };
+export type SignupResult = { ok: SignupStatus } | { error: "closed" | "cancelled" | "not_member" | "profile" };
 
 /** Signs a member up: a place if there is one, else the waiting list. Decided in one statement, so two people
  * signing up at once cannot both take the last place. Signing up again after cancelling joins the back of the queue. */
-export async function signUp(db: D1Database, pick: PickRow, member: FlokkMember | null, now: number): Promise<SignupResult> {
-  if (!isFlokkMember(member)) return { error: "not_member" };
+export async function signUp(db: D1Database, pick: PickRow, member: SamfolkMember | null, now: number): Promise<SignupResult> {
+  if (!isSamfolkMember(member)) return { error: "not_member" };
+  if (!profileComplete(member)) return { error: "profile" };
   if (pick.flokk_cancelled_at) return { error: "cancelled" };
   if (!isOpen(pick, now)) return { error: "closed" };
   const existing = await mySignup(db, pick.id, member.id);
@@ -98,7 +118,6 @@ export async function signUp(db: D1Database, pick: PickRow, member: FlokkMember 
   await db.prepare(`INSERT INTO signups (id, pick_id, member_id, status, queued_at, updated_at) VALUES (?3, ?1, ?2, ${status}, ?4, ?4)
     ON CONFLICT(pick_id, member_id) DO UPDATE SET status = ${status}, queued_at = ?4, updated_at = ?4`)
     .bind(pick.id, member.id, crypto.randomUUID(), now).run();
-  await markConfirmed(db, pick.id, now);
   return { ok: (await mySignup(db, pick.id, member.id))!.status };
 }
 
@@ -109,10 +128,9 @@ export async function fillFromWaitlist(db: D1Database, pick: PickRow, now: numbe
       SELECT id FROM signups WHERE pick_id = ?1 AND status = 'waitlist' ORDER BY queued_at
       LIMIT MAX(0, COALESCE((SELECT places FROM picks WHERE id = ?1), 1000000) - (SELECT COUNT(*) FROM signups WHERE pick_id = ?1 AND status = 'registered')))`)
     .bind(pick.id, now).run();
-  await markConfirmed(db, pick.id, now);
 }
 
-/** An ordinary cancellation, before the deadline: the place goes to the waiting list. */
+/** A cancellation before the deadline: the place goes to the waiting list. */
 export async function cancelSignup(db: D1Database, pick: PickRow, memberId: string, now: number): Promise<{ ok: true } | { error: "closed" }> {
   if (!isOpen(pick, now)) return { error: "closed" };
   await db.prepare("UPDATE signups SET status = 'cancelled', updated_at = ? WHERE pick_id = ? AND member_id = ? AND status != 'cancelled'").bind(now, pick.id, memberId).run();
@@ -133,7 +151,7 @@ export async function memberSignups(db: D1Database, memberId: string, now: numbe
   return results;
 }
 
-/** The first names in a tur's flock, in sign-up order. */
+/** The first names of those with a place on a tur, in sign-up order. */
 export async function flockFirstNames(db: D1Database, pickId: string): Promise<string[]> {
   const { results } = await db.prepare(`SELECT m.first_name FROM signups s JOIN members m ON m.id = s.member_id
     WHERE s.pick_id = ? AND s.status = 'registered' ORDER BY s.queued_at`).bind(pickId).all<{ first_name: string }>();
@@ -149,30 +167,34 @@ export async function participants(db: D1Database, pickId: string): Promise<Part
   return results;
 }
 
-/** Flokk cancels its participation: recorded on the tur; the sign-ups stay, so members see what happened. */
-export async function cancelByFlokk(db: D1Database, pickId: string, now: number): Promise<void> {
+/** A tur is cancelled: recorded on it; the sign-ups stay, so members see what happened. */
+export async function cancelTur(db: D1Database, pickId: string, now: number): Promise<void> {
   await db.prepare("UPDATE picks SET flokk_cancelled_at = ?, updated_at = ? WHERE id = ? AND flokk_cancelled_at IS NULL").bind(now, now, pickId).run();
 }
 
-/** A member leaves Flokk: their profile and sign-ups are deleted; places they held before a deadline go on. */
-export async function leaveFlokk(db: D1Database, memberId: string, now: number): Promise<void> {
-  const open = (await memberSignups(db, memberId, now)).filter(s => s.signup_status === "registered" && isOpen(s, now));
+/** A member leaves Samfolk: their profile, sign-ups and letter are deleted, places they held before a deadline go on,
+ * and coming ture they created are cancelled, so those signed up can see it. */
+export async function leaveSamfolk(db: D1Database, member: SamfolkMember, now: number): Promise<void> {
+  const open = (await memberSignups(db, member.id, now)).filter(s => s.signup_status === "registered" && isOpen(s, now));
   await db.batch([
-    db.prepare("DELETE FROM member_sessions WHERE member_id = ?").bind(memberId),
-    db.prepare("DELETE FROM signups WHERE member_id = ?").bind(memberId),
-    db.prepare("DELETE FROM members WHERE id = ?").bind(memberId)
+    db.prepare("UPDATE picks SET flokk_cancelled_at = ?1, updated_at = ?1 WHERE created_by = ?2 AND flokk_cancelled_at IS NULL AND starts_at > ?1").bind(now, member.id),
+    db.prepare("DELETE FROM newsletter WHERE member_id = ? OR email = ?").bind(member.id, member.email ?? ""),
+    db.prepare("DELETE FROM member_sessions WHERE member_id = ?").bind(member.id),
+    db.prepare("DELETE FROM signups WHERE member_id = ?").bind(member.id),
+    db.prepare("DELETE FROM members WHERE id = ?").bind(member.id)
   ]);
   for (const pick of open) await fillFromWaitlist(db, pick, now);
 }
 
-export async function listMembers(db: D1Database): Promise<Array<FlokkMember & { signups: number }>> {
+export async function listMembers(db: D1Database): Promise<Array<SamfolkMember & { signups: number; created: number }>> {
   const { results } = await db.prepare(`SELECT ${MEMBER_COLUMNS.split(", ").map(c => `m.${c}`).join(", ")},
-      (SELECT COUNT(*) FROM signups s WHERE s.member_id = m.id AND s.status != 'cancelled') AS signups
-    FROM members m WHERE m.flokk_joined_at IS NOT NULL OR m.is_admin = 1 ORDER BY m.flokk_joined_at DESC LIMIT 2000`).all<FlokkMember & { signups: number }>();
+      (SELECT COUNT(*) FROM signups s WHERE s.member_id = m.id AND s.status != 'cancelled') AS signups,
+      (SELECT COUNT(*) FROM picks p WHERE p.created_by = m.id) AS created
+    FROM members m WHERE m.flokk_joined_at IS NOT NULL OR m.is_admin = 1 ORDER BY m.flokk_joined_at DESC LIMIT 2000`).all<SamfolkMember & { signups: number; created: number }>();
   return results;
 }
 
-/** Sign-up numbers for several ture at once (the lists and the volunteers' overview). */
+/** Sign-up numbers for several ture at once (the lists and the overviews). */
 export async function countsFor(db: D1Database, pickIds: string[]): Promise<Map<string, Counts>> {
   const map = new Map<string, Counts>();
   if (!pickIds.length) return map;

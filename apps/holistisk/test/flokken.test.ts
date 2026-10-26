@@ -228,16 +228,19 @@ describe("served under www.jacobhauge.com", () => {
     // Any other value of the header is ignored.
     expect((await call("/", { headers: { "x-flokken-mount": "https://evil.example/flokken" } })).body).toContain('href="/kalender"');
   });
-  it("shows Flokk, the association, under /flokk (and its earlier /flokken), whatever the Worker's own edition", async () => {
-    const flokk = await call("/", { headers: { "x-flokken-mount": "https://www.jacobhauge.com/flokk" } });
-    expect(flokk.body).toContain('data-edition="forening"');
-    expect(flokk.body).toContain('href="/flokk/bliv-medlem"');
-    expect(flokk.body).toContain("<span>flokk</span>");
-    expect(flokk.body).not.toContain("Flokken");
-    const home = await call("/", { headers: mount });
-    expect(home.body).toContain('data-edition="forening"');
-    expect(home.body).toContain('href="/flokken/bliv-medlem"');
-    expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!flokken\/|\/)/);
+  it("shows Foreningen Samfolk under /samfolk (and its earlier /flokk and /flokken), whatever the Worker's own edition", async () => {
+    const samfolk = await call("/", { headers: { "x-flokken-mount": "https://www.jacobhauge.com/samfolk" } });
+    expect(samfolk.body).toContain('data-edition="forening"');
+    expect(samfolk.body).toContain('href="/samfolk/bliv-medlem"');
+    expect(samfolk.body).toContain("<span>samfolk</span>");
+    expect(samfolk.body).toContain('content="https://www.jacobhauge.com/samfolk/assets/og-samfolk.jpg"');
+    expect(samfolk.body).not.toMatch(/Flokk/);
+    expect(samfolk.body).not.toMatch(/\s(href|src|action)="\/(?!samfolk\/|\/)/);
+    for (const earlier of [{ "x-flokken-mount": "https://www.jacobhauge.com/flokk" }, mount]) {
+      const home = await call("/", { headers: earlier });
+      expect(home.body).toContain('data-edition="forening"');
+      expect(home.body).toContain("<span>samfolk</span>");
+    }
     expect((await call("/kalender", { headers: mount })).status).toBe(404);
   });
   it("goes by the name Socialklubben under www.jacobhauge.com/socialklubben", async () => {

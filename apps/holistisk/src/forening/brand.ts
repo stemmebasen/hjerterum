@@ -1,10 +1,10 @@
 import { raw } from "../web/html.js";
 
-/** Flokk's mark: a row of people side by side – one place in it free, because there is always room for one more. The
+/** Samfolk's mark: a row of people side by side – one place in it free, because there is always room for one more. The
  * same idea, large, is the front page's picture: a small flock seen from behind, in a row in front of a stage, with an
  * empty seat, on a night out: a lit stage, a microphone, spotlights. Filled shapes in clear colours, no outlines –
  * unlike the event portal's chunky look.
- * public/assets/flokk-icon.svg is the tab's icon. */
+ * public/assets/samfolk-icon.svg is the tab's icon. */
 
 const FREE = "#a8495f";
 
@@ -20,7 +20,7 @@ function figure(x: number, base: number, w: number, fill: string | null, line: n
 
 const MARK_PEOPLE = ["#3f9c78", "#e0607a", "#f0b429", null, "#8a78e0"] as const;
 
-export const FLOKK_MARK = raw(`<svg class="mark mark-flokk" viewBox="0 0 64 34" aria-hidden="true">${MARK_PEOPLE.map((c, i) => figure(6.5 + i * 12.75, 33, 11, c, 1.6)).join("")}</svg>`);
+export const SAMFOLK_MARK = raw(`<svg class="mark mark-flokk" viewBox="0 0 64 34" aria-hidden="true">${MARK_PEOPLE.map((c, i) => figure(6.5 + i * 12.75, 33, 11, c, 1.6)).join("")}</svg>`);
 
 const PEOPLE = ["#8fd1b5", "#ef8a8a", "#f6c445", null, "#b3a6f2", "#f5a77f"] as const;
 const BUTTER = "#f6c445";
