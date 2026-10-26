@@ -58,14 +58,14 @@ const FRAME: Array<[string, string]> = [
  * and name no real organiser, venue, date or price. */
 type Example = { kind: string; title: string; when: string; area: string; flock: number; after: string; tint: string };
 export const EXAMPLES: Example[] = [
-  { kind: "Koncert", title: "Jazz i et lille spillested", when: "Torsdag aften", area: "Aarhus C", flock: 6, after: "En kop te i baren", tint: "butter" },
-  { kind: "Foredrag", title: "Foredrag om søvn og hverdagsro", when: "Tirsdag aften", area: "Aarhus N", flock: 5, after: "Kaffe og kage i foyeren", tint: "green" },
+  { kind: "Koncert", title: "Jazz i et lille spillested", when: "Torsdag aften", area: "Aarhus C", flock: 6, after: "En kop te i baren", tint: "coral" },
+  { kind: "Foredrag", title: "Foredrag om dansk rockhistorie", when: "Tirsdag aften", area: "Aarhus N", flock: 5, after: "Kaffe og kage i foyeren", tint: "sky" },
   { kind: "Kunst", title: "Rundvisning i en ny udstilling", when: "Lørdag formiddag", area: "Aarhus C", flock: 4, after: "Frokost i museets café", tint: "lilac" },
   { kind: "Natur", title: "Guidet tur i skoven ved kysten", when: "Søndag formiddag", area: "Aarhus syd", flock: 6, after: "Kaffe fra termokanden ved stranden", tint: "green" },
-  { kind: "Film", title: "Filmaften i en foreningsbiograf", when: "Onsdag aften", area: "Aarhus V", flock: 5, after: "En snak om filmen i caféen", tint: "rose" },
+  { kind: "Film", title: "Filmaften i en foreningsbiograf", when: "Onsdag aften", area: "Aarhus V", flock: 5, after: "En snak om filmen i caféen", tint: "night" },
   { kind: "Musik", title: "Fællessang i en gammel kirke", when: "Søndag eftermiddag", area: "Risskov", flock: 6, after: "Gåtur tilbage mod byen", tint: "butter" },
   { kind: "Teater", title: "Forestilling på en lille scene", when: "Fredag aften", area: "Aarhus C", flock: 4, after: "Et glas i teatrets bar", tint: "peach" },
-  { kind: "Værksted", title: "Keramik for begyndere", when: "Lørdag eftermiddag", area: "Aarhus Ø", flock: 5, after: "Te, mens leret tørrer", tint: "lilac" }
+  { kind: "Værksted", title: "Keramik for begyndere", when: "Lørdag eftermiddag", area: "Aarhus Ø", flock: 5, after: "Te, mens leret tørrer", tint: "sky" }
 ];
 
 function exampleCarousel(): SafeHtml {
@@ -74,7 +74,7 @@ function exampleCarousel(): SafeHtml {
     <p class="f-examples-note">Eksempler til inspiration – ikke rigtige ture endnu.</p>
     <ul class="f-carousel" data-carousel tabindex="0" aria-label="Eksempler på ture">
       ${EXAMPLES.map(e => html`<li class="f-ex f-ex-${e.tint}">
-        <div class="f-ex-art"><span class="f-ex-tag">Eksempel</span>${flockArt(e.flock)}</div>
+        <div class="f-ex-art"><span class="f-ex-tag">Eksempel</span><span class="f-ex-poster" aria-hidden="true">${e.kind}</span>${flockArt(e.flock, e.tint === "night" ? "#f6c445" : "#1d3a33")}</div>
         <div class="f-ex-body">
           <p class="f-ex-kind">${e.kind}</p>
           <h3>${e.title}</h3>

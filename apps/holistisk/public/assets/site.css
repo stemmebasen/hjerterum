@@ -33,6 +33,12 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("fonts/bricolage-latin.woff2") format("woff2");
+  font-weight: 200 800;
+  font-display: swap;
+}
+@font-face {
   font-family: "Lexend";
   src: url("fonts/lexend-latin.woff2") format("woff2");
   font-weight: 300 600;
@@ -881,3 +887,65 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 [data-edition="forening"] .site-footer { border-radius: 64px 64px 0 0; }
 [data-edition="forening"] .f-promises li > * { position: relative; z-index: 1; }
 [data-edition="forening"] .f-timeline li { align-content: start; }
+
+/* ————————————————————————————————————————— Flokk, culture club
+   A night out rather than a quiet room: a dark hero with a lit stage, clear colours, Bricolage Grotesque for headings,
+   poster-like example cards. Still round, still no outlines (unlike Socialklubben). Every text pair meets WCAG AA. */
+[data-edition="forening"] {
+  --night: #1d3a33; --night-2: #28493f; --sun: #f6c445; --coral: #ef8a8a; --mint: #8fd1b5; --lilac-2: #b3a6f2; --sky: #8cc7e8; --peach-2: #f5a77f;
+  --berry: #c2405a; --berry-dark: #a3334b; --green-2: #1d3a33;
+  --display: "Bricolage Grotesque", "Lexend", system-ui, sans-serif;
+  --warm-shadow: 0 10px 24px rgba(29, 58, 51, .25);
+}
+[data-edition="forening"] h1, [data-edition="forening"] h2, [data-edition="forening"] h3 { font-weight: 750; letter-spacing: -.025em; font-variation-settings: normal; line-height: 1.04; }
+[data-edition="forening"] h3 { letter-spacing: -.015em; }
+[data-edition="forening"] h1 em, [data-edition="forening"] h2 em { font-style: normal; font-weight: 750; }
+[data-edition="forening"] .wordmark-flokk { font-family: var(--display); font-weight: 800; letter-spacing: -.04em; }
+[data-edition="forening"] .my-flocks { background: var(--berry); box-shadow: 0 8px 20px rgba(194, 64, 90, .3); }
+[data-edition="forening"] .my-flocks:hover, [data-edition="forening"] .my-flocks[aria-current="page"] { background: var(--berry-dark); }
+[data-edition="forening"] button, [data-edition="forening"] .button { background: var(--night); }
+[data-edition="forening"] button:hover, [data-edition="forening"] .button:hover { background: #142a24; }
+
+/* The hero: an evening, a lit stage */
+[data-edition="forening"] .f-hero { color: #fbf3e6;
+  background: radial-gradient(60% 70% at 85% 30%, rgba(246, 196, 69, .16) 0, rgba(246, 196, 69, 0) 100%), radial-gradient(50% 60% at 0% 100%, rgba(239, 138, 138, .14) 0, rgba(239, 138, 138, 0) 100%), var(--night); }
+[data-edition="forening"] .f-hero h1 { color: #fbf3e6; font-weight: 800; font-size: clamp(2.6rem, 1.4rem + 4.6vw, 4.8rem); line-height: .98; letter-spacing: -.035em; }
+[data-edition="forening"] .f-hero h1 em { color: var(--sun); display: inline; }
+[data-edition="forening"] .f-hero .standfirst { color: #d9e4de; }
+[data-edition="forening"] .f-hero .f-kicker { display: inline-block; color: var(--night); background: var(--sun); border-radius: 999px; padding: 5px 14px; font-size: .9rem; letter-spacing: 0; }
+[data-edition="forening"] .f-hero .button { background: var(--sun); color: var(--night); box-shadow: 0 10px 24px rgba(0, 0, 0, .25); }
+[data-edition="forening"] .f-hero .button:hover { background: #f8d06a; }
+[data-edition="forening"] .f-hero .button-secondary { background: rgba(255, 255, 255, .12); color: #fbf3e6; box-shadow: none; }
+[data-edition="forening"] .f-hero .button-secondary:hover { background: rgba(255, 255, 255, .2); }
+
+/* Sections */
+[data-edition="forening"] .f-section h2 { font-size: clamp(1.9rem, 1.4rem + 1.8vw, 2.7rem); }
+[data-edition="forening"] .f-evening-time { color: var(--night); font-weight: 600; }
+[data-edition="forening"] .f-timeline li::before { font-family: var(--display); font-weight: 800; color: var(--night); background: var(--mint); }
+[data-edition="forening"] .f-timeline li:nth-child(2)::before { background: var(--coral); }
+[data-edition="forening"] .f-timeline li:nth-child(3)::before { background: var(--lilac-2); }
+[data-edition="forening"] .f-timeline li:last-child::before { background: var(--sun); }
+[data-edition="forening"] .f-promises li:nth-child(1) { background: #fde7b0; } [data-edition="forening"] .f-promises li:nth-child(2) { background: #cdeee0; }
+[data-edition="forening"] .f-promises li:nth-child(3) { background: #fbd6d6; } [data-edition="forening"] .f-promises li:nth-child(4) { background: #e1dbfb; }
+[data-edition="forening"] .f-promises li::after { display: none; }
+[data-edition="forening"] .f-promises p { color: var(--ink); }
+[data-edition="forening"] .f-panel-alt { background: var(--night); color: #d9e4de; }
+[data-edition="forening"] .f-panel-alt h2 { color: #fbf3e6; }
+[data-edition="forening"] .f-panel-alt .button-secondary { background: var(--sun); color: var(--night); }
+[data-edition="forening"] .f-panel-alt .button-secondary:hover { background: #f8d06a; }
+
+/* Example cards as small posters */
+[data-edition="forening"] .f-ex-art { height: 156px; display: block; background: var(--mint); }
+.f-ex-coral .f-ex-art { background: var(--coral); } .f-ex-sky .f-ex-art { background: var(--sky); } .f-ex-lilac .f-ex-art { background: var(--lilac-2); }
+.f-ex-green .f-ex-art { background: var(--mint); } .f-ex-butter .f-ex-art { background: var(--sun); } .f-ex-peach .f-ex-art { background: var(--peach-2); }
+.f-ex-night .f-ex-art { background: var(--night); }
+.f-ex-poster { position: absolute; left: 18px; top: 50px; font: 800 2.1rem/1 var(--display); letter-spacing: -.04em; color: var(--night); }
+.f-ex-night .f-ex-poster { color: var(--sun); }
+[data-edition="forening"] .f-ex-flock { position: absolute; right: 16px; bottom: 14px; height: 34px; }
+[data-edition="forening"] .f-ex-tag { background: rgba(255, 255, 255, .9); color: var(--night); }
+[data-edition="forening"] .f-ex-kind { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[data-edition="forening"] .f-ex-after { color: var(--berry-dark); }
+[data-edition="forening"] .f-ex { position: relative; }
+[data-edition="forening"] .f-examples-nav button { background: var(--card); color: var(--night); }
+[data-edition="forening"] .f-examples-nav button:hover { background: var(--sun); color: var(--night); }
+[data-edition="forening"] .f-promises h3, [data-edition="forening"] .f-steps h3, [data-edition="forening"] .f-ex h3, [data-edition="forening"] .f-card-title { font-weight: 750; }
