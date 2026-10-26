@@ -5,7 +5,7 @@ import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallC
 import { PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
-import { offersFor } from "../flokken/partners.js";
+import { halfPriceOffer, offersFor } from "../flokken/partners.js";
 
 export const eventPath = (e: Pick<EventRow, "slug">) => `/events/${e.slug}`;
 const cats = (e: Pick<EventRow, "categories">) => (e.categories ?? "").split(",").filter(Boolean);
@@ -40,8 +40,10 @@ export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_
 export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
   // A card with a picture panel already carries the round "Gratis" stamp.
   const free = e.is_free === 1 && !options.freeStamped;
-  const benefit = offersFor(e).length > 0;
-  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
+  const offers = offersFor(e);
+  const gift = !!halfPriceOffer(offers);
+  const benefit = offers.length > (gift ? 1 : 0);
+  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${gift ? html`<span class="price-chip price-chip-member">Gave: halv pris for flokken</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;

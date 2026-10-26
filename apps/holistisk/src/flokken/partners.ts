@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { organizerBySlug } from "../organizers.js";
 import type { EventRow } from "../web/queries.js";
 import { html, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
@@ -7,7 +8,7 @@ import type { View } from "./pages.js";
 /** Partners: local associations and venues that offer Flokken's members a ticket benefit and get visibility on the
  * platform in return. Only offers the organiser has actually confirmed are shown; the list is empty until then. */
 
-export type OfferKind = "member_discount" | "reserved_seats" | "meeting_point" | "welcome_drink" | "eftermoede" | "other";
+export type OfferKind = "member_discount" | "reserved_seats" | "meeting_point" | "welcome_drink" | "eftermoede" | "flock_half_price" | "other";
 
 export type PartnerOffer = {
   /** The organiser it applies to (src/organizers.ts slug = the events' organizer_id). */
@@ -30,6 +31,7 @@ export const KIND_LABELS: Record<OfferKind, string> = {
   meeting_point: "Mødested før eventet",
   welcome_drink: "Kaffe eller velkomstdrink",
   eftermoede: "Eftermødet",
+  flock_half_price: "Gave til flokken: halv pris",
   other: "Ekstra for flokke"
 };
 
@@ -43,12 +45,58 @@ export function offersFor(e: Pick<EventRow, "organizer_id" | "slug" | "starts_at
     && (!o.validUntil || Date.parse(o.validUntil + "T23:59:59Z") >= e.starts_at));
 }
 
-export function offersBlock(offers: PartnerOffer[]): SafeHtml {
+// ————————————————————————————————————————— The gift: half price for a flock of five
+
+/** At an event where the organiser offers it, the gift a flock gets when five are gathered is half price on the ticket
+ * for those five, through a discount code from the organiser. It is an addition for single events with seats to fill,
+ * not the rule: most events have no such offer, and many are free. */
+export const GIFT_FLOCK_SIZE = 5;
+
+export const halfPriceOffer = (offers: PartnerOffer[]): PartnerOffer | undefined => offers.find(o => o.kind === "flock_half_price");
+
+/** The organiser who sponsors an offer, by name. */
+export const sponsorName = (o: PartnerOffer, fallback?: string | null): string => organizerBySlug(o.organizerSlug)?.name ?? fallback ?? o.organizerSlug;
+
+/** The discount code for an event: from the secret FLOCK_GIFT_CODES ("event-slug=CODE,organizer-slug=CODE"; the event's
+ * own slug wins). The codes stay out of the source, which is public. */
+export function giftCode(codes: string | undefined, e: Pick<EventRow, "organizer_id" | "slug">): string | null {
+  const pairs = new Map((codes ?? "").split(",").map(s => s.split("=").map(p => p.trim())).filter(p => p.length === 2 && p[0] && p[1]) as Array<[string, string]>);
+  return pairs.get(e.slug) ?? (e.organizer_id ? pairs.get(e.organizer_id) : undefined) ?? null;
+}
+
+export function offersBlock(offers: PartnerOffer[], organizerName?: string | null): SafeHtml {
   if (!offers.length) return html``;
-  return html`<section class="offer-box" aria-labelledby="h-offers">
+  const gift = halfPriceOffer(offers);
+  const others = offers.filter(o => o !== gift);
+  return html`${gift ? html`<section class="offer-box gift-box" aria-labelledby="h-gift">
+  <h2 id="h-gift">Gave ved dette event: halv pris for flokken</h2>
+  <p>Når I er ${GIFT_FLOCK_SIZE} samlet i en flok til eventet, giver vi jer halv pris på billetten – sponsoreret af ${sponsorName(gift, organizerName)}. De ${GIFT_FLOCK_SIZE} i flokken får en rabatkode på flokkens side og bruger den, når de køber billet hos arrangøren.</p>
+  ${gift.text ? html`<p>${gift.text}</p>` : ""}
+  <p class="small meta-muted">Tilbuddet er bekræftet af arrangøren. Gaven gælder de første ${GIFT_FLOCK_SIZE} i flokken.</p>
+</section>` : ""}${others.length ? html`<section class="offer-box" aria-labelledby="h-offers">
   <h2 id="h-offers">For Flokkens medlemmer</h2>
-  <ul>${offers.map(o => html`<li><strong>${KIND_LABELS[o.kind]}:</strong> ${o.text}</li>`)}</ul>
+  <ul>${others.map(o => html`<li><strong>${KIND_LABELS[o.kind]}:</strong> ${o.text}</li>`)}</ul>
   <p class="small meta-muted">Tilbuddet er bekræftet af arrangøren.</p>
+</section>` : ""}`;
+}
+
+/** On a flock's own page, for its members: how far the flock is from the gift, or the code once five are gathered. */
+export function flockGiftBox(gift: PartnerOffer, opts: { sponsor: string; memberCount: number; maxSize: number; place: number | null; code: string | null; contactEmail: string | null }): SafeHtml {
+  const { sponsor, memberCount, maxSize, place, code, contactEmail } = opts;
+  const missing = GIFT_FLOCK_SIZE - memberCount;
+  const content = maxSize < GIFT_FLOCK_SIZE
+    ? html`<p>Flokken har plads til ${maxSize}. Gaven kræver ${GIFT_FLOCK_SIZE} – den, der står for flokken, kan gøre plads til flere under <strong>Ret mødested og tidspunkt</strong>.</p>`
+    : missing > 0
+    ? html`<p>I er ${memberCount}. Mangler I ${missing === 1 ? "1 mere" : `${missing} mere`}, så får I halv pris på billetten. Del flokken med nogen, der også vil med.</p>`
+    : place === null || place >= GIFT_FLOCK_SIZE
+    ? html`<p>Gaven gælder de første ${GIFT_FLOCK_SIZE} i flokken, og de er samlet. Du er meget velkommen med alligevel.</p>`
+    : code
+    ? html`<p>I er samlet! Brug koden, når du køber billet hos arrangøren:</p><p class="code">${code}</p><p class="small meta-muted">Koden er til jer ${GIFT_FLOCK_SIZE} i flokken. Del den ikke med andre.</p>`
+    : html`<p>I er samlet! Vi sender jer rabatkoden, så snart vi har den fra arrangøren.${contactEmail ? html` Spørgsmål: <a href="mailto:${contactEmail}">${contactEmail}</a>.` : ""}</p>`;
+  return html`<section class="offer-box gift-box" aria-labelledby="h-gift">
+  <h2 id="h-gift">Gave: halv pris for flokken</h2>
+  <p class="small">Sponsoreret af ${sponsor}, når ${GIFT_FLOCK_SIZE} er samlet.</p>
+  ${content}
 </section>`;
 }
 
@@ -102,6 +150,14 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
     <li><strong>Mulighed for radioomtale og anden promovering</strong> – vi er ved at bygge samarbejder op og aftaler det konkret med hver enkelt.</li>
   </ol>
   <p>Fordelen og formen aftaler vi sammen. Vi viser kun tilbud, som I har bekræftet.</p>
+  <h2>Har I et event med ledige pladser?</h2>
+  <p>Hos os får en flok en gave, når ${GIFT_FLOCK_SIZE} er samlet. Har I et event, hvor der er plads til flere, kan I gøre gaven til halv pris på billetten. Byttehandlen er enkel:</p>
+  <ol class="steps">
+    <li><strong>Vi sætter eventet på Flokken</strong> og fortæller, at gaven ved netop det event er halv pris, sponsoreret af jer.</li>
+    <li><strong>Vi samler flokken.</strong> Først når ${GIFT_FLOCK_SIZE} er samlet, gælder tilbuddet.</li>
+    <li><strong>I giver os en rabatkode</strong> på halv pris. De ${GIFT_FLOCK_SIZE} i flokken får koden og køber billet hos jer som altid.</li>
+  </ol>
+  <p>I fylder pladser, der ellers ville stå tomme, og får nye gæster, der kommer sammen. Det er et tilbud for enkelte events – ikke noget, I binder jer til.</p>
   <h2>Valgfrie oplevelser for flokke</h2>
   <p>Ud over billetfordelen kan I vælge at gøre det lettere at komme som flok:</p>
   <ul>

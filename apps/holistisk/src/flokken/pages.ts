@@ -5,6 +5,7 @@ import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js"
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "./auth.js";
 import type { FieldErrors, FlockForm } from "./forms.js";
+import { flockGiftBox, GIFT_FLOCK_SIZE, halfPriceOffer, offersFor, sponsorName } from "./partners.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Opret en flok, Find en flok,
@@ -88,7 +89,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 
 // ————————————————————————————————————————— A flock's own page
 
-export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, names: Array<{ id: string; first_name: string; again: number | null }>, member: Member | null, hostId: string | null, message: string | null): View {
+export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, names: Array<{ id: string; first_name: string; again: number | null }>, member: Member | null, hostId: string | null, message: string | null, giftCode: string | null = null): View {
   const over = eventOver(f, ctx.now);
   const canJoin = f.status === "open" && f.event_status === "scheduled" && f.event_starts_at > ctx.now;
   const isHost = !!member && hostId === member.id;
@@ -98,6 +99,11 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
     : member ? html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form>`
     : html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
   const yes = names.filter(n => n.again === 1);
+  const gift = e ? halfPriceOffer(offersFor(e)) : undefined;
+  const place = member ? names.findIndex(n => n.id === member.id) : -1;
+  const giftBox = gift && e && !over ? f.is_member
+    ? flockGiftBox(gift, { sponsor: sponsorName(gift, e.organizer_name), memberCount: f.member_count, maxSize: f.max_size, place: place < 0 ? null : place, code: giftCode, contactEmail: ctx.contactEmail })
+    : html`<p class="flock-note">Gave ved dette event: halv pris på billetten, når ${GIFT_FLOCK_SIZE} er samlet i flokken – sponsoreret af ${sponsorName(gift, e.organizer_name)}.</p>` : html``;
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
@@ -117,6 +123,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
     </dl>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
     ${e?.signup_url && canJoin ? html`<p class="small meta-muted">Billet eller tilmelding sker hos arrangøren – hver for sig. <a href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren</a></p>` : ""}
+    ${giftBox}
     <div class="flock-actions">${join}${isHost && canJoin ? html`<a class="button-secondary" href="${flockPath(f.id)}/ret">Ret mødested og tidspunkt</a>` : ""}</div>
   </section>
   ${f.is_member ? html`<section class="section" aria-labelledby="h-members">
@@ -337,7 +344,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 /** The three steps, on the front page and on Find en flok. */
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et event</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
-  <li><span class="how-n" aria-hidden="true">2</span><strong>Find en flok – eller opret en</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
+  <li><span class="how-n" aria-hidden="true">2</span><strong>Find en flok – eller opret en</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>. Ved enkelte events giver arrangøren halv pris på billetten til de 5 – det står på eventet.</span></li>
   <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>Et offentligt sted før eventet. Bagefter vælger I selv, om I vil ses igen – det er Eftermødet.</span></li>
 </ol>`;
 

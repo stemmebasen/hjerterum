@@ -460,6 +460,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .code { font: 700 clamp(1.6rem, 1.2rem + 2vw, 2.4rem)/1.2 var(--display); letter-spacing: .08em; color: var(--ink); user-select: all; margin: .2em 0 .4em; }
 .offer-box { margin-top: 24px; background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 6px 22px 12px; }
 .offer-box ul { padding-left: 1.1em; }
+.gift-box { background: var(--berry-soft); }
+.gift-box h2 + .small { margin-top: 0; }
 .steps li { margin-bottom: .6em; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 
