@@ -28,13 +28,17 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
   const robot = !!form && String(form.get("website_url") ?? "") !== "";
 
   if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now), Math.floor(Math.random() * pages.HEADLINES.length)) };
-  if (path === "/maanedens-events" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
-  if (path === "/tryghed" && !post) return { view: pages.safetyPage(ctx) };
+  if (path === "/udflugter" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
+  if (path === "/saadan-fungerer-det" && !post) return { view: pages.howPage(ctx) };
+  // Earlier addresses.
+  if (path === "/maanedens-events") return go("/udflugter");
+  if (path === "/tryghed") return go("/saadan-fungerer-det");
+  if (path === "/for-foreninger") return go("/for-arrangoerer");
   if (path === "/om" && !post) return { view: pages.aboutPage(ctx) };
-  if (path === "/samarbejde") return go("/for-foreninger");
+  if (path === "/samarbejde") return go("/for-arrangoerer");
   if (path === "/sitemap.xml") {
     const picks = await upcomingPicks(db, now);
-    return { xml: sitemapXml(ctx.origin, ["/", "/maanedens-events", "/skriv-dig-op", "/tryghed", "/for-foreninger", "/om", "/privatliv"], picks.map(p => ({ slug: p.slug, updated_at: p.updated_at }))) };
+    return { xml: sitemapXml(ctx.origin, ["/", "/udflugter", "/saadan-fungerer-det", "/skriv-dig-op", "/for-arrangoerer", "/om", "/privatliv"], picks.map(p => ({ slug: p.slug, updated_at: p.updated_at }))) };
   }
 
   const slug = /^\/events\/([a-z0-9-]{1,90})$/.exec(path)?.[1];
@@ -57,13 +61,13 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
     return { view: pages.thanksPage(ctx, fields.first_name, pick) };
   }
 
-  if (path === "/for-foreninger") {
-    if (!post) return { view: pages.associationsPage(ctx) };
+  if (path === "/for-arrangoerer") {
+    if (!post) return { view: pages.organisersPage(ctx) };
     const f = readInquiry(form!);
     const errors = validateInquiry(f);
-    if (Object.keys(errors).length) return { view: pages.associationsPage(ctx, { form: f, errors, status: 400 }) };
+    if (Object.keys(errors).length) return { view: pages.organisersPage(ctx, { form: f, errors, status: 400 }) };
     if (!robot) await saveInquiry(db, f, now);
-    return { view: pages.associationsPage(ctx, { sent: true }) };
+    return { view: pages.organisersPage(ctx, { sent: true }) };
   }
 
   if (path === "/privatliv") {

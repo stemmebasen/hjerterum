@@ -46,7 +46,7 @@ beforeAll(async () => {
   db.raw.prepare("INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at, is_admin) VALUES ('admin-1', 'Sofie', ?, ?, ?, 1)").run(await sha256(adminCode), NOW, NOW);
 });
 
-describe("Flokk, the association", () => {
+describe("Flokk", () => {
   it("is what the Worker shows by default: the concept, the steps, the promises – and no events before any are picked", async () => {
     const home = await call("/");
     expect(home.status).toBe(200);
@@ -61,15 +61,31 @@ describe("Flokk, the association", () => {
     expect(home.body).toContain('href="/assets/flokk-icon.svg"');
     expect(home.body).toContain("/assets/og-flokk.jpg");
     expect(home.body).not.toContain("Flokken");
-    expect(home.body).toContain("ikke synes, det er det nemmeste i verden at møde nye mennesker");
-    expect(home.body).toContain("De første events er ved at blive valgt");
-    for (const promise of ["Ingen overraskelser", "Værten tager imod", "Ingen pres", "Rolige rammer"]) expect(home.body).toContain(promise);
-    expect(home.body).toContain("Beløbene fastsættes, når foreningen er stiftet");
-    expect(home.body).not.toMatch(/ensom|socialangst/i);
+    expect(home.body).toContain("Flokk gør det lettere at opleve mere sammen med andre.");
+    expect(home.body).toContain("De første Udflugter er ved at blive planlagt");
+    for (const frame of ["Du ved, hvad der skal ske", "En lille flok", "På din egen måde", "Klare frister"]) expect(home.body).toContain(frame);
+    expect(home.body).toContain("Beløbet er ikke fastlagt endnu");
     // The event portal's pages are not part of it.
     for (const path of ["/kalender", "/kort", "/meditation", "/find-en-flok", "/flokke"]) expect((await call(path)).status).toBe(404);
-    expect((await call("/samarbejde")).headers.get("location")).toBe("/for-foreninger");
-    for (const path of ["/maanedens-events", "/skriv-dig-op", "/tryghed", "/om", "/for-foreninger", "/privatliv"]) expect((await call(path)).status).toBe(200);
+    // Earlier addresses lead on.
+    expect((await call("/samarbejde")).headers.get("location")).toBe("/for-arrangoerer");
+    expect((await call("/for-foreninger")).headers.get("location")).toBe("/for-arrangoerer");
+    expect((await call("/maanedens-events")).headers.get("location")).toBe("/udflugter");
+    expect((await call("/tryghed")).headers.get("location")).toBe("/saadan-fungerer-det");
+    for (const path of ["/udflugter", "/saadan-fungerer-det", "/skriv-dig-op", "/om", "/for-arrangoerer", "/privatliv"]) expect((await call(path)).status).toBe(200);
+  });
+
+  it("speaks about the experiences and the frame: no host, no deficits, nothing undecided stated as fact", async () => {
+    for (const path of ["/", "/udflugter", "/saadan-fungerer-det", "/skriv-dig-op", "/om", "/for-arrangoerer", "/privatliv"]) {
+      const text = (await call(path)).body.replace(/<[^>]+>/g, " ");
+      expect(text, path).not.toMatch(/ensom|socialangst|social angst|genert|skrøbelig|bor alene|nemmeste i verden/i);
+      expect(text, path).not.toMatch(/værten|vært, der|tager imod jer/i);
+      expect(text, path).not.toMatch(/under stiftelse|kontingent|tage en ven med/i);
+    }
+    const how = (await call("/saadan-fungerer-det")).body;
+    for (const rule of ["Man kan ikke tilmelde en gæst", "flere Udflugter", "først til mølle", "automatisk på ventelisten", "bekræftes, når fire har tilmeldt sig",
+      "gennemføres Udflugten alligevel", "lukker 7 dage før", "deltagerlisten fast", "Hvis Flokk aflyser sin deltagelse", "uden for Flokks kontrol",
+      "ikke automatisk en gruppechat", "fornavnene", "Der er ikke en vært fra Flokk med", "Det er ikke fastlagt endnu"]) expect(how).toContain(rule);
   });
 
   it("keeps an interest list: first name and mail, the rest optional, consent required", async () => {
@@ -96,7 +112,7 @@ describe("Flokk, the association", () => {
     const login = await call("/log-ind", { form: { kode: adminCode.toLowerCase() } });
     expect(login.headers.get("location")).toBe("/admin");
     const cookie = cookieOf(login);
-    expect((await call("/admin", { cookie })).body).toContain("Ingen godkendte events endnu");
+    expect((await call("/admin", { cookie })).body).toContain("Ingen Udflugter endnu");
 
     // Search by title, organiser or place.
     const found = await call("/admin/forslag?q=lysets hus", { cookie });
@@ -124,11 +140,13 @@ describe("Flokk, the association", () => {
 
     const home = await call("/");
     expect(home.body).toContain("Koncert i foreningen");
-    expect(home.body).not.toContain("De første events er ved at blive valgt");
+    expect(home.body).not.toContain("De første Udflugter er ved at blive planlagt");
     const eventPage = await call(`/events/${slug}`);
     expect(eventPage.body).toContain("Foreningen Lyd");
     expect(eventPage.body).toContain("Café Rolig");
-    expect(eventPage.body).toContain("Fastsættes, når foreningen er stiftet.");
+    expect(eventPage.body).toContain("Et symbolsk beløb – ikke fastlagt endnu.");
+    expect(eventPage.body).toContain("Tilmelding og afbud");
+    expect(eventPage.body).toContain("6 – først til mølle, derefter venteliste");
     expect(eventPage.body).toContain(`href="/skriv-dig-op?event=${slug}"`);
     // A collected event that is not picked has no page here.
     const other = rows("SELECT slug FROM events WHERE id != ? LIMIT 1", eventId)[0]!.slug as string;
@@ -136,6 +154,7 @@ describe("Flokk, the association", () => {
 
     const signup = await call(`/skriv-dig-op?event=${slug}`);
     expect(signup.body).toContain(`value="${slug}" selected`);
+    // There is no guest: a "friend" field from an old form is ignored.
     await call("/skriv-dig-op", { form: { fornavn: "Ali", email: "ali@example.dk", event: slug, ven: "ja", samtykke: "ja" } });
     await call("/skriv-dig-op", { form: { fornavn: "Ali", email: "ALI@example.dk", event: slug, samtykke: "ja" } });
     expect(rows("SELECT first_name, with_friend FROM interests WHERE pick_id = ?", pickId)).toEqual([{ first_name: "Ali", with_friend: 0 }]);
@@ -160,7 +179,7 @@ describe("Flokk, the association", () => {
     expect(bad.status).toBe(400);
     const made = await call("/admin/events/ny", { cookie, form: { titel: "Foredrag om fugle", start: "2026-10-20T19:00", forening: "Fugleforeningen", status: "approved" } });
     expect(made.headers.get("location")).toMatch(/\/admin\/events\/[0-9a-f-]{36}\?besked=oprettet/);
-    expect((await call("/maanedens-events")).body).toContain("Foredrag om fugle");
+    expect((await call("/udflugter")).body).toContain("Foredrag om fugle");
 
     // A member who is not an admin has no access.
     const code = newCode();
@@ -169,12 +188,12 @@ describe("Flokk, the association", () => {
     expect((await call("/admin/interesseliste.csv")).headers.get("location")).toBe("/log-ind");
   });
 
-  it("deletes a person from the interest list on request, and takes inquiries from associations", async () => {
+  it("deletes a person from the interest list on request, and takes inquiries from organisers", async () => {
     await call("/skriv-dig-op", { form: { fornavn: "Slet", email: "slet@example.dk", samtykke: "ja" } });
     const r = await call("/privatliv", { form: { email: "SLET@example.dk" } });
     expect(r.body).toContain("Hvis mailen stod på listen, er den slettet nu.");
     expect(rows("SELECT COUNT(*) AS n FROM interests WHERE email = 'slet@example.dk'")[0]!.n).toBe(0);
-    const sent = await call("/for-foreninger", { form: { organisation: "Foreningen Lyd", navn: "Bo", email: "bo@lyd.example", hjemmeside: "", besked: "En koncert i november." } });
+    const sent = await call("/for-arrangoerer", { form: { organisation: "Foreningen Lyd", navn: "Bo", email: "bo@lyd.example", hjemmeside: "", besked: "En koncert i november." } });
     expect(sent.body).toContain("Tak for jeres henvendelse");
     expect(rows("SELECT organisation FROM partner_inquiries")).toEqual([{ organisation: "Foreningen Lyd" }]);
   });

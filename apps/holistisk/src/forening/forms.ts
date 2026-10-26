@@ -2,7 +2,7 @@ import { cleanFirstName } from "../flokken/auth.js";
 import { fromLocalInput, toLocalInput } from "../flokken/forms.js";
 import type { InterestFields, PickFields } from "./store.js";
 
-/** The forms of Flokk as an association: the interest list (public) and an event (the volunteers'). */
+/** Flokk's forms: the interest list (public) and an Udflugt (the volunteers'). */
 
 export const AGE_GROUPS = ["18-29", "30-39", "40-49", "50-59", "60-69", "70+"] as const;
 export const AGE_LABELS: Record<string, string> = { "18-29": "18–29 år", "30-39": "30–39 år", "40-49": "40–49 år", "50-59": "50–59 år", "60-69": "60–69 år", "70+": "70 år eller mere" };
@@ -18,7 +18,8 @@ export function readInterestForm(data: FormData): InterestForm {
   return {
     firstName: s("fornavn"), email: s("email"), ageGroup: s("alder"),
     interests: data.getAll("interesser").map(String).filter(v => (INTERESTS as readonly string[]).includes(v)),
-    area: s("omraade"), pick: s("event"), withFriend: s("ven") === "ja", consent: s("samtykke") === "ja"
+    // Every participant is a member; a guest cannot come along, so there is no "friend" choice.
+    area: s("omraade"), pick: s("event"), withFriend: false, consent: s("samtykke") === "ja"
   };
 }
 
@@ -75,8 +76,8 @@ export function validatePickForm(f: PickForm): { errors: FormErrors; fields: Pic
   if (start === null) errors.start = "Vælg dato og tidspunkt.";
   const end = f.end ? fromLocalInput(f.end) : null;
   if (f.end && (end === null || (start !== null && end <= start))) errors.end = "Sluttidspunktet skal ligge efter starten.";
-  if (f.association.length < 2 || f.association.length > 160) errors.association = "Skriv foreningens navn.";
-  if (f.associationUrl && !url(f.associationUrl)) errors.associationUrl = "Skriv hele adressen, fx https://forening.dk";
+  if (f.association.length < 2 || f.association.length > 160) errors.association = "Skriv arrangørens navn.";
+  if (f.associationUrl && !url(f.associationUrl)) errors.associationUrl = "Skriv hele adressen, fx https://arrangoer.dk";
   if (f.eventUrl && !url(f.eventUrl)) errors.eventUrl = "Skriv hele adressen til eventet.";
   if (f.imageUrl && !/^https:\/\/\S+$/i.test(f.imageUrl)) errors.imageUrl = "Et billede skal have en https-adresse.";
   const places = f.places ? Number(f.places) : null;

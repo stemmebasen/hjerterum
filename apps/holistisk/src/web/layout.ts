@@ -16,7 +16,7 @@ export type PageContext = {
   areas: Area[];
   /** The path prefix when served under another site (e.g. "/flokken"), or "". Links are prefixed after rendering. */
   base: string;
-  /** "forening": Flokk, the association (hand-picked events, interest list); "portal": the event portal. */
+  /** "forening": Flokk (Udflugter, interest list); "portal": the event portal. */
   edition: "forening" | "portal";
 };
 
@@ -169,7 +169,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
 }
 
 /** Flokk, the association: a few calm links, and the interest list as the one thing to do. */
-const FORENING_NAV: Array<[string, string]> = [["/maanedens-events", "Månedens events"], ["/#saadan", "Sådan virker det"], ["/tryghed", "Tryghed"], ["/for-foreninger", "For foreninger"], ["/om", "Om Flokk"]];
+const FORENING_NAV: Array<[string, string]> = [["/udflugter", "Udflugter"], ["/saadan-fungerer-det", "Sådan fungerer det"], ["/for-arrangoerer", "For arrangører"], ["/om", "Om Flokk"]];
 
 function foreningHeader(ctx: PageContext): SafeHtml {
   return html`<header class="masthead">
@@ -196,7 +196,7 @@ function foreningFooter(ctx: PageContext): SafeHtml {
   <div class="wrap footer-inner footer-forening">
     <div class="footer-about">
       <p class="footer-brand wordmark-flokk">${FLOKK_MARK}<span>flokk</span></p>
-      <p>Nye oplevelser, nye mennesker – i trygge rammer. For dig, der ikke synes, det er det nemmeste i verden at møde nye mennesker. Flokk er en forening under stiftelse i ${ctx.regionLabel} og finansieres af medlemmernes kontingent.</p>
+      <p>Flokk gør det lettere at opleve mere sammen med andre: Udflugter til udvalgte koncerter, foredrag og andre oplevelser i ${ctx.regionLabel} – i en lille flok, på din egen måde. Flokk er et koncept under udvikling.</p>
     </div>
     <nav aria-label="Flokk"><ul class="footer-links">${[...FORENING_NAV, ["/skriv-dig-op", "Skriv dig op"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
   </div>
