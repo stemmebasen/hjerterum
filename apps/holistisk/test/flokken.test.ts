@@ -4,7 +4,7 @@ import { runIngest } from "../src/ingest/run.js";
 import { SOURCES } from "../src/sources/registry.js";
 import { normalizeCode } from "../src/flokken/auth.js";
 import { toLocalInput } from "../src/flokken/forms.js";
-import { offersFor, type PartnerOffer } from "../src/flokken/partners.js";
+import { flockGiftBox, giftCode, halfPriceOffer, offersBlock, offersFor, PARTNER_OFFERS, type PartnerOffer } from "../src/flokken/partners.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
@@ -256,5 +256,66 @@ describe("served under www.jacobhauge.com", () => {
     expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).body).toContain("Socialklubbens egne sider");
     // The Worker's own name, without a mount.
     expect((await call("/")).body).toContain("<span>Flokken</span>");
+  });
+});
+
+describe("half price for a flock of five at a partner event", () => {
+  const gift: PartnerOffer = { organizerSlug: "hjerterum", eventSlugs: ["koncert"], kind: "flock_half_price", text: "", confirmedBy: "Sofie", confirmedOn: "2026-10-01" };
+  const base = { sponsor: "Hjerterum", maxSize: 6, contactEmail: null };
+
+  it("says on the event that the flock's gift is half price, sponsored by the organiser", () => {
+    const block = String(offersBlock([gift], "Hjerterum"));
+    expect(block).toContain("Gave ved dette event: halv pris for flokken");
+    expect(block).toContain("sponsoreret af Hjerterum");
+    expect(block).toContain("rabatkode");
+    expect(String(offersBlock([]))).toBe("");
+    expect(halfPriceOffer([{ ...gift, kind: "member_discount" }])).toBeUndefined();
+  });
+
+  it("finds the code by event before organiser, and keeps it out of the source", () => {
+    expect(giftCode("koncert=HALV50, hjerterum=HJ-HALV", { slug: "koncert", organizer_id: "hjerterum" })).toBe("HALV50");
+    expect(giftCode("koncert=HALV50, hjerterum=HJ-HALV", { slug: "andet", organizer_id: "hjerterum" })).toBe("HJ-HALV");
+    expect(giftCode(undefined, { slug: "koncert", organizer_id: "hjerterum" })).toBeNull();
+    expect(giftCode("forkert", { slug: "koncert", organizer_id: null })).toBeNull();
+  });
+
+  it("shows the code only to the first five, once five are gathered", () => {
+    expect(String(flockGiftBox(gift, { ...base, memberCount: 3, place: 0, code: "HALV50" }))).toContain("Mangler I 2 mere");
+    expect(String(flockGiftBox(gift, { ...base, memberCount: 3, place: 0, code: "HALV50" }))).not.toContain("HALV50");
+    expect(String(flockGiftBox(gift, { ...base, memberCount: 5, place: 4, code: "HALV50" }))).toContain('<p class="code">HALV50</p>');
+    expect(String(flockGiftBox(gift, { ...base, memberCount: 6, place: 5, code: "HALV50" }))).not.toContain("HALV50");
+    expect(String(flockGiftBox(gift, { ...base, memberCount: 5, place: 0, code: null }))).toContain("Vi sender jer rabatkoden");
+    expect(String(flockGiftBox(gift, { ...base, maxSize: 3, memberCount: 2, place: 0, code: "HALV50" }))).toContain("Gaven kræver 5");
+  });
+
+  it("keeps the general promise and mentions the half-price events on the front page", async () => {
+    const home = await call("/");
+    expect(home.body).toContain("Når I er 5 samlet, giver vi en");
+    expect(home.body).toContain("halv pris på billetten til de 5");
+    const partner = await call("/samarbejde");
+    expect(partner.body).toContain("Har I et event med ledige pladser?");
+    expect(partner.body).toContain("rabatkode");
+  });
+
+  it("gives the first five in a flock the code on the flock's page, at a partner event", async () => {
+    const e = db.raw.prepare("SELECT organizer_id FROM events WHERE slug = ?").all(later.slug)[0] as { organizer_id: string };
+    PARTNER_OFFERS.push({ ...gift, organizerSlug: e.organizer_id, eventSlugs: [later.slug] });
+    env = { ...env, FLOCK_GIFT_CODES: `${later.slug}=HALV50` };
+    try {
+      expect((await call(`/events/${later.slug}`)).body).toContain("Gave ved dette event: halv pris for flokken");
+      const people = await Promise.all(["Ane", "Bo", "Cai", "Dea", "Eik", "Fie"].map(n => join(n)));
+      const started = await startFlock(people[0]!.cookie, { stoerrelse: "6" }, later.slug, later.starts_at);
+      const id = flockIdFrom(started.headers.get("location"));
+      const here = `/flokke/${id}`;
+      expect((await call(here, { cookie: people[0]!.cookie })).body).toContain("Mangler I 4 mere");
+      // One after another, so the order they joined in is plain.
+      for (const [i, p] of people.slice(1).entries()) expect((await call(`${here}/bliv-del-af`, { cookie: p.cookie, form: {} }, NOW + (i + 1) * 1000)).status).toBe(303);
+      expect((await call(here, { cookie: people[4]!.cookie })).body).toContain('<p class="code">HALV50</p>');
+      expect((await call(here, { cookie: people[5]!.cookie })).body).not.toContain("HALV50");
+      expect((await call(here)).body).not.toContain("HALV50");
+    } finally {
+      PARTNER_OFFERS.length = 0;
+      delete env.FLOCK_GIFT_CODES;
+    }
   });
 });

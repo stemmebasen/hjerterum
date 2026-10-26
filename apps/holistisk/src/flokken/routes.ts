@@ -5,7 +5,7 @@ import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
 import { findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, safetyPage, welcomePage, type View } from "./pages.js";
-import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
+import { giftCode, listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
 import { createFlock, eftermoedeFlocks, eftermoedeInvitations, flockById, flockHost, flockMemberNames, joinFlock, leaveFlock, memberFlocks, setAgain, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
@@ -124,7 +124,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (!action) {
       if (post) return null;
       const [e, names, host] = await Promise.all([eventBySlug(db, f.event_slug), f.is_member ? flockMemberNames(db, f.id) : Promise.resolve([]), flockHost(db, f)]);
-      return { view: flockPage(pc, f, e, names, m, host, message) };
+      return { view: flockPage(pc, f, e, names, m, host, message, f.is_member && e ? giftCode(env.FLOCK_GIFT_CODES, e) : null) };
     }
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(here)}`);
     if (action === "ret") {

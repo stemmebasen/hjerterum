@@ -24,6 +24,9 @@ export interface Env {
   /** "portal" shows the event portal at the Worker's own address; anything else (the default) Flokken as an association.
    * Under a mount, the mount decides (src/index.ts). */
   EDITION?: string;
+  /** Secret. Discount codes for the half-price gift at partner events, "event-slug=CODE,organizer-slug=CODE"
+   * (src/flokken/partners.ts). Only the first five members of a flock of five see their event's code. */
+  FLOCK_GIFT_CODES?: string;
   /** Optional address shown on the about page for organisers and corrections. */
   CONTACT_EMAIL?: string;
 }

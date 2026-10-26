@@ -452,7 +452,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
       ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Find en flok</a>` : ""}
     </div>
   </header>
-  ${offersBlock(offers)}
+  ${offersBlock(offers, e.organizer_name)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
   ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   <div class="main-aside">
