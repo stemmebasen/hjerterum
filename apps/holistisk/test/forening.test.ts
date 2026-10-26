@@ -58,6 +58,7 @@ describe("Flokk", () => {
     expect(home.status).toBe(200);
     expect(home.body).toContain('data-edition="forening"');
     expect(home.body).toContain("<h1>Tilmeld dig en tur <em>i samlet flok!</em></h1>");
+    expect(home.body).toContain('<p class="f-kicker">Koncerter, foredrag og andre oplevelser – sammen med en lille gruppe, du ikke kender endnu.</p>');
     expect(home.body).toContain("<title>Flokk – nye oplevelser, nye mennesker, i trygge rammer</title>");
     expect(home.body).toContain('class="mark mark-flokk"');
     expect(home.body).toContain('href="/assets/flokk-icon.svg"');

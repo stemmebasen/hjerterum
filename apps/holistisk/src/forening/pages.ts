@@ -92,7 +92,7 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
 <section class="f-hero">
   <div class="wrap f-hero-inner">
     <div class="f-hero-text">
-      <p class="f-kicker">Koncerter, foredrag og andre oplevelser – sammen med andre</p>
+      <p class="f-kicker">Koncerter, foredrag og andre oplevelser – sammen med en lille gruppe, du ikke kender endnu.</p>
       <h1>Tilmeld dig en tur <em>i samlet flok!</em></h1>
       <p class="standfirst">Oplev et arrangement sammen med mennesker, du ikke kender endnu. Som medlem kan du tilmelde dig en tur til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du skal bare komme og være dig selv. Bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
       <p class="f-actions"><a class="button" href="/bliv-medlem">Bliv medlem</a> <a class="button-secondary" href="/saadan-fungerer-det">Sådan fungerer det</a></p>
