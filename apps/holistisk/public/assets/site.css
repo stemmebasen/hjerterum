@@ -18,17 +18,17 @@
   font-display: swap;
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-/* Flokk's own type: a soft serif for headings, a typeface drawn to be easy to read for text (both SIL OFL). */
+/* Flokk's own type: a soft serif for headings (Fraunces, its round SOFT form fixed in the file), a typeface drawn to be easy to read for text (both SIL OFL). */
 @font-face {
   font-family: "Fraunces";
-  src: url("fonts/fraunces-latin.woff2") format("woff2");
-  font-weight: 400 700;
+  src: url("fonts/fraunces-soft-latin.woff2") format("woff2");
+  font-weight: 300 700;
   font-display: swap;
 }
 @font-face {
   font-family: "Fraunces";
-  src: url("fonts/fraunces-italic-latin.woff2") format("woff2");
-  font-weight: 400 600;
+  src: url("fonts/fraunces-soft-italic-latin.woff2") format("woff2");
+  font-weight: 300 700;
   font-style: italic;
   font-display: swap;
 }
@@ -826,3 +826,58 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .f-ex-after { margin: 10px 0 0; color: var(--berry-dark); font-size: .95rem; }
 .f-ex-after::before { content: "Bagefter: "; font-weight: 500; }
 @media (min-width: 900px) { .f-carousel { margin: 0; padding: 6px 2px 26px; scroll-padding: 0; } }
+
+/* ————————————————————————————————————————— Flokk, rounder
+   Rounder and more inviting: Fraunces in its soft form a little heavier, warmer colour in a hero that is one big
+   rounded panel, an arched stage, numbered round steps, pill-shaped navigation and buttons that lift. */
+[data-edition="forening"] { --radius: 34px; --warm-shadow: 0 10px 24px rgba(59, 110, 92, .22); }
+[data-edition="forening"] body { font-weight: 350; }
+[data-edition="forening"] h1, [data-edition="forening"] h2, [data-edition="forening"] h3 { font-weight: 600; letter-spacing: -.005em; font-variation-settings: "opsz" 72; }
+[data-edition="forening"] .f-hero h1 { font-weight: 550; }
+[data-edition="forening"] h1 em, [data-edition="forening"] h2 em { font-weight: 500; }
+
+[data-edition="forening"] .nav { background: var(--card); border-radius: 999px; padding: 5px; box-shadow: var(--soft-shadow); }
+[data-edition="forening"] .nav a { padding: 8px 16px; }
+
+[data-edition="forening"] button, [data-edition="forening"] .button { padding: 14px 28px; box-shadow: var(--warm-shadow); transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+[data-edition="forening"] button:hover, [data-edition="forening"] .button:hover { transform: translateY(-2px); box-shadow: 0 14px 28px rgba(59, 110, 92, .28); }
+[data-edition="forening"] .button-secondary { transition: transform .15s ease, background .15s ease; }
+[data-edition="forening"] .button-secondary:hover { transform: translateY(-2px); }
+[data-edition="forening"] .my-flocks { box-shadow: 0 8px 20px rgba(168, 73, 95, .25); }
+@media (prefers-reduced-motion: reduce) { [data-edition="forening"] button, [data-edition="forening"] .button, [data-edition="forening"] .button-secondary { transition: none; transform: none !important; } }
+
+[data-edition="forening"] .f-hero {
+  margin: 4px 12px 0; border-radius: 48px;
+  background:
+    radial-gradient(42% 60% at 6% 12%, #f9dfe6 0, rgba(249, 223, 230, 0) 100%),
+    radial-gradient(40% 60% at 96% 22%, #dcece3 0, rgba(220, 236, 227, 0) 100%),
+    radial-gradient(50% 60% at 50% 110%, #fbe7bf 0, rgba(251, 231, 191, 0) 100%),
+    radial-gradient(30% 40% at 70% 0%, #e8e2f7 0, rgba(232, 226, 247, 0) 100%),
+    #fdf3ea;
+}
+@media (min-width: 940px) { [data-edition="forening"] .f-hero { margin: 8px 24px 0; border-radius: 64px; } }
+
+[data-edition="forening"] .f-timeline { counter-reset: f-step; }
+[data-edition="forening"] .f-timeline li { counter-increment: f-step; padding-left: 64px; min-height: 48px; }
+[data-edition="forening"] .f-timeline li::before { content: counter(f-step); top: 0; width: 48px; height: 48px; display: grid; place-items: center;
+  font: 600 1.35rem/1 var(--display); color: var(--ink); background: var(--green-soft); box-shadow: none; }
+[data-edition="forening"] .f-timeline li:nth-child(2)::before { background: var(--berry-soft); }
+[data-edition="forening"] .f-timeline li:nth-child(3)::before { background: var(--lilac); }
+[data-edition="forening"] .f-timeline li:last-child::before { background: var(--butter-soft); box-shadow: none; }
+@media (min-width: 820px) {
+  [data-edition="forening"] .f-timeline li { padding: 64px 24px 0 0; }
+  [data-edition="forening"] .f-timeline li::after { left: 58px; right: 10px; top: 23px; height: 3px; border-radius: 3px; background: repeating-linear-gradient(90deg, #d8cbbb 0 3px, transparent 3px 10px); }
+}
+
+[data-edition="forening"] .f-promises li { position: relative; overflow: hidden; padding: 26px 28px; }
+[data-edition="forening"] .f-promises li::after { content: ""; position: absolute; right: -34px; top: -34px; width: 120px; height: 120px; border-radius: 50%; background: rgba(255, 255, 255, .5); pointer-events: none; }
+[data-edition="forening"] .f-promises h3 { font-size: 1.3rem; }
+
+[data-edition="forening"] .f-ex-art { margin: 10px 10px 0; border-radius: 26px; }
+[data-edition="forening"] .f-ex h3 { font-weight: 600; }
+[data-edition="forening"] .f-examples-nav button { padding: 0; box-shadow: var(--soft-shadow); }
+[data-edition="forening"] .f-examples-nav button:hover { transform: none; box-shadow: var(--soft-shadow); }
+
+[data-edition="forening"] .site-footer { border-radius: 64px 64px 0 0; }
+[data-edition="forening"] .f-promises li > * { position: relative; z-index: 1; }
+[data-edition="forening"] .f-timeline li { align-content: start; }
