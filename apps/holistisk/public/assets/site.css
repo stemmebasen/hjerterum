@@ -33,6 +33,12 @@
   font-display: swap;
 }
 @font-face {
+  font-family: "Lexend";
+  src: url("fonts/lexend-latin.woff2") format("woff2");
+  font-weight: 300 600;
+  font-display: swap;
+}
+@font-face {
   font-family: "Atkinson Hyperlegible";
   src: url("fonts/atkinson-400-latin.woff2") format("woff2");
   font-weight: 400;
@@ -697,3 +703,100 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .leave { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 12px; }
 .leave summary { cursor: pointer; color: var(--berry); font-weight: 700; }
 .leave form { display: block; margin-top: 10px; }
+
+
+/* ————————————————————————————————————————— Flokk, softer
+   Flokk's own look, apart from the event portal: the same colour family made soft (cream, sage, dusty rose, butter,
+   lavender, peach), no outlines, round shapes, clouds of colour, a light footer, Lexend for text and a lighter
+   Fraunces for headings. Text colours keep at least 4.5:1 contrast. */
+[data-edition="forening"] {
+  --paper: #fbf7f2; --paper-2: #f4ede5; --card: #ffffff; --ink: #2c3a36; --ink-2: #4a5a55; --muted: #5f6d68; --rule: #ece3d8;
+  --green: #2c3a36; --green-2: #3b6e5c; --green-soft: #e3efe8; --berry: #a8495f; --berry-dark: #8f3c50; --berry-soft: #f8e3e8;
+  --butter: #f5dc9a; --butter-soft: #fbf0d6; --lilac: #ebe6f7; --peach: #fbe6d7; --focus: #a8495f;
+  --radius: 28px; --radius-s: 16px;
+  --sans: "Lexend", "Segoe UI", system-ui, sans-serif;
+  --soft-shadow: 0 12px 40px rgba(44, 58, 54, .07);
+}
+[data-edition="forening"] body { font-size: 17.5px; line-height: 1.7; font-weight: 300; color: var(--ink); }
+[data-edition="forening"] strong, [data-edition="forening"] b { font-weight: 500; }
+[data-edition="forening"] h1, [data-edition="forening"] h2, [data-edition="forening"] h3 { font-weight: 500; letter-spacing: -.01em; font-variation-settings: "SOFT" 100, "WONK" 0, "opsz" 96; }
+[data-edition="forening"] h1 em, [data-edition="forening"] h2 em { color: var(--berry); font-weight: 400; }
+[data-edition="forening"] a { color: var(--berry); }
+[data-edition="forening"] .env-banner { background: var(--berry-soft); color: var(--berry-dark); font-weight: 500; }
+
+/* Header: light and open, no outlined buttons */
+[data-edition="forening"] .masthead { background: transparent; border-bottom: 0; }
+[data-edition="forening"] .masthead-inner { min-height: 84px; }
+[data-edition="forening"] .wordmark-flokk { font-weight: 500; color: var(--ink); }
+[data-edition="forening"] .nav a { font-weight: 400; color: var(--ink-2); border-radius: 999px; padding: 8px 14px; }
+[data-edition="forening"] .nav a:hover { background: var(--paper-2); color: var(--ink); }
+[data-edition="forening"] .nav a[aria-current="page"] { background: var(--berry-soft); color: var(--berry-dark); }
+[data-edition="forening"] .my-flocks { background: var(--berry); color: #fff; font-weight: 500; box-shadow: none; padding: 0 22px; }
+[data-edition="forening"] .my-flocks:hover, [data-edition="forening"] .my-flocks[aria-current="page"] { background: var(--berry-dark); color: #fff; }
+[data-edition="forening"] .menu > summary { border: 0; background: var(--paper-2); font-weight: 500; }
+[data-edition="forening"] .menu > summary:hover, [data-edition="forening"] .menu[open] > summary { background: var(--berry-soft); }
+[data-edition="forening"] .burger, [data-edition="forening"] .burger::before, [data-edition="forening"] .burger::after { height: 2px; background: var(--ink-2); }
+[data-edition="forening"] .menu-panel { border: 0; border-radius: 24px; box-shadow: 0 24px 60px rgba(44, 58, 54, .16); }
+[data-edition="forening"] .menu-panel-small a { font-weight: 400; color: var(--ink); }
+
+/* Buttons: soft, round, no shadow */
+[data-edition="forening"] button, [data-edition="forening"] .button { background: var(--green-2); color: #fff; font-weight: 500; border-radius: 999px; padding: 13px 26px; }
+[data-edition="forening"] button:hover, [data-edition="forening"] .button:hover { background: #2f5a4b; }
+[data-edition="forening"] .button-secondary { border: 0; background: var(--card); color: var(--ink); font-weight: 500; box-shadow: var(--soft-shadow); padding: 12px 24px; }
+[data-edition="forening"] .button-secondary:hover { background: var(--berry-soft); }
+[data-edition="forening"] .link-button { color: var(--berry); }
+
+/* Hero: clouds of colour behind the text */
+[data-edition="forening"] .f-hero {
+  background:
+    radial-gradient(38% 55% at 8% 18%, #f8e3e8 0, rgba(248, 227, 232, 0) 100%),
+    radial-gradient(40% 60% at 92% 28%, #e3efe8 0, rgba(227, 239, 232, 0) 100%),
+    radial-gradient(45% 55% at 55% 105%, #fbf0d6 0, rgba(251, 240, 214, 0) 100%),
+    radial-gradient(30% 40% at 70% 0%, #ebe6f7 0, rgba(235, 230, 247, 0) 100%);
+  border-radius: 0 0 56px 56px;
+}
+[data-edition="forening"] .f-hero h1 { font-weight: 400; line-height: 1.08; }
+[data-edition="forening"] .f-kicker { color: var(--green-2); font-weight: 500; letter-spacing: .02em; }
+[data-edition="forening"] .f-hero .standfirst { color: var(--ink-2); }
+
+/* Sections: soft tinted surfaces instead of lines */
+[data-edition="forening"] .f-section { margin-top: 88px; }
+[data-edition="forening"] .f-section-head .more { color: var(--berry); font-weight: 500; }
+[data-edition="forening"] .f-timeline li::before { border: 0; background: var(--green-soft); box-shadow: inset 0 0 0 5px #b9d6c6; }
+[data-edition="forening"] .f-timeline li:last-child::before { background: var(--butter-soft); box-shadow: inset 0 0 0 5px var(--butter); border: 0; }
+@media (min-width: 820px) { [data-edition="forening"] .f-timeline li::after { background: repeating-linear-gradient(90deg, #b9d6c6 0 4px, transparent 4px 10px); } }
+[data-edition="forening"] .f-evening-time { color: var(--green-2); font-weight: 500; letter-spacing: .04em; }
+[data-edition="forening"] .f-steps li, [data-edition="forening"] .f-promises li, [data-edition="forening"] .f-panel, [data-edition="forening"] .f-card, [data-edition="forening"] .f-empty, [data-edition="forening"] .form-card {
+  border: 0; border-radius: var(--radius); box-shadow: var(--soft-shadow); }
+[data-edition="forening"] .f-promises li:nth-child(1) { background: var(--butter-soft); } [data-edition="forening"] .f-promises li:nth-child(2) { background: var(--green-soft); }
+[data-edition="forening"] .f-promises li:nth-child(3) { background: var(--berry-soft); } [data-edition="forening"] .f-promises li:nth-child(4) { background: var(--lilac); }
+[data-edition="forening"] .f-promises li { box-shadow: none; }
+[data-edition="forening"] .f-promises h3, [data-edition="forening"] .f-steps h3 { font-weight: 500; }
+[data-edition="forening"] .f-step-no { border: 0; background: var(--berry-soft); color: var(--berry-dark); font-weight: 500; }
+[data-edition="forening"] .f-panel-alt { background: var(--green-soft); color: var(--ink); }
+[data-edition="forening"] .f-panel-alt h2 { color: var(--ink); }
+[data-edition="forening"] .f-panel-alt .button-secondary { color: var(--ink); border: 0; }
+[data-edition="forening"] .f-panel-alt .button-secondary:hover { background: var(--card); }
+[data-edition="forening"] .f-empty { background: var(--card); }
+[data-edition="forening"] .f-card-when, [data-edition="forening"] .f-when { color: var(--green-2); font-weight: 500; }
+[data-edition="forening"] .f-card-title { font-weight: 500; }
+[data-edition="forening"] .f-code { background: var(--butter-soft); }
+[data-edition="forening"] .f-numbers { color: var(--green-2); font-weight: 500; }
+[data-edition="forening"] .f-checks .f-check { border: 0; background: var(--paper-2); font-weight: 400; }
+[data-edition="forening"] .f-checks .f-check:has(input:checked) { background: var(--green-soft); box-shadow: inset 0 0 0 1.5px var(--green-2); }
+[data-edition="forening"] .field > label, [data-edition="forening"] .f-form legend { font-weight: 500; }
+[data-edition="forening"] .field input[type="text"], [data-edition="forening"] .field input[type="email"], [data-edition="forening"] .field input[type="url"], [data-edition="forening"] .field input[type="number"], [data-edition="forening"] .field input[type="datetime-local"], [data-edition="forening"] .field select, [data-edition="forening"] .field textarea {
+  border: 0; background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--rule); border-radius: 14px; font-weight: 400; }
+[data-edition="forening"] .field input:focus, [data-edition="forening"] .field select:focus, [data-edition="forening"] .field textarea:focus { box-shadow: inset 0 0 0 2px var(--green-2); }
+[data-edition="forening"] .flash { border: 0; background: var(--green-soft); color: #2f5a4b; font-weight: 500; border-radius: 16px; }
+[data-edition="forening"] .flash-error { background: var(--berry-soft); color: var(--berry-dark); }
+[data-edition="forening"] .notice { border: 0; background: var(--butter-soft); border-radius: 16px; }
+[data-edition="forening"] .crumbs, [data-edition="forening"] .crumbs a { color: var(--muted); }
+
+/* Footer: light, like the rest */
+[data-edition="forening"] .site-footer { background: var(--paper-2); color: var(--ink-2); border-top: 0; border-radius: 56px 56px 0 0; }
+[data-edition="forening"] .site-footer a { color: var(--ink); }
+[data-edition="forening"] .site-footer .wordmark-flokk { color: var(--ink); }
+[data-edition="forening"] .site-footer .wordmark-flokk .mark-flokk [fill="#17332d"] { fill: currentColor; }
+[data-edition="forening"] .admin-table { border-radius: 18px; box-shadow: var(--soft-shadow); }
+[data-edition="forening"] .admin-table th { font-weight: 500; }
