@@ -32,6 +32,9 @@ describe("front page", () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
     expect(body).toContain('<h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>');
+    // Find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
+    expect(body).toContain("Find en flok – eller opret en");
+    expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");
     expect(body).toContain('class="ticket-stack"');
     // The hero's tickets: coming events on different days, weekday and part of the day on the stub.
     const stubs = [...body.matchAll(/<span class="mini-weekday">(\w+)<\/span><span class="mini-part">(\w+)<\/span>/g)].map(m => m[1]);
