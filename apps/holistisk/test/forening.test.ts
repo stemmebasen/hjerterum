@@ -34,7 +34,7 @@ const cookieOf = (r: Res) => /flok_session=[^;]+/.exec(r.headers.get("set-cookie
 const rows = (sql: string, ...params: unknown[]) => db.raw.prepare(sql).all(...params) as Array<Record<string, unknown>>;
 /** A new member: joins and comes back with a login and the code. */
 async function join(name: string, email = `${name.toLowerCase()}@example.dk`): Promise<{ cookie: string; code: string; body: string }> {
-  const r = await call("/bliv-medlem", { form: { fornavn: name, email, samtykke: "ja", naeste: "/udflugter" } });
+  const r = await call("/bliv-medlem", { form: { fornavn: name, email, samtykke: "ja", naeste: "/ture" } });
   return { cookie: cookieOf(r), code: /<p class="f-code-value">([A-Z0-9-]+)<\/p>/.exec(r.body)?.[1] ?? "", body: r.body };
 }
 async function adminLogin(): Promise<string> { return cookieOf(await call("/log-ind", { form: { kode: adminCode } })); }
@@ -53,7 +53,7 @@ beforeAll(async () => {
 });
 
 describe("Flokk", () => {
-  it("is what the Worker shows by default: the concept, the steps, the frame – and no Udflugter before any are picked", async () => {
+  it("is what the Worker shows by default: the concept, the steps, the frame – and no ture before any are picked", async () => {
     const home = await call("/");
     expect(home.status).toBe(200);
     expect(home.body).toContain('data-edition="forening"');
@@ -64,12 +64,12 @@ describe("Flokk", () => {
     expect(home.body).toContain("/assets/og-flokk.jpg");
     expect(home.body).not.toContain("Flokken");
     expect(home.body).toContain("Oplev et arrangement sammen med mennesker, du ikke kender endnu.");
-    // Under the hero, a carousel of made-up examples – labelled as examples, never as Udflugter one can join.
+    // Under the hero, a carousel of made-up examples – labelled as examples, never as ture one can join.
     expect(home.body).toContain("Sådan kan en tur se ud");
     expect(home.body).toContain("Eksempler til inspiration – ikke rigtige ture endnu.");
     expect(home.body.match(/<span class="f-ex-tag">Eksempel<\/span>/g)?.length).toBe(8);
-    expect(home.body.indexOf("Sådan kan en tur se ud")).toBeLessThan(home.body.indexOf("Kommende Udflugter"));
-    expect(home.body).toContain("De første Udflugter er ved at blive planlagt");
+    expect(home.body.indexOf("Sådan kan en tur se ud")).toBeLessThan(home.body.indexOf("Kommende ture"));
+    expect(home.body).toContain("De første ture er ved at blive planlagt");
     expect(home.body).toContain('href="/bliv-medlem"');
     for (const frame of ["Du ved, hvad der skal ske", "En lille flok", "På din egen måde", "Klare frister"]) expect(home.body).toContain(frame);
     expect(home.body).toContain("Beløbet er ikke fastlagt endnu");
@@ -78,22 +78,24 @@ describe("Flokk", () => {
     // Earlier addresses lead on.
     expect((await call("/samarbejde")).headers.get("location")).toBe("/for-arrangoerer");
     expect((await call("/for-foreninger")).headers.get("location")).toBe("/for-arrangoerer");
-    expect((await call("/maanedens-events")).headers.get("location")).toBe("/udflugter");
+    expect((await call("/maanedens-events")).headers.get("location")).toBe("/ture");
+    expect((await call("/udflugter")).headers.get("location")).toBe("/ture");
+    expect((await call("/mine-udflugter")).headers.get("location")).toBe("/mine-ture");
     expect((await call("/tryghed")).headers.get("location")).toBe("/saadan-fungerer-det");
     expect((await call("/skriv-dig-op?event=x")).headers.get("location")).toBe("/bliv-medlem?naeste=%2Fevents%2Fx");
-    for (const path of ["/udflugter", "/saadan-fungerer-det", "/bliv-medlem", "/log-ind", "/om", "/for-arrangoerer", "/privatliv"]) expect((await call(path)).status).toBe(200);
+    for (const path of ["/ture", "/saadan-fungerer-det", "/bliv-medlem", "/log-ind", "/om", "/for-arrangoerer", "/privatliv"]) expect((await call(path)).status).toBe(200);
   });
 
   it("speaks about the experiences and the frame: no host, no deficits, nothing undecided stated as fact", async () => {
-    for (const path of ["/", "/udflugter", "/saadan-fungerer-det", "/bliv-medlem", "/log-ind", "/om", "/for-arrangoerer", "/privatliv"]) {
+    for (const path of ["/", "/ture", "/saadan-fungerer-det", "/bliv-medlem", "/log-ind", "/om", "/for-arrangoerer", "/privatliv"]) {
       const text = (await call(path)).body.replace(/<[^>]+>/g, " ");
       expect(text, path).not.toMatch(/ensom|socialangst|social angst|genert|skrøbelig|bor alene|nemmeste i verden/i);
       expect(text, path).not.toMatch(/værten|vært, der|tager imod jer/i);
       expect(text, path).not.toMatch(/under stiftelse|kontingent|tage en ven med|medlemskab er gratis/i);
     }
     const how = (await call("/saadan-fungerer-det")).body;
-    for (const rule of ["Man kan ikke tilmelde en gæst", "flere Udflugter", "først til mølle", "automatisk på ventelisten", "bekræftes, når fire har tilmeldt sig",
-      "gennemføres Udflugten alligevel", "lukker 7 dage før", "deltagerlisten fast", "Hvis Flokk aflyser sin deltagelse", "uden for Flokks kontrol",
+    for (const rule of ["Man kan ikke tilmelde en gæst", "flere ture", "først til mølle", "automatisk på ventelisten", "bekræftes, når fire har tilmeldt sig",
+      "gennemføres turen alligevel", "lukker 7 dage før", "deltagerlisten fast", "Hvis Flokk aflyser sin deltagelse", "uden for Flokks kontrol",
       "ikke automatisk en gruppechat", "fornavnene", "Der er ikke en vært fra Flokk med", "Det er ikke fastlagt endnu"]) expect(how).toContain(rule);
     expect((await call("/bliv-medlem")).body).toContain("Beløb og medlemsvilkår er ikke fastlagt endnu. Du betaler ikke noget nu.");
   });
@@ -109,20 +111,20 @@ describe("Flokk", () => {
     expect(maja.cookie).not.toBe("");
     expect(rows("SELECT first_name, email FROM members WHERE email = 'maja@example.dk'")).toEqual([{ first_name: "Maja", email: "maja@example.dk" }]);
     // The header greets members with their own page.
-    expect((await call("/", { cookie: maja.cookie })).body).toContain('href="/mine-udflugter"');
+    expect((await call("/", { cookie: maja.cookie })).body).toContain('href="/mine-ture"');
     // One profile per mail.
     expect((await call("/bliv-medlem", { form: { fornavn: "Maja", email: "maja@example.dk", samtykke: "ja" } })).status).toBe(409);
     // Logging in with the code, on another device.
-    const login = await call("/log-ind", { form: { kode: maja.code.toLowerCase(), naeste: "/udflugter" } });
-    expect(login.headers.get("location")).toBe("/udflugter");
+    const login = await call("/log-ind", { form: { kode: maja.code.toLowerCase(), naeste: "/ture" } });
+    expect(login.headers.get("location")).toBe("/ture");
     expect((await call("/log-ind", { form: { kode: "AAAA-BBBB-CCCC" } })).status).toBe(401);
     // A member of the event portal (Socialklubben) is not a Flokk member.
     const portalCode = newCode();
     db.raw.prepare("INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at) VALUES ('portal-1', 'Kim', ?, ?, ?)").run(await sha256(portalCode), NOW, NOW);
     expect((await call("/log-ind", { form: { kode: portalCode } })).status).toBe(401);
-    expect((await call("/mine-udflugter")).headers.get("location")).toBe("/log-ind?naeste=%2Fmine-udflugter");
-    const mine = await call("/mine-udflugter", { cookie: maja.cookie });
-    expect(mine.body).toContain("Du er ikke tilmeldt nogen Udflugter endnu");
+    expect((await call("/mine-ture")).headers.get("location")).toBe("/log-ind?naeste=%2Fmine-ture");
+    const mine = await call("/mine-ture", { cookie: maja.cookie });
+    expect(mine.body).toContain("Du er ikke tilmeldt nogen ture endnu");
     // Leaving deletes the profile.
     const bye = await call("/meld-ud", { form: { bekraeft: "ja" }, cookie: maja.cookie });
     expect(bye.body).toContain("Du er meldt ud");
@@ -131,7 +133,7 @@ describe("Flokk", () => {
     expect((await call("/bliv-medlem", { form: { fornavn: "Eve", email: "eve@example.dk", samtykke: "ja" }, origin: "https://evil.example" })).status).toBe(403);
   });
 
-  it("follows the rules for an Udflugt: first come, a waiting list, confirmed at four, cancellations, the seven-day close and Flokk cancelling", async () => {
+  it("follows the rules for a tur: first come, a waiting list, confirmed at four, cancellations, the seven-day close and Flokk cancelling", async () => {
     const cookie = await adminLogin();
     const made = await call("/admin/events/ny", { cookie, form: { titel: "Koncert i salen", start: "2026-10-25T19:00", forening: "Foreningen Lyd", pladser: "4", status: "approved" } });
     const pickId = /\/admin\/events\/([0-9a-f-]{36})/.exec(made.headers.get("location") ?? "")![1]!;
@@ -181,7 +183,7 @@ describe("Flokk", () => {
     // The practical information and the first names reach the flock on their own page.
     await call(`/admin/events/${pickId}`, { cookie, form: { titel: "Koncert i salen", start: "2026-10-25T19:00", forening: "Foreningen Lyd", pladser: "4",
       moedested: "Ved hovedindgangen, under uret", moedetid: "2026-10-25T18:30", program: "18.30 Vi mødes\n19.00 Koncert", status: "approved" } });
-    const mine = await call("/mine-udflugter", { cookie: ana.cookie });
+    const mine = await call("/mine-ture", { cookie: ana.cookie });
     expect(mine.body).toContain("Ved hovedindgangen, under uret");
     expect(mine.body).toContain("kl. 18.30");
     expect(mine.body).toContain("Ana, Eli");
@@ -209,8 +211,8 @@ describe("Flokk", () => {
     expect(list.body).toMatch(/href="mailto:ana%40example\.dk\?subject=Flokk%3A%20Koncert%20i%20salen&amp;body=[^"]*under%20uret/);
     // Flokk cancels its participation: members see it, apart from the organiser's event.
     await call(`/admin/events/${pickId}/aflys`, { cookie, form: { bekraeft: "ja" } });
-    expect((await page(ana.cookie)).body).toContain("Flokk har aflyst sin deltagelse i denne Udflugt.");
-    expect((await call("/mine-udflugter", { cookie: ana.cookie })).body).toContain("Flokk har aflyst sin deltagelse.");
+    expect((await page(ana.cookie)).body).toContain("Flokk har aflyst sin deltagelse i denne tur.");
+    expect((await call("/mine-ture", { cookie: ana.cookie })).body).toContain("Flokk har aflyst sin deltagelse.");
     expect((await signUp(bo)).headers.get("location")).toBe(`/events/${slug}?besked=lukket`);
   });
 
@@ -268,7 +270,7 @@ describe("Flokk", () => {
     expect((await call("/admin/events/ny", { cookie, form: { titel: "", start: "", forening: "" } })).status).toBe(400);
     const made = await call("/admin/events/ny", { cookie, form: { titel: "Foredrag om fugle", start: "2026-10-20T19:00", forening: "Fugleforeningen", status: "approved" } });
     expect(made.headers.get("location")).toMatch(/\/admin\/events\/[0-9a-f-]{36}\?besked=oprettet/);
-    expect((await call("/udflugter")).body).toContain("Foredrag om fugle");
+    expect((await call("/ture")).body).toContain("Foredrag om fugle");
 
     // A new code for a member who lost theirs: the old one stops working.
     const ida = await join("Ida");
@@ -277,7 +279,7 @@ describe("Flokk", () => {
     const fresh = /class="f-code-inline">([A-Z0-9-]+)</.exec(renewed.body)![1]!;
     expect((await call("/log-ind", { form: { kode: ida.code } })).status).toBe(401);
     expect((await call("/log-ind", { form: { kode: fresh } })).status).toBe(303);
-    expect((await call("/mine-udflugter", { cookie: ida.cookie })).headers.get("location")).toBe("/log-ind?naeste=%2Fmine-udflugter");
+    expect((await call("/mine-ture", { cookie: ida.cookie })).headers.get("location")).toBe("/log-ind?naeste=%2Fmine-ture");
 
     // A member who is not a volunteer has no access.
     const jon = await join("Jon");

@@ -2,7 +2,7 @@ import { cleanFirstName } from "../flokken/auth.js";
 import { fromLocalInput, toLocalInput } from "../flokken/forms.js";
 import type { InterestFields, PickFields } from "./store.js";
 
-/** Flokk's forms: the interest list (public) and an Udflugt (the volunteers'). */
+/** Flokk's forms: the interest list (public) and a tur (the volunteers'). */
 
 export const AGE_GROUPS = ["18-29", "30-39", "40-49", "50-59", "60-69", "70+"] as const;
 export const AGE_LABELS: Record<string, string> = { "18-29": "18–29 år", "30-39": "30–39 år", "40-49": "40–49 år", "50-59": "50–59 år", "60-69": "60–69 år", "70+": "70 år eller mere" };

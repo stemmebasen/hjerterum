@@ -13,7 +13,7 @@ import type { PickRow } from "./store.js";
 
 const picksPath = (p: Pick<PickRow, "slug">) => `/events/${p.slug}`;
 
-/** Sign-up and ordinary cancellation close seven days before an Udflugt. */
+/** Sign-up and ordinary cancellation close seven days before a tur. */
 export const CLOSES_DAYS = 7;
 
 export function when(p: Pick<PickRow, "starts_at" | "ends_at">, now: number): string {
@@ -40,7 +40,7 @@ function pickCard(p: PickRow, now: number): SafeHtml {
 
 function picksBlock(picks: PickRow[], now: number): SafeHtml {
   if (!picks.length) return html`<div class="f-empty">
-  <p><strong>De første Udflugter er ved at blive planlagt.</strong> Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Bliv medlem, så kan du tilmelde dig, når de er klar.</p>
+  <p><strong>De første ture er ved at blive planlagt.</strong> Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Bliv medlem, så kan du tilmelde dig, når de er klar.</p>
   <p><a class="button" href="/bliv-medlem">Bliv medlem</a></p>
 </div>`;
   return html`<div class="f-cards">${picks.map(p => pickCard(p, now))}</div>`;
@@ -48,7 +48,7 @@ function picksBlock(picks: PickRow[], now: number): SafeHtml {
 
 /** What a member can count on, as decided. */
 const FRAME: Array<[string, string]> = [
-  ["Du ved, hvad der skal ske", "Før Udflugten får du program, præcist mødested og fornavnene på dem i din flok – til dig personligt, på mail og under Mine Udflugter."],
+  ["Du ved, hvad der skal ske", "Før turen får du program, præcist mødested og fornavnene på dem i din flok – til dig personligt, på mail og under Mine ture."],
   ["En lille flok", "En flok bekræftes, når fire medlemmer har tilmeldt sig. I mødes på det aftalte sted og går ind sammen."],
   ["På din egen måde", "Nogle snakker meget, andre lytter mest. Du kan blive til snakken bagefter eller gå hjem, når oplevelsen er slut."],
   ["Klare frister", `Tilmelding og afbud lukker ${CLOSES_DAYS} dage før. Indtil da går din plads videre til ventelisten, og du får beløbet tilbage.`]
@@ -103,15 +103,15 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
 <div class="wrap">
   ${exampleCarousel()}
   <section class="f-section" aria-labelledby="h-picks">
-    <div class="f-section-head"><h2 id="h-picks">Kommende Udflugter</h2>${picks.length ? html`<a class="more" href="/udflugter">Alle →</a>` : ""}</div>
+    <div class="f-section-head"><h2 id="h-picks">Kommende ture</h2>${picks.length ? html`<a class="more" href="/ture">Alle →</a>` : ""}</div>
     ${picksBlock(picks.slice(0, 6), ctx.now)}
   </section>
   <section class="f-section f-evening" aria-labelledby="h-evening">
-    <h2 id="h-evening">En Udflugt med Flokk</h2>
+    <h2 id="h-evening">En tur med Flokk</h2>
     <ol class="f-timeline">
       <li><span class="f-evening-time">Du tilmelder dig</span><span>Først til mølle. Er der fuldt, kommer du automatisk på ventelisten.</span></li>
       <li><span class="f-evening-time">${CLOSES_DAYS} dage før</span><span>Tilmelding og afbud lukker, og deltagerlisten ligger fast.</span></li>
-      <li><span class="f-evening-time">Før Udflugten</span><span>Du får program, præcist mødested og fornavnene på dem i din flok.</span></li>
+      <li><span class="f-evening-time">Før turen</span><span>Du får program, præcist mødested og fornavnene på dem i din flok.</span></li>
       <li><span class="f-evening-time">På dagen og bagefter</span><span>I mødes på mødestedet og oplever det sammen. Bagefter kan I snakke videre, hvis I har lyst.</span></li>
     </ol>
   </section>
@@ -122,7 +122,7 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
   <section class="f-section f-two" aria-label="Pris og arrangører">
     <div class="f-panel">
       <h2>Hvad koster det?</h2>
-      <p>Du betaler et symbolsk beløb for at deltage i en Udflugt. Beløbet er ikke fastlagt endnu.</p>
+      <p>Du betaler et symbolsk beløb for at deltage i en tur. Beløbet er ikke fastlagt endnu.</p>
       <p><strong>Det koster ikke noget at skrive sig op.</strong></p>
     </div>
     <div class="f-panel f-panel-alt">
@@ -138,29 +138,29 @@ export function homePage(ctx: PageContext, picks: PickRow[]): View {
     headers: { "cache-control": "no-cache" },
     body: page(ctx, {
       title: "Flokk – nye oplevelser, nye mennesker, i trygge rammer",
-      description: "Flokk gør det lettere at opleve mere sammen med andre: Udflugter til udvalgte koncerter, foredrag og andre oplevelser i en lille flok – med program og mødested på forhånd.",
+      description: "Flokk gør det lettere at opleve mere sammen med andre: ture til udvalgte koncerter, foredrag og andre oplevelser i en lille flok – med program og mødested på forhånd.",
       canonical: "/"
     }, body)
   };
 }
 
 export function picksPage(ctx: PageContext, picks: PickRow[]): View {
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Udflugter", path: "/udflugter" }];
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Ture", path: "/ture" }];
   const body = html`
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Kommende Udflugter</h1>
+    <h1>Kommende ture</h1>
     <p class="standfirst">Udvalgte koncerter, foredrag og andre oplevelser, som vi har aftalt billetter til. Pladserne fordeles efter først til mølle.</p>
   </header>
   ${picksBlock(picks, ctx.now)}
 </div>`;
-  return { status: 200, body: page(ctx, { title: "Udflugter", description: `Kommende Udflugter med Flokk i ${ctx.regionLabel}: udvalgte koncerter, foredrag og andre oplevelser i en lille flok.`, canonical: "/udflugter", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "Ture", description: `Kommende ture med Flokk i ${ctx.regionLabel}: udvalgte koncerter, foredrag og andre oplevelser i en lille flok.`, canonical: "/ture", breadcrumbs: crumbs }, body) };
 }
 
 export function pickPage(ctx: PageContext, p: PickRow, box: SafeHtml = html``, message: SafeHtml | "" = ""): View {
   const over = (p.ends_at ?? p.starts_at + 3 * 3600_000) < ctx.now;
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Udflugter", path: "/udflugter" }, { name: p.title, path: picksPath(p) }];
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Ture", path: "/ture" }, { name: p.title, path: picksPath(p) }];
   const address = [p.address, p.city].filter(Boolean).join(", ");
   const body = html`
 <div class="wrap narrow">
@@ -172,10 +172,10 @@ export function pickPage(ctx: PageContext, p: PickRow, box: SafeHtml = html``, m
   </header>
   ${p.image_url ? html`<figure class="f-figure"><img src="${p.image_url}" alt="" decoding="async"></figure>` : ""}
   ${message}
-  ${over ? html`<p class="notice" role="status">Denne Udflugt er afholdt.</p>` : ""}
+  ${over ? html`<p class="notice" role="status">Denne tur er afholdt.</p>` : ""}
   ${p.description ? html`<div class="prose">${p.description.split(/\n{2,}/).map(par => html`<p>${par}</p>`)}</div>` : ""}
   <section class="f-panel f-plan" aria-labelledby="h-plan">
-    <h2 id="h-plan">Udflugten</h2>
+    <h2 id="h-plan">Turen</h2>
     <dl class="f-facts">
       <dt>Hvornår</dt><dd>${when(p, ctx.now)}</dd>
       ${p.venue_name || address ? html`<dt>Hvor</dt><dd>${p.venue_name ? html`${p.venue_name}<br>` : ""}${address}</dd>` : ""}
@@ -189,9 +189,9 @@ export function pickPage(ctx: PageContext, p: PickRow, box: SafeHtml = html``, m
     ${over ? "" : box}
   </section>
   ${p.event_url ? html`<p><a href="${p.event_url}" rel="noopener">Læs om oplevelsen hos ${p.association}</a></p>` : ""}
-  <p><a href="/udflugter">← Alle Udflugter</a></p>
+  <p><a href="/ture">← Alle ture</a></p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: p.title, description: `${when(p, ctx.now)} hos ${p.association} – en Udflugt med Flokk.`, canonical: picksPath(p), breadcrumbs: crumbs, image: p.image_url, type: "article" }, body) };
+  return { status: 200, body: page(ctx, { title: p.title, description: `${when(p, ctx.now)} hos ${p.association} – en tur med Flokk.`, canonical: picksPath(p), breadcrumbs: crumbs, image: p.image_url, type: "article" }, body) };
 }
 
 const err = (errors: FormErrors, k: string) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
@@ -206,22 +206,22 @@ export function howPage(ctx: PageContext): View {
     <h1>Sådan fungerer det</h1>
     <p class="standfirst">Flokk gør det lettere at opleve mere sammen med andre. Rammerne er tydelige, så du ved, hvad der skal ske – og kan være med på din egen måde.</p>
   </header>
-  <h2>Udflugter</h2>
-  <p>Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Hver af dem er en Udflugt, som medlemmer kan tilmelde sig til et symbolsk beløb.</p>
+  <h2>Ture</h2>
+  <p>Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Hver af dem er en tur, som medlemmer kan tilmelde sig til et symbolsk beløb.</p>
   <h2>Medlemskab</h2>
   <ul>
     <li>Alle, der deltager, er medlemmer. Man kan ikke tilmelde en gæst, der ikke er medlem.</li>
-    <li>Du må gerne tilmelde dig flere Udflugter, hvis der er plads.</li>
+    <li>Du må gerne tilmelde dig flere ture, hvis der er plads.</li>
   </ul>
   <h2>Tilmelding og venteliste</h2>
   <ul>
     <li>Pladserne fordeles efter først til mølle.</li>
-    <li>Når en Udflugt er fuld, kommer du automatisk på ventelisten – også efter først til mølle.</li>
-    <li>En flok bekræftes, når fire har tilmeldt sig. Falder antallet senere under fire, gennemføres Udflugten alligevel.</li>
+    <li>Når en tur er fuld, kommer du automatisk på ventelisten – også efter først til mølle.</li>
+    <li>En flok bekræftes, når fire har tilmeldt sig. Falder antallet senere under fire, gennemføres turen alligevel.</li>
   </ul>
   <h2>Frister og afbud</h2>
   <ul>
-    <li>Tilmelding og almindelige afbud lukker ${CLOSES_DAYS} dage før Udflugten.</li>
+    <li>Tilmelding og almindelige afbud lukker ${CLOSES_DAYS} dage før turen.</li>
     <li>Melder du afbud før fristen, går din plads videre til ventelisten, og du kan få beløbet tilbage.</li>
     <li>Efter fristen ligger deltagerlisten fast.</li>
   </ul>
@@ -230,9 +230,9 @@ export function howPage(ctx: PageContext): View {
     <li><strong>Hvis Flokk aflyser sin deltagelse</strong>, får du automatisk din betaling tilbage.</li>
     <li><strong>Arrangørens event</strong> ligger uden for Flokks kontrol. Arrangøren gennemfører sit event uanset, hvor mange fra Flokk der kommer.</li>
   </ul>
-  <h2>Før Udflugten</h2>
+  <h2>Før turen</h2>
   <ul>
-    <li>Du får program og præcist mødested på forhånd – til dig personligt, på mail og under Mine Udflugter.</li>
+    <li>Du får program og præcist mødested på forhånd – til dig personligt, på mail og under Mine ture.</li>
     <li>Du får fornavnene på dem i din flok, så I lettere kan finde hinanden.</li>
     <li>Der oprettes ikke automatisk en gruppechat.</li>
   </ul>
@@ -240,12 +240,12 @@ export function howPage(ctx: PageContext): View {
   <p>Der er ikke en vært fra Flokk med. I mødes selv på det aftalte sted og går ind sammen. Bagefter er der mulighed for at mødes og snakke om oplevelsen – hvis I har lyst. Du deltager på din egen måde: Nogle snakker meget, andre lytter mest, og det er lige godt.</p>
   <h2>Det er ikke fastlagt endnu</h2>
   <ul>
-    <li>Beløbet for en Udflugt og de øvrige økonomiske detaljer.</li>
+    <li>Beløbet for en tur og de øvrige økonomiske detaljer.</li>
     <li>Medlemsvilkår.</li>
     <li>Hvad der sker med billetten, hvis arrangøren aflyser sit event.</li>
   </ul>
 </div>`;
-  return { status: 200, body: page(ctx, { title: "Sådan fungerer det", description: "Udflugter med Flokk: først til mølle med venteliste, en flok bekræftes ved fire tilmeldte, tilmelding og afbud lukker syv dage før, og du får program og mødested på forhånd.", canonical: "/saadan-fungerer-det", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "Sådan fungerer det", description: "Ture med Flokk: først til mølle med venteliste, en flok bekræftes ved fire tilmeldte, tilmelding og afbud lukker syv dage før, og du får program og mødested på forhånd.", canonical: "/saadan-fungerer-det", breadcrumbs: crumbs }, body) };
 }
 
 export function aboutPage(ctx: PageContext): View {
@@ -257,7 +257,7 @@ export function aboutPage(ctx: PageContext): View {
     <h1>Om Flokk</h1>
     <p class="standfirst">Flokk gør det lettere at opleve mere sammen med andre.</p>
   </header>
-  <p>Hver måned laver vi aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Som medlem kan du tilmelde dig en Udflugt til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du deltager på din egen måde, og bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
+  <p>Hver måned laver vi aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Som medlem kan du tilmelde dig en tur til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du deltager på din egen måde, og bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
   <h2>Gode oplevelser, tydelige rammer</h2>
   <p>Vi tror på, at det er lettere at komme afsted, når man ved, hvad der skal ske, og hvem man skal mødes med. Fællesskabet er frivilligt – du er med på den måde, der passer dig.</p>
   <h2>Under udvikling</h2>
@@ -265,7 +265,7 @@ export function aboutPage(ctx: PageContext): View {
   <h2>Skriv til os</h2>
   <p>Er du arrangør, så brug <a href="/for-arrangoerer#kontakt">formularen for arrangører</a>. Vil du være med, så <a href="/bliv-medlem">bliv medlem</a>.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: "Om Flokk", description: "Flokk gør det lettere at opleve mere sammen med andre – Udflugter til udvalgte koncerter, foredrag og andre oplevelser i en lille flok.", canonical: "/om", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "Om Flokk", description: "Flokk gør det lettere at opleve mere sammen med andre – ture til udvalgte koncerter, foredrag og andre oplevelser i en lille flok.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
 
 export function organisersPage(ctx: PageContext, state: { form?: InquiryForm; errors?: InquiryErrors; sent?: boolean; status?: number } = {}): View {
@@ -281,7 +281,7 @@ export function organisersPage(ctx: PageContext, state: { form?: InquiryForm; er
   </header>
   <h2>Sådan kan et samarbejde se ud</h2>
   <ul>
-    <li><strong>Billetter til en Udflugt.</strong> Vi aftaler et antal billetter til et af jeres arrangementer, som vores medlemmer kan tilmelde sig.</li>
+    <li><strong>Billetter til en tur.</strong> Vi aftaler et antal billetter til et af jeres arrangementer, som vores medlemmer kan tilmelde sig.</li>
     <li><strong>Vi fortæller om jer.</strong> Eventuelt mod at vi markedsfører jer og jeres tilbud over for vores medlemmer.</li>
     <li><strong>Jeres arrangement er jeres.</strong> Det gennemføres uanset, hvor mange fra Flokk der kommer.</li>
   </ul>
@@ -319,9 +319,9 @@ export function privacyPage(ctx: PageContext, state: { deleted?: boolean } = {})
     <li><strong>Fra den tidligere interesseliste:</strong> fornavn, mail og de valg, du gjorde.</li>
     <li><strong>Henvendelser fra arrangører:</strong> det, I skriver i formularen.</li>
   </ul>
-  <p>Vi bruger det kun til Flokk: til at skrive til dig om dine Udflugter og til at sætte flokke sammen. Vi deler det ikke med andre, og vi bruger ingen sporing eller reklamecookies. Kun de få, der arbejder med Flokk, kan se listen.</p>
+  <p>Vi bruger det kun til Flokk: til at skrive til dig om dine ture og til at sætte flokke sammen. Vi deler det ikke med andre, og vi bruger ingen sporing eller reklamecookies. Kun de få, der arbejder med Flokk, kan se listen.</p>
   <h2>Hvor længe</h2>
-  <p>Til du melder dig ud. Det gør du selv under <a href="/mine-udflugter">Mine Udflugter</a> – så slettes din profil og dine tilmeldinger.</p>
+  <p>Til du melder dig ud. Det gør du selv under <a href="/mine-ture">Mine ture</a> – så slettes din profil og dine tilmeldinger.</p>
   <h2 id="slet">Slet mig fra interesselisten</h2>
   ${state.deleted ? html`<p class="flash" role="status">Hvis mailen stod på listen, er den slettet nu.</p>` : ""}
   <form class="form-card" method="post" action="/privatliv" novalidate>
@@ -338,8 +338,8 @@ export function notFound(ctx: PageContext): View {
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Siden findes ikke</h1>
-    <p class="standfirst">Den kan være flyttet, eller Udflugten er afholdt.</p>
-    <p><a class="button" href="/">Til forsiden</a> <a class="button-secondary" href="/udflugter">Kommende Udflugter</a></p>
+    <p class="standfirst">Den kan være flyttet, eller turen er afholdt.</p>
+    <p><a class="button" href="/">Til forsiden</a> <a class="button-secondary" href="/ture">Kommende ture</a></p>
   </header>
 </div>`;
   return { status: 404, body: page(ctx, { title: "Siden findes ikke", description: "Siden findes ikke.", canonical: ctx.path, noindex: true }, body) };

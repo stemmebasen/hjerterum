@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { currentMember, newCode, sha256 } from "../flokken/auth.js";
 import type { PickRow } from "./store.js";
 
-/** Flokk's members and their sign-ups for Udflugter, by the rules decided (docs/decisions/0009-flokk-udflugter.md):
+/** Flokk's members and their sign-ups for ture, by the rules decided (docs/decisions/0009-flokk-udflugter.md):
  * only members take part; places go first come, first served, then an automatic waiting list in the same order; a
  * flock is confirmed at four sign-ups and stays confirmed; sign-up and ordinary cancellation close seven days before,
  * after which the list is locked; a place given up before that goes to the first on the waiting list; if Flokk cancels
@@ -69,7 +69,7 @@ export async function counts(db: D1Database, pickId: string): Promise<Counts> {
 
 export type MySignup = { status: SignupStatus; queued_at: number; position: number | null };
 
-/** A member's line for an Udflugt; for the waiting list, their place in it (1 = next). */
+/** A member's line for a tur; for the waiting list, their place in it (1 = next). */
 export async function mySignup(db: D1Database, pickId: string, memberId: string): Promise<MySignup | null> {
   const r = await db.prepare(`SELECT s.status, s.queued_at,
       CASE WHEN s.status = 'waitlist' THEN (SELECT COUNT(*) FROM signups w WHERE w.pick_id = s.pick_id AND w.status = 'waitlist' AND w.queued_at <= s.queued_at) END AS position
@@ -122,7 +122,7 @@ export async function cancelSignup(db: D1Database, pick: PickRow, memberId: stri
 
 export type MemberSignup = PickRow & { signup_status: SignupStatus; position: number | null; registered: number };
 
-/** A member's Udflugter, coming first. */
+/** A member's ture, coming first. */
 export async function memberSignups(db: D1Database, memberId: string, now: number): Promise<MemberSignup[]> {
   const { results } = await db.prepare(`SELECT p.*, s.status AS signup_status,
       CASE WHEN s.status = 'waitlist' THEN (SELECT COUNT(*) FROM signups w WHERE w.pick_id = s.pick_id AND w.status = 'waitlist' AND w.queued_at <= s.queued_at) END AS position,
@@ -133,7 +133,7 @@ export async function memberSignups(db: D1Database, memberId: string, now: numbe
   return results;
 }
 
-/** The first names in an Udflugt's flock, in sign-up order. */
+/** The first names in a tur's flock, in sign-up order. */
 export async function flockFirstNames(db: D1Database, pickId: string): Promise<string[]> {
   const { results } = await db.prepare(`SELECT m.first_name FROM signups s JOIN members m ON m.id = s.member_id
     WHERE s.pick_id = ? AND s.status = 'registered' ORDER BY s.queued_at`).bind(pickId).all<{ first_name: string }>();
@@ -149,7 +149,7 @@ export async function participants(db: D1Database, pickId: string): Promise<Part
   return results;
 }
 
-/** Flokk cancels its participation: recorded on the Udflugt; the sign-ups stay, so members see what happened. */
+/** Flokk cancels its participation: recorded on the tur; the sign-ups stay, so members see what happened. */
 export async function cancelByFlokk(db: D1Database, pickId: string, now: number): Promise<void> {
   await db.prepare("UPDATE picks SET flokk_cancelled_at = ?, updated_at = ? WHERE id = ? AND flokk_cancelled_at IS NULL").bind(now, now, pickId).run();
 }
@@ -172,7 +172,7 @@ export async function listMembers(db: D1Database): Promise<Array<FlokkMember & {
   return results;
 }
 
-/** Sign-up numbers for several Udflugter at once (the lists and the volunteers' overview). */
+/** Sign-up numbers for several ture at once (the lists and the volunteers' overview). */
 export async function countsFor(db: D1Database, pickIds: string[]): Promise<Map<string, Counts>> {
   const map = new Map<string, Counts>();
   if (!pickIds.length) return map;

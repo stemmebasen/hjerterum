@@ -130,7 +130,7 @@ jobs:
           retry "$URL/" > /tmp/home.html
           grep -q 'data-edition="forening"' /tmp/home.html
           grep -q '<title>Flokk – nye oplevelser' /tmp/home.html
-          retry "$URL/udflugter" > /dev/null
+          retry "$URL/ture" > /dev/null
           G /bliv-medlem 'name="samtykke"'
           G /log-ind 'name="kode"'
           G /for-arrangoerer 'Sådan kan et samarbejde se ud'

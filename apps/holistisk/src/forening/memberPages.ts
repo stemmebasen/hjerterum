@@ -6,7 +6,7 @@ import { AGE_GROUPS, AGE_LABELS, INTERESTS, type FormErrors, type InterestForm }
 import { CONFIRM_AT, closesAt, type FlokkMember, type MemberSignup } from "./members.js";
 import { when } from "./pages.js";
 
-/** Flokk's member pages: joining, logging in, and a member's own Udflugter. */
+/** Flokk's member pages: joining, logging in, and a member's own ture. */
 
 const err = (errors: FormErrors, k: string) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
 const invalid = (errors: FormErrors, k: string) => errors[k] ? raw(` aria-invalid="true" aria-describedby="err-${k}"`) : "";
@@ -20,7 +20,7 @@ export function joinPage(ctx: PageContext, state: { form: InterestForm; next: st
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Bliv medlem</h1>
-    <p class="standfirst">Som medlem kan du tilmelde dig Udflugter. Du får en personlig kode, som du logger ind med.</p>
+    <p class="standfirst">Som medlem kan du tilmelde dig ture. Du får en personlig kode, som du logger ind med.</p>
     <p class="meta-muted">Beløb og medlemsvilkår er ikke fastlagt endnu. Du betaler ikke noget nu.</p>
   </header>
   ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">${errors.taken ?? "Ret de markerede felter."}</p>` : ""}
@@ -29,7 +29,7 @@ export function joinPage(ctx: PageContext, state: { form: InterestForm; next: st
     <div class="field"><label for="m-name">Fornavn</label><input id="m-name" name="fornavn" type="text" maxlength="30" autocomplete="given-name" required value="${f.firstName}"${invalid(errors, "firstName")}>${err(errors, "firstName")}
       <span class="meta-muted small">Dit fornavn står på listen over din flok, så I kan finde hinanden.</span></div>
     <div class="field"><label for="m-email">Mail</label><input id="m-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${f.email}"${invalid(errors, "email")}>${err(errors, "email")}
-      <span class="meta-muted small">Vi skriver til dig om dine Udflugter.</span></div>
+      <span class="meta-muted small">Vi skriver til dig om dine ture.</span></div>
     <fieldset class="field"><legend>Hvad har du lyst til at opleve? <span class="meta-muted">(valgfrit)</span></legend>
       <div class="f-checks">${INTERESTS.map((i, n) => html`<label class="f-check" for="m-i${n}"><input id="m-i${n}" type="checkbox" name="interesser" value="${i}"${f.interests.includes(i) ? raw(" checked") : ""}> ${i}</label>`)}</div>
     </fieldset>
@@ -45,7 +45,7 @@ export function joinPage(ctx: PageContext, state: { form: InterestForm; next: st
     <p class="small meta-muted">Har du allerede en kode? <a href="/log-ind">Log ind</a>. <a href="/privatliv">Læs om privatliv</a>.</p>
   </form>
 </div>`;
-  return { status: state.status ?? 200, headers: noStore, body: page(ctx, { title: "Bliv medlem", description: "Bliv medlem af Flokk, og tilmeld dig Udflugter til udvalgte koncerter, foredrag og andre oplevelser.", canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, headers: noStore, body: page(ctx, { title: "Bliv medlem", description: "Bliv medlem af Flokk, og tilmeld dig ture til udvalgte koncerter, foredrag og andre oplevelser.", canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
 }
 
 export function welcomePage(ctx: PageContext, member: FlokkMember, code: string, next: string): View {
@@ -60,7 +60,7 @@ export function welcomePage(ctx: PageContext, member: FlokkMember, code: string,
     <p class="f-code-value">${code}</p>
     <p>Gem koden et sikkert sted – du skal bruge den for at logge ind på en anden telefon eller computer. Vi kan ikke vise den igen.</p>
   </section>
-  <p class="f-actions"><a class="button" href="${next}">${next === "/udflugter" ? "Se de kommende Udflugter" : "Fortsæt"}</a> <a class="button-secondary" href="/mine-udflugter">Mine Udflugter</a></p>
+  <p class="f-actions"><a class="button" href="${next}">${next === "/ture" ? "Se de kommende ture" : "Fortsæt"}</a> <a class="button-secondary" href="/mine-ture">Mine ture</a></p>
 </div>`;
   return { status: 200, headers: noStore, body: page(ctx, { title: "Velkommen", description: "Du er nu medlem af Flokk.", canonical: "/bliv-medlem", noindex: true }, body) };
 }
@@ -81,8 +81,8 @@ export function loginPage(ctx: PageContext, state: { next: string; error?: strin
 }
 
 const MESSAGES: Record<string, string> = {
-  tilmeldt: "Du er tilmeldt.", venteliste: "Udflugten er fuld – du står på ventelisten. Bliver der en plads, får du den automatisk.",
-  afmeldt: "Du har meldt afbud. Din plads er gået videre.", lukket: "Tilmelding og afbud er lukket for denne Udflugt."
+  tilmeldt: "Du er tilmeldt.", venteliste: "Turen er fuld – du står på ventelisten. Bliver der en plads, får du den automatisk.",
+  afmeldt: "Du har meldt afbud. Din plads er gået videre.", lukket: "Tilmelding og afbud er lukket for denne tur."
 };
 export const flash = (key: string | null) => key && MESSAGES[key] ? html`<p class="flash" role="status">${MESSAGES[key]}</p>` : "";
 
@@ -99,7 +99,7 @@ export function myPage(ctx: PageContext, member: FlokkMember, signups: MemberSig
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
-    <h1>Mine Udflugter</h1>
+    <h1>Mine ture</h1>
     <p class="standfirst">Hej ${member.first_name}. Her ser du dine tilmeldinger – og program, mødested og fornavne, når de er klar.</p>
   </header>
   ${flash(message)}
@@ -112,14 +112,14 @@ export function myPage(ctx: PageContext, member: FlokkMember, signups: MemberSig
       <h2><a href="/events/${s.slug}">${s.title}</a></h2>
       <p>${statusLine(s, now)}</p>
       ${active && s.signup_status === "registered" ? html`<dl class="f-facts">
-        <dt>Mødested</dt><dd>${s.meeting_place ?? "Kommer før Udflugten."}${s.meeting_at ? html`<br>kl. ${hhmm(s.meeting_at)}` : ""}</dd>
+        <dt>Mødested</dt><dd>${s.meeting_place ?? "Kommer før turen."}${s.meeting_at ? html`<br>kl. ${hhmm(s.meeting_at)}` : ""}</dd>
         ${s.programme ? html`<dt>Program</dt><dd>${s.programme.split(/\n+/).map((l, i) => html`${i ? html`<br>` : ""}${l}`)}</dd>` : ""}
         <dt>Din flok</dt><dd>${s.confirmed_at && flock.length ? flock.join(", ") : "Fornavnene kommer, når flokken er bekræftet."}</dd>
       </dl>` : ""}
       ${active ? open ? html`<form method="post" action="/events/${s.slug}/afbud"><button type="submit" class="button-secondary">Meld afbud</button> <span class="meta-muted small">Muligt til ${dayLabel(closesAt(s), now)}.</span></form>`
         : html`<p class="meta-muted small">Tilmelding og afbud er lukket – deltagerlisten ligger fast.</p>` : ""}
     </li>`;
-  })}</ul>` : html`<div class="f-empty"><p>Du er ikke tilmeldt nogen Udflugter endnu.</p><p><a class="button" href="/udflugter">Se de kommende Udflugter</a></p></div>`}
+  })}</ul>` : html`<div class="f-empty"><p>Du er ikke tilmeldt nogen ture endnu.</p><p><a class="button" href="/ture">Se de kommende ture</a></p></div>`}
   <section class="f-section my-profile" aria-labelledby="h-profile">
     <h2 id="h-profile">Din profil</h2>
     <p>${member.first_name}${member.email ? html` · ${member.email}` : ""}</p>
@@ -131,7 +131,7 @@ export function myPage(ctx: PageContext, member: FlokkMember, signups: MemberSig
     </details>
   </section>
 </div>`;
-  return { status: 200, headers: noStore, body: page(ctx, { title: "Mine Udflugter", description: "Dine tilmeldinger hos Flokk.", canonical: "/mine-udflugter", noindex: true }, body) };
+  return { status: 200, headers: noStore, body: page(ctx, { title: "Mine ture", description: "Dine tilmeldinger hos Flokk.", canonical: "/mine-ture", noindex: true }, body) };
 }
 
 export function goodbyePage(ctx: PageContext): View {
@@ -140,22 +140,22 @@ export function goodbyePage(ctx: PageContext): View {
   return { status: 200, headers: noStore, body: page(ctx, { title: "Du er meldt ud", description: "Du er meldt ud af Flokk.", canonical: "/meld-ud", noindex: true }, body) };
 }
 
-/** The "how to come along" part of an Udflugt's page, for whoever is looking. */
+/** The "how to come along" part of a tur's page, for whoever is looking. */
 export function signupBox(ctx: PageContext, p: { slug: string; starts_at: number; places: number | null; confirmed_at: number | null; flokk_cancelled_at: number | null },
   member: FlokkMember | null, mine: { status: string; position: number | null } | null, c: { registered: number; waitlist: number }): SafeHtml {
   const now = ctx.now;
   const open = !p.flokk_cancelled_at && now < closesAt(p);
   const full = p.places !== null && c.registered >= p.places;
   const numbers = html`<p class="f-numbers">${p.places !== null ? html`${String(Math.min(c.registered, p.places))} af ${String(p.places)} pladser taget` : html`${String(c.registered)} tilmeldt`}${c.waitlist ? html` · ${String(c.waitlist)} på venteliste` : ""} · ${p.confirmed_at ? "flokken er bekræftet" : `flokken bekræftes ved ${CONFIRM_AT} tilmeldte`}</p>`;
-  if (p.flokk_cancelled_at) return html`<p class="notice" role="status"><strong>Flokk har aflyst sin deltagelse i denne Udflugt.</strong> Har du betalt, får du automatisk pengene tilbage. Arrangørens event er et andet spørgsmål – se arrangørens egen side.</p>`;
+  if (p.flokk_cancelled_at) return html`<p class="notice" role="status"><strong>Flokk har aflyst sin deltagelse i denne tur.</strong> Har du betalt, får du automatisk pengene tilbage. Arrangørens event er et andet spørgsmål – se arrangørens egen side.</p>`;
   if (mine && mine.status !== "cancelled") {
-    return html`${numbers}<p class="f-mine"><strong>${mine.status === "registered" ? "Du er tilmeldt." : `Du står nr. ${mine.position ?? 1} på ventelisten.`}</strong> <a href="/mine-udflugter">Mine Udflugter</a></p>
+    return html`${numbers}<p class="f-mine"><strong>${mine.status === "registered" ? "Du er tilmeldt." : `Du står nr. ${mine.position ?? 1} på ventelisten.`}</strong> <a href="/mine-ture">Mine ture</a></p>
     ${open ? html`<form method="post" action="/events/${p.slug}/afbud"><button type="submit" class="button-secondary">Meld afbud</button> <span class="meta-muted small">Muligt til ${dayLabel(closesAt(p), now)}.</span></form>` : html`<p class="meta-muted small">Tilmelding og afbud er lukket – deltagerlisten ligger fast.</p>`}`;
   }
   if (!open) return html`${numbers}<p class="meta-muted">Tilmeldingen er lukket.</p>`;
   if (!member) return html`${numbers}<p class="f-actions"><a class="button" href="/bliv-medlem?naeste=/events/${p.slug}">Bliv medlem og tilmeld dig</a> <a class="button-secondary" href="/log-ind?naeste=/events/${p.slug}">Log ind</a></p>
     <p class="small meta-muted">Kun medlemmer kan deltage. Tilmelding og afbud lukker ${dayLabel(closesAt(p), now)}.</p>`;
   return html`${numbers}<form method="post" action="/events/${p.slug}/tilmeld"><button type="submit">${full ? "Skriv mig på ventelisten" : "Tilmeld mig"}</button></form>
-    <p class="small meta-muted">${full ? "Udflugten er fuld. Bliver der en plads, får du den automatisk – først til mølle." : "Først til mølle."} Tilmelding og afbud lukker ${dayLabel(closesAt(p), now)}.</p>`;
+    <p class="small meta-muted">${full ? "Turen er fuld. Bliver der en plads, får du den automatisk – først til mølle." : "Først til mølle."} Tilmelding og afbud lukker ${dayLabel(closesAt(p), now)}.</p>`;
 }
 

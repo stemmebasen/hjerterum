@@ -26,26 +26,27 @@ export type ForeningResult =
 const go = (to: string, cookie?: string): ForeningResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
 const MESSAGES: Record<string, string> = {
   godkendt: "Eventet er godkendt. Tjek oplysningerne, og ret dem, hvis noget mangler.", gemt: "Gemt.",
-  oprettet: "Udflugten er oprettet og vises på siden.", aflyst: "Flokks deltagelse er aflyst."
+  oprettet: "Turen er oprettet og vises på siden.", aflyst: "Flokks deltagelse er aflyst."
 };
-/** Where to go after joining or logging in: a page on this site, else the coming Udflugter. */
-const nextPath = (v: unknown) => { const n = safeNext(String(v ?? "")); return n === "/flokke" ? "/udflugter" : n; };
+/** Where to go after joining or logging in: a page on this site, else the coming ture. */
+const nextPath = (v: unknown) => { const n = safeNext(String(v ?? "")); return n === "/flokke" ? "/ture" : n; };
 
 export async function foreningRoute(request: Request, env: Env, db: D1Database, ctx: PageContext, regions: string[], path: string, url: URL, now: number): Promise<ForeningResult | null> {
   const post = request.method === "POST";
   const form = post ? await request.formData().catch(() => new FormData()) : null;
   // Forms carry a field people never see; a filled one is a robot, answered as if all went well.
   const robot = !!form && String(form.get("website_url") ?? "") !== "";
-  // The signed-in member, if any: the header shows "Mine Udflugter" for them.
+  // The signed-in member, if any: the header shows "Mine ture" for them.
   const member = await currentFlokkMember(db, request, now);
   ctx = { ...ctx, member: isFlokkMember(member) ? { firstName: member.first_name, admin: member.is_admin === 1 } : null };
 
   if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now)) };
-  if (path === "/udflugter" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
+  if (path === "/ture" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
   if (path === "/saadan-fungerer-det" && !post) return { view: pages.howPage(ctx) };
   if (path === "/om" && !post) return { view: pages.aboutPage(ctx) };
   // Earlier addresses.
-  if (path === "/maanedens-events") return go("/udflugter");
+  if (path === "/maanedens-events" || path === "/udflugter") return go("/ture");
+  if (path === "/mine-udflugter") return go("/mine-ture");
   if (path === "/tryghed") return go("/saadan-fungerer-det");
   if (path === "/for-foreninger" || path === "/samarbejde") return go("/for-arrangoerer");
   if (path === "/skriv-dig-op") {
@@ -55,10 +56,10 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
   }
   if (path === "/sitemap.xml") {
     const picks = await upcomingPicks(db, now);
-    return { xml: sitemapXml(ctx.origin, ["/", "/udflugter", "/saadan-fungerer-det", "/bliv-medlem", "/for-arrangoerer", "/om", "/privatliv"], picks.map(p => ({ slug: p.slug, updated_at: p.updated_at }))) };
+    return { xml: sitemapXml(ctx.origin, ["/", "/ture", "/saadan-fungerer-det", "/bliv-medlem", "/for-arrangoerer", "/om", "/privatliv"], picks.map(p => ({ slug: p.slug, updated_at: p.updated_at }))) };
   }
 
-  // An Udflugt, with what a visitor can do there: join, sign up, go on the waiting list, cancel.
+  // An tur, with what a visitor can do there: join, sign up, go on the waiting list, cancel.
   const slug = /^\/events\/([a-z0-9-]{1,90})$/.exec(path)?.[1];
   if (slug && !post) {
     const pick = await pickBySlug(db, slug);
@@ -82,7 +83,7 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
 
   if (path === "/bliv-medlem") {
     if (!post) {
-      if (isFlokkMember(member)) return go("/mine-udflugter");
+      if (isFlokkMember(member)) return go("/mine-ture");
       return { view: memberPages.joinPage(ctx, { form: emptyInterestForm(), next: nextPath(url.searchParams.get("naeste")) }) };
     }
     const next = nextPath(form!.get("naeste"));
@@ -96,8 +97,8 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
     return { view: memberPages.welcomePage({ ...ctx, member: { firstName: joined.member.first_name, admin: false } }, joined.member, joined.code, next), cookie };
   }
 
-  if (path === "/mine-udflugter" && !post) {
-    if (!isFlokkMember(member)) return go("/log-ind?naeste=%2Fmine-udflugter");
+  if (path === "/mine-ture" && !post) {
+    if (!isFlokkMember(member)) return go("/log-ind?naeste=%2Fmine-ture");
     const mine = await memberSignups(db, member.id, now);
     // First names only once the flock is confirmed, and only for those who hold a place in it.
     const names = new Map(await Promise.all(mine.filter(s => s.signup_status === "registered" && s.confirmed_at)
@@ -107,7 +108,7 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
 
   if (path === "/meld-ud" && post) {
     if (!isFlokkMember(member)) return go("/");
-    if (String(form!.get("bekraeft") ?? "") !== "ja") return go("/mine-udflugter");
+    if (String(form!.get("bekraeft") ?? "") !== "ja") return go("/mine-ture");
     await leaveFlokk(db, member.id, now);
     return { view: memberPages.goodbyePage({ ...ctx, member: null }), cookie: clearSessionCookie() };
   }
@@ -130,13 +131,13 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
 
   // Members and volunteers log in with their personal code.
   if (path === "/log-ind") {
-    if (!post) return { view: memberPages.loginPage(ctx, { next: nextPath(url.searchParams.get("naeste") ?? "/mine-udflugter") }) };
-    const next = nextPath(form!.get("naeste") ?? "/mine-udflugter");
+    if (!post) return { view: memberPages.loginPage(ctx, { next: nextPath(url.searchParams.get("naeste") ?? "/mine-ture") }) };
+    const next = nextPath(form!.get("naeste") ?? "/mine-ture");
     const code = normalizeCode(String(form!.get("kode") ?? ""));
     const found = code ? await memberByCode(db, code) : null;
     const who = found ? await memberById(db, found.id) : null;
     if (!isFlokkMember(who)) return { view: memberPages.loginPage(ctx, { next, error: "Koden passer ikke. Tjek den, og prøv igen.", status: 401 }) };
-    return go(who.is_admin === 1 && next === "/mine-udflugter" ? "/admin" : next, await startSession(db, who.id, now));
+    return go(who.is_admin === 1 && next === "/mine-ture" ? "/admin" : next, await startSession(db, who.id, now));
   }
   if (path === "/log-ud") {
     if (post) await endSession(db, request);

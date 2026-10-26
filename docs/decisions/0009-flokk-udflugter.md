@@ -41,3 +41,5 @@ at each Udflugt. Afterwards the participants can meet and talk if they like.
   passes the place on. The site says the amount and membership terms are not decided and that nothing is paid now.
   Practical information is shown on the member's own page; the volunteers send it by mail themselves (no mail sending
   yet). Payment, refunds and mails are the next steps.
+- Renamed: on the owner's word an Udflugt is called a "tur" on the site for now (`/ture`, `/mine-ture`; the old
+  addresses send on). The rules above are unchanged.
