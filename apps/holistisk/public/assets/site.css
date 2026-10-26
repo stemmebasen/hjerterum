@@ -949,3 +949,4 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 [data-edition="forening"] .f-examples-nav button { background: var(--card); color: var(--night); }
 [data-edition="forening"] .f-examples-nav button:hover { background: var(--sun); color: var(--night); }
 [data-edition="forening"] .f-promises h3, [data-edition="forening"] .f-steps h3, [data-edition="forening"] .f-ex h3, [data-edition="forening"] .f-card-title { font-weight: 750; }
+@media (max-width: 600px) { [data-edition="forening"] .f-hero .f-kicker { border-radius: 16px; } }
