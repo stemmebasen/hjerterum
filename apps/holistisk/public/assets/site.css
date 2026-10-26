@@ -950,3 +950,5 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 [data-edition="forening"] .f-examples-nav button:hover { background: var(--sun); color: var(--night); }
 [data-edition="forening"] .f-promises h3, [data-edition="forening"] .f-steps h3, [data-edition="forening"] .f-ex h3, [data-edition="forening"] .f-card-title { font-weight: 750; }
 @media (max-width: 600px) { [data-edition="forening"] .f-hero .f-kicker { border-radius: 16px; } }
+/* The label above the headline is a full sentence: plain sun-yellow text, not a pill. */
+[data-edition="forening"] .f-hero .f-kicker { display: block; background: none; color: var(--sun); padding: 0; border-radius: 0; font-size: 1.08rem; font-weight: 500; max-width: 34em; }
