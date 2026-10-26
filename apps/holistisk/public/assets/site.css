@@ -405,7 +405,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .savings-offers { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 24px 12px; box-shadow: 0 4px 0 var(--ink); }
 .offer-list { padding-left: 1.1em; }
 /* What a flock of five gets is not decided: a teaser, *****. */
-.secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
+.secret, .how span.secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
 .partner-teaser { margin-top: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--green); color: #e6efe9; border-radius: var(--radius); padding: 26px 30px; }
 .partner-teaser h2 { color: #fff; margin-bottom: .2em; }
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }
