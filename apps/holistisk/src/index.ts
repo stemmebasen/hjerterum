@@ -9,6 +9,7 @@ import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
 import { sitemapPages } from "./web/sitemap.js";
 import { mapPage } from "./web/map.js";
+import { proposalsPage } from "./web/proposals.js";
 import { foreningRoute } from "./forening/routes.js";
 import { notFound as foreningNotFound } from "./forening/pages.js";
 import { eventBySlug, sitemapEvents } from "./web/queries.js";
@@ -173,6 +174,10 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     return new Response(asset.body, { status: asset.status, headers });
   }
   if (path === "/robots.txt") return respond(env, robotsTxt(pc.origin, isProduction(env)), { type: "text/plain; charset=utf-8", cache: "public, max-age=3600" });
+
+  // Three proposals for Socialklubben: example content only, so it comes before the database is needed.
+  const proposal = /^\/forslag(?:\/([a-z0-9-]+))?$/.exec(path);
+  if (proposal) return view(env, proposalsPage(pc, proposal[1] ?? "") ?? notFoundPage(pc));
 
   const db = env.DB;
   if (!db) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });

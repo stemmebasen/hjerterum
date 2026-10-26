@@ -258,3 +258,21 @@ describe("served under www.jacobhauge.com", () => {
     expect((await call("/")).body).toContain("<span>Flokken</span>");
   });
 });
+
+describe("the three proposals (/forslag)", () => {
+  const sk = { "x-flokken-mount": "https://www.jacobhauge.com/socialklubben" };
+  it("shows each proposal under Socialklubben, with tabs between them, without needing the database", async () => {
+    const noDb: Env = { ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", EDITION: "portal" };
+    const get = async (path: string) => { const r = await handle(new Request(ORIGIN + path, { headers: sk }), noDb, NOW); return { status: r.status, body: await r.text() }; };
+    const first = await get("/forslag");
+    expect(first.status).toBe(200);
+    expect(first.body).toContain("Tag afsted sammen");
+    expect(first.body).toContain('href="/socialklubben/forslag/faellesbillet"');
+    expect(first.body).toContain('href="/socialklubben/forslag/programmet"');
+    expect(first.body).toContain('href="/socialklubben/forslag" aria-current="page"');
+    expect(first.body).not.toContain("Flokken");
+    expect((await get("/forslag/faellesbillet")).body).toContain("11 af 20 tilmeldt");
+    expect((await get("/forslag/programmet")).body).toContain("med folk du ikke har mødt før");
+    expect((await get("/forslag/noget-andet")).status).toBe(404);
+  });
+});
