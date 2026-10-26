@@ -57,17 +57,18 @@ describe("Flokk", () => {
     const home = await call("/");
     expect(home.status).toBe(200);
     expect(home.body).toContain('data-edition="forening"');
-    expect(home.body).toMatch(/<h1>(Nye oplevelser, nye mennesker – <em>i trygge rammer\.<\/em>|Kom med ud – <em>vi har gemt en plads til dig\.<\/em>|Oplev mere sammen med nye mennesker – <em>trygt og uden pres\.<\/em>)<\/h1>/);
-    // The headline takes turns: every one of the three shows up over a few visits.
-    const seen = new Set<string>();
-    for (let i = 0; i < 40 && seen.size < 3; i++) seen.add(/<h1>([\s\S]*?)<\/h1>/.exec((await call("/")).body)![1]!);
-    expect(seen.size).toBe(3);
+    expect(home.body).toContain("<h1>Tilmeld dig en tur <em>i samlet flok!</em></h1>");
     expect(home.body).toContain("<title>Flokk – nye oplevelser, nye mennesker, i trygge rammer</title>");
     expect(home.body).toContain('class="mark mark-flokk"');
     expect(home.body).toContain('href="/assets/flokk-icon.svg"');
     expect(home.body).toContain("/assets/og-flokk.jpg");
     expect(home.body).not.toContain("Flokken");
-    expect(home.body).toContain("Flokk gør det lettere at opleve mere sammen med andre.");
+    expect(home.body).toContain("Oplev et arrangement sammen med mennesker, du ikke kender endnu.");
+    // Under the hero, a carousel of made-up examples – labelled as examples, never as Udflugter one can join.
+    expect(home.body).toContain("Sådan kan en tur se ud");
+    expect(home.body).toContain("Eksempler til inspiration – ikke rigtige ture endnu.");
+    expect(home.body.match(/<span class="f-ex-tag">Eksempel<\/span>/g)?.length).toBe(8);
+    expect(home.body.indexOf("Sådan kan en tur se ud")).toBeLessThan(home.body.indexOf("Kommende Udflugter"));
     expect(home.body).toContain("De første Udflugter er ved at blive planlagt");
     expect(home.body).toContain('href="/bliv-medlem"');
     for (const frame of ["Du ved, hvad der skal ske", "En lille flok", "På din egen måde", "Klare frister"]) expect(home.body).toContain(frame);

@@ -3,7 +3,7 @@ import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import type { View } from "../web/pages.js";
 import type { InquiryErrors, InquiryForm } from "../flokken/partners.js";
-import { ROW_ART } from "./brand.js";
+import { flockArt, ROW_ART } from "./brand.js";
 import type { FormErrors } from "./forms.js";
 import type { PickRow } from "./store.js";
 
@@ -54,27 +54,54 @@ const FRAME: Array<[string, string]> = [
   ["Klare frister", `Tilmelding og afbud lukker ${CLOSES_DAYS} dage før. Indtil da går din plads videre til ventelisten, og du får beløbet tilbage.`]
 ];
 
-/** The front page's headline takes turns between these, one per visit. */
-export const HEADLINES: SafeHtml[] = [
-  html`Nye oplevelser, nye mennesker – <em>i trygge rammer.</em>`,
-  html`Kom med ud – <em>vi har gemt en plads til dig.</em>`,
-  html`Oplev mere sammen med nye mennesker – <em>trygt og uden pres.</em>`
+/** Made-up examples of what a tur can be, for the front page's carousel. They are labelled as examples on the page
+ * and name no real organiser, venue, date or price. */
+type Example = { kind: string; title: string; when: string; area: string; flock: number; after: string; tint: string };
+export const EXAMPLES: Example[] = [
+  { kind: "Koncert", title: "Jazz i et lille spillested", when: "Torsdag aften", area: "Aarhus C", flock: 6, after: "En kop te i baren", tint: "butter" },
+  { kind: "Foredrag", title: "Foredrag om søvn og hverdagsro", when: "Tirsdag aften", area: "Aarhus N", flock: 5, after: "Kaffe og kage i foyeren", tint: "green" },
+  { kind: "Kunst", title: "Rundvisning i en ny udstilling", when: "Lørdag formiddag", area: "Aarhus C", flock: 4, after: "Frokost i museets café", tint: "lilac" },
+  { kind: "Natur", title: "Guidet tur i skoven ved kysten", when: "Søndag formiddag", area: "Aarhus syd", flock: 6, after: "Kaffe fra termokanden ved stranden", tint: "green" },
+  { kind: "Film", title: "Filmaften i en foreningsbiograf", when: "Onsdag aften", area: "Aarhus V", flock: 5, after: "En snak om filmen i caféen", tint: "rose" },
+  { kind: "Musik", title: "Fællessang i en gammel kirke", when: "Søndag eftermiddag", area: "Risskov", flock: 6, after: "Gåtur tilbage mod byen", tint: "butter" },
+  { kind: "Teater", title: "Forestilling på en lille scene", when: "Fredag aften", area: "Aarhus C", flock: 4, after: "Et glas i teatrets bar", tint: "peach" },
+  { kind: "Værksted", title: "Keramik for begyndere", when: "Lørdag eftermiddag", area: "Aarhus Ø", flock: 5, after: "Te, mens leret tørrer", tint: "lilac" }
 ];
 
-export function homePage(ctx: PageContext, picks: PickRow[], headline = 0): View {
+function exampleCarousel(): SafeHtml {
+  return html`<section class="f-section f-examples" aria-labelledby="h-examples">
+    <div class="f-section-head"><h2 id="h-examples">Sådan kan en tur se ud</h2><p class="f-examples-nav" data-carousel-nav hidden><button type="button" data-dir="-1" aria-label="Forrige eksempler">←</button><button type="button" data-dir="1" aria-label="Næste eksempler">→</button></p></div>
+    <p class="f-examples-note">Eksempler til inspiration – ikke rigtige ture endnu.</p>
+    <ul class="f-carousel" data-carousel tabindex="0" aria-label="Eksempler på ture">
+      ${EXAMPLES.map(e => html`<li class="f-ex f-ex-${e.tint}">
+        <div class="f-ex-art"><span class="f-ex-tag">Eksempel</span>${flockArt(e.flock)}</div>
+        <div class="f-ex-body">
+          <p class="f-ex-kind">${e.kind}</p>
+          <h3>${e.title}</h3>
+          <p class="f-ex-meta">${e.when} · ${e.area}</p>
+          <p class="f-ex-meta">Flok på ${e.flock} · mødested på forhånd</p>
+          <p class="f-ex-after">${e.after}</p>
+        </div>
+      </li>`)}
+    </ul>
+  </section>`;
+}
+
+export function homePage(ctx: PageContext, picks: PickRow[]): View {
   const body = html`
 <section class="f-hero">
   <div class="wrap f-hero-inner">
     <div class="f-hero-text">
       <p class="f-kicker">Koncerter, foredrag og andre oplevelser – sammen med andre</p>
-      <h1>${HEADLINES[headline % HEADLINES.length]!}</h1>
-      <p class="standfirst">Flokk gør det lettere at opleve mere sammen med andre. Hver måned laver vi aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Som medlem kan du tilmelde dig en Udflugt til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du deltager på din egen måde, og bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
+      <h1>Tilmeld dig en tur <em>i samlet flok!</em></h1>
+      <p class="standfirst">Oplev et arrangement sammen med mennesker, du ikke kender endnu. Som medlem kan du tilmelde dig en tur til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du skal bare komme og være dig selv. Bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
       <p class="f-actions"><a class="button" href="/bliv-medlem">Bliv medlem</a> <a class="button-secondary" href="/saadan-fungerer-det">Sådan fungerer det</a></p>
     </div>
     <div class="f-row">${ROW_ART}</div>
   </div>
 </section>
 <div class="wrap">
+  ${exampleCarousel()}
   <section class="f-section" aria-labelledby="h-picks">
     <div class="f-section-head"><h2 id="h-picks">Kommende Udflugter</h2>${picks.length ? html`<a class="more" href="/udflugter">Alle →</a>` : ""}</div>
     ${picksBlock(picks.slice(0, 6), ctx.now)}

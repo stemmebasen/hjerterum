@@ -800,3 +800,29 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 [data-edition="forening"] .site-footer .wordmark-flokk .mark-flokk [fill="#17332d"] { fill: currentColor; }
 [data-edition="forening"] .admin-table { border-radius: 18px; box-shadow: var(--soft-shadow); }
 [data-edition="forening"] .admin-table th { font-weight: 500; }
+
+/* Flokk's front page: a carousel of made-up examples of a tur, under the hero. */
+.f-examples-note { color: var(--muted); margin: -6px 0 18px; font-size: .95rem; }
+.f-examples-nav { display: flex; gap: 8px; margin: 0; }
+.f-examples-nav[hidden] { display: none; }
+.f-examples-nav button { width: 44px; height: 44px; border-radius: 50%; border: 0; background: var(--card); color: var(--ink); box-shadow: var(--soft-shadow); font: 400 1.1rem var(--sans); cursor: pointer; }
+.f-examples-nav button:hover { background: var(--berry-soft); color: var(--berry-dark); }
+.f-carousel { list-style: none; margin: 0 -16px; padding: 6px 16px 26px; display: grid; grid-auto-flow: column; grid-auto-columns: min(78vw, 276px); gap: 20px;
+  overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding: 0 16px; scrollbar-width: none; overscroll-behavior-x: contain; }
+.f-carousel::-webkit-scrollbar { display: none; }
+.f-carousel:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: var(--radius); }
+.f-ex { scroll-snap-align: start; background: var(--card); border-radius: var(--radius); box-shadow: var(--soft-shadow); overflow: hidden; display: flex; flex-direction: column; }
+.f-ex-art { position: relative; height: 128px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14px; background: var(--green-soft); }
+.f-ex-butter .f-ex-art { background: var(--butter-soft); }
+.f-ex-lilac .f-ex-art { background: var(--lilac); }
+.f-ex-rose .f-ex-art { background: var(--berry-soft); }
+.f-ex-peach .f-ex-art { background: var(--peach); }
+.f-ex-flock { height: 46px; width: auto; }
+.f-ex-tag { position: absolute; top: 14px; left: 16px; background: rgba(255, 255, 255, .85); color: var(--ink-2); border-radius: 999px; padding: 2px 12px; font-size: .78rem; font-weight: 500; }
+.f-ex-body { padding: 18px 22px 22px; }
+.f-ex-kind { margin: 0 0 4px; color: var(--green-2); font-size: .8rem; font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+.f-ex h3 { font-size: 1.3rem; line-height: 1.2; margin: 0 0 10px; }
+.f-ex-meta { margin: 0; color: var(--ink-2); font-size: .95rem; }
+.f-ex-after { margin: 10px 0 0; color: var(--berry-dark); font-size: .95rem; }
+.f-ex-after::before { content: "Bagefter: "; font-weight: 500; }
+@media (min-width: 900px) { .f-carousel { margin: 0; padding: 6px 2px 26px; scroll-padding: 0; } }

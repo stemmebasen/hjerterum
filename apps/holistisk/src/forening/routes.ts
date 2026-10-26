@@ -40,7 +40,7 @@ export async function foreningRoute(request: Request, env: Env, db: D1Database, 
   const member = await currentFlokkMember(db, request, now);
   ctx = { ...ctx, member: isFlokkMember(member) ? { firstName: member.first_name, admin: member.is_admin === 1 } : null };
 
-  if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now), Math.floor(Math.random() * pages.HEADLINES.length)) };
+  if (path === "/" && !post) return { view: pages.homePage(ctx, await upcomingPicks(db, now)) };
   if (path === "/udflugter" && !post) return { view: pages.picksPage(ctx, await upcomingPicks(db, now)) };
   if (path === "/saadan-fungerer-det" && !post) return { view: pages.howPage(ctx) };
   if (path === "/om" && !post) return { view: pages.aboutPage(ctx) };

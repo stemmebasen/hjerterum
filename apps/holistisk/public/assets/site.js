@@ -59,4 +59,18 @@
       }, { maximumAge: 600000, timeout: 10000 });
     });
   }
+
+  // Flokk's example carousel: arrow buttons that scroll it a card at a time (it also scrolls by swipe and keys).
+  document.querySelectorAll("[data-carousel]").forEach(function (list) {
+    var nav = list.parentNode.querySelector("[data-carousel-nav]");
+    if (!nav) return;
+    nav.hidden = false;
+    nav.querySelectorAll("button").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var card = list.querySelector("li");
+        var step = card ? card.getBoundingClientRect().width + 20 : list.clientWidth * 0.8;
+        list.scrollBy({ left: step * Number(button.getAttribute("data-dir")), behavior: "smooth" });
+      });
+    });
+  });
 })();

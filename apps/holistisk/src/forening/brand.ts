@@ -37,3 +37,11 @@ ${[70, 130, 190, 250, 310, 370].map((x, i) => {
 }).join("")}
 <text x="250" y="150" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="500" font-size="28" fill="${FREE}">dig?</text>
 </svg>`);
+
+const FLOCK_COLOURS = ["#6fa58c", "#d98a9d", "#e8c35f", "#9f92d4", "#e9a37f", "#7fb3c4"] as const;
+
+/** A small flock of `n` side by side, for the example cards. */
+export function flockArt(n: number): ReturnType<typeof raw> {
+  const w = 22, gap = 5, width = n * w + (n - 1) * gap + 4;
+  return raw(`<svg class="f-ex-flock" viewBox="0 0 ${width} 34" aria-hidden="true">${Array.from({ length: n }, (_, i) => figure(2 + w / 2 + i * (w + gap), 33, w, FLOCK_COLOURS[i % FLOCK_COLOURS.length]!, 1.6)).join("")}</svg>`);
+}
