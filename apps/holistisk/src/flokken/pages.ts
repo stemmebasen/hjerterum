@@ -337,7 +337,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 /** The three steps, on the front page and on Find en flok. */
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et event</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
-  <li><span class="how-n" aria-hidden="true">2</span><strong>Find en flok – eller opret en</strong><span>En lille gruppe, der skal det samme. Du vælger selv, om du vil være med.</span></li>
+  <li><span class="how-n" aria-hidden="true">2</span><strong>Find en flok – eller opret en</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
   <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>Et offentligt sted før eventet. Bagefter vælger I selv, om I vil ses igen – det er Eftermødet.</span></li>
 </ol>`;
 

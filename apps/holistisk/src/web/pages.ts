@@ -108,14 +108,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </div>
 </div>
 <div class="wrap">
-  <section class="flock-band" aria-labelledby="h-flock-band">
-    <div>
-      <h2 id="h-flock-band">Find en flok – eller opret en</h2>
-      <p>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</p>
-      <p class="flock-band-hint">Du opretter en flok fra et event i kalenderen.</p>
-    </div>
-    <p class="flock-band-actions"><a class="button" href="/find-en-flok">Find en flok</a> <a class="button-secondary" href="/kalender">Opret en flok</a></p>
-  </section>
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>

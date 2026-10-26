@@ -404,12 +404,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .savings-note a { color: var(--berry-dark); }
 .savings-offers { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 24px 12px; box-shadow: 0 4px 0 var(--ink); }
 .offer-list { padding-left: 1.1em; }
-/* Socialklubben's front page: find a flock or start one. The ***** is a teaser – what a flock of five gets is not decided. */
-.flock-band { margin-top: 40px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 28px; background: var(--green-soft); border: 2px solid var(--ink); border-radius: var(--radius); padding: 26px 30px; box-shadow: 0 5px 0 var(--ink); }
-.flock-band h2 { margin-bottom: .25em; }
-.flock-band p { margin: 0; max-width: 40em; font-size: 1.08rem; }
-.flock-band .flock-band-hint { margin-top: 8px; font-size: .92rem; color: var(--muted); }
-.flock-band-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* What a flock of five gets is not decided: a teaser, *****. */
 .secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
 .partner-teaser { margin-top: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--green); color: #e6efe9; border-radius: var(--radius); padding: 26px 30px; }
 .partner-teaser h2 { color: #fff; margin-bottom: .2em; }
