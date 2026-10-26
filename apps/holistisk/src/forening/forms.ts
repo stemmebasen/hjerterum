@@ -45,14 +45,15 @@ export function validateInterestForm(f: InterestForm, areas: string[], picks: st
 
 // ————————————————————————————————————————— An event (the volunteers' form)
 
-export type PickForm = Record<"title" | "start" | "end" | "association" | "associationUrl" | "venue" | "address" | "city" | "eventUrl" | "description" | "imageUrl" | "places" | "ownPayment" | "aftermeeting" | "status", string>;
+export type PickForm = Record<"title" | "start" | "end" | "association" | "associationUrl" | "venue" | "address" | "city" | "eventUrl" | "description" | "imageUrl" | "places" | "ownPayment" | "aftermeeting" | "meetingPlace" | "meetingAt" | "programme" | "status", string>;
 
 export function readPickForm(data: FormData): PickForm {
   const s = (k: string) => String(data.get(k) ?? "").trim();
   return {
     title: s("titel"), start: s("start"), end: s("slut"), association: s("forening"), associationUrl: s("forening_url"), venue: s("sted"),
     address: s("adresse"), city: s("by"), eventUrl: s("link"), description: s("beskrivelse"), imageUrl: s("billede"), places: s("pladser"),
-    ownPayment: s("egenbetaling"), aftermeeting: s("eftermoede"), status: s("status") === "withdrawn" ? "withdrawn" : "approved"
+    ownPayment: s("egenbetaling"), aftermeeting: s("eftermoede"), meetingPlace: s("moedested"), meetingAt: s("moedetid"), programme: s("program"),
+    status: s("status") === "withdrawn" ? "withdrawn" : "approved"
   };
 }
 
@@ -61,11 +62,12 @@ export function pickForm(p: PickFields): PickForm {
     title: p.title, start: toLocalInput(p.starts_at), end: p.ends_at ? toLocalInput(p.ends_at) : "", association: p.association,
     associationUrl: p.association_url ?? "", venue: p.venue_name ?? "", address: p.address ?? "", city: p.city ?? "", eventUrl: p.event_url ?? "",
     description: p.description ?? "", imageUrl: p.image_url ?? "", places: p.places ? String(p.places) : "", ownPayment: p.own_payment ?? "",
-    aftermeeting: p.aftermeeting ?? "", status: p.status
+    aftermeeting: p.aftermeeting ?? "", meetingPlace: p.meeting_place ?? "", meetingAt: p.meeting_at ? toLocalInput(p.meeting_at) : "",
+    programme: p.programme ?? "", status: p.status
   };
 }
 
-export const emptyPickForm = (): PickForm => ({ title: "", start: "", end: "", association: "", associationUrl: "", venue: "", address: "", city: "", eventUrl: "", description: "", imageUrl: "", places: "", ownPayment: "", aftermeeting: "", status: "approved" });
+export const emptyPickForm = (): PickForm => ({ title: "", start: "", end: "", association: "", associationUrl: "", venue: "", address: "", city: "", eventUrl: "", description: "", imageUrl: "", places: "", ownPayment: "", aftermeeting: "", meetingPlace: "", meetingAt: "", programme: "", status: "approved" });
 
 const url = (v: string) => /^https?:\/\/\S+$/i.test(v) && v.length <= 500;
 
@@ -86,13 +88,18 @@ export function validatePickForm(f: PickForm): { errors: FormErrors; fields: Pic
   if (f.description.length > 4000) errors.description = "Højst 4000 tegn.";
   if (f.ownPayment.length > 120) errors.ownPayment = "Højst 120 tegn.";
   if (f.aftermeeting.length > 200) errors.aftermeeting = "Højst 200 tegn.";
+  if (f.meetingPlace.length > 200) errors.meetingPlace = "Højst 200 tegn.";
+  const meetingAt = f.meetingAt ? fromLocalInput(f.meetingAt) : null;
+  if (f.meetingAt && meetingAt === null) errors.meetingAt = "Vælg dato og tidspunkt.";
+  if (f.programme.length > 2000) errors.programme = "Højst 2000 tegn.";
   if (Object.keys(errors).length || start === null) return { errors, fields: null };
   return {
     errors,
     fields: {
       title: f.title, starts_at: start, ends_at: end, venue_name: f.venue || null, address: f.address.slice(0, 200) || null, city: f.city.slice(0, 80) || null,
       association: f.association, association_url: f.associationUrl || null, event_url: f.eventUrl || null, description: f.description || null,
-      image_url: f.imageUrl || null, places, own_payment: f.ownPayment || null, aftermeeting: f.aftermeeting || null, status: f.status === "withdrawn" ? "withdrawn" : "approved"
+      image_url: f.imageUrl || null, places, own_payment: f.ownPayment || null, aftermeeting: f.aftermeeting || null, status: f.status === "withdrawn" ? "withdrawn" : "approved",
+      meeting_place: f.meetingPlace || null, meeting_at: meetingAt, programme: f.programme || null
     }
   };
 }

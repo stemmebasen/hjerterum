@@ -66,7 +66,8 @@ describe("membership", () => {
     expect(normalizeCode(code)).toBe(code);
     expect((await call("/flokke", { cookie })).body).toContain("Hej Maria");
     const stored = db.raw.prepare("SELECT * FROM members WHERE first_name = 'Maria'").all()[0] as Record<string, unknown>;
-    expect(Object.keys(stored).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "is_admin", "last_seen_at"]);
+    // Nothing else is stored for an event-portal member (the other columns are Flokk's).
+    expect(Object.entries(stored).filter(([, v]) => v !== null).map(([k]) => k).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "is_admin", "last_seen_at"]);
     expect(String(stored.code_hash)).not.toContain(code);
     const login = await call("/log-ind", { form: { kode: code.toLowerCase().replace(/-/g, " "), naeste: "/flokke" } });
     expect(login.status).toBe(303);
@@ -230,12 +231,12 @@ describe("served under www.jacobhauge.com", () => {
   it("shows Flokk, the association, under /flokk (and its earlier /flokken), whatever the Worker's own edition", async () => {
     const flokk = await call("/", { headers: { "x-flokken-mount": "https://www.jacobhauge.com/flokk" } });
     expect(flokk.body).toContain('data-edition="forening"');
-    expect(flokk.body).toContain('href="/flokk/skriv-dig-op"');
+    expect(flokk.body).toContain('href="/flokk/bliv-medlem"');
     expect(flokk.body).toContain("<span>flokk</span>");
     expect(flokk.body).not.toContain("Flokken");
     const home = await call("/", { headers: mount });
     expect(home.body).toContain('data-edition="forening"');
-    expect(home.body).toContain('href="/flokken/skriv-dig-op"');
+    expect(home.body).toContain('href="/flokken/bliv-medlem"');
     expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!flokken\/|\/)/);
     expect((await call("/kalender", { headers: mount })).status).toBe(404);
   });

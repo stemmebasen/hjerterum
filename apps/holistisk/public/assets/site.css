@@ -681,3 +681,19 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .admin-list p { margin: 0 0 4px; }
 .field input[type="number"] { width: 100%; min-height: 48px; border: 2px solid var(--rule); border-radius: var(--radius-s); padding: 8px 12px; font: inherit; box-sizing: border-box; }
 @media (max-width: 700px) { .wordmark-flokk { font-size: 1.55rem; } .wordmark-flokk .mark-flokk { width: 48px; height: 26px; } }
+
+/* Flokk: membership and sign-up */
+.f-code { margin: 8px 0 24px; background: var(--butter-soft); border-color: #e9cf7a; }
+.f-code-value { font: 600 clamp(1.6rem, 1.2rem + 2vw, 2.4rem)/1.2 var(--display); letter-spacing: .08em; margin: .2em 0 .4em; user-select: all; }
+.f-code-inline { font-family: var(--display); letter-spacing: .06em; user-select: all; }
+.f-numbers { font-weight: 700; color: var(--green-2); margin: 0 0 12px; }
+.f-mine { margin: 0 0 12px; }
+.my-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.my-item h2 { font-size: 1.4rem; margin: 4px 0 8px; }
+.my-item h2 a { color: var(--ink); }
+.my-item form { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.my-profile { margin-top: 48px; }
+.my-profile form { display: inline-block; margin-right: 12px; }
+.leave { margin-top: 18px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.leave summary { cursor: pointer; color: var(--berry); font-weight: 700; }
+.leave form { display: block; margin-top: 10px; }

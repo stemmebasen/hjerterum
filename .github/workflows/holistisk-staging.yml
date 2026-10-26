@@ -131,13 +131,14 @@ jobs:
           grep -q 'data-edition="forening"' /tmp/home.html
           grep -q '<title>Flokk – nye oplevelser' /tmp/home.html
           retry "$URL/udflugter" > /dev/null
-          G /skriv-dig-op 'name="samtykke"'
+          G /bliv-medlem 'name="samtykke"'
+          G /log-ind 'name="kode"'
           G /for-arrangoerer 'Sådan kan et samarbejde se ud'
           G /saadan-fungerer-det 'først til mølle'
           G /privatliv 'Slet mine oplysninger'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/admin")" = 303
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL/kalender")" = 404
-          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/skriv-dig-op")" = 403
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
           # The event portal, as shown at www.jacobhauge.com/socialklubben.
           MOUNT='x-flokken-mount: https://www.jacobhauge.com/socialklubben'
           P() { retry -H "$MOUNT" "$URL$1"; }

@@ -18,6 +18,8 @@ export type PageContext = {
   base: string;
   /** "forening": Flokk (Udflugter, interest list); "portal": the event portal. */
   edition: "forening" | "portal";
+  /** Flokk: the signed-in member, if any (the header then offers "Mine Udflugter"). */
+  member?: { firstName: string; admin: boolean } | null;
 };
 
 export type Crumb = { name: string; path: string };
@@ -107,7 +109,7 @@ ${forening ? html`<link rel="icon" href="/assets/flokk-icon.svg" type="image/svg
 <link rel="preload" href="/assets/fonts/atkinson-400-latin.woff2" as="font" type="font/woff2" crossorigin>` : html`<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=14">
+<link rel="stylesheet" href="/assets/site.css?v=15">
 <script src="/assets/site.js?v=7" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -179,11 +181,12 @@ function foreningHeader(ctx: PageContext): SafeHtml {
       <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
     </nav>
     <div class="masthead-tools">
-      <a class="my-flocks" href="/skriv-dig-op"${ctx.path === "/skriv-dig-op" ? raw(' aria-current="page"') : ""}>Skriv dig op</a>
+      ${ctx.member ? html`<a class="my-flocks" href="/mine-udflugter"${ctx.path === "/mine-udflugter" ? raw(' aria-current="page"') : ""}>Mine Udflugter</a>`
+        : html`<a class="my-flocks" href="/bliv-medlem"${ctx.path === "/bliv-medlem" ? raw(' aria-current="page"') : ""}>Bliv medlem</a>`}
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel menu-panel-small">
-          <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}<li><a href="/skriv-dig-op">Skriv dig op</a></li><li><a href="/privatliv">Privatliv</a></li></ul>
+          <ul>${FORENING_NAV.map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}${ctx.member ? html`<li><a href="/mine-udflugter">Mine Udflugter</a></li>${ctx.member.admin ? html`<li><a href="/admin">Admin</a></li>` : ""}` : html`<li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/log-ind">Log ind</a></li>`}<li><a href="/privatliv">Privatliv</a></li></ul>
         </div>
       </details>
     </div>
@@ -198,7 +201,7 @@ function foreningFooter(ctx: PageContext): SafeHtml {
       <p class="footer-brand wordmark-flokk">${FLOKK_MARK}<span>flokk</span></p>
       <p>Flokk gør det lettere at opleve mere sammen med andre: Udflugter til udvalgte koncerter, foredrag og andre oplevelser i ${ctx.regionLabel} – i en lille flok, på din egen måde. Flokk er et koncept under udvikling.</p>
     </div>
-    <nav aria-label="Flokk"><ul class="footer-links">${[...FORENING_NAV, ["/skriv-dig-op", "Skriv dig op"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
+    <nav aria-label="Flokk"><ul class="footer-links">${[...FORENING_NAV, ["/bliv-medlem", "Bliv medlem"], ["/log-ind", "Log ind"], ["/privatliv", "Privatliv"]].map(([href, label]) => html`<li><a href="${href}">${label}</a></li>`)}</ul></nav>
   </div>
 </footer>`;
 }

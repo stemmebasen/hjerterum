@@ -144,8 +144,8 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if ("file" in result) return respond(env, result.file.body, { type: result.file.type, cache: "no-store", headers: { "content-disposition": `attachment; filename="${result.file.name}"` } });
     const cookie = "cookie" in result && result.cookie ? { "set-cookie": result.cookie } : {};
     if ("redirect" in result) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
-    // A minute at most: an event the volunteers approve shows up right away.
-    return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "public, max-age=60", headers: { ...result.view.headers, ...cookie } });
+    // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
+    return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
   const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
   if (flokkenPaths.test(path)) {

@@ -9,9 +9,13 @@ export type PickRow = {
   venue_name: string | null; address: string | null; city: string | null; association: string; association_url: string | null;
   event_url: string | null; description: string | null; image_url: string | null; places: number | null;
   own_payment: string | null; aftermeeting: string | null; status: "approved" | "withdrawn"; created_at: number; updated_at: number;
+  /** Practical information for the flock: where and when to meet, and the programme. */
+  meeting_place: string | null; meeting_at: number | null; programme: string | null;
+  /** When four had signed up (it stays confirmed), and when Flokk cancelled its participation. */
+  confirmed_at: number | null; flokk_cancelled_at: number | null;
 };
 
-export type PickFields = Omit<PickRow, "id" | "slug" | "event_id" | "created_at" | "updated_at">;
+export type PickFields = Omit<PickRow, "id" | "slug" | "event_id" | "created_at" | "updated_at" | "confirmed_at" | "flokk_cancelled_at">;
 
 const ENDS = "COALESCE(ends_at, starts_at + 10800000)";
 
@@ -34,21 +38,22 @@ function newSlug(title: string, id: string): string {
 
 export async function createPick(db: D1Database, fields: PickFields, eventId: string | null, memberId: string | null, now: number): Promise<PickRow> {
   const id = crypto.randomUUID();
-  const pick: PickRow = { ...fields, id, slug: newSlug(fields.title, id), event_id: eventId, created_at: now, updated_at: now };
+  const pick: PickRow = { ...fields, id, slug: newSlug(fields.title, id), event_id: eventId, created_at: now, updated_at: now, confirmed_at: null, flokk_cancelled_at: null };
   await db.prepare(`INSERT INTO picks (id, slug, event_id, title, starts_at, ends_at, venue_name, address, city, association, association_url,
-      event_url, description, image_url, places, own_payment, aftermeeting, status, created_by, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
+      event_url, description, image_url, places, own_payment, aftermeeting, status, meeting_place, meeting_at, programme, created_by, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(
     pick.id, pick.slug, eventId, pick.title, pick.starts_at, pick.ends_at, pick.venue_name, pick.address, pick.city, pick.association,
     pick.association_url, pick.event_url, pick.description, pick.image_url, pick.places, pick.own_payment, pick.aftermeeting, pick.status,
-    memberId, now, now).run();
+    pick.meeting_place, pick.meeting_at, pick.programme, memberId, now, now).run();
   return pick;
 }
 
 export async function updatePick(db: D1Database, id: string, f: PickFields, now: number): Promise<void> {
   await db.prepare(`UPDATE picks SET title = ?, starts_at = ?, ends_at = ?, venue_name = ?, address = ?, city = ?, association = ?,
-      association_url = ?, event_url = ?, description = ?, image_url = ?, places = ?, own_payment = ?, aftermeeting = ?, status = ?, updated_at = ?
+      association_url = ?, event_url = ?, description = ?, image_url = ?, places = ?, own_payment = ?, aftermeeting = ?, status = ?,
+      meeting_place = ?, meeting_at = ?, programme = ?, updated_at = ?
     WHERE id = ?`).bind(f.title, f.starts_at, f.ends_at, f.venue_name, f.address, f.city, f.association, f.association_url, f.event_url,
-    f.description, f.image_url, f.places, f.own_payment, f.aftermeeting, f.status, now, id).run();
+    f.description, f.image_url, f.places, f.own_payment, f.aftermeeting, f.status, f.meeting_place, f.meeting_at, f.programme, now, id).run();
 }
 
 /** A collected event as the start of a pick; the volunteer checks and completes it before it is shown. */
@@ -57,7 +62,7 @@ export function fieldsFromEvent(e: EventRow): PickFields {
     title: e.title, starts_at: e.starts_at, ends_at: e.ends_at, venue_name: e.venue_name, address: e.address, city: e.city,
     association: (e.organizer_name ?? e.source_name ?? "Ukendt forening").slice(0, 160), association_url: e.organizer_url,
     event_url: e.signup_url ?? e.source_url, description: e.summary, image_url: e.image_url, places: null, own_payment: null,
-    aftermeeting: null, status: "approved"
+    aftermeeting: null, status: "approved", meeting_place: null, meeting_at: null, programme: null
   };
 }
 

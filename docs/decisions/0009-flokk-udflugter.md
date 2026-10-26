@@ -36,5 +36,8 @@ at each Udflugt. Afterwards the participants can meet and talk if they like.
   (earlier `/maanedens-events`, `/tryghed`, `/for-foreninger` lead on). The "friend" choice is gone (no guests).
 - Not stated because not decided: prices, membership terms, legal form (the earlier "association under formation" and
   membership fee are no longer on the site), what happens to a ticket if the organiser cancels.
-- For now people still sign up on an interest list; membership and sign-up with the waiting list, the 7-day close and
-  refunds are the next step and need decisions on payment and membership terms.
+- Membership and sign-up follow the rules above (built on the owner's go-ahead, without payment): join with first name
+  and e-mail, a personal code to log in; first come, waiting list, confirmed at four, seven-day close, cancellation
+  passes the place on. The site says the amount and membership terms are not decided and that nothing is paid now.
+  Practical information is shown on the member's own page; the volunteers send it by mail themselves (no mail sending
+  yet). Payment, refunds and mails are the next steps.

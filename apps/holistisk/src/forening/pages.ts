@@ -4,7 +4,7 @@ import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js"
 import type { View } from "../web/pages.js";
 import type { InquiryErrors, InquiryForm } from "../flokken/partners.js";
 import { ROW_ART } from "./brand.js";
-import { AGE_GROUPS, AGE_LABELS, INTERESTS, type FormErrors, type InterestForm } from "./forms.js";
+import type { FormErrors } from "./forms.js";
 import type { PickRow } from "./store.js";
 
 /** Flokk: the public pages. They follow the concept's direction (docs/decisions/0009-flokk-udflugter.md): the
@@ -40,15 +40,15 @@ function pickCard(p: PickRow, now: number): SafeHtml {
 
 function picksBlock(picks: PickRow[], now: number): SafeHtml {
   if (!picks.length) return html`<div class="f-empty">
-  <p><strong>De første Udflugter er ved at blive planlagt.</strong> Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Skriv dig op, så giver vi besked, når de er klar.</p>
-  <p><a class="button" href="/skriv-dig-op">Skriv dig op</a></p>
+  <p><strong>De første Udflugter er ved at blive planlagt.</strong> Vi laver aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Bliv medlem, så kan du tilmelde dig, når de er klar.</p>
+  <p><a class="button" href="/bliv-medlem">Bliv medlem</a></p>
 </div>`;
   return html`<div class="f-cards">${picks.map(p => pickCard(p, now))}</div>`;
 }
 
 /** What a member can count on, as decided. */
 const FRAME: Array<[string, string]> = [
-  ["Du ved, hvad der skal ske", "Før Udflugten får du program, præcist mødested og fornavnene på dem i din flok – sendt til dig personligt."],
+  ["Du ved, hvad der skal ske", "Før Udflugten får du program, præcist mødested og fornavnene på dem i din flok – til dig personligt, på mail og under Mine Udflugter."],
   ["En lille flok", "En flok bekræftes, når fire medlemmer har tilmeldt sig. I mødes på det aftalte sted og går ind sammen."],
   ["På din egen måde", "Nogle snakker meget, andre lytter mest. Du kan blive til snakken bagefter eller gå hjem, når oplevelsen er slut."],
   ["Klare frister", `Tilmelding og afbud lukker ${CLOSES_DAYS} dage før. Indtil da går din plads videre til ventelisten, og du får beløbet tilbage.`]
@@ -69,7 +69,7 @@ export function homePage(ctx: PageContext, picks: PickRow[], headline = 0): View
       <p class="f-kicker">Koncerter, foredrag og andre oplevelser – sammen med andre</p>
       <h1>${HEADLINES[headline % HEADLINES.length]!}</h1>
       <p class="standfirst">Flokk gør det lettere at opleve mere sammen med andre. Hver måned laver vi aftaler med arrangører om billetter til udvalgte koncerter, foredrag og andre oplevelser. Som medlem kan du tilmelde dig en Udflugt til et symbolsk beløb. Du får program og mødested på forhånd og følges med en lille flok andre medlemmer. Du deltager på din egen måde, og bagefter er der mulighed for at mødes og snakke om oplevelsen.</p>
-      <p class="f-actions"><a class="button" href="/skriv-dig-op">Skriv dig op</a> <a class="button-secondary" href="/saadan-fungerer-det">Sådan fungerer det</a></p>
+      <p class="f-actions"><a class="button" href="/bliv-medlem">Bliv medlem</a> <a class="button-secondary" href="/saadan-fungerer-det">Sådan fungerer det</a></p>
     </div>
     <div class="f-row">${ROW_ART}</div>
   </div>
@@ -131,7 +131,7 @@ export function picksPage(ctx: PageContext, picks: PickRow[]): View {
   return { status: 200, body: page(ctx, { title: "Udflugter", description: `Kommende Udflugter med Flokk i ${ctx.regionLabel}: udvalgte koncerter, foredrag og andre oplevelser i en lille flok.`, canonical: "/udflugter", breadcrumbs: crumbs }, body) };
 }
 
-export function pickPage(ctx: PageContext, p: PickRow): View {
+export function pickPage(ctx: PageContext, p: PickRow, box: SafeHtml = html``, message: SafeHtml | "" = ""): View {
   const over = (p.ends_at ?? p.starts_at + 3 * 3600_000) < ctx.now;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Udflugter", path: "/udflugter" }, { name: p.title, path: picksPath(p) }];
   const address = [p.address, p.city].filter(Boolean).join(", ");
@@ -144,6 +144,7 @@ export function pickPage(ctx: PageContext, p: PickRow): View {
     <p class="f-when">${when(p, ctx.now)}${p.venue_name ? html` · ${p.venue_name}` : ""}</p>
   </header>
   ${p.image_url ? html`<figure class="f-figure"><img src="${p.image_url}" alt="" decoding="async"></figure>` : ""}
+  ${message}
   ${over ? html`<p class="notice" role="status">Denne Udflugt er afholdt.</p>` : ""}
   ${p.description ? html`<div class="prose">${p.description.split(/\n{2,}/).map(par => html`<p>${par}</p>`)}</div>` : ""}
   <section class="f-panel f-plan" aria-labelledby="h-plan">
@@ -158,8 +159,7 @@ export function pickPage(ctx: PageContext, p: PickRow): View {
       ${over ? "" : html`<dt>Tilmelding og afbud</dt><dd>Lukker ${closes(p, ctx.now)}</dd>`}
       <dt>Arrangør</dt><dd>${p.association_url ? html`<a href="${p.association_url}" rel="noopener">${p.association}</a>` : p.association}</dd>
     </dl>
-    ${over ? "" : html`<p class="f-actions"><a class="button" href="/skriv-dig-op?event=${p.slug}">Jeg vil gerne med</a></p>
-    <p class="small meta-muted">Medlemskab og tilmelding åbner snart. Indtil da kan du skrive dig op til netop denne Udflugt, så giver vi besked.</p>`}
+    ${over ? "" : box}
   </section>
   ${p.event_url ? html`<p><a href="${p.event_url}" rel="noopener">Læs om oplevelsen hos ${p.association}</a></p>` : ""}
   <p><a href="/udflugter">← Alle Udflugter</a></p>
@@ -169,51 +169,6 @@ export function pickPage(ctx: PageContext, p: PickRow): View {
 
 const err = (errors: FormErrors, k: string) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
 const invalid = (errors: FormErrors, k: string) => errors[k] ? raw(` aria-invalid="true" aria-describedby="err-${k}"`) : "";
-
-export function signupPage(ctx: PageContext, picks: PickRow[], state: { form: InterestForm; errors?: FormErrors; status?: number }): View {
-  const f = state.form, errors = state.errors ?? {};
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Skriv dig op", path: "/skriv-dig-op" }];
-  const chosen = picks.find(p => p.slug === f.pick);
-  const body = html`
-<div class="wrap narrow">
-  <header class="page-head">
-    ${crumbsNav(crumbs)}
-    <h1>Skriv dig op</h1>
-    <p class="standfirst">${chosen ? html`Du vil gerne med til <strong>${chosen.title}</strong>. Medlemskab og tilmelding åbner snart – skriv dig op, så giver vi besked.` : "Medlemskab og tilmelding til Udflugter åbner snart. Skriv dig op, så giver vi besked."}</p>
-  </header>
-  ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
-  <form class="form-card f-form" method="post" action="/skriv-dig-op" novalidate>
-    <div class="field"><label for="s-name">Fornavn</label><input id="s-name" name="fornavn" type="text" maxlength="30" autocomplete="given-name" required value="${f.firstName}"${invalid(errors, "firstName")}>${err(errors, "firstName")}</div>
-    <div class="field"><label for="s-email">Mail</label><input id="s-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${f.email}"${invalid(errors, "email")}>${err(errors, "email")}</div>
-    <fieldset class="field"><legend>Hvad har du lyst til at opleve? <span class="meta-muted">(valgfrit)</span></legend>
-      <div class="f-checks">${INTERESTS.map((i, n) => html`<label class="f-check" for="s-i${n}"><input id="s-i${n}" type="checkbox" name="interesser" value="${i}"${f.interests.includes(i) ? raw(" checked") : ""}> ${i}</label>`)}</div>
-    </fieldset>
-    ${picks.length ? html`<div class="field"><label for="s-event">Er der en Udflugt, du gerne vil med på? <span class="meta-muted">(valgfrit)</span></label>
-      <select id="s-event" name="event"${invalid(errors, "pick")}><option value="">Ikke en bestemt endnu</option>${picks.map(p => html`<option value="${p.slug}"${f.pick === p.slug ? raw(" selected") : ""}>${p.title} – ${when(p, ctx.now)}</option>`)}</select>${err(errors, "pick")}</div>` : ""}
-    <div class="field"><label for="s-area">Hvor bor du? <span class="meta-muted">(valgfrit)</span></label>
-      <select id="s-area" name="omraade"${invalid(errors, "area")}><option value="">Vil ikke oplyse</option>${ctx.areas.map(a => html`<option value="${a.slug}"${f.area === a.slug ? raw(" selected") : ""}>${a.place}</option>`)}</select>${err(errors, "area")}</div>
-    <div class="field"><label for="s-age">Alder <span class="meta-muted">(valgfrit)</span></label>
-      <select id="s-age" name="alder"${invalid(errors, "ageGroup")}><option value="">Vil ikke oplyse</option>${AGE_GROUPS.map(a => html`<option value="${a}"${f.ageGroup === a ? raw(" selected") : ""}>${AGE_LABELS[a]}</option>`)}</select>${err(errors, "ageGroup")}</div>
-    <label class="f-check f-consent" for="s-consent"><input id="s-consent" type="checkbox" name="samtykke" value="ja"${f.consent ? raw(" checked") : ""}${invalid(errors, "consent")}> Flokk må gemme mine oplysninger og skrive til mig på mail om Flokk. Jeg kan altid få dem slettet.</label>${err(errors, "consent")}
-    <div class="hp" aria-hidden="true"><label>Lad dette felt stå tomt <input name="website_url" type="text" tabindex="-1" autocomplete="off"></label></div>
-    <div class="form-actions"><button type="submit">Skriv mig op</button></div>
-    <p class="small meta-muted">Vi bruger kun dine oplysninger til Flokk og deler dem ikke med andre. <a href="/privatliv">Læs om privatliv</a>.</p>
-  </form>
-</div>`;
-  return { status: state.status ?? 200, headers: { "cache-control": "no-store" }, body: page(ctx, { title: "Skriv dig op", description: "Skriv dig op til Flokk – så giver vi besked, når medlemskab og tilmelding til Udflugter åbner.", canonical: "/skriv-dig-op", breadcrumbs: crumbs }, body) };
-}
-
-export function thanksPage(ctx: PageContext, firstName: string, pick: PickRow | null): View {
-  const body = html`
-<div class="wrap narrow">
-  <header class="page-head">
-    <h1>Tak, ${firstName}!</h1>
-    <p class="standfirst">${pick ? html`Du står nu skrevet op til <strong>${pick.title}</strong>. Vi giver besked på mail, når medlemskab og tilmelding åbner.` : "Du står nu skrevet op. Vi giver besked på mail, når medlemskab og tilmelding åbner."}</p>
-    <p>Imens kan du læse, <a href="/saadan-fungerer-det">hvordan en Udflugt fungerer</a> – eller se <a href="/udflugter">de kommende Udflugter</a>.</p>
-  </header>
-</div>`;
-  return { status: 200, headers: { "cache-control": "no-store" }, body: page(ctx, { title: "Tak", description: "Du er skrevet op.", canonical: "/skriv-dig-op", noindex: true }, body) };
-}
 
 export function howPage(ctx: PageContext): View {
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Sådan fungerer det", path: "/saadan-fungerer-det" }];
@@ -250,7 +205,7 @@ export function howPage(ctx: PageContext): View {
   </ul>
   <h2>Før Udflugten</h2>
   <ul>
-    <li>Du får program og præcist mødested på forhånd – sendt til dig personligt.</li>
+    <li>Du får program og præcist mødested på forhånd – til dig personligt, på mail og under Mine Udflugter.</li>
     <li>Du får fornavnene på dem i din flok, så I lettere kan finde hinanden.</li>
     <li>Der oprettes ikke automatisk en gruppechat.</li>
   </ul>
@@ -259,7 +214,7 @@ export function howPage(ctx: PageContext): View {
   <h2>Det er ikke fastlagt endnu</h2>
   <ul>
     <li>Beløbet for en Udflugt og de øvrige økonomiske detaljer.</li>
-    <li>Medlemsvilkår, og hvordan man bliver medlem.</li>
+    <li>Medlemsvilkår.</li>
     <li>Hvad der sker med billetten, hvis arrangøren aflyser sit event.</li>
   </ul>
 </div>`;
@@ -281,7 +236,7 @@ export function aboutPage(ctx: PageContext): View {
   <h2>Under udvikling</h2>
   <p>Flokk er et koncept under udvikling. Beløb, medlemsvilkår og flere detaljer er ikke fastlagt endnu – <a href="/saadan-fungerer-det">her kan du se, hvad der er besluttet</a>.</p>
   <h2>Skriv til os</h2>
-  <p>Er du arrangør, så brug <a href="/for-arrangoerer#kontakt">formularen for arrangører</a>. Vil du være med, så <a href="/skriv-dig-op">skriv dig op</a>.</p>
+  <p>Er du arrangør, så brug <a href="/for-arrangoerer#kontakt">formularen for arrangører</a>. Vil du være med, så <a href="/bliv-medlem">bliv medlem</a>.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Om Flokk", description: "Flokk gør det lettere at opleve mere sammen med andre – Udflugter til udvalgte koncerter, foredrag og andre oplevelser i en lille flok.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
@@ -332,13 +287,15 @@ export function privacyPage(ctx: PageContext, state: { deleted?: boolean } = {})
   </header>
   <h2>Hvad vi gemmer</h2>
   <ul>
-    <li><strong>Når du skriver dig op:</strong> fornavn og mail – og hvis du vælger det: hvad du har lyst til at opleve, en Udflugt du gerne vil med på, område og aldersgruppe.</li>
+    <li><strong>Som medlem:</strong> fornavn og mail – og hvis du vælger det: hvad du har lyst til at opleve, område og aldersgruppe – samt dine tilmeldinger. Din kode gemmes kun i en form, der ikke kan læses tilbage.</li>
+    <li><strong>I din flok:</strong> de andre i flokken ser dit fornavn, når flokken er bekræftet.</li>
+    <li><strong>Fra den tidligere interesseliste:</strong> fornavn, mail og de valg, du gjorde.</li>
     <li><strong>Henvendelser fra arrangører:</strong> det, I skriver i formularen.</li>
   </ul>
-  <p>Vi bruger det kun til at give dig besked om Flokk. Vi deler det ikke med andre, og vi bruger ingen sporing eller reklamecookies. Kun de få, der arbejder med Flokk, kan se listen.</p>
+  <p>Vi bruger det kun til Flokk: til at skrive til dig om dine Udflugter og til at sætte flokke sammen. Vi deler det ikke med andre, og vi bruger ingen sporing eller reklamecookies. Kun de få, der arbejder med Flokk, kan se listen.</p>
   <h2>Hvor længe</h2>
-  <p>Til du beder os slette det – eller til medlemskab åbner, og du selv vælger at blive medlem.</p>
-  <h2 id="slet">Slet mine oplysninger</h2>
+  <p>Til du melder dig ud. Det gør du selv under <a href="/mine-udflugter">Mine Udflugter</a> – så slettes din profil og dine tilmeldinger.</p>
+  <h2 id="slet">Slet mig fra interesselisten</h2>
   ${state.deleted ? html`<p class="flash" role="status">Hvis mailen stod på listen, er den slettet nu.</p>` : ""}
   <form class="form-card" method="post" action="/privatliv" novalidate>
     <div class="field"><label for="d-email">Din mail</label><input id="d-email" name="email" type="email" maxlength="160" autocomplete="email" required></div>
