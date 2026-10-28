@@ -10,6 +10,8 @@ export interface SagaEnv {
   SAGA_TELEGRAM_BOT_USERNAME?: string;
   /** The board's Telegram group - the only group Saga reads or posts in. */
   SAGA_BOARD_CHAT_ID?: string;
+  /** The deputies' (suppleanternes) Telegram group: Saga notes who is in it, so they can get a deputy login to admin (cockpit/deputies.ts). She never reads it into anything or writes there. */
+  SAGA_DEPUTY_CHAT_ID?: string;
   /** The chair's Telegram user id - the only person who can approve, send recordings or ask privately. */
   SAGA_OWNER_TELEGRAM_ID?: string;
   /** Bearer secret for Liva (Matrix) reading Saga's overview. */
