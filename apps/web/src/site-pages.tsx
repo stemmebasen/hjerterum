@@ -276,7 +276,11 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
     {header}
     <SiteHero coming={coming} />
     <CategoryNav />
-    <p className="site-kinds">{ABOUT_WORDS.kinds}</p>
+    {/* Requested: "Create a little line break and make it look little prettier" - the list, a small camel rule, then the closing words on their own line. */}
+    {(() => { const [list, close] = ABOUT_WORDS.kinds.split(/\s+–\s+/); return <p className="site-kinds">
+      <span className="site-kinds-list">{list}</span>
+      {close && <><span className="site-kinds-rule" aria-hidden="true" /><span className="site-kinds-close">{close.charAt(0).toUpperCase() + close.slice(1)}</span></>}
+    </p>; })()}
     {/* "Oktober i Hjerterum" - the month as in the newsletter (month-hero.tsx); "Se hele kalenderen" under the events. */}
     {month}
     <section className="site-home-section" id="medlemskab">
