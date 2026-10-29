@@ -944,7 +944,24 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-actions .pill-button:not(.dark) { background: transparent; color: inherit; border-color: var(--lys-line, rgba(255,255,255,.25)); }
 .saga-note { font-size: 12px; opacity: .8; }
 .saga-privacy { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--lys-muted, #a69d92); }
-.saga-panel { grid-template-rows: auto 1fr auto auto; }
+.saga-panel { grid-template-rows: auto 1fr auto auto; grid-template-columns: minmax(0, 1fr); position: relative; }
+/* Reported (on a phone): the Send button took the whole width, the text field shrank to two letters, and the cross was cut off at the edge -
+   the general "buttons are full width on a phone" rule reached into Saga's window. Here the field takes the room, the button keeps its size,
+   and the cross always stands in the top right corner: "Lad der også være et kryds i højre top så man kan lukke chatten igen". */
+.saga-panel header { padding-right: 56px; min-width: 0; }
+.saga-panel header strong { white-space: nowrap; }
+.saga-panel header span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saga-panel header button { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px; font-size: 26px; }
+.saga-panel header button:hover, .saga-panel header button:focus-visible { background: var(--lys-soft, rgba(255,255,255,.08)); }
+.saga-panel form { align-items: flex-end; min-width: 0; }
+.saga-panel form textarea { flex: 1 1 auto; min-width: 0; width: auto; }
+.saga-panel form .pill-button, .saga-panel form .saga-attach { flex: 0 0 auto; width: auto; min-height: 40px; padding: 0 16px; }
+.saga-actions .pill-button { width: auto; }
+@media (max-width: 760px) {
+  .saga-widget { right: 12px; bottom: 12px; left: auto; }
+  .saga-widget.is-open { left: 12px; }
+  .saga-panel { width: 100%; height: min(560px, calc(100dvh - 24px)); }
+}
 /* En behandlers egen side: rundt foto til højre for navnet. */
 .profile-page-side { display: flex; justify-content: flex-end; }
 .profile-page-photo { width: 220px; height: 220px; border-radius: 24px; object-fit: cover; }
