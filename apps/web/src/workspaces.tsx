@@ -160,8 +160,8 @@ function WorkspaceHeader({
 }) {
   const memberLinks: Array<readonly [string, string]> = [
     ["/member-portal/", "Overblik"],
-    // Requested: "Mine events -> Opret event".
-    ["/member-portal/events", "Opret event"],
+    // Requested: "Mine events -> Opret event" - then: "Menupunktet bør hedde: Mine events. Og herunder en undermenu: Opret event, Mine events" (MemberEvents).
+    ["/member-portal/events", "Mine events"],
     ["/member-portal/kalender", "Kalender"],
     // Requested: "Lad Medlemskab blive knyttet ind under Min profil".
     ["/member-portal/profil", "Min profil"],
@@ -184,7 +184,7 @@ function WorkspaceHeader({
         {links.map(([href, label]) => {
           const isMemberOverview = href === "/member-portal/" && path === "/member-portal/dashboard";
           return (
-          <a key={href} href={href} aria-current={path === href || (href === "/member-portal/profil" && path.startsWith("/member-portal/medlemskab")) || (href.endsWith("/") && path === href.slice(0, -1)) || isMemberOverview ? "page" : undefined}>
+          <a key={href} href={href} aria-current={path === href || (href === "/member-portal/profil" && path.startsWith("/member-portal/medlemskab")) || (href.endsWith("/") && path === href.slice(0, -1)) || (href === "/member-portal/events" && path.startsWith("/member-portal/events/")) || isMemberOverview ? "page" : undefined}>
             {label}
           </a>
           );
@@ -309,19 +309,36 @@ function localDateTimeInput(value: string): string {
 
 const EMPTY_PLAN: Plan = { date: "", start: "10:00", end: "12:00", type: "standard", setup: DEFAULT_BUFFER, cleanup: DEFAULT_BUFFER };
 
+const EVENTS_CREATE = "/member-portal/events", EVENTS_MINE = "/member-portal/events/mine";
+
 function MemberEvents({
   clerk,
   member,
   bookings,
   markedDates,
-  reload
+  reload,
+  initialView = "create"
 }: {
   clerk: ClerkBrowser;
   member: Member | null;
   bookings: Booking[];
   markedDates: Set<string>;
   reload: () => Promise<void>;
+  initialView?: "create" | "mine";
 }) {
+  // Requested: "Menupunktet bør hedde: Mine events. Og herunder en undermenu: Opret event, Mine events". Two views of one page, so a
+  // booking being edited, Saga's draft and an approved photo carry over between them; each has its own address.
+  const [view, setView] = useState<"create" | "mine">(initialView);
+  const show = (next: "create" | "mine") => {
+    setView(next);
+    const target = next === "mine" ? EVENTS_MINE : EVENTS_CREATE;
+    if (window.location.pathname.replace(/\/+$/, "") !== target) window.history.pushState(null, "", target);
+  };
+  useEffect(() => {
+    const back = () => setView(window.location.pathname.replace(/\/+$/, "") === EVENTS_MINE ? "mine" : "create");
+    window.addEventListener("popstate", back);
+    return () => window.removeEventListener("popstate", back);
+  }, []);
   const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
   const [cover, setCover] = useState<File | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
@@ -332,7 +349,7 @@ function MemberEvents({
   // A draft from Saga fills the form (saga-widget.tsx); the member still checks it and presses the button.
   const [prefill, setPrefill] = useState<{ n: number; draft: SagaDraft } | null>(() => { const d = takePendingDraft(); return d ? { n: 1, draft: d } : null; });
   useEffect(() => {
-    const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
+    const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); show("create"); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
     window.addEventListener(DRAFT_EVENT, take);
     return () => window.removeEventListener(DRAFT_EVENT, take);
   }, []);
@@ -348,6 +365,7 @@ function MemberEvents({
   // A photo Saga approved becomes the cover, cut to 1920 × 1005 like a picked one.
   useEffect(() => {
     const take = async (event: Event) => {
+      show("create");
       const cropped = await cropCover((event as CustomEvent<File>).detail);
       if (cropped.ok) setCover(cropped.file); else setMessage(cropped.reason);
     };
@@ -489,8 +507,12 @@ function MemberEvents({
       <div className="workspace-title-row">
         <div><p className="kicker">Events</p><h1>Mine events</h1></div>
       </div>
-      <div className="workspace-two-column events-columns">
-        <div className="workspace-card">
+      <nav className="events-subnav" aria-label="Mine events">
+        <a href={EVENTS_CREATE} aria-current={view === "create" ? "page" : undefined} onClick={(e) => { e.preventDefault(); show("create"); }}>{editing ? "Redigér event" : "Opret event"}</a>
+        <a href={EVENTS_MINE} aria-current={view === "mine" ? "page" : undefined} onClick={(e) => { e.preventDefault(); show("mine"); }}>Mine events{bookings.length ? <span className="events-subnav-count">{bookings.length}</span> : null}</a>
+      </nav>
+      <div className="events-view">
+        {view === "create" && <div className="workspace-card">
           <h2>{editing ? "Redigér event" : "Opret event og reservér salen"}</h2>
           {!active ? (
             <p>Du skal have et aktivt betalende medlemskab for at oprette et event.</p>
@@ -539,8 +561,8 @@ function MemberEvents({
             </form>
             </>
           )}
-        </div>
-        <div className="workspace-card">
+        </div>}
+        {view === "mine" && <div className="workspace-card">
           <h2>Kommende events</h2>
           {bookings.length ? (
             <div className="workspace-list">
@@ -552,14 +574,14 @@ function MemberEvents({
                   <span className="member-event-review">{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
                   <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
                   <div className="workspace-actions">
-                    <button type="button" className="text-button" onClick={() => setEditing(booking)}>Redigér</button>
+                    <button type="button" className="text-button" onClick={() => { setEditing(booking); show("create"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Redigér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
                   </div>
                 </article>
               ))}
             </div>
-          ) : <p>Du har ingen kommende events.</p>}
-        </div>
+          ) : <p>Du har ingen kommende events. <a href={EVENTS_CREATE} onClick={(e) => { e.preventDefault(); show("create"); }}>Opret dit første →</a></p>}
+        </div>}
       </div>
     </section>
   );
@@ -978,6 +1000,8 @@ export function MemberWorkspace({
   }, [clerk, user.id]);
 
   const normalized = path.replace(/\/+$/, "") || "/member-portal";
+  // "Mine events" has two pages under it: Opret event (/member-portal/events) and the member's own events (/member-portal/events/mine).
+  const onEventsPage = normalized === "/member-portal/events" || normalized === EVENTS_MINE;
   const ownedBookings = calendar.filter((booking) => booking.isOwner);
   const markedDates = new Set([...calendar, ...externalEvents].map((entry) => todayKey(new Date(entry.startsAt))));
   return (
@@ -991,14 +1015,14 @@ export function MemberWorkspace({
         </> :
         normalized === "/member-portal/medlemskab" ? (
           <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div></>
-        ) : !includesMemberBenefits(member?.tier ?? null) && (normalized === "/member-portal/events" || normalized === "/member-portal/kalender") ? (
+        ) : !includesMemberBenefits(member?.tier ?? null) && (onEventsPage || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
-        ) : trial && normalized === "/member-portal/events" ? (
+        ) : trial && onEventsPage ? (
           <section className="workspace-section member-page"><div className="workspace-title-row"><div><p className="kicker">Events</p><h1>Mine events</h1></div></div>
             <div className="workspace-card"><h2>Opret event og reservér salen</h2><p>Når du er medlem, kan du oprette dine egne events her og reservere salen til dem.</p></div>
             <p className="kicker">Bliv medlem</p><MembershipPlans /></section>
-        ) : normalized === "/member-portal/events" ? (
-          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} />
+        ) : onEventsPage ? (
+          <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} initialView={normalized === EVENTS_MINE ? "mine" : "create"} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
           normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
           <section className="workspace-section member-page site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>

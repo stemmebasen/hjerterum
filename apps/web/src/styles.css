@@ -992,3 +992,10 @@ h3 { font-size: 25px; line-height: 1.2; }
 
 /* The note under a field (Opret event: the event is evaluated when it is sent). */
 .field-note { display: block; margin-top: 6px; font-size: 13px; font-weight: 400; line-height: 1.45; color: var(--lys-muted, #a69d92); }
+
+/* Requested: "Mine events" with a submenu - Opret event and Mine events - as two pill tabs under the heading. */
+.events-subnav { display: flex; gap: 8px; margin: 4px 0 18px; flex-wrap: wrap; }
+.events-subnav a { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px; border: 1px solid var(--lys-line, rgba(255,255,255,.15)); color: inherit; text-decoration: none; font-weight: 600; font-size: 15px; }
+.events-subnav a[aria-current="page"] { background: var(--lys-accent, #c9a48a); color: var(--lys-accent-ink, #1c1915); border-color: transparent; }
+.events-subnav-count { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: rgba(0,0,0,.15); }
+.events-view { display: grid; gap: 18px; }
