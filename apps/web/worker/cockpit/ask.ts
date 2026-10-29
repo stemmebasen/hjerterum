@@ -13,6 +13,7 @@ import { boardPosts, postsForSaga } from "./board.js";
 import { comingEvents, EVENTS_FEED, eventStats, searchEvents, type HouseEvent } from "./events.js";
 import { addAgendaPoints, agendaClosed, meetingOver, allDecisions, allTasks, approvedMinutes, boardMembers, boardPicture, openFor, responsibilities, rolesLine, responsibilitiesForSaga, type ApprovedMinutes, meetingOn, meetings, saveMeeting } from "./data.js";
 import { LAW } from "./law.js";
+import { CIRKLER_FACTS } from "./cirkler.js";
 import { applyMemory, memorySection } from "./memory.js";
 import { latestStats, statsForSaga } from "./members.js";
 import { MEMBERSHIP_FACTS } from "./membership.js";
@@ -177,12 +178,14 @@ async function events(db: D1Database, deps: SagaDeps, nowMs: number, question: s
  * the board, for the question asked - in the cockpit and when the chair asks her in Telegram. */
 /** Requested: "kan der ikke kun sendes det relevante med for det pågældende spørgsmål?": the parts of the board's knowledge Saga can be given. `only` leaves out the heavy ones that are not named (the always-small ones stay: date, decisions,
  * agreements, meetings, status, responsibilities, member figures, votes) and cuts the minutes and the group's messages down; no `only` is the whole pack. */
-export const HEAVY_SECTIONS = ["vedtaegter", "foreningsret", "medlemskab", "leje", "hjemmeside", "events", "referatdokument", "mail", "chat"] as const;
+export const HEAVY_SECTIONS = ["vedtaegter", "foreningsret", "medlemskab", "cirkler", "leje", "hjemmeside", "events", "referatdokument", "mail", "chat"] as const;
 export type HeavySection = (typeof HEAVY_SECTIONS)[number];
 const TRIGGERS: Record<HeavySection, RegExp> = {
   vedtaegter: /vedtæg|paragraf|§|\bgf\b|generalforsamling|stemmeret|kvorum|indkald|suppleant|bestyrelsesvalg|valgbar|ophæv|opløs|regnskabsår|kontingent|revisor/i,
   foreningsret: /\blov\b|loven|foreningsret|\bgf\b|generalforsamling|indkald|ansvar|hæft|tegningsret|inhabil|vedtægtsændring|referat.*krav|pligt/i,
   medlemskab: /medlem|kontingent|abonnement|støttemedlem|rabat|gratis|prøveperiode|\bpris/i,
+  // Requested: "Kan du give Saga viden om Cirkler" - "Cirkler hed før Tribes".
+  cirkler: /cirkl|\btribe|cirkelby|cirkelleder|forperson|midtercirkel|månedstema|check-in-partner|spotlight|giv videre|medlemsfordel|fordele ved/i,
   leje: /\bleje|udlej|salen|lokale|booking|\bpris/i,
   hjemmeside: /hjemmeside|holistisk\.org|websit|side på|beskrivelse|om os|forsiden|medlem|abonnement|bliv medlem|undervis|kontakt/i,
   events: /event|arrangement|kalender|workshop|kursus|yoga|underviser|billet|tilmeld|program|sidst havde|havde vi|sidste gang|healing|meditation|ceremoni|retreat|foredrag|koncert/i,
@@ -228,6 +231,8 @@ export async function boardKnowledge(env: SagaEnv, deps: SagaDeps, db: D1Databas
     `MEDLEMSTAL:\n${members}`,
     // Requested: "Og så skal hun sættes ind i disse ting - ikke mindst medlemsskaber".
     !wants("medlemskab") ? "" : `MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR:\n${MEMBERSHIP_FACTS}`,
+    // Requested: "Som medlem af Hjerterum kan man deltage i Cirkler" (cockpit/cirkler.ts).
+    !wants("cirkler") ? "" : `CIRKLER (tidligere Tribes) - SMÅ FASTE FÆLLESSKABER, SOM HJERTERUMS MEDLEMMER KAN DELTAGE I:\n${CIRKLER_FACTS}`,
     // Requested: "Opret forslag til afstemning" - the board's digital votes.
     `AFSTEMNINGER I BESTYRELSEN (digitale, vedtaget ved flertal af bestyrelsen - og forslag, der stemmes om på næste møde):\n${await votesForSaga(db, now)}`,
     postsForSaga(await boardPosts(db, now).catch(() => [])),
