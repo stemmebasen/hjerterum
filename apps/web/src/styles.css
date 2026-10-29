@@ -1012,3 +1012,6 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-panel textarea { font-size: 16px; }
 .saga-widget { max-width: calc(100vw - 24px); }
 .saga-panel textarea:focus, .saga-panel textarea:focus-visible { outline: none; border-color: var(--lys-accent, #c9a48a); box-shadow: 0 0 0 2px color-mix(in srgb, var(--lys-accent, #c9a48a) 25%, transparent); }
+/* Saga's links: plainly links - underlined, in the accent, a little bolder. */
+.saga-msg .saga-link { color: var(--lys-accent, #e6cbb4); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; word-break: break-word; }
+.saga-msg .saga-link:hover { text-decoration-thickness: 3px; }

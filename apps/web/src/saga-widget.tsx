@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { cropCover } from "./cover-crop";
 import { SIGNUP_URL } from "../site/pages";
@@ -69,6 +69,28 @@ async function preparePhoto(file: File): Promise<Photo | null> {
   return { file, preview: dataUrl, dataUrl, width: bitmap.width, height: bitmap.height };
 }
 const PENDING = "saga_pending_draft";
+const OPEN = "saga_open";
+
+/** Requested: "De sider hun linker til bør være aktive links og understreget på en tydelig måde". Her [name](address) and bare addresses become
+ * links - only to Hjerterum's own pages (a path on this site), hjerterum.info, holistisk.org and cirkler.net. Anything else stays plain text. */
+const ALLOWED = /^(?:\/(?!\/)[^\s)]*|https:\/\/(?:[a-z0-9-]+\.)*(?:hjerterum\.info|holistisk\.org|cirkler\.net)(?:[/?#][^\s)]*)?)$/i;
+export function withLinks(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const pattern = /\[([^\]\n]{1,120})\]\(([^)\s]{1,300})\)|(https:\/\/[^\s)]+[^\s).,!?:;])/g;
+  let last = 0, match: RegExpExecArray | null, n = 0;
+  while ((match = pattern.exec(text))) {
+    const [all, label, href, bare] = match;
+    const url = (href ?? bare ?? "").trim();
+    out.push(text.slice(last, match.index));
+    if (ALLOWED.test(url)) {
+      const external = url.startsWith("http") && !url.includes(window.location.host);
+      out.push(<a key={n++} className="saga-link" href={url} {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{label ?? url.replace(/^https:\/\/(www\.)?/, "")}</a>);
+    } else out.push(label ?? all);
+    last = match.index + all.length;
+  }
+  out.push(text.slice(last));
+  return out.map((part, i) => typeof part === "string" ? <Fragment key={"t" + i}>{part}</Fragment> : part);
+}
 const POPPED = "saga_popped";
 
 export function takePendingDraft(): SagaDraft | null {
@@ -90,7 +112,9 @@ export function SagaWidget(props: Props) {
     ? "Hej! Jeg er Saga, Hjerterums assistent. Spørg mig om huset, events, medlemskab eller leje af salen – og vil du lave dit eget event, hjælper jeg dig gerne i gang."
     : onEvents && canCreate ? `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det hele for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`
     : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen${canCreate ? " – eller lad mig sætte et event op for dig" : ""}.`;
-  const [open, setOpen] = useState(false);
+  // Requested: "Saga samtalen skal stadig ses når man kommer på ny side" - open on one page, open on the next, with the conversation.
+  const [open, setOpen] = useState(() => { try { return sessionStorage.getItem(OPEN) === "1"; } catch { return false; } });
+  useEffect(() => { try { if (open) sessionStorage.setItem(OPEN, "1"); else sessionStorage.removeItem(OPEN); } catch { /* ignore */ } }, [open]);
   const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: greeting }]);
   const [conversation, setConversation] = useState<string | null>(() => storedConversation());
   const [loaded, setLoaded] = useState(false);
@@ -186,7 +210,7 @@ export function SagaWidget(props: Props) {
       {open && <section className="saga-panel" aria-label="Spørg Saga">
         <header><strong>Spørg Saga</strong><span>Hjerterums assistent</span><button type="button" aria-label="Luk" onClick={() => setOpen(false)}>×</button></header>
         <div className="saga-messages" ref={list}>
-          {messages.map((m, i) => <div key={i} className={"saga-msg " + m.role}>{m.photo && <img className="saga-photo" src={m.photo.preview} alt="" />}<p>{m.text}</p>
+          {messages.map((m, i) => <div key={i} className={"saga-msg " + m.role}>{m.photo && <img className="saga-photo" src={m.photo.preview} alt="" />}<p>{m.role === "assistant" ? withLinks(m.text) : m.text}</p>
             {m.forPhoto && m.photoOk && <div className="saga-draft"><span>Fotoet er godkendt{canCreate ? " og kommer med, når du opretter eventet her" : ""}.</span>
               {onEvents && <button type="button" className="pill-button dark" onClick={() => applyCover(m.forPhoto!)}>Brug i formularen</button>}</div>}
             {m.draft && <div className="saga-draft"><b>{m.draft.title}</b><span>{m.draft.date} · {m.draft.start}–{m.draft.end}</span>
