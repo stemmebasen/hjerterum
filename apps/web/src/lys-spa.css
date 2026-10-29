@@ -592,3 +592,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-home .site-use, .site-home .site-vision { margin-top: 64px; padding-bottom: 64px; }
 .site-home .site-vision + .site-newsletter { margin-top: 64px; }
 @media (max-width: 760px) { .site-home .nl-month, .site-home .site-use, .site-home .site-vision { padding-bottom: 44px; } }
+
+/* Requested: "Footeren på mobil bør være centreret" - the website's footer and the member area's legal line, centred on a phone. */
+@media (max-width: 760px) {
+  .site-foot, .member-foot { text-align: center; }
+  .site-foot nav { grid-template-columns: 1fr 1fr; justify-items: center; }
+  .site-foot-legal { justify-content: center; text-align: center; }
+}

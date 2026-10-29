@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 
 /** Requested: "Lad resuméet altid inkludere de kommende tre events" - Saga's words about the next three (worker/program.ts) under "Snart i Hjerterum".
  * Earlier: "når jeg siger tv-program mener jeg ikke en programoversigt, men en continuity speaker der fortæller hvad der er på vej" +
@@ -11,7 +11,40 @@ const shortDay = (iso: string) => new Intl.DateTimeFormat("da-DK", { timeZone: T
 const time = (iso: string) => new Intl.DateTimeFormat("da-DK", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(iso)).replace(":", ".");
 const firstName = (host: string | null) => (host ?? "").replace(/^(med|ved)\s+/i, "").split(/\s*(?:,| og |&)\s*/)[0]?.split(/\s+/)[0] ?? "";
 
+/** Requested: "Lad event billederne forsigtigt scrolle frem og tilbage så man kan se man kan se flere/scrolle". When the photos do not all fit
+ * (on a phone), the strip slides a little forward and back once it is in view - up to three times, a few seconds apart - and stops for good
+ * when the visitor touches or scrolls it. Never with "reduce motion". */
+function useScrollHint(strip: RefObject<HTMLDivElement | null>, ready: boolean) {
+  useEffect(() => {
+    const el = strip.current;
+    if (!ready || !el || typeof window === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let stopped = false, rounds = 0;
+    const timers: number[] = [];
+    const later = (fn: () => void, ms: number) => { timers.push(window.setTimeout(fn, ms)); };
+    const stop = () => { stopped = true; timers.forEach(window.clearTimeout); el.style.scrollSnapType = ""; };
+    const nudge = () => {
+      if (stopped || el.scrollWidth <= el.clientWidth + 8 || el.scrollLeft > 4) return;
+      // Snapping would turn the small slide into a jump to the next photo: off while she nudges.
+      el.style.scrollSnapType = "none";
+      el.scrollTo({ left: Math.min(90, el.scrollWidth - el.clientWidth), behavior: "smooth" });
+      later(() => { if (!stopped) el.scrollTo({ left: 0, behavior: "smooth" }); }, 900);
+      later(() => { if (!stopped) el.style.scrollSnapType = ""; }, 1700);
+      if (++rounds < 3) later(nudge, 7000);
+    };
+    const touched = () => stop();
+    el.addEventListener("pointerdown", touched, { once: true });
+    el.addEventListener("touchstart", touched, { once: true, passive: true });
+    el.addEventListener("wheel", touched, { once: true, passive: true });
+    const seen = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { seen.disconnect(); later(nudge, 1200); }
+    }, { threshold: 0.6 });
+    seen.observe(el);
+    return () => { stop(); seen.disconnect(); el.removeEventListener("pointerdown", touched); el.removeEventListener("touchstart", touched); el.removeEventListener("wheel", touched); };
+  }, [strip, ready]);
+}
+
 export function ProgramGuide() {
+  const strip = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Item[] | null>(null);
   const [intro, setIntro] = useState<string | null>(null);
   const [heading, setHeading] = useState<string | null>(null);
@@ -23,6 +56,7 @@ export function ProgramGuide() {
     }).catch(() => { if (active) setItems([]); });
     return () => { active = false; };
   }, []);
+  useScrollHint(strip, Boolean(items?.length));
   if (!items) return null;
   if (!items.length) return <article className="lys-card program-guide"><p className="lys-kicker">Snart i Hjerterum</p><p className="lys-sub">Der er stille i kalenderen lige nu - kig forbi snart.</p></article>;
   const nowMs = Date.now();
@@ -37,7 +71,7 @@ export function ProgramGuide() {
         <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
       </div>
       <p className="program-intro">{words}</p>
-      <div className="program-strip">
+      <div className="program-strip" ref={strip}>
         {items.map((i) => (
           <a key={i.key} href={open(i)} target={i.link?.startsWith("http") ? "_blank" : undefined} rel="noopener" className="program-tile">
             <span className="program-photo">{i.imageUrl ? <img src={i.imageUrl} alt="" loading="lazy" /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}
