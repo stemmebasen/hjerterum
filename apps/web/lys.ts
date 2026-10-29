@@ -24,7 +24,7 @@ const TOKENS = `
 
 /** The top that every page shares: Hjerterum's hands and HJERTERUM, calm links, a pill or the member on the right. */
 const TOP = `
-.lys-bar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--lys-bg) 94%,transparent);backdrop-filter:saturate(1.2) blur(8px);-webkit-backdrop-filter:saturate(1.2) blur(8px)}
+.lys-bar{position:sticky;top:0;z-index:30;background:var(--lys-bg)}.lys-bar::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:100vh;background:var(--lys-bg);pointer-events:none}
 .lys-top{max-width:1220px;margin:0 auto;padding:16px 28px;display:flex;align-items:center;gap:24px;border-bottom:1px solid var(--lys-line)}
 .lys-logo{display:flex;align-items:center;gap:13px;text-decoration:none;color:var(--lys-ink);flex:none}
 .lys-logo img{width:44px;height:44px;display:block;filter:brightness(0);opacity:.82}
