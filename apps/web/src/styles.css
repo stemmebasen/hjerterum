@@ -989,3 +989,6 @@ h3 { font-size: 25px; line-height: 1.2; }
 .profile-quote cite { font-style: normal; font-size: .9rem; color: var(--lys-muted, #766d64); }
 .profile-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin: 26px 0 8px; }
 .profile-gallery img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; border-radius: 14px; }
+
+/* The note under a field (Opret event: the event is evaluated when it is sent). */
+.field-note { display: block; margin-top: 6px; font-size: 13px; font-weight: 400; line-height: 1.45; color: var(--lys-muted, #a69d92); }

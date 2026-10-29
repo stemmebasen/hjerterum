@@ -511,7 +511,9 @@ function MemberEvents({
             <PrNudge clerk={clerk} />
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
-              <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
+              <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
+                {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
+                <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum.</small></label>
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
               <div className="workspace-form-row event-numbers">
