@@ -91,7 +91,7 @@ When you use Hjerterum, you are responsible for any damage to yourself or your b
 ## How to join {#join}
 For now, you sign up in our membership system on holistisk.org: [become a member here](${SIGNUP_URL_EN}). Already a member? [Log in](/sign-in) to see your membership.
 
-The **reduced price** (111 DKK a month or 1,155 DKK a year) is for you on a low income – e.g. SU or social benefits, or a net salary below 11,000 DKK a month. Please upgrade to the standard price if your income rises above the limit.
+The **reduced price** (111 DKK a month or 1,155 DKK a year) is for you on a low income – e.g. SU or social benefits, or a net salary below 13,500 DKK a month. Please upgrade to the standard price if your income rises above the limit.
 
 ## Benefits of membership {#benefits}
 - You join events at a discount and often completely free.

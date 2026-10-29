@@ -250,7 +250,7 @@ Indmeldelse sker indtil videre i vores medlemssystem på holistisk.org: [Meld di
 Læs [vilkårene for medlemskab](/medlemskab/vilkaar), før du melder dig ind.
 
 ## Reduceret pris {#reduceret}
-Reduceret pris er til dig med en lav indkomst – fx SU eller kontanthjælp, eller en nettoløn under 11.000 kr. om måneden. Medlemskabet koster 111 kr. om måneden eller 1.155 kr. om året. Stiger din indkomst over grænsen, beder vi dig opgradere til standardpris.
+Reduceret pris er til dig med en lav indkomst – fx SU eller kontanthjælp, eller en nettoløn under 13.500 kr. om måneden. Medlemskabet koster 111 kr. om måneden eller 1.155 kr. om året. Stiger din indkomst over grænsen, beder vi dig opgradere til standardpris.
 
 ## Fordele ved et medlemskab {#fordele}
 - Du deltager i events til rabatpris og ofte helt gratis.

@@ -12,7 +12,7 @@ export const membershipPlans = {
   },
   reduceret: {
     name: "Reduceret pris medlemskab",
-    description: "Hvis din nettoløn (efter skat) er under 11.000 kr./måned (f.eks. SU), kan du få nedsat kontingent. Hvis din nettoindkomst senere overstiger 11.000 kr., bedes du opgradere til det almindelige medlemskab.",
+    description: "Hvis din nettoløn (efter skat) er under 13.500 kr./måned (f.eks. SU), kan du få nedsat kontingent. Hvis din nettoindkomst senere overstiger 13.500 kr., bedes du opgradere til det almindelige medlemskab.",
     month: 11_100, year: 115_500, benefits: true
   },
   support: {

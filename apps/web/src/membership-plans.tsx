@@ -6,7 +6,7 @@ import { SIGNUP_URL } from "../site/pages";
 const EN: Record<string, { name: string; description: string }> = {
   standard: { name: "Standard membership", description: "Become a member of Hjerterum and enjoy a wide range of benefits." },
   generoest: { name: "Generous membership", description: "Support Hjerterum a little extra – and help people with few means to a membership at a reduced price." },
-  reduceret: { name: "Reduced price membership", description: "If your net salary is below 11,000 DKK a month (e.g. SU), you can pay a reduced fee. Please upgrade if your income rises above it." },
+  reduceret: { name: "Reduced price membership", description: "If your net salary is below 13,500 DKK a month (e.g. SU), you can pay a reduced fee. Please upgrade if your income rises above it." },
   support: { name: "Support membership", description: "Support Hjerterum with a small amount, without access to the member benefits." }
 };
 
