@@ -14,6 +14,8 @@ import type { ChatMessage as AiMessage, ChatPart } from "./saga/ai.js";
 import { membershipName, membershipPlan, membershipPlans, membershipPrice } from "../membership.js";
 import type { ActiveMembership } from "./membership-access.js";
 import { memberSubscription } from "./member-profile.js";
+import { EVENT_CRITERIA } from "./cockpit/eventDesk.js";
+import { openConversation, publicAnswer, saveConversation, type WebMessage } from "./web-saga.js";
 
 /** Requested: "Vi skal have en Saga chatwidget på medlemssiden. Hun skal poppe op på Opret event-siden efter 15 sekunder og spørge brugeren,
  * om han/hun har brug for hjælp til at sætte eventet op. Hun skal også tilbyde at gøre det for brugeren." A member asks; Saga answers from
@@ -121,11 +123,12 @@ export function photoFacts(photo: Pick<AttachedPhoto, "type" | "bytes" | "width"
 }
 
 const SYSTEM = (today: string, firstName: string, calendar: string, knowledge: string, facts: string, page: string) => `Du er Saga, Hjerterums assistent på medlemssiden ("Spørg Saga"). Hjerterum er en forening og et hus i Guldsmedgade 26B i Aarhus for meditation, yoga, personlig udvikling og fællesskab. `
-  + `Du taler med medlemmet ${firstName || ""}, som lige nu er på siden ${page || "medlemssiden"}. Skriv kort, varmt og uformelt på dansk (højst 4 sætninger), og stil ét spørgsmål ad gangen. Brug fornavnet sparsomt.
+  + `Du taler med medlemmet ${firstName || ""}, som lige nu er på siden ${page || "medlemssiden"}. Vær yderst hjælpsom: gør så meget af arbejdet for medlemmet, som du kan. Skriv kort, varmt og uformelt på dansk (højst 4 sætninger), og stil ét spørgsmål ad gangen. Brug fornavnet sparsomt. `
+  + `Samtalen kan være begyndt på den offentlige hjemmeside, før medlemmet loggede ind - fortsæt så, hvor I slap, uden at spørge om det, du allerede har fået at vide.
 
 DET HJÆLPER DU MED
 Du svarer på alle almindelige spørgsmål om Hjerterum: foreningen, huset, medlemskab, events, undervisere og behandlere, leje af salen og medlemssiden - ud fra HJEMMESIDEN og MEDLEMMETS OPLYSNINGER nedenfor (fx hvornår næste betaling er). Du er især god til:
-1. At oprette events: få titel, dato, start og slut, lejetype, evt. maks. deltagere og priser på plads, og lav så et udkast, der udfylder formularen på Opret event. Medlemmet tjekker formularen og trykker selv "Opret event". Så er salen reserveret med det samme, og Hjerterums team godkender eventet, før det vises offentligt.
+1. At oprette events - helt for medlemmet: få titel, dato, start og slut, lejetype, en god beskrivelse, evt. maks. deltagere og priser på plads, og lav så et udkast. Under udkastet får medlemmet to knapper: "Opret og læg online" (så opretter DU eventet: salen reserveres, et godkendt foto bliver eventfoto, og du vurderer med det samme, om eventet passer til Hjerterum - gør det, kommer det online på hjerterum.info med det samme; ellers ser bestyrelsen på det) og "Udfyld formularen" (medlemmet retter selv og trykker Opret). Sig, hvad lejen bliver, før medlemmet trykker. Vurder ærligt undervejs, om eventet passer til Hjerterum (se HJERTERUMS KRITERIER), og hjælp medlemmet med at gøre teksten god nok, før de trykker.
 2. At læse og godkende eventtekster, så de passer til Hjerterum (se EVENTTEKSTER).
 3. At godkende fotos til eventet (se FOTOS).
 4. Det praktiske: at komme ind i huset (nøgleboks, chip, dørtelefon), køkken, lyd, projektor, oprydning og vilkår - ud fra HJEMMESIDEN nedenfor.
@@ -147,6 +150,9 @@ REGLER FOR LEJE
 - Reduceret pris og gratis leje kræver betalende medlemskab (det har medlemmet), og lejen inkl. klargøring og oprydning må ikke gå hen over kl. 18.30 på hverdage.
 - Lejetype: "reduced" når medlemmer skal have lavere pris end ikke-medlemmer, "free" når medlemmer deltager gratis (ikke-medlemmer betaler mindst 150 kr. i A-tid / 75 kr. i B-tid), ellers "standard".
 - Billetbetaling på platformen er ikke slået til endnu, så billetprisen er 0 kr. indtil videre; pris for ikke-medlemmer kan stadig skrives.
+
+HJERTERUMS KRITERIER (et event kommer kun online med det samme, når de alle klart er opfyldt)
+${EVENT_CRITERIA.map(c => `- ${c.text}`).join("\n")}
 
 EVENTTEKSTER
 En god tekst til Hjerterum er varm, nærværende og konkret: hvad sker der, for hvem, hvad skal man medbringe, og hvad koster det. Ingen helbredsløfter eller medicinske påstande ("helbreder", "kurerer", "behandler sygdom"), intet råberi (STORE BOGSTAVER, mange udråbstegn), ingen løfter, eventet ikke kan holde. Godkend en tekst, der lever op til det. Kan den blive bedre, så foreslå en forbedret version i Hjerterums tone med medlemmets eget indhold - find ikke på nyt. Den godkendte tekst kommer i udkastets "description".
@@ -203,45 +209,66 @@ export function parseAnswer(answer: string): { reply: string; draft: MemberDraft
   return { reply: str(data.reply, 1600) || (draft ? "Jeg har lavet et udkast til dig." : "Fortæl mig lidt mere?"), draft, photoOk: typeof data.photo_ok === "boolean" ? data.photo_ok : null };
 }
 
-export async function memberSagaChat(request: Request, env: SagaEnv & { CLERK_JWT_ISSUER?: string; CLERK_SECRET_KEY?: string; STRIPE_SECRET_KEY?: string }, deps: SagaDeps): Promise<Response> {
-  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (!env.DB || !env.AI_API_KEY || !env.AI_MODEL) return json({ error: "saga_unavailable" }, 503);
+type MemberEnv = SagaEnv & { CLERK_JWT_ISSUER?: string; CLERK_SECRET_KEY?: string; STRIPE_SECRET_KEY?: string };
+
+/** Requested: "Kan hun huske samtalen før og efter login": the conversation lives on the server (web-saga.ts). GET gives it back - and
+ * one from the website (?conversation=, from the login link) becomes this member's. POST {conversation, text, photo?, page}: her answer.
+ * Someone logged in without a membership with benefits gets the website's Saga (help to become a member), not the member's. */
+export async function memberSagaChat(request: Request, env: MemberEnv, deps: SagaDeps): Promise<Response> {
+  if (request.method !== "POST" && request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
+  if (!env.DB) return json({ error: "saga_unavailable" }, 503);
   const db: D1Database = env.DB;
   let userId: string;
   try { userId = (await authenticateBearer(request, env.CLERK_JWT_ISSUER)).userId; } catch { return json({ error: "authentication_required" }, 401); }
+  const now = deps.now();
+  if (request.method === "GET") {
+    const found = await openConversation(db, new URL(request.url).searchParams.get("conversation"), userId, now);
+    return json({ conversation: found.fresh ? null : found.id, messages: found.messages });
+  }
+  if (!env.AI_API_KEY || !env.AI_MODEL) return json({ error: "saga_unavailable" }, 503);
   const membership = await resolveActiveMembership(db, userId, env.CLERK_SECRET_KEY).catch(() => null);
-  if (!membership) return json({ error: "membership_required" }, 403);
-  const body = await request.json().catch(() => null) as { messages?: unknown; photo?: unknown; page?: unknown } | null;
+  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; messages?: unknown; photo?: unknown; page?: unknown } | null;
   const page = typeof body?.page === "string" && /^\/[\w\-/]*$/.test(body.page) ? body.page.slice(0, 80) : "";
-  const messages = (Array.isArray(body?.messages) ? body!.messages : []).slice(-12)
-    .filter((m): m is ChatMessage => !!m && typeof m === "object" && ((m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant") && typeof (m as ChatMessage).text === "string")
-    .map(m => ({ role: m.role, text: m.text.slice(0, 2000) }));
-  if (!messages.length || messages[messages.length - 1]!.role !== "user") return json({ error: "invalid_body" }, 400);
-  const photo = readPhoto(body?.photo);
-  if (body?.photo && !photo) return json({ error: "invalid_photo" }, 400);
-  const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(deps.now());
+  // A page loaded before this version sends the whole conversation; its last message is the question.
+  const old = Array.isArray(body?.messages) ? (body!.messages as Array<{ role?: unknown; text?: unknown }>).filter(m => m?.role === "user" && typeof m.text === "string").at(-1)?.text as string | undefined : undefined;
+  const text = (typeof body?.text === "string" ? body.text : old ?? "").trim().slice(0, 2000);
+  if (!text) return json({ error: "invalid_body" }, 400);
+  const photo = membership ? readPhoto(body?.photo) : null;
+  if (membership && body?.photo && !photo) return json({ error: "invalid_photo" }, 400);
+  const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
   const used = await db.prepare("SELECT messages FROM member_saga_usage WHERE clerk_user_id = ? AND day = ?").bind(userId, day).first<{ messages: number }>();
   if ((used?.messages ?? 0) >= DAILY_LIMIT) return json({ reply: "Jeg har talt meget i dag - skriv til hjerterum@holistisk.org, eller prøv igen i morgen.", draft: null });
   await db.prepare(`INSERT INTO member_saga_usage (clerk_user_id, day, messages) VALUES (?, ?, 1)
     ON CONFLICT(clerk_user_id, day) DO UPDATE SET messages = messages + 1`).bind(userId, day).run();
-  const today = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(deps.now())
-    + ` (${day})`;
+  const conversation = await openConversation(db, typeof body?.conversation === "string" ? body.conversation : null, userId, now);
+  const measured = photo ? photoFacts(photo) : null;
+  // The photo itself is looked at once; the conversation keeps only that it was there.
+  const history: WebMessage[] = [...conversation.messages, { role: "user", text: photo ? `${text} [Foto: ${photo.name.slice(0, 80)}, ${photo.width} × ${photo.height} px]` : text }];
   try {
+    if (!membership) {
+      const answer = await publicAnswer(env, deps, history, true);
+      await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: answer.reply }], now);
+      return json({ conversation: conversation.id, reply: answer.reply, action: answer.action, draft: null, photo: null });
+    }
+    const today = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(now) + ` (${day})`;
     const external = await getExternalEvents(false, deps.fetcher).catch(() => []);
-    const calendar = await calendarLines(db, external, deps.now());
-    const facts = await memberFacts(db, membership, env.STRIPE_SECRET_KEY, userId, deps.now());
-    const measured = photo ? photoFacts(photo) : null;
-    const history: AiMessage[] = messages.map((m, i) => {
+    const calendar = await calendarLines(db, external, now);
+    const facts = await memberFacts(db, membership, env.STRIPE_SECRET_KEY, userId, now);
+    const recent = history.slice(-12);
+    const messages: AiMessage[] = recent.map((m, i) => {
       if (m.role === "assistant") return { role: "assistant", content: m.text };
-      if (i !== messages.length - 1 || !photo || !measured) return { role: "user", content: m.text };
-      const parts: ChatPart[] = [{ type: "text", text: `${m.text}\n\n${measured.text}` }, { type: "image_url", image_url: { url: photo.dataUrl } }];
+      if (i !== recent.length - 1 || !photo || !measured) return { role: "user", content: m.text };
+      const parts: ChatPart[] = [{ type: "text", text: `${text}\n\n${measured.text}` }, { type: "image_url", image_url: { url: photo.dataUrl } }];
       return { role: "user", content: parts };
     });
     // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
-    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) }, ...history]);
+    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) }, ...messages]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
-    return json({ reply: parsed.reply, draft: parsed.draft, photo: measured ? { ok: measured.ok && parsed.photoOk === true } : null });
+    const photoOk = measured ? measured.ok && parsed.photoOk === true : null;
+    const draftNote = parsed.draft ? ` [Udkast: ${parsed.draft.title}, ${parsed.draft.date} ${parsed.draft.start}-${parsed.draft.end}, ${parsed.draft.booking_type}]` : "";
+    await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: parsed.reply + draftNote + (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") }], now);
+    return json({ conversation: conversation.id, reply: parsed.reply, draft: parsed.draft, photo: measured ? { ok: photoOk } : null, action: null });
   } catch (error) {
     console.warn("member_saga_failed", error instanceof Error ? error.message : error);
     return json({ error: "saga_unavailable" }, 503);

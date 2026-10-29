@@ -1,6 +1,8 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
 import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
 import { memberSagaChat } from "./member-saga.js";
+import { memberSagaEvent } from "./member-saga-event.js";
+import { publicSagaChat } from "./web-saga.js";
 import { memberSavings } from "./member-savings.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
@@ -429,6 +431,10 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/members/me/subscription") return memberSubscriptionRoute(request, env);
     // Saga on the member site (member-saga.ts).
     if (url.pathname === "/api/members/saga/chat") return memberSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+    // Requested: "Saga ... skal kunne bringe eventet online" - the event she creates with the member (member-saga-event.ts).
+    if (url.pathname === "/api/members/saga/event") return memberSagaEvent(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+    // Requested: "På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe" - the website's Saga, no login (web-saga.ts).
+    if (url.pathname === "/api/site/saga/chat") return publicSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (request.method === "GET" && url.pathname === "/api/members/me/savings") {
       if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
       const user = await requireUser(request, env);

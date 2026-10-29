@@ -65,22 +65,41 @@ export async function reviewPendingEvents(env: SagaEnv, deps: SagaDeps, db: D1Da
     WHERE status = 'scheduled' AND review_status = 'pending' AND ends_at_ms > ? ORDER BY created_at_ms LIMIT ?`).bind(now, limit).all<PendingEvent>()).results ?? [];
   let approved = 0, toBoard = 0;
   for (const row of rows) {
-    let verdict: ReviewVerdict;
-    try {
-      verdict = readVerdict(await completeAs("event-review", "mid")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
-        titel: row.title, beskrivelse: (row.description ?? "").slice(0, 4000), arrangoer: row.teacher_name, start: WHEN.format(row.starts_at_ms), slut: WHEN.format(row.ends_at_ms),
-        lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees }) }]));
-    } catch (error) {
-      console.warn("saga_event_review_failed", error instanceof Error ? error.message : error);
-      continue;
-    }
-    // Only an event still pending and unchanged since it was read is decided (the member may have edited it).
-    const result = await db.prepare(`UPDATE room_bookings SET review_status = ?, review_note = ?, reviewed_by = 'Saga', reviewed_at_ms = ?
-      WHERE id = ? AND review_status = 'pending' AND title = ? AND COALESCE(description, '') = ? AND starts_at_ms = ?`)
-      .bind(verdict.approve ? "approved" : "needs_board", verdict.note || null, now, row.id, row.title, row.description ?? "", row.starts_at_ms).run();
-    if (Number(result.meta?.changes ?? 0) === 1) { if (verdict.approve) approved++; else toBoard++; }
+    const result = await reviewOne(env, deps, db, row);
+    if (result === "approved") approved++; else if (result === "needs_board") toBoard++;
   }
   return { approved, toBoard };
+}
+
+/** Requested: "Hun skal være yderst hjælpsom og kunne bringe eventet online (hvis hun vurderer det passer til hjerterum)". The event Saga
+ * has just created with a member is judged at once, by the same criteria and the same never-fail-open reading as the hourly round:
+ * "approved" is online now, "needs_board" waits for the board, "pending" (she could not answer) waits for the next round. */
+export async function reviewEventNow(env: SagaEnv, deps: SagaDeps, db: D1Database, id: number): Promise<{ status: "approved" | "needs_board" | "pending"; note: string }> {
+  const row = await db.prepare(`SELECT id, teacher_name, title, description, starts_at_ms, ends_at_ms, booking_type, ticket_price_minor, max_attendees FROM room_bookings
+    WHERE id = ? AND status = 'scheduled' AND review_status = 'pending'`).bind(id).first<PendingEvent>();
+  if (!row || !env.AI_API_KEY || !env.AI_MODEL) return { status: "pending", note: "" };
+  let note = "";
+  const status = await reviewOne(env, deps, db, row, verdict => { note = verdict.note; });
+  return { status, note };
+}
+
+async function reviewOne(env: SagaEnv, deps: SagaDeps, db: D1Database, row: PendingEvent, seen?: (verdict: ReviewVerdict) => void): Promise<"approved" | "needs_board" | "pending"> {
+  let verdict: ReviewVerdict;
+  try {
+    verdict = readVerdict(await completeAs("event-review", "mid")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
+      titel: row.title, beskrivelse: (row.description ?? "").slice(0, 4000), arrangoer: row.teacher_name, start: WHEN.format(row.starts_at_ms), slut: WHEN.format(row.ends_at_ms),
+      lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees }) }]));
+  } catch (error) {
+    console.warn("saga_event_review_failed", error instanceof Error ? error.message : error);
+    return "pending";
+  }
+  seen?.(verdict);
+  // Only an event still pending and unchanged since it was read is decided (the member may have edited it).
+  const result = await db.prepare(`UPDATE room_bookings SET review_status = ?, review_note = ?, reviewed_by = 'Saga', reviewed_at_ms = ?
+    WHERE id = ? AND review_status = 'pending' AND title = ? AND COALESCE(description, '') = ? AND starts_at_ms = ?`)
+    .bind(verdict.approve ? "approved" : "needs_board", verdict.note || null, deps.now(), row.id, row.title, row.description ?? "", row.starts_at_ms).run();
+  if (Number(result.meta?.changes ?? 0) !== 1) return "pending";
+  return verdict.approve ? "approved" : "needs_board";
 }
 
 /** Hourly on weekdays, and only when an event waits. */
