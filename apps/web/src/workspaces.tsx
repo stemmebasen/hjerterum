@@ -236,13 +236,14 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
       </div>
       {member && (
         <div className="lys-tiles">
-          <div className="lys-tile"><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
+          {/* Requested: "På mobil bør kun de to øverste counts vises og de skal sidde side om side" - Tilmeldt and Mine events (lys-spa.css). */}
+          <div className={"lys-tile" + (benefits ? " tile-desktop" : "")}><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
             <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/profil#medlemskab">betaling →</a></>}</small></div>
           {benefits && <div className="lys-tile"><span>Tilmeldt</span><b>{registrations.length}</b>
             <small>{registrations[0] ? "næste: " + formatDate(registrations[0].startsAt) : "ingen kommende"}</small></div>}
           {benefits && <div className="lys-tile"><span>Mine events</span><b>{owned.length}</b>
             <small>{awaiting ? awaiting + " afventer godkendelse" : owned.length ? "alle behandlet" : "ingen endnu"}</small></div>}
-          {benefits && savings && <div className="lys-tile"><span>Medlemsbesparelse</span><b>{savings.savedKr.toLocaleString("da-DK")} kr.</b>
+          {benefits && savings && <div className="lys-tile tile-desktop"><span>Medlemsbesparelse</span><b>{savings.savedKr.toLocaleString("da-DK")} kr.</b>
             <small>{savings.since ? "siden " + new Date(savings.since + "T12:00:00").toLocaleDateString("da-DK", { day: "numeric", month: "long", year: "numeric" }) : "som medlem"}</small></div>}
         </div>
       )}

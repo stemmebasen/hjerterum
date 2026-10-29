@@ -98,7 +98,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .member-overview-side p { justify-self: stretch; margin: 0; color: var(--lys-muted); font-size: 18px; line-height: 1.7; }
 .member-overview-more { margin: 18px 0 0; }
 .member-overview .lys-tile small a { margin-left: 2px; }
-@media (max-width: 760px) { .member-overview-side { justify-items: stretch; } .member-overview-side p { font-size: 16.5px; } .member-overview .lys-tile:first-child { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .member-overview-side { justify-items: stretch; } .member-overview-side p { font-size: 16.5px; } .member-overview .lys-tile:first-child { grid-column: 1 / -1; }
+  .member-overview .lys-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .member-overview .lys-tile.tile-desktop { display: none; } }
 
 .lys-me > a.lys-pill { background: var(--lys-accent); color: var(--lys-accent-ink); border: 0; padding: 9px 18px; font-weight: 600; text-decoration: none; }
 .lys-me > a.lys-pill:hover { filter: brightness(1.12); }
