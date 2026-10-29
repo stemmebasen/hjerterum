@@ -11,6 +11,7 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
+import { ATTENDEE_EXAMPLES, DESCRIPTION_EXAMPLES, PRICE_EXAMPLES, TITLE_EXAMPLES, useTypewriter } from "./typewriter";
 import { COVER_EVENT, CREATED_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { cropCover } from "./cover-crop";
 import { eventPagePath } from "./event-page";
@@ -335,6 +336,9 @@ function MemberEvents({
     window.addEventListener(DRAFT_EVENT, take);
     return () => window.removeEventListener(DRAFT_EVENT, take);
   }, []);
+  // Requested: "Kom her med typewriter eksempler i hvert felt" (typewriter.ts).
+  const titleHint = useTypewriter(TITLE_EXAMPLES), descriptionHint = useTypewriter(DESCRIPTION_EXAMPLES);
+  const attendeeHint = useTypewriter(ATTENDEE_EXAMPLES, "Valgfri – fx "), priceHint = useTypewriter(PRICE_EXAMPLES, "Valgfri – fx ");
   // An event Saga created in the chat shows up in the list at once.
   useEffect(() => {
     const take = () => { void reload(); };
@@ -506,12 +510,12 @@ function MemberEvents({
             {/* Requested (Gitta): a strong encouragement to share PR material - "gøre det helt klart at vi ikke kan reklamere for dem uden". */}
             <PrNudge clerk={clerk} />
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
-              <label>Titel<input name="title" defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
-              <label>Beskrivelse<textarea name="description" rows={4} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
+              <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
+              <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} /></label>
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
               <div className="workspace-form-row event-numbers">
-                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder="Valgfri" defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} /></label>
+                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder={attendeeHint} defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} /></label>
                 <label>Billetpris pr. deltager (kr.)
                   <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
                   <small>{payout?.configured === false
@@ -519,7 +523,7 @@ function MemberEvents({
                     : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
                 </label>
                 <label>Pris for ikke-medlemmer (kr.)
-                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder="Valgfri" defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
+                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder={priceHint} defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
                   <small>Det, et ikke-medlem betaler, når de tilmelder sig. Tomt felt: samme pris som medlemmer. Prisen viser også medlemmerne, hvad de sparer.</small>
                 </label>
               </div>
