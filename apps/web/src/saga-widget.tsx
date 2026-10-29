@@ -70,6 +70,13 @@ async function preparePhoto(file: File): Promise<Photo | null> {
 }
 const PENDING = "saga_pending_draft";
 const OPEN = "saga_open";
+const LANG = "saga_lang";
+type Lang = "da" | "en";
+/** Requested: "I chattens top bør være en EN knap (engelsk)". The chosen language is remembered; on the website's English pages she starts in English. */
+function startLang(path: string): Lang {
+  try { const saved = localStorage.getItem(LANG); if (saved === "da" || saved === "en") return saved; } catch { /* ignore */ }
+  return /^\/en(?:\/|$)/.test(path) ? "en" : "da";
+}
 
 /** Requested: "De sider hun linker til bør være aktive links og understreget på en tydelig måde". Her [name](address) and bare addresses become
  * links - only to Hjerterum's own pages (a path on this site), hjerterum.info, holistisk.org and cirkler.net. Anything else stays plain text. */
@@ -108,10 +115,17 @@ export function SagaWidget(props: Props) {
   const canCreate = Boolean(member?.canCreate);
   const firstName = member?.firstName ?? "";
   const onEvents = mode === "member" && path.replace(/\/+$/, "") === "/member-portal/events";
-  const greeting = mode === "public"
-    ? "Hej! Jeg er Saga, Hjerterums assistent. Spørg mig om huset, events, medlemskab eller leje af salen – og vil du lave dit eget event, hjælper jeg dig gerne i gang."
-    : onEvents && canCreate ? `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det hele for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`
-    : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen${canCreate ? " – eller lad mig sætte et event op for dig" : ""}.`;
+  const [lang, setLang] = useState<Lang>(() => startLang(path));
+  const en = lang === "en";
+  const t = (da: string, english: string) => en ? english : da;
+  const greetingFor = (english: boolean) => english
+    ? mode === "public" ? "Hi! I'm Saga, Hjerterum's assistant. Ask me about the house, events, membership or renting the hall – and if you'd like to host your own event, I'll gladly help you get started."
+      : onEvents && canCreate ? `Hi${firstName ? " " + firstName : ""}! Do you need help setting up your event? I can also do all of it for you – just tell me what you have in mind: what, when and for whom.`
+      : `Hi${firstName ? " " + firstName : ""}! I'm Saga. Ask me anything about Hjerterum – membership, events, the hall, the association${canCreate ? " – or let me set up an event for you" : ""}.`
+    : mode === "public" ? "Hej! Jeg er Saga, Hjerterums assistent. Spørg mig om huset, events, medlemskab eller leje af salen – og vil du lave dit eget event, hjælper jeg dig gerne i gang."
+      : onEvents && canCreate ? `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det hele for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`
+      : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen${canCreate ? " – eller lad mig sætte et event op for dig" : ""}.`;
+  const greeting = greetingFor(en);
   // Requested: "Saga samtalen skal stadig ses når man kommer på ny side" - open on one page, open on the next, with the conversation.
   const [open, setOpen] = useState(() => { try { return sessionStorage.getItem(OPEN) === "1"; } catch { return false; } });
   useEffect(() => { try { if (open) sessionStorage.setItem(OPEN, "1"); else sessionStorage.removeItem(OPEN); } catch { /* ignore */ } }, [open]);
@@ -121,6 +135,13 @@ export function SagaWidget(props: Props) {
   const [approved, setApproved] = useState<Photo | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  /** EN / DA: the window switches, and her answers follow (the server is told the language). Her greeting changes with it. */
+  function switchLang() {
+    const next: Lang = en ? "da" : "en";
+    setLang(next);
+    try { localStorage.setItem(LANG, next); } catch { /* ignore */ }
+    setMessages((m) => m.length && m[0]!.role === "assistant" && m[0]!.text === greetingFor(en) ? [{ ...m[0]!, text: greetingFor(!en) }, ...m.slice(1)] : m);
+  }
   const list = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLInputElement>(null);
   const endpoint = mode === "public" ? "/api/site/saga/chat" : "/api/members/saga/chat";
@@ -155,15 +176,15 @@ export function SagaWidget(props: Props) {
     try {
       const response = await call(endpoint, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          conversation, text: question, page: path,
+          conversation, text: question, page: path, lang,
           ...(photo ? { photo: { dataUrl: photo.dataUrl, name: photo.file.name, type: photo.file.type, bytes: photo.file.size, width: photo.width, height: photo.height } } : {})
         }) });
       const body = await response.json().catch(() => ({})) as { conversation?: string; reply?: string; draft?: SagaDraft | null; photo?: { ok: boolean } | null; action?: Action | null; error?: string };
       if (body.conversation) { storeConversation(body.conversation); setConversation(body.conversation); }
       if (photo && body.photo?.ok) setApproved(photo);
-      setMessages([...next, { role: "assistant", text: body.reply ?? "Jeg kan ikke svare lige nu. Prøv igen om lidt.",
+      setMessages([...next, { role: "assistant", text: body.reply ?? t("Jeg kan ikke svare lige nu. Prøv igen om lidt.", "I can't answer right now. Please try again in a moment."),
         draft: canCreate ? body.draft ?? null : null, action: body.action ?? null, ...(photo && body.photo ? { photoOk: body.photo.ok, forPhoto: photo } : {}) }]);
-    } catch { setMessages([...next, { role: "assistant", text: "Jeg kan ikke svare lige nu. Prøv igen om lidt." }]); }
+    } catch { setMessages([...next, { role: "assistant", text: t("Jeg kan ikke svare lige nu. Prøv igen om lidt.", "I can't answer right now. Please try again in a moment.") }]); }
     finally { setBusy(false); }
   }
   async function pickPhoto(file: File | undefined) {
@@ -207,36 +228,38 @@ export function SagaWidget(props: Props) {
   }
   return (
     <div className={"saga-widget" + (open ? " is-open" : "")}>
-      {open && <section className="saga-panel" aria-label="Spørg Saga">
-        <header><strong>Spørg Saga</strong><span>Hjerterums assistent</span><button type="button" aria-label="Luk" onClick={() => setOpen(false)}>×</button></header>
+      {open && <section className="saga-panel" aria-label={t("Spørg Saga", "Ask Saga")} lang={lang}>
+        <header><strong>{t("Spørg Saga", "Ask Saga")}</strong><span>{t("Hjerterums assistent", "Hjerterum's assistant")}</span>
+          <button type="button" className="saga-lang" onClick={switchLang} aria-label={en ? "Skift til dansk" : "Switch to English"} title={en ? "Dansk" : "English"}>{en ? "DA" : "EN"}</button>
+          <button type="button" className="saga-close" aria-label={t("Luk", "Close")} onClick={() => setOpen(false)}>×</button></header>
         <div className="saga-messages" ref={list}>
           {messages.map((m, i) => <div key={i} className={"saga-msg " + m.role}>{m.photo && <img className="saga-photo" src={m.photo.preview} alt="" />}<p>{m.role === "assistant" ? withLinks(m.text) : m.text}</p>
-            {m.forPhoto && m.photoOk && <div className="saga-draft"><span>Fotoet er godkendt{canCreate ? " og kommer med, når du opretter eventet her" : ""}.</span>
-              {onEvents && <button type="button" className="pill-button dark" onClick={() => applyCover(m.forPhoto!)}>Brug i formularen</button>}</div>}
+            {m.forPhoto && m.photoOk && <div className="saga-draft"><span>{t("Fotoet er godkendt", "The photo is approved")}{canCreate ? t(" og kommer med, når du opretter eventet her", " and comes along when you create the event here") : ""}.</span>
+              {onEvents && <button type="button" className="pill-button dark" onClick={() => applyCover(m.forPhoto!)}>{t("Brug i formularen", "Use in the form")}</button>}</div>}
             {m.draft && <div className="saga-draft"><b>{m.draft.title}</b><span>{m.draft.date} · {m.draft.start}–{m.draft.end}</span>
-              <span className="saga-note">"Opret og læg online" reserverer salen{approved ? " med det godkendte foto" : ""}. Passer eventet til Hjerterum, kommer det online med det samme.</span>
+              <span className="saga-note">{en ? `"Create and publish" books the hall${approved ? " with the approved photo" : ""}. If the event fits Hjerterum, it goes online right away.` : `"Opret og læg online" reserverer salen${approved ? " med det godkendte foto" : ""}. Passer eventet til Hjerterum, kommer det online med det samme.`}</span>
               <div className="saga-actions">
-                <button type="button" className="pill-button dark" disabled={busy || m.created} onClick={() => void create(m.draft!, i)}>{m.created ? "Oprettet" : "Opret og læg online"}</button>
-                <button type="button" className="pill-button" disabled={busy} onClick={() => fill(m.draft!)}>Udfyld formularen</button>
+                <button type="button" className="pill-button dark" disabled={busy || m.created} onClick={() => void create(m.draft!, i)}>{m.created ? t("Oprettet", "Created") : t("Opret og læg online", "Create and publish")}</button>
+                <button type="button" className="pill-button" disabled={busy} onClick={() => fill(m.draft!)}>{t("Udfyld formularen", "Fill in the form")}</button>
               </div></div>}
             {m.action && <div className="saga-actions">
-              {m.action === "membership" && <a className="pill-button dark" href={SIGNUP_URL} target="_blank" rel="noopener noreferrer">Bliv medlem</a>}
-              {(m.action === "login" || (m.action === "membership" && mode === "public")) && <a className="pill-button" href={sagaLoginHref()}>Log ind</a>}
+              {m.action === "membership" && <a className="pill-button dark" href={en ? "https://holistisk.org/become-a-member/" : SIGNUP_URL} target="_blank" rel="noopener noreferrer">{t("Bliv medlem", "Become a member")}</a>}
+              {(m.action === "login" || (m.action === "membership" && mode === "public")) && <a className="pill-button" href={sagaLoginHref()}>{t("Log ind", "Log in")}</a>}
             </div>}</div>)}
-          {busy && <div className="saga-msg assistant"><p className="saga-typing">Saga skriver …</p></div>}
+          {busy && <div className="saga-msg assistant"><p className="saga-typing">{t("Saga skriver …", "Saga is writing …")}</p></div>}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); void send(); }}>
           {canCreate && <>
             <input ref={picker} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void pickPhoto(f); }} />
-            <button type="button" className="saga-attach" disabled={busy} onClick={() => picker.current?.click()} aria-label="Vedhæft foto til Saga" title="Vedhæft et foto, så ser Saga på det">Foto</button>
+            <button type="button" className="saga-attach" disabled={busy} onClick={() => picker.current?.click()} aria-label={t("Vedhæft foto til Saga", "Attach a photo for Saga")} title={t("Vedhæft et foto, så ser Saga på det", "Attach a photo and Saga will look at it")}>{t("Foto", "Photo")}</button>
           </>}
-          <textarea rows={2} value={text} placeholder="Spørg Saga …" onChange={(e) => setText(e.target.value)}
+          <textarea rows={2} value={text} placeholder={t("Spørg Saga …", "Ask Saga …")} onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
           <button className="pill-button dark" disabled={busy || !text.trim()}>Send</button>
         </form>
-        <p className="saga-privacy">Saga er en AI. Hun husker samtalen i op til 30 dage – også når du logger ind – men ikke dine fotos.</p>
+        <p className="saga-privacy">{t("Saga er en AI. Hun husker samtalen i op til 30 dage – også når du logger ind – men ikke dine fotos.", "Saga is an AI. She remembers the conversation for up to 30 days – also when you log in – but not your photos.")}</p>
       </section>}
-      {!open && <button type="button" className="saga-bubble" onClick={() => setOpen(true)} aria-label="Spørg Saga">Spørg Saga</button>}
+      {!open && <button type="button" className="saga-bubble" onClick={() => setOpen(true)} aria-label={t("Spørg Saga", "Ask Saga")}>{t("Spørg Saga", "Ask Saga")}</button>}
     </div>
   );
 }

@@ -1015,3 +1015,7 @@ h3 { font-size: 25px; line-height: 1.2; }
 /* Saga's links: plainly links - underlined, in the accent, a little bolder. */
 .saga-msg .saga-link { color: var(--lys-accent, #e6cbb4); font-weight: 600; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; word-break: break-word; }
 .saga-msg .saga-link:hover { text-decoration-thickness: 3px; }
+/* Requested: "I chattens top bør være en EN knap (engelsk)" - beside the cross, top right. */
+.saga-panel header { padding-right: 112px; }
+.saga-panel header .saga-lang { position: absolute; top: 12px; right: 56px; width: auto; height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--lys-line, rgba(255,255,255,.25)); background: transparent; color: inherit; font: 600 13px/1 var(--lys-sans, Inter, sans-serif); letter-spacing: .06em; cursor: pointer; display: grid; place-items: center; }
+.saga-panel header .saga-lang:hover, .saga-panel header .saga-lang:focus-visible { border-color: var(--lys-accent, #c9a48a); color: var(--lys-accent, #c9a48a); }

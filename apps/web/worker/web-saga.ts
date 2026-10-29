@@ -133,9 +133,13 @@ const copenhagenDay = (ms: number) => new Intl.DateTimeFormat("sv-SE", { timeZon
 const todayText = (ms: number) => `${new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(ms)} (${copenhagenDay(ms)})`;
 
 /** One answer from the public Saga, given the conversation so far (the newest 12 messages). */
-export async function publicAnswer(env: SagaEnv, deps: SagaDeps, history: WebMessage[], loggedIn: boolean): Promise<{ reply: string; action: WebAction | null }> {
+/** Requested: "I chattens top bør være en EN knap (engelsk)" - with EN chosen she answers in English, whatever language the material is in. */
+export const ENGLISH = "\n\nSPROG: Personen har valgt engelsk. Svar ALTID på engelsk (også selvom materialet er på dansk), og skriv dine links med engelsk tekst.";
+export const readLang = (value: unknown): "da" | "en" => value === "en" ? "en" : "da";
+
+export async function publicAnswer(env: SagaEnv, deps: SagaDeps, history: WebMessage[], loggedIn: boolean, lang: "da" | "en" = "da"): Promise<{ reply: string; action: WebAction | null }> {
   const messages: AiMessage[] = history.slice(-12).map(m => ({ role: m.role, content: m.text }));
-  const answer = await completeAs(loggedIn ? "medlem-saga-gaest" : "hjemmeside-saga", "mid", 900)(env, deps, [{ role: "system", content: PUBLIC_SYSTEM(todayText(deps.now()), loggedIn) }, ...messages]);
+  const answer = await completeAs(loggedIn ? "medlem-saga-gaest" : "hjemmeside-saga", "mid", 900)(env, deps, [{ role: "system", content: PUBLIC_SYSTEM(todayText(deps.now()), loggedIn) + (lang === "en" ? ENGLISH : "") }, ...messages]);
   return parsePublicAnswer(answer, loggedIn);
 }
 
@@ -152,7 +156,7 @@ export async function publicSagaChat(request: Request, env: SagaEnv, deps: SagaD
   // Only from a page that sends JSON - a form on another site cannot (it would need the browser's permission first).
   if (!(request.headers.get("content-type") ?? "").includes("application/json")) return json({ error: "invalid_body" }, 415);
   if (!env.AI_API_KEY || !env.AI_MODEL) return json({ error: "saga_unavailable" }, 503);
-  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown } | null;
+  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; lang?: unknown } | null;
   const text = typeof body?.text === "string" ? body.text.trim().slice(0, 2000) : "";
   if (!text) return json({ error: "invalid_body" }, 400);
   const day = copenhagenDay(now);
@@ -161,7 +165,7 @@ export async function publicSagaChat(request: Request, env: SagaEnv, deps: SagaD
   const conversation = await openConversation(db, typeof body?.conversation === "string" ? body.conversation : null, null, now);
   const history: WebMessage[] = [...conversation.messages, { role: "user", text }];
   try {
-    const answer = await publicAnswer(env, deps, history, false);
+    const answer = await publicAnswer(env, deps, history, false, readLang(body?.lang));
     await saveConversation(db, conversation.id, null, [...history, { role: "assistant", text: answer.reply }], now);
     return json({ conversation: conversation.id, ...answer });
   } catch (error) {

@@ -15,7 +15,7 @@ import { membershipName, membershipPlan, membershipPlans, membershipPrice } from
 import type { ActiveMembership } from "./membership-access.js";
 import { memberSubscription } from "./member-profile.js";
 import { EVENT_CRITERIA } from "./cockpit/eventDesk.js";
-import { LINK_RULE, openConversation, publicAnswer, saveConversation, type WebMessage } from "./web-saga.js";
+import { ENGLISH, LINK_RULE, openConversation, publicAnswer, readLang, saveConversation, type WebMessage } from "./web-saga.js";
 
 /** Requested: "Vi skal have en Saga chatwidget på medlemssiden. Hun skal poppe op på Opret event-siden efter 15 sekunder og spørge brugeren,
  * om han/hun har brug for hjælp til at sætte eventet op. Hun skal også tilbyde at gøre det for brugeren." A member asks; Saga answers from
@@ -229,7 +229,8 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
   }
   if (!env.AI_API_KEY || !env.AI_MODEL) return json({ error: "saga_unavailable" }, 503);
   const membership = await resolveActiveMembership(db, userId, env.CLERK_SECRET_KEY).catch(() => null);
-  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; messages?: unknown; photo?: unknown; page?: unknown } | null;
+  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; messages?: unknown; photo?: unknown; page?: unknown; lang?: unknown } | null;
+  const lang = readLang(body?.lang);
   const page = typeof body?.page === "string" && /^\/[\w\-/]*$/.test(body.page) ? body.page.slice(0, 80) : "";
   // A page loaded before this version sends the whole conversation; its last message is the question.
   const old = Array.isArray(body?.messages) ? (body!.messages as Array<{ role?: unknown; text?: unknown }>).filter(m => m?.role === "user" && typeof m.text === "string").at(-1)?.text as string | undefined : undefined;
@@ -248,7 +249,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
   const history: WebMessage[] = [...conversation.messages, { role: "user", text: photo ? `${text} [Foto: ${photo.name.slice(0, 80)}, ${photo.width} × ${photo.height} px]` : text }];
   try {
     if (!membership) {
-      const answer = await publicAnswer(env, deps, history, true);
+      const answer = await publicAnswer(env, deps, history, true, lang);
       await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: answer.reply }], now);
       return json({ conversation: conversation.id, reply: answer.reply, action: answer.action, draft: null, photo: null });
     }
@@ -264,7 +265,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       return { role: "user", content: parts };
     });
     // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
-    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) }, ...messages]);
+    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (lang === "en" ? ENGLISH : "") }, ...messages]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
     const photoOk = measured ? measured.ok && parsed.photoOk === true : null;
