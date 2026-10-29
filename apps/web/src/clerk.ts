@@ -9,6 +9,9 @@ export type ClerkUser = {
   id: string;
   fullName?: string | null;
   firstName?: string | null;
+  lastName?: string | null;
+  /** False when the member has not uploaded a photo, so Clerk shows its generated placeholder. */
+  hasImage?: boolean;
   primaryEmailAddress?: { emailAddress?: string | null } | null;
 };
 

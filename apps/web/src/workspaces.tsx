@@ -136,6 +136,14 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
     // Requested: "Under Konto kan vi også have medlemsskab-info": a "Medlemskab" link in the account menu and in "Administrer konto".
     const icon = (el: HTMLDivElement) => { el.textContent = "◎"; };
     const membership = { label: "Medlemskab", mountIcon: icon, unmountIcon: () => undefined };
+    // Requested: "Lad avatar billedets farver passe bedre til sidens farver". Without an uploaded photo, Clerk's purple placeholder gives way
+    // to the member's initials on the site's warm accent (styles.css .hj-no-photo) - in the button and in its menu. A real photo is untouched.
+    const user = clerk.user;
+    const initials = [user?.firstName, user?.lastName].filter(Boolean).map((n) => n!.trim()[0]!.toUpperCase()).join("")
+      || (user?.fullName ?? user?.primaryEmailAddress?.emailAddress ?? "").trim().slice(0, 1).toUpperCase();
+    const root = document.documentElement;
+    root.classList.toggle("hj-no-photo", user?.hasImage === false && Boolean(initials));
+    root.style.setProperty("--hj-initials", JSON.stringify(initials || ""));
     try {
       clerk.mountUserButton(node, {
         customMenuItems: [{ ...membership, href: "/member-portal/profil#medlemskab" }],
@@ -144,7 +152,7 @@ function UserButton({ clerk }: { clerk: ClerkBrowser }) {
     } catch {
       clerk.mountUserButton(node);
     }
-    return () => clerk.unmountUserButton(node);
+    return () => { clerk.unmountUserButton(node); root.classList.remove("hj-no-photo"); };
   }, [clerk]);
   return <div className="user-button" ref={ref} />;
 }
