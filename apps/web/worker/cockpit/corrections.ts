@@ -112,10 +112,11 @@ export async function handleCorrection(env: SagaEnv, deps: SagaDeps, id: number)
   const db = env.DB!;
   const row = await db.prepare(`SELECT ${COLUMNS} FROM board_minutes_corrections WHERE id = ? AND status = 'pending'`).bind(id).first<Correction>();
   if (!row) return "failed";
-  await db.prepare("UPDATE board_minutes_corrections SET attempts = attempts + 1, updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
   const minutes = await getMinutes(db, row.minutes_id);
-  // A locked minutes (approved by all) is never rewritten.
-  if (!minutes?.draft_markdown || minutes.locked_at_ms) {
+  // A locked minutes (approved by all) is never rewritten - and keeps no corrections (migration 0082 deleted this one when it locked).
+  if (minutes?.locked_at_ms) return "failed";
+  await db.prepare("UPDATE board_minutes_corrections SET attempts = attempts + 1, updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
+  if (!minutes?.draft_markdown) {
     await db.prepare("UPDATE board_minutes_corrections SET status = 'failed', updated_at_ms = ? WHERE id = ?").bind(deps.now(), id).run();
     return "failed";
   }
