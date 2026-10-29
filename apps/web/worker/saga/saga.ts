@@ -4,6 +4,7 @@ import { scheduledCleanup } from "../cockpit/cleanup.js";
 import { scheduledEventReview } from "../cockpit/eventDesk.js";
 import { sagaTimeSince, scheduledBoardNow } from "../cockpit/boardNow.js";
 import { scheduledBoardAccess } from "../cockpit/personalLogin.js";
+import { scheduledDeputyAccess } from "../cockpit/deputies.js";
 import { archiveSiteMedia, scheduledSiteSync } from "../cockpit/site.js";
 import { scheduledEnglishSummaries, scheduledTranslations } from "../cockpit/translate.js";
 import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
@@ -503,6 +504,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // Whoever has left the board's group loses the cockpit (cockpit/personalLogin.ts).
   await scheduledBoardAccess(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_board_access_failed", error instanceof Error ? error.message : error));
+  // And whoever has left the deputies' group loses their deputy's login (cockpit/deputies.ts).
+  await scheduledDeputyAccess(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("saga_deputy_access_failed", error instanceof Error ? error.message : error));
   // Requested: "Please also delete duplicates when it comes to to-dos." - once a day, the to-dos that stand on a list twice are deleted (cockpit/data.ts).
   if (await claimJob(env.DB, "cockpit_todo_duplicates", Math.floor(deps.now() / DAY), deps.now()).catch(() => false)) {
     await removeDuplicateTodos(env.DB).then(n => { if (n) console.info("cockpit_todo_duplicates_removed", n); })

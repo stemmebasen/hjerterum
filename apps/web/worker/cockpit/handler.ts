@@ -11,8 +11,9 @@ import { markdownToHtml } from "../saga/markdown.js";
 import { splitMinutesDoc } from "../saga/picture.js";
 import { queueMinutes } from "../saga/store.js";
 import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsorted, withKinds } from "./decisionKinds.js";
-import { cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
-import { linkMember, signedOutAfter, signOutMember, useCode, useLink } from "./personalLogin.js";
+import { DEPUTY_COOKIE, deputySessionValue, readDeputySession, cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
+import { linkMember, signedOutAfter, signOutMember, useCodeAs, useLinkAs, type LoginRole } from "./personalLogin.js";
+import { deputyRoute, deputyStillOpen, setSharing, sharing, sharingCard } from "./deputies.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, agendaClosed, meetingOver, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
@@ -145,11 +146,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     // A new login asks who you are (the name you had is preselected) - and then keeps it until you log out.
     return redirect(`${base}/hvem`, [cookie(SESSION_COOKIE, await sessionValue(env.COCKPIT_PASSWORD, now), SESSION_DAYS * 86_400, secure), cookie(MEMBER_COOKIE, "", 0, secure)]);
   }
-  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure), cookie(MEMBER_COOKIE, "", 0, secure)]);
+  if (path === "/logout" && request.method === "POST") return redirect(`${base}/`, [cookie(SESSION_COOKIE, "", 0, secure), cookie(PERSON_COOKIE, "", 0, secure), cookie(MEMBER_COOKIE, "", 0, secure), cookie(DEPUTY_COOKIE, "", 0, secure)]);
 
   // The personal login is kept for half a year in the browser it was made in (the link: Telegram's own; the code: the member's usual one).
-  const signedIn = async (member: string) => redirect(`${base}/`, [cookie(PERSON_COOKIE, await personSessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure),
-    cookie(WHO_COOKIE, member, PERSON_DAYS * 86_400, secure)]);
+  // Requested: "Lad os starte med suppleant adgang" - a deputy's login is a cookie of its own (cockpit/deputies.ts).
+  const signedIn = async ({ member, role }: { member: string; role: LoginRole }) => role === "suppleant"
+    ? redirect(`${base}/`, [cookie(DEPUTY_COOKIE, await deputySessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure)])
+    : redirect(`${base}/`, [cookie(PERSON_COOKIE, await personSessionValue(env.SAGA_TELEGRAM_BOT_TOKEN!, member, now), PERSON_DAYS * 86_400, secure),
+      cookie(WHO_COOKIE, member, PERSON_DAYS * 86_400, secure)]);
 
   // Saga's code, typed here: "Det er som om, jeg bliver logget ind i Telegrams egen browser" - the link logs in Telegram's browser, the code the usual one.
   if (path === "/login/kode" && request.method === "POST") {
@@ -157,7 +161,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (await loginBlocked(db, request, now) || await codeGuessingBlocked(db, now)) return login("For mange forsøg. Vent et kvarter, og prøv igen - eller brug linket fra Saga.", 429);
     const form = await request.formData().catch(() => null);
     const code = readLoginCode(String(form?.get("code") ?? ""));
-    const member = code ? await useCode(db, env.SAGA_TELEGRAM_BOT_TOKEN, code, now) : null;
+    const member = code ? await useCodeAs(db, env.SAGA_TELEGRAM_BOT_TOKEN, code, now) : null;
     if (!member) {
       await Promise.all([recordFailedLogin(db, request, now), recordWrongCode(db, now)]);
       return login(code ? "Koden passer ikke, eller den er brugt eller udløbet. Skriv /login til Saga for en ny." : "Koden er otte cifre. Du finder den i beskeden fra Saga.", 401);
@@ -170,7 +174,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   if (linkPath) {
     const token = linkPath[1]!;
     if (request.method === "POST") {
-      const member = env.SAGA_TELEGRAM_BOT_TOKEN ? await useLink(db, token, now) : null;
+      const member = env.SAGA_TELEGRAM_BOT_TOKEN ? await useLinkAs(db, token, now) : null;
       if (!member) return html(linkPage(base, null, token), 410);
       return signedIn(member);
     }
@@ -181,7 +185,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const jar = readCookies(request);
   const person = await readPersonSession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(PERSON_COOKIE), now);
   const personal = person && person.issuedMs > await signedOutAfter(db, person.member) ? person.member : null;
-  if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) return login("", shared || botLink ? 401 : 503);
+  if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) {
+    // A deputy is sent to their own pages before any of the board's routes: nothing below this line is open to them (cockpit/deputies.ts).
+    const deputy = await readDeputySession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(DEPUTY_COOKIE), now);
+    if (deputy && await deputyStillOpen(db, deputy.member, deputy.issuedMs)) return deputyRoute({ request, env, db, base, path, now, member: deputy.member });
+    return login("", shared || botLink ? 401 : 503);
+  }
   const members = await boardMembers(env, db);
   // A leader or moderator is someone on the board - or who the meeting already has (a name that has left the group stays until someone changes it).
   const onlyBoard = (input: { leader?: string; moderator?: string }, existing: { leader?: string | null; moderator?: string | null } | null) => {
@@ -397,6 +406,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     return redirect(`${base}/referat/${id}#punkt-${point}`);
   }
 
+  // Requested: "Lad os starte med suppleant adgang" - minutes are internal until a board member shares them with the deputies (cockpit/deputies.ts).
+  const sharePath = /^\/referat\/(\d+)\/suppleanter$/.exec(path);
+  if (sharePath && request.method === "POST") {
+    const id = Number(sharePath[1]);
+    if (!(await approvedMinutesById(db, id))) return html(notFound(base, who), 404);
+    if (!who) return redirect(`${base}/hvem`);
+    const share = String((await request.formData().catch(() => null))?.get("del") ?? "") === "ja";
+    await setSharing(db, id, share, who, now);
+    return redirect(`${base}/referat/${id}?${share ? "delt" : "intern"}=1`);
+  }
+
   const minutesPath = /^\/referat\/(\d+)$/.exec(path);
   if (minutesPath && request.method === "GET") {
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
@@ -406,8 +426,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!minutes.locked_at_ms && await lockIfApproved(db, minutes.id, members.names, now)) minutes.locked_at_ms = now;
     const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din besked."
       : url.searchParams.get("retperiode") ? "Referatet kan stadig rettes. Du godkender det, når rettelsesperioden er slut." : url.searchParams.get("lukket") ? "Rettelsesperioden er slut, så referatet kan ikke længere ændres. Nu godkender I det hver især."
-      : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt." : "";
-    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now });
+      : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt."
+      : url.searchParams.get("delt") ? "Referatet er delt med suppleanterne." : url.searchParams.get("intern") ? "Referatet er internt igen. Suppleanterne kan ikke længere se det." : "";
+    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now })
+      + sharingCard(base, minutes.id, await sharing(db, minutes.id), Boolean(who));
     // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
     const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
     if (english) return html(layout(base, `Summary ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));

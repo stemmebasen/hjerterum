@@ -4,6 +4,7 @@ import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../c
 import { boardMembers } from "../cockpit/data.js";
 import { sagaBrief } from "./brief.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
+import { recordDeputy } from "../cockpit/deputies.js";
 import { answerMemberPrivately } from "../cockpit/agendaAsk.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import {
@@ -76,7 +77,14 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
   if (!message) return;
   const chatId = String(message.chat.id);
   // For the connection check: a group Saga hears but is not set up for (a wrong board id).
-  if (env.DB && boardId && chatId !== boardId && /group/.test(message.chat.type)) await setServiceStatus(env.DB, "telegram_other_group", false, chatId, deps.now());
+  if (env.DB && boardId && chatId !== boardId && chatId !== env.SAGA_DEPUTY_CHAT_ID && /group/.test(message.chat.type)) await setServiceStatus(env.DB, "telegram_other_group", false, chatId, deps.now());
+
+  // Requested: "Lad os starte med suppleant adgang". The deputies' group: Saga only notes who writes there, so they can ask for a deputy's
+  // login (cockpit/deputies.ts). She keeps no text from it, uses nothing of it anywhere, and never answers in it.
+  if (env.SAGA_DEPUTY_CHAT_ID && chatId === env.SAGA_DEPUTY_CHAT_ID && chatId !== boardId) {
+    if (message.from && !message.from.is_bot) await recordDeputy(requireDb(env), String(message.from.id), name(message.from), deps.now());
+    return;
+  }
 
   // The board chat: every text is kept for Saga's overview; a question to her is answered via Jacob's approval.
   if (boardId && chatId === boardId) {

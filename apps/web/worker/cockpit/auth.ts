@@ -88,17 +88,26 @@ const b64 = (text: string) => btoa(String.fromCharCode(...encoder.encode(text)))
 const unb64 = (text: string) => new TextDecoder().decode(Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)));
 
 /** A signed login for one member: who, when it was given and when it ends. */
-export async function personSessionValue(secret: string, member: string, nowMs: number): Promise<string> {
+export const personSessionValue = (secret: string, member: string, nowMs: number) => signedLogin("person", secret, member, nowMs);
+export const readPersonSession = (secret: string | undefined, value: string | undefined, nowMs: number) => readSignedLogin("person", secret, value, nowMs);
+
+/** Requested: "Lad os starte med suppleant adgang". A deputy's login is signed for another purpose and kept in a cookie of its own, so it can
+ * never be read as a board member's login - not even for someone with the same name (cockpit/deputies.ts). */
+export const DEPUTY_COOKIE = "hjerterum_cockpit_deputy";
+export const deputySessionValue = (secret: string, member: string, nowMs: number) => signedLogin("deputy", secret, member, nowMs);
+export const readDeputySession = (secret: string | undefined, value: string | undefined, nowMs: number) => readSignedLogin("deputy", secret, value, nowMs);
+
+async function signedLogin(purpose: "person" | "deputy", secret: string, member: string, nowMs: number): Promise<string> {
   const body = `${b64(member)}.${nowMs}.${nowMs + PERSON_DAYS * 86_400_000}`;
-  return `${body}.${await sign("person", secret, body)}`;
+  return `${body}.${await sign(purpose, secret, body)}`;
 }
 
-export async function readPersonSession(secret: string | undefined, value: string | undefined, nowMs: number): Promise<{ member: string; issuedMs: number } | null> {
+async function readSignedLogin(purpose: "person" | "deputy", secret: string | undefined, value: string | undefined, nowMs: number): Promise<{ member: string; issuedMs: number } | null> {
   if (!secret || !value) return null;
   const parts = value.split(".");
   if (parts.length !== 4 || !/^\d+$/.test(parts[1]!) || !/^\d+$/.test(parts[2]!) || Number(parts[2]) <= nowMs) return null;
   const body = parts.slice(0, 3).join(".");
-  if (!sameText(parts[3]!, await sign("person", secret, body))) return null;
+  if (!sameText(parts[3]!, await sign(purpose, secret, body))) return null;
   try { return { member: unb64(parts[0]!), issuedMs: Number(parts[1]) }; } catch { return null; }
 }
 

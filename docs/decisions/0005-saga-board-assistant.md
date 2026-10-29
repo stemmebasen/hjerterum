@@ -38,7 +38,7 @@ Requested: "Saga can use it to read the temperature and let me know if something
 ## Configuration
 
 Secrets: `SAGA_TELEGRAM_BOT_TOKEN`, `SAGA_TELEGRAM_WEBHOOK_SECRET`, `SAGA_LIVA_SECRET`, `AI_API_KEY`, `ELEVENLABS_API_KEY`, `GOOGLE_SERVICE_ACCOUNT_JSON`.
-Variables: `SAGA_TELEGRAM_BOT_USERNAME`, `SAGA_BOARD_CHAT_ID`, `SAGA_OWNER_TELEGRAM_ID`, `AI_BASE_URL` (OpenAI-compatible, default OpenAI), `AI_MODEL`, `GOOGLE_DRIVE_RECORDINGS_FOLDER_ID`, `GOOGLE_DRIVE_MINUTES_FOLDER_ID`.
+Variables: `SAGA_TELEGRAM_BOT_USERNAME`, `SAGA_BOARD_CHAT_ID`, `SAGA_DEPUTY_CHAT_ID` (optional: the deputies' group - see `cockpit/deputies.ts`; without it there are no deputy logins), `SAGA_OWNER_TELEGRAM_ID`, `AI_BASE_URL` (OpenAI-compatible, default OpenAI), `AI_MODEL`, `GOOGLE_DRIVE_RECORDINGS_FOLDER_ID`, `GOOGLE_DRIVE_MINUTES_FOLDER_ID`.
 
 Until the bot token and owner are set, Saga does nothing. The bot needs privacy mode turned off in BotFather to see the group's messages.
 
