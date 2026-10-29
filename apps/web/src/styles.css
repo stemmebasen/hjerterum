@@ -1006,3 +1006,8 @@ h3 { font-size: 25px; line-height: 1.2; }
 .hj-no-photo :is(.cl-avatarImage, .cl-userButtonAvatarImage, .cl-userPreviewAvatarImage) { opacity: 0 !important; }
 .hj-no-photo :is(.cl-avatarBox, .cl-userButtonAvatarBox, .cl-userPreviewAvatarBox)::after { content: var(--hj-initials); position: absolute; inset: 0; display: grid; place-items: center; color: var(--lys-accent-ink, #1c1915);
   font: 600 40cqh/1 var(--lys-sans, Inter, system-ui, sans-serif); letter-spacing: .02em; pointer-events: none; }
+
+/* Reported (iPhone): "Den bevæger sig ud af billedet" - Safari zooms the page in when a field with text under 16 px is tapped, and Saga's
+   window slid off the screen. Her field writes in 16 px, so nothing zooms. */
+.saga-panel textarea { font-size: 16px; }
+.saga-widget { max-width: calc(100vw - 24px); }
