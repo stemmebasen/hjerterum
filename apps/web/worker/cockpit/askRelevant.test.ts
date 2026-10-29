@@ -99,6 +99,23 @@ describe("only what the question needs", () => {
     expect(sectionsFor("Hvad siger vedtægterne om stemmeret? Og hvad med suppleanterne?").has("vedtaegter")).toBe(true);
   });
 
+  // Requested: "Kan du give Saga viden om Cirkler" - "Som medlem af Hjerterum kan man deltage i Cirkler. Cirkler hed før Tribes".
+  it("knows CIRKLER - also by its old name, Tribes - when the question is about it", async () => {
+    for (const question of ["Hvad er Cirkler?", "Kan vores medlemmer være med i cirklerne?", "Hvad skete der med Tribes?", "Hvem er cirkelleder?", "Hvad er månedens månedstema?"])
+      expect(sectionsFor(question).has("cirkler"), question).toBe(true);
+    expect(sectionsFor("Hvad koster et medlemskab?").has("cirkler")).toBe(false);
+    const db = testDatabase();
+    const env = sagaEnv(db);
+    const services = fakeServices({});
+    const asked = await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad er Cirkler?", new Set(["cirkler"]));
+    expect(asked).toContain("CIRKLER (tidligere Tribes)");
+    expect(asked).toContain("Standard, Generøst og Reduceret pris");
+    expect(asked).toContain("395 kr. om måneden");
+    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvem har ansvar?", new Set())).not.toContain("CIRKLER (tidligere Tribes)");
+    // Asked about what membership gives, she can name CIRKLER.
+    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad koster et medlemskab?", new Set(["medlemskab"]))).toContain("Gratis deltagelse i CIRKLER");
+  });
+
   it("leaves the heavy parts out unless they are named - and gives the whole pack when nothing is said", async () => {
     const db = testDatabase();
     const env = sagaEnv(db);

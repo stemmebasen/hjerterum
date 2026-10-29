@@ -26,6 +26,8 @@ export const MEMBERSHIP_FACTS = [
   "- Rabat på økologisk specialkaffe, andre specialdrikke og biodynamisk kage/snacks i caféen hver torsdag eftermiddag og til andre arrangementer.",
   "- Tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.",
   "- Mulighed for at deltage i foreningen med bidrag, idéer og ønsker - og man støtter Hjerterum økonomisk.",
+  // Requested: "Som medlem af Hjerterum kan man deltage i Cirkler" - the details are Saga's CIRKLER section (cockpit/cirkler.ts).
+  "- Gratis deltagelse i CIRKLER (cirkler.net, tidligere Tribes): små faste fællesskaber, der mødes én gang om måneden i et år. Gælder Standard, Generøst og Reduceret pris - ikke Support. Tilmelding fra medlemsområdet.",
   "VILKÅR (står på holistisk.org):",
   "- Medlemskabet er personligt og kan ikke overdrages eller deles.",
   "- Betaling med Dankort/VISA-Dankort, VISA, VISA Electron og Mastercard. Første betaling trækkes ved tilmelding, derefter automatisk dagen før en ny periode.",
