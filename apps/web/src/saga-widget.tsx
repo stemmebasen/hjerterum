@@ -1,20 +1,62 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
+import { cropCover } from "./cover-crop";
+import { SIGNUP_URL } from "../site/pages";
 
 /** Requested: "Vi skal have en Saga chatwidget på medlemssiden. Hun skal poppe op på Opret event-siden efter 15 sekunder og spørge brugeren,
  * om han/hun har brug for hjælp til at sætte eventet op. Hun skal også tilbyde at gøre det for brugeren." Not on phones by itself
- * ("Chat skal ikke poppe op på mobiler"); once a visit; a draft fills the form on Opret event, and the member still presses Opret. */
+ * ("Chat skal ikke poppe op på mobiler"); once a visit.
+ *
+ * Then: "Sørg for at implementer Saga chat widget på alle tre sider - og med de permissions der giver mening for de tre. Saga skal kunne
+ * hjælpe med opsætning af event i medlem. og også kunne modtage billeder direkte i chatten. Hun skal være yderst hjælpsom og kunne bringe
+ * eventet online (hvis hun vurderer det passer til hjerterum). På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe med
+ * både medlemskab og event opsætning men skal bede brugeren om at blive medlem og logge ind først. Kan hun huske samtalen før og efter login".
+ * - mode "public": the website, no login (worker/web-saga.ts). No photos, no drafts; her answer can carry a button to become a member or log in.
+ * - mode "member": the member area (worker/member-saga.ts). A member with benefits gets drafts, photos, and "Opret og læg online"
+ *   (worker/member-saga-event.ts); someone logged in without such a membership gets the website's help to become one.
+ * The conversation is kept on the server; its id is kept here and rides in the login link (?saga=) from www. to medlem. */
 export type SagaDraft = { title: string; description: string; date: string; start: string; end: string; booking_type: "standard" | "reduced" | "free";
   max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null };
 /** Requested: "Man skal også kunne uploade fotos, som Saga skal godkende i forhold til kvalitet, format og opløsning." The browser
- * measures the photo and sends Saga a smaller copy to look at; an approved photo can become the event's cover on Opret event. */
+ * measures the photo and sends Saga a smaller copy to look at; an approved photo can become the event's cover. */
 type Photo = { file: File; preview: string; dataUrl: string; width: number; height: number };
-type Message = { role: "user" | "assistant"; text: string; draft?: SagaDraft | null; photo?: Photo; photoOk?: boolean; forPhoto?: Photo };
+type Action = "login" | "membership";
+type Message = { role: "user" | "assistant"; text: string; draft?: SagaDraft | null; photo?: Photo; photoOk?: boolean; forPhoto?: Photo; action?: Action | null; created?: boolean };
 
 export const DRAFT_EVENT = "saga-event-draft";
 /** An approved photo for the event being created: event-files' cover crop takes it from here (workspaces.tsx). */
 export const COVER_EVENT = "saga-event-cover";
+/** Saga created an event: Mine events reloads its list. */
+export const CREATED_EVENT = "saga-event-created";
 const LOOK_SIZE = 1280;
+const CONVERSATION = "saga_conversation";
+const CONVERSATION_ID = /^[A-Za-z0-9_-]{22,64}$/;
+
+export function storedConversation(): string | null {
+  try { const id = localStorage.getItem(CONVERSATION); return id && CONVERSATION_ID.test(id) ? id : null; } catch { return null; }
+}
+function storeConversation(id: string | null | undefined) {
+  if (!id || !CONVERSATION_ID.test(id)) return;
+  try { localStorage.setItem(CONVERSATION, id); } catch { /* the conversation is then kept for this page only */ }
+}
+
+/** On every page load: a conversation id in the address (?saga=, from the website's login link) is kept, and taken out of the address. */
+export function captureSagaConversation(): void {
+  try {
+    const url = new URL(window.location.href);
+    const id = url.searchParams.get("saga");
+    if (!id) return;
+    storeConversation(id);
+    url.searchParams.delete("saga");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  } catch { /* ignore */ }
+}
+
+/** The login link that carries the conversation along to the member area (medlem.), landing on Mine events. */
+export function sagaLoginHref(target = "/member-portal/events"): string {
+  const id = storedConversation();
+  return id ? `${target}${target.includes("?") ? "&" : "?"}saga=${encodeURIComponent(id)}` : target;
+}
 
 async function preparePhoto(file: File): Promise<Photo | null> {
   let bitmap: ImageBitmap;
@@ -33,38 +75,70 @@ export function takePendingDraft(): SagaDraft | null {
   try { const raw = sessionStorage.getItem(PENDING); sessionStorage.removeItem(PENDING); return raw ? JSON.parse(raw) as SagaDraft : null; } catch { return null; }
 }
 
-export function SagaWidget({ clerk, firstName, path }: { clerk: ClerkBrowser; firstName: string; path: string }) {
-  const onEvents = path.replace(/\/+$/, "") === "/member-portal/events";
-  const greeting = `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`;
+/** What she said before, without the notes the server keeps for her ([Udkast: ...], [Foto ...]). */
+const shown = (text: string) => text.replace(/\s*\[(?:Udkast|Foto|Trykkede)[^\]]*\]/g, "").trim();
+
+type Props = { mode: "public"; path: string } | { mode: "member"; path: string; clerk: ClerkBrowser; firstName: string; canCreate: boolean };
+
+export function SagaWidget(props: Props) {
+  const { mode, path } = props;
+  const member = props.mode === "member" ? props : null;
+  const canCreate = Boolean(member?.canCreate);
+  const firstName = member?.firstName ?? "";
+  const onEvents = mode === "member" && path.replace(/\/+$/, "") === "/member-portal/events";
+  const greeting = mode === "public"
+    ? "Hej! Jeg er Saga, Hjerterums assistent. Spørg mig om huset, events, medlemskab eller leje af salen – og vil du lave dit eget event, hjælper jeg dig gerne i gang."
+    : onEvents && canCreate ? `Hej${firstName ? " " + firstName : ""}! Har du brug for hjælp til at sætte dit event op? Jeg kan også gøre det hele for dig – fortæl mig bare, hvad du har i tankerne: hvad, hvornår og for hvem.`
+    : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen${canCreate ? " – eller lad mig sætte et event op for dig" : ""}.`;
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: onEvents ? greeting : `Hej${firstName ? " " + firstName : ""}! Jeg er Saga. Spørg mig om alt i Hjerterum – medlemskab, events, salen, foreningen – eller lad mig sætte et event op for dig.` }]);
+  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", text: greeting }]);
+  const [conversation, setConversation] = useState<string | null>(() => storedConversation());
+  const [loaded, setLoaded] = useState(false);
+  const [approved, setApproved] = useState<Photo | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const endpoint = mode === "public" ? "/api/site/saga/chat" : "/api/members/saga/chat";
+  const call = (input: string, init: RequestInit = {}) => member ? apiFetch(member.clerk, input, init) : fetch(input, init);
+
   useEffect(() => {
     if (!onEvents || window.matchMedia("(max-width: 760px)").matches) return;
     try { if (sessionStorage.getItem(POPPED)) return; } catch { /* no storage: still pop once */ }
     const timer = window.setTimeout(() => { setOpen(true); try { sessionStorage.setItem(POPPED, "1"); } catch { /* ignore */ } }, 15_000);
     return () => window.clearTimeout(timer);
   }, [onEvents]);
+  // Requested: "Kan hun huske samtalen før og efter login": the conversation so far, from the server, the first time she opens.
+  useEffect(() => {
+    if (!open || loaded) return;
+    setLoaded(true);
+    if (mode === "public" && !conversation) return;
+    void call(`${endpoint}${conversation ? `?conversation=${encodeURIComponent(conversation)}` : ""}`).then(async (response) => {
+      if (!response.ok) return;
+      const body = await response.json().catch(() => ({})) as { conversation?: string | null; messages?: Array<{ role: "user" | "assistant"; text: string }> };
+      if (body.conversation) { storeConversation(body.conversation); setConversation(body.conversation); }
+      const before = (body.messages ?? []).map((m) => ({ role: m.role, text: shown(m.text) })).filter((m) => m.text);
+      if (before.length) setMessages((now) => [...before, ...now.slice(1), ...(now.length === 1 ? [{ role: "assistant" as const, text: mode === "member" ? "Velkommen tilbage – vi kan fortsætte, hvor vi slap." : "Velkommen tilbage!" }] : [])]);
+    }).catch(() => undefined);
+  }, [open]);
   useEffect(() => { list.current?.scrollTo({ top: list.current.scrollHeight }); }, [messages, open]);
+
   async function send(photo?: Photo) {
     const question = text.trim() || (photo ? "Kan du se på dette foto til mit event?" : "");
     if (!question || busy) return;
     const next: Message[] = [...messages, { role: "user", text: question, ...(photo ? { photo } : {}) }];
     setMessages(next); setText(""); setBusy(true);
     try {
-      const response = await apiFetch(clerk, "/api/members/saga/chat", { method: "POST", headers: { "content-type": "application/json" },
+      const response = await call(endpoint, { method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          // Earlier photos are only named, so each one is looked at once.
-          page: path,
-          messages: next.map(({ role, text, photo: p }) => ({ role, text: p && p !== photo ? `${text} [Foto: ${p.file.name}, ${p.width} × ${p.height} px]` : text })),
+          conversation, text: question, page: path,
           ...(photo ? { photo: { dataUrl: photo.dataUrl, name: photo.file.name, type: photo.file.type, bytes: photo.file.size, width: photo.width, height: photo.height } } : {})
         }) });
-      const body = await response.json().catch(() => ({})) as { reply?: string; draft?: SagaDraft | null; photo?: { ok: boolean } | null; error?: string };
-      setMessages([...next, { role: "assistant", text: body.reply ?? (body.error === "membership_required" ? "Jeg kan hjælpe, når dit medlemskab med medlemsfordele er aktivt." : "Jeg kan ikke svare lige nu. Prøv igen om lidt."),
-        draft: body.draft ?? null, ...(photo && body.photo ? { photoOk: body.photo.ok, forPhoto: photo } : {}) }]);
+      const body = await response.json().catch(() => ({})) as { conversation?: string; reply?: string; draft?: SagaDraft | null; photo?: { ok: boolean } | null; action?: Action | null; error?: string };
+      if (body.conversation) { storeConversation(body.conversation); setConversation(body.conversation); }
+      if (photo && body.photo?.ok) setApproved(photo);
+      setMessages([...next, { role: "assistant", text: body.reply ?? "Jeg kan ikke svare lige nu. Prøv igen om lidt.",
+        draft: canCreate ? body.draft ?? null : null, action: body.action ?? null, ...(photo && body.photo ? { photoOk: body.photo.ok, forPhoto: photo } : {}) }]);
     } catch { setMessages([...next, { role: "assistant", text: "Jeg kan ikke svare lige nu. Prøv igen om lidt." }]); }
     finally { setBusy(false); }
   }
@@ -83,25 +157,60 @@ export function SagaWidget({ clerk, firstName, path }: { clerk: ClerkBrowser; fi
     try { sessionStorage.setItem(PENDING, JSON.stringify(draft)); } catch { /* ignore */ }
     window.location.assign("/member-portal/events");
   }
+  /** "Opret og læg online": the member's yes. Saga creates the event with the approved photo, and judges at once whether it goes online. */
+  async function create(draft: SagaDraft, index: number) {
+    if (!member || busy) return;
+    setBusy(true);
+    setMessages((m) => m.map((x, i) => i === index ? { ...x, created: true } : x));
+    try {
+      const form = new FormData();
+      if (conversation) form.append("conversation", conversation);
+      form.append("draft", JSON.stringify(draft));
+      let photoNote = "";
+      if (approved) {
+        const cropped = await cropCover(approved.file);
+        if (cropped.ok) form.append("cover", cropped.file); else photoNote = ` (Fotoet kunne ikke beskæres: ${cropped.reason})`;
+      }
+      const response = await apiFetch(member.clerk, "/api/members/saga/event", { method: "POST", body: form });
+      const body = await response.json().catch(() => ({})) as { conversation?: string; reply?: string; id?: number; error?: string };
+      if (body.conversation) { storeConversation(body.conversation); setConversation(body.conversation); }
+      if (body.id) { setApproved(null); window.dispatchEvent(new CustomEvent(CREATED_EVENT, { detail: body.id })); }
+      else setMessages((m) => m.map((x, i) => i === index ? { ...x, created: false } : x));
+      setMessages((m) => [...m, { role: "assistant", text: (body.reply ?? "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt.") + photoNote }]);
+    } catch {
+      setMessages((m) => [...m.map((x, i) => i === index ? { ...x, created: false } : x), { role: "assistant", text: "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt." }]);
+    } finally { setBusy(false); }
+  }
   return (
     <div className={"saga-widget" + (open ? " is-open" : "")}>
       {open && <section className="saga-panel" aria-label="Spørg Saga">
         <header><strong>Spørg Saga</strong><span>Hjerterums assistent</span><button type="button" aria-label="Luk" onClick={() => setOpen(false)}>×</button></header>
         <div className="saga-messages" ref={list}>
           {messages.map((m, i) => <div key={i} className={"saga-msg " + m.role}>{m.photo && <img className="saga-photo" src={m.photo.preview} alt="" />}<p>{m.text}</p>
-            {m.forPhoto && m.photoOk && onEvents && <div className="saga-draft"><span>Fotoet er godkendt.</span>
-              <button type="button" className="pill-button dark" onClick={() => applyCover(m.forPhoto!)}>Brug som eventfoto</button></div>}
+            {m.forPhoto && m.photoOk && <div className="saga-draft"><span>Fotoet er godkendt{canCreate ? " og kommer med, når du opretter eventet her" : ""}.</span>
+              {onEvents && <button type="button" className="pill-button dark" onClick={() => applyCover(m.forPhoto!)}>Brug i formularen</button>}</div>}
             {m.draft && <div className="saga-draft"><b>{m.draft.title}</b><span>{m.draft.date} · {m.draft.start}–{m.draft.end}</span>
-              <button type="button" className="pill-button dark" onClick={() => fill(m.draft!)}>Udfyld formularen</button></div>}</div>)}
+              <span className="saga-note">"Opret og læg online" reserverer salen{approved ? " med det godkendte foto" : ""}. Passer eventet til Hjerterum, kommer det online med det samme.</span>
+              <div className="saga-actions">
+                <button type="button" className="pill-button dark" disabled={busy || m.created} onClick={() => void create(m.draft!, i)}>{m.created ? "Oprettet" : "Opret og læg online"}</button>
+                <button type="button" className="pill-button" disabled={busy} onClick={() => fill(m.draft!)}>Udfyld formularen</button>
+              </div></div>}
+            {m.action && <div className="saga-actions">
+              {m.action === "membership" && <a className="pill-button dark" href={SIGNUP_URL} target="_blank" rel="noopener noreferrer">Bliv medlem</a>}
+              {(m.action === "login" || (m.action === "membership" && mode === "public")) && <a className="pill-button" href={sagaLoginHref()}>Log ind</a>}
+            </div>}</div>)}
           {busy && <div className="saga-msg assistant"><p className="saga-typing">Saga skriver …</p></div>}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); void send(); }}>
-          <input ref={picker} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void pickPhoto(f); }} />
-          <button type="button" className="saga-attach" disabled={busy} onClick={() => picker.current?.click()} aria-label="Vedhæft foto til Saga" title="Vedhæft et foto, så ser Saga på det">Foto</button>
+          {canCreate && <>
+            <input ref={picker} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void pickPhoto(f); }} />
+            <button type="button" className="saga-attach" disabled={busy} onClick={() => picker.current?.click()} aria-label="Vedhæft foto til Saga" title="Vedhæft et foto, så ser Saga på det">Foto</button>
+          </>}
           <textarea rows={2} value={text} placeholder="Spørg Saga …" onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void send(); } }} />
           <button className="pill-button dark" disabled={busy || !text.trim()}>Send</button>
         </form>
+        <p className="saga-privacy">Saga er en AI. Hun husker samtalen i op til 30 dage – også når du logger ind – men ikke dine fotos.</p>
       </section>}
       {!open && <button type="button" className="saga-bubble" onClick={() => setOpen(true)} aria-label="Spørg Saga">Spørg Saga</button>}
     </div>

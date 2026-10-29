@@ -11,7 +11,7 @@ import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
 import { ProgramGuide } from "./program-guide";
-import { COVER_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
+import { COVER_EVENT, CREATED_EVENT, DRAFT_EVENT, SagaWidget, takePendingDraft, type SagaDraft } from "./saga-widget";
 import { cropCover } from "./cover-crop";
 import { eventPagePath } from "./event-page";
 import { LegalLine } from "./site-pages";
@@ -334,6 +334,12 @@ function MemberEvents({
     window.addEventListener(DRAFT_EVENT, take);
     return () => window.removeEventListener(DRAFT_EVENT, take);
   }, []);
+  // An event Saga created in the chat shows up in the list at once.
+  useEffect(() => {
+    const take = () => { void reload(); };
+    window.addEventListener(CREATED_EVENT, take);
+    return () => window.removeEventListener(CREATED_EVENT, take);
+  }, [reload]);
   // A photo Saga approved becomes the cover, cut to 1920 × 1005 like a picked one.
   useEffect(() => {
     const take = async (event: Event) => {
@@ -993,7 +999,9 @@ export function MemberWorkspace({
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} nonMember={trial} />
         ) : <MemberOverview member={member} calendar={calendar} clerk={clerk} />}
       <footer className="member-foot"><LegalLine /></footer>
-      {member && !loading && includesMemberBenefits(member.tier) && <SagaWidget clerk={clerk} path={path} firstName={member.fullName.trim().split(/\s+/)[0] ?? ""} />}
+      {/* Requested: Saga on all three sites. Everyone logged in meets her; only a member with benefits can have an event made (worker/member-saga.ts). */}
+      {!loading && <SagaWidget mode="member" clerk={clerk} path={path} canCreate={Boolean(member && includesMemberBenefits(member.tier))}
+        firstName={(member?.fullName ?? user.firstName ?? "").trim().split(/\s+/)[0] ?? ""} />}
     </main>
   );
 }

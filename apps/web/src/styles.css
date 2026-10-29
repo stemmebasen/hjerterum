@@ -938,6 +938,13 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-attach:disabled { opacity: .5; cursor: default; }
 .saga-panel form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--lys-line, rgba(255,255,255,.1)); }
 .saga-panel textarea { flex: 1; resize: none; border-radius: 12px; border: 1px solid var(--lys-line, rgba(255,255,255,.15)); background: transparent; color: inherit; padding: 8px 10px; font: inherit; font-size: 14px; }
+/* Requested: Saga on all three sites - two buttons under a draft, the buttons for becoming a member or logging in, and what she keeps. */
+.saga-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.saga-actions .pill-button { min-height: 34px; padding: 0 14px; font-size: 13px; cursor: pointer; }
+.saga-actions .pill-button:not(.dark) { background: transparent; color: inherit; border-color: var(--lys-line, rgba(255,255,255,.25)); }
+.saga-note { font-size: 12px; opacity: .8; }
+.saga-privacy { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--lys-muted, #a69d92); }
+.saga-panel { grid-template-rows: auto 1fr auto auto; }
 /* En behandlers egen side: rundt foto til højre for navnet. */
 .profile-page-side { display: flex; justify-content: flex-end; }
 .profile-page-photo { width: 220px; height: 220px; border-radius: 24px; object-fit: cover; }

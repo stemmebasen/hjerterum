@@ -18,8 +18,11 @@ import "./styles.css";
 import "./lys-spa.css";
 import { injectLys, LysTop } from "./lys";
 import { countVisit } from "./visits";
+import { captureSagaConversation, SagaWidget, sagaLoginHref } from "./saga-widget";
 
 injectLys();
+// Requested: "Kan hun huske samtalen før og efter login" - the conversation's id from the website's login link (saga-widget.tsx).
+captureSagaConversation();
 
 type PublicBooking = {
   id: number;
@@ -98,7 +101,7 @@ function useClerk() {
 /** Requested: "Menuen skal pakkes ind i en hamburger" - on a phone the menu opens from a button beside Log ind. */
 function SiteHeader({ current }: { current?: Section | undefined }) {
   const [open, setOpen] = useState(false);
-  return <LysTop right={<><LanguageSwitch /><a className="lys-pill" href="/sign-in">Log ind</a>
+  return <LysTop right={<><LanguageSwitch /><a className="lys-pill" href={sagaLoginHref("/sign-in")}>Log ind</a>
     <button type="button" className={"site-burger" + (open ? " is-open" : "")} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Luk menuen" : "Åbn menuen"}
       onClick={() => setOpen(!open)}><span /><span /><span /></button></>}><SiteNav current={current} open={open} /></LysTop>;
 }
@@ -363,12 +366,13 @@ function App() {
   if (path === "/member-portal" || path.startsWith("/member-portal/")) {
     if (!loaded) return <main className="auth-shell"><p>Åbner Hjerterum …</p></main>;
     if (!clerk) return <AuthPage clerk={null} mode="sign-in" />;
-    if (!user) return <AuthPage clerk={clerk} mode="sign-in" />;
+    if (!user) return <AuthPage clerk={clerk} mode="sign-in" redirectUrl={path} />;
     return <MemberWorkspace clerk={clerk} user={user} path={path} />;
   }
 
-  if (path !== "/") return <PublicContentPage path={path} />;
-  return <PublicHome />;
+  // Requested: "Sørg for at implementer Saga chat widget på alle tre sider" - on the website without login (saga-widget.tsx, worker/web-saga.ts).
+  if (path !== "/") return <><PublicContentPage path={path} /><SagaWidget mode="public" path={path} /></>;
+  return <><PublicHome /><SagaWidget mode="public" path="/" /></>;
 }
 
 const root = document.getElementById("root");
