@@ -557,6 +557,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 @media (max-width: 760px) { .site-body.is-article .site-prose { font-size: 17px; } }
 
 /* The member area's sign-in with a code (code-sign-in.tsx): one calm card, the e-mail, then the code. */
+/* Reported: "Login boksen og login vinduet flytter sig også og skifter størrelse" - the card stands at the same height whatever is in it. */
+.auth-shell .auth-card { min-height: 0; place-items: start center; }
+.code-signin-clerk-form, .code-signin-clerk-form .cl-rootBox { width: 100%; }
+.code-signin-clerk .code-signin-foot { margin-top: 0; }
 .code-signin { display: grid; gap: 16px; width: min(440px, calc(100% - 32px)); margin: 0 auto; padding: clamp(28px, 5vw, 44px); background: var(--lys-surface); border: 1px solid var(--lys-line); border-radius: var(--lys-radius); box-shadow: var(--lys-shadow); }
 .code-signin h1 { margin: 0; font: italic 400 clamp(36px, 6vw, 48px)/1.05 var(--lys-serif); color: var(--lys-ink); }
 .code-signin .lys-kicker { margin: 0; }
