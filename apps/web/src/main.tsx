@@ -121,7 +121,11 @@ const CLERK_IN_CARD = { elements: {
   card: { width: "100%", padding: "0", boxShadow: "none", border: "none", background: "transparent", gap: "18px" },
   header: { display: "none" },
   footer: { background: "transparent", padding: "8px 0 0", margin: "0" },
-  footerAction: { padding: "0" }
+  footerAction: { padding: "0" },
+  // The code login's own field and button (lys-spa.css .code-signin-field, .code-signin-btn).
+  formFieldLabel: { font: "600 13px/1.2 var(--lys-sans)", letterSpacing: ".04em", color: "var(--lys-muted)" },
+  formFieldInput: { minHeight: "54px", padding: "0 16px", fontSize: "17px", borderRadius: "12px" },
+  formButtonPrimary: { minHeight: "52px", borderRadius: "999px", fontSize: "16px", fontWeight: "600" }
 } };
 
 function AuthPage({
@@ -164,7 +168,8 @@ function AuthPage({
         : !clerk ? <CodeSignInPlaceholder message="Login kan ikke åbnes lige nu. Prøv igen om lidt." />
         : clerkForm ? <div className="code-signin code-signin-clerk">
           <p className="lys-kicker">Medlemsområde</p>
-          <h1>{mode === "sign-up" ? "Opret dig" : "Log ind med adgangskode"}</h1>
+          <h1>{mode === "sign-up" ? "Opret dig" : "Log ind"}</h1>
+          <p className="code-signin-lead">{mode === "sign-up" ? "Det tager et øjeblik. Bagefter logger du ind med en kode på mail." : "Med din e-mail og adgangskode."}</p>
           <div ref={ref} className="code-signin-clerk-form" />
           <p className="code-signin-foot">
             {mode === "sign-up" ? <a className="code-signin-link" href="/sign-in">Har du en bruger? Log ind</a>
