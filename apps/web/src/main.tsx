@@ -101,7 +101,7 @@ function useClerk() {
 /** Requested: "Menuen skal pakkes ind i en hamburger" - on a phone the menu opens from a button beside Log ind. */
 function SiteHeader({ current }: { current?: Section | undefined }) {
   const [open, setOpen] = useState(false);
-  return <LysTop right={<><LanguageSwitch /><a className="lys-pill" href={sagaLoginHref("/sign-in")}>Log ind</a>
+  return <LysTop right={<><LanguageSwitch english={current === "en"} /><a className="lys-pill" href={sagaLoginHref("/sign-in")}>Log ind</a>
     <button type="button" className={"site-burger" + (open ? " is-open" : "")} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Luk menuen" : "Åbn menuen"}
       onClick={() => setOpen(!open)}><span /><span /><span /></button></>}><SiteNav current={current} open={open} /></LysTop>;
 }

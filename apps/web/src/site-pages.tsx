@@ -58,8 +58,10 @@ function SectionTabs({ page }: { page: SitePage }) {
   </nav>;
 }
 
-/** "EN" beside Log ind instead of "English" in the menu. */
-export function LanguageSwitch() {
+/** "EN" beside Log ind instead of "English" in the menu. Requested: "Make it possible to come back to the Danish version
+ * after having clicked the English version" - on the English pages it says "DA" and leads to the Danish front page. */
+export function LanguageSwitch({ english = false }: { english?: boolean }) {
+  if (english) return <a className="site-lang" href="/" lang="da" hrefLang="da" title="Dansk" aria-label="Dansk">DA</a>;
   return <a className="site-lang" href={ENGLISH.href} lang="en" hrefLang="en" title={ENGLISH.title} aria-label={ENGLISH.title}>{ENGLISH.label}</a>;
 }
 
@@ -266,7 +268,11 @@ function SiteHero({ coming }: { coming?: ReactNode }) {
       <p className="lys-kicker nl-motto">Et rum for det menneskelige</p>
       <p className="lys-hero-actions"><a className="lys-btn" href="/events">Se hele kalenderen</a><a className="lys-btn ghost" href="/medlemskab">Bliv medlem</a></p>
     </div>
-    <div className="nl-hero-img"><img src="/media/2026-10-hjerterum-venstre.webp" alt="Øjeblikke fra Hjerterum: lydhealing med tromme, afspænding på måtter og en stund ved bogreolen" />{coming}</div>
+    <div className="nl-hero-img">
+      {/* Requested: "make the edges a little bit more fluent and soft" - the collage's three photos, each with its own soft corners. */}
+      <div className="nl-hero-tiles" role="img" aria-label="Øjeblikke fra Hjerterum: lydhealing med tromme, afspænding på måtter og en stund ved bogreolen">
+        <img src="/media/2026-10-hjerterum-tromme.webp" alt="" /><img src="/media/2026-10-hjerterum-maatter.webp" alt="" /><img src="/media/2026-10-hjerterum-reol.webp" alt="" />
+      </div>{coming}</div>
   </section>;
 }
 
