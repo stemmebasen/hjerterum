@@ -97,16 +97,17 @@ async function initializeClerk(): Promise<ClerkBrowser | null> {
     ui: { ClerkUI: window.__internal_ClerkUICtor },
     localization: CLERK_LOCALIZATION,
     appearance: { variables: {
-      fontFamily: "Inter, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      // The login card's own type and fields (lys-spa.css .code-signin), so Clerk's forms look like the code login.
+      fontFamily: "var(--lys-sans, Inter, system-ui, sans-serif)",
       colorPrimary: "var(--profile-button)",
       colorPrimaryForeground: "var(--profile-button-ink)",
       colorBackground: "var(--profile-surface)",
       colorForeground: "var(--ink)",
       colorMutedForeground: "var(--muted)",
-      colorInput: "var(--profile-surface)",
+      colorInput: "var(--lys-bg, var(--profile-surface))",
       colorInputForeground: "var(--ink)",
       colorBorder: "var(--profile-line)",
-      borderRadius: "1rem"
+      borderRadius: "0.75rem"
     } },
     signInUrl: "/sign-in",
     signUpUrl: "/sign-up",

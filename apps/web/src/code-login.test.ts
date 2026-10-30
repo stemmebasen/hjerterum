@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkCode, sendCode, type CodeLoginClerk, type SignInAttempt } from "./code-login";
+import { checkCode, resetLogin, sendCode, STALE_MESSAGE, type CodeLoginClerk, type SignInAttempt } from "./code-login";
 
 // The member area's sign-in with a code by e-mail.
 
@@ -50,5 +50,22 @@ describe("signing in with a code", () => {
     const { clerk } = fakeClerk();
     const sent = await sendCode(clerk, "jacob@example.dk");
     expect(await checkCode(clerk, (sent as { attempt: SignInAttempt }).attempt, "123")).toEqual({ ok: false, message: "Koden har 6 cifre." });
+  });
+
+  it("knows an old login that no longer counts (signed_out), and lets go of it", async () => {
+    const calls: string[] = [];
+    const stale: CodeLoginClerk = {
+      client: { signIn: { async create() { throw { errors: [{ code: "signed_out" }] }; } }, async destroy() { calls.push("destroy"); } },
+      async setActive() {}, async signOut() { calls.push("signOut"); throw new Error("already out"); }
+    };
+    expect(await sendCode(stale, "jacob@example.dk")).toEqual({ ok: false, message: STALE_MESSAGE, stale: true });
+    const written: string[] = [];
+    const doc = { location: { hostname: "medlem.hjerterum.info" }, get cookie() { return "__client_uat=1793; __client_uat_Y5wcU_8V=1793; __session=abc; other=1"; }, set cookie(value: string) { written.push(value); } };
+    await resetLogin(stale, doc);
+    expect(calls).toEqual(["destroy", "signOut"]);
+    expect(written).toContain("__client_uat=; Max-Age=0; Path=/; Domain=hjerterum.info");
+    expect(written).toContain("__client_uat_Y5wcU_8V=; Max-Age=0; Path=/; Domain=medlem.hjerterum.info");
+    expect(written).toContain("__session=; Max-Age=0; Path=/");
+    expect(written.some(w => w.startsWith("other="))).toBe(false);
   });
 });

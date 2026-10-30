@@ -12,7 +12,8 @@ import { StrictMode, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
-import { CodeSignIn } from "./code-sign-in";
+import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
+import { resetLogin } from "./code-login";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
 import "./lys-spa.css";
@@ -64,12 +65,17 @@ type CalendarEvent = {
   category?: string | null;
 };
 
-function useClerk() {
+/** Reported: "Der er så mange problemer med login" ("You are signed out"). The login (Clerk) belongs to medlem.<domain>, so it is
+ * loaded only where it is used - signing in and up, the member area and admin - and never on the public website's pages. */
+const CLERK_PATHS = /^\/(?:sign-in|login|sign-up|signup|admin|member-portal)(?:\/|$)/;
+
+function useClerk(wanted: boolean) {
   const [clerk, setClerk] = useState<ClerkBrowser | null>(null);
   const [user, setUser] = useState<ClerkUser | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(!wanted);
 
   useEffect(() => {
+    if (!wanted) return;
     let active = true;
     let unsubscribe: (() => void) | undefined;
 
@@ -93,7 +99,7 @@ function useClerk() {
       active = false;
       unsubscribe?.();
     };
-  }, []);
+  }, [wanted]);
 
   return { clerk, user, loaded };
 }
@@ -106,12 +112,30 @@ function SiteHeader({ current }: { current?: Section | undefined }) {
       onClick={() => setOpen(!open)}><span /><span /><span /></button></>}><SiteNav current={current} open={open} /></LysTop>;
 }
 
+/** Clerk's own forms (password, sign-up) inside Hjerterum's login card: no card, frame or heading of their own, so the box keeps
+ * its place, width and look when the member switches between the code and the password. Reported: "Login boksen og login
+ * vinduet flytter sig også og skifter størrelse" - "Og skifter design". */
+const CLERK_IN_CARD = { elements: {
+  rootBox: { width: "100%" },
+  cardBox: { width: "100%", maxWidth: "100%", boxShadow: "none", border: "none", borderRadius: "0", background: "transparent" },
+  card: { width: "100%", padding: "0", boxShadow: "none", border: "none", background: "transparent", gap: "18px" },
+  header: { display: "none" },
+  footer: { background: "transparent", padding: "8px 0 0", margin: "0" },
+  footerAction: { padding: "0" },
+  // The code login's own field and button (lys-spa.css .code-signin-field, .code-signin-btn).
+  formFieldLabel: { font: "600 13px/1.2 var(--lys-sans)", letterSpacing: ".04em", color: "var(--lys-muted)" },
+  formFieldInput: { minHeight: "54px", padding: "0 16px", fontSize: "17px", borderRadius: "12px" },
+  formButtonPrimary: { minHeight: "52px", borderRadius: "999px", fontSize: "16px", fontWeight: "600" }
+} };
+
 function AuthPage({
   clerk,
+  loaded = true,
   mode,
   redirectUrl
 }: {
   clerk: ClerkBrowser | null;
+  loaded?: boolean;
   mode: "sign-in" | "sign-up";
   redirectUrl?: string;
 }) {
@@ -122,11 +146,11 @@ function AuthPage({
   useEffect(() => {
     if (!clerk || !ref.current || !clerkForm) return;
     const node = ref.current;
-    if (mode === "sign-in") clerk.mountSignIn(node, redirectUrl ? { forceRedirectUrl: redirectUrl } : undefined);
+    if (mode === "sign-in") clerk.mountSignIn(node, { appearance: CLERK_IN_CARD, ...(redirectUrl ? { forceRedirectUrl: redirectUrl } : {}) });
     else {
       // From "Opret dig med <e-mail>" on the code login: the e-mail is filled in already.
       const emailAddress = new URLSearchParams(window.location.search).get("email")?.trim() ?? "";
-      clerk.mountSignUp(node, { ...(redirectUrl ? { forceRedirectUrl: redirectUrl } : {}), ...(emailAddress ? { initialValues: { emailAddress } } : {}) });
+      clerk.mountSignUp(node, { appearance: CLERK_IN_CARD, ...(redirectUrl ? { forceRedirectUrl: redirectUrl } : {}), ...(emailAddress ? { initialValues: { emailAddress } } : {}) });
     }
     return () => {
       if (mode === "sign-in") clerk.unmountSignIn(node);
@@ -134,19 +158,24 @@ function AuthPage({
     };
   }, [clerk, mode, redirectUrl, clerkForm]);
 
+  const restart = async () => { await resetLogin(clerk); window.location.assign("/sign-in"); };
+
   return (
     <main className="auth-shell">
       <LysTop />
       <div className="auth-card">
-        {!clerk ? (
-          <div className="auth-unavailable">
-            <p className="kicker">Medlemsområde</p>
-            <h1>Login er på vej</h1>
-            <p>Den nye medlemsportal er ved at blive koblet til Hjerterums login.</p>
-          </div>
-        ) : clerkForm ? <div>
-          <div ref={ref} />
-          {password && <p className="code-signin-back"><button type="button" className="code-signin-link" onClick={() => setPassword(false)}>← Log ind med en kode i stedet</button></p>}
+        {!loaded ? <CodeSignInPlaceholder />
+        : !clerk ? <CodeSignInPlaceholder message="Login kan ikke åbnes lige nu. Prøv igen om lidt." />
+        : clerkForm ? <div className="code-signin code-signin-clerk">
+          <p className="lys-kicker">Medlemsområde</p>
+          <h1>{mode === "sign-up" ? "Opret dig" : "Log ind"}</h1>
+          <p className="code-signin-lead">{mode === "sign-up" ? "Det tager et øjeblik. Bagefter logger du ind med en kode på mail." : "Med din e-mail og adgangskode."}</p>
+          <div ref={ref} className="code-signin-clerk-form" />
+          <p className="code-signin-foot">
+            {mode === "sign-up" ? <a className="code-signin-link" href="/sign-in">Har du en bruger? Log ind</a>
+              : <button type="button" className="code-signin-link" onClick={() => setPassword(false)}>← Log ind med en kode i stedet</button>}
+            <button type="button" className="code-signin-link" onClick={() => void restart()}>Problemer? Nulstil login</button>
+          </p>
         </div> : <CodeSignIn clerk={clerk} signedIn={Boolean(clerk.user)} redirectUrl={redirectUrl} onPassword={() => setPassword(true)} />}
       </div>
     </main>
@@ -346,27 +375,27 @@ function NotFound() {
 }
 
 function App() {
-  const { clerk, user, loaded } = useClerk();
   const path = window.location.pathname;
+  const { clerk, user, loaded } = useClerk(CLERK_PATHS.test(path));
 
   if (path === "/sign-in" || path.startsWith("/sign-in/") || path === "/login" || path.startsWith("/login/")) {
-    return <AuthPage clerk={clerk} mode="sign-in" />;
+    return <AuthPage clerk={clerk} loaded={loaded} mode="sign-in" />;
   }
   if (path === "/sign-up" || path.startsWith("/sign-up/") || path === "/signup" || path.startsWith("/signup/")) {
-    return <AuthPage clerk={clerk} mode="sign-up" />;
+    return <AuthPage clerk={clerk} loaded={loaded} mode="sign-up" />;
   }
 
   if (path === "/admin" || path.startsWith("/admin/")) {
     if (!loaded) return <main className="auth-shell"><p>Åbner administrationen …</p></main>;
-    if (!clerk) return <AuthPage clerk={null} mode="sign-in" redirectUrl="/admin/" />;
-    if (!user) return <AuthPage clerk={clerk} mode="sign-in" redirectUrl="/admin/" />;
+    if (!clerk) return <AuthPage clerk={null} loaded mode="sign-in" redirectUrl="/admin/" />;
+    if (!user) return <AuthPage clerk={clerk} loaded mode="sign-in" redirectUrl="/admin/" />;
     return <AdminWorkspace clerk={clerk} user={user} path={path} />;
   }
 
   if (path === "/member-portal" || path.startsWith("/member-portal/")) {
     if (!loaded) return <main className="auth-shell"><p>Åbner Hjerterum …</p></main>;
-    if (!clerk) return <AuthPage clerk={null} mode="sign-in" />;
-    if (!user) return <AuthPage clerk={clerk} mode="sign-in" redirectUrl={path} />;
+    if (!clerk) return <AuthPage clerk={null} loaded mode="sign-in" />;
+    if (!user) return <AuthPage clerk={clerk} loaded mode="sign-in" redirectUrl={path} />;
     return <MemberWorkspace clerk={clerk} user={user} path={path} />;
   }
 

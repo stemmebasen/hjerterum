@@ -11,13 +11,15 @@ export type SignInAttempt = {
 };
 
 export type CodeLoginClerk = {
-  client?: { signIn: { create(params: { identifier: string }): Promise<SignInAttempt> } } | null;
+  client?: { signIn: { create(params: { identifier: string }): Promise<SignInAttempt> }; destroy?(): Promise<unknown> } | null;
   setActive(params: { session: string | null }): Promise<void>;
+  signOut?(): Promise<unknown>;
 };
 
 /** signedIn: the browser already has a session (Clerk says "session_exists"), so the member can simply go on. */
 /** notFound: there is no account with the e-mail yet - the member is offered to create one with it. */
-export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string; signedIn?: true; notFound?: true };
+/** stale: Clerk says "signed_out" - the browser holds an old login that no longer counts, so the page resets it (resetLogin). */
+export type Step = { ok: true; attempt: SignInAttempt } | { ok: false; message: string; signedIn?: true; notFound?: true; stale?: true };
 
 /** Clerk's error codes, in plain words with what to do next. */
 const MESSAGES: Record<string, string> = {
@@ -41,8 +43,27 @@ export function messageFor(error: unknown): string {
 
 const failure = (error: unknown): Step => errorCode(error) === "session_exists"
   ? { ok: false, message: "Du er allerede logget ind.", signedIn: true }
+  : errorCode(error) === "signed_out" ? { ok: false, message: STALE_MESSAGE, stale: true }
   : errorCode(error) === "form_identifier_not_found" ? { ok: false, message: messageFor(error), notFound: true }
   : { ok: false, message: messageFor(error) };
+
+/** Shown when the reset did not help either. */
+export const STALE_MESSAGE = "Din browser har et gammelt login gemt, som ikke længere gælder. Luk alle faner med hjerterum.info og prøv igen - eller brug et privat vindue.";
+
+/** Reported: "Det gik ikke (signed_out)" and "You are signed out" in both the code and the password login, while a fresh browser
+ * signs in fine. The browser's old login is let go of: the login's client is deleted at Clerk, signed out, and the readable login
+ * cookies on this address and on hjerterum.info are removed. Whatever fails is passed over - the page is reloaded after it. */
+export async function resetLogin(clerk: CodeLoginClerk | null, doc: { cookie: string; location: { hostname: string } } = document): Promise<void> {
+  await clerk?.client?.destroy?.().catch(() => undefined);
+  await clerk?.signOut?.().catch(() => undefined);
+  const labels = doc.location.hostname.split(".");
+  const domains = ["", ...labels.slice(0, -1).map((_, i) => labels.slice(i).join(".")).filter(d => d.includes("."))];
+  for (const pair of doc.cookie.split(";")) {
+    const name = pair.split("=")[0]?.trim() ?? "";
+    if (!/^(__client_uat|__session|__refresh)/.test(name)) continue;
+    for (const domain of domains) doc.cookie = `${name}=; Max-Age=0; Path=/${domain ? `; Domain=${domain}` : ""}`;
+  }
+}
 
 export const looksLikeEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
