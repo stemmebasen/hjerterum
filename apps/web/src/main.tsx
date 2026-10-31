@@ -163,7 +163,8 @@ function AuthPage({
 
   return (
     <main className="auth-shell">
-      <LysTop />
+      {/* Reported: "er der nogen grund til, at man ikke ser den almindelige menu" - the website's own top, with its menu. */}
+      <SiteHeader />
       <div className="auth-card">
         {!loaded ? <CodeSignInPlaceholder />
         : !clerk ? <CodeSignInPlaceholder message="Login kan ikke åbnes lige nu. Prøv igen om lidt." />

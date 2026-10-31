@@ -92,6 +92,18 @@ describe("room bookings priced by Hjerterum's price calculator", () => {
     expect(rows).toEqual([{ booking_type: "standard", fee_minor: 108000 }, { booking_type: "reduced", fee_minor: 41200 }, { booking_type: "free", fee_minor: 0 }]);
   });
 
+  // Requested: "Som underviser kan man booke et gratis event om ugen".
+  it("gives free rent once a week per organiser, Monday to Sunday", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    await createRoomBooking(db, "u1", booking("2027-11-16T09:00:00Z", "2027-11-16T11:00:00Z", "free")); // Tuesday
+    await expect(createRoomBooking(db, "u1", booking("2027-11-21T09:00:00Z", "2027-11-21T11:00:00Z", "free"))).rejects.toThrow("free_rent_week_used"); // Sunday, same week
+    await expect(createRoomBooking(db, "u1", booking("2027-11-22T09:00:00Z", "2027-11-22T11:00:00Z", "free"))).resolves.toMatchObject({ feeKr: 0 }); // next Monday
+    await expect(createRoomBooking(db, "u2", booking("2027-11-18T09:00:00Z", "2027-11-18T11:00:00Z", "free"))).resolves.toMatchObject({ feeKr: 0 }); // someone else
+    await expect(createRoomBooking(db, "u1", booking("2027-11-19T09:00:00Z", "2027-11-19T12:00:00Z"))).resolves.toMatchObject({ feeKr: 1080 }); // standard rent is not limited
+    await expect(createRoomBooking(db, "cockpit:Jacob", booking("2027-11-17T09:00:00Z", "2027-11-17T11:00:00Z", "free"))).resolves.toBeTruthy();
+  });
+
   it("holds the calculator's rules", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();

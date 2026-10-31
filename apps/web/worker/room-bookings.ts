@@ -249,6 +249,26 @@ export async function listMemberCalendarBookings(
   return result.results ?? [];
 }
 
+/** Requested (the chair): "Som underviser kan man booke et gratis event om ugen". Free rent (booking type "free") at most once in a
+ * week, Monday to Sunday in Copenhagen, per organiser. The board's own events from admin ("cockpit:...") are not limited. */
+export function copenhagenWeek(ms: number): { fromMs: number; toMs: number } {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(ms).map(x => [x.type, x.value]));
+  const back = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(p.weekday!);
+  // Local midnight of that day, then back to Monday; one hour either side is settled by the clock change, so it is taken from the parts.
+  const sinceMidnight = (Number(p.hour) * 60 + Number(p.minute)) * 60_000 + (ms % 60_000);
+  const monday = ms - sinceMidnight - back * 86_400_000;
+  return { fromMs: monday, toMs: monday + 7 * 86_400_000 };
+}
+
+async function freeRentUsed(db: D1Database, ownerClerkUserId: string, startMs: number, exceptId: number | null): Promise<boolean> {
+  if (ownerClerkUserId.startsWith("cockpit:")) return false;
+  const week = copenhagenWeek(startMs);
+  const row = await db.prepare(`SELECT id FROM room_bookings WHERE clerk_user_id = ? AND status = 'scheduled' AND booking_type = 'free'
+    AND starts_at_ms >= ? AND starts_at_ms < ? AND id <> ? LIMIT 1`).bind(ownerClerkUserId, week.fromMs, week.toMs, exceptId ?? -1).first<{ id: number }>();
+  return Boolean(row);
+}
+
 export async function createRoomBooking(
   db: D1Database,
   ownerClerkUserId: string,
@@ -269,6 +289,7 @@ export async function createRoomBooking(
   if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
     throw new Error("booking_conflict");
   }
+  if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, null)) throw new Error("free_rent_week_used");
 
   const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
   const now = Date.now();
@@ -351,6 +372,7 @@ export async function updateOwnedRoomBooking(
   if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
     throw new Error("booking_conflict");
   }
+  if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, bookingId)) throw new Error("free_rent_week_used");
 
   const current = await db.prepare(
     "SELECT ticket_price_minor FROM room_bookings WHERE id = ? AND clerk_user_id = ?"

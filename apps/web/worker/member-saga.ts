@@ -163,7 +163,7 @@ Kalenderen viser for hver dag, hvornår salen er optaget (andres klargøring og 
 REGLER FOR LEJE
 - Salen lejes 2-10 timer i halve timer inkl. klargøring (standard 30 min. før) og oprydning (standard 30 min. efter); medlemmet kan vælge ingen, 15, 30, 45 min. eller 1 time i formularen; lejen regnes i halve timer fra halvtimen før klargøringen til halvtimen efter oprydningen. Selve eventet varer mindst 1 time, oprydningen er færdig senest kl. 24, og intet går over natten.
 - Reduceret pris og gratis leje kræver betalende medlemskab (det har medlemmet), og lejen inkl. klargøring og oprydning må ikke gå hen over kl. 18.30 på hverdage.
-- Lejetype: "reduced" når medlemmer skal have lavere pris end ikke-medlemmer, "free" når medlemmer deltager gratis og ikke-medlemmer betaler mindst 75 kr. pr. person (underviseren opkræver selv; gratis for alle giver ikke gratis leje), ellers "standard".
+- Lejetype: "reduced" når medlemmer skal have lavere pris end ikke-medlemmer, "free" når medlemmer deltager gratis og ikke-medlemmer betaler mindst 75 kr. pr. person (underviseren opkræver selv; gratis for alle giver ikke gratis leje; højst ét event med gratis leje om ugen pr. underviser), ellers "standard".
 - Billetbetaling på platformen er ikke slået til endnu, så billetprisen er 0 kr. indtil videre; pris for ikke-medlemmer kan stadig skrives.
 
 HJERTERUMS KRITERIER (et event kommer kun online med det samme, når de alle klart er opfyldt)

@@ -14,8 +14,16 @@ export function injectLys(): void {
   document.head.prepend(style);
 }
 
+/** The website's front page: on medlem.<domain> "/" opens the member area, so the logo there leads to <domain> itself.
+ * Reported: "På denne side føler jeg mig lidt lost, fordi jeg på ingen måde kan komme tilbage til hjemmesiden". */
+export function siteHome(): string {
+  if (typeof window === "undefined") return "/";
+  const m = /^medlem\.(.+)$/i.exec(window.location.hostname);
+  return m ? `https://${m[1]}/` : "/";
+}
+
 export function LysLogo() {
-  return <a className="lys-logo" href="/" aria-label="Hjerterum forside"><img src="/logo.png" alt="" width="44" height="44" /><b>Hjerterum</b></a>;
+  return <a className="lys-logo" href={siteHome()} aria-label="Hjerterum forside"><img src="/logo.png" alt="" width="44" height="44" /><b>Hjerterum</b></a>;
 }
 
 /** The top every page shares: the logo, the page's own links, and what belongs on the right (log in, the member). */
