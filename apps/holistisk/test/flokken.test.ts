@@ -258,3 +258,31 @@ describe("served under www.jacobhauge.com", () => {
     expect((await call("/")).body).toContain("<span>Flokken</span>");
   });
 });
+
+describe("served on its own domain socialklubben.dk", () => {
+  const at = async (url: string, init: { form?: Record<string, string>; origin?: string; headers?: Record<string, string> } = {}) => {
+    const headers: Record<string, string> = { ...init.headers };
+    if (init.form) { headers.origin = init.origin ?? "https://socialklubben.dk"; headers["content-type"] = "application/x-www-form-urlencoded"; }
+    const r = await handle(new Request(url, { method: init.form ? "POST" : "GET", headers, body: init.form ? new URLSearchParams(init.form) : null }), env, NOW);
+    return { status: r.status, body: await r.text(), headers: r.headers };
+  };
+  it("shows Socialklubben at the root, with root links, its own canonical address and a cookie for the whole site", async () => {
+    const home = await at("https://socialklubben.dk/");
+    expect(home.body).toContain("<span>Socialklubben</span>");
+    expect(home.body).toContain('href="/kalender"');
+    expect(home.body).toContain('<link rel="canonical" href="https://socialklubben.dk/">');
+    expect(home.body).not.toContain("Flokken");
+    expect(home.body).not.toContain('data-edition="forening"');
+    const r = await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" } });
+    expect(r.status).toBe(200);
+    expect(r.headers.get("set-cookie")).toMatch(/Path=\/(;|$)/);
+    expect((await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" }, origin: "https://www.jacobhauge.com" })).status).toBe(403);
+    // The proxy header cannot turn the own domain into Samfolk.
+    expect((await at("https://socialklubben.dk/", { headers: { "x-flokken-mount": "https://www.jacobhauge.com/samfolk" } })).body).not.toContain('data-edition="forening"');
+  });
+  it("sends www and the old /socialklubben paths to the address without them", async () => {
+    expect((await at("https://www.socialklubben.dk/kalender?periode=maaned")).headers.get("location")).toBe("https://socialklubben.dk/kalender?periode=maaned");
+    expect((await at("https://socialklubben.dk/socialklubben/kort")).headers.get("location")).toBe("https://socialklubben.dk/kort");
+    expect((await at("https://socialklubben.dk/socialklubben")).headers.get("location")).toBe("https://socialklubben.dk/");
+  });
+});
