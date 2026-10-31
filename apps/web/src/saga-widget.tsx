@@ -16,7 +16,7 @@ import { SIGNUP_URL } from "../site/pages";
  *   (worker/member-saga-event.ts); someone logged in without such a membership gets the website's help to become one.
  * The conversation is kept on the server; its id is kept here and rides in the login link (?saga=) from www. to medlem. */
 export type SagaDraft = { title: string; description: string; date: string; start: string; end: string; booking_type: "standard" | "reduced" | "free";
-  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null };
+  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null; contact_share?: "email" | "phone" | "both" | null };
 /** Requested: "Man skal også kunne uploade fotos, som Saga skal godkende i forhold til kvalitet, format og opløsning." The browser
  * measures the photo and sends Saga a smaller copy to look at; an approved photo can become the event's cover. */
 export type Photo = { file: File; preview: string; dataUrl: string; width: number; height: number };

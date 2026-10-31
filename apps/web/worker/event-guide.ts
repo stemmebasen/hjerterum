@@ -8,12 +8,14 @@
  * tingene sammen på den måde": one fact per step, one question per step - asked in the code's words, with her suggestions for it. */
 import { GUIDE_CHOICES, isFixedStep } from "../site/guide-choices.js";
 
-export const STEPS = ["titel", "indhold", "leder", "medbring", "tid", "pris", "pladser", "sociale", "billeder"] as const;
+export const STEPS = ["titel", "indhold", "leder", "kontakt", "medbring", "tid", "pris", "pladser", "sociale", "billeder"] as const;
 export type Step = (typeof STEPS)[number] | "forslag";
 
 export type EventFacts = {
   title: string | null;
   content: string | null; leader: string | null; audience: string | null; bring: string | null;
+  /** May those interested contact the leader: by e-mail, phone, both - or "none". */
+  contact: "email" | "phone" | "both" | "none" | null;
   date: string | null; start: string | null; end: string | null;
   member_price_kr: number | null; non_member_price_kr: number | null; max_attendees: number | null;
   social: boolean | null;
@@ -21,7 +23,7 @@ export type EventFacts = {
   description: string | null;
 };
 
-export const NO_FACTS: EventFacts = { title: null, content: null, leader: null, audience: null, bring: null, date: null, start: null, end: null,
+export const NO_FACTS: EventFacts = { title: null, content: null, leader: null, audience: null, bring: null, contact: null, date: null, start: null, end: null,
   member_price_kr: null, non_member_price_kr: null, max_attendees: null, social: null, photo: null, description: null };
 
 /** The facts each step settles; the first is what makes it done. */
@@ -29,6 +31,7 @@ const STEP_KEYS: Record<(typeof STEPS)[number], Array<keyof EventFacts>> = {
   titel: ["title"],
   indhold: ["content", "audience"],
   leder: ["leader"],
+  kontakt: ["contact"],
   medbring: ["bring"],
   tid: ["date", "start", "end"],
   pris: ["member_price_kr", "non_member_price_kr"],
@@ -42,6 +45,7 @@ export function stepDone(step: (typeof STEPS)[number], f: EventFacts): boolean {
     case "titel": return Boolean(f.title);
     case "indhold": return Boolean(f.content);
     case "leder": return Boolean(f.leader);
+    case "kontakt": return f.contact !== null;
     case "medbring": return Boolean(f.bring);
     case "tid": return Boolean(f.date && f.start && f.end);
     case "pris": return f.member_price_kr !== null;
@@ -70,6 +74,7 @@ export function readFacts(value: unknown): Partial<EventFacts> {
   // 0 means no limit - an answer, not a missing one.
   const max = kr(v.max_attendees); if (max !== null && max <= 1000) out.max_attendees = max;
   if (typeof v.social === "boolean") out.social = v.social;
+  if (v.contact === "email" || v.contact === "phone" || v.contact === "both" || v.contact === "none") out.contact = v.contact;
   if (v.photo === "ok" || v.photo === "skipped") out.photo = v.photo;
   set("description", text(v.description, 4000));
   return out;
@@ -94,6 +99,12 @@ export function mergeFacts(known: EventFacts, learned: Partial<EventFacts>, step
 export function fixedAnswer(step: Step, message: string): Partial<EventFacts> | null {
   if (!isFixedStep(step)) return null;
   const said = message.trim().toLowerCase().replace(/[.!]+$/, "");
+  if (step === "kontakt") {
+    if (/^(e-?mail|mail)$/.test(said)) return { contact: "email" };
+    if (/^(telefon|tlf|telefonnummer)$/.test(said)) return { contact: "phone" };
+    if (/^(begge|begge dele|e-?mail og telefon)$/.test(said)) return { contact: "both" };
+    if (/^(nej|nej tak)$/.test(said)) return { contact: "none" };
+  }
   if (step === "sociale") {
     if (/^(ja|ja tak|ja,? del (det|den)|del (det|den))$/.test(said)) return { social: true };
     if (/^(nej|nej tak)$/.test(said)) return { social: false };
@@ -120,12 +131,13 @@ export function bookingTypeOf(f: Pick<EventFacts, "member_price_kr" | "non_membe
 }
 
 export type GuidedDraft = { title: string; description: string; date: string; start: string; end: string; booking_type: "standard" | "reduced" | "free";
-  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null };
+  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null; contact_share: "email" | "phone" | "both" | null };
 
 export function draftFrom(f: EventFacts): GuidedDraft | null {
   if (!f.title || !f.date || !f.start || !f.end || !f.description) return null;
   return { title: f.title, description: f.description, date: f.date, start: f.start, end: f.end, booking_type: bookingTypeOf(f),
-    max_attendees: f.max_attendees || null, member_price_kr: f.member_price_kr, non_member_price_kr: f.non_member_price_kr };
+    max_attendees: f.max_attendees || null, member_price_kr: f.member_price_kr, non_member_price_kr: f.non_member_price_kr,
+    contact_share: f.contact === "none" ? null : f.contact };
 }
 
 /** The question for each step, in the code's words - exactly one, so her suggestions always answer it. */
@@ -133,6 +145,7 @@ export const QUESTION: Record<(typeof STEPS)[number], string> = {
   titel: "Hvad skal eventet hedde?",
   indhold: "Hvad kommer deltagerne til at opleve – og hvem er det for?",
   leder: "Hvem leder eventet?",
+  kontakt: "Må interesserede kontakte underviseren – på e-mail, telefon eller begge dele?",
   medbring: "Skal deltagerne medbringe noget?",
   tid: "Hvornår skal det være?",
   pris: "Hvad skal det koste for medlemmer og for andre?",
@@ -149,6 +162,7 @@ const HINT: Record<(typeof STEPS)[number], (member: string) => string> = {
   tid: () => "4-5 LEDIGE tider fra KALENDEREN med ugedag, dato og tid (fx \"Søndag 8/11 kl. 14-16\"). Foreslå kun tider, der faktisk er ledige.",
   pris: () => "4-5 realistiske prispar for medlemmer og andre, der passer til eventet (fx \"Gratis for medlemmer, 100 kr. for andre\", \"80 kr. / 120 kr.\").",
   pladser: () => "4-5 svar: fx \"12\", \"20\", \"30\", \"Ingen grænse\".",
+  kontakt: () => `Systemet viser selv knapperne ${GUIDE_CHOICES.kontakt.map(c => `"${c}"`).join(", ")} - giv ingen forslag ("suggestions": []).`,
   sociale: () => `Systemet viser selv knapperne ${GUIDE_CHOICES.sociale.map(c => `"${c}"`).join(" og ")} - giv ingen forslag ("suggestions": []).`,
   billeder: () => `Systemet viser selv knapperne ${GUIDE_CHOICES.billeder.map(c => `"${c}"`).join(" og ")} - giv ingen forslag ("suggestions": []).`
 };
@@ -174,7 +188,7 @@ ${brief || step === "indhold" ? `Vurder indholdet mod HJERTERUMS KRITERIER nu. P
 ${STEPS.map(s => `- ${s} ("${QUESTION[s]}"): ${HINT[s](member)}`).join("\n")}
 Højst ca. 70 tegn pr. forslag. Skriv forslagene, som medlemmet selv ville svare (fx "Jacob Hauge", ikke "Leder: jeg selv").
 "next": navnet på det punkt, dine forslag hører til.
-"facts" bruger nøglerne: title, content, audience, leader, bring, date (ÅÅÅÅ-MM-DD), start (TT:MM), end (TT:MM), member_price_kr, non_member_price_kr, max_attendees (0 = ingen grænse), social (true/false), photo ("skipped" hvis medlemmet springer fotoet over).
+"facts" bruger nøglerne: title, content, audience, leader, bring, date (ÅÅÅÅ-MM-DD), start (TT:MM), end (TT:MM), member_price_kr, non_member_price_kr, max_attendees (0 = ingen grænse), contact ("email", "phone", "both" eller "none"), social (true/false), photo ("skipped" hvis medlemmet springer fotoet over).
 Svar KUN med JSON: {"reply":"...","draft":null,"photo_ok":null,"facts":{...},"next":"...","suggestions":["...","...","...","..."]}`;
 }
 

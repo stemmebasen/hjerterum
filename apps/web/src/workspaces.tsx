@@ -42,6 +42,9 @@ type Member = {
   paysInMembershipworks?: boolean;
 };
 
+type ContactShare = "email" | "phone" | "both";
+const CONTACT_OPTIONS: Array<[ContactShare | "", string]> = [["", "Nej tak"], ["email", "E-mail"], ["phone", "Telefon"], ["both", "Begge dele"]];
+
 type Booking = {
   id: number;
   teacherName: string;
@@ -51,6 +54,10 @@ type Booking = {
   startsAt: string;
   endsAt: string;
   maxAttendees: number | null;
+  /** The organiser's own events: may those interested contact them (worker/event-contact.ts). */
+  contactShare?: ContactShare | null;
+  /** In the calendar: the contact the organiser allows. */
+  contact?: { share: ContactShare | null; email: string | null; phone: string | null } | null;
   attendeeCount?: number;
   isAttending?: boolean;
   isOwner?: boolean;
@@ -481,6 +488,9 @@ function MemberEvents({
       const bookingId = editing ? editing.id : saved.id;
       const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
       const posterLine = bookingId ? await savePosterChoice(clerk, bookingId, poster, savedPoster) : "";
+      const contactShare = form.get("contactShare") || null;
+      if (bookingId && contactShare !== (editing?.contactShare ?? null))
+        await apiFetch(clerk, `/api/room-bookings/${bookingId}/contact`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ share: contactShare }) }).catch(() => undefined);
       formElement.reset();
       setPlan(EMPTY_PLAN);
       setCover(null);
@@ -566,6 +576,16 @@ function MemberEvents({
                     <small>Tomt felt: samme pris. Medlemmerne ser, hvad de sparer.</small>
                   </label>
                 </div>
+              </fieldset>
+              {/* Requested: "Saga skal også spørge om interesserede må kontakte underviseren - man kan vælge email, telefon eller begge dele". */}
+              <fieldset className="event-section event-contact">
+                <legend>Må interesserede kontakte dig?</legend>
+                <div className="event-contact-options">
+                  {CONTACT_OPTIONS.map(([value, label]) => <label key={value || "none"}>
+                    <input type="radio" name="contactShare" value={value} defaultChecked={(editing?.contactShare ?? prefill?.draft.contact_share ?? "") === value} />{label}
+                  </label>)}
+                </div>
+                <small>E-mail og telefonnummer hentes fra din profil og vises kun for medlemmer, der er logget ind.</small>
               </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
@@ -677,6 +697,11 @@ function MemberCalendar({
                   {booking ? <>
                     <p className="member-event-price">{nonMember ? (priceKr > 0 ? priceKr.toLocaleString("da-DK") + " kr. for ikke-medlemmer" : "Gratis") : booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
               {booking.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
+              {booking.contact && (booking.contact.email || booking.contact.phone) && <p className="member-event-contact">Kontakt {booking.teacherName.split(" ")[0]}:{" "}
+                {booking.contact.email && <a href={`mailto:${booking.contact.email}`}>{booking.contact.email}</a>}
+                {booking.contact.email && booking.contact.phone && " · "}
+                {booking.contact.phone && <a href={`tel:${booking.contact.phone.replace(/\s+/g, "")}`}>{booking.contact.phone}</a>}
+              </p>}
               {booking.isOwner ? (
                 <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
               ) : (
