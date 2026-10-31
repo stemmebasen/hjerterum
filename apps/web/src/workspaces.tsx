@@ -2,7 +2,6 @@ import { EventCard, calendarMonth } from "./event-card";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
-import { PrNudge } from "./pr-material-editor";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
@@ -443,24 +442,6 @@ function MemberEvents({
     return () => { mounted = false; };
   }, [clerk]);
 
-  async function startPayoutOnboarding() {
-    setSaving(true);
-    setMessage("");
-    try {
-      const response = await apiFetch(clerk, "/api/members/payout-account/onboarding", {
-        method: "POST"
-      });
-      const body = await response.json().catch(() => ({})) as {
-        onboardingUrl?: string; error?: string;
-      };
-      if (!response.ok || !body.onboardingUrl) throw new Error(body.error || "onboarding_failed");
-      window.location.assign(body.onboardingUrl);
-    } catch {
-      setMessage("Stripe-opsætningen kunne ikke startes.");
-      setSaving(false);
-    }
-  }
-
   async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!member) return;
@@ -563,25 +544,12 @@ function MemberEvents({
               onCreated={() => { void reload(); }} />
           ) : (
             <>
-            <div className="workspace-message">
-              <strong>Udbetaling fra betalte events</strong>
-              <p>{!payout?.configured
-                ? "Stripe er endnu ikke aktiveret på platformen."
-                : payout.account?.chargesEnabled && payout.account?.payoutsEnabled
-                  ? "Stripe er klar til at modtage betalinger og udbetale dine billetindtægter."
-                  : "Klargør din Stripe-konto, hvis du vil tage betaling for events."}</p>
-              {payout?.configured && !(payout.account?.chargesEnabled && payout.account?.payoutsEnabled) &&
-                <button type="button" className="pill-button subtle" disabled={saving}
-                  onClick={() => void startPayoutOnboarding()}>Klargør udbetaling med Stripe</button>}
-            </div>
-            {/* Requested (Gitta): a strong encouragement to share PR material - "gøre det helt klart at vi ikke kan reklamere for dem uden". */}
-            <PrNudge clerk={clerk} />
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required onChange={(e) => setLiveTitle(e.target.value)} /></label>
               <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
                 {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
                 <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum.</small></label>
-              <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
+              <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates} title={liveTitle}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
               {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}
               <fieldset className="event-section">
