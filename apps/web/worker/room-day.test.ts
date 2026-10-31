@@ -43,7 +43,10 @@ describe("the day's overview", () => {
     const items = (await listDayItems(db, "user_me", "2026-10-19", [
       { title: "Filmaften", startsAt: "2026-10-19T17:00:00Z", endsAt: "2026-10-19T19:00:00Z" },
       { title: "En anden dag", startsAt: "2026-10-21T17:00:00Z", endsAt: null },
-      { title: "Uden slut", startsAt: "2026-10-19T06:00:00Z" }
+      { title: "Uden slut", startsAt: "2026-10-19T06:00:00Z" },
+      // Partnerhusenes events holdes et andet sted og optager ikke salen (Jake 2026-11-01).
+      { title: "Breathwork på Hjerteland", startsAt: "2026-10-19T13:00:00Z", endsAt: "2026-10-19T17:00:00Z" },
+      { title: "Aura Balancering", startsAt: "2026-10-19T11:00:00Z", endsAt: "2026-10-19T15:00:00Z", location: "Hjerteland" }
     ]))!;
     expect(items.map((item) => [item.label, item.external])).toEqual([["Uden slut", true], ["Filmaften", true]]);
   });

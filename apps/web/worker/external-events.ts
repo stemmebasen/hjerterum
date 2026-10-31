@@ -1,3 +1,4 @@
+import { isPartnerEvent } from "../partner-events.js";
 const MEMBERSHIPWORKS_FEED_URL = "https://api.membershipworks.com/v2/events?_op=rss&org=22308";
 /** The list the membership system's own calendar widget reads. It holds every public event, also those in the categories that
  * are left out of the RSS feed ("Hjerterum events", "Dans & Bevægelse") - asked: "All of these appear in Membership works". */
@@ -233,7 +234,8 @@ export async function getExternalEvents(force = false, fetcher: typeof fetch = f
 export async function hasExternalEventConflict(startMs: number, endMs: number): Promise<boolean> {
   try {
     const events = await getExternalEvents();
-    return events.some((event) => {
+    // Partnerhusenes events (Hjerteland) holdes et andet sted og optager ikke salen.
+    return events.filter((event) => !isPartnerEvent(event)).some((event) => {
       const externalStart = Date.parse(event.startsAt);
       const externalEnd = event.endsAt ? Date.parse(event.endsAt) : externalStart;
       if (!Number.isFinite(externalStart) || !Number.isFinite(externalEnd)) return false;

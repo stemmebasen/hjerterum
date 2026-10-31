@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { D1Database, D1PreparedStatement } from "./db.js";
 import { handleCirklerIntegrationRequest } from "./cirkler-integration.js";
-import { CIRKLER_OWNER, CIRKLER_TITLE, parseReservationInput, releaseForMeeting, reserveForMeeting } from "./cirkler-reservations.js";
+import { BUSY_LABEL, CIRKLER_OWNER, CIRKLER_TITLE, parseReservationInput, releaseForMeeting, reserveForMeeting } from "./cirkler-reservations.js";
 
 vi.mock("./external-events.js", () => ({
   getExternalEvents: async () => [],
@@ -116,6 +116,9 @@ describe("CIRKLER reservations", () => {
 
   it("answers the day's calendar and the reservation endpoints only with the service key", async () => {
     const db = new MemoryDb();
+    // En medlemsbooking samme morgen: CIRKLER får tidsrummet, men aldrig titlen.
+    db.bookings.push({ id: 7, clerk_user_id: "user_9", title: "Hjerterum Medlemscafé", starts_at_ms: Date.parse("2027-01-13T08:00:00.000Z"), ends_at_ms: Date.parse("2027-01-13T10:00:00.000Z"), setup_minutes: 0, cleanup_minutes: 0, status: "scheduled", review_status: "approved", cirkler_meeting_id: null, cancelled_at_ms: null });
+    db.nextId = 1;
     const env = { DB: db, CIRKLER_SERVICE_KEY: "delt-nogle" };
     const deps = { now: () => NOW };
     const call = (method: string, path: string, body?: unknown, key = "delt-nogle") => handleCirklerIntegrationRequest(
@@ -133,8 +136,9 @@ describe("CIRKLER reservations", () => {
     const day = await call("GET", "/api/integrations/cirkler/room-day?date=2027-01-13");
     expect(day.status).toBe(200);
     const { items } = await day.json() as { items: Array<Record<string, unknown>> };
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ label: CIRKLER_TITLE, own: true, id: 1, meetingId: "00000000-0000-4000-8000-000000000003", startsAt: "2027-01-13T17:30:00.000Z", endsAt: "2027-01-13T21:00:00.000Z" });
+    expect(items).toHaveLength(2);
+    expect(items[0]).toEqual({ label: BUSY_LABEL, own: false, external: false, waiting: false, startsAt: "2027-01-13T08:00:00.000Z", endsAt: "2027-01-13T10:00:00.000Z" });
+    expect(items[1]).toMatchObject({ label: CIRKLER_TITLE, own: true, id: 1, meetingId: "00000000-0000-4000-8000-000000000003", startsAt: "2027-01-13T17:30:00.000Z", endsAt: "2027-01-13T21:00:00.000Z" });
 
     const clash = await call("PUT", "/api/integrations/cirkler/reservations/00000000-0000-4000-8000-000000000004", { startsAt: start, endsAt: end, setupMinutes: 0, cleanupMinutes: 0 });
     expect(clash.status).toBe(409);
@@ -142,6 +146,6 @@ describe("CIRKLER reservations", () => {
 
     const released = await call("DELETE", "/api/integrations/cirkler/reservations/00000000-0000-4000-8000-000000000003");
     expect(await released.json()).toEqual({ released: true });
-    expect((await (await call("GET", "/api/integrations/cirkler/room-day?date=2027-01-13")).json() as { items: unknown[] }).items).toHaveLength(0);
+    expect((await (await call("GET", "/api/integrations/cirkler/room-day?date=2027-01-13")).json() as { items: unknown[] }).items).toHaveLength(1);
   });
 });

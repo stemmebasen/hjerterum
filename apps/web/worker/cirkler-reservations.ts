@@ -17,6 +17,7 @@ import { WINDOW_END, WINDOW_START, roomWindow } from "./room-bookings.js";
 
 export const CIRKLER_OWNER = "cirkler";
 export const CIRKLER_TITLE = "CIRKLER-møde";
+export const BUSY_LABEL = "Optaget af anden aktivitet";
 const BUFFERS = [0, 15, 30, 45, 60];
 const MEETING_ID = /^[A-Za-z0-9-]{8,80}$/;
 
@@ -111,7 +112,11 @@ export async function handleReservationRequest(request: Request, db: D1Database,
       "SELECT id, cirkler_meeting_id FROM room_bookings WHERE clerk_user_id = ? AND cirkler_meeting_id IS NOT NULL AND status = 'scheduled'"
     ).bind(CIRKLER_OWNER).all<{ id: number; cirkler_meeting_id: string }>()).results ?? [];
     const meetingById = new Map(rows.map((row) => [row.id, row.cirkler_meeting_id]));
-    return json({ date, items: items.map((item) => item.own && item.id !== undefined ? { ...item, meetingId: meetingById.get(item.id) ?? null } : item) });
+    // Hjerterums egne aktiviteter er ikke CIRKLERs sag (Jake 2026-11-01): kun tidsrummet
+    // sendes, aldrig titlen. Cirklens deltagere ser blot, at salen er optaget.
+    return json({ date, items: items.map((item) => item.own && item.id !== undefined
+      ? { ...item, meetingId: meetingById.get(item.id) ?? null }
+      : { ...item, label: BUSY_LABEL }) });
   }
   const match = /^\/api\/integrations\/cirkler\/reservations\/([^/]+)$/.exec(url.pathname);
   if (!match) return json({ error: "not_found" }, { status: 404 });
