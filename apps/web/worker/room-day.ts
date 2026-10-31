@@ -1,4 +1,5 @@
 import type { D1Database } from "./db.js";
+import { isPartnerEvent } from "../partner-events.js";
 
 /** Requested: when a member picks a date for an event, show what is already on that day, so a free time is easy to pick.
  * The overview names an approved event or the member's own, and says only "Optaget" for everything else - another
@@ -18,7 +19,7 @@ export type DayItem = {
   id?: number;
 };
 
-export type ExternalDayEvent = { title: string; startsAt: string; endsAt?: string | null };
+export type ExternalDayEvent = { title: string; startsAt: string; endsAt?: string | null; location?: string | null; category?: string | null };
 
 const TIME_ZONE = "Europe/Copenhagen";
 const DAY_MS = 86_400_000;
@@ -70,7 +71,8 @@ export async function listDayItems(db: D1Database, userId: string, date: string,
       label: own || approved ? row.title : "Optaget", own, external: false, waiting: !approved, ...(own ? { id: row.id } : {})
     };
   });
-  const outside: DayItem[] = external.flatMap((event) => {
+  // Partnerhusenes events (Hjerteland) holdes et andet sted og optager ikke salen (Jake 2026-11-01).
+  const outside: DayItem[] = external.filter((event) => !isPartnerEvent(event)).flatMap((event) => {
     const start = Date.parse(event.startsAt);
     const end = event.endsAt ? Date.parse(event.endsAt) : start;
     if (!Number.isFinite(start) || !Number.isFinite(end) || !(start < range.toMs && Math.max(end, start + 1) > range.fromMs)) return [];
