@@ -5,7 +5,8 @@ import { chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VARIANTS, wor
  * in five designs (event-poster.ts), the system's choice first; each can be saved as a picture, as a post or as a story.
  * <id> is an event from the membership system's calendar (24 hex) or one of the house's own events ("h" + its number). */
 
-type Loaded = { event: PosterEvent; lines: string[] };
+/** The organiser's choice when the event was made (poster-choice.tsx): a design, or their own poster checked by Saga. */
+type Loaded = { event: PosterEvent; lines: string[]; variant?: VariantKey | null; ownPoster?: string | null };
 
 async function loadEvent(id: string): Promise<Loaded | null> {
   if (/^[0-9a-f]{24}$/.test(id)) {
@@ -19,11 +20,12 @@ async function loadEvent(id: string): Promise<Loaded | null> {
   if (!house) return null;
   const response = await fetch("/api/room-bookings/public");
   if (!response.ok) return null;
-  const list = await response.json() as Array<{ id: number; title: string; startsAt: string; endsAt: string | null; teacherName?: string | null; imageUrl?: string | null; description?: string | null }>;
+  const list = await response.json() as Array<{ id: number; title: string; startsAt: string; endsAt: string | null; teacherName?: string | null; imageUrl?: string | null; description?: string | null; posterVariant?: string | null; posterUrl?: string | null }>;
   const b = list.find(item => String(item.id) === house[1]);
   if (!b) return null;
   return { event: { id, title: b.title, startsAt: b.startsAt, endsAt: b.endsAt, host: b.teacherName ?? null, category: null,
-    imageUrl: b.imageUrl && b.imageUrl.startsWith("/") ? b.imageUrl : null }, lines: (b.description ?? "").split(/\n+/) };
+    imageUrl: b.imageUrl && b.imageUrl.startsWith("/") ? b.imageUrl : null }, lines: (b.description ?? "").split(/\n+/),
+    variant: VARIANTS.some(v => v.key === b.posterVariant) ? b.posterVariant as VariantKey : null, ownPoster: b.posterVariant === "eget" && b.posterUrl?.startsWith("/") ? b.posterUrl : null };
 }
 
 const image = (src: string) => new Promise<HTMLImageElement | null>(resolve => {
@@ -92,7 +94,10 @@ export function PosterPage({ id, header, footer }: { id: string; header: ReactNo
   const event = loaded?.event;
   const words = loaded ? wordsOf(loaded.event, loaded.lines) : null;
   const size = assets?.photo ? { width: assets.photo.naturalWidth, height: assets.photo.naturalHeight } : null;
-  const chosen = event && assets ? chooseVariant(event.imageUrl && assets.photo ? event : { ...event, imageUrl: null }, size, format) : null;
+  const systems = event && assets ? chooseVariant(event.imageUrl && assets.photo ? event : { ...event, imageUrl: null }, size, format) : null;
+  // The organiser's own design wins over the system's - when the photo is big enough for it in this format.
+  const wished = loaded?.variant && photoFits(loaded.variant, format, size).ok ? loaded.variant : null;
+  const chosen = systems ? wished ?? systems : null;
   const order: VariantKey[] = chosen ? [chosen, ...VARIANTS.map(v => v.key).filter(k => k !== chosen)] : [];
   // The teacher's own picture, whole - when there is one.
   if (chosen && assets?.photo) order.push(OWN_PICTURE.key);
@@ -108,6 +113,11 @@ export function PosterPage({ id, header, footer }: { id: string; header: ReactNo
     </section>
     {loaded === null && <p className="poster-empty">Eventet findes ikke længere i kalenderen.</p>}
     {loaded && (!assets || !words) && <p className="poster-empty">Tegner opslagene …</p>}
+    {loaded?.ownPoster && <figure className="poster-card is-chosen">
+      <img className="poster-canvas" src={loaded.ownPoster} alt={`Underviserens eget opslag til ${loaded.event.title}`} />
+      <figcaption><div><b>Underviserens eget opslag</b><span className="poster-badge">Valgt af underviseren</span><p>Sendt af underviseren og godkendt af Saga: titel, dato og tid står på, og kvaliteten er i orden.</p></div>
+        <a className="lys-btn" href={loaded.ownPoster} download={`hjerterum-${slug(loaded.event.title)}-eget.png`}>Hent billede</a></figcaption>
+    </figure>}
     {assets && words && <div className="poster-grid">
       {order.map(variant => {
         // Requested: "Systemet skal sørge for at dimensionerne er i orden eller afvise" - a design the photo is too small for is refused.
