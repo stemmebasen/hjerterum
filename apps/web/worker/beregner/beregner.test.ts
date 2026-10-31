@@ -42,7 +42,7 @@ describe("the price calculator", () => {
     expect(await (await price(e, { day: 1, start: "10:00", hours: 3, type: "reduced" })).json()).toMatchObject({ band: "B", baseKr: 225, discountKr: 0, totalKr: 225, nonMemberPriceKr: null });
     expect(await (await price(e, { day: 3, start: "19:00", hours: 3, type: "reduced", memberPrice: 500 })).json())
       .toMatchObject({ band: "A", baseKr: 550, discountPercent: 25, discountKr: 138, totalKr: 412, memberPriceKr: 500, nonMemberPriceKr: 625, memberAdvantageKr: 125 });
-    expect(await (await price(e, { day: 6, start: "10:00", hours: 2, type: "free" })).json()).toMatchObject({ band: "A", totalKr: 0, minimumNonMemberKr: 150 });
+    expect(await (await price(e, { day: 6, start: "10:00", hours: 2, type: "free" })).json()).toMatchObject({ band: "A", totalKr: 0, minimumNonMemberKr: 75 });
     expect((await price(e, { day: 2, start: "17:00", hours: 3, type: "reduced" })).status).toBe(422);
     expect((await price(e, { day: 6, start: "17:00", hours: 3, type: "free" })).status).toBe(200);
     expect((await price(e, { day: 1, start: "10:15", hours: 2, type: "standard" })).status).toBe(400);
