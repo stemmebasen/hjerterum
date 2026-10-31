@@ -161,7 +161,8 @@ const HINT: Record<(typeof STEPS)[number], (member: string) => string> = {
   indhold: () => "4-5 konkrete dele af forløbet og målgrupper, der kan kombineres (fx \"20 min. introduktion til åndedrættet\", \"45 min. guidet breathwork liggende\", \"For begyndere\").",
   leder: (member) => `4-5 svar: "${member}" først (medlemmet selv), så fx "${member} og en gæsteunderviser", "En gæsteunderviser – navn følger".`,
   medbring: () => "4-5 ting, der kan kombineres, og \"Intet – alt er i salen\" (fx \"Yogamåtte\", \"Tæppe\", \"Behageligt tøj\", \"Vandflaske\").",
-  tid: () => "4-5 LEDIGE tider fra KALENDEREN med ugedag, dato og tid (fx \"Søndag 8/11 kl. 14-16\"). Foreslå kun tider, der faktisk er ledige.",
+  // Reported: "Hun skal ikke forslå et tidspunkt der ikke er ledigt" - the free times are worked out by the code (free-times.ts).
+  tid: () => "Systemet viser selv de ledige tider som knapper - giv ingen forslag (\"suggestions\": []), og nævn ingen tider selv.",
   pris: () => "4-5 realistiske prispar for medlemmer og andre, der passer til eventet (fx \"Gratis for medlemmer, 100 kr. for andre\", \"80 kr. / 120 kr.\").",
   pladser: () => "4-5 svar: fx \"12\", \"20\", \"30\", \"Ingen grænse\".",
   kontakt: () => `Systemet viser selv knapperne ${GUIDE_CHOICES.kontakt.map(c => `"${c}"`).join(", ")} - giv ingen forslag ("suggestions": []).`,

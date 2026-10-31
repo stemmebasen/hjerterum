@@ -2,6 +2,7 @@ import { ROOM_RENTAL_RULES } from "../../../packages/core/src/legacy-room-pricin
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
+import { busyWindows, freeTimes, isFree, readTimeChoice, timeLabel } from "./free-times.js";
 import { choicesFor, DESCRIBE, draftFrom, fixedAnswer, guidedPrompt, isBrief, mergeFacts, nextStep, NO_FACTS, parseGuided, QUESTION, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
@@ -279,12 +280,15 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
     });
     // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
     // "Ja tak", "Nej tak" or "Spring over" on a step with fixed buttons: the code takes the answer, no model call.
-    const fixed = guided && !photo ? fixedAnswer(step, text) : null;
+    // A time picked from the buttons ("Tirsdag 24/11 kl. 19-21") is read by the code too.
+    const pickedTime = guided && !photo && step === "tid" ? readTimeChoice(text, now) : null;
+    const fixed: Partial<EventFacts> | null = guided && !photo ? fixedAnswer(step, text) ?? pickedTime : null;
+    const busy = guided ? await busyWindows(db, external, now, now + 60 * 86_400_000) : [];
     const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? guidedPrompt(known, step, membership.fullName) : "") + (lang === "en" ? ENGLISH : "");
     // Phone chosen but none in the profile: say so now, so the event does not show an empty contact.
     const noPhone = fixed && (fixed.contact === "phone" || fixed.contact === "both")
       ? !(await db.prepare("SELECT phone FROM members WHERE clerk_user_id = ?").bind(userId).first<{ phone: string | null }>().catch(() => null))?.phone?.trim() : false;
-    const fixedReply = fixed ? FIXED_REPLY(fixed) + (noPhone ? " Du har ikke et telefonnummer i din profil endnu – tilføj det under Min profil, så det kommer med på eventet." : "") : "";
+    const fixedReply = fixed ? (pickedTime ? "Godt valg." : FIXED_REPLY(fixed)) + (noPhone ? " Du har ikke et telefonnummer i din profil endnu – tilføj det under Min profil, så det kommer med på eventet." : "") : "";
     const answer = fixed ? JSON.stringify({ reply: fixedReply, facts: fixed, suggestions: [] }) : await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
@@ -293,8 +297,15 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       const said = parseGuided(answer);
       let got = mergeFacts(known, fixed ?? said.learned, step, isBrief(known));
       if (photoOk) got = { ...got, photo: "ok" };
-      let next = nextStep(got);
       let reply = said.reply, draft = null as ReturnType<typeof draftFrom>;
+      // A new time is checked against the calendar as the booking will be; a taken one is let go of, with free ones offered.
+      const newTime = got.date && got.start && got.end && (got.date !== known.date || got.start !== known.start || got.end !== known.end);
+      if (newTime && !isFree(busy, got.date!, got.start!, got.end!)) {
+        reply = `${timeLabel(got.date!, got.start!, got.end!)} er desværre optaget – med klargøring og oprydning en halv time før og efter. Her er nogle ledige tider.`;
+        got = { ...got, date: known.date, start: known.start, end: known.end };
+        if (got.date && got.start && got.end && !isFree(busy, got.date, got.start, got.end)) got = { ...got, date: null, start: null, end: null };
+      }
+      let next = nextStep(got);
       // Everything is known: Saga writes the description only; the draft is put together from the facts.
       if (next === "forslag") {
         const written = await completeAs("medlem-saga-beskrivelse", "mid", 1500)(env, deps, [{ role: "system", content: DESCRIBE(got) }, { role: "user", content: "Skriv beskrivelsen." }]).catch(() => "");
@@ -308,7 +319,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       }
       // The next question, in the code's words - exactly one; her suggestions only when they were meant for it.
       if (next !== "forslag") reply = `${reply} ${QUESTION[next]}`.trim();
-      const suggestions = choicesFor(next, said);
+      const suggestions = next === "tid" ? freeTimes(busy, now).map(t => t.label) : choicesFor(next, said);
       const note = (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") + (draft ? ` [Udkast: ${draft.title}, ${draft.date} ${draft.start}-${draft.end}]` : "");
       await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: reply + note }], deps.now());
       return json({ conversation: conversation.id, reply, draft, photo: measured ? { ok: photoOk } : null, action: null, guide: { facts: got, next, suggestions } });
