@@ -769,3 +769,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .guide-msg { max-width: 94%; }
 }
 .calendar-all { margin: 28px 0 48px; }
+
+/* "Gør det tydeligt man kan uploade foto med det samme": on the photo step the upload is the main button. */
+.guide-chips button.is-primary { background: var(--lys-terra); border-color: var(--lys-terra); color: #fff; font-weight: 600; }
+.guide-chips button.is-primary:hover { color: #fff; filter: brightness(1.06); }
+.guide-attach.is-wanted { border-style: solid; border-color: var(--lys-terra); color: var(--lys-terra); font-weight: 600; }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { cropCover } from "./cover-crop";
+import { isFixedStep, UPLOAD_NOW } from "../site/guide-choices";
 import { preparePhoto, withLinks, type Photo, type SagaDraft } from "./saga-widget";
 
 /** Requested: "Dette skal føles mere intuitivt og moderne. Man skal have mulighed for blot at skrive et brief og så få Saga til at
@@ -16,7 +17,7 @@ type Facts = {
   member_price_kr: number | null; non_member_price_kr: number | null; max_attendees: number | null;
   social: boolean | null; photo: "ok" | "skipped" | null; description: string | null;
 };
-type Step = "titel" | "indhold" | "tid" | "pris" | "sociale" | "billeder" | "forslag";
+type Step = "titel" | "indhold" | "leder" | "medbring" | "tid" | "pris" | "pladser" | "sociale" | "billeder" | "forslag";
 type Guide = { facts: Facts; next: Step; suggestions: string[] };
 type Message = { role: "user" | "assistant"; text: string; photo?: string };
 
@@ -25,14 +26,18 @@ const NO_FACTS: Facts = { title: null, content: null, leader: null, audience: nu
   member_price_kr: null, non_member_price_kr: null, max_attendees: null, social: null, photo: null, description: null };
 const EMPTY: Guide = { facts: NO_FACTS, next: "titel", suggestions: [] };
 const short = (date: string) => new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Copenhagen" }).format(new Date(`${date}T12:00:00`));
-/** Each step, what it shows once answered, and which facts "Ret" clears so Saga asks again. */
+/** Each step, what it shows once answered, and which facts "Ret" clears so Saga asks again. One fact per step, as in
+ * worker/event-guide.ts STEPS: "Det virker underligt at blande tingene sammen på den måde". */
 const STEPS: Array<{ key: Exclude<Step, "forslag">; label: string; shown: (f: Facts) => string | null; clear: Array<keyof Facts> }> = [
   { key: "titel", label: "Titel", shown: (f) => f.title, clear: ["title"] },
-  { key: "indhold", label: "Indhold", shown: (f) => f.content ? [f.content, f.leader && `ved ${f.leader}`, f.bring && `medbring: ${f.bring}`].filter(Boolean).join(" · ") : null, clear: ["content", "leader", "audience", "bring"] },
+  { key: "indhold", label: "Indhold", shown: (f) => f.content ? [f.content, f.audience && `for ${f.audience}`].filter(Boolean).join(" · ") : null, clear: ["content", "audience"] },
+  { key: "leder", label: "Leder", shown: (f) => f.leader, clear: ["leader"] },
+  { key: "medbring", label: "Medbring", shown: (f) => f.bring, clear: ["bring"] },
   { key: "tid", label: "Tidspunkt", shown: (f) => f.date && f.start && f.end ? `${short(f.date)} kl. ${f.start.replace(":", ".")}–${f.end.replace(":", ".")}` : null, clear: ["date", "start", "end"] },
-  { key: "pris", label: "Pris og pladser", shown: (f) => f.member_price_kr === null ? null : `Medlemmer ${kr(f.member_price_kr)}, andre ${kr(f.non_member_price_kr ?? f.member_price_kr)}${f.max_attendees ? ` · maks. ${f.max_attendees}` : ""}`, clear: ["member_price_kr", "non_member_price_kr", "max_attendees"] },
-  { key: "sociale", label: "Sociale medier", shown: (f) => f.social === null ? null : f.social ? "Ja, del det" : "Nej", clear: ["social"] },
-  { key: "billeder", label: "Eventfoto", shown: (f) => f.photo === "ok" ? "Godkendt" : f.photo === "skipped" ? "Sprunget over" : null, clear: ["photo"] }
+  { key: "pris", label: "Pris", shown: (f) => f.member_price_kr === null ? null : `Medlemmer ${kr(f.member_price_kr)}, andre ${kr(f.non_member_price_kr ?? f.member_price_kr)}`, clear: ["member_price_kr", "non_member_price_kr"] },
+  { key: "pladser", label: "Pladser", shown: (f) => f.max_attendees === null ? null : f.max_attendees === 0 ? "Ingen grænse" : `Maks. ${f.max_attendees}`, clear: ["max_attendees"] },
+  { key: "sociale", label: "Sociale medier", shown: (f) => f.social === null ? null : f.social ? "Ja tak" : "Nej tak", clear: ["social"] },
+  { key: "billeder", label: "Eventfoto", shown: (f) => f.photo === "ok" ? "Godkendt" : f.photo === "skipped" ? "Tilføjes senere" : null, clear: ["photo"] }
 ];
 const BRIEF_EXAMPLE = "Fx: En aften med yin yoga og lydbad en onsdag i november, ca. to timer, for begyndere. Gratis for medlemmer, 120 kr. for andre.";
 
@@ -126,6 +131,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
   }
 
   const started = messages.length > 0;
+  const fixed = isFixedStep(guide.next);
   const done = STEPS.filter((step) => step.shown(guide.facts)).length;
 
   if (created) return <section className="guide guide-done">
@@ -158,7 +164,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
             <dl className="guide-facts">
               <div><dt>Medlemmer</dt><dd>{kr(draft.member_price_kr ?? 0)}</dd></div>
               <div><dt>Ikke-medlemmer</dt><dd>{kr(draft.non_member_price_kr ?? draft.member_price_kr ?? 0)}</dd></div>
-              <div><dt>Pladser</dt><dd>{draft.max_attendees ?? "ingen grænse"}</dd></div>
+              <div><dt>Pladser</dt><dd>{draft.max_attendees || "ingen grænse"}</dd></div>
               <div><dt>Sociale medier</dt><dd>{guide.facts.social === false ? "Nej" : guide.facts.social ? "Ja" : "–"}</dd></div>
             </dl>
             <p className="guide-description">{draft.description}</p>
@@ -169,13 +175,20 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
             <small>Passer eventet til Hjerterum, kommer det online med det samme - ellers ser bestyrelsen på det. Du kan altid rette det under Mine events.</small>
           </article>}
         </div>
-        {guide.suggestions.length > 0 && !busy && <div className="guide-chips" role="group" aria-label="Sagas forslag - vælg et eller flere">
+        {/* Sharing and the photo have fixed buttons (site/guide-choices.ts): one click answers. */}
+        {guide.suggestions.length > 0 && !busy && fixed && <div className="guide-chips" role="group" aria-label="Vælg et svar">
+          {guide.suggestions.map((s) => s === UPLOAD_NOW
+            ? <button key={s} type="button" className="is-primary" onClick={() => picker.current?.click()}>{s}</button>
+            : <button key={s} type="button" onClick={() => void ask(s)}>{s}</button>)}
+          {guide.next === "billeder" && <span className="guide-chips-hint">Du kan altid tilføje et foto senere ved at redigere eventet.</span>}
+        </div>}
+        {guide.suggestions.length > 0 && !busy && !fixed && <div className="guide-chips" role="group" aria-label="Sagas forslag - vælg et eller flere">
           {guide.suggestions.map((s) => <button key={s} type="button" aria-pressed={picked.includes(s)} onClick={() => toggle(s)}>{picked.includes(s) ? "✓ " : ""}{s}</button>)}
           <span className="guide-chips-hint">{picked.length ? `${picked.length} valgt – skriv evt. mere, og tryk Send` : "Vælg et eller flere – eller skriv selv"}</span>
         </div>}
         <form className="guide-input" onSubmit={(e) => { e.preventDefault(); void ask(answer()); }}>
           <input ref={picker} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void attach(f); }} />
-          <button type="button" className="guide-attach" disabled={busy} onClick={() => picker.current?.click()}>Tilføj foto</button>
+          <button type="button" className={"guide-attach" + (guide.next === "billeder" && !draft ? " is-wanted" : "")} disabled={busy} onClick={() => picker.current?.click()}>Tilføj foto</button>
           <textarea rows={1} value={text} onChange={(e) => setText(e.target.value)}
             placeholder={picked.length ? "Tilføj evt. noget selv …" : "Svar Saga …"}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(answer()); } }} />
