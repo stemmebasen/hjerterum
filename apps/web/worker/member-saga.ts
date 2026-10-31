@@ -2,6 +2,7 @@ import { ROOM_RENTAL_RULES } from "../../../packages/core/src/legacy-room-pricin
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
+import { DESCRIBE, draftFrom, guidedPrompt, mergeFacts, nextStep, NO_FACTS, parseGuided, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
@@ -184,39 +185,6 @@ Når du kender mindst titel, dato, start og slut, og tiden er ledig, så lav et 
   + `Svar KUN med JSON: {"reply":"...","draft":null,"photo_ok":null} eller {"reply":"...","draft":{"title":"","description":"","date":"ÅÅÅÅ-MM-DD","start":"TT:MM","end":"TT:MM","booking_type":"standard|reduced|free","max_attendees":null,"member_price_kr":null,"non_member_price_kr":null},"photo_ok":null}. `
   + `start og end er eventets egne tider (uden klargøring og oprydning).`;
 
-/** Requested: "Man skal have mulighed for blot at skrive et brief og så få Saga til at hjælpe med at færdiggøre eventet. En alternativ
- * oprettelse hvor Saga bare stiller nødvendige spørgsmål (titel, indhold, pris, tidspunkt, skal det deles på sociale medier, upload
- * billeder) og så til sidst kommer med forslag til tekst og beskrivelse." The "Opret med Saga" page (src/saga-event-guide.tsx). */
-export const GUIDE_STEPS = ["brief", "titel", "indhold", "tid", "pris", "sociale", "billeder"] as const;
-export type GuideStep = (typeof GUIDE_STEPS)[number];
-export type Guide = { progress: Record<GuideStep, boolean>; social: boolean | null; suggestions: string[] };
-
-export const GUIDED = `
-
-GUIDET OPRETTELSE (gælder nu)
-Medlemmet har valgt "Opret med Saga" og er i gang med at oprette et event sammen med dig. Den første besked er medlemmets brief. Gå punkterne igennem i denne rækkefølge, og spørg KUN om det, der stadig mangler - tag alt, du kan, fra brief'et og samtalen. Ét kort spørgsmål ad gangen:
-1. brief: hvad eventet er (det har du fra første besked).
-2. titel: foreslå selv en kort, varm titel ud fra brief'et, og spørg om den er god - eller om medlemmet har sin egen.
-3. indhold: hvad sker der, for hvem (begyndere?), hvad skal man medbringe, og hvem leder det.
-4. tid: dato, start og slut - tjek KALENDEREN og foreslå ledige tider.
-5. pris: pris for medlemmer og for ikke-medlemmer (gratis er fint), lejetypen, og evt. maks. deltagere. Sig, hvad lejen bliver.
-6. sociale: skal Hjerterum dele eventet på Instagram og Facebook? Ja betyder, at vi laver opslag ud fra titel, tid og eventfoto.
-7. billeder: bed om et eventfoto i bredformat (det beskæres til 1920 × 1005 px) - medlemmet trykker "Tilføj foto". Det kan springes over.
-Hjælp medlemmet hurtigt i mål (requested: "så vi hurtigere kan blive færdig"): foreslå selv alt, du kan udlede, så medlemmet mest skal bekræfte, og saml gerne to nære punkter i ét spørgsmål (fx indhold og hvad man medbringer, eller pris og pladser).
-Når alle punkter er klaret (et foto kan være sprunget over), så lav udkastet med DIT forslag til titel og en færdig beskrivelse i Hjerterums tone ud fra medlemmets eget indhold - find ikke på nyt - og skriv kort, at medlemmet kan trykke "Opret og læg online" eller rette i formularen. Lav ikke udkastet før.
-I JSON skal du nu også altid have "progress" (hvilke punkter der er klaret), "social" (true/false/null) og "suggestions".
-"suggestions" er ALTID 4-5 svar, medlemmet kan trykke på - og medlemmet kan vælge FLERE og sende dem samlet, så de skal kunne kombineres (ikke udelukke hinanden, undtagen ja/nej-spørgsmål). Gør dem kvalificerede og konkrete ud fra brief'et og samtalen, ikke generiske: til indhold fx forløbets dele ("20 min. introduktion til åndedrættet", "45 min. guidet breathwork liggende", "Deling i rundkreds til sidst"), hvad man medbringer ("Yogamåtte og tæppe", "Vandflaske", "Behageligt tøj"); til tid de ledige tider fra KALENDEREN med ugedag og dato ("Onsdag 11/11 kl. 19-21"); til pris realistiske priser, som passer til eventtypen og lejetypen ("Gratis for medlemmer, 100 kr. for andre", "Maks. 20 deltagere"); til titel 3-4 forskellige titelforslag. Højst ca. 70 tegn pr. forslag. [] kun når et forslag ikke giver mening (fx når udkastet er lavet).
-Svar KUN med JSON: {"reply":"...","draft":null eller {...som ovenfor...},"photo_ok":null,"progress":{"brief":true,"titel":false,"indhold":false,"tid":false,"pris":false,"sociale":false,"billeder":false},"social":null,"suggestions":["..."]}`;
-
-export function parseGuide(answer: string): Guide {
-  let data: Record<string, unknown> | null = null;
-  try { data = JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as Record<string, unknown> | null; } catch { data = null; }
-  const p = data?.progress && typeof data.progress === "object" ? data.progress as Record<string, unknown> : {};
-  const progress = Object.fromEntries(GUIDE_STEPS.map(step => [step, p[step] === true])) as Record<GuideStep, boolean>;
-  const suggestions = Array.isArray(data?.suggestions) ? (data!.suggestions as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0).map(x => x.trim().slice(0, 90)).slice(0, 5) : [];
-  return { progress, social: typeof data?.social === "boolean" ? data.social : null, suggestions };
-}
-
 const PHOTO_DATA = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 function readPhoto(value: unknown): AttachedPhoto | null {
   if (!value || typeof value !== "object") return null;
@@ -234,7 +202,8 @@ const num = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 
 export function parseAnswer(answer: string): { reply: string; draft: MemberDraft | null; photoOk: boolean | null } {
   let data: Record<string, unknown> | null = null;
   try { data = JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as Record<string, unknown> | null; } catch { data = null; }
-  if (!data) return { reply: answer.trim().slice(0, 1200) || "Undskyld, det fangede jeg ikke. Prøv igen?", draft: null, photoOk: null };
+  // An answer cut off at its length limit is no JSON: her reply is read out of it, and the raw text is never shown (event-guide.ts).
+  if (!data) return { reply: replyFromBrokenJson(answer) ?? (/^\s*\{/.test(answer) ? "Undskyld, det fangede jeg ikke helt. Prøv at skrive igen?" : answer.trim().slice(0, 1200) || "Undskyld, det fangede jeg ikke. Prøv igen?"), draft: null, photoOk: null };
   const d = data.draft && typeof data.draft === "object" ? data.draft as Record<string, unknown> : null;
   const draft: MemberDraft | null = d && str(d.title, 200) && /^\d{4}-\d{2}-\d{2}$/.test(str(d.date, 10)) && /^\d{2}:\d{2}$/.test(str(d.start, 5)) && /^\d{2}:\d{2}$/.test(str(d.end, 5)) ? {
     title: str(d.title, 200), description: str(d.description, 4000), date: str(d.date, 10), start: str(d.start, 5), end: str(d.end, 5),
@@ -262,8 +231,11 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
   }
   if (!env.AI_API_KEY || !env.AI_MODEL) return json({ error: "saga_unavailable" }, 503);
   const membership = await resolveActiveMembership(db, userId, env.CLERK_SECRET_KEY).catch(() => null);
-  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; messages?: unknown; photo?: unknown; page?: unknown; lang?: unknown; guided?: unknown } | null;
+  const body = await request.json().catch(() => null) as { conversation?: unknown; text?: unknown; messages?: unknown; photo?: unknown; page?: unknown; lang?: unknown; guided?: unknown; facts?: unknown } | null;
   const guided = body?.guided === true;
+  // "Opret med Saga": the answers so far, kept by the page and checked here (event-guide.ts).
+  const known: EventFacts = { ...NO_FACTS, ...readFacts(body?.facts) };
+  const step = nextStep(known);
   const lang = readLang(body?.lang);
   const page = typeof body?.page === "string" && /^\/[\w\-/]*$/.test(body.page) ? body.page.slice(0, 80) : "";
   // A page loaded before this version sends the whole conversation; its last message is the question.
@@ -299,14 +271,35 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       return { role: "user", content: parts };
     });
     // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
-    const answer = await completeAs("medlem-saga", "mid", 1500)(env, deps, [{ role: "system", content: SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? GUIDED : "") + (lang === "en" ? ENGLISH : "") }, ...messages]);
+    const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? guidedPrompt(known, step) : "") + (lang === "en" ? ENGLISH : "");
+    const answer = await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
     const parsed = parseAnswer(answer);
-    const guide = guided ? parseGuide(answer) : null;
     // A photo that breaks the measurable rules is never approved, whatever the model said.
     const photoOk = measured ? measured.ok && parsed.photoOk === true : null;
+    if (guided) {
+      const said = parseGuided(answer);
+      let got = mergeFacts(known, said.learned, step);
+      if (photoOk) got = { ...got, photo: "ok" };
+      let next = nextStep(got);
+      let reply = said.reply, draft = null as ReturnType<typeof draftFrom>;
+      // Everything is known: Saga writes the description only; the draft is put together from the facts.
+      if (next === "forslag") {
+        const written = await completeAs("medlem-saga-beskrivelse", "mid", 1500)(env, deps, [{ role: "system", content: DESCRIBE(got) }, { role: "user", content: "Skriv beskrivelsen." }]).catch(() => "");
+        const data = (() => { try { return JSON.parse(/\{[\s\S]*\}/.exec(written)?.[0] ?? "null") as { description?: unknown; reply?: unknown } | null; } catch { return null; } })();
+        const description = typeof data?.description === "string" ? data.description.trim().slice(0, 4000) : "";
+        if (description) {
+          got = { ...got, description };
+          draft = draftFrom(got);
+          reply = typeof data?.reply === "string" && data.reply.trim() ? data.reply.trim() : "Her er mit forslag.";
+        } else { reply = "Jeg kunne ikke skrive beskrivelsen lige nu. Tryk Send igen om lidt."; next = "forslag"; }
+      }
+      const note = (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") + (draft ? ` [Udkast: ${draft.title}, ${draft.date} ${draft.start}-${draft.end}]` : "");
+      await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: reply + note }], deps.now());
+      return json({ conversation: conversation.id, reply, draft, photo: measured ? { ok: photoOk } : null, action: null, guide: { facts: got, next, suggestions: next === "forslag" ? [] : said.suggestions } });
+    }
     const draftNote = parsed.draft ? ` [Udkast: ${parsed.draft.title}, ${parsed.draft.date} ${parsed.draft.start}-${parsed.draft.end}, ${parsed.draft.booking_type}]` : "";
     await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: parsed.reply + draftNote + (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") }], now);
-    return json({ conversation: conversation.id, reply: parsed.reply, draft: parsed.draft, photo: measured ? { ok: photoOk } : null, action: null, ...(guide ? { guide } : {}) });
+    return json({ conversation: conversation.id, reply: parsed.reply, draft: parsed.draft, photo: measured ? { ok: photoOk } : null, action: null });
   } catch (error) {
     console.warn("member_saga_failed", error instanceof Error ? error.message : error);
     return json({ error: "saga_unavailable" }, 503);
