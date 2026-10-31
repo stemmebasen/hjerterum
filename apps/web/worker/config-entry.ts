@@ -15,6 +15,7 @@ import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mai
 import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
+import { posterImage } from "./poster-image.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -124,6 +125,9 @@ export default {
       const now = Date.now();
       return Response.json(upcomingFeed(await programCandidates(db, await getExternalEvents().catch(() => []), now), now, url.origin), { headers: { "cache-control": "public, max-age=300" } });
     }
+    // An event's poster is drawn in the browser (src/event-poster.ts); a canvas may only export a photo from its own address,
+    // so the membership system's event photos are passed through here - from that one host only.
+    if (request.method === "GET" && url.pathname === "/api/poster-image") return posterImage(url.searchParams.get("src"));
     // An event from the membership system's calendar, on its own page (event-detail.ts).
     const detailMatch = /^\/api\/events\/external\/([0-9a-f]{24})$/.exec(url.pathname);
     if (request.method === "GET" && detailMatch) {

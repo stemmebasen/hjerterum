@@ -194,7 +194,7 @@ async function publicRoomBookings(env: Env): Promise<Response> {
         imageUrl: files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null,
         id: row.id,
         teacherName: row.teacher_name,
-        teacherEmail: row.teacher_email,
+        // The public list never carries the teacher's e-mail (it was there, read by no page).
         title: row.title,
         description: row.description,
         startsAt: new Date(row.starts_at_ms).toISOString(),
