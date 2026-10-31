@@ -202,8 +202,10 @@ Medlemmet har valgt "Opret med Saga" og er i gang med at oprette et event sammen
 5. pris: pris for medlemmer og for ikke-medlemmer (gratis er fint), lejetypen, og evt. maks. deltagere. Sig, hvad lejen bliver.
 6. sociale: skal Hjerterum dele eventet på Instagram og Facebook? Ja betyder, at vi laver opslag ud fra titel, tid og eventfoto.
 7. billeder: bed om et eventfoto i bredformat (det beskæres til 1920 × 1005 px) - medlemmet trykker "Tilføj foto". Det kan springes over.
+Hjælp medlemmet hurtigt i mål (requested: "så vi hurtigere kan blive færdig"): foreslå selv alt, du kan udlede, så medlemmet mest skal bekræfte, og saml gerne to nære punkter i ét spørgsmål (fx indhold og hvad man medbringer, eller pris og pladser).
 Når alle punkter er klaret (et foto kan være sprunget over), så lav udkastet med DIT forslag til titel og en færdig beskrivelse i Hjerterums tone ud fra medlemmets eget indhold - find ikke på nyt - og skriv kort, at medlemmet kan trykke "Opret og læg online" eller rette i formularen. Lav ikke udkastet før.
-I JSON skal du nu også altid have "progress" (hvilke punkter der er klaret), "social" (true/false/null) og "suggestions": 2-3 meget korte svar, medlemmet kan trykke på til dit spørgsmål (fx "Ja, del det", "Nej tak", "Spring over", et foreslået tidspunkt) - eller [] hvis det ikke giver mening.
+I JSON skal du nu også altid have "progress" (hvilke punkter der er klaret), "social" (true/false/null) og "suggestions".
+"suggestions" er ALTID 4-5 svar, medlemmet kan trykke på - og medlemmet kan vælge FLERE og sende dem samlet, så de skal kunne kombineres (ikke udelukke hinanden, undtagen ja/nej-spørgsmål). Gør dem kvalificerede og konkrete ud fra brief'et og samtalen, ikke generiske: til indhold fx forløbets dele ("20 min. introduktion til åndedrættet", "45 min. guidet breathwork liggende", "Deling i rundkreds til sidst"), hvad man medbringer ("Yogamåtte og tæppe", "Vandflaske", "Behageligt tøj"); til tid de ledige tider fra KALENDEREN med ugedag og dato ("Onsdag 11/11 kl. 19-21"); til pris realistiske priser, som passer til eventtypen og lejetypen ("Gratis for medlemmer, 100 kr. for andre", "Maks. 20 deltagere"); til titel 3-4 forskellige titelforslag. Højst ca. 70 tegn pr. forslag. [] kun når et forslag ikke giver mening (fx når udkastet er lavet).
 Svar KUN med JSON: {"reply":"...","draft":null eller {...som ovenfor...},"photo_ok":null,"progress":{"brief":true,"titel":false,"indhold":false,"tid":false,"pris":false,"sociale":false,"billeder":false},"social":null,"suggestions":["..."]}`;
 
 export function parseGuide(answer: string): Guide {
@@ -211,7 +213,7 @@ export function parseGuide(answer: string): Guide {
   try { data = JSON.parse(/\{[\s\S]*\}/.exec(answer)?.[0] ?? "null") as Record<string, unknown> | null; } catch { data = null; }
   const p = data?.progress && typeof data.progress === "object" ? data.progress as Record<string, unknown> : {};
   const progress = Object.fromEntries(GUIDE_STEPS.map(step => [step, p[step] === true])) as Record<GuideStep, boolean>;
-  const suggestions = Array.isArray(data?.suggestions) ? (data!.suggestions as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0).map(x => x.trim().slice(0, 60)).slice(0, 3) : [];
+  const suggestions = Array.isArray(data?.suggestions) ? (data!.suggestions as unknown[]).filter((x): x is string => typeof x === "string" && x.trim().length > 0).map(x => x.trim().slice(0, 90)).slice(0, 5) : [];
   return { progress, social: typeof data?.social === "boolean" ? data.social : null, suggestions };
 }
 
