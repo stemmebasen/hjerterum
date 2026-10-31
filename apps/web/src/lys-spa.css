@@ -367,15 +367,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .planner-type-text { font-size: .8rem; color: var(--lys-muted); }
 .planner-type-price { font: 600 1.25rem var(--lys-sans); margin-top: 4px; }
 .planner-type-lines { font-size: .76rem; color: var(--lys-muted); }
-.event-numbers { grid-template-columns: 8rem minmax(0, 15rem); }
-.event-numbers label:first-child input { max-width: 8rem; }
 .workspace-form .planner-type, .workspace-form label small { font-weight: 400; }
-@media (max-width: 760px) { .planner-top { grid-template-columns: minmax(0, 1fr); } .planner-cal { position: static; } .planner-times, .event-numbers { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .planner-empty { padding: 18px; } }
+@media (max-width: 760px) { .planner-top { grid-template-columns: minmax(0, 1fr); } .planner-cal { position: static; } .planner-times { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .planner-empty { padding: 18px; } }
 
 /* Photo and files on an event. */
-.event-files-field { display: grid; gap: 14px; border: 0; padding: 0; margin: 0; min-width: 0; }
-.event-files-field > legend { font-size: .9rem; font-weight: 650; padding: 0; margin-bottom: 8px; }
-.event-cover { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 16px; align-items: start; }
 .event-file-preview { display: block; width: 160px; aspect-ratio: 1920 / 1005; object-fit: cover; border-radius: 12px; background: var(--lys-soft); }
 .event-file-empty { border: 1.5px dashed var(--lys-line); }
 .event-file-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -384,7 +379,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-files-title { margin: 0 0 4px; font-size: .78rem; font-weight: 650; text-transform: uppercase; letter-spacing: .12em; color: var(--lys-muted); }
 .event-files ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .workspace-list article > .event-file-preview { width: 100%; max-width: 240px; margin-bottom: 8px; }
-@media (max-width: 760px) { .event-cover { grid-template-columns: minmax(0, 1fr); } .event-file-preview { width: 100%; max-width: 320px; } }
+@media (max-width: 760px) { .event-file-preview { width: 100%; max-width: 320px; } }
 
 /* An event from the membership system's calendar on its own page (src/event-page.tsx). */
 .event-page-title { font-size: clamp(34px, 4.4vw, 56px); }
@@ -631,3 +626,44 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-refused { aspect-ratio: 4 / 5; display: grid; align-content: center; gap: 8px; padding: 28px; border-radius: 18px; border: 1px dashed var(--lys-line); background: var(--lys-soft); color: var(--lys-muted); font-size: 15px; line-height: 1.5; }
 .poster-refused b { color: var(--lys-terra); font: 600 13px/1 var(--lys-sans); letter-spacing: .12em; text-transform: uppercase; }
 .poster-refused p { margin: 0; }
+/* The event form's choice of poster (poster-choice.tsx): the system's choice, five designs drawn live, or the member's own. */
+.poster-choice-help { margin: 0; color: var(--lys-muted); font-size: 14.5px; line-height: 1.5; }
+.poster-choice-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; max-width: 640px; }
+@media (max-width: 560px) { .poster-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.poster-choice-option { position: relative; display: grid; gap: 6px; align-content: start; cursor: pointer; font-size: 13.5px; }
+.poster-choice-option input { position: absolute; opacity: 0; pointer-events: none; }
+.poster-choice-canvas, .poster-choice-own-box, .poster-choice-own-img { width: 100%; aspect-ratio: 4 / 5; height: auto; border-radius: 10px; border: 2px solid transparent; box-shadow: var(--lys-shadow); background: var(--lys-soft); object-fit: cover; }
+.poster-choice-own-box { display: grid; place-items: center; text-align: center; font: italic 400 17px/1.3 var(--lys-serif); color: var(--lys-muted); border: 2px dashed var(--lys-line); box-shadow: none; }
+.poster-choice-option.is-picked .poster-choice-canvas, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { border-color: var(--lys-terra); }
+.poster-choice-option.is-picked .poster-choice-label { color: var(--lys-terra); font-weight: 600; }
+.poster-choice-option input:focus-visible ~ canvas, .poster-choice-option input:focus-visible ~ .poster-choice-own-box { outline: 2px solid var(--lys-terra); outline-offset: 2px; }
+.poster-choice-option.is-disabled { cursor: not-allowed; opacity: .45; }
+.poster-choice-option small { color: var(--lys-muted); font-size: 11.5px; line-height: 1.35; }
+.poster-choice-upload { display: grid; gap: 8px; }
+.poster-choice-upload small { color: var(--lys-muted); line-height: 1.5; }
+.poster-choice-problem { margin: 0; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--lys-terra) 12%, transparent); font-size: 14.5px; }
+.poster-choice-ok { margin: 0; color: var(--lys-muted); font-size: 14.5px; }
+
+/* The event form's lower part (workspaces.tsx, event-files.tsx, poster-choice.tsx). Reported: "Dette layout er ikke kønt. det kan gøres
+   meget bedre." - three calm sections in the same frame: the numbers in one row, the photo in its own size, the poster. */
+.event-section { border: 1px solid var(--lys-line); border-radius: 16px; padding: 18px 20px 20px; margin: 6px 0 0; display: grid; gap: 14px; min-width: 0; }
+.event-section > legend { padding: 0 8px; margin-left: -8px; font: 600 15px var(--lys-sans); color: var(--lys-ink); }
+.event-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.event-numbers label { display: grid; gap: 7px; }
+.event-numbers input { width: 100%; }
+.event-numbers small { color: var(--lys-muted); font-size: 12.5px; line-height: 1.45; }
+@media (max-width: 760px) { .event-numbers { grid-template-columns: minmax(0, 1fr); } }
+.event-cover-drop { position: relative; display: block; width: 100%; max-width: 640px; aspect-ratio: 1920 / 1005; border-radius: 14px; overflow: hidden; cursor: pointer; background: var(--lys-soft); border: 1.5px dashed var(--lys-line); }
+.event-cover-drop.has-photo { border-style: solid; border-color: transparent; }
+.event-cover-drop input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.event-cover-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.event-cover-empty { position: absolute; inset: 0; display: grid; place-content: center; gap: 4px; text-align: center; color: var(--lys-muted); pointer-events: none; }
+.event-cover-empty b { font: italic 400 24px var(--lys-serif); color: var(--lys-ink); }
+.event-cover-change { position: absolute; right: 12px; bottom: 12px; padding: 7px 14px; border-radius: 999px; background: rgba(31,29,26,.72); color: #f6f1e7; font: 600 13px var(--lys-sans); pointer-events: none; }
+.event-cover-drop:hover .event-cover-change, .event-cover-drop:focus-within { outline: 2px solid var(--lys-terra); outline-offset: 2px; }
+.event-note { margin: 0; color: var(--lys-muted); font-size: 13px; line-height: 1.5; max-width: 640px; }
+.event-attach { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.event-attach .pill-button { position: relative; overflow: hidden; cursor: pointer; display: inline-flex; align-items: center; min-height: 42px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--lys-line); background: var(--lys-surface); color: var(--lys-ink); font: 600 14px var(--lys-sans); }
+.event-attach .pill-button input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.event-attach .pill-button.is-disabled { opacity: .5; cursor: not-allowed; }
+.event-attach .event-note { flex: 1 1 260px; }

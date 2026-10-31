@@ -128,29 +128,38 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
   const room = OTHER_MAX - existingOthers.length;
   const problems = fileProblems(cover, extra, existingOthers.length);
 
+  const pickCover = async (picked: File | null) => {
+    if (!picked) { onCover(null); return; }
+    const cropped = await cropCover(picked);
+    setCropIssue(cropped.ok ? "" : cropped.reason);
+    onCover(cropped.ok ? cropped.file : null);
+  };
+
+  // Reported: "Dette layout er ikke kønt" and "Eventfoto dimensionerne skal passe alle steder": the photo is chosen in a frame
+  // of its own size (1920 × 1005, Facebook's event cover) - what you see is what the website and Facebook show.
   return (
-    <fieldset className="event-files-field" disabled={!enabled}>
-      <legend>Foto og filer</legend>
+    <fieldset className="event-section event-files-field" disabled={!enabled}>
+      <legend>Eventfoto og filer</legend>
       {!enabled && <p className="lys-sub">Upload af foto og filer er ikke slået til endnu.</p>}
-      <div className="event-cover">
-        <div>
-          {preview ? <img className="event-file-preview" src={preview} alt="Det valgte eventfoto" />
-            : existingCover ? <AuthImage clerk={clerk} file={existingCover} alt="Eventets foto" />
-              : <span className="event-file-preview event-file-empty" aria-hidden="true" />}
-        </div>
-        <label>Eventfoto
-          <input type="file" accept={COVER_ACCEPT} onChange={async (e) => { const picked = e.target.files?.[0] ?? null; e.target.value = ""; if (!picked) { onCover(null); return; } const cropped = await cropCover(picked); setCropIssue(cropped.ok ? "" : cropped.reason); onCover(cropped.ok ? cropped.file : null); }} />
-          {cropIssue && <small className="is-danger" role="alert">{cropIssue}</small>}
-          <small>Husk et billede til dit event. Vi foretrækker ikke AI-genererede billeder, og billedet skal være uden ophavsret - alternativt skal du selv eje rettighederne. Billedet beskæres automatisk fra midten til 1920 × 1005 px (Facebooks størrelse til events, jpg eller png) og må ikke være mindre, højst 8 MB. Billedet vises offentligt, når eventet er godkendt.</small>
-          {existingCover && !cover && <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(existingCover)}>Fjern det nuværende foto</button>}
-        </label>
-      </div>
-      {/* Asked (Gitta): "'Andre filer (0/5)' under Opret event: Er det til PR-materiale til PR-arkivet? - Det må gerne stå tydeligere". It is for the attendees. */}
-      <label>Filer til deltagerne ({existingOthers.length + extra.length} af {OTHER_MAX})
-        <input type="file" multiple accept={FILE_ACCEPT} disabled={room <= 0}
-          onChange={(e) => { onExtra([...extra, ...Array.from(e.target.files ?? [])].slice(0, Math.max(room, 0))); e.target.value = ""; }} />
-        <small>Fx program og praktisk information (pdf, Word, Excel, PowerPoint, tekst eller billeder), højst 10 MB hver. Filerne kan ses af dig, af bestyrelsen og af dem, der er tilmeldt eventet. Det er ikke PR-materiale: billeder og citater til PR deler du under Min profil → PR-materiale, hvor du også giver samtykke.</small>
+      <label className={"event-cover-drop" + (preview || existingCover ? " has-photo" : "")}
+        onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); void pickCover(e.dataTransfer.files?.[0] ?? null); }}>
+        <input type="file" accept={COVER_ACCEPT} onChange={(e) => { const picked = e.target.files?.[0] ?? null; e.target.value = ""; void pickCover(picked); }} />
+        {preview ? <img src={preview} alt="Det valgte eventfoto" />
+          : existingCover ? <AuthImage clerk={clerk} file={existingCover} alt="Eventets foto" />
+            : <span className="event-cover-empty"><b>Vælg et eventfoto</b><span>eller træk det hertil</span></span>}
+        {(preview || existingCover) && <span className="event-cover-change">Skift foto</span>}
       </label>
+      {cropIssue && <p className="event-note is-danger" role="alert">{cropIssue}</p>}
+      <p className="event-note">1920 × 1005 px (Facebooks størrelse til events), jpg eller png, højst 8 MB. Et større billede beskæres fra midten; et mindre afvises. Brug et foto, du selv har rettighederne til - helst ikke AI-genereret. Det vises offentligt, når eventet er godkendt.
+        {existingCover && !cover && <> <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(existingCover)}>Fjern fotoet</button></>}</p>
+      {/* Asked (Gitta): "'Andre filer (0/5)' under Opret event: Er det til PR-materiale til PR-arkivet? - Det må gerne stå tydeligere". It is for the attendees. */}
+      <div className="event-attach">
+        <label className={"pill-button" + (room <= 0 ? " is-disabled" : "")}>Tilføj filer til deltagerne
+          <input type="file" multiple accept={FILE_ACCEPT} disabled={room <= 0}
+            onChange={(e) => { onExtra([...extra, ...Array.from(e.target.files ?? [])].slice(0, Math.max(room, 0))); e.target.value = ""; }} />
+        </label>
+        <span className="event-note">{existingOthers.length + extra.length} af {OTHER_MAX} · fx program og praktisk info, højst 10 MB hver. Kun for dig, bestyrelsen og de tilmeldte - PR-billeder deler du under Min profil → PR-materiale.</span>
+      </div>
       {(existingOthers.length > 0 || extra.length > 0) && <ul className="event-file-list">
         {existingOthers.map((file) => <li key={file.id}><span>{file.filename} <span className="lys-meta">{megabytes(file.sizeBytes)}</span></span>
           <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(file)}>Fjern</button></li>)}

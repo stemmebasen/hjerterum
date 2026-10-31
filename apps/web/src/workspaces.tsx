@@ -4,6 +4,7 @@ import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
 import { PrNudge } from "./pr-material-editor";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
+import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
@@ -350,6 +351,10 @@ function MemberEvents({
   const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
   const [cover, setCover] = useState<File | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
+  // Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget" (poster-choice.tsx).
+  const [poster, setPoster] = useState<PosterChoiceValue>(AUTO_POSTER);
+  const [savedPoster, setSavedPoster] = useState<SavedPoster | null>(null);
+  const [liveTitle, setLiveTitle] = useState("");
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -400,6 +405,24 @@ function MemberEvents({
   }, [editing]);
   // The files already on the event being edited, as the calendar last reported them (so a removal shows at once).
   const existingFiles = editing ? bookings.find((booking) => booking.id === editing.id)?.files ?? [] : [];
+  useEffect(() => {
+    setLiveTitle(editing?.title ?? prefill?.draft.title ?? "");
+    setSavedPoster(null);
+    setPoster(AUTO_POSTER);
+    if (!editing) return;
+    let active = true;
+    void apiFetch(clerk, `/api/room-bookings/${editing.id}/poster-info`).then(r => r.ok ? r.json() as Promise<SavedPoster> : null).then(info => {
+      if (!active || !info) return;
+      setSavedPoster(info);
+      setPoster({ choice: info.variant ?? "auto", ownFile: null });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [clerk, editing, prefill]);
+  const removeSavedPoster = async () => {
+    if (!editing) return;
+    const r = await apiFetch(clerk, `/api/room-bookings/${editing.id}/poster`, { method: "DELETE" }).catch(() => null);
+    if (r?.ok) { setSavedPoster((p) => p ? { variant: null, poster: null } : p); setPoster(AUTO_POSTER); }
+  };
 
   async function removeExistingFile(file: EventFile) {
     if (!editing || !window.confirm("Vil du fjerne “" + file.filename + "” fra eventet?")) return;
@@ -472,13 +495,15 @@ function MemberEvents({
       const saved = await response.json().catch(() => ({})) as { id?: number };
       const bookingId = editing ? editing.id : saved.id;
       const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
+      const posterLine = bookingId ? await savePosterChoice(clerk, bookingId, poster, savedPoster) : "";
       formElement.reset();
       setPlan(EMPTY_PLAN);
       setCover(null);
       setExtraFiles([]);
+      setPoster(AUTO_POSTER);
       setEditing(null);
       setMessage((editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.")
-        + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : ""));
+        + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : "") + posterLine);
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
@@ -540,27 +565,33 @@ function MemberEvents({
             {/* Requested (Gitta): a strong encouragement to share PR material - "gøre det helt klart at vi ikke kan reklamere for dem uden". */}
             <PrNudge clerk={clerk} />
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
-              <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required /></label>
+              <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required onChange={(e) => setLiveTitle(e.target.value)} /></label>
               <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
                 {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
                 <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum.</small></label>
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
-              <div className="workspace-form-row event-numbers">
-                <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder={attendeeHint} defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} /></label>
-                <label>Billetpris pr. deltager (kr.)
-                  <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
-                  <small>{payout?.configured === false
-                    ? "Betalte events kan oprettes, når betalingen er koblet til. Indtil da er billetprisen 0 kr. (gratis)."
-                    : "0 kr. betyder gratis. Håndteringsgebyret lægges oveni ved betaling."}</small>
-                </label>
-                <label>Pris for ikke-medlemmer (kr.)
-                  <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder={priceHint} defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
-                  <small>Det, et ikke-medlem betaler, når de tilmelder sig. Tomt felt: samme pris som medlemmer. Prisen viser også medlemmerne, hvad de sparer.</small>
-                </label>
-              </div>
+              {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}
+              <fieldset className="event-section">
+                <legend>Deltagere og pris</legend>
+                <div className="event-numbers">
+                  <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder={attendeeHint} defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} />
+                    <small>Tomt felt: ingen grænse.</small></label>
+                  <label>Pris for medlemmer (kr.)
+                    <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
+                    <small>{payout?.configured === false ? "0 kr. = gratis. Betalte events åbner, når betalingen er koblet til." : "0 kr. = gratis. Gebyret lægges oveni ved betaling."}</small>
+                  </label>
+                  <label>Pris for ikke-medlemmer (kr.)
+                    <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder={priceHint} defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
+                    <small>Tomt felt: samme pris. Medlemmerne ser, hvad de sparer.</small>
+                  </label>
+                </div>
+              </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
+              <PosterChoice clerk={clerk} title={liveTitle} startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null}
+                teacher={member.fullName} cover={cover} coverUrl={existingFiles.find((file) => file.kind === "cover")?.url ?? null}
+                saved={savedPoster} value={poster} onChange={setPoster} onRemoveSaved={() => void removeSavedPoster()} />
               <div className="workspace-actions">
                 <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}

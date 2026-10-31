@@ -42,6 +42,8 @@ import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
   type EventFileView, type EventMediaBucket, type FileKind
 } from "./event-files.js";
+import { isPosterVariant, posterForDownload, posterInfo, postersByBooking, removePoster, setPosterVariant, storePoster } from "./event-posters.js";
+import type { SagaEnv } from "./saga/env.js";
 import { getExternalEvents } from "./external-events.js";
 
 interface Env {
@@ -189,9 +191,12 @@ async function publicRoomBookings(env: Env): Promise<Response> {
   try {
     const rows = await listUpcomingPublicRoomBookings(env.DB);
     const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
+    const posters = await postersByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map());
     return json(
       rows.map((row) => ({
         imageUrl: files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null,
+        posterVariant: posters.get(row.id)?.variant ?? null,
+        posterUrl: posters.get(row.id)?.poster?.url ?? null,
         id: row.id,
         teacherName: row.teacher_name,
         // The public list never carries the teacher's e-mail (it was there, read by no page).
@@ -498,6 +503,80 @@ async function deleteEventFile(request: Request, env: Env, bookingId: number, fi
   return removed.removed ? json({ ok: true }) : json({ error: "file_not_found" }, { status: 404 });
 }
 
+/** Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget" (event-posters.ts).
+ * The organiser's choice of poster design, and their own poster - which Saga looks at before it is kept. */
+async function ownedPosterBooking(env: Env, request: Request, bookingId: number) {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const user = await requireUser(request, env);
+  if (isResponse(user)) return user;
+  const booking = await env.DB.prepare("SELECT id, title, starts_at_ms, ends_at_ms FROM room_bookings WHERE id = ? AND clerk_user_id = ? AND status = 'scheduled'")
+    .bind(bookingId, user.userId).first<{ id: number; title: string; starts_at_ms: number; ends_at_ms: number }>();
+  if (!booking) return json({ error: "booking_not_found" }, { status: 404 });
+  return { db: env.DB, userId: user.userId, booking };
+}
+
+async function getPosterInfo(request: Request, env: Env, bookingId: number): Promise<Response> {
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  return json(await posterInfo(owned.db, bookingId));
+}
+
+async function putPosterVariant(request: Request, env: Env, bookingId: number): Promise<Response> {
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  const body = await request.json().catch(() => null) as { variant?: unknown } | null;
+  const variant = body?.variant ?? null;
+  if (variant !== null && !isPosterVariant(variant)) return json({ error: "invalid_variant" }, { status: 400 });
+  if (variant === "eget" && !(await posterInfo(owned.db, bookingId)).poster) return json({ error: "poster_missing" }, { status: 409 });
+  await setPosterVariant(owned.db, bookingId, variant, Date.now());
+  return json(await posterInfo(owned.db, bookingId));
+}
+
+async function uploadPoster(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  const membership = await requireActiveMembershipForUser(env, owned.userId);
+  if (isResponse(membership)) return membership;
+  const form = await request.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!file || typeof file === "string") return json({ error: "invalid_form" }, { status: 400 });
+  const upload = file as File;
+  if (upload.size > 11 * 1024 * 1024) return json({ error: "file_too_large", reason: "Filen er for stor - et opslag må højst fylde 4,5 MB." }, { status: 413 });
+  const stored = await storePoster(env as unknown as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() }, owned.db, env.EVENT_MEDIA,
+    { booking: owned.booking, userId: owned.userId, name: upload.name, bytes: await upload.arrayBuffer() });
+  if (!stored.ok) return json({ error: stored.error, reason: stored.reason }, { status: stored.error === "saga_unavailable" ? 503 : 422 });
+  return json({ poster: stored.poster }, { status: 201 });
+}
+
+async function deletePoster(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  return (await removePoster(owned.db, env.EVENT_MEDIA, bookingId, Date.now())) ? json({ ok: true }) : json({ error: "poster_missing" }, { status: 404 });
+}
+
+/** The organiser's own poster: public once the event is approved and on, like the cover photo; before that only for the organiser. */
+async function downloadPoster(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const target = await posterForDownload(env.DB, bookingId);
+  if (!target) return json({ error: "file_not_found" }, { status: 404 });
+  if (!target.public) {
+    const user = await requireUser(request, env);
+    if (isResponse(user)) return user;
+    if (user.userId !== target.owner_id) return json({ error: "file_not_found" }, { status: 404 });
+  }
+  const object = await env.EVENT_MEDIA.get(target.r2_key);
+  if (!object) return json({ error: "file_not_found" }, { status: 404 });
+  return new Response(object.body, { headers: {
+    "content-type": target.content_type,
+    "cache-control": target.public ? "public, max-age=3600" : "private, no-store",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "default-src 'none'; sandbox"
+  } });
+}
+
 /** A cover photo is public once its event is approved; anything else is for the organiser or, for files, the registered. */
 async function downloadEventFile(request: Request, env: Env, fileId: number): Promise<Response> {
   if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
@@ -732,6 +811,14 @@ export default {
     if (request.method === "DELETE" && attendanceId !== null) {
       return unattendBooking(request, env, attendanceId);
     }
+    const posterId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster$/);
+    if (posterId !== null && request.method === "GET") return downloadPoster(request, env, posterId);
+    if (posterId !== null && request.method === "POST") return uploadPoster(request, env, posterId);
+    if (posterId !== null && request.method === "DELETE") return deletePoster(request, env, posterId);
+    const posterInfoId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-info$/);
+    if (posterInfoId !== null && request.method === "GET") return getPosterInfo(request, env, posterInfoId);
+    const posterVariantId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-variant$/);
+    if (posterVariantId !== null && request.method === "PUT") return putPosterVariant(request, env, posterVariantId);
     const eventFileDownloadId = parseRouteId(url.pathname, /^\/api\/event-files\/(\d+)$/);
     if (request.method === "GET" && eventFileDownloadId !== null) {
       return downloadEventFile(request, env, eventFileDownloadId);
