@@ -6,6 +6,7 @@
 
 /** Reported: "Er det meningen hun stiller to spørgsmål men kun giver svarmuligheder til det ene?" and "Det virker underligt at blande
  * tingene sammen på den måde": one fact per step, one question per step - asked in the code's words, with her suggestions for it. */
+import { FREE_RENT_MIN_NON_MEMBER_KR } from "../../../packages/core/src/legacy-room-pricing.js";
 import { GUIDE_CHOICES, isFixedStep } from "../site/guide-choices.js";
 
 export const STEPS = ["titel", "indhold", "leder", "kontakt", "medbring", "tid", "pris", "pladser", "sociale", "billeder"] as const;
@@ -125,7 +126,8 @@ export const isBrief = (f: EventFacts) => Object.values(f).every(v => v === null
 /** Members free and others paying: free rent; members paying less: reduced; else standard (worker/member-saga.ts REGLER FOR LEJE). */
 export function bookingTypeOf(f: Pick<EventFacts, "member_price_kr" | "non_member_price_kr">): "standard" | "reduced" | "free" {
   const member = f.member_price_kr ?? 0, other = f.non_member_price_kr ?? member;
-  if (member === 0 && other > 0) return "free";
+  // Gratis leje: members free, non-members at least 75 kr. each (FREE_RENT_MIN_NON_MEMBER_KR). Free for everyone is standard rent.
+  if (member === 0 && other >= FREE_RENT_MIN_NON_MEMBER_KR) return "free";
   if (member < other) return "reduced";
   return "standard";
 }
