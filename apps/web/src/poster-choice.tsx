@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { chooseVariant, drawPoster, photoFits, VARIANTS, wordsOf, type Assets, type PosterWords, type VariantKey } from "./event-poster";
 import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/poster-rules";
@@ -39,9 +39,13 @@ function useLogo() {
   return logo;
 }
 
-function Preview({ variant, words, assets }: { variant: VariantKey; words: PosterWords; assets: Assets }) {
+/** A small preview, drawn a moment after the words last changed and one after the other, so typing and choosing stay quick. */
+function Preview({ variant, words, assets, order }: { variant: VariantKey; words: PosterWords; assets: Assets; order: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, "opslag"); }, [variant, words, assets]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, "opslag", 0.3); }, 250 + order * 40);
+    return () => window.clearTimeout(timer);
+  }, [variant, words, assets, order]);
   return <canvas ref={ref} className="poster-choice-canvas" aria-hidden="true" />;
 }
 
@@ -64,10 +68,14 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
   const logo = useLogo();
   const [ownProblem, setOwnProblem] = useState("");
   const [ownSize, setOwnSize] = useState<string>("");
-  const assets: Assets = { photo, logo };
-  const start = startsAt ?? new Date(Date.now() + 7 * 86_400_000).toISOString();
-  const event = { id: title || "nyt-event", title: title.trim() || "Dit event", startsAt: start, endsAt, host: teacher, category: null, imageUrl: photo ? "photo" : null };
-  const words = wordsOf(event);
+  // The same objects until something the posters show has changed - a new object would redraw all six.
+  const assets: Assets = useMemo(() => ({ photo, logo }), [photo, logo]);
+  const slowTitle = useDeferredValue(title);
+  const [fallbackStart] = useState(() => new Date(Date.now() + 7 * 86_400_000).toISOString());
+  const start = startsAt ?? fallbackStart;
+  const event = useMemo(() => ({ id: slowTitle || "nyt-event", title: slowTitle.trim() || "Dit event", startsAt: start, endsAt, host: teacher, category: null, imageUrl: photo ? "photo" : null }),
+    [slowTitle, start, endsAt, teacher, photo]);
+  const words = useMemo(() => wordsOf(event), [event]);
   const size = photo ? { width: photo.naturalWidth, height: photo.naturalHeight } : null;
   const systems = chooseVariant(event, size, "opslag");
 
@@ -95,10 +103,10 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
     <legend>Opslag til de sociale medier</legend>
     <p className="poster-choice-help">Vælg, hvordan dit event skal se ud på Instagram og Facebook. Forhåndsvisningerne bruger din titel, dato og dit eventfoto. Du kan også sende dit eget færdige opslag.</p>
     <div className="poster-choice-grid">
-      {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} />, false, VARIANTS.find(v => v.key === systems)?.label)}
-      {VARIANTS.map(v => {
+      {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} order={0} />, false, VARIANTS.find(v => v.key === systems)?.label)}
+      {VARIANTS.map((v, i) => {
         const fits = photoFits(v.key, "opslag", size);
-        return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
+        return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} order={i + 1} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
       })}
       <label className={"poster-choice-option poster-choice-own" + (value.choice === "eget" ? " is-picked" : "")}>
         <input type="radio" name="posterChoice" value="eget" checked={value.choice === "eget"} onChange={() => onChange({ choice: "eget", ownFile: value.ownFile })} />
