@@ -31,6 +31,11 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
   const [draft, setDraft] = useState<SagaDraft | null>(null);
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [text, setText] = useState("");
+  // Requested: "Det giver ikke mening man ikke får lov til at vælge flere svarmuligheder ad gangen" - her suggestions are picked
+  // (one or several, with the member's own words if they like) and sent together.
+  const [picked, setPicked] = useState<string[]>([]);
+  const toggle = (suggestion: string) => setPicked((now) => now.includes(suggestion) ? now.filter((x) => x !== suggestion) : [...now, suggestion]);
+  const answer = () => [...picked, text.trim()].filter(Boolean).join(". ");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ id: number; text: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -41,7 +46,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
     const said = question.trim() || (attached ? "Her er et foto til eventet." : "");
     if (!said || busy) return;
     setMessages((m) => [...m, { role: "user", text: said, ...(attached ? { photo: attached.preview } : {}) }]);
-    setText(""); setBusy(true);
+    setText(""); setPicked([]); setBusy(true);
     try {
       const response = await apiFetch(clerk, "/api/members/saga/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
         conversation, text: said, page: "/member-portal/events", lang: "da", guided: true,
@@ -62,7 +67,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
     if (!file || busy) return;
     const prepared = await preparePhoto(file);
     if (!prepared) { setMessages((m) => [...m, { role: "assistant", text: "Det billede kan jeg ikke åbne. Prøv med en jpg eller png." }]); return; }
-    await ask(text, prepared);
+    await ask(answer(), prepared);
   }
 
   /** "Opret og læg online": Saga creates the event with the approved photo and judges at once whether it goes online (member-saga-event.ts). */
@@ -134,13 +139,17 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
             <small>Passer eventet til Hjerterum, kommer det online med det samme - ellers ser bestyrelsen på det. Du kan altid rette det under Mine events.</small>
           </article>}
         </div>
-        {guide.suggestions.length > 0 && !busy && <div className="guide-chips">{guide.suggestions.map((s) => <button key={s} type="button" onClick={() => void ask(s)}>{s}</button>)}</div>}
-        <form className="guide-input" onSubmit={(e) => { e.preventDefault(); void ask(text); }}>
+        {guide.suggestions.length > 0 && !busy && <div className="guide-chips" role="group" aria-label="Sagas forslag - vælg et eller flere">
+          {guide.suggestions.map((s) => <button key={s} type="button" aria-pressed={picked.includes(s)} onClick={() => toggle(s)}>{picked.includes(s) ? "✓ " : ""}{s}</button>)}
+          <span className="guide-chips-hint">{picked.length ? `${picked.length} valgt – skriv evt. mere, og tryk Send` : "Vælg et eller flere – eller skriv selv"}</span>
+        </div>}
+        <form className="guide-input" onSubmit={(e) => { e.preventDefault(); void ask(answer()); }}>
           <input ref={picker} type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; void attach(f); }} />
           <button type="button" className="guide-attach" disabled={busy} onClick={() => picker.current?.click()}>Tilføj foto</button>
-          <textarea rows={1} value={text} placeholder="Svar Saga …" onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(text); } }} />
-          <button className="pill-button dark" disabled={busy || !text.trim()}>Send</button>
+          <textarea rows={1} value={text} onChange={(e) => setText(e.target.value)}
+            placeholder={picked.length ? "Tilføj evt. noget selv …" : "Svar Saga …"}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void ask(answer()); } }} />
+          <button className="pill-button dark" disabled={busy || (!text.trim() && !picked.length)}>Send{picked.length ? ` (${picked.length})` : ""}</button>
         </form>
       </>}
     </div>

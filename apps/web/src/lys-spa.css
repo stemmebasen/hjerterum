@@ -731,6 +731,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .guide-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .guide-chips button { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--lys-line); background: var(--lys-surface); color: var(--lys-ink); font: 500 14px var(--lys-sans); cursor: pointer; }
 .guide-chips button:hover { border-color: var(--lys-terra); color: var(--lys-terra); }
+.guide-chips button[aria-pressed="true"] { border-color: var(--lys-terra); background: color-mix(in srgb, var(--lys-terra) 16%, var(--lys-surface)); color: var(--lys-ink); }
+.guide-chips-hint { align-self: center; color: var(--lys-muted); font-size: 12.5px; }
 .guide-input { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 8px; border: 1px solid var(--lys-line); border-radius: 18px; background: var(--lys-surface); }
 .guide-input textarea { width: 100%; min-height: 44px; max-height: 160px; padding: 11px 12px; border: 0; background: transparent; color: var(--lys-ink); font: 400 15.5px/1.45 var(--lys-sans); resize: vertical; }
 .guide-attach { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px dashed var(--lys-line); background: transparent; color: var(--lys-muted); font: 500 13.5px var(--lys-sans); cursor: pointer; }
