@@ -30,7 +30,7 @@ function Line({ text }: { text: string }) {
 
 /** Requested: "Vis også de samme sociale links samt et kort og en rejseplan-integration". */
 const FACEBOOK = "https://www.facebook.com/holistiskcenter";
-function Share({ title }: { title: string }) {
+function Share({ title, id }: { title: string; id: string }) {
   const [copied, setCopied] = useState(false);
   const url = typeof window === "undefined" ? "" : window.location.href;
   const share = async () => {
@@ -43,6 +43,8 @@ function Share({ title }: { title: string }) {
     <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`}>Mail</a>
     <button type="button" onClick={() => void share()}>{copied ? "Linket er kopieret" : "Kopiér link"}</button>
     <a href={FACEBOOK} target="_blank" rel="noreferrer">Følg Hjerterum på Facebook</a>
+    {/* Requested: "fem varianter systemet kan vælge mellem" - the event's poster for social media (poster-page.tsx). */}
+    <a href={`/plakat/${id}`}>Lav et opslag til Instagram</a>
   </div>;
 }
 
@@ -128,7 +130,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
             <h2>Billetter</h2>
             <ul className="event-tickets">{event.tickets.map((t) => <li key={t}>{t}</li>)}</ul>
           </>}
-          <Share title={event.title} />
+          <Share title={event.title} id={event.id} />
         </section>
         <FindWay event={event} />
       </>}

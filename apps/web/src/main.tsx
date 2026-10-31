@@ -13,6 +13,7 @@ import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
+import { PosterPage } from "./poster-page";
 import { resetLogin } from "./code-login";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
@@ -342,6 +343,8 @@ function PublicContentPage({ path }: { path: string }) {
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
   const eventMatch = /^\/events\/([0-9a-f]{24})\/?$/.exec(path);
   if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
+  const posterMatch = /^\/plakat\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
+  if (posterMatch) return <PosterPage id={posterMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
   if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="om-os" />} footer={<SiteFooter />} />;
   return <SiteContentPage path={path} />;
 }

@@ -614,3 +614,20 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .site-foot nav { grid-template-columns: 1fr 1fr; justify-items: center; }
   .site-foot-legal { justify-content: center; text-align: center; }
 }
+
+/* An event's posters for social media (poster-page.tsx): five designs, the system's choice first. */
+.poster-format { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.poster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 28px; margin: 12px 0 64px; }
+.poster-card { margin: 0; display: grid; gap: 14px; align-content: start; }
+.poster-card.is-chosen { grid-column: 1 / -1; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); align-items: end; gap: 28px; }
+.poster-canvas { width: 100%; height: auto; border-radius: 18px; box-shadow: var(--lys-shadow); background: var(--lys-soft); }
+.poster-card figcaption { display: grid; gap: 12px; }
+.poster-card figcaption b { font: 400 24px/1.2 var(--lys-serif); }
+.poster-card figcaption p { margin: 6px 0 0; color: var(--lys-muted); font-size: 15px; line-height: 1.5; }
+.poster-card figcaption .lys-btn { justify-self: start; }
+.poster-badge { display: inline-block; margin-left: 10px; padding: 4px 10px; border-radius: 999px; background: var(--lys-terra); color: var(--lys-bg); font: 600 12px/1.2 var(--lys-sans); letter-spacing: .06em; vertical-align: middle; }
+.poster-empty { margin: 24px 0 64px; color: var(--lys-muted); }
+@media (max-width: 720px) { .poster-card.is-chosen { grid-template-columns: 1fr; } }
+.poster-refused { aspect-ratio: 4 / 5; display: grid; align-content: center; gap: 8px; padding: 28px; border-radius: 18px; border: 1px dashed var(--lys-line); background: var(--lys-soft); color: var(--lys-muted); font-size: 15px; line-height: 1.5; }
+.poster-refused b { color: var(--lys-terra); font: 600 13px/1 var(--lys-sans); letter-spacing: .12em; text-transform: uppercase; }
+.poster-refused p { margin: 0; }
