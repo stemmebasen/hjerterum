@@ -256,7 +256,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
   if ((used?.messages ?? 0) >= DAILY_LIMIT) return json({ reply: "Jeg har talt meget i dag - skriv til hjerterum@holistisk.org, eller prøv igen i morgen.", draft: null });
   await db.prepare(`INSERT INTO member_saga_usage (clerk_user_id, day, messages) VALUES (?, ?, 1)
     ON CONFLICT(clerk_user_id, day) DO UPDATE SET messages = messages + 1`).bind(userId, day).run();
-  const conversation = await openConversation(db, typeof body?.conversation === "string" ? body.conversation : null, userId, now);
+  const conversation = await openConversation(db, typeof body?.conversation === "string" ? body.conversation : null, userId, now, { guide: guided });
   const measured = photo ? photoFacts(photo) : null;
   // The photo itself is looked at once; the conversation keeps only that it was there.
   const history: WebMessage[] = [...conversation.messages, { role: "user", text: photo ? `${text} [Foto: ${photo.name.slice(0, 80)}, ${photo.width} × ${photo.height} px]` : text }];

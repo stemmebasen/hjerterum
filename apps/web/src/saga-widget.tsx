@@ -98,7 +98,6 @@ export function withLinks(text: string): ReactNode[] {
   out.push(text.slice(last));
   return out.map((part, i) => typeof part === "string" ? <Fragment key={"t" + i}>{part}</Fragment> : part);
 }
-const POPPED = "saga_popped";
 
 export function takePendingDraft(): SagaDraft | null {
   try { const raw = sessionStorage.getItem(PENDING); sessionStorage.removeItem(PENDING); return raw ? JSON.parse(raw) as SagaDraft : null; } catch { return null; }
@@ -147,12 +146,8 @@ export function SagaWidget(props: Props) {
   const endpoint = mode === "public" ? "/api/site/saga/chat" : "/api/members/saga/chat";
   const call = (input: string, init: RequestInit = {}) => member ? apiFetch(member.clerk, input, init) : fetch(input, init);
 
-  useEffect(() => {
-    if (!onEvents || window.matchMedia("(max-width: 760px)").matches) return;
-    try { if (sessionStorage.getItem(POPPED)) return; } catch { /* no storage: still pop once */ }
-    const timer = window.setTimeout(() => { setOpen(true); try { sessionStorage.setItem(POPPED, "1"); } catch { /* ignore */ } }, 15_000);
-    return () => window.clearTimeout(timer);
-  }, [onEvents]);
+  // Reported: "Chat widget springer op ad sig selv" - it opened by itself after 15 seconds on Mine events. "Opret med Saga" is on
+  // that page now, so the bubble only opens when it is pressed.
   // Requested: "Kan hun huske samtalen før og efter login": the conversation so far, from the server, the first time she opens.
   useEffect(() => {
     if (!open || loaded) return;
