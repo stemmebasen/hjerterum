@@ -788,3 +788,6 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-contact small { color: var(--lys-muted); }
 .member-event-contact { margin: 0; font-size: 14px; color: var(--lys-muted); overflow-wrap: anywhere; }
 .member-event-contact a { color: inherit; }
+
+/* Reported: "\"Billedet er for lille ...\" skal være rødt" - a photo or poster that cannot be used is said in red. */
+.event-note.is-danger, .poster-choice-problem { color: var(--lys-danger); font-weight: 600; }
