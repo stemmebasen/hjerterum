@@ -8,7 +8,7 @@ import { WINDOW_END, WINDOW_START } from "./room-bookings.js";
  * members' bookings with their setup and cleanup, and the house's own events; a time the member writes is checked the same way. */
 
 export const BUFFER_MINUTES = 30;
-export type Busy = Array<readonly [number, number]>;
+export type Busy = ReadonlyArray<readonly [number, number]>;
 export type FreeTime = { date: string; start: string; end: string; label: string };
 
 const DAY = 86_400_000;
