@@ -46,7 +46,16 @@ function readMessages(raw: string | null | undefined): WebMessage[] {
 
 /** The conversation for whoever asks: a visitor (null) gets one without an owner; a member gets their own - and one without an owner
  * becomes theirs. Someone else's conversation is never given out: the caller starts a new one. */
-export async function openConversation(db: D1Database, id: string | null | undefined, userId: string | null, nowMs: number): Promise<{ id: string; messages: WebMessage[]; fresh: boolean }> {
+/** Reported: "Chat widget springer op ad sig selv. Og så spørger hun om jeg vil fortsætte. Men det forrige event er jo allerede
+ * oprettet?" - "Opret med Saga" and the chat bubble shared one conversation: a new event started in the last one (where the old
+ * event was already created), and the bubble opened on the guide's messages. A guide has conversations of its own ("guide_..."):
+ * a new one each time it starts, and never picked up as the member's latest. */
+export const GUIDE_PREFIX = "guide_";
+const isGuide = (id: string) => id.startsWith(GUIDE_PREFIX);
+
+export async function openConversation(db: D1Database, id: string | null | undefined, userId: string | null, nowMs: number, options: { guide?: boolean } = {}): Promise<{ id: string; messages: WebMessage[]; fresh: boolean }> {
+  // A guide only continues its own conversation; the bubble never continues a guide's.
+  if (id && (options.guide ? !isGuide(id) : isGuide(id))) id = null;
   if (id && CONVERSATION_ID.test(id)) {
     const row = await db.prepare("SELECT clerk_user_id, messages, updated_at_ms FROM saga_web_conversations WHERE id = ?").bind(id).first<{ clerk_user_id: string | null; messages: string; updated_at_ms: number }>();
     const alive = row && row.updated_at_ms > nowMs - (row.clerk_user_id ? OWNED_DAYS : ANON_DAYS) * DAY;
@@ -57,9 +66,10 @@ export async function openConversation(db: D1Database, id: string | null | undef
       if (Number(claimed.meta?.changes ?? 0) === 1) return { id, messages: readMessages(row.messages), fresh: false };
     }
   }
+  if (options.guide) return { id: GUIDE_PREFIX + newConversationId(), messages: [], fresh: true };
   if (userId) {
     // A member on another device, or whose browser forgot: their latest conversation.
-    const latest = await db.prepare("SELECT id, messages FROM saga_web_conversations WHERE clerk_user_id = ? AND updated_at_ms > ? ORDER BY updated_at_ms DESC LIMIT 1")
+    const latest = await db.prepare("SELECT id, messages FROM saga_web_conversations WHERE clerk_user_id = ? AND updated_at_ms > ? AND id NOT LIKE 'guide\\_%' ESCAPE '\\' ORDER BY updated_at_ms DESC LIMIT 1")
       .bind(userId, nowMs - OWNED_DAYS * DAY).first<{ id: string; messages: string }>();
     if (latest) return { id: latest.id, messages: readMessages(latest.messages), fresh: false };
   }

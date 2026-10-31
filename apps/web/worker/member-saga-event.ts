@@ -8,7 +8,7 @@ import { resolveActiveMembership } from "./membership-access.js";
 import type { MemberDraft } from "./member-saga.js";
 import { createRoomBooking, isFixedTeacher, normalizeCreateRoomBookingInput } from "./room-bookings.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
-import { openConversation, saveConversation } from "./web-saga.js";
+import { GUIDE_PREFIX, openConversation, saveConversation } from "./web-saga.js";
 
 /** Requested: "Saga skal kunne hjælpe med opsætning af event i medlem. og også kunne modtage billeder direkte i chatten. Hun skal være
  * yderst hjælpsom og kunne bringe eventet online (hvis hun vurderer det passer til hjerterum)".
@@ -60,7 +60,8 @@ export async function memberSagaEvent(request: Request, env: EventEnv, deps: Sag
   const draft = readDraft(form?.get("draft"));
   if (!form || !draft) return json({ error: "invalid_draft" }, 400);
   const now = deps.now();
-  const conversation = await openConversation(db, String(form.get("conversation") ?? ""), userId, now);
+  const asked = String(form.get("conversation") ?? "");
+  const conversation = await openConversation(db, asked, userId, now, { guide: asked.startsWith(GUIDE_PREFIX) });
   const answer = async (reply: string, extra: Record<string, unknown> = {}, status = 200) => {
     await saveConversation(db, conversation.id, userId, [...conversation.messages, { role: "user", text: `[Trykkede "Opret og læg online": ${draft.title}, ${draft.date} ${draft.start}-${draft.end}]` },
       { role: "assistant", text: reply }], now).catch(() => undefined);
