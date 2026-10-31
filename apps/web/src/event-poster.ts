@@ -428,9 +428,16 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
     blob(ctx, W - 120, 260, 360, 330, [1, 1.06, 0.94, 1.1, 0.92, 1.04, 0.97], "rgba(201,151,111,.45)");
     blob(ctx, 80, H - 140, 300, 260, [1, 0.94, 1.08, 0.96, 1.1, 0.92], "rgba(243,217,201,.16)");
     logo(ctx, assets.logo, M, 84, 56, C.cream);
-    spaced(ctx, words.kicker, M, story ? 520 : 330, `600 21px ${SANS}`, C.blush, 5);
-    const t = drawTitle(ctx, words.title, M, null, story ? 560 : 370, W - 2 * M, story ? 150 : 136, 4, { upright: C.cream, italic: C.blush }, H - 250 - (byline(words) ? 110 : 40));
-    const by = byline(words);
+    // Reported: "Ved design nr. 4 - hvorfor skal indholdsteksten stå så højt oppe. Den bør centreres." The kicker, title and byline
+    // are measured first (on a scratch canvas) and then placed in the middle of the room between the logo and the line.
+    const by = byline(words), roomTop = 260, roomBottom = H - 250;
+    const titleSize = story ? 150 : 136, limit = roomBottom - 40 - (by ? 110 : 40);
+    const scratch = document.createElement("canvas").getContext("2d")!;
+    const probe = drawTitle(scratch, words.title, M, null, 0, W - 2 * M, titleSize, 4, { upright: C.cream, italic: C.blush }, limit - roomTop);
+    const height = 40 + probe.bottom + (by ? 64 : 0);
+    const start = Math.max(roomTop, roomTop + (roomBottom - roomTop - height) / 2);
+    spaced(ctx, words.kicker, M, start, `600 21px ${SANS}`, C.blush, 5);
+    const t = drawTitle(ctx, words.title, M, null, start + 40, W - 2 * M, titleSize, 4, { upright: C.cream, italic: C.blush }, limit);
     if (by) text(ctx, by, M, t.bottom + 64, `italic 400 38px ${SERIF}`, C.cream);
     ctx.strokeStyle = "rgba(246,241,231,.35)"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(M, H - 250); ctx.lineTo(W - M, H - 250); ctx.stroke();
