@@ -2,7 +2,7 @@ import { ROOM_RENTAL_RULES } from "../../../packages/core/src/legacy-room-pricin
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
-import { DESCRIBE, draftFrom, guidedPrompt, mergeFacts, nextStep, NO_FACTS, parseGuided, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
+import { choicesFor, DESCRIBE, draftFrom, fixedAnswer, guidedPrompt, isBrief, mergeFacts, nextStep, NO_FACTS, parseGuided, QUESTION, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
@@ -49,6 +49,9 @@ export function houseKnowledge(): string {
 }
 
 /** The member's own facts - only theirs: the membership, its price and payments, and their own coming events. */
+const FIXED_REPLY = (f: Partial<EventFacts>) => f.social === true ? "Godt, så deler Hjerterum det på de sociale medier." : f.social === false ? "Fint, så deler vi det ikke."
+  : "Fint – du kan altid tilføje et foto senere ved at redigere eventet.";
+
 export async function memberFacts(db: D1Database, membership: ActiveMembership, stripeSecretKey: string | undefined, userId: string, nowMs: number): Promise<string> {
   const day = (iso: string | number) => new Intl.DateTimeFormat("da-DK", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
   const lines: string[] = [`Navn: ${membership.fullName}`];
@@ -271,14 +274,16 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       return { role: "user", content: parts };
     });
     // The middle model (Haiku): with the calendar and the website it knows enough; "nedbringe forbruget til cirka en dollar om dagen".
-    const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? guidedPrompt(known, step) : "") + (lang === "en" ? ENGLISH : "");
-    const answer = await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
+    // "Ja tak", "Nej tak" or "Spring over" on a step with fixed buttons: the code takes the answer, no model call.
+    const fixed = guided && !photo ? fixedAnswer(step, text) : null;
+    const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? guidedPrompt(known, step, membership.fullName) : "") + (lang === "en" ? ENGLISH : "");
+    const answer = fixed ? JSON.stringify({ reply: FIXED_REPLY(fixed), facts: fixed, suggestions: [] }) : await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
     const photoOk = measured ? measured.ok && parsed.photoOk === true : null;
     if (guided) {
       const said = parseGuided(answer);
-      let got = mergeFacts(known, said.learned, step);
+      let got = mergeFacts(known, fixed ?? said.learned, step, isBrief(known));
       if (photoOk) got = { ...got, photo: "ok" };
       let next = nextStep(got);
       let reply = said.reply, draft = null as ReturnType<typeof draftFrom>;
@@ -293,9 +298,12 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
           reply = typeof data?.reply === "string" && data.reply.trim() ? data.reply.trim() : "Her er mit forslag.";
         } else { reply = "Jeg kunne ikke skrive beskrivelsen lige nu. Tryk Send igen om lidt."; next = "forslag"; }
       }
+      // The next question, in the code's words - exactly one; her suggestions only when they were meant for it.
+      if (next !== "forslag") reply = `${reply} ${QUESTION[next]}`.trim();
+      const suggestions = choicesFor(next, said);
       const note = (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") + (draft ? ` [Udkast: ${draft.title}, ${draft.date} ${draft.start}-${draft.end}]` : "");
       await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: reply + note }], deps.now());
-      return json({ conversation: conversation.id, reply, draft, photo: measured ? { ok: photoOk } : null, action: null, guide: { facts: got, next, suggestions: next === "forslag" ? [] : said.suggestions } });
+      return json({ conversation: conversation.id, reply, draft, photo: measured ? { ok: photoOk } : null, action: null, guide: { facts: got, next, suggestions } });
     }
     const draftNote = parsed.draft ? ` [Udkast: ${parsed.draft.title}, ${parsed.draft.date} ${parsed.draft.start}-${parsed.draft.end}, ${parsed.draft.booking_type}]` : "";
     await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: parsed.reply + draftNote + (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") }], now);
