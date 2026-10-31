@@ -897,3 +897,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-choice-option.is-picked .poster-choice-canvas, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { border-color: transparent; }
 .poster-choice-option.is-picked .poster-choice-zoom, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { outline: 3px solid var(--lys-terra); outline-offset: 4px; border-radius: 12px; box-shadow: 0 0 0 9px color-mix(in srgb, var(--lys-terra) 18%, transparent); }
 .poster-choice-option.is-picked::after { content: "✓ Valgt"; position: absolute; top: 8px; left: 8px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: var(--lys-terra); color: #fff; font: 700 11.5px var(--lys-sans); letter-spacing: .03em; box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }
+
+/* "ikke ... for mange af samme type events i kalenderen": said at once, with better days. */
+.event-variety { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, #c9976f 55%, transparent); background: color-mix(in srgb, #c9976f 12%, var(--lys-surface)); }
+.event-variety .lys-kicker { margin: 0; color: var(--lys-terra); }
+.event-variety p { margin: 0; font-size: 14px; line-height: 1.5; }
+.event-variety small { color: var(--lys-muted); }

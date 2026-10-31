@@ -2,6 +2,7 @@ import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } fr
 import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
 import { memberSagaChat } from "./member-saga.js";
 import { memberEventText } from "./event-text.js";
+import { memberEventVariety } from "./event-variety.js";
 import { memberSagaEvent } from "./member-saga-event.js";
 import { publicSagaChat } from "./web-saga.js";
 import { memberSavings } from "./member-savings.js";
@@ -434,6 +435,8 @@ export default {
     if (url.pathname === "/api/members/saga/chat") return memberSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "Saga ... skal kunne bringe eventet online" - the event she creates with the member (member-saga-event.ts).
     // Requested: "Saga skal gå ind og vurdere eventet ... indhold og sprog ... minimumsantal på 75 ord" (event-text.ts).
+    // Requested: "ikke ... for mange af samme type events i kalenderen" (event-variety.ts).
+    if (url.pathname === "/api/members/event-variety") return memberEventVariety(request, env as never);
     if (url.pathname === "/api/members/saga/event-text") return memberEventText(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/members/saga/event") return memberSagaEvent(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe" - the website's Saga, no login (web-saga.ts).

@@ -1,4 +1,5 @@
 import { COVER_HEIGHT, COVER_WIDTH, checkUpload, coverSizeOk, type EventFileView, type EventMediaBucket } from "../event-files.js";
+import { checkVariety } from "../event-variety.js";
 import { MIN_EVENT_WORDS, wordCount } from "../../site/event-text.js";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
@@ -100,6 +101,12 @@ async function reviewOne(env: SagaEnv, deps: SagaDeps, db: D1Database, row: Pend
   // The minimum is counted, not judged: a text under it is not approved, whatever the model said.
   const words = wordCount(row.description);
   if (words < MIN_EVENT_WORDS && verdict.approve) verdict = { approve: false, note: `Beskrivelsen har ${words} ord - en eventtekst skal have mindst ${MIN_EVENT_WORDS}.` };
+  // Requested: "Saga løbende vurderer, at der ikke kommer for mange af samme type events i kalenderen" - a member who keeps a date
+  // with too much of the same type is not refused; the board looks at it (event-variety.ts).
+  if (verdict.approve) {
+    const variety = await checkVariety(db, { title: row.title, description: row.description, startMs: row.starts_at_ms, exceptBookingId: row.id }).catch(() => null);
+    if (variety?.problems.length) verdict = { approve: false, note: `Variation i kalenderen: ${variety.problems.join(" ")}` };
+  }
   seen?.(verdict);
   // Only an event still pending and unchanged since it was read is decided (the member may have edited it).
   const result = await db.prepare(`UPDATE room_bookings SET review_status = ?, review_note = ?, reviewed_by = 'Saga', reviewed_at_ms = ?
