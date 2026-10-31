@@ -42,6 +42,7 @@ import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
   type EventFileView, type EventMediaBucket, type FileKind
 } from "./event-files.js";
+import { designForDownload, designsByBooking, removeDesign, storeDesign } from "./event-designs.js";
 import { contactsByBooking, isContactShare, setContactShare } from "./event-contact.js";
 import { isPosterVariant, posterForDownload, posterInfo, postersByBooking, removePoster, setPosterVariant, storePoster } from "./event-posters.js";
 import type { SagaEnv } from "./saga/env.js";
@@ -192,10 +193,12 @@ async function publicRoomBookings(env: Env): Promise<Response> {
   try {
     const rows = await listUpcomingPublicRoomBookings(env.DB);
     const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
+    const designs = await designsByBooking(env.DB, rows.map((row) => row.id));
     const posters = await postersByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map());
     return json(
       rows.map((row) => ({
-        imageUrl: files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null,
+        // The chosen design drawn wide (event-designs.ts), else the photo.
+        imageUrl: designs.get(row.id) ?? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null,
         posterVariant: posters.get(row.id)?.variant ?? null,
         posterUrl: posters.get(row.id)?.poster?.url ?? null,
         id: row.id,
@@ -447,10 +450,11 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
     const handlingFeeMinor = await getHandlingFeeMinor(env.DB);
     const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
     const contacts = await contactsByBooking(env.DB, rows.map((row) => row.id));
+    const designs = await designsByBooking(env.DB, rows.map((row) => row.id));
     return json(rows.map((row) => ({
       ...roomBookingView(row),
       // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
-      imageUrl: (row.review_status ?? "approved") === "approved" ? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
+      imageUrl: (row.review_status ?? "approved") === "approved" ? designs.get(row.id) ?? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
       files: row.clerk_user_id === user.userId ? files.get(row.id) ?? [] : row.is_attending === 1 ? files.get(row.id) ?? [] : [],
       handlingFeeKr: row.ticket_price_minor > 0 ? handlingFeeMinor / 100 : 0,
       contact: contacts.get(row.id) ?? null,
@@ -545,6 +549,31 @@ async function putContactShare(request: Request, env: Env, bookingId: number): P
   if (share !== null && !isContactShare(share)) return json({ error: "invalid_share" }, { status: 400 });
   await setContactShare(owned.db, bookingId, share);
   return json({ share });
+}
+
+/** The design drawn wide for the website, from the organiser's browser (event-designs.ts): a 1920 × 1005 png or jpg as the body. */
+async function putDesign(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  if (request.method === "DELETE") { await removeDesign(owned.db, env.EVENT_MEDIA, bookingId); return json({ removed: true }); }
+  const stored = await storeDesign(owned.db, env.EVENT_MEDIA, bookingId, await request.arrayBuffer(), Date.now());
+  return stored.ok ? json(stored) : json(stored, { status: stored.error === "too_large" ? 413 : 422 });
+}
+
+async function downloadDesign(request: Request, env: Env, bookingId: number): Promise<Response> {
+  if (!env.DB || !env.EVENT_MEDIA) return json({ error: "not_found" }, { status: 404 });
+  const target = await designForDownload(env.DB, bookingId);
+  if (!target) return json({ error: "not_found" }, { status: 404 });
+  const open = target.status === "scheduled" && target.review_status === "approved";
+  if (!open) {
+    const user = await requireUser(request, env);
+    if (isResponse(user) || user.userId !== target.owner_id) return json({ error: "not_found" }, { status: 404 });
+  }
+  const object = await env.EVENT_MEDIA.get(target.r2_key);
+  if (!object) return json({ error: "not_found" }, { status: 404 });
+  return new Response(object.body, { headers: { "content-type": target.content_type, "cache-control": open ? "public, max-age=86400" : "private, no-store",
+    "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" } });
 }
 
 async function uploadPoster(request: Request, env: Env, bookingId: number): Promise<Response> {
@@ -834,6 +863,10 @@ export default {
     if (posterInfoId !== null && request.method === "GET") return getPosterInfo(request, env, posterInfoId);
     const posterVariantId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-variant$/);
     if (posterVariantId !== null && request.method === "PUT") return putPosterVariant(request, env, posterVariantId);
+    const designId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/design$/);
+    if (designId !== null && (request.method === "PUT" || request.method === "DELETE")) return putDesign(request, env, designId);
+    const designDownloadId = parseRouteId(url.pathname, /^\/api\/event-designs\/(\d+)$/);
+    if (designDownloadId !== null && request.method === "GET") return downloadDesign(request, env, designDownloadId);
     const contactId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/contact$/);
     if (contactId !== null && request.method === "PUT") return putContactShare(request, env, contactId);
     const eventFileDownloadId = parseRouteId(url.pathname, /^\/api\/event-files\/(\d+)$/);

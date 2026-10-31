@@ -3,6 +3,7 @@ import { apiFetch, type ClerkBrowser } from "./clerk";
 import { cropCover } from "./cover-crop";
 import { isFixedStep, UPLOAD_NOW } from "../site/guide-choices";
 import { planInstants } from "./event-planner-logic";
+import { saveDesign } from "./event-design";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue } from "./poster-choice";
 import { preparePhoto, withLinks, type Photo, type SagaDraft } from "./saga-widget";
 
@@ -109,11 +110,15 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
       const form = new FormData();
       if (conversation) form.append("conversation", conversation);
       form.append("draft", JSON.stringify(draft));
-      if (photo) { const cropped = await cropCover(photo.file); if (cropped.ok) form.append("cover", cropped.file); }
+      let coverCropped: File | null = null;
+      if (photo) { const cropped = await cropCover(photo.file); if (cropped.ok) { coverCropped = cropped.file; form.append("cover", cropped.file); } }
       const response = await apiFetch(clerk, "/api/members/saga/event", { method: "POST", body: form });
       const body = await response.json().catch(() => ({})) as { reply?: string; id?: number };
       if (body.id) {
         const posterLine = guide.facts.social === false ? "" : await savePosterChoice(clerk, body.id, poster, null);
+        const instants = planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 });
+        await saveDesign(clerk, body.id, poster.choice, { title: draft.title, startsAt: instants.startsAt, endsAt: instants.endsAt, teacher: guide.facts.leader ?? firstName,
+          cover: coverCropped, coverUrl: null });
         setCreated({ id: body.id, text: (body.reply ?? "Eventet er oprettet.") + posterLine });
         try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
         onCreated(body.id);

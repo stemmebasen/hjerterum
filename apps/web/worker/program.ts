@@ -3,6 +3,7 @@ import type { ExternalEvent } from "./external-events.js";
 import { isPartnerEvent } from "../partner-events.js";
 import { completeAs } from "./saga/ai.js";
 import { eventIdOf } from "./event-detail.js";
+import { designUrl } from "./event-designs.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
 /** Requested: "en programoversigt i fjernsynet på nogle linjer" + "en miniature oversigt med fem eventfotos" + "Måske er teksten bare om
@@ -29,15 +30,17 @@ export async function programCandidates(db: D1Database, external: ExternalEvent[
     imageUrl: e.imageUrl, link: eventIdOf(e) ? `/events/${eventIdOf(e)}` : e.link, description: e.description
   })));
   const rows = await db.prepare(`SELECT b.id, b.title, b.teacher_name, b.description, b.starts_at_ms, b.ends_at_ms,
-      (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id
+      (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id,
+      (SELECT d.created_at_ms FROM room_booking_designs d WHERE d.room_booking_id = b.id) AS design_at
     FROM room_bookings b WHERE b.status = 'scheduled' AND COALESCE(b.review_status, 'approved') = 'approved' AND b.ends_at_ms >= ?
     ORDER BY b.starts_at_ms LIMIT 10`).bind(nowMs)
-    .all<{ id: number; title: string; teacher_name: string; description: string | null; starts_at_ms: number; ends_at_ms: number; cover_id: number | null }>()
+    .all<{ id: number; title: string; teacher_name: string; description: string | null; starts_at_ms: number; ends_at_ms: number; cover_id: number | null; design_at: number | null }>()
     .then(r => r.results ?? []).catch(() => []);
   const fromMembers = await Promise.all(rows.map(async b => {
     const startsAt = new Date(b.starts_at_ms).toISOString();
     return { key: await keyOf("hr", String(b.id), b.title, startsAt), title: b.title, startsAt, endsAt: new Date(b.ends_at_ms).toISOString(), host: b.teacher_name,
-      imageUrl: b.cover_id ? `/api/event-files/${b.cover_id}` : null, link: "/member-portal/kalender", description: b.description };
+      // The chosen design drawn wide (event-designs.ts), else the photo.
+      imageUrl: b.design_at ? designUrl(b.id, b.design_at) : b.cover_id ? `/api/event-files/${b.cover_id}` : null, link: "/member-portal/kalender", description: b.description };
   }));
   return [...fromCalendar, ...fromMembers].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }
