@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { EventPhoto } from "./event-photo";
 
 export function calendarText(value: string): string {
   const decoder = document.createElement("textarea");
@@ -16,7 +17,7 @@ export function CalendarImage({ src, startsAt }: { src: string | null; startsAt:
   const day = new Intl.DateTimeFormat("da-DK", {day:"numeric", timeZone:"Europe/Copenhagen"}).format(date);
   const month = new Intl.DateTimeFormat("da-DK", {month:"short", timeZone:"Europe/Copenhagen"}).format(date);
   return <div className={"member-event-visual" + (!src || failed ? " calendar-no-image" : "")}>
-    {src && !failed ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} /> : <div className="calendar-placeholder" aria-hidden="true"><span>Hjerterum</span><strong>Rum til<br />at mødes.</strong></div>}
+    {src && !failed ? <EventPhoto src={src} onError={() => setFailed(true)} /> : <div className="calendar-placeholder" aria-hidden="true"><span>Hjerterum</span><strong>Rum til<br />at mødes.</strong></div>}
     <div className="calendar-date" aria-hidden="true"><strong>{day}</strong><span>{month}</span></div>
   </div>;
 }

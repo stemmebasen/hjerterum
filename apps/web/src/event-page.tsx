@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { teacherFor, type SiteProfile } from "./public-profiles";
 import { journeyUrl, mapUrl } from "./event-way";
+import { EventPhoto } from "./event-photo";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." /events/<id>: an event
  * from the membership system's calendar on hjerterum.info (worker/event-detail.ts). Signing up happens in Hjerterum's own system. */
@@ -123,7 +124,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
             {past && <p className="lys-sub">Eventet er afholdt.</p>}
           </div>
         </section>
-        {event.imageUrl && <img className="event-page-image" src={event.imageUrl} alt="" />}
+        {event.imageUrl && <EventPhoto className="event-page-image" src={event.imageUrl} />}
         <section className="site-body event-page-body">
           {event.paragraphs.map((line, i) => <Line key={i} text={line} />)}
           {event.tickets.length > 0 && <>

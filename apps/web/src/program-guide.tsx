@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { EventPhoto } from "./event-photo";
 
 /** Requested: "Lad resuméet altid inkludere de kommende tre events" - Saga's words about the next three (worker/program.ts) under "Snart i Hjerterum".
  * Earlier: "når jeg siger tv-program mener jeg ikke en programoversigt, men en continuity speaker der fortæller hvad der er på vej" +
@@ -71,15 +72,25 @@ export function ProgramGuide() {
         <a className="lys-link" href="/member-portal/kalender">Hele kalenderen →</a>
       </div>
       <p className="program-intro">{words}</p>
-      <div className="program-strip" ref={strip}>
-        {items.map((i) => (
-          <a key={i.key} href={open(i)} target={i.link?.startsWith("http") ? "_blank" : undefined} rel="noopener" className="program-tile">
-            <span className="program-photo">{i.imageUrl ? <img src={i.imageUrl} alt="" loading="lazy" /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}
-              {i.key === next.key && <span className="program-next">Næste</span>}</span>
-            <span className="program-when">{shortDay(i.startsAt)} {time(i.startsAt)}</span>
-            <strong className="program-title">{i.title}</strong>
-          </a>
-        ))}
+      {/* Reported: "Eventfoto dimensionerne skal passe alle steder ... denne side bl.a. skal omdesignes". The next event large, in the
+          event photo's own size (1920 × 1005, never cut), and the ones after it as a calm list with small photos of the same shape. */}
+      <div className="program-layout">
+        <a href={open(next)} target={next.link?.startsWith("http") ? "_blank" : undefined} rel="noopener" className="program-feature">
+          <span className="program-photo">{next.imageUrl ? <EventPhoto src={next.imageUrl} /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}
+            <span className="program-next">Næste</span></span>
+          <span className="program-when">{day(next.startsAt)} · kl. {time(next.startsAt)}</span>
+          <strong className="program-feature-title">{next.title}</strong>
+          {firstName(next.host) && <span className="program-host">med {next.host!.replace(/^(med|ved)\s+/i, "")}</span>}
+        </a>
+        <div className="program-strip" ref={strip}>
+          {items.filter((i) => i.key !== next.key).slice(0, 4).map((i) => (
+            <a key={i.key} href={open(i)} target={i.link?.startsWith("http") ? "_blank" : undefined} rel="noopener" className="program-tile">
+              <span className="program-thumb">{i.imageUrl ? <EventPhoto src={i.imageUrl} /> : <span className="program-photo-empty" aria-hidden="true">◎</span>}</span>
+              <span className="program-tile-text"><span className="program-when">{shortDay(i.startsAt)} {time(i.startsAt)}</span>
+                <strong className="program-title">{i.title}</strong></span>
+            </a>
+          ))}
+        </div>
       </div>
     </article>
   );
