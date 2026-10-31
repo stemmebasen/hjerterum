@@ -188,7 +188,8 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
       <small>{page * PAGE + 1}–{Math.min(VARIANTS.length, page * PAGE + PAGE)} af {VARIANTS.length}</small>
     </p>}
     {zoom !== null && <Viewer items={viewItems} at={zoom} words={words} assets={assets} picked={value.choice} onMove={setZoom}
-      onPick={(key) => { onChange({ choice: key, ownFile: null }); const page = VARIANTS.findIndex(v => v.key === key); if (page >= 0) setPage(Math.floor(page / PAGE)); }} onClose={() => setZoom(null)} />}
+      // Requested: "Når man har valgt et design, bør man blive taget tilbage" - picking closes the big view.
+      onPick={(key) => { onChange({ choice: key, ownFile: null }); const page = VARIANTS.findIndex(v => v.key === key); if (page >= 0) setPage(Math.floor(page / PAGE)); setZoom(null); }} onClose={() => setZoom(null)} />}
     {value.choice === "eget" && <div className="poster-choice-upload">
       <label>Vælg dit opslag
         <input type="file" accept=".jpg,.jpeg,.png" onChange={e => void pickOwn(e.target.files?.[0] ?? null)} />

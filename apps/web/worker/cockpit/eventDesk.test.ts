@@ -14,10 +14,12 @@ import type { D1Database } from "../db.js";
 const ORIGIN = "https://admin.hjerterum.example";
 const NOW = Date.parse("2026-10-01T10:00:00Z"); // a Thursday
 const SATURDAY = Date.parse("2026-10-03T10:00:00Z");
-const ALL_MET = '{"criteria":{"formaal":true,"vaerdier":true,"aabent":true,"redeligt":true,"tekst":true},"verdict":"approve","note":"Et yogaforløb, der passer til formålet."}';
+const ALL_MET = '{"criteria":{"formaal":true,"vaerdier":true,"aabent":true,"redeligt":true,"sprog":true,"tekst":true},"verdict":"approve","note":"Et yogaforløb, der passer til formålet."}';
 
+// A real event text has at least 75 words (site/event-text.ts) - the tests' short texts get a common paragraph after them.
+const LONG = " Vi mødes i salen, finder ro og lander i kroppen, før vi går i gang. Undervejs er der plads til pauser, til at mærke efter og til at dele, hvis man har lyst. Forløbet er for alle, uanset erfaring, og du behøver ikke kunne noget på forhånd. Tag behageligt tøj på, og medbring gerne et tæppe og en vandflaske. Efter sessionen er der te og tid til en snak, inden vi siger tak for i dag og går hver til sit.";
 const memberEvent = (db: D1Database, title: string, description: string, day = "2027-03-02") => createRoomBooking(db, "member-1", normalizeCreateRoomBookingInput({
-  teacherName: "Maria", teacherEmail: "maria@example.com", title, description, startsAt: `${day}T09:00:00Z`, endsAt: `${day}T11:00:00Z` }));
+  teacherName: "Maria", teacherEmail: "maria@example.com", title, description: description + LONG, startsAt: `${day}T09:00:00Z`, endsAt: `${day}T11:00:00Z` }));
 const statusOf = async (db: D1Database, id: number) => db.prepare("SELECT review_status, review_note, reviewed_by FROM room_bookings WHERE id = ?").bind(id).first<{ review_status: string; review_note: string | null; reviewed_by: string | null }>();
 
 describe("Saga's event desk", () => {
@@ -26,6 +28,7 @@ describe("Saga's event desk", () => {
   it("approves only on a clean, complete yes - never fails open", () => {
     expect(readVerdict(ALL_MET).approve).toBe(true);
     expect(readVerdict(ALL_MET.replace('"tekst":true', '"tekst":false'))).toMatchObject({ approve: false });
+    expect(readVerdict(ALL_MET.replace('"sprog":true', '"sprog":false'))).toMatchObject({ approve: false });
     expect(readVerdict('{"criteria":{"formaal":true},"verdict":"approve"}').approve).toBe(false);
     expect(readVerdict("Det ser fint ud!").approve).toBe(false);
     expect(readVerdict('{"verdict":"board","note":"Lover helbredelse."}')).toEqual({ approve: false, note: "Lover helbredelse." });
@@ -39,7 +42,7 @@ describe("Saga's event desk", () => {
     const broken = await memberEvent(db, "Lydbad", "Gongs og skåle.", "2027-03-04");
     expect(await listUpcomingPublicRoomBookings(db, NOW)).toEqual([]);
     const services = fakeServices({ ai: (_system, user) => user.includes("Yin yoga") ? ALL_MET
-      : user.includes("Helbred") ? '{"criteria":{"formaal":true,"vaerdier":false,"aabent":true,"redeligt":false,"tekst":true},"verdict":"board","note":"Lover helbredelse af sygdom."}'
+      : user.includes("Helbred") ? '{"criteria":{"formaal":true,"vaerdier":false,"aabent":true,"redeligt":false,"sprog":true,"tekst":true},"verdict":"board","note":"Lover helbredelse af sygdom."}'
       : "Beklager, jeg kan ikke svare nu." });
     expect(await reviewPendingEvents(sagaEnv(db), deps(services.fetcher, NOW), db)).toEqual({ approved: 1, toBoard: 2 });
     expect(await statusOf(db, yoga.id)).toMatchObject({ review_status: "approved", reviewed_by: "Saga" });
