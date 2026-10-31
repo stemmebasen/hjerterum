@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chooseVariant, kickerOf, photoFits, splitTitle, teacherOf, whenOf } from "./event-poster";
+import { VARIANTS, chooseVariant, kickerOf, photoFits, splitTitle, teacherOf, whenOf } from "./event-poster";
 
 // An event's poster for social media in five designs; the system picks one.
 
@@ -30,8 +30,12 @@ describe("the system's choice of design, and the photo's size", () => {
   const event = (title: string, imageUrl: string | null = "/api/event-files/1", id = "6abba949e1a89220c3050d27") => ({ id, title, category: null, imageUrl });
   const big = { width: 1920, height: 2400 }, cover = { width: 1920, height: 1005 }, small = { width: 480, height: 300 };
   it("draws an event without a photo, or with a photo too small for every design, in type only", () => {
-    expect(chooseVariant(event("Dhyana Yoga", null), big)).toBe("typografi");
-    expect(chooseVariant(event("Dhyana Yoga"), small)).toBe("typografi");
+    // Type only: Typografi or Plakat, by the event.
+    expect(["typografi", "plakat"]).toContain(chooseVariant(event("Dhyana Yoga", null), big));
+    expect(["typografi", "plakat"]).toContain(chooseVariant(event("Dhyana Yoga"), small));
+    expect(photoFits("plakat", "cover", null)).toEqual({ ok: true });
+    // Every design has a photo box or none in every format, and the cover is Facebook's size.
+    for (const v of VARIANTS) for (const f of ["opslag", "story", "cover"] as const) expect(() => photoFits(v.key, f, big)).not.toThrow();
   });
   it("refuses a design the photo is too small for, and says why", () => {
     expect(photoFits("foto", "opslag", big)).toEqual({ ok: true });

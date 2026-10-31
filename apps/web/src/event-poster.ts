@@ -1,3 +1,5 @@
+import { TEMPLATES } from "./poster-templates";
+import type { PosterDesign } from "../site/poster-rules";
 /** Requested: "Kan du lave 2-3 forslag til event designs" and then "Vi skal have fem varianter systemet kan vælge mellem".
  * An event's poster for social media in five designs, drawn on a canvas in the house's colours and type (Hjerterum Lys).
  * The system picks the one that suits the event (chooseVariant); the others are a click away on /plakat/<id> (poster-page.tsx). */
@@ -13,16 +15,32 @@ export type PosterEvent = {
   imageUrl: string | null;
 };
 
-export type VariantKey = "rolig" | "foto" | "organisk" | "typografi" | "split" | "eget";
-export type Format = "opslag" | "story";
+export type VariantKey = PosterDesign;
+/** cover: Facebook's event cover, 1920 × 1005 - "hvad med det aflange facebook cover format?" */
+export type Format = "opslag" | "story" | "cover";
 
 export const VARIANTS: Array<{ key: VariantKey; label: string; about: string }> = [
   { key: "rolig", label: "Rolig", about: "Lys baggrund, fotoet med bløde kanter og datoen i en cirkel." },
   { key: "foto", label: "Fuldt foto", about: "Fotoet over det hele med en varm toning og en glasboks." },
   { key: "organisk", label: "Organisk", about: "Bløde farveformer, fotoet som en sten og en stor dato." },
   { key: "typografi", label: "Typografi", about: "Uden foto: titlen stor på en varm farveflade." },
-  { key: "split", label: "Delt", about: "Fotoet øverst med en blød bølge, teksten i et roligt felt under." }
+  { key: "split", label: "Delt", about: "Fotoet øverst med en blød bølge, teksten i et roligt felt under." },
+  // Gitta's own looks.
+  { key: "datoblok", label: "Datoblok", about: "Datoen i en karamelfarvet blok, titlen stor og fotoet i bunden." },
+  { key: "cirkel", label: "Blød cirkel", about: "Datoen i en blød, salviegrøn cirkel og fotoet som en stribe." },
+  { key: "boks", label: "Boks", about: "Fotoet over det hele med teksten i en mørk boks i midten." },
+  { key: "aften", label: "Aften", about: "Fotoet glider over i en mørk aftenflade med teksten." },
+  { key: "stribe", label: "Stribe", about: "En karamelfarvet stribe med datoen ned langs siden." },
+  // Reported: "Many of them are very much alike. Can we make a little more variation?"
+  { key: "plakat", label: "Plakat", about: "Kun typografi: titlen så stor som muligt på mørk bund." },
+  { key: "billet", label: "Billet", about: "En adgangsbillet med fotoet på talonen." },
+  { key: "polaroid", label: "Polaroid", about: "To skæve polaroidbilleder med tape og håndskrevet dato." },
+  { key: "baand", label: "Bånd", about: "Fotoet over det hele med et roligt grønt bånd med teksten." },
+  { key: "mosaik", label: "Mosaik", about: "Fotoet i tre udsnit, datoen og titlen i hver sin flise." },
+  { key: "nat", label: "Nat", about: "Mørk bund med fotoet i en gylden cirkel." }
 ];
+/** The five with their own hand-made post and story layouts below; the others are drawn by poster-templates.ts in every format. */
+const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", "split"]);
 
 /** Said: "Sommetider kommer underviserne selv med eventfotos" - often a finished flyer with its own text. That picture is kept
  * whole, on a soft background made of itself, with only Hjerterum's name and address under it; nothing is written over it. */
@@ -30,12 +48,13 @@ export const OWN_PICTURE = { key: "eget" as const, label: "Underviserens eget bi
 
 export const SIZES: Record<Format, { width: number; height: number; label: string }> = {
   opslag: { width: 1080, height: 1350, label: "Opslag (4:5)" },
-  story: { width: 1080, height: 1920, label: "Story (9:16)" }
+  story: { width: 1080, height: 1920, label: "Story (9:16)" },
+  cover: { width: 1920, height: 1005, label: "Facebook-cover (1,91:1)" }
 };
 
-const C = { cream: "#f6f1e7", sand: "#efe4d6", ink: "#2a2622", muted: "#5b534b", terra: "#94503f", camel: "#c9976f", sage: "#e9efe1", blush: "#f3d9c9", dusk: "#2a1e18" };
-const SERIF = "\"Playfair Display\", Georgia, serif";
-const SANS = "Inter, system-ui, sans-serif";
+export const C = { cream: "#f6f1e7", sand: "#efe4d6", ink: "#2a2622", muted: "#5b534b", terra: "#94503f", camel: "#c9976f", sage: "#e9efe1", blush: "#f3d9c9", dusk: "#2a1e18" };
+export const SERIF = "\"Playfair Display\", Georgia, serif";
+export const SANS = "Inter, system-ui, sans-serif";
 const TZ = "Europe/Copenhagen";
 
 // ---- The words on the poster ----
@@ -109,14 +128,17 @@ const hash = (text: string) => [...text].reduce((h, ch) => Math.imul(h ^ ch.char
 export const MAX_UPSCALE = 1.25;
 export function photoBox(variant: VariantKey, format: Format): { width: number; height: number } | null {
   const { width: W, height: H } = SIZES[format];
+  if (variant !== "eget" && (format === "cover" || !HANDMADE.has(variant))) {
+    const spot = TEMPLATES[variant]?.photo(W, H);
+    return spot && !spot.optional ? { width: Math.round(spot.w), height: Math.round(spot.h) } : null;
+  }
   const story = format === "story";
   switch (variant) {
     case "rolig": return { width: W - 380, height: story ? 860 : 640 };
     case "foto": return { width: W, height: H };
     case "organisk": { const d = Math.round((story ? 300 : 260) * 2.2); return { width: d, height: d }; }
     case "split": return { width: W, height: Math.round(H * (story ? 0.56 : 0.54)) + 60 };
-    case "eget": return null;
-    case "typografi": return null;
+    default: return null;
   }
 }
 
@@ -124,7 +146,7 @@ export type PhotoSize = { width: number; height: number };
 
 /** Whether the photo is sharp enough for the design, and if not, what to say. Typografi needs none. */
 export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize | null): { ok: true } | { ok: false; reason: string } {
-  if (variant === "typografi") return { ok: true };
+  if (variant !== "eget" && !photoBox(variant, format)) return { ok: true };
   if (!photo || !photo.width || !photo.height) return { ok: false, reason: "Eventet har intet foto." };
   if (variant === "eget") {
     const { width: W, height: H } = SIZES[format];
@@ -141,7 +163,7 @@ export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize 
  * Concerts and films get the full photo, the café the organic one, talks the calm one - each only when the photo is big enough
  * for it; everything else is spread over the designs the photo fits, by the event's id, so the feed does not look the same every day. */
 export function chooseVariant(event: Pick<PosterEvent, "id" | "title" | "category" | "imageUrl">, photo: PhotoSize | null = null, format: Format = "opslag"): VariantKey {
-  if (!event.imageUrl || !photo) return "typografi";
+  if (!event.imageUrl || !photo) return hash(event.id) % 2 ? "plakat" : "typografi";
   const fits = (v: VariantKey) => photoFits(v, format, photo).ok;
   const text = `${event.title} ${event.category ?? ""}`.toLowerCase();
   const wish: VariantKey[] = /koncert|concert|kirtan|musik|music|\bfilm|movie/.test(text) ? ["foto", "split"]
@@ -149,17 +171,17 @@ export function chooseVariant(event: Pick<PosterEvent, "id" | "title" | "categor
     : /foredrag|\btalk\b|oplæg|lecture/.test(text) ? ["rolig"] : [];
   const wished = wish.find(fits);
   if (wished) return wished;
-  const pool = (["rolig", "foto", "organisk", "split"] as VariantKey[]).filter(fits);
-  return pool.length ? pool[hash(event.id) % pool.length]! : "typografi";
+  const pool = VARIANTS.map(v => v.key).filter(k => k !== "typografi" && k !== "plakat" && fits(k));
+  return pool.length ? pool[hash(event.id) % pool.length]! : hash(event.id) % 2 ? "plakat" : "typografi";
 }
 
 // ---- Drawing ----
 
-type Ctx = CanvasRenderingContext2D;
+export type Ctx = CanvasRenderingContext2D;
 export type Assets = { photo: HTMLImageElement | null; logo: HTMLImageElement | null };
 
 /** The words broken into lines that fit, at the largest size from `size` down that keeps them within `maxLines`. */
-function fit(ctx: Ctx, text: string, font: (size: number) => string, maxWidth: number, size: number, maxLines: number, min = 40): { lines: string[]; size: number } {
+export function fit(ctx: Ctx, text: string, font: (size: number) => string, maxWidth: number, size: number, maxLines: number, min = 40): { lines: string[]; size: number } {
   for (let s = size; s >= min; s -= 4) {
     ctx.font = font(s);
     const lines = wrap(ctx, text, maxWidth);
@@ -186,7 +208,7 @@ function wrap(ctx: Ctx, text: string, maxWidth: number): string[] {
 }
 
 /** Letter-spaced capitals, as the site's kickers. */
-function spaced(ctx: Ctx, text: string, x: number, y: number, font: string, color: string, spacing: number, align: "left" | "right" | "center" = "left") {
+export function spaced(ctx: Ctx, text: string, x: number, y: number, font: string, color: string, spacing: number, align: "left" | "right" | "center" = "left") {
   ctx.font = font; ctx.fillStyle = color;
   const chars = [...text.toUpperCase()];
   const width = chars.reduce((w, ch) => w + ctx.measureText(ch).width + spacing, -spacing);
@@ -197,14 +219,14 @@ function spaced(ctx: Ctx, text: string, x: number, y: number, font: string, colo
 }
 
 /** The photo drawn to cover the box, like CSS object-fit: cover. */
-function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
+export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
   const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
   const sw = w / scale, sh = h / scale;
   ctx.drawImage(img, (img.naturalWidth - sw) * focusX, (img.naturalHeight - sh) * focusY, sw, sh, x, y, w, h);
 }
 
 /** A rounded rectangle with each corner's own elliptic radius [rx, ry]: the soft "pebble" corners of the website. */
-function pebbleRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }) {
+export function pebbleRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: { tl: [number, number]; tr: [number, number]; br: [number, number]; bl: [number, number] }) {
   ctx.beginPath();
   ctx.moveTo(x + r.tl[0], y);
   ctx.lineTo(x + w - r.tr[0], y);
@@ -219,7 +241,7 @@ function pebbleRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: { t
 }
 
 /** An organic blob through `points` round a centre, smoothed with quadratic curves. */
-function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, wobble: number[], color: string) {
+export function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, wobble: number[], color: string) {
   const n = wobble.length;
   const pts = wobble.map((k, i) => { const a = (i / n) * Math.PI * 2; return [cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k] as const; });
   ctx.beginPath();
@@ -232,7 +254,7 @@ function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, wobble: 
 }
 
 /** Hjerterum's hands in one colour (the logo file is light on transparent). */
-function logo(ctx: Ctx, img: HTMLImageElement | null, x: number, y: number, size: number, color: string) {
+export function logo(ctx: Ctx, img: HTMLImageElement | null, x: number, y: number, size: number, color: string) {
   ctx.font = `400 ${Math.round(size * 0.42)}px ${SERIF}`;
   if (img) {
     const tint = document.createElement("canvas");
@@ -247,7 +269,7 @@ function logo(ctx: Ctx, img: HTMLImageElement | null, x: number, y: number, size
 }
 
 /** The title in two voices, as the website's headings: the first words upright, the last word in italic and colour. */
-function titleLines(lines: string[]): Array<{ text: string; italic: boolean }> {
+export function titleLines(lines: string[]): Array<{ text: string; italic: boolean }> {
   if (lines.length === 1) {
     const words = lines[0]!.split(" ");
     if (words.length < 2) return [{ text: lines[0]!, italic: true }];
@@ -278,11 +300,11 @@ function drawTitle(ctx: Ctx, title: string, x: number, bottom: number | null, to
   return { top: l.top, bottom: l.bottom, size: l.s };
 }
 
-function text(ctx: Ctx, value: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign = "left") {
+export function text(ctx: Ctx, value: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign = "left") {
   ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(value, x, y); ctx.textAlign = "left";
 }
 
-const ADDRESS = "Guldsmedgade 26B, Aarhus";
+export const ADDRESS = "Guldsmedgade 26B, Aarhus";
 
 export type PosterWords = { title: string; rest: string | null; teacher: string | null; kicker: string; day: string; time: string; number: string; month: string };
 
@@ -291,14 +313,21 @@ export function wordsOf(event: PosterEvent, lines: string[] = []): PosterWords {
   return { title, rest, teacher: teacherOf(event.host, lines) ?? teacher, kicker: kickerOf(event), ...whenOf(event) };
 }
 
-const byline = (w: PosterWords) => w.teacher ? `med ${w.teacher}` : w.rest;
+export const byline = (w: PosterWords) => w.teacher ? `med ${w.teacher}` : w.rest;
 
 /** Draws one variant on the canvas, which must be the format's size. */
-export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag") {
+/** `scale` draws a smaller copy (the event form's previews): the same design, a fraction of the pixels. Reported: "Jeg kan se, at de
+ * langsomt bliver gjort aktive én for én" - six full-size posters on every key press made the form slow. */
+export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag", scale = 1) {
   const { width: W, height: H } = SIZES[format];
-  canvas.width = W; canvas.height = H;
+  canvas.width = Math.round(W * scale); canvas.height = Math.round(H * scale);
   const ctx = canvas.getContext("2d")!;
+  if (scale !== 1) ctx.scale(scale, scale);
   ctx.textBaseline = "alphabetic";
+  if (format === "cover" || !HANDMADE.has(variant)) {
+    const template = TEMPLATES[variant];
+    if (template) { template.draw.call(template, ctx, W, H, words, assets); return; }
+  }
   const story = format === "story";
   const photo = assets.photo;
   const M = 84;

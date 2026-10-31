@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { chooseVariant, drawPoster, photoFits, VARIANTS, wordsOf, type Assets, type PosterWords, type VariantKey } from "./event-poster";
 import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/poster-rules";
@@ -7,6 +7,8 @@ import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/post
  * sit eget skal Saga tjekke om der er nødvendigt info på, om dimensionerne er rigtige og om kvaliteten er høj nok".
  * In the event form: the system's choice, one of the five designs (drawn live from what the member has written), or their own
  * poster. Its measurements are told at once here; Saga looks at it when the event is saved (worker/event-posters.ts). */
+
+const PAGE = 8;
 
 export type PosterChoiceValue = { choice: "auto" | VariantKey; ownFile: File | null };
 export type SavedPoster = { variant: VariantKey | null; poster: { url: string; width: number; height: number; note: string | null } | null };
@@ -39,9 +41,13 @@ function useLogo() {
   return logo;
 }
 
-function Preview({ variant, words, assets }: { variant: VariantKey; words: PosterWords; assets: Assets }) {
+/** A small preview, drawn a moment after the words last changed and one after the other, so typing and choosing stay quick. */
+function Preview({ variant, words, assets, order }: { variant: VariantKey; words: PosterWords; assets: Assets; order: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, "opslag"); }, [variant, words, assets]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, "opslag", 0.3); }, 250 + order * 40);
+    return () => window.clearTimeout(timer);
+  }, [variant, words, assets, order]);
   return <canvas ref={ref} className="poster-choice-canvas" aria-hidden="true" />;
 }
 
@@ -64,12 +70,22 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
   const logo = useLogo();
   const [ownProblem, setOwnProblem] = useState("");
   const [ownSize, setOwnSize] = useState<string>("");
-  const assets: Assets = { photo, logo };
-  const start = startsAt ?? new Date(Date.now() + 7 * 86_400_000).toISOString();
-  const event = { id: title || "nyt-event", title: title.trim() || "Dit event", startsAt: start, endsAt, host: teacher, category: null, imageUrl: photo ? "photo" : null };
-  const words = wordsOf(event);
+  // The same objects until something the posters show has changed - a new object would redraw all six.
+  const assets: Assets = useMemo(() => ({ photo, logo }), [photo, logo]);
+  const slowTitle = useDeferredValue(title);
+  const [fallbackStart] = useState(() => new Date(Date.now() + 7 * 86_400_000).toISOString());
+  const start = startsAt ?? fallbackStart;
+  const event = useMemo(() => ({ id: slowTitle || "nyt-event", title: slowTitle.trim() || "Dit event", startsAt: start, endsAt, host: teacher, category: null, imageUrl: photo ? "photo" : null }),
+    [slowTitle, start, endsAt, teacher, photo]);
+  const words = useMemo(() => wordsOf(event), [event]);
   const size = photo ? { width: photo.naturalWidth, height: photo.naturalHeight } : null;
   const systems = chooseVariant(event, size, "opslag");
+  // Requested: "Nej, 8 der vises. Og så kan man få 8 nye." The sixteen designs, eight at a time; the one picked stays in view.
+  const [page, setPage] = useState(0);
+  const pages = Math.ceil(VARIANTS.length / PAGE);
+  const shown = VARIANTS.slice(page * PAGE, page * PAGE + PAGE);
+  const picked = VARIANTS.find(v => v.key === value.choice);
+  const visible = picked && !shown.includes(picked) ? [picked, ...shown] : shown;
 
   const pickOwn = async (file: File | null) => {
     setOwnProblem(""); setOwnSize("");
@@ -95,10 +111,10 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
     <legend>Opslag til de sociale medier</legend>
     <p className="poster-choice-help">Vælg, hvordan dit event skal se ud på Instagram og Facebook. Forhåndsvisningerne bruger din titel, dato og dit eventfoto. Du kan også sende dit eget færdige opslag.</p>
     <div className="poster-choice-grid">
-      {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} />, false, VARIANTS.find(v => v.key === systems)?.label)}
-      {VARIANTS.map(v => {
+      {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} order={0} />, false, VARIANTS.find(v => v.key === systems)?.label)}
+      {visible.map((v, i) => {
         const fits = photoFits(v.key, "opslag", size);
-        return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
+        return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} order={i + 1} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
       })}
       <label className={"poster-choice-option poster-choice-own" + (value.choice === "eget" ? " is-picked" : "")}>
         <input type="radio" name="posterChoice" value="eget" checked={value.choice === "eget"} onChange={() => onChange({ choice: "eget", ownFile: value.ownFile })} />
@@ -106,6 +122,10 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
         <span className="poster-choice-label">Mit eget opslag</span>
       </label>
     </div>
+    {pages > 1 && <p className="poster-choice-more">
+      <button type="button" className="pill-button subtle" onClick={() => setPage(p => (p + 1) % pages)}>Vis {PAGE} nye designs</button>
+      <small>{page * PAGE + 1}–{Math.min(VARIANTS.length, page * PAGE + PAGE)} af {VARIANTS.length}</small>
+    </p>}
     {value.choice === "eget" && <div className="poster-choice-upload">
       <label>Vælg dit opslag
         <input type="file" accept=".jpg,.jpeg,.png" onChange={e => void pickOwn(e.target.files?.[0] ?? null)} />
