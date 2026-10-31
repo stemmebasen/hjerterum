@@ -6,10 +6,11 @@ import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, 
 import { SagaEventGuide } from "./saga-event-guide";
 import { saveDesign } from "./event-design";
 import { EventTextHelp } from "./event-text-help";
+import { EventVarietyNote } from "./event-variety-note";
 import { MIN_EVENT_WORDS, wordCount } from "../site/event-text";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
@@ -371,6 +372,7 @@ function MemberEvents({
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
   const descriptionField = useRef<HTMLTextAreaElement>(null);
+  const readDescription = useCallback(() => descriptionField.current?.value ?? "", []);
   // Reported: "Jeg har klikket Opret event - men bliver bare på siden, selvom eventet er oprettet. Her bør der komme en overlay
   // bekræftelse ... og så tages man til /member-portal/events/mine". The confirmation stands over Mine events.
   const [done, setDone] = useState<{ title: string; edited: boolean; note: string } | null>(null);
@@ -584,6 +586,8 @@ function MemberEvents({
               <EventTextHelp clerk={clerk} field={descriptionField} title={liveTitle} />
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates} title={liveTitle}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
+              <EventVarietyNote clerk={clerk} title={liveTitle} description={readDescription} bookingId={editing?.id ?? null}
+                startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null} />
               {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}
               <fieldset className="event-section">
                 <legend>Deltagere og pris</legend>

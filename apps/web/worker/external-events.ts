@@ -233,9 +233,9 @@ export async function getExternalEvents(force = false, fetcher: typeof fetch = f
 
 export async function hasExternalEventConflict(startMs: number, endMs: number): Promise<boolean> {
   try {
-    // A partner's event (e.g. at Hjerteland) is not in the hall.
-    const events = (await getExternalEvents()).filter((event) => !isPartnerEvent(event));
-    return events.some((event) => {
+    const events = await getExternalEvents();
+    // Partnerhusenes events (Hjerteland) holdes et andet sted og optager ikke salen.
+    return events.filter((event) => !isPartnerEvent(event)).some((event) => {
       const externalStart = Date.parse(event.startsAt);
       const externalEnd = event.endsAt ? Date.parse(event.endsAt) : externalStart;
       if (!Number.isFinite(externalStart) || !Number.isFinite(externalEnd)) return false;

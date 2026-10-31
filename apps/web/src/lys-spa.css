@@ -904,3 +904,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .workspace-form .event-contact-options label { display: inline-flex; align-items: center; gap: 9px; width: auto; flex: 0 0 auto; white-space: nowrap; padding: 10px 16px; border: 1px solid var(--lys-line); border-radius: 999px; cursor: pointer; }
 .workspace-form .event-contact-options label:has(input:checked) { border-color: var(--lys-terra); background: color-mix(in srgb, var(--lys-terra) 12%, transparent); }
 .workspace-form .event-contact-options input { width: auto; min-height: 0; margin: 0; accent-color: var(--lys-terra); }
+/* "ikke ... for mange af samme type events i kalenderen": said at once, with better days. */
+.event-variety { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid color-mix(in srgb, #c9976f 55%, transparent); background: color-mix(in srgb, #c9976f 12%, var(--lys-surface)); }
+.event-variety .lys-kicker { margin: 0; color: var(--lys-terra); }
+.event-variety p { margin: 0; font-size: 14px; line-height: 1.5; }
+.event-variety small { color: var(--lys-muted); }
