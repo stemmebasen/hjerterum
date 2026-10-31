@@ -293,11 +293,17 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
       <div className="site-section-head"><div><p className="lys-kicker">Vil du selv bruge Hjerterum?</p><h2>Lej salen til dit event</h2><p>{ABOUT_WORDS.teachers}</p></div><a className="lys-link" href="/brug-hjerterum">Brug Hjerterum →</a></div>
       <BookingChoice />
     </section>
+    {/* Reported: "Cirkler mangler sit flotte logo, og jeg er sikker på, at du kan gøre dette vindue flottere" - CIRKLER's own logo
+        (public/media/cirkler-logo.png) in their gold, with its rings echoed quietly behind the words. */}
     <section className="site-cirkler">
-      <p className="lys-kicker">Et selvstændigt fællesskab</p>
-      <h2>CIRKLER</h2>
-      <p>Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende.</p>
-      <a className="lys-btn" href={CIRKLER_URL} target="_blank" rel="noopener noreferrer">Læs om CIRKLER ↗</a>
+      <span className="site-cirkler-rings" aria-hidden="true" />
+      <div className="site-cirkler-text">
+        <p className="lys-kicker">Et selvstændigt fællesskab</p>
+        <h2>CIRKLER</h2>
+        <p>Kom med i CIRKLER. Små, faste grupper, hvor mennesker mødes regelmæssigt og lærer hinanden rigtigt at kende.</p>
+        <a className="lys-btn" href={CIRKLER_URL} target="_blank" rel="noopener noreferrer">Læs om CIRKLER ↗</a>
+      </div>
+      <a className="site-cirkler-logo" href={CIRKLER_URL} target="_blank" rel="noopener noreferrer" aria-label="CIRKLER"><span /></a>
     </section>
     <section className="site-home-section site-vision">
       <div className="lys-intro">

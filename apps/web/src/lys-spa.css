@@ -262,10 +262,38 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .site-section-head h2 { font: 400 clamp(32px, 3.6vw, 44px)/1.1 var(--lys-serif); margin: 10px 0 0; }
 .site-section-head p:not(.lys-kicker) { margin: 10px 0 0; max-width: 56ch; color: var(--lys-muted); }
 .site-section-head .lys-link { white-space: nowrap; }
-.site-cirkler { margin: 64px 0 0; padding: 40px clamp(24px, 4vw, 48px); border-radius: var(--lys-radius); background: var(--lys-clay); }
-.site-cirkler h2 { font: 400 clamp(32px, 3.6vw, 42px)/1.1 var(--lys-serif); letter-spacing: .06em; margin: 10px 0 12px; }
-.site-cirkler p:not(.lys-kicker) { max-width: 62ch; margin: 0 0 22px; color: var(--lys-muted); font-size: 17px; line-height: 1.7; }
-.site-cirkler .lys-btn { background: var(--lys-terra); }
+.site-cirkler { --cirkler-gold: #a9822c; position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: clamp(24px, 5vw, 72px);
+  margin: 64px 0 0; padding: clamp(36px, 5vw, 56px) clamp(24px, 5vw, 64px); border-radius: var(--lys-radius);
+  background: radial-gradient(120% 140% at 85% 50%, color-mix(in srgb, var(--cirkler-gold) 16%, var(--lys-clay)) 0%, var(--lys-clay) 55%); }
+.site-cirkler-text { position: relative; }
+.site-cirkler h2 { font: 400 clamp(34px, 4vw, 48px)/1.05 var(--lys-serif); letter-spacing: .12em; margin: 10px 0 14px; }
+.site-cirkler .lys-kicker { color: var(--cirkler-gold); }
+.site-cirkler p:not(.lys-kicker) { max-width: 52ch; margin: 0 0 24px; color: var(--lys-muted); font-size: 17px; line-height: 1.7; }
+.site-cirkler .lys-btn { background: var(--cirkler-gold); color: var(--cirkler-btn-ink, #fff); }
+.site-cirkler .lys-btn:hover { filter: brightness(1.06); }
+/* The logo: CIRKLER's mark in their gold, large, in a soft ring. */
+.site-cirkler-logo { position: relative; display: grid; place-items: center; width: clamp(150px, 18vw, 220px); aspect-ratio: 1; border-radius: 999px;
+  background: color-mix(in srgb, var(--cirkler-gold) 10%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cirkler-gold) 40%, transparent); transition: transform .4s ease; }
+.site-cirkler-logo:hover { transform: rotate(-8deg) scale(1.03); }
+.site-cirkler-logo span { width: 74%; aspect-ratio: 1; background: var(--cirkler-gold);
+  -webkit-mask: url("/media/cirkler-logo.png") center / contain no-repeat; mask: url("/media/cirkler-logo.png") center / contain no-repeat; }
+/* Its rings, faint, behind everything. */
+.site-cirkler-rings { position: absolute; right: -60px; top: 50%; width: 520px; aspect-ratio: 1; transform: translateY(-50%); pointer-events: none; opacity: .14;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 31%, var(--cirkler-gold) 31.4%, transparent 32%),
+    radial-gradient(circle at 50% 18%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%),
+    radial-gradient(circle at 78% 34%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%),
+    radial-gradient(circle at 78% 66%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%),
+    radial-gradient(circle at 50% 82%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%),
+    radial-gradient(circle at 22% 66%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%),
+    radial-gradient(circle at 22% 34%, transparent 15%, var(--cirkler-gold) 15.4%, transparent 16%); }
+@media (max-width: 700px) {
+  .site-cirkler { grid-template-columns: 1fr; text-align: left; }
+  .site-cirkler-logo { order: -1; width: 120px; }
+  .site-cirkler-rings { width: 380px; right: -120px; top: 30%; }
+}
+@media (prefers-color-scheme: dark) { .site-cirkler { --cirkler-gold: #D9B35A; --cirkler-btn-ink: #2a2018; } }
+@media (prefers-reduced-motion: reduce) { .site-cirkler-logo { transition: none; } .site-cirkler-logo:hover { transform: none; } }
 .site-vision .lys-intro { margin-bottom: 28px; }
 .site-vision .lys-title { font-size: clamp(40px, 4.6vw, 58px); margin-top: 12px; }
 
@@ -864,3 +892,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-text-review .lys-kicker { margin: 0; color: var(--lys-terra); }
 .event-text-review ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
 .event-text-suggestion { margin: 0; white-space: pre-wrap; font-size: 14.5px; line-height: 1.6; padding: 12px 14px; border-radius: 12px; background: var(--lys-surface); }
+
+/* Requested: "lad der være en klar og tydelig ramme omkring det valgte eventcover". */
+.poster-choice-option.is-picked .poster-choice-canvas, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { border-color: transparent; }
+.poster-choice-option.is-picked .poster-choice-zoom, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { outline: 3px solid var(--lys-terra); outline-offset: 4px; border-radius: 12px; box-shadow: 0 0 0 9px color-mix(in srgb, var(--lys-terra) 18%, transparent); }
+.poster-choice-option.is-picked::after { content: "✓ Valgt"; position: absolute; top: 8px; left: 8px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: var(--lys-terra); color: #fff; font: 700 11.5px var(--lys-sans); letter-spacing: .03em; box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }

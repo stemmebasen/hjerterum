@@ -524,6 +524,7 @@ function MemberEvents({
       const code = error instanceof Error ? error.message : "event_save_failed";
       setMessage(
         code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
+        code === "free_rent_week_used" ? "Du har allerede et event med gratis leje i den uge. Som underviser kan man booke ét gratis event om ugen - vælg en anden uge, eller reduceret pris eller standardpris." :
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
         code === "payments_not_configured" ? "Betalte events kan ikke oprettes endnu, fordi betalingen ikke er koblet til. Sæt billetprisen til 0 kr., så oprettes eventet som gratis." :
         code === "booking_has_registrations" ? "Prisen kan ikke ændres, når eventet har tilmeldinger." :

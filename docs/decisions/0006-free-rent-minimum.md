@@ -11,6 +11,10 @@ Gratis leje – underviseren opkræver selv:
 
 Før stod der 150 kr. i A-tid og weekender og 75 kr. i B-tid. Gratis entré for alle giver ikke gratis leje; det er standardleje.
 
+## Tilføjet samme dag
+
+Formanden: "Som underviser kan man booke et gratis event om ugen". Højst ét event med gratis leje pr. underviser i en uge (mandag-søndag). Bestyrelsens egne events fra admin er ikke omfattet. Reglen tjekkes i `apps/web/worker/room-bookings.ts`, når et event oprettes eller rettes.
+
 ## Hvor reglen bor
 
 `FREE_RENT_MIN_NON_MEMBER_KR` i `packages/core/src/legacy-room-pricing.ts`. Prisberegneren, eventformularen, Sagas regler og

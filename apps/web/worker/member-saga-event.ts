@@ -38,6 +38,7 @@ export function readDraft(raw: unknown): MemberDraft | null {
 
 const PROBLEMS: Record<string, string> = {
   booking_conflict: "Salen er desværre optaget i det tidsrum (klargøring og oprydning medregnet). Skal vi finde en anden tid?",
+  free_rent_week_used: "Du har allerede et event med gratis leje i den uge - som underviser kan man booke ét gratis event om ugen. Skal vi vælge en anden uge?",
   invalid_booking_start: "Tidspunktet er allerede passeret. Skal vi finde en ny dato?",
   invalid_booking_interval: "Sluttiden skal ligge efter starttiden.",
   invalid_duration_too_short: "Salen lejes mindst 2 timer med klargøring og oprydning. Skal eventet være lidt længere?",

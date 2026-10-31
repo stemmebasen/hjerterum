@@ -405,7 +405,7 @@ Til events, hvor medlemmer betaler mindre end ikke-medlemmer.
 I en periode giver vi 25 % rabat på A-tidspriserne – det ser du i prisberegneren.
 
 ### C) Gratis leje
-Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 75 kr. pr. person, som underviseren selv opkræver.
+Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-medlemmer betaler mindst 75 kr. pr. person, som underviseren selv opkræver. Som underviser kan du booke ét event med gratis leje om ugen.
 
 ### Regler
 - **Varighed:** mindst 2 og højst 10 timer pr. booking.

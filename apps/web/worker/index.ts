@@ -267,7 +267,7 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
     return json(result, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "booking_failed";
-    if (code === "booking_conflict" || code === "payout_onboarding_required") {
+    if (code === "booking_conflict" || code === "payout_onboarding_required" || code === "free_rent_week_used") {
       return json({ error: code }, { status: 409 });
     }
     if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
@@ -312,7 +312,7 @@ async function putRoomBooking(
     const code = error instanceof Error ? error.message : "booking_update_failed";
     if (code === "booking_not_found") return json({ error: code }, { status: 404 });
     if (code === "booking_conflict" || code === "booking_has_registrations" ||
-        code === "payout_onboarding_required") {
+        code === "payout_onboarding_required" || code === "free_rent_week_used") {
       return json({ error: code }, { status: 409 });
     }
     if (code.startsWith("invalid_")) return json({ error: code }, { status: 400 });
