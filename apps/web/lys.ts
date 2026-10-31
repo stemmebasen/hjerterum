@@ -15,12 +15,12 @@ export const LYS_FONTS_URL = "https://fonts.googleapis.com/css2?family=Inter:wgh
 const TOKENS = `
 :root{--lys-bg:#fbfaf8;--lys-surface:#fff;--lys-soft:#f6f3ef;--lys-line:#ebe5dd;--lys-ink:#2a2622;--lys-muted:#766d64;--lys-faint:#a0978d;
 --lys-accent:#5b4a3f;--lys-accent-ink:#fffaf4;--lys-sage:#e8eee2;--lys-sage-ink:#4c5e43;--lys-clay:#f5e9df;--lys-clay-ink:#8a5636;
---lys-rose:#f6e8ea;--lys-rose-ink:#8c4b57;--lys-terra:#94503f;--lys-radius:20px;--lys-shadow:0 1px 2px rgba(42,38,34,.04),0 8px 24px -18px rgba(42,38,34,.18);
+--lys-rose:#f6e8ea;--lys-rose-ink:#8c4b57;--lys-terra:#94503f;--lys-danger:#b3261e;--lys-radius:20px;--lys-shadow:0 1px 2px rgba(42,38,34,.04),0 8px 24px -18px rgba(42,38,34,.18);
 --lys-serif:"Playfair Display",Georgia,"Times New Roman",serif;--lys-sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
 --lys-blob-1:#e9efe1;--lys-blob-2:#f6e9de;--lys-blob-3:#f7e8eb;color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root{--lys-bg:#1f1d1a;--lys-surface:#282521;--lys-soft:#2f2b27;--lys-line:#3a352f;--lys-ink:#f3eee6;--lys-muted:#bdb4a9;
 --lys-faint:#8e857b;--lys-accent:#e6cdb8;--lys-accent-ink:#2a211b;--lys-sage:#33402e;--lys-sage-ink:#d6e2cc;--lys-clay:#45372c;--lys-clay-ink:#f0d6c2;
---lys-rose:#45333a;--lys-rose-ink:#f2d3da;--lys-terra:#e3a58f;--lys-shadow:none;--lys-blob-1:#3b4634;--lys-blob-2:#4a3b30;--lys-blob-3:#4a3840}}`;
+--lys-rose:#45333a;--lys-rose-ink:#f2d3da;--lys-terra:#e3a58f;--lys-danger:#ff8a80;--lys-shadow:none;--lys-blob-1:#3b4634;--lys-blob-2:#4a3b30;--lys-blob-3:#4a3840}}`;
 
 /** The top that every page shares: Hjerterum's hands and HJERTERUM, calm links, a pill or the member on the right. */
 const TOP = `
