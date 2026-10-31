@@ -5,6 +5,8 @@
 //                                               Svaret er en adresse på cirkler.net med en signeret billet.
 //   POST /api/integrations/cirkler/eligibility  CIRKLERs daglige tjek: er disse medlemmer stadig berettigede?
 //   GET  /api/integrations/cirkler/status       Medlemssiden: er jeg med i en cirkel? (spørger CIRKLER live)
+//   GET  /api/integrations/cirkler/room-day     Dagens kalender for salen, til CIRKLERs mødeplanlægger (cirkler-reservations.ts).
+//   PUT/DELETE /api/integrations/cirkler/reservations/<mødets id>  Reservér, flyt eller frigiv salen til et cirkelmøde.
 //
 // Begge kører automatisk; Hjerterums team har ingen manuelle trin (Jake, 3. oktober 2026).
 // Medlemmer med medlemsgoder (Standard, Generøst, Reduceret pris) er berettigede; Support er ikke.
@@ -12,6 +14,7 @@ import type { CirclesEntitlementGateway } from "../../../packages/core/src/index
 import { includesMemberBenefits } from "../membership.js";
 import { clerkPrimaryEmail } from "./admin-auth.js";
 import { authenticateBearer } from "./auth.js";
+import { handleReservationRequest } from "./cirkler-reservations.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
 
@@ -238,12 +241,28 @@ async function eligibility(request: Request, env: CirklerIntegrationEnv): Promis
   return json({ checkedAt: new Date().toISOString(), results });
 }
 
+// Cirkelmøder i salen (Jake, 31. oktober 2026): dagens kalender og reservationer, kun med servicenøglen.
+function serviceKeyAllows(request: Request, env: CirklerIntegrationEnv): Response | null {
+  const serviceKey = env.CIRKLER_SERVICE_KEY?.trim() ?? "";
+  if (!env.DB || !serviceKey) return json({ error: "cirkler_integration_not_configured" }, { status: 503 });
+  const authorization = request.headers.get("authorization") ?? "";
+  if (!authorization.startsWith("Bearer ") || !constantTimeEqual(authorization.slice(7).trim(), serviceKey)) {
+    return json({ error: "unauthorized" }, { status: 401 });
+  }
+  return null;
+}
+
 export async function handleCirklerIntegrationRequest(
   request: Request,
   env: CirklerIntegrationEnv,
   deps: CirklerIntegrationDeps
 ): Promise<Response> {
   const { pathname } = new URL(request.url);
+  if (pathname === "/api/integrations/cirkler/room-day" || pathname.startsWith("/api/integrations/cirkler/reservations/")) {
+    const refused = serviceKeyAllows(request, env);
+    if (refused) return refused;
+    return handleReservationRequest(request, env.DB as D1Database, deps.now());
+  }
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/handoff") return handoff(request, env, deps);
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/eligibility") return eligibility(request, env);
   if (request.method === "GET" && pathname === "/api/integrations/cirkler/status") return circleStatus(request, env, deps);
