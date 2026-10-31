@@ -23,7 +23,7 @@ const realFetch = globalThis.fetch;
 const services = () => fakeServices({ ai: (system, user) => {
   systems.push(system);
   // "approve-unmet": she says approve, but one criterion is not met - that is never online.
-  if (system.includes("Vurder det KUN ud fra kriterierne")) return JSON.stringify({ criteria: { formaal: true, vaerdier: true, aabent: true, redeligt: true, tekst: review === "approve" }, verdict: review === "board" ? "board" : "approve", note: review === "approve" ? "" : "Beskrivelsen er uklar." });
+  if (system.includes("Vurder det KUN ud fra kriterierne")) return JSON.stringify({ criteria: { formaal: true, vaerdier: true, aabent: true, redeligt: true, sprog: true, tekst: review === "approve" }, verdict: review === "board" ? "board" : "approve", note: review === "approve" ? "" : "Beskrivelsen er uklar." });
   if (system.includes("Du er Saga, Hjerterums assistent på medlemssiden")) return JSON.stringify({ reply: `Medlem: ${user.slice(0, 40)}`, draft: null, photo_ok: null });
   return JSON.stringify({ reply: `Hjemmeside: ${user.slice(0, 40)}`, action: user.includes("event") ? "login" : null });
 } });
@@ -108,7 +108,7 @@ describe("the conversation before and after login", () => {
 });
 
 describe("Saga creates the member's event and brings it online", () => {
-  const draft = () => ({ title: "Yin yoga om aftenen", description: "Rolig yin yoga for alle. Medbring tæppe.", date: inDays(30), start: "19:00", end: "21:00", booking_type: "standard", max_attendees: 12, member_price_kr: null, non_member_price_kr: null });
+  const draft = () => ({ title: "Yin yoga om aftenen", description: "Rolig yin yoga for alle. Medbring tæppe. Vi mødes i salen, finder ro og lander i kroppen, før vi går i gang. Undervejs er der plads til pauser, til at mærke efter og til at dele, hvis man har lyst. Forløbet er for alle, uanset erfaring, og du behøver ikke kunne noget på forhånd. Tag behageligt tøj på, og medbring gerne et tæppe og en vandflaske. Efter sessionen er der te og tid til en snak, inden vi siger tak for i dag og går hver til sit.", date: inDays(30), start: "19:00", end: "21:00", booking_type: "standard", max_attendees: 12, member_price_kr: null, non_member_price_kr: null });
   const booking = async () => db.prepare("SELECT title, review_status, reviewed_by, clerk_user_id, teacher_email, ticket_price_minor, setup_minutes, cleanup_minutes FROM room_bookings").first<Record<string, unknown>>();
 
   it("creates it as the member's own and puts it online when it fits Hjerterum", async () => {

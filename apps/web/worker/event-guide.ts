@@ -7,6 +7,7 @@
 /** Reported: "Er det meningen hun stiller to spørgsmål men kun giver svarmuligheder til det ene?" and "Det virker underligt at blande
  * tingene sammen på den måde": one fact per step, one question per step - asked in the code's words, with her suggestions for it. */
 import { FREE_RENT_MIN_NON_MEMBER_KR } from "../../../packages/core/src/legacy-room-pricing.js";
+import { MIN_EVENT_WORDS } from "../site/event-text.js";
 import { GUIDE_CHOICES, isFixedStep } from "../site/guide-choices.js";
 
 export const STEPS = ["titel", "indhold", "leder", "kontakt", "medbring", "tid", "pris", "pladser", "sociale", "billeder"] as const;
@@ -197,7 +198,7 @@ Svar KUN med JSON: {"reply":"...","draft":null,"photo_ok":null,"facts":{...},"ne
 
 /** The last call: only the description, from the member's own content - the rest of the draft comes from the facts. */
 export const DESCRIBE = (f: EventFacts) => `Du er Saga, Hjerterums assistent. Skriv eventbeskrivelsen til Hjerterums kalender ud fra medlemmets egne oplysninger - find ikke på nyt.
-Hjerterums tone: varm, nærværende og konkret, 2-4 korte afsnit: hvad sker der, for hvem, hvem leder det (med navn), hvad man medbringer, og hvad det koster (medlemmer/andre). Ingen helbredsløfter, intet råberi, ingen emojis. Titlen står allerede over teksten - gentag den ikke.
+Hjerterums tone: varm, nærværende og konkret, på korrekt og klart dansk, mindst ${MIN_EVENT_WORDS} ord (gerne 90-150) i 2-4 korte afsnit: hvad sker der, for hvem, hvem leder det (med navn), hvad man medbringer, og hvad det koster (medlemmer/andre). Ingen helbredsløfter, intet råberi, ingen emojis. Titlen står allerede over teksten - gentag den ikke.
 Oplysninger: ${label(f)}
 Svar KUN med JSON: {"description":"...","reply":"én kort sætning til medlemmet om, at forslaget er klar"}`;
 

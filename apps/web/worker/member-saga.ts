@@ -2,6 +2,7 @@ import { ROOM_RENTAL_RULES } from "../../../packages/core/src/legacy-room-pricin
 import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
+import { MIN_EVENT_WORDS, wordCount } from "../site/event-text.js";
 import { busyWindows, freeTimes, isFree, readTimeChoice, timeLabel } from "./free-times.js";
 import { choicesFor, DESCRIBE, draftFrom, fixedAnswer, guidedPrompt, isBrief, mergeFacts, nextStep, NO_FACTS, parseGuided, QUESTION, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
 import { completeAs } from "./saga/ai.js";
@@ -317,8 +318,14 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
       let next = nextStep(got);
       // Everything is known: Saga writes the description only; the draft is put together from the facts.
       if (next === "forslag") {
-        const written = await completeAs("medlem-saga-beskrivelse", "mid", 1500)(env, deps, [{ role: "system", content: DESCRIBE(got) }, { role: "user", content: "Skriv beskrivelsen." }]).catch(() => "");
-        const data = (() => { try { return JSON.parse(/\{[\s\S]*\}/.exec(written)?.[0] ?? "null") as { description?: unknown; reply?: unknown } | null; } catch { return null; } })();
+        const describe = async (ask: string) => {
+          const written = await completeAs("medlem-saga-beskrivelse", "mid", 1500)(env, deps, [{ role: "system", content: DESCRIBE(got) }, { role: "user", content: ask }]).catch(() => "");
+          return (() => { try { return JSON.parse(/\{[\s\S]*\}/.exec(written)?.[0] ?? "null") as { description?: unknown; reply?: unknown } | null; } catch { return null; } })();
+        };
+        let data = await describe("Skriv beskrivelsen.");
+        // "en flot eventtekst med et minimumsantal på 75 ord": a text under it is written once more.
+        if (typeof data?.description === "string" && wordCount(data.description) < MIN_EVENT_WORDS)
+          data = await describe(`Teksten var for kort (${wordCount(data.description)} ord). Skriv den igen med mindst ${MIN_EVENT_WORDS} ord - kun ud fra oplysningerne.`) ?? data;
         const description = typeof data?.description === "string" ? data.description.trim().slice(0, 4000) : "";
         if (description) {
           got = { ...got, description };

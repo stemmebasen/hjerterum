@@ -5,6 +5,8 @@ import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
 import { saveDesign } from "./event-design";
+import { EventTextHelp } from "./event-text-help";
+import { MIN_EVENT_WORDS, wordCount } from "../site/event-text";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -368,6 +370,7 @@ function MemberEvents({
   const [liveTitle, setLiveTitle] = useState("");
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
+  const descriptionField = useRef<HTMLTextAreaElement>(null);
   // Reported: "Jeg har klikket Opret event - men bliver bare på siden, selvom eventet er oprettet. Her bør der komme en overlay
   // bekræftelse ... og så tages man til /member-portal/events/mine". The confirmation stands over Mine events.
   const [done, setDone] = useState<{ title: string; edited: boolean; note: string } | null>(null);
@@ -460,6 +463,12 @@ function MemberEvents({
     setMessage("");
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    // "en flot eventtekst med et minimumsantal på 75 ord".
+    const descriptionWords = wordCount(String(form.get("description") ?? ""));
+    if (descriptionWords < MIN_EVENT_WORDS) {
+      setMessage(`Beskrivelsen har ${descriptionWords} ord - den skal have mindst ${MIN_EVENT_WORDS}. Skriv lidt mere om forløbet, eller lad Saga hjælpe.`);
+      setSaving(false); descriptionField.current?.focus(); return;
+    }
     const fileIssues = fileProblems(cover, extraFiles, existingFiles.filter((file) => file.kind === "file").length);
     if (fileIssues.length) { setMessage(fileIssues[0]!); setSaving(false); return; }
     try {
@@ -568,9 +577,10 @@ function MemberEvents({
             <>
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required onChange={(e) => setLiveTitle(e.target.value)} /></label>
-              <label>Beskrivelse<textarea name="description" rows={4} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
+              <label>Beskrivelse<textarea ref={descriptionField} name="description" rows={6} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
                 {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
-                <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum.</small></label>
+                <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum. Beskrivelsen skal have mindst {MIN_EVENT_WORDS} ord.</small></label>
+              <EventTextHelp clerk={clerk} field={descriptionField} title={liveTitle} />
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates} title={liveTitle}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
               {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}

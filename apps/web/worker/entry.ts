@@ -1,6 +1,7 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
 import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
 import { memberSagaChat } from "./member-saga.js";
+import { memberEventText } from "./event-text.js";
 import { memberSagaEvent } from "./member-saga-event.js";
 import { publicSagaChat } from "./web-saga.js";
 import { memberSavings } from "./member-savings.js";
@@ -432,6 +433,8 @@ export default {
     // Saga on the member site (member-saga.ts).
     if (url.pathname === "/api/members/saga/chat") return memberSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "Saga ... skal kunne bringe eventet online" - the event she creates with the member (member-saga-event.ts).
+    // Requested: "Saga skal gå ind og vurdere eventet ... indhold og sprog ... minimumsantal på 75 ord" (event-text.ts).
+    if (url.pathname === "/api/members/saga/event-text") return memberEventText(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/members/saga/event") return memberSagaEvent(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe" - the website's Saga, no login (web-saga.ts).
     if (url.pathname === "/api/site/saga/chat") return publicSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });

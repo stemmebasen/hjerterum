@@ -854,3 +854,13 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-choice-site { margin: 0 0 16px; display: grid; gap: 8px; max-width: 640px; }
 .poster-choice-wide { width: 100%; height: auto; aspect-ratio: 1920 / 1005; border-radius: 14px; box-shadow: var(--lys-shadow); background: var(--lys-soft); }
 .poster-choice-site figcaption { color: var(--lys-muted); font-size: 13px; }
+
+/* "en flot eventtekst med et minimumsantal på 75 ord": the count under the description, and Saga's reading of it. */
+.event-text-help { display: grid; gap: 10px; margin-top: -4px; }
+.event-text-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.event-text-count { font: 600 13px var(--lys-sans); color: var(--lys-danger); }
+.event-text-count.is-ok { color: color-mix(in srgb, #5a7d4f 85%, var(--lys-ink)); }
+.event-text-review { display: grid; gap: 10px; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--lys-line); background: var(--lys-soft); }
+.event-text-review .lys-kicker { margin: 0; color: var(--lys-terra); }
+.event-text-review ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; }
+.event-text-suggestion { margin: 0; white-space: pre-wrap; font-size: 14.5px; line-height: 1.6; padding: 12px 14px; border-radius: 12px; background: var(--lys-surface); }
