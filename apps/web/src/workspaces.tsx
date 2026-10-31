@@ -442,8 +442,6 @@ function MemberEvents({
     return () => { mounted = false; };
   }, [clerk]);
 
-  }
-
   async function saveEvent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!member) return;
