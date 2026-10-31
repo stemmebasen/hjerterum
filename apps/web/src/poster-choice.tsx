@@ -1,6 +1,6 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
-import { chooseVariant, drawPoster, photoFits, VARIANTS, wordsOf, type Assets, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, chooseVariant, drawPoster, photoFits, VARIANTS, wordsOf, type Assets, type PosterWords, type VariantKey } from "./event-poster";
 import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/poster-rules";
 
 /** Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget. Uploader man
@@ -8,7 +8,8 @@ import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/post
  * In the event form: the system's choice, one of the five designs (drawn live from what the member has written), or their own
  * poster. Its measurements are told at once here; Saga looks at it when the event is saved (worker/event-posters.ts). */
 
-const PAGE = 8;
+// Requested: "Vis i øvrigt kun 6 forslag ad gangen" (before: "8 der vises. Og så kan man få 8 nye").
+const PAGE = 6;
 
 export type PosterChoiceValue = { choice: "auto" | VariantKey; ownFile: File | null };
 export type SavedPoster = { variant: VariantKey | null; poster: { url: string; width: number; height: number; note: string | null } | null };
@@ -36,7 +37,7 @@ function useLogo() {
   const [logo, setLogo] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
     void Promise.all(["400 100px \"Playfair Display\"", "italic 400 100px \"Playfair Display\"", "600 30px Inter"].map(f => document.fonts.load(f).catch(() => [])))
-      .then(() => image("/logo.png")).then(setLogo);
+      .then(() => image(LOGO_FILE)).then(setLogo);
   }, []);
   return logo;
 }
@@ -49,6 +50,43 @@ function Preview({ variant, words, assets, order }: { variant: VariantKey; words
     return () => window.clearTimeout(timer);
   }, [variant, words, assets, order]);
   return <canvas ref={ref} className="poster-choice-canvas" aria-hidden="true" />;
+}
+
+type ViewItem = { key: "auto" | VariantKey; variant: VariantKey; label: string; fits: boolean; note?: string | undefined };
+
+/** Requested: "Her bør man kunne se billedet større når man klikker på det og så scrolle mellem billederne som i en webshop".
+ * One design large, with arrows (and the keyboard's arrows, or a swipe) to the next; "Vælg dette design" picks it. */
+function Viewer({ items, at, words, assets, picked, onMove, onPick, onClose }: {
+  items: ViewItem[]; at: number; words: PosterWords; assets: Assets; picked: string;
+  onMove: (to: number) => void; onPick: (key: "auto" | VariantKey) => void; onClose: () => void;
+}) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const item = items[at]!;
+  const go = (by: number) => onMove((at + by + items.length) % items.length);
+  useEffect(() => { if (ref.current) drawPoster(ref.current, item.variant, words, assets, "opslag", 0.75); }, [item.variant, words, assets]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); if (e.key === "ArrowRight") go(1); if (e.key === "ArrowLeft") go(-1); };
+    window.addEventListener("keydown", key);
+    const scroll = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", key); document.body.style.overflow = scroll; };
+  });
+  const swipe = useRef<number | null>(null);
+  return <div className="poster-viewer" role="dialog" aria-modal="true" aria-label={`${item.label} - stort`} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="poster-viewer-box">
+      <header><b>{item.label}</b><span>{at + 1} af {items.length}</span><button type="button" className="poster-viewer-close" aria-label="Luk" onClick={onClose}>×</button></header>
+      <div className="poster-viewer-stage" onPointerDown={(e) => { swipe.current = e.clientX; }} onPointerUp={(e) => { if (swipe.current !== null && Math.abs(e.clientX - swipe.current) > 50) go(e.clientX < swipe.current ? 1 : -1); swipe.current = null; }}>
+        <button type="button" className="poster-viewer-arrow is-prev" aria-label="Forrige design" onClick={() => go(-1)}>‹</button>
+        <canvas ref={ref} className={"poster-viewer-canvas" + (item.fits ? "" : " is-disabled")} aria-hidden="true" />
+        <button type="button" className="poster-viewer-arrow is-next" aria-label="Næste design" onClick={() => go(1)}>›</button>
+      </div>
+      <footer>
+        {item.fits ? picked === item.key ? <span className="poster-viewer-picked">✓ Valgt</span>
+          : <button type="button" className="pill-button dark" onClick={() => onPick(item.key)}>Vælg dette design</button>
+          : <span className="poster-choice-problem">{item.note}</span>}
+        <div className="poster-viewer-dots" aria-hidden="true">{items.map((x, i) => <i key={x.key} className={i === at ? "is-on" : ""} />)}</div>
+      </footer>
+    </div>
+  </div>;
 }
 
 /** The member's own poster from the server (behind the login), as a picture. */
@@ -87,6 +125,12 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
   const picked = VARIANTS.find(v => v.key === value.choice);
   const visible = picked && !shown.includes(picked) ? [picked, ...shown] : shown;
 
+  // The big view: every design in order, the system's choice first.
+  const [zoom, setZoom] = useState<number | null>(null);
+  const viewItems: ViewItem[] = [{ key: "auto", variant: systems, label: "Systemets valg", fits: true },
+    ...VARIANTS.map(v => { const fits = photoFits(v.key, "opslag", size); return { key: v.key, variant: v.key, label: v.label, fits: fits.ok, note: fits.ok ? undefined : size ? "Fotoet er for lille til dette design" : "Dette design kræver et eventfoto" }; })];
+  const open = (key: "auto" | VariantKey) => (e: ReactMouseEvent) => { e.preventDefault(); e.stopPropagation(); setZoom(viewItems.findIndex(x => x.key === key)); };
+
   const pickOwn = async (file: File | null) => {
     setOwnProblem(""); setOwnSize("");
     if (!file) return onChange({ choice: "eget", ownFile: null });
@@ -111,10 +155,10 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
     <legend>Opslag til de sociale medier</legend>
     <p className="poster-choice-help">Vælg, hvordan dit event skal se ud på Instagram og Facebook. Forhåndsvisningerne bruger din titel, dato og dit eventfoto. Du kan også sende dit eget færdige opslag.</p>
     <div className="poster-choice-grid">
-      {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} order={0} />, false, VARIANTS.find(v => v.key === systems)?.label)}
+      {option("auto", "Systemets valg", <button type="button" className="poster-choice-zoom" aria-label="Se Systemets valg større" onClick={open("auto")}><Preview variant={systems} words={words} assets={assets} order={0} /></button>, false, VARIANTS.find(v => v.key === systems)?.label)}
       {visible.map((v, i) => {
         const fits = photoFits(v.key, "opslag", size);
-        return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} order={i + 1} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
+        return option(v.key, v.label, <button type="button" className="poster-choice-zoom" aria-label={`Se ${v.label} større`} onClick={open(v.key)}><Preview variant={v.key} words={words} assets={assets} order={i + 1} /></button>, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
       })}
       <label className={"poster-choice-option poster-choice-own" + (value.choice === "eget" ? " is-picked" : "")}>
         <input type="radio" name="posterChoice" value="eget" checked={value.choice === "eget"} onChange={() => onChange({ choice: "eget", ownFile: value.ownFile })} />
@@ -126,6 +170,8 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
       <button type="button" className="pill-button subtle" onClick={() => setPage(p => (p + 1) % pages)}>Vis {PAGE} nye designs</button>
       <small>{page * PAGE + 1}–{Math.min(VARIANTS.length, page * PAGE + PAGE)} af {VARIANTS.length}</small>
     </p>}
+    {zoom !== null && <Viewer items={viewItems} at={zoom} words={words} assets={assets} picked={value.choice} onMove={setZoom}
+      onPick={(key) => { onChange({ choice: key, ownFile: null }); const page = VARIANTS.findIndex(v => v.key === key); if (page >= 0) setPage(Math.floor(page / PAGE)); }} onClose={() => setZoom(null)} />}
     {value.choice === "eget" && <div className="poster-choice-upload">
       <label>Vælg dit opslag
         <input type="file" accept=".jpg,.jpeg,.png" onChange={e => void pickOwn(e.target.files?.[0] ?? null)} />

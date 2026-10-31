@@ -1,5 +1,5 @@
 import { cropCover } from "./cover-crop";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 
 /** The cover photo and the other files on a member's event (requested; the photo rules follow the booking form):
@@ -117,14 +117,21 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
 }) {
   const existingCover = existing.find((file) => file.kind === "cover");
   const existingOthers = existing.filter((file) => file.kind === "file");
-  const [preview, setPreview] = useState<string | null>(null);
+  // Requested: "Man bør kunne trække billedet op og ned (croppe)". The photo as picked is kept here; the frame shows it whole-width
+  // (or whole-height), and dragging it chooses which 1920 × 1005 piece becomes the event photo.
+  const [source, setSource] = useState<{ file: File; url: string; width: number; height: number } | null>(null);
+  const [focus, setFocus] = useState(0.5);
   const [cropIssue, setCropIssue] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
   useEffect(() => {
-    if (!cover) { setPreview(null); return; }
+    if (!cover || source) { setPreview(null); return; }
     const url = URL.createObjectURL(cover);
     setPreview(url);
     return () => URL.revokeObjectURL(url);
-  }, [cover]);
+  }, [cover, source]);
+  useEffect(() => () => { if (source) URL.revokeObjectURL(source.url); }, [source]);
+  // The form was emptied (saved or reset): the picked photo goes too.
+  useEffect(() => { if (!cover) setSource(null); }, [cover]);
   const room = OTHER_MAX - existingOthers.length;
   const problems = fileProblems(cover, extra, existingOthers.length);
 
@@ -132,7 +139,41 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
     if (!picked) { onCover(null); return; }
     const cropped = await cropCover(picked);
     setCropIssue(cropped.ok ? "" : cropped.reason);
-    onCover(cropped.ok ? cropped.file : null);
+    if (!cropped.ok) { setSource(null); onCover(null); return; }
+    const size = await createImageBitmap(picked).then(b => ({ width: b.width, height: b.height })).catch(() => null);
+    setFocus(0.5);
+    setSource(size ? { file: picked, url: URL.createObjectURL(picked), ...size } : null);
+    onCover(cropped.file);
+  };
+  // Wider than 1.91:1 → the piece moves sideways; otherwise up and down.
+  const sideways = source ? source.width / source.height > 1920 / 1005 : false;
+  const drag = useRef<{ start: number; from: number; room: number } | null>(null);
+  const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!source || (e.target as HTMLElement).closest(".event-cover-change")) return;
+    const box = e.currentTarget.getBoundingClientRect();
+    // How far the photo can move in the frame, in screen pixels.
+    const room = sideways ? box.height * (source.width / source.height) - box.width : box.width * (source.height / source.width) - box.height;
+    if (room <= 1) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { start: sideways ? e.clientX : e.clientY, from: focus, room };
+  };
+  const moveDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drag.current) return;
+    const moved = (sideways ? e.clientX : e.clientY) - drag.current.start;
+    setFocus(Math.min(1, Math.max(0, drag.current.from - moved / drag.current.room)));
+  };
+  const endDrag = async () => {
+    if (!drag.current || !source) return;
+    drag.current = null;
+    const cropped = await cropCover(source.file, focus);
+    if (cropped.ok) onCover(cropped.file);
+  };
+  const nudge = async (by: number) => {
+    if (!source) return;
+    const next = Math.min(1, Math.max(0, focus + by));
+    setFocus(next);
+    const cropped = await cropCover(source.file, next);
+    if (cropped.ok) onCover(cropped.file);
   };
 
   // Reported: "Dette layout er ikke kønt" and "Eventfoto dimensionerne skal passe alle steder": the photo is chosen in a frame
@@ -141,6 +182,14 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
     <fieldset className="event-section event-files-field" disabled={!enabled}>
       <legend>Eventfoto og filer</legend>
       {!enabled && <p className="lys-sub">Upload af foto og filer er ikke slået til endnu.</p>}
+      {source ? <div className="event-cover-drop has-photo is-cropping" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={() => void endDrag()} onPointerCancel={() => void endDrag()}
+        tabIndex={0} role="slider" aria-label={sideways ? "Udsnit fra venstre til højre" : "Udsnit fra top til bund"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(focus * 100)}
+        onKeyDown={(e) => { const back = sideways ? "ArrowLeft" : "ArrowUp", on = sideways ? "ArrowRight" : "ArrowDown"; if (e.key === back || e.key === on) { e.preventDefault(); void nudge(e.key === back ? -0.05 : 0.05); } }}
+        onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); void pickCover(e.dataTransfer.files?.[0] ?? null); }}>
+        <img src={source.url} alt="Det valgte eventfoto" draggable={false} style={{ objectPosition: sideways ? `${focus * 100}% 50%` : `50% ${focus * 100}%` }} />
+        <span className="event-cover-hint">{sideways ? "⟷ Træk til siden for at vælge udsnittet" : "↕ Træk op og ned for at vælge udsnittet"}</span>
+        <label className="event-cover-change">Skift foto<input type="file" accept={COVER_ACCEPT} onChange={(e) => { const picked = e.target.files?.[0] ?? null; e.target.value = ""; void pickCover(picked); }} /></label>
+      </div> :
       <label className={"event-cover-drop" + (preview || existingCover ? " has-photo" : "")}
         onDragOver={(e) => { e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); void pickCover(e.dataTransfer.files?.[0] ?? null); }}>
         <input type="file" accept={COVER_ACCEPT} onChange={(e) => { const picked = e.target.files?.[0] ?? null; e.target.value = ""; void pickCover(picked); }} />
@@ -148,9 +197,9 @@ export function EventFilesField({ clerk, enabled, existing, cover, extra, onCove
           : existingCover ? <AuthImage clerk={clerk} file={existingCover} alt="Eventets foto" />
             : <span className="event-cover-empty"><b>Vælg et eventfoto</b><span>eller træk det hertil</span></span>}
         {(preview || existingCover) && <span className="event-cover-change">Skift foto</span>}
-      </label>
+      </label>}
       {cropIssue && <p className="event-note is-danger" role="alert">{cropIssue}</p>}
-      <p className="event-note">1920 × 1005 px (Facebooks størrelse til events), jpg eller png, højst 8 MB. Et større billede beskæres fra midten; et mindre afvises. Brug et foto, du selv har rettighederne til - helst ikke AI-genereret. Det vises offentligt, når eventet er godkendt.
+      <p className="event-note">1920 × 1005 px (Facebooks størrelse til events), jpg eller png, højst 8 MB. Et større billede beskæres - træk i det for at vælge udsnittet; et mindre afvises. Brug et foto, du selv har rettighederne til - helst ikke AI-genereret. Det vises offentligt, når eventet er godkendt.
         {existingCover && !cover && <> <button type="button" className="text-button is-danger" onClick={() => onRemoveExisting(existingCover)}>Fjern fotoet</button></>}</p>
       {/* Asked (Gitta): "'Andre filer (0/5)' under Opret event: Er det til PR-materiale til PR-arkivet? - Det må gerne stå tydeligere". It is for the attendees. */}
       <div className="event-attach">

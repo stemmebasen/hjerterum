@@ -1,4 +1,4 @@
-import { ADDRESS, blob, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
+import { ADDRESS, blob, stamp, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
 
 /** Requested: "Lav gerne flere skabeloner" - "Nej, 8 der vises. Og så kan man få 8 nye." - and "hvad med det aflange facebook cover
  * format?". Sixteen poster designs, each drawn for any shape: post (4:5), story (9:16) and Facebook's event cover (1.91:1). A design
@@ -203,7 +203,8 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = G.cream; ctx.fillRect(0, 0, W, H);
       photoIn(ctx, a.photo, spot);
       spaced(ctx, "Hjerterum", 60 * u, 80 * u, `400 ${Math.round(32 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 7 * u);
-      ctx.fillStyle = G.caramel; ctx.fillRect(right - 300 * u, 68 * u, 240 * u, 14 * u);
+      stamp(ctx, a.logo, right - 130 * u, 135 * u, 82 * u, G.cocoa);
+      ctx.fillStyle = G.caramel;
       ctx.fillRect(60 * u, 140 * u, 230 * u, 250 * u);
       text(ctx, w.number, 175 * u, 300 * u, `400 ${Math.round(140 * u)}px ${SERIF}`, G.cocoa, "center");
       spaced(ctx, w.month.slice(0, 3), 175 * u, 360 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 4 * u, "center");
@@ -220,7 +221,7 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = G.creamB; ctx.fillRect(0, 0, W, H);
       photoIn(ctx, a.photo, spot);
       spaced(ctx, "Hjerterum", 52 * u, 80 * u, `400 ${Math.round(32 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB, 3 * u);
-      ctx.fillStyle = G.sageLine; ctx.fillRect(right - 380 * u, 70 * u, 330 * u, 2 * u);
+      stamp(ctx, a.logo, right - 130 * u, 135 * u, 82 * u, G.brownB);
       softCircle(ctx, 230 * u, 310 * u, 165 * u, "#E4EADF", "#DDE4D7", w, "#3E322B", G.brownB2);
       text(ctx, weekday(w), 460 * u, 290 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
       text(ctx, `kl. ${w.time}`, 460 * u, 342 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
@@ -253,6 +254,7 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = g; ctx.fillRect(spot.x, spot.y, spot.w, spot.h);
       const r = L ? { x: 70 * u, y: 120 * u, w: W * 0.46, h: H - 210 * u } : { x: 70 * u, y: H * 0.42, w: W - 140 * u, h: H * 0.58 - 90 * u };
       ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 14 * u;
+      stamp(ctx, a.logo, 70 * u + 76 * u, 66 * u + 76 * u, 76 * u, "#ffffff");
       const k = w.kicker;
       spaced(ctx, `Hjerterum · ${k}`, r.x, r.y + 20 * u + (L ? H * 0.12 : 0), `700 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, "#ffffff", 6 * u);
       ctx.fillStyle = G.caramel; ctx.fillRect(r.x, r.y + 50 * u + (L ? H * 0.12 : 0), 110 * u, 10 * u);
@@ -272,6 +274,7 @@ export const TEMPLATES: Record<string, Template> = {
       spaced(ctx, w.month, 54 * u, (L ? 380 : 492) * u, `700 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 4 * u);
       text(ctx, `kl. ${w.time}`, 54 * u, (L ? 420 : 540) * u, `400 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa);
       spaced(ctx, "Hjerterum", sw + 80 * u, 110 * u, `700 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.grey, 8 * u);
+      stamp(ctx, a.logo, W - 120 * u, 120 * u, 74 * u, G.cocoa);
       block(ctx, { x: sw + 80 * u, y: 200 * u, w: W - sw - 160 * u, h: H - 300 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: w.kicker, size: 96 * u, maxLines: 4, footer: "Læs mere på hjerterum.info", mono: true }, "center", u);
     }
   },
@@ -319,7 +322,8 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.setLineDash([]);
       const r = L ? { x: spot.x + spot.w + 70 * u, y: t.y + 60 * u, w: t.w - spot.w - 140 * u, h: t.h - 120 * u } : { x: t.x + 60 * u, y: spot.y + spot.h + 50 * u, w: t.w - 120 * u, h: t.y + t.h - spot.y - spot.h - 100 * u };
       spaced(ctx, "Adgangsbillet · Hjerterum", r.x, r.y + 20 * u, `600 ${Math.round(20 * u)}px ${SANS}`, C.terra, 5 * u);
-      block(ctx, { ...r, y: r.y + 60 * u, h: r.h - 60 * u }, w, { color: C.ink, accent: C.terra, muted: C.muted, kicker: null, size: 92 * u, maxLines: 3, footer: ADDRESS }, "center", u);
+      stamp(ctx, a.logo, t.x + t.w - 120 * u, t.y + t.h - 120 * u, 80 * u, C.terra);
+      block(ctx, { ...r, y: r.y + 60 * u, h: r.h - 60 * u, w: r.w - 200 * u }, w, { color: C.ink, accent: C.terra, muted: C.muted, kicker: null, size: 92 * u, maxLines: 3, footer: ADDRESS }, "center", u);
     }
   },
   polaroid: {
@@ -339,6 +343,8 @@ export const TEMPLATES: Record<string, Template> = {
       };
       card(L ? 70 * u : 60 * u, -30 * u, 0.09, "grayscale(1) contrast(1.05)", null);
       card(0, 0, -0.05, "", `${weekday(w)} ${w.number}. ${w.month}`);
+      // Beside the snapshots: top right when they lie to the left, bottom right when they stand above the words.
+      if (L) stamp(ctx, a.logo, W - 118 * u, 122 * u, 78 * u, C.terra); else stamp(ctx, a.logo, W - 112 * u, H - 112 * u, 72 * u, C.terra);
       // A strip of tape across the front snapshot.
       ctx.save(); ctx.translate(p.x + p.w / 2, p.y - 20 * u); ctx.rotate(-0.08); ctx.fillStyle = "rgba(201,151,111,.55)"; ctx.fillRect(-90 * u, -22 * u, 180 * u, 44 * u); ctx.restore();
       const r = L ? { x: W * 0.56, y: 110 * u, w: W * 0.38, h: H - 220 * u } : { x: 90 * u, y: p.y + p.h + 110 * u, w: W - 180 * u, h: H - p.y - p.h - 160 * u };
