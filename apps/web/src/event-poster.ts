@@ -1,3 +1,5 @@
+import { TEMPLATES } from "./poster-templates";
+import type { PosterDesign } from "../site/poster-rules";
 /** Requested: "Kan du lave 2-3 forslag til event designs" and then "Vi skal have fem varianter systemet kan vælge mellem".
  * An event's poster for social media in five designs, drawn on a canvas in the house's colours and type (Hjerterum Lys).
  * The system picks the one that suits the event (chooseVariant); the others are a click away on /plakat/<id> (poster-page.tsx). */
@@ -13,16 +15,32 @@ export type PosterEvent = {
   imageUrl: string | null;
 };
 
-export type VariantKey = "rolig" | "foto" | "organisk" | "typografi" | "split" | "eget";
-export type Format = "opslag" | "story";
+export type VariantKey = PosterDesign;
+/** cover: Facebook's event cover, 1920 × 1005 - "hvad med det aflange facebook cover format?" */
+export type Format = "opslag" | "story" | "cover";
 
 export const VARIANTS: Array<{ key: VariantKey; label: string; about: string }> = [
   { key: "rolig", label: "Rolig", about: "Lys baggrund, fotoet med bløde kanter og datoen i en cirkel." },
   { key: "foto", label: "Fuldt foto", about: "Fotoet over det hele med en varm toning og en glasboks." },
   { key: "organisk", label: "Organisk", about: "Bløde farveformer, fotoet som en sten og en stor dato." },
   { key: "typografi", label: "Typografi", about: "Uden foto: titlen stor på en varm farveflade." },
-  { key: "split", label: "Delt", about: "Fotoet øverst med en blød bølge, teksten i et roligt felt under." }
+  { key: "split", label: "Delt", about: "Fotoet øverst med en blød bølge, teksten i et roligt felt under." },
+  // Gitta's own looks.
+  { key: "datoblok", label: "Datoblok", about: "Datoen i en karamelfarvet blok, titlen stor og fotoet i bunden." },
+  { key: "cirkel", label: "Blød cirkel", about: "Datoen i en blød, salviegrøn cirkel og fotoet som en stribe." },
+  { key: "boks", label: "Boks", about: "Fotoet over det hele med teksten i en mørk boks i midten." },
+  { key: "aften", label: "Aften", about: "Fotoet glider over i en mørk aftenflade med teksten." },
+  { key: "stribe", label: "Stribe", about: "En karamelfarvet stribe med datoen ned langs siden." },
+  // Reported: "Many of them are very much alike. Can we make a little more variation?"
+  { key: "plakat", label: "Plakat", about: "Kun typografi: titlen så stor som muligt på mørk bund." },
+  { key: "billet", label: "Billet", about: "En adgangsbillet med fotoet på talonen." },
+  { key: "polaroid", label: "Polaroid", about: "To skæve polaroidbilleder med tape og håndskrevet dato." },
+  { key: "baand", label: "Bånd", about: "Fotoet over det hele med et roligt grønt bånd med teksten." },
+  { key: "mosaik", label: "Mosaik", about: "Fotoet i tre udsnit, datoen og titlen i hver sin flise." },
+  { key: "nat", label: "Nat", about: "Mørk bund med fotoet i en gylden cirkel." }
 ];
+/** The five with their own hand-made post and story layouts below; the others are drawn by poster-templates.ts in every format. */
+const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", "split"]);
 
 /** Said: "Sommetider kommer underviserne selv med eventfotos" - often a finished flyer with its own text. That picture is kept
  * whole, on a soft background made of itself, with only Hjerterum's name and address under it; nothing is written over it. */
@@ -30,7 +48,8 @@ export const OWN_PICTURE = { key: "eget" as const, label: "Underviserens eget bi
 
 export const SIZES: Record<Format, { width: number; height: number; label: string }> = {
   opslag: { width: 1080, height: 1350, label: "Opslag (4:5)" },
-  story: { width: 1080, height: 1920, label: "Story (9:16)" }
+  story: { width: 1080, height: 1920, label: "Story (9:16)" },
+  cover: { width: 1920, height: 1005, label: "Facebook-cover (1,91:1)" }
 };
 
 export const C = { cream: "#f6f1e7", sand: "#efe4d6", ink: "#2a2622", muted: "#5b534b", terra: "#94503f", camel: "#c9976f", sage: "#e9efe1", blush: "#f3d9c9", dusk: "#2a1e18" };
@@ -109,14 +128,17 @@ const hash = (text: string) => [...text].reduce((h, ch) => Math.imul(h ^ ch.char
 export const MAX_UPSCALE = 1.25;
 export function photoBox(variant: VariantKey, format: Format): { width: number; height: number } | null {
   const { width: W, height: H } = SIZES[format];
+  if (variant !== "eget" && (format === "cover" || !HANDMADE.has(variant))) {
+    const spot = TEMPLATES[variant]?.photo(W, H);
+    return spot && !spot.optional ? { width: Math.round(spot.w), height: Math.round(spot.h) } : null;
+  }
   const story = format === "story";
   switch (variant) {
     case "rolig": return { width: W - 380, height: story ? 860 : 640 };
     case "foto": return { width: W, height: H };
     case "organisk": { const d = Math.round((story ? 300 : 260) * 2.2); return { width: d, height: d }; }
     case "split": return { width: W, height: Math.round(H * (story ? 0.56 : 0.54)) + 60 };
-    case "eget": return null;
-    case "typografi": return null;
+    default: return null;
   }
 }
 
@@ -124,7 +146,7 @@ export type PhotoSize = { width: number; height: number };
 
 /** Whether the photo is sharp enough for the design, and if not, what to say. Typografi needs none. */
 export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize | null): { ok: true } | { ok: false; reason: string } {
-  if (variant === "typografi") return { ok: true };
+  if (variant !== "eget" && !photoBox(variant, format)) return { ok: true };
   if (!photo || !photo.width || !photo.height) return { ok: false, reason: "Eventet har intet foto." };
   if (variant === "eget") {
     const { width: W, height: H } = SIZES[format];
@@ -141,7 +163,7 @@ export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize 
  * Concerts and films get the full photo, the café the organic one, talks the calm one - each only when the photo is big enough
  * for it; everything else is spread over the designs the photo fits, by the event's id, so the feed does not look the same every day. */
 export function chooseVariant(event: Pick<PosterEvent, "id" | "title" | "category" | "imageUrl">, photo: PhotoSize | null = null, format: Format = "opslag"): VariantKey {
-  if (!event.imageUrl || !photo) return "typografi";
+  if (!event.imageUrl || !photo) return hash(event.id) % 2 ? "plakat" : "typografi";
   const fits = (v: VariantKey) => photoFits(v, format, photo).ok;
   const text = `${event.title} ${event.category ?? ""}`.toLowerCase();
   const wish: VariantKey[] = /koncert|concert|kirtan|musik|music|\bfilm|movie/.test(text) ? ["foto", "split"]
@@ -149,8 +171,8 @@ export function chooseVariant(event: Pick<PosterEvent, "id" | "title" | "categor
     : /foredrag|\btalk\b|oplæg|lecture/.test(text) ? ["rolig"] : [];
   const wished = wish.find(fits);
   if (wished) return wished;
-  const pool = (["rolig", "foto", "organisk", "split"] as VariantKey[]).filter(fits);
-  return pool.length ? pool[hash(event.id) % pool.length]! : "typografi";
+  const pool = VARIANTS.map(v => v.key).filter(k => k !== "typografi" && k !== "plakat" && fits(k));
+  return pool.length ? pool[hash(event.id) % pool.length]! : hash(event.id) % 2 ? "plakat" : "typografi";
 }
 
 // ---- Drawing ----
@@ -302,6 +324,10 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
   const ctx = canvas.getContext("2d")!;
   if (scale !== 1) ctx.scale(scale, scale);
   ctx.textBaseline = "alphabetic";
+  if (format === "cover" || !HANDMADE.has(variant)) {
+    const template = TEMPLATES[variant];
+    if (template) { template.draw.call(template, ctx, W, H, words, assets); return; }
+  }
   const story = format === "story";
   const photo = assets.photo;
   const M = 84;

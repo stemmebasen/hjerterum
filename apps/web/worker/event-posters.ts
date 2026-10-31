@@ -9,9 +9,11 @@ import type { SagaDeps, SagaEnv } from "./saga/env.js";
  * finished poster. Their own is measured here first (format and size), then looked at by Saga (the information on it and its
  * quality); only then is it kept. Saga fails closed: when she cannot look, the poster is not kept. */
 
-export const POSTER_VARIANTS = ["rolig", "foto", "organisk", "typografi", "split", "eget"] as const;
-export type PosterVariant = (typeof POSTER_VARIANTS)[number];
-export const isPosterVariant = (value: unknown): value is PosterVariant => typeof value === "string" && (POSTER_VARIANTS as readonly string[]).includes(value);
+import { isPosterDesign, POSTER_DESIGNS, type PosterDesign } from "../site/poster-rules.js";
+// Sixteen designs since migration 0086; the choice is kept in room_bookings.poster_design.
+export const POSTER_VARIANTS = POSTER_DESIGNS;
+export type PosterVariant = PosterDesign;
+export const isPosterVariant = isPosterDesign;
 
 export { POSTER_MAX_BYTES, POSTER_MIN_WIDTH, POSTER_SHAPES, posterSizeProblem } from "../site/poster-rules.js";
 import { POSTER_MAX_BYTES, posterSizeProblem } from "../site/poster-rules.js";
@@ -76,9 +78,9 @@ export type PosterInfo = { variant: PosterVariant | null; poster: PosterView | n
 type PosterRow = { room_booking_id: number; r2_key: string; content_type: string; width: number; height: number; saga_note: string | null };
 
 export async function posterInfo(db: D1Database, bookingId: number): Promise<PosterInfo> {
-  const booking = await db.prepare("SELECT poster_variant FROM room_bookings WHERE id = ?").bind(bookingId).first<{ poster_variant: string | null }>();
+  const booking = await db.prepare("SELECT poster_design FROM room_bookings WHERE id = ?").bind(bookingId).first<{ poster_design: string | null }>();
   const row = await db.prepare("SELECT room_booking_id, r2_key, content_type, width, height, saga_note FROM room_booking_posters WHERE room_booking_id = ?").bind(bookingId).first<PosterRow>();
-  const variant = isPosterVariant(booking?.poster_variant) ? booking!.poster_variant as PosterVariant : null;
+  const variant = isPosterVariant(booking?.poster_design) ? booking!.poster_design as PosterVariant : null;
   return { variant: variant === "eget" && !row ? null : variant, poster: row ? { url: `/api/room-bookings/${bookingId}/poster`, width: row.width, height: row.height, note: row.saga_note } : null };
 }
 
@@ -87,19 +89,19 @@ export async function postersByBooking(db: D1Database, ids: number[]): Promise<M
   const found = new Map<number, PosterInfo>();
   if (!ids.length) return found;
   const marks = ids.map(() => "?").join(",");
-  const variants = (await db.prepare(`SELECT id, poster_variant FROM room_bookings WHERE id IN (${marks})`).bind(...ids).all<{ id: number; poster_variant: string | null }>()).results ?? [];
+  const variants = (await db.prepare(`SELECT id, poster_design FROM room_bookings WHERE id IN (${marks})`).bind(...ids).all<{ id: number; poster_design: string | null }>()).results ?? [];
   const rows = (await db.prepare(`SELECT room_booking_id, r2_key, content_type, width, height, saga_note FROM room_booking_posters WHERE room_booking_id IN (${marks})`).bind(...ids).all<PosterRow>()).results ?? [];
   const byId = new Map(rows.map(r => [r.room_booking_id, r]));
   for (const v of variants) {
     const row = byId.get(v.id);
-    const variant = isPosterVariant(v.poster_variant) ? v.poster_variant as PosterVariant : null;
+    const variant = isPosterVariant(v.poster_design) ? v.poster_design as PosterVariant : null;
     found.set(v.id, { variant: variant === "eget" && !row ? null : variant, poster: row ? { url: `/api/room-bookings/${v.id}/poster`, width: row.width, height: row.height, note: null } : null });
   }
   return found;
 }
 
 export async function setPosterVariant(db: D1Database, bookingId: number, variant: PosterVariant | null, now: number): Promise<void> {
-  await db.prepare("UPDATE room_bookings SET poster_variant = ?, updated_at_ms = ? WHERE id = ?").bind(variant, now, bookingId).run();
+  await db.prepare("UPDATE room_bookings SET poster_design = ?, updated_at_ms = ? WHERE id = ?").bind(variant, now, bookingId).run();
 }
 
 export type PosterUpload =
@@ -145,7 +147,7 @@ export async function removePoster(db: D1Database, bucket: EventMediaBucket, boo
   const row = await db.prepare("SELECT r2_key FROM room_booking_posters WHERE room_booking_id = ?").bind(bookingId).first<{ r2_key: string }>();
   if (!row) return false;
   await db.prepare("DELETE FROM room_booking_posters WHERE room_booking_id = ?").bind(bookingId).run();
-  await db.prepare("UPDATE room_bookings SET poster_variant = NULL, updated_at_ms = ? WHERE id = ? AND poster_variant = 'eget'").bind(now, bookingId).run();
+  await db.prepare("UPDATE room_bookings SET poster_design = NULL, updated_at_ms = ? WHERE id = ? AND poster_design = 'eget'").bind(now, bookingId).run();
   await bucket.delete(row.r2_key).catch(() => undefined);
   return true;
 }

@@ -20,3 +20,9 @@ export function posterSizeProblem(width: number, height: number): string | null 
   if (width < POSTER_MIN_WIDTH) return `Opslaget er ${width} × ${height} px - for lille til Instagram og Facebook. Det skal være mindst ${POSTER_MIN_WIDTH} px bredt (${shape.example} px til ${shape.label}).`;
   return null;
 }
+
+/** The poster designs an organiser can choose (src/event-poster.ts VARIANTS draws them), and "eget": their own poster. */
+export const POSTER_DESIGNS = ["rolig", "foto", "organisk", "typografi", "split", "datoblok", "cirkel", "boks", "aften", "stribe",
+  "plakat", "billet", "polaroid", "baand", "mosaik", "nat", "eget"] as const;
+export type PosterDesign = (typeof POSTER_DESIGNS)[number];
+export const isPosterDesign = (value: unknown): value is PosterDesign => typeof value === "string" && (POSTER_DESIGNS as readonly string[]).includes(value);

@@ -8,6 +8,8 @@ import { POSTER_MAX_BYTES, POSTER_SHAPES, posterSizeProblem } from "../site/post
  * In the event form: the system's choice, one of the five designs (drawn live from what the member has written), or their own
  * poster. Its measurements are told at once here; Saga looks at it when the event is saved (worker/event-posters.ts). */
 
+const PAGE = 8;
+
 export type PosterChoiceValue = { choice: "auto" | VariantKey; ownFile: File | null };
 export type SavedPoster = { variant: VariantKey | null; poster: { url: string; width: number; height: number; note: string | null } | null };
 export const AUTO_POSTER: PosterChoiceValue = { choice: "auto", ownFile: null };
@@ -78,6 +80,12 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
   const words = useMemo(() => wordsOf(event), [event]);
   const size = photo ? { width: photo.naturalWidth, height: photo.naturalHeight } : null;
   const systems = chooseVariant(event, size, "opslag");
+  // Requested: "Nej, 8 der vises. Og så kan man få 8 nye." The sixteen designs, eight at a time; the one picked stays in view.
+  const [page, setPage] = useState(0);
+  const pages = Math.ceil(VARIANTS.length / PAGE);
+  const shown = VARIANTS.slice(page * PAGE, page * PAGE + PAGE);
+  const picked = VARIANTS.find(v => v.key === value.choice);
+  const visible = picked && !shown.includes(picked) ? [picked, ...shown] : shown;
 
   const pickOwn = async (file: File | null) => {
     setOwnProblem(""); setOwnSize("");
@@ -104,7 +112,7 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
     <p className="poster-choice-help">Vælg, hvordan dit event skal se ud på Instagram og Facebook. Forhåndsvisningerne bruger din titel, dato og dit eventfoto. Du kan også sende dit eget færdige opslag.</p>
     <div className="poster-choice-grid">
       {option("auto", "Systemets valg", <Preview variant={systems} words={words} assets={assets} order={0} />, false, VARIANTS.find(v => v.key === systems)?.label)}
-      {VARIANTS.map((v, i) => {
+      {visible.map((v, i) => {
         const fits = photoFits(v.key, "opslag", size);
         return option(v.key, v.label, <Preview variant={v.key} words={words} assets={assets} order={i + 1} />, !fits.ok, fits.ok ? undefined : size ? "Fotoet er for lille" : "Kræver et eventfoto");
       })}
@@ -114,6 +122,10 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
         <span className="poster-choice-label">Mit eget opslag</span>
       </label>
     </div>
+    {pages > 1 && <p className="poster-choice-more">
+      <button type="button" className="pill-button subtle" onClick={() => setPage(p => (p + 1) % pages)}>Vis {PAGE} nye designs</button>
+      <small>{page * PAGE + 1}–{Math.min(VARIANTS.length, page * PAGE + PAGE)} af {VARIANTS.length}</small>
+    </p>}
     {value.choice === "eget" && <div className="poster-choice-upload">
       <label>Vælg dit opslag
         <input type="file" accept=".jpg,.jpeg,.png" onChange={e => void pickOwn(e.target.files?.[0] ?? null)} />

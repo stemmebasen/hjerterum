@@ -769,3 +769,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .guide-msg { max-width: 94%; }
 }
 .calendar-all { margin: 28px 0 48px; }
+
+/* "8 der vises. Og så kan man få 8 nye." */
+.poster-choice-more { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; }
+.poster-choice-more small { color: var(--lys-muted); }
