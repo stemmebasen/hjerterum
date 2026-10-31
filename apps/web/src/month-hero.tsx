@@ -3,6 +3,7 @@
  * that to our website" - and, of the sketch, "Er dit forslag, at oktober i hjerterum skal være forsidens hero?" - "Ja" (to moving it down) -
  * "Ja den er godt". The front page's calendar section reads like the monthly newsletter: "Om lidt / i Hjerterum", three highlighted events,
  * the general assembly in a blush box, the coming weeks week by week in columns, and the Mornings banner. */
+import { EventPhoto } from "./event-photo";
 
 export type MonthEvent = { key: string; title: string; startsAt: string; imageUrl: string | null; page?: string | null; link: string | null;
   description?: string | null; location?: string | null; category?: string | null };
@@ -102,7 +103,7 @@ export function MonthSection({ events, now, reachable }: { events: MonthEvent[];
     {/* While the calendar is on its way, nothing is said; only a calendar that came back empty says so. */}
     {!featured.length && !weeks.length && reachable && <p className="nl-empty">Kalenderen for de kommende uger kommer snart.</p>}
     {featured.length > 0 && <div className="nl-featured">{featured.map(e => <article key={e.key} className="nl-feat"><a href={href(e)}>
-      {e.imageUrl && <img src={e.imageUrl} alt="" loading="lazy" />}
+      {e.imageUrl && <EventPhoto className="nl-feat-photo" src={e.imageUrl} />}
       <p className="nl-when">{featureLine(e.startsAt)}</p><h3>{e.title}</h3>{plain(e.description) && <p className="nl-text">{plain(e.description)}</p>}<span className="nl-more">Læs mere →</span></a></article>)}</div>}
     {announce && <div className="nl-announce"><div className="nl-date">{DAY_NUM.format(Date.parse(announce.startsAt)).replace(".", "")}<small>{MONTH.format(Date.parse(announce.startsAt))}</small></div>
       <div><b>{announce.title}</b>{capital(WEEKDAY.format(Date.parse(announce.startsAt)))} kl. {TIME.format(Date.parse(announce.startsAt)).replace(":", ".")}{announce.location ? ` i ${announce.location}` : ""}. Alle medlemmer er hjerteligt velkomne.</div>

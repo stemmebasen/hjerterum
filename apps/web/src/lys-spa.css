@@ -631,3 +631,34 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-refused { aspect-ratio: 4 / 5; display: grid; align-content: center; gap: 8px; padding: 28px; border-radius: 18px; border: 1px dashed var(--lys-line); background: var(--lys-soft); color: var(--lys-muted); font-size: 15px; line-height: 1.5; }
 .poster-refused b { color: var(--lys-terra); font: 600 13px/1 var(--lys-sans); letter-spacing: .12em; text-transform: uppercase; }
 .poster-refused p { margin: 0; }
+
+/* Requested: "Eventfoto dimensionerne skal passe alle steder" (event-photo.tsx): every event photo in Facebook's event size, 1920 × 1005.
+   A photo of another shape is shown whole on a blurred copy of itself - a poster's text is never cut. */
+.event-photo { position: relative; display: block; width: 100%; aspect-ratio: 1920 / 1005; overflow: hidden; background: var(--lys-soft); }
+.event-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.event-photo.is-whole::before { content: ""; position: absolute; inset: -24px; background: var(--event-photo) center / cover no-repeat; filter: blur(22px) saturate(.9) brightness(.82); }
+.event-photo.is-whole img { object-fit: contain; }
+.member-event-visual { aspect-ratio: 1920 / 1005; }
+.member-event-visual .event-photo { height: 100%; }
+.event-page-image { max-width: 960px; border-radius: var(--lys-radius); margin: 8px 0 36px; }
+.nl-feat .nl-feat-photo { margin-bottom: 18px; background: var(--nl-panel, var(--lys-soft)); }
+
+/* "Snart i Hjerterum" in the member area (program-guide.tsx): the next event large, the four after it as a list. */
+.program-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.program-feature { display: grid; gap: 6px; color: inherit; text-decoration: none; }
+.program-photo { position: relative; display: block; border-radius: 14px; overflow: hidden; }
+.program-photo .event-photo, .program-thumb .event-photo { transition: transform .25s ease; }
+.program-feature:hover .event-photo, .program-tile:hover .event-photo { transform: scale(1.02); }
+.program-photo-empty { display: grid; place-items: center; aspect-ratio: 1920 / 1005; font-size: 26px; opacity: .5; background: color-mix(in srgb, currentColor 8%, transparent); border-radius: inherit; }
+.program-feature .program-when { margin-top: 8px; }
+.program-feature-title { font: 400 26px/1.2 var(--lys-serif); }
+.program-host { color: var(--lys-muted); font-size: 14.5px; }
+.program-strip { display: grid; gap: 4px; }
+.program-tile { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 14px; align-items: center; padding: 10px; margin: 0 -10px; border-radius: 14px; color: inherit; text-decoration: none; }
+.program-tile:hover, .program-tile:focus-visible { background: color-mix(in srgb, currentColor 6%, transparent); }
+.program-thumb { display: block; border-radius: 10px; overflow: hidden; }
+.program-tile-text { display: grid; gap: 3px; min-width: 0; }
+@media (max-width: 760px) {
+  .program-layout { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .program-tile { grid-template-columns: 104px minmax(0, 1fr); }
+}
