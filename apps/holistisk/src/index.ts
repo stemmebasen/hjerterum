@@ -69,9 +69,18 @@ const MOUNTS: Record<string, { name: string; edition: "forening" | "portal" }> =
   "https://www.jacobhauge.com/socialklubben": { name: "Socialklubben", edition: "portal" }
 };
 
+/** Own domains the Worker answers on directly (a Custom Domain in Cloudflare, no proxy), with the portal at the root.
+ * Only the event portal: Samfolk is never shown under these names. */
+const DOMAINS: Record<string, { name: string; edition: "portal" }> = {
+  "socialklubben.dk": { name: "Socialklubben", edition: "portal" }
+};
+
 type Mount = { origin: string; base: string; name: string; edition: "forening" | "portal" };
 
 function mountOf(request: Request, env: Env): Mount | null {
+  const host = new URL(request.url).hostname;
+  const domain = DOMAINS[host];
+  if (domain) return { origin: `https://${host}`, base: "", ...domain };
   const given = request.headers.get("x-flokken-mount");
   if (!given) return null;
   const extra = (env.PUBLIC_MOUNTS ?? "").split(",").map(s => s.trim()).filter(Boolean).map(s => s.split("=").map(p => p.trim()));
@@ -90,7 +99,7 @@ async function underMount(response: Response, { base, name }: Mount): Promise<Re
   const cookies = headers.getSetCookie?.() ?? [];
   if (cookies.length) {
     headers.delete("set-cookie");
-    for (const c of cookies) headers.append("set-cookie", c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`));
+    for (const c of cookies) headers.append("set-cookie", base ? c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`) : c);
   }
   const type = headers.get("content-type") ?? "";
   const rename = name !== SITE && type.startsWith("text/");
@@ -104,6 +113,11 @@ async function underMount(response: Response, { base, name }: Mount): Promise<Re
 }
 
 export async function handle(request: Request, env: Env, now = Date.now()): Promise<Response> {
+  const url = new URL(request.url);
+  // www.socialklubben.dk and the old /socialklubben paths on the own domain go to the address without them.
+  const bare = url.hostname.replace(/^www\./, "");
+  if (bare !== url.hostname && DOMAINS[bare]) return redirect(`https://${bare}${url.pathname}${url.search}`);
+  if (DOMAINS[url.hostname] && /^\/socialklubben(\/|$)/.test(url.pathname)) return redirect(`https://${url.hostname}${url.pathname.replace(/^\/socialklubben/, "") || "/"}${url.search}`);
   const mount = mountOf(request, env);
   const response = await route(request, env, now, mount);
   return mount ? underMount(response, mount) : response;
