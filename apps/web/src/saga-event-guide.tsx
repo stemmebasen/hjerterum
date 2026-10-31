@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
 import { cropCover } from "./cover-crop";
 import { isFixedStep, UPLOAD_NOW } from "../site/guide-choices";
+import { planInstants } from "./event-planner-logic";
+import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue } from "./poster-choice";
 import { preparePhoto, withLinks, type Photo, type SagaDraft } from "./saga-widget";
 
 /** Requested: "Dette skal føles mere intuitivt og moderne. Man skal have mulighed for blot at skrive et brief og så få Saga til at
@@ -60,6 +62,8 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
   const toggle = (suggestion: string) => setPicked((now) => now.includes(suggestion) ? now.filter((x) => x !== suggestion) : [...now, suggestion]);
   const answer = () => [...picked, text.trim()].filter(Boolean).join(". ");
   const [busy, setBusy] = useState(false);
+  // Requested: "Det vil være så fedt at hun kommer og forslår den samlede pakke" - the posters are part of her proposal.
+  const [poster, setPoster] = useState<PosterChoiceValue>(AUTO_POSTER);
   const [created, setCreated] = useState<{ id: number; text: string } | null>(null);
   const list = useRef<HTMLDivElement>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -106,7 +110,8 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
       const response = await apiFetch(clerk, "/api/members/saga/event", { method: "POST", body: form });
       const body = await response.json().catch(() => ({})) as { reply?: string; id?: number };
       if (body.id) {
-        setCreated({ id: body.id, text: body.reply ?? "Eventet er oprettet." });
+        const posterLine = guide.facts.social === false ? "" : await savePosterChoice(clerk, body.id, poster, null);
+        setCreated({ id: body.id, text: (body.reply ?? "Eventet er oprettet.") + posterLine });
         try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
         onCreated(body.id);
       } else setMessages((m) => [...m, { role: "assistant", text: body.reply ?? "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt." }]);
@@ -116,7 +121,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
 
   function restart() {
     try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
-    setConversation(null); setMessages([]); setGuide(EMPTY); setDraft(null); setPhoto(null); setCreated(null); setText(""); setPicked([]);
+    setConversation(null); setMessages([]); setGuide(EMPTY); setDraft(null); setPhoto(null); setCreated(null); setText(""); setPicked([]); setPoster(AUTO_POSTER);
   }
 
   /** "Ret": the step's answers are let go of, and Saga asks about it again (it is now the first one missing). */
@@ -168,11 +173,16 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
               <div><dt>Sociale medier</dt><dd>{guide.facts.social === false ? "Nej" : guide.facts.social ? "Ja" : "–"}</dd></div>
             </dl>
             <p className="guide-description">{draft.description}</p>
+            {guide.facts.social !== false && <div className="guide-posters">
+              <PosterChoice clerk={clerk} title={draft.title} teacher={guide.facts.leader ?? firstName}
+                startsAt={planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 }).startsAt}
+                endsAt={planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 }).endsAt}
+                cover={photo?.file ?? null} coverUrl={null} saved={null} value={poster} onChange={setPoster} onRemoveSaved={() => undefined} />
+            </div>}
             <div className="guide-buttons">
               <button type="button" className="pill-button dark" disabled={busy} onClick={() => void create()}>Opret og læg online</button>
               <button type="button" className="pill-button" onClick={() => onFillForm(draft, photo?.file ?? null)}>Ret selv i formularen</button>
             </div>
-            <small>Passer eventet til Hjerterum, kommer det online med det samme - ellers ser bestyrelsen på det. Du kan altid rette det under Mine events.</small>
           </article>}
         </div>
         {/* Sharing and the photo have fixed buttons (site/guide-choices.ts): one click answers. */}
