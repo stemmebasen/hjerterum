@@ -15,8 +15,10 @@ const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
 const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
 const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
 
-export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onProblem }: {
+export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onProblem, title }: {
   clerk: ClerkBrowser;
+  /** Requested: "Her kunne eventets navn godt stå i stedet for 'Dit event'" - the title as written in the form. */
+  title?: string;
   plan: Plan;
   onChange: (next: Plan) => void;
   /** Days that already have something in the calendar; they get a dot. */
@@ -187,7 +189,7 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
                 {chosenOk && to > from && plan.cleanup > 0 && <div className="planner-buffer after" style={{ top: topOf(to), height: Math.max(topOf(room.to) - topOf(to), 4) }}><span>Oprydning</span></div>}
                 {chosenOk && to > from && <div className={"planner-chosen" + (problem ? " bad" : "") + (dragging ? " dragging" : "")} style={{ top: topOf(from), height: Math.max(topOf(to) - topOf(from), 14) }}
                   onPointerDown={(e) => startDrag(e, "move")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={(e) => e.stopPropagation()}>
-                  <b>Dit event</b> <span>{danishClock(from)}–{danishClock(to)}</span><span className="planner-length">{hoursText(to - from)}</span>
+                  <b>{title?.trim() || "Dit event"}</b> <span>{danishClock(from)}–{danishClock(to)}</span><span className="planner-length">{hoursText(to - from)}</span>
                   <div className="planner-resize" title="Træk for at ændre sluttidspunktet" onPointerDown={(e) => startDrag(e, "end")} onPointerMove={onDrag} onPointerUp={endDrag} onPointerCancel={endDrag} />
                 </div>}
               </div>
