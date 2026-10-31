@@ -2,6 +2,7 @@ import { authenticateBearer } from "./auth.js";
 import { copenhagenMs } from "./cockpit/data.js";
 import { reviewEventNow } from "./cockpit/eventDesk.js";
 import type { D1Database } from "./db.js";
+import { isContactShare, setContactShare } from "./event-contact.js";
 import { storeEventFile, type EventMediaBucket } from "./event-files.js";
 import { resolveActiveMembership } from "./membership-access.js";
 import type { MemberDraft } from "./member-saga.js";
@@ -30,7 +31,8 @@ export function readDraft(raw: unknown): MemberDraft | null {
   if (!d || typeof d !== "object") return null;
   const draft: MemberDraft = { title: str(d.title, 200), description: str(d.description, 4000), date: str(d.date, 10), start: str(d.start, 5), end: str(d.end, 5),
     booking_type: d.booking_type === "reduced" || d.booking_type === "free" ? d.booking_type : "standard",
-    max_attendees: num(d.max_attendees), member_price_kr: num(d.member_price_kr), non_member_price_kr: num(d.non_member_price_kr) };
+    max_attendees: num(d.max_attendees), member_price_kr: num(d.member_price_kr), non_member_price_kr: num(d.non_member_price_kr),
+    contact_share: isContactShare(d.contact_share) ? d.contact_share : null };
   return draft.title && /^\d{4}-\d{2}-\d{2}$/.test(draft.date) && /^\d{2}:\d{2}$/.test(draft.start) && /^\d{2}:\d{2}$/.test(draft.end) ? draft : null;
 }
 
@@ -84,6 +86,8 @@ export async function memberSagaEvent(request: Request, env: EventEnv, deps: Sag
     const code = error instanceof Error ? error.message : "";
     return answer(PROBLEMS[code] ?? "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt, eller brug formularen på Mine events.", { error: code || "booking_failed" }, code === "booking_conflict" ? 409 : 400);
   }
+
+  if (draft.contact_share) await setContactShare(db, created.id, draft.contact_share).catch(() => undefined);
 
   // The photo Saga approved, cut to 1920 × 1005 in the browser - checked again here like any upload.
   let coverNote = "";

@@ -42,6 +42,7 @@ import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
   type EventFileView, type EventMediaBucket, type FileKind
 } from "./event-files.js";
+import { contactsByBooking, isContactShare, setContactShare } from "./event-contact.js";
 import { isPosterVariant, posterForDownload, posterInfo, postersByBooking, removePoster, setPosterVariant, storePoster } from "./event-posters.js";
 import type { SagaEnv } from "./saga/env.js";
 import { getExternalEvents } from "./external-events.js";
@@ -222,7 +223,8 @@ async function ownedRoomBookings(request: Request, env: Env): Promise<Response> 
 
   try {
     const rows = await listOwnedRoomBookings(env.DB, user.userId);
-    return json(rows.map(roomBookingView));
+    const contacts = await contactsByBooking(env.DB, rows.map((row) => row.id));
+    return json(rows.map((row) => ({ ...roomBookingView(row), contactShare: contacts.get(row.id)?.share ?? null })));
   } catch {
     return json({ error: "database_query_failed" }, { status: 503 });
   }
@@ -444,12 +446,14 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
     const rows = await listMemberCalendarBookings(env.DB, user.userId);
     const handlingFeeMinor = await getHandlingFeeMinor(env.DB);
     const files = await filesByBooking(env.DB, rows.map((row) => row.id)).catch(() => new Map<number, EventFileView[]>());
+    const contacts = await contactsByBooking(env.DB, rows.map((row) => row.id));
     return json(rows.map((row) => ({
       ...roomBookingView(row),
       // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
       imageUrl: (row.review_status ?? "approved") === "approved" ? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
       files: row.clerk_user_id === user.userId ? files.get(row.id) ?? [] : row.is_attending === 1 ? files.get(row.id) ?? [] : [],
       handlingFeeKr: row.ticket_price_minor > 0 ? handlingFeeMinor / 100 : 0,
+      contact: contacts.get(row.id) ?? null,
       attendeeCount: row.attendee_count,
       isAttending: row.is_attending === 1,
       registrationStatus: row.registration_status,
@@ -530,6 +534,17 @@ async function putPosterVariant(request: Request, env: Env, bookingId: number): 
   if (variant === "eget" && !(await posterInfo(owned.db, bookingId)).poster) return json({ error: "poster_missing" }, { status: 409 });
   await setPosterVariant(owned.db, bookingId, variant, Date.now());
   return json(await posterInfo(owned.db, bookingId));
+}
+
+/** "Må interesserede kontakte dig?" - e-mail, telefon, begge eller nej (null), on the organiser's own event (event-contact.ts). */
+async function putContactShare(request: Request, env: Env, bookingId: number): Promise<Response> {
+  const owned = await ownedPosterBooking(env, request, bookingId);
+  if (isResponse(owned)) return owned;
+  const body = await request.json().catch(() => null) as { share?: unknown } | null;
+  const share = body?.share ?? null;
+  if (share !== null && !isContactShare(share)) return json({ error: "invalid_share" }, { status: 400 });
+  await setContactShare(owned.db, bookingId, share);
+  return json({ share });
 }
 
 async function uploadPoster(request: Request, env: Env, bookingId: number): Promise<Response> {
@@ -819,6 +834,8 @@ export default {
     if (posterInfoId !== null && request.method === "GET") return getPosterInfo(request, env, posterInfoId);
     const posterVariantId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-variant$/);
     if (posterVariantId !== null && request.method === "PUT") return putPosterVariant(request, env, posterVariantId);
+    const contactId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/contact$/);
+    if (contactId !== null && request.method === "PUT") return putContactShare(request, env, contactId);
     const eventFileDownloadId = parseRouteId(url.pathname, /^\/api\/event-files\/(\d+)$/);
     if (request.method === "GET" && eventFileDownloadId !== null) {
       return downloadEventFile(request, env, eventFileDownloadId);

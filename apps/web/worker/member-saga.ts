@@ -27,7 +27,9 @@ import { ENGLISH, LINK_RULE, openConversation, publicAnswer, readLang, saveConve
  * i forhold til kvalitet, format og opløsning." So she gets a real calendar (weekdays and the room's taken times - never whose), the
  * website's public pages about renting, and the photo's facts; she runs on the main model. */
 export type MemberDraft = { title: string; description: string; date: string; start: string; end: string; booking_type: "standard" | "reduced" | "free";
-  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null };
+  max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null;
+  /** From "Opret med Saga": may those interested contact the organiser (worker/event-contact.ts). */
+  contact_share?: "email" | "phone" | "both" | null };
 export type ChatMessage = { role: "user" | "assistant"; text: string };
 /** A photo the member attaches: a smaller copy for Saga to look at, and the original's facts (measured in the browser). */
 export type AttachedPhoto = { dataUrl: string; name: string; type: string; bytes: number; width: number; height: number };
@@ -49,7 +51,9 @@ export function houseKnowledge(): string {
 }
 
 /** The member's own facts - only theirs: the membership, its price and payments, and their own coming events. */
-const FIXED_REPLY = (f: Partial<EventFacts>) => f.social === true ? "Godt, så deler Hjerterum det på de sociale medier." : f.social === false ? "Fint, så deler vi det ikke."
+const CONTACT_REPLY = { email: "Godt, så kan interesserede skrive til dig.", phone: "Godt, så kan interesserede ringe til dig.",
+  both: "Godt, så kan interesserede både skrive og ringe til dig.", none: "Fint, så viser vi ingen kontaktoplysninger." } as const;
+const FIXED_REPLY = (f: Partial<EventFacts>) => f.contact ? CONTACT_REPLY[f.contact] : f.social === true ? "Godt, så deler Hjerterum det på de sociale medier." : f.social === false ? "Fint, så deler vi det ikke."
   : "Fint – du kan altid tilføje et foto senere ved at redigere eventet.";
 
 export async function memberFacts(db: D1Database, membership: ActiveMembership, stripeSecretKey: string | undefined, userId: string, nowMs: number): Promise<string> {
@@ -277,7 +281,11 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
     // "Ja tak", "Nej tak" or "Spring over" on a step with fixed buttons: the code takes the answer, no model call.
     const fixed = guided && !photo ? fixedAnswer(step, text) : null;
     const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + (guided ? guidedPrompt(known, step, membership.fullName) : "") + (lang === "en" ? ENGLISH : "");
-    const answer = fixed ? JSON.stringify({ reply: FIXED_REPLY(fixed), facts: fixed, suggestions: [] }) : await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
+    // Phone chosen but none in the profile: say so now, so the event does not show an empty contact.
+    const noPhone = fixed && (fixed.contact === "phone" || fixed.contact === "both")
+      ? !(await db.prepare("SELECT phone FROM members WHERE clerk_user_id = ?").bind(userId).first<{ phone: string | null }>().catch(() => null))?.phone?.trim() : false;
+    const fixedReply = fixed ? FIXED_REPLY(fixed) + (noPhone ? " Du har ikke et telefonnummer i din profil endnu – tilføj det under Min profil, så det kommer med på eventet." : "") : "";
+    const answer = fixed ? JSON.stringify({ reply: fixedReply, facts: fixed, suggestions: [] }) : await completeAs("medlem-saga", "mid", guided ? 2500 : 1500)(env, deps, [{ role: "system", content: system }, ...messages]);
     const parsed = parseAnswer(answer);
     // A photo that breaks the measurable rules is never approved, whatever the model said.
     const photoOk = measured ? measured.ok && parsed.photoOk === true : null;

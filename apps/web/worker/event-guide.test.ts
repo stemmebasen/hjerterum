@@ -9,8 +9,8 @@ describe("the guided creation's order and memory", () => {
     expect(nextStep(NO_FACTS)).toBe("titel");
     const known = { ...NO_FACTS, title: "Rolig vejrtrækning", content: "Breathwork for begyndere" };
     expect(nextStep(known)).toBe("leder");
-    expect(nextStep({ ...known, leader: "Jacob Hauge", bring: "Intet", date: "2026-11-08", start: "14:00", end: "16:00", member_price_kr: 0 })).toBe("pladser");
-    expect(nextStep({ ...known, leader: "Jacob Hauge", bring: "Intet", date: "2026-11-08", start: "14:00", end: "16:00", member_price_kr: 0, max_attendees: 0, social: true, photo: "skipped" })).toBe("forslag");
+    expect(nextStep({ ...known, leader: "Jacob Hauge", contact: "email", bring: "Intet", date: "2026-11-08", start: "14:00", end: "16:00", member_price_kr: 0 })).toBe("pladser");
+    expect(nextStep({ ...known, leader: "Jacob Hauge", contact: "email", bring: "Intet", date: "2026-11-08", start: "14:00", end: "16:00", member_price_kr: 0, max_attendees: 0, social: true, photo: "skipped" })).toBe("forslag");
     // Every question is one question.
     for (const q of Object.values(QUESTION)) expect(q.split("?").length - 1).toBeLessThanOrEqual(1);
   });
@@ -67,7 +67,7 @@ describe("the proposal", () => {
     expect(bookingTypeOf({ member_price_kr: 80, non_member_price_kr: 120 })).toBe("reduced");
     expect(bookingTypeOf({ member_price_kr: 100, non_member_price_kr: null })).toBe("standard");
     const f = { ...NO_FACTS, title: "Rolig vejrtrækning", date: "2026-11-08", start: "14:00", end: "16:00", member_price_kr: 0, non_member_price_kr: 100, max_attendees: 20, description: "En rolig eftermiddag." };
-    expect(draftFrom(f)).toEqual({ title: "Rolig vejrtrækning", description: "En rolig eftermiddag.", date: "2026-11-08", start: "14:00", end: "16:00", booking_type: "free", max_attendees: 20, member_price_kr: 0, non_member_price_kr: 100 });
+    expect(draftFrom(f)).toEqual({ title: "Rolig vejrtrækning", description: "En rolig eftermiddag.", date: "2026-11-08", start: "14:00", end: "16:00", booking_type: "free", max_attendees: 20, member_price_kr: 0, non_member_price_kr: 100, contact_share: null });
     expect(draftFrom({ ...f, description: null })).toBeNull();
     expect(draftFrom({ ...f, max_attendees: 0 })?.max_attendees).toBeNull();
   });
@@ -84,5 +84,20 @@ describe("fixed answers", () => {
     expect(choicesFor("sociale", { suggestions: ["Kun på Facebook"], suggestionsFor: "sociale" })).toEqual(["Ja tak", "Nej tak"]);
     expect(choicesFor("billeder", { suggestions: [], suggestionsFor: null })).toEqual(["Upload foto nu", "Spring over"]);
     expect(choicesFor("pris", { suggestions: ["Gratis"], suggestionsFor: "tid" })).toEqual([]);
+  });
+});
+
+describe("contact step", () => {
+  it("asks right after the leader and takes the four buttons without the model", async () => {
+    const { fixedAnswer, choicesFor, nextStep, draftFrom } = await import("./event-guide");
+    expect(nextStep({ ...NO_FACTS, title: "Breathwork", content: "Vejrtrækning", leader: "Jacob Hauge" })).toBe("kontakt");
+    expect(fixedAnswer("kontakt", "E-mail")).toEqual({ contact: "email" });
+    expect(fixedAnswer("kontakt", "Telefon")).toEqual({ contact: "phone" });
+    expect(fixedAnswer("kontakt", "Begge dele")).toEqual({ contact: "both" });
+    expect(fixedAnswer("kontakt", "Nej tak")).toEqual({ contact: "none" });
+    expect(choicesFor("kontakt", { suggestions: [], suggestionsFor: null })).toEqual(["E-mail", "Telefon", "Begge dele", "Nej tak"]);
+    const full = { ...NO_FACTS, title: "T", description: "D", date: "2026-12-20", start: "14:00", end: "16:00", member_price_kr: 0, contact: "none" as const };
+    expect(draftFrom(full)?.contact_share).toBeNull();
+    expect(draftFrom({ ...full, contact: "both" })?.contact_share).toBe("both");
   });
 });

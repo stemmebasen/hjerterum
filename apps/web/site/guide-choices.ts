@@ -3,6 +3,8 @@
  * The steps with fixed answers in "Opret med Saga": the same buttons every time, one click answers, no model involved.
  * Shared by the worker (worker/event-guide.ts) and the page (src/saga-event-guide.tsx). */
 export const GUIDE_CHOICES = {
+  // "Saga skal også spørge om interesserede må kontakte underviseren - man kan vælge email, telefon eller begge dele".
+  kontakt: ["E-mail", "Telefon", "Begge dele", "Nej tak"],
   sociale: ["Ja tak", "Nej tak"],
   billeder: ["Upload foto nu", "Spring over"]
 } as const;

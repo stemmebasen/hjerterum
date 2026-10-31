@@ -15,16 +15,17 @@ import { preparePhoto, withLinks, type Photo, type SagaDraft } from "./saga-widg
 /** The answers so far, kept here and sent with every message; the worker decides the order and locks what is known (worker/event-guide.ts). */
 type Facts = {
   title: string | null; content: string | null; leader: string | null; audience: string | null; bring: string | null;
+  contact: "email" | "phone" | "both" | "none" | null;
   date: string | null; start: string | null; end: string | null;
   member_price_kr: number | null; non_member_price_kr: number | null; max_attendees: number | null;
   social: boolean | null; photo: "ok" | "skipped" | null; description: string | null;
 };
-type Step = "titel" | "indhold" | "leder" | "medbring" | "tid" | "pris" | "pladser" | "sociale" | "billeder" | "forslag";
+type Step = "titel" | "indhold" | "leder" | "kontakt" | "medbring" | "tid" | "pris" | "pladser" | "sociale" | "billeder" | "forslag";
 type Guide = { facts: Facts; next: Step; suggestions: string[] };
 type Message = { role: "user" | "assistant"; text: string; photo?: string };
 
 const KEY = "hjerterum-saga-guide";
-const NO_FACTS: Facts = { title: null, content: null, leader: null, audience: null, bring: null, date: null, start: null, end: null,
+const NO_FACTS: Facts = { title: null, content: null, leader: null, audience: null, bring: null, contact: null, date: null, start: null, end: null,
   member_price_kr: null, non_member_price_kr: null, max_attendees: null, social: null, photo: null, description: null };
 const EMPTY: Guide = { facts: NO_FACTS, next: "titel", suggestions: [] };
 const short = (date: string) => new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Copenhagen" }).format(new Date(`${date}T12:00:00`));
@@ -34,6 +35,7 @@ const STEPS: Array<{ key: Exclude<Step, "forslag">; label: string; shown: (f: Fa
   { key: "titel", label: "Titel", shown: (f) => f.title, clear: ["title"] },
   { key: "indhold", label: "Indhold", shown: (f) => f.content ? [f.content, f.audience && `for ${f.audience}`].filter(Boolean).join(" · ") : null, clear: ["content", "audience"] },
   { key: "leder", label: "Leder", shown: (f) => f.leader, clear: ["leader"] },
+  { key: "kontakt", label: "Kontakt", shown: (f) => f.contact ? CONTACT_LABEL[f.contact] : null, clear: ["contact"] },
   { key: "medbring", label: "Medbring", shown: (f) => f.bring, clear: ["bring"] },
   { key: "tid", label: "Tidspunkt", shown: (f) => f.date && f.start && f.end ? `${short(f.date)} kl. ${f.start.replace(":", ".")}–${f.end.replace(":", ".")}` : null, clear: ["date", "start", "end"] },
   { key: "pris", label: "Pris", shown: (f) => f.member_price_kr === null ? null : `Medlemmer ${kr(f.member_price_kr)}, andre ${kr(f.non_member_price_kr ?? f.member_price_kr)}`, clear: ["member_price_kr", "non_member_price_kr"] },
@@ -41,6 +43,7 @@ const STEPS: Array<{ key: Exclude<Step, "forslag">; label: string; shown: (f: Fa
   { key: "sociale", label: "Sociale medier", shown: (f) => f.social === null ? null : f.social ? "Ja tak" : "Nej tak", clear: ["social"] },
   { key: "billeder", label: "Eventfoto", shown: (f) => f.photo === "ok" ? "Godkendt" : f.photo === "skipped" ? "Tilføjes senere" : null, clear: ["photo"] }
 ];
+const CONTACT_LABEL = { email: "E-mail", phone: "Telefon", both: "E-mail og telefon", none: "Nej tak" } as const;
 const BRIEF_EXAMPLE = "Fx: En aften med yin yoga og lydbad en onsdag i november, ca. to timer, for begyndere. Gratis for medlemmer, 120 kr. for andre.";
 
 const kr = (n: number | null) => n === null ? "–" : n === 0 ? "gratis" : `${n} kr.`;
@@ -170,6 +173,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
               <div><dt>Medlemmer</dt><dd>{kr(draft.member_price_kr ?? 0)}</dd></div>
               <div><dt>Ikke-medlemmer</dt><dd>{kr(draft.non_member_price_kr ?? draft.member_price_kr ?? 0)}</dd></div>
               <div><dt>Pladser</dt><dd>{draft.max_attendees || "ingen grænse"}</dd></div>
+              <div><dt>Kontakt</dt><dd>{guide.facts.contact ? CONTACT_LABEL[guide.facts.contact] : "–"}</dd></div>
               <div><dt>Sociale medier</dt><dd>{guide.facts.social === false ? "Nej" : guide.facts.social ? "Ja" : "–"}</dd></div>
             </dl>
             <p className="guide-description">{draft.description}</p>
