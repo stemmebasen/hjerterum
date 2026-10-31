@@ -4,6 +4,7 @@ import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
+import { saveDesign } from "./event-design";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -361,7 +362,7 @@ function MemberEvents({
   // Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget" (poster-choice.tsx).
   const [poster, setPoster] = useState<PosterChoiceValue>(AUTO_POSTER);
   // Requested: "Man skal have mulighed for blot at skrive et brief og så få Saga til at hjælpe med at færdiggøre eventet" (saga-event-guide.tsx).
-  const [createMode, setCreateModeState] = useState<"saga" | "form">(() => { try { return localStorage.getItem("hjerterum-create-mode") === "form" ? "form" : "saga"; } catch { return "saga"; } });
+  const [createMode, setCreateModeState] = useState<"saga" | "form">(() => { try { return localStorage.getItem("hjerterum-create-mode") === "saga" ? "saga" : "form"; } catch { return "form"; } });
   const setCreateMode = (mode: "saga" | "form") => { setCreateModeState(mode); try { localStorage.setItem("hjerterum-create-mode", mode); } catch { /* ignore */ } };
   const [savedPoster, setSavedPoster] = useState<SavedPoster | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
@@ -491,6 +492,8 @@ function MemberEvents({
       const bookingId = editing ? editing.id : saved.id;
       const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
       const posterLine = bookingId ? await savePosterChoice(clerk, bookingId, poster, savedPoster) : "";
+      if (bookingId) await saveDesign(clerk, bookingId, poster.choice, { title: String(form.get("title") ?? "").trim(), ...planInstants(plan), teacher: member.fullName,
+        cover, coverUrl: existingFiles.find((file) => file.kind === "cover")?.url ?? null });
       const contactShare = form.get("contactShare") || null;
       if (bookingId && contactShare !== (editing?.contactShare ?? null))
         await apiFetch(clerk, `/api/room-bookings/${bookingId}/contact`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ share: contactShare }) }).catch(() => undefined);
@@ -551,8 +554,9 @@ function MemberEvents({
         {view === "create" && <div className="workspace-card">
           <h2>{editing ? "Redigér event" : "Opret event og reservér salen"}</h2>
           {active && !editing && <div className="create-modes" role="group" aria-label="Sådan opretter du">
-            <button type="button" aria-pressed={createMode === "saga"} onClick={() => setCreateMode("saga")}><b>Opret med Saga</b><span>Skriv et kort brief – Saga spørger om resten og skriver teksten</span></button>
+            {/* Requested: "\"Udfyld selv\" skal i øvrigt stå først og være den første mulighed, og så \"Opret med Saga\"". */}
             <button type="button" aria-pressed={createMode === "form"} onClick={() => setCreateMode("form")}><b>Udfyld selv</b><span>Formularen med kalender, priser, foto og opslag</span></button>
+            <button type="button" aria-pressed={createMode === "saga"} onClick={() => setCreateMode("saga")}><b>Opret med Saga</b><span>Skriv et kort brief – Saga spørger om resten og skriver teksten</span></button>
           </div>}
           {!active ? (
             <p>Du skal have et aktivt betalende medlemskab for at oprette et event.</p>

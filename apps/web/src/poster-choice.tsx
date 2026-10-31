@@ -52,6 +52,16 @@ function Preview({ variant, words, assets, order }: { variant: VariantKey; words
   return <canvas ref={ref} className="poster-choice-canvas" aria-hidden="true" />;
 }
 
+/** "det er vores nye design, der skal være overalt på hjemmesiden": the chosen design in the wide frame the website shows. */
+function WidePreview({ variant, words, assets }: { variant: VariantKey; words: PosterWords; assets: Assets }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, "cover", 0.4); }, 200);
+    return () => window.clearTimeout(timer);
+  }, [variant, words, assets]);
+  return <canvas ref={ref} className="poster-choice-wide" aria-label="Sådan ser eventet ud på hjemmesiden" />;
+}
+
 type ViewItem = { key: "auto" | VariantKey; variant: VariantKey; label: string; fits: boolean; note?: string | undefined };
 
 /** Requested: "Her bør man kunne se billedet større når man klikker på det og så scrolle mellem billederne som i en webshop".
@@ -153,6 +163,13 @@ export function PosterChoice({ clerk, title, startsAt, endsAt, teacher, cover, c
 
   return <fieldset className="event-section poster-choice">
     <legend>Opslag til de sociale medier</legend>
+    {(() => {
+      if (value.choice === "eget") return <p className="poster-choice-help"><b>På hjemmesiden</b> vises dit eventfoto, når du sender dit eget opslag.</p>;
+      const wanted = value.choice === "auto" ? null : value.choice;
+      const wide = wanted && photoFits(wanted, "cover", size).ok ? wanted : chooseVariant(event, size, "cover");
+      return <figure className="poster-choice-site"><WidePreview variant={wide} words={words} assets={assets} />
+        <figcaption>Sådan ser eventet ud på hjemmesiden og som Facebook-cover - med det design, du vælger herunder.</figcaption></figure>;
+    })()}
     <p className="poster-choice-help">Vælg, hvordan dit event skal se ud på Instagram og Facebook. Forhåndsvisningerne bruger din titel, dato og dit eventfoto. Du kan også sende dit eget færdige opslag.</p>
     <div className="poster-choice-grid">
       {option("auto", "Systemets valg", <button type="button" className="poster-choice-zoom" aria-label="Se Systemets valg større" onClick={open("auto")}><Preview variant={systems} words={words} assets={assets} order={0} /></button>, false, VARIANTS.find(v => v.key === systems)?.label)}

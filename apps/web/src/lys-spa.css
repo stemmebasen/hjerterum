@@ -812,8 +812,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-viewer-stage { position: relative; display: grid; place-items: center; touch-action: pan-y; user-select: none; }
 .poster-viewer-canvas { width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 220px); aspect-ratio: 4 / 5; border-radius: 12px; box-shadow: var(--lys-shadow); }
 .poster-viewer-canvas.is-disabled { opacity: .5; }
-.poster-viewer-arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border: 0; border-radius: 999px; background: rgba(31,29,26,.7); color: #f6f1e7; font-size: 30px; line-height: 1; cursor: pointer; }
-.poster-viewer-arrow:hover { background: var(--lys-terra); }
+/* Reported: "Jeg kan ikke gå tilbage, altså ved hjælp af den venstre pil" - the poster came after it and covered it. Above it now, and light. */
+.poster-viewer-arrow { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border: 0; border-radius: 999px; background: rgba(246,241,231,.94); color: #2a2622; font-size: 30px; line-height: 1; cursor: pointer; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.poster-viewer-arrow:hover { background: var(--lys-terra); color: #fff; }
 .poster-viewer-arrow.is-prev { left: 8px; } .poster-viewer-arrow.is-next { right: 8px; }
 .poster-viewer-box footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .poster-viewer-picked { color: var(--lys-terra); font-weight: 600; }
@@ -848,3 +849,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .mine-event .member-event-review.is-approved { background: color-mix(in srgb, #5a7d4f 18%, var(--lys-surface)); color: color-mix(in srgb, #5a7d4f 80%, var(--lys-ink)); }
 .mine-event .member-event-review.is-rejected { color: var(--lys-danger); }
 .mine-event .workspace-actions { margin-top: 6px; display: flex; gap: 16px; }
+
+/* The chosen design in the website's wide frame, above the choices. */
+.poster-choice-site { margin: 0 0 16px; display: grid; gap: 8px; max-width: 640px; }
+.poster-choice-wide { width: 100%; height: auto; aspect-ratio: 1920 / 1005; border-radius: 14px; box-shadow: var(--lys-shadow); background: var(--lys-soft); }
+.poster-choice-site figcaption { color: var(--lys-muted); font-size: 13px; }
