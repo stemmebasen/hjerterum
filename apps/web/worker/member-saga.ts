@@ -3,6 +3,9 @@ import { authenticateBearer } from "./auth.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership } from "./membership-access.js";
 import { MIN_EVENT_WORDS, wordCount } from "../site/event-text.js";
+import { betterTimes, checkVariety } from "./event-variety.js";
+import { eventType } from "../site/event-types.js";
+import { copenhagenMs } from "./cockpit/data.js";
 import { busyWindows, freeTimes, isFree, readTimeChoice, timeLabel } from "./free-times.js";
 import { choicesFor, DESCRIBE, draftFrom, fixedAnswer, guidedPrompt, isBrief, mergeFacts, nextStep, NO_FACTS, parseGuided, QUESTION, readFacts, replyFromBrokenJson, type EventFacts } from "./event-guide.js";
 import { completeAs } from "./saga/ai.js";
@@ -333,9 +336,15 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
           reply = typeof data?.reply === "string" && data.reply.trim() ? data.reply.trim() : "Her er mit forslag.";
         } else { reply = "Jeg kunne ikke skrive beskrivelsen lige nu. Tryk Send igen om lidt."; next = "forslag"; }
       }
+      // A time kept although that type is busy then: said plainly, with better days - the board looks at it if it stays.
+      if (newTime && got.date && got.start && next !== "tid") {
+        const variety = await checkVariety(db, { title: got.title ?? "", description: `${got.content ?? ""} ${got.audience ?? ""}`, startMs: copenhagenMs(got.date, got.start) }).catch(() => null);
+        if (variety?.problems.length) reply = `${reply} Bemærk: ${variety.problems.join(" ")} Vil du hellere en anden dag, så tryk Ret ved Tidspunkt - ellers ser bestyrelsen på det.`.trim();
+      }
       // The next question, in the code's words - exactly one; her suggestions only when they were meant for it.
       if (next !== "forslag") reply = `${reply} ${QUESTION[next]}`.trim();
-      const suggestions = next === "tid" ? freeTimes(busy, now).map(t => t.label) : choicesFor(next, said);
+      // Free times where this type is not too much already (event-variety.ts).
+      const suggestions = next === "tid" ? (await betterTimes(db, busy, eventType(got.title ?? "", `${got.content ?? ""} ${got.audience ?? ""}`), now)).map(t => t.label) : choicesFor(next, said);
       const note = (photoOk === null ? "" : photoOk ? " [Foto godkendt]" : " [Foto ikke godkendt]") + (draft ? ` [Udkast: ${draft.title}, ${draft.date} ${draft.start}-${draft.end}]` : "");
       await saveConversation(db, conversation.id, userId, [...history, { role: "assistant", text: reply + note }], deps.now());
       return json({ conversation: conversation.id, reply, draft, photo: measured ? { ok: photoOk } : null, action: null, guide: { facts: got, next, suggestions } });
