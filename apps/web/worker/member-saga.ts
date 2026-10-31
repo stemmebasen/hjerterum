@@ -36,6 +36,9 @@ export type ChatMessage = { role: "user" | "assistant"; text: string };
 export type AttachedPhoto = { dataUrl: string; name: string; type: string; bytes: number; width: number; height: number };
 
 export const DAILY_LIMIT = 40;
+/** Reported: "Jeg har talt meget i dag" in the middle of "Opret med Saga" - a guided event takes a dozen turns, and every button
+ * counted. Now a button answer (no AI) counts nothing, and the guide has room for several events a day. */
+export const GUIDED_DAILY_LIMIT = 100;
 export const CALENDAR_DAYS = 120;
 const TZ = "Europe/Copenhagen";
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
@@ -253,10 +256,16 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
   const photo = membership ? readPhoto(body?.photo) : null;
   if (membership && body?.photo && !photo) return json({ error: "invalid_photo" }, 400);
   const day = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Copenhagen" }).format(now);
-  const used = await db.prepare("SELECT messages FROM member_saga_usage WHERE clerk_user_id = ? AND day = ?").bind(userId, day).first<{ messages: number }>();
-  if ((used?.messages ?? 0) >= DAILY_LIMIT) return json({ reply: "Jeg har talt meget i dag - skriv til hjerterum@holistisk.org, eller prøv igen i morgen.", draft: null });
-  await db.prepare(`INSERT INTO member_saga_usage (clerk_user_id, day, messages) VALUES (?, ?, 1)
-    ON CONFLICT(clerk_user_id, day) DO UPDATE SET messages = messages + 1`).bind(userId, day).run();
+  // A button answer in the guide is read by the code, without AI, and is not counted.
+  const byButton = guided && !photo && Boolean(fixedAnswer(step, text) ?? (step === "tid" ? readTimeChoice(text, now) : null));
+  if (!byButton) {
+    const used = await db.prepare("SELECT messages FROM member_saga_usage WHERE clerk_user_id = ? AND day = ?").bind(userId, day).first<{ messages: number }>();
+    if ((used?.messages ?? 0) >= (guided ? GUIDED_DAILY_LIMIT : DAILY_LIMIT)) return guided
+      ? json({ reply: "Jeg har brugt dagens beskeder. Dine svar står her stadig - fortsæt i morgen, eller opret eventet selv under Udfyld selv.", draft: null, guide: { facts: known, next: step, suggestions: [] } })
+      : json({ reply: "Jeg har talt meget i dag - skriv til hjerterum@holistisk.org, eller prøv igen i morgen.", draft: null });
+    await db.prepare(`INSERT INTO member_saga_usage (clerk_user_id, day, messages) VALUES (?, ?, 1)
+      ON CONFLICT(clerk_user_id, day) DO UPDATE SET messages = messages + 1`).bind(userId, day).run();
+  }
   const conversation = await openConversation(db, typeof body?.conversation === "string" ? body.conversation : null, userId, now, { guide: guided });
   const measured = photo ? photoFacts(photo) : null;
   // The photo itself is looked at once; the conversation keeps only that it was there.
