@@ -1,3 +1,4 @@
+import { isPartnerEvent } from "../partner-events.js";
 import { copenhagenMs } from "./cockpit/data.js";
 import type { D1Database } from "./db.js";
 import type { ExternalEvent } from "./external-events.js";
@@ -19,7 +20,7 @@ const WEEKDAYS = ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag",
 export async function busyWindows(db: D1Database, external: ExternalEvent[], fromMs: number, toMs: number): Promise<Busy> {
   const rows = await db.prepare(`SELECT ${WINDOW_START} AS f, ${WINDOW_END} AS t FROM room_bookings WHERE status = 'scheduled' AND ${WINDOW_START} < ? AND ${WINDOW_END} > ?`)
     .bind(toMs, fromMs).all<{ f: number; t: number }>().then(r => r.results ?? []).catch(() => []);
-  const outside = external.map(e => { const s = Date.parse(e.startsAt), t = e.endsAt ? Date.parse(e.endsAt) : s; return [s, t] as const; })
+  const outside = external.filter(e => !isPartnerEvent(e)).map(e => { const s = Date.parse(e.startsAt), t = e.endsAt ? Date.parse(e.endsAt) : s; return [s, t] as const; })
     .filter(([s, t]) => Number.isFinite(s) && Number.isFinite(t) && s < toMs && t > fromMs);
   return [...rows.map(r => [r.f, r.t] as const), ...outside];
 }

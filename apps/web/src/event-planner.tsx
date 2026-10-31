@@ -15,6 +15,22 @@ const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
 const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
 const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
 
+/** Events at the same time side by side: each gets a lane, and every event in an overlapping group knows how many lanes it has. */
+function lanes(ranges: Array<{ from: number; to: number } | null>): Array<{ at: number; of: number } | null> {
+  const out: Array<{ at: number; of: number } | null> = ranges.map(() => null);
+  const order = ranges.map((r, i) => ({ r, i })).filter((x): x is { r: { from: number; to: number }; i: number } => Boolean(x.r)).sort((a, b) => a.r.from - b.r.from || b.r.to - a.r.to);
+  let group: Array<{ i: number; at: number; to: number }> = [], groupEnd = -1;
+  const close = () => { const of = Math.max(1, ...group.map(g => g.at + 1)); for (const g of group) out[g.i] = { at: g.at, of }; group = []; };
+  for (const { r, i } of order) {
+    if (r.from >= groupEnd && group.length) close();
+    const taken = new Set(group.filter(g => g.to > r.from).map(g => g.at));
+    let at = 0; while (taken.has(at)) at++;
+    group.push({ i, at, to: r.to }); groupEnd = Math.max(groupEnd, r.to);
+  }
+  if (group.length) close();
+  return out;
+}
+
 export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onProblem, title }: {
   clerk: ClerkBrowser;
   /** Requested: "Her kunne eventets navn godt stå i stedet for 'Dit event'" - the title as written in the form. */
@@ -176,12 +192,14 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
               <div className="planner-track" style={{ height: TRACK_HEIGHT }} onClick={clickTrack} aria-hidden="true">
                 {Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => <span className="planner-hour" key={i} style={{ top: i * HOUR_PX }}>{String(FIRST_HOUR + i).padStart(2, "0")}</span>)}
                 {EVENING_FROM > FIRST_HOUR * 60 && <div className="planner-evening" style={{ top: topOf(EVENING_FROM) }}><span>18.30 · aftentakst</span></div>}
-                {shown.map((entry, index) => {
-                  const range = entryMinutes(entry, plan.date);
-                  if (!range) return null;
+                {lanes(shown.map((entry) => entryMinutes(entry, plan.date))).map((lane, index) => {
+                  const entry = shown[index]!, range = entryMinutes(entry, plan.date);
+                  if (!range || !lane) return null;
                   const top = topOf(range.from), bottom = topOf(range.to);
                   const cls = ["planner-block", entry.own && "mine", entry.waiting && "waiting", entry.external && "external"].filter(Boolean).join(" ");
-                  return <div key={index} className={cls} style={{ top, height: Math.max(bottom - top, 14) }}>
+                  // Reported: "Hvorfor er de to events i én samlet boks?" - events at the same time stand side by side.
+                  const width = `calc((100% - 12px - ${(lane.of - 1) * 6}px) / ${lane.of})`;
+                  return <div key={index} className={cls} style={{ top, height: Math.max(bottom - top, 14), width, right: "auto", left: `calc(6px + ${lane.at} * (${width} + 6px))` }}>
                     <b>{entry.label}</b> <span>{danishClock(range.from)}–{danishClock(range.to)}</span>
                   </div>;
                 })}

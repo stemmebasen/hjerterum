@@ -616,9 +616,10 @@ function MemberEvents({
               </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
-              <PosterChoice clerk={clerk} title={liveTitle} startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null}
-                teacher={member.fullName} cover={cover} coverUrl={existingFiles.find((file) => file.kind === "cover")?.url ?? null}
-                saved={savedPoster} value={poster} onChange={setPoster} onRemoveSaved={() => void removeSavedPoster()} />
+              {/* Requested: "\"Opslag til de sociale medier\" sektionen bør først vises når tidspunktet er valgt." */}
+              {plan.date && plan.start && plan.end ? <PosterChoice clerk={clerk} title={liveTitle} startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null}
+                  teacher={member.fullName} cover={cover} coverUrl={existingFiles.find((file) => file.kind === "cover")?.url ?? null}
+                  saved={savedPoster} value={poster} onChange={setPoster} onRemoveSaved={() => void removeSavedPoster()} /> : <p className="event-note poster-choice-wait">Opslagene til de sociale medier vises her, når du har valgt dato og tidspunkt.</p>}
               <div className="workspace-actions">
                 <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}
