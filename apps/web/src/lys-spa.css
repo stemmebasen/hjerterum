@@ -774,3 +774,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .guide-chips button.is-primary { background: var(--lys-terra); border-color: var(--lys-terra); color: #fff; font-weight: 600; }
 .guide-chips button.is-primary:hover { color: #fff; filter: brightness(1.06); }
 .guide-attach.is-wanted { border-style: solid; border-color: var(--lys-terra); color: var(--lys-terra); font-weight: 600; }
+
+/* "Forslår den samlede pakke": the posters inside Saga's proposal. */
+.guide-posters .poster-choice { margin: 6px 0 0; padding: 16px 0 0; border: 0; border-top: 1px solid var(--lys-line); }
+.guide-posters .poster-choice-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); max-width: none; }

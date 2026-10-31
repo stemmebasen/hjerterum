@@ -157,6 +157,7 @@ const label = (f: EventFacts) => JSON.stringify(Object.fromEntries(Object.entrie
 
 /** The instruction for one turn: what is known (locked), the one step being answered, and what to give back. She does not ask the
  * question herself - the code adds it - so there is always exactly one, with suggestions for it. */
+// Requested: "Er eventet upassende bør hun have sagt det tidligere" - she judges the content when she hears it, not after "Opret".
 export function guidedPrompt(f: EventFacts, step: Step, member: string): string {
   if (step === "forslag") return "";
   const brief = isBrief(f);
@@ -168,6 +169,7 @@ KENDTE OPLYSNINGER (låst - spørg aldrig om dem, foreslå aldrig noget nyt til 
 ${brief ? `Medlemmets første besked er et brief. Tag ALT, medlemmet selv har skrevet, ind i "facts" (titel, indhold, leder, tid, pris osv.) - men find ALDRIG selv på noget, der ikke står der (ingen dato, tid eller pris, medlemmet ikke har nævnt).` : `Medlemmets besked svarer på: "${QUESTION[step]}". Tag svaret ind i "facts" - KUN oplysninger til dette punkt.`}
 "reply": højst én kort, varm sætning, der bekræfter det, medlemmet sagde. STIL INGEN SPØRGSMÅL - systemet stiller det næste spørgsmål selv.
 Nævn ALDRIG leje, lokalepris eller regler for gratis leje her - det står i formularen, ikke i samtalen.
+${brief || step === "indhold" ? `Vurder indholdet mod HJERTERUMS KRITERIER nu. Passer det tydeligt ikke, så sig det venligt og konkret i "reply" (højst to sætninger), og hvad der skal til - fx en tydeligere beskrivelse af forløbet. Ellers nævn ikke vurderingen.` : ""}
 "suggestions": svarforslag til det NÆSTE spørgsmål, som systemet stiller bagefter (det næste punkt, der mangler, når dit svar er taget med). Forslagene til hvert punkt:
 ${STEPS.map(s => `- ${s} ("${QUESTION[s]}"): ${HINT[s](member)}`).join("\n")}
 Højst ca. 70 tegn pr. forslag. Skriv forslagene, som medlemmet selv ville svare (fx "Jacob Hauge", ikke "Leder: jeg selv").
