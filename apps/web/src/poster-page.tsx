@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterEvent, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterEvent, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested: "Vi skal have fem varianter systemet kan vælge mellem". /plakat/<id>: an event's poster for Instagram and Facebook
  * in five designs (event-poster.ts), the system's choice first; each can be saved as a picture, as a post or as a story.
@@ -85,7 +85,7 @@ export function PosterPage({ id, header, footer }: { id: string; header: ReactNo
       setLoaded(found);
       if (!found) return;
       document.title = `Opslag: ${found.event.title} · Hjerterum`;
-      const [photo, logo] = await Promise.all([found.event.imageUrl ? image(found.event.imageUrl) : Promise.resolve(null), image("/logo.png"), fontsReady()]);
+      const [photo, logo] = await Promise.all([found.event.imageUrl ? image(found.event.imageUrl) : Promise.resolve(null), image(LOGO_FILE), fontsReady()]);
       if (active) setAssets({ photo, logo });
     })();
     return () => { active = false; };

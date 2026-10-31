@@ -367,6 +367,9 @@ function MemberEvents({
   const [liveTitle, setLiveTitle] = useState("");
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
   const [message, setMessage] = useState("");
+  // Reported: "Jeg har klikket Opret event - men bliver bare på siden, selvom eventet er oprettet. Her bør der komme en overlay
+  // bekræftelse ... og så tages man til /member-portal/events/mine". The confirmation stands over Mine events.
+  const [done, setDone] = useState<{ title: string; edited: boolean; note: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState<Booking | null>(null);
   // A draft from Saga fills the form (saga-widget.tsx); the member still checks it and presses the button.
@@ -497,8 +500,13 @@ function MemberEvents({
       setExtraFiles([]);
       setPoster(AUTO_POSTER);
       setEditing(null);
-      setMessage((editing ? "Ændringerne er gemt. Ændrede events godkendes igen, før de vises offentligt." : "Eventet er oprettet og salen reserveret. Det vises offentligt, når det er godkendt.")
-        + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : "") + posterLine);
+      const savedTitle = String(form.get("title") ?? "").trim();
+      setMessage("");
+      setDone({ title: savedTitle, edited: Boolean(editing),
+        note: (editing ? "Ændrede events godkendes igen, før de vises offentligt." : "Salen er reserveret. Eventet vises offentligt, når det er godkendt.")
+          + (uploadProblems.length ? " Men: " + uploadProblems.join(" ") + " Redigér eventet for at prøve igen." : "") + posterLine });
+      show("mine");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       await reload();
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
@@ -601,20 +609,33 @@ function MemberEvents({
             </>
           )}
         </div>}
+        {done && <div className="event-done" role="dialog" aria-modal="true" aria-labelledby="event-done-title" onClick={(e) => { if (e.target === e.currentTarget) setDone(null); }}>
+          <div className="event-done-box">
+            <span className="event-done-check" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34"><path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+            <p className="lys-kicker">{done.edited ? "Gemt" : "Oprettet"}</p>
+            <h2 id="event-done-title">{done.edited ? "Dine ændringer er gemt" : "Dit event er oprettet"}</h2>
+            {done.title && <p className="event-done-name">{done.title}</p>}
+            <p className="event-done-note">{done.note}</p>
+            <button type="button" className="pill-button dark" autoFocus onClick={() => setDone(null)}>Se mine events</button>
+          </div>
+        </div>}
         {view === "mine" && <div className="workspace-card">
           <h2>Kommende events</h2>
           {bookings.length ? (
-            <div className="workspace-list">
+            // Requested: "Her skal være en pæn to events pr række visning".
+            <div className="mine-events">
               {bookings.map((booking) => (
-                <article key={booking.id}>
-                  {booking.files?.find((file) => file.kind === "cover") && <AuthImage clerk={clerk} file={booking.files.find((file) => file.kind === "cover")!} alt="" />}
+                <article key={booking.id} className="mine-event">
+                  <div className="mine-event-photo">{booking.files?.find((file) => file.kind === "cover") ? <AuthImage clerk={clerk} file={booking.files.find((file) => file.kind === "cover")!} alt="" /> : <span aria-hidden="true">{booking.title.slice(0, 1)}</span>}</div>
+                  <div className="mine-event-body">
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
-                  <span className="member-event-review">{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
+                  <span className={"member-event-review is-" + (booking.reviewStatus ?? "approved")}>{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
                   <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => { setEditing(booking); show("create"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Redigér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
+                  </div>
                   </div>
                 </article>
               ))}

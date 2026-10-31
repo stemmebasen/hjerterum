@@ -254,18 +254,31 @@ export function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, w
 }
 
 /** Hjerterum's hands in one colour (the logo file is light on transparent). */
+/** Hjerterum's logo - the round mark "VI FØLGER HINANDEN HJEM" around the hands holding the heart, exactly as the chair sent it
+ * (public/brand/hjerterum-stempel.png): "NEJ, du må ikke tegne dit eget logo. Du skal bruge mit". It is one colour on a clear
+ * ground, so it is only given the design's colour. Centre (cx, cy), radius r. */
+export const LOGO_FILE = "/brand/hjerterum-stempel.png";
+export function stamp(ctx: Ctx, img: HTMLImageElement | null, cx: number, cy: number, r: number, color: string) {
+  if (!img) return;
+  const tint = document.createElement("canvas");
+  tint.width = img.naturalWidth; tint.height = img.naturalHeight;
+  const t = tint.getContext("2d")!;
+  t.drawImage(img, 0, 0);
+  t.globalCompositeOperation = "source-in";
+  t.fillStyle = color; t.fillRect(0, 0, tint.width, tint.height);
+  ctx.drawImage(tint, cx - r, cy - r, r * 2, r * 2);
+}
+
+/** Requested: "Sørg også for at Hjerterums logo er med i rette størrelse, passende farve og en stilfuld placering". Where a design
+ * had the small mark and the name in its corner, Hjerterum's own round mark now stands there, large enough to read. A design
+ * whose corner was centred keeps it centred. */
 export function logo(ctx: Ctx, img: HTMLImageElement | null, x: number, y: number, size: number, color: string) {
-  ctx.font = `400 ${Math.round(size * 0.42)}px ${SERIF}`;
-  if (img) {
-    const tint = document.createElement("canvas");
-    tint.width = img.naturalWidth; tint.height = img.naturalHeight;
-    const t = tint.getContext("2d")!;
-    t.drawImage(img, 0, 0);
-    t.globalCompositeOperation = "source-in";
-    t.fillStyle = color; t.fillRect(0, 0, tint.width, tint.height);
-    ctx.drawImage(tint, x, y, size, size);
-  }
-  spaced(ctx, "Hjerterum", x + (img ? size + size * 0.32 : 0), y + size * 0.66, `400 ${Math.round(size * 0.42)}px ${SERIF}`, color, size * 0.13);
+  const W = ctx.canvas.width / (ctx.getTransform().a || 1);
+  const d = size * 2.6, wide = size * 5.2;
+  const centred = Math.abs(x + wide / 2 - W / 2) < size * 1.5;
+  const H = ctx.canvas.height / (ctx.getTransform().d || 1);
+  const cx = centred ? W / 2 : x + d / 2, cy = Math.min(y + d / 2 - size * 0.2, H - d / 2 - size * 0.45);
+  stamp(ctx, img, cx, cy, d / 2, color);
 }
 
 /** The title in two voices, as the website's headings: the first words upright, the last word in italic and colour. */

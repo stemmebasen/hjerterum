@@ -14,10 +14,11 @@ export function planCrop(width: number, height: number, focus = 0.5): CropPlan {
 }
 
 /** The photo as a 1920 × 1005 jpg file, or the reason it cannot be one. */
-export async function cropCover(file: File): Promise<{ ok: true; file: File } | { ok: false; reason: string }> {
+/** `focus` (0-1): where along the side that is cut the piece sits - "Man bør kunne trække billedet op og ned (croppe)". */
+export async function cropCover(file: File, focus = 0.5): Promise<{ ok: true; file: File } | { ok: false; reason: string }> {
   let bitmap: ImageBitmap;
   try { bitmap = await createImageBitmap(file); } catch { return { ok: false, reason: "Billedet kunne ikke læses. Brug en jpg eller png." }; }
-  const plan = planCrop(bitmap.width, bitmap.height);
+  const plan = planCrop(bitmap.width, bitmap.height, Math.min(1, Math.max(0, focus)));
   if (!plan.ok) return plan;
   const canvas = document.createElement("canvas");
   canvas.width = COVER_WIDTH; canvas.height = COVER_HEIGHT;
