@@ -1,4 +1,4 @@
-import { EventCard, calendarMonth } from "./event-card";
+import { EventCard } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
 import { ComingUp, comingUp, MonthSection } from "./month-hero";
 import { isKind, kindOf } from "./event-kinds";
@@ -199,13 +199,10 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
       : event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
       : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
   </EventCard>;
-  const months = [...new Set(visible.map(event => calendarMonth(event.startsAt)))];
+  // Requested: "Her skal vi det ikke inddeles efter måneder - men bare 3 på stribe hele vejen ned" - the date is on every card.
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
     {full && <CategoryNav current={kind?.key ?? null} />}
-    {reachable && visible.length ? months.map(month => <section className="calendar-month" key={month} aria-label={month}>
-      <h2>{month}</h2><div className="member-event-grid">
-        {visible.map(event => calendarMonth(event.startsAt) !== month ? null : card(event))}
-      </div></section>) : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
+    {reachable && visible.length ? <div className="member-event-grid calendar-all">{visible.map(card)}</div> : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
     {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
       <h2>{PARTNER_HEADING}</h2><div className="member-event-grid">{partnersShown.map(card)}</div></section>}
   </section>;
