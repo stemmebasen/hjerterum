@@ -144,7 +144,7 @@ All prices include VAT.
 
 For a period we offer 25% off the A-time prices – you'll see it in the calculator.
 
-**C) Free rental**, for events where Hjerterum charges nothing for the room. Members attend for free; non-members pay at least 150 DKK in A-time or 75 DKK in B-time. To use free rental you must be a paying member yourself, and you create your event yourself on the member site.
+**C) Free rental**, for events where Hjerterum charges nothing for the room. Members attend for free; non-members pay at least 75 DKK per person, collected by the teacher. To use free rental you must be a paying member yourself, and you create your event yourself on the member site.
 
 **Rules:** with a member discount or free rental a booking cannot cross 18:30 on a weekday · minimum 2 and maximum 10 hours · set-up and tidying must be within the booked time (we recommend 30 minutes before and after).
 

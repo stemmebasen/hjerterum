@@ -741,7 +741,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .guide-proposal h3 { margin: 0; font: 400 28px/1.15 var(--lys-serif); }
 .guide-proposal-photo { width: 100%; aspect-ratio: 1920 / 1005; object-fit: cover; border-radius: 14px; }
 .guide-when { margin: 0; font-weight: 600; }
-.guide-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 4px 0; }
+.guide-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; margin: 4px 0; }
 .guide-facts div { padding: 10px 12px; border-radius: 12px; background: var(--lys-soft); }
 .guide-facts dt { color: var(--lys-muted); font-size: 12px; }
 .guide-facts dd { margin: 2px 0 0; font-weight: 600; }
@@ -773,3 +773,18 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 /* "8 der vises. Og så kan man få 8 nye." */
 .poster-choice-more { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; }
 .poster-choice-more small { color: var(--lys-muted); }
+/* "Gør det tydeligt man kan uploade foto med det samme": on the photo step the upload is the main button. */
+.guide-chips button.is-primary { background: var(--lys-terra); border-color: var(--lys-terra); color: #fff; font-weight: 600; }
+.guide-chips button.is-primary:hover { color: #fff; filter: brightness(1.06); }
+.guide-attach.is-wanted { border-style: solid; border-color: var(--lys-terra); color: var(--lys-terra); font-weight: 600; }
+
+/* "Forslår den samlede pakke": the posters inside Saga's proposal. */
+.guide-posters .poster-choice { margin: 6px 0 0; padding: 16px 0 0; border: 0; border-top: 1px solid var(--lys-line); }
+.guide-posters .poster-choice-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); max-width: none; }
+
+/* "Må interesserede kontakte dig?" - four calm choices in a row; the contact line on the calendar card. */
+.event-contact-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.event-contact-options label { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+.event-contact small { color: var(--lys-muted); }
+.member-event-contact { margin: 0; font-size: 14px; color: var(--lys-muted); overflow-wrap: anywhere; }
+.member-event-contact a { color: inherit; }
