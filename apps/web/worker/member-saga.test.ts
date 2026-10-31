@@ -81,3 +81,14 @@ describe("what Saga knows about the member she talks to", () => {
     expect(facts).not.toContain("Andens event");
   });
 });
+
+describe("Opret med Saga: the guided questions", () => {
+  it("reads which steps are done, the social choice and her suggested answers - and nothing it cannot trust", async () => {
+    const { parseGuide, GUIDED } = await import("./member-saga.js");
+    expect(parseGuide('{"reply":"Hvornår?","draft":null,"progress":{"brief":true,"titel":true,"tid":"ja"},"social":true,"suggestions":["Ja, del det","",42,"Nej tak","Spring over","En fjerde"]}')).toEqual({
+      progress: { brief: true, titel: true, indhold: false, tid: false, pris: false, sociale: false, billeder: false }, social: true, suggestions: ["Ja, del det", "Nej tak", "Spring over"]
+    });
+    expect(parseGuide("ikke json")).toEqual({ progress: { brief: false, titel: false, indhold: false, tid: false, pris: false, sociale: false, billeder: false }, social: null, suggestions: [] });
+    for (const word of ["titel", "indhold", "tid", "pris", "sociale", "billeder", "Lav ikke udkastet før"]) expect(GUIDED).toContain(word);
+  });
+});

@@ -4,6 +4,7 @@ import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
 import { PrNudge } from "./pr-material-editor";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
+import { SagaEventGuide } from "./saga-event-guide";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -353,6 +354,9 @@ function MemberEvents({
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   // Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget" (poster-choice.tsx).
   const [poster, setPoster] = useState<PosterChoiceValue>(AUTO_POSTER);
+  // Requested: "Man skal have mulighed for blot at skrive et brief og så få Saga til at hjælpe med at færdiggøre eventet" (saga-event-guide.tsx).
+  const [createMode, setCreateModeState] = useState<"saga" | "form">(() => { try { return localStorage.getItem("hjerterum-create-mode") === "form" ? "form" : "saga"; } catch { return "saga"; } });
+  const setCreateMode = (mode: "saga" | "form") => { setCreateModeState(mode); try { localStorage.setItem("hjerterum-create-mode", mode); } catch { /* ignore */ } };
   const [savedPoster, setSavedPoster] = useState<SavedPoster | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
   const [planProblemCode, setPlanProblemCode] = useState<string | null>("no_date");
@@ -362,7 +366,7 @@ function MemberEvents({
   // A draft from Saga fills the form (saga-widget.tsx); the member still checks it and presses the button.
   const [prefill, setPrefill] = useState<{ n: number; draft: SagaDraft } | null>(() => { const d = takePendingDraft(); return d ? { n: 1, draft: d } : null; });
   useEffect(() => {
-    const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); show("create"); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
+    const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); show("create"); setCreateMode("form"); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
     window.addEventListener(DRAFT_EVENT, take);
     return () => window.removeEventListener(DRAFT_EVENT, take);
   }, []);
@@ -547,8 +551,16 @@ function MemberEvents({
       <div className="events-view">
         {view === "create" && <div className="workspace-card">
           <h2>{editing ? "Redigér event" : "Opret event og reservér salen"}</h2>
+          {active && !editing && <div className="create-modes" role="group" aria-label="Sådan opretter du">
+            <button type="button" aria-pressed={createMode === "saga"} onClick={() => setCreateMode("saga")}><b>Opret med Saga</b><span>Skriv et kort brief – Saga spørger om resten og skriver teksten</span></button>
+            <button type="button" aria-pressed={createMode === "form"} onClick={() => setCreateMode("form")}><b>Udfyld selv</b><span>Formularen med kalender, priser, foto og opslag</span></button>
+          </div>}
           {!active ? (
             <p>Du skal have et aktivt betalende medlemskab for at oprette et event.</p>
+          ) : !editing && createMode === "saga" ? (
+            <SagaEventGuide clerk={clerk} firstName={member.fullName.split(/\s+/)[0] ?? ""}
+              onFillForm={(draft, file) => { setCreateMode("form"); window.dispatchEvent(new CustomEvent(DRAFT_EVENT, { detail: draft })); if (file) window.dispatchEvent(new CustomEvent(COVER_EVENT, { detail: file })); }}
+              onCreated={() => { void reload(); }} />
           ) : (
             <>
             <div className="workspace-message">

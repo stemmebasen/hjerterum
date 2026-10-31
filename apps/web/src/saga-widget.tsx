@@ -19,7 +19,7 @@ export type SagaDraft = { title: string; description: string; date: string; star
   max_attendees: number | null; member_price_kr: number | null; non_member_price_kr: number | null };
 /** Requested: "Man skal også kunne uploade fotos, som Saga skal godkende i forhold til kvalitet, format og opløsning." The browser
  * measures the photo and sends Saga a smaller copy to look at; an approved photo can become the event's cover. */
-type Photo = { file: File; preview: string; dataUrl: string; width: number; height: number };
+export type Photo = { file: File; preview: string; dataUrl: string; width: number; height: number };
 type Action = "login" | "membership";
 type Message = { role: "user" | "assistant"; text: string; draft?: SagaDraft | null; photo?: Photo; photoOk?: boolean; forPhoto?: Photo; action?: Action | null; created?: boolean };
 
@@ -58,7 +58,7 @@ export function sagaLoginHref(target = "/member-portal/events"): string {
   return id ? `${target}${target.includes("?") ? "&" : "?"}saga=${encodeURIComponent(id)}` : target;
 }
 
-async function preparePhoto(file: File): Promise<Photo | null> {
+export async function preparePhoto(file: File): Promise<Photo | null> {
   let bitmap: ImageBitmap;
   try { bitmap = await createImageBitmap(file); } catch { return null; }
   const scale = Math.min(1, LOOK_SIZE / Math.max(bitmap.width, bitmap.height));
