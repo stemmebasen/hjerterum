@@ -1,4 +1,5 @@
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
+import { isPartnerEvent } from "../partner-events.js";
 import {
   checkDatabase,
   listUpcomingPublicRoomBookings,
@@ -653,7 +654,8 @@ async function roomDay(request: Request, env: Env, date: string): Promise<Respon
   if (isResponse(user)) return user;
   const membership = await requireActiveMembershipForUser(env, user.userId);
   if (isResponse(membership)) return membership;
-  const external = await getExternalEvents().catch(() => []);
+  // A partner's event (e.g. at Hjerteland) is not in the hall: it is not shown in the hall's day, nor does it block it.
+  const external = (await getExternalEvents().catch(() => [])).filter((event) => !isPartnerEvent(event));
   try {
     const items = await listDayItems(env.DB, user.userId, date, external);
     if (!items) return json({ error: "invalid_date" }, { status: 400 });

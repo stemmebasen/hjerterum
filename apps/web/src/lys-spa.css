@@ -352,8 +352,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .planner-dayview .lys-sub { margin: 0 0 6px; }
 .planner-track { position: relative; margin: 14px 0 6px 44px; border-left: 1px solid var(--lys-line); cursor: pointer; background: repeating-linear-gradient(to bottom, transparent 0, transparent 37px, var(--lys-line) 37px, var(--lys-line) 38px); }
 .planner-hour { position: absolute; left: -44px; width: 36px; text-align: right; font-size: .72rem; color: var(--lys-muted); transform: translateY(-50%); }
-.planner-evening { position: absolute; left: 0; right: 0; border-top: 1.5px dashed var(--lys-terra); pointer-events: none; }
-.planner-evening span { position: absolute; right: 4px; top: 2px; font-size: .68rem; color: var(--lys-terra); }
+/* Reported: "skillelinjen er skjult. Den skal være over aktiviteterne." */
+.planner-evening { position: absolute; z-index: 3; left: 0; right: 0; border-top: 1.5px dashed var(--lys-terra); pointer-events: none; }
+.planner-evening span { position: absolute; right: 4px; top: 2px; padding: 1px 6px; border-radius: 6px; background: var(--lys-surface); font-size: .68rem; color: var(--lys-terra); }
 .planner-block, .planner-chosen { position: absolute; left: 6px; right: 6px; border-radius: 12px; padding: 5px 10px; font-size: .8rem; line-height: 1.3; overflow: hidden; pointer-events: none; }
 .planner-dayview { min-width: 0; }
 .planner-block { background: var(--lys-soft); color: var(--lys-ink); border: 1px solid var(--lys-line); }
@@ -897,3 +898,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .poster-choice-option.is-picked .poster-choice-canvas, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { border-color: transparent; }
 .poster-choice-option.is-picked .poster-choice-zoom, .poster-choice-option.is-picked .poster-choice-own-box, .poster-choice-option.is-picked .poster-choice-own-img { outline: 3px solid var(--lys-terra); outline-offset: 4px; border-radius: 12px; box-shadow: 0 0 0 9px color-mix(in srgb, var(--lys-terra) 18%, transparent); }
 .poster-choice-option.is-picked::after { content: "✓ Valgt"; position: absolute; top: 8px; left: 8px; z-index: 1; padding: 4px 10px; border-radius: 999px; background: var(--lys-terra); color: #fff; font: 700 11.5px var(--lys-sans); letter-spacing: .03em; box-shadow: 0 2px 8px rgba(0,0,0,.25); pointer-events: none; }
+
+/* "Giv også tilstrækkelig plads til kontaktmulighederne" - the form's full-width rule made the four choices squeeze. */
+.workspace-form .event-contact-options { gap: 10px 14px; }
+.workspace-form .event-contact-options label { display: inline-flex; align-items: center; gap: 9px; width: auto; flex: 0 0 auto; white-space: nowrap; padding: 10px 16px; border: 1px solid var(--lys-line); border-radius: 999px; cursor: pointer; }
+.workspace-form .event-contact-options label:has(input:checked) { border-color: var(--lys-terra); background: color-mix(in srgb, var(--lys-terra) 12%, transparent); }
+.workspace-form .event-contact-options input { width: auto; min-height: 0; margin: 0; accent-color: var(--lys-terra); }
