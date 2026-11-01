@@ -298,7 +298,7 @@ export async function memberSagaChat(request: Request, env: MemberEnv, deps: Sag
     const pickedTime = guided && !photo && step === "tid" ? readTimeChoice(text, now) : null;
     const fixed: Partial<EventFacts> | null = guided && !photo ? fixedAnswer(step, text) ?? pickedTime : null;
     const busy = guided ? await busyWindows(db, external, now, now + 60 * 86_400_000) : [];
-    const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + cirklerKnowledge(history) + (guided ? guidedPrompt(known, step, membership.fullName) : "") + (lang === "en" ? ENGLISH : "");
+    const system = SYSTEM(today, membership.fullName.split(/\s+/)[0] ?? "", calendar, houseKnowledge(), facts, page) + await cirklerKnowledge(db, history) + (guided ? guidedPrompt(known, step, membership.fullName) : "") + (lang === "en" ? ENGLISH : "");
     // Phone chosen but none in the profile: say so now, so the event does not show an empty contact.
     const noPhone = fixed && (fixed.contact === "phone" || fixed.contact === "both")
       ? !(await db.prepare("SELECT phone FROM members WHERE clerk_user_id = ?").bind(userId).first<{ phone: string | null }>().catch(() => null))?.phone?.trim() : false;
