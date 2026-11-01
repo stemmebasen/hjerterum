@@ -367,7 +367,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     description: "Lejepriser for Hjerterums sal: standardpris, medlemsrabat og gratis leje, prisberegner og sådan booker du.",
     card: { title: "Lejepriser & booking", text: "Priser, prisberegner og sådan booker du." },
     body: `## Sådan kommer du i gang {#booking}
-1. **Find prisen.** Vælg lejetype og tidspunkt i [prisberegneren](#beregner) herunder.
+1. **Find prisen.** Vælg tidspunkt i [prisberegneren](#beregner) herunder – du ser standardprisen og, hvad samme booking koster som medlem.
 2. **Book.** Er du medlem og vil du bruge Hjerterum til reduceret pris eller med helt gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – vores digitale assistent, Saga, hjælper dig gerne. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
 3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
 
