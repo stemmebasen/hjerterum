@@ -111,7 +111,7 @@ export function BookingChoice() {
       <p className="lys-kicker">A) Standardpris</p>
       <h3>Book salen med det samme</h3>
       <p>For alle. Fast pris efter længde – fra 720 kr. for 2 timer.</p>
-      <a className="lys-btn" href="/beregner">Book med formularen</a>
+      <a className="lys-btn" href="/brug-hjerterum/lejepriser#beregner">Beregn pris og book</a>
     </article>
     <article className="booking-choice-card members">
       <p className="lys-kicker">B) Reduceret pris · C) Gratis leje</p>
