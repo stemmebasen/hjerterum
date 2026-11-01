@@ -54,7 +54,7 @@ const SCRIPT_TEXT = {
     signup: "Hvordan skal deltagerne tilmelde sig?", signupOnline: "Online via Hjerterum", signupDirect: "Direkte til dig/underviser", contact: "Kontaktoplysninger",
     name: "Navn", email: "E-mailadresse", phone: "Telefonnummer", social: "Sociale medier / Web", add: "Tilføj", cancel: "Annuller", send: "Send forespørgsel", close: "Luk",
     sending: "Sender …", sent: "Tak! Din forespørgsel er sendt til Hjerterum. Vi vender tilbage på mail.", required: "Udfyld de felter, der er markeret med *.",
-    failed: { not_delivered: "Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@holistisk.org.", too_many: "Der er sendt mange forespørgsler herfra. Prøv igen om en time.",
+    failed: { not_delivered: "Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info.", too_many: "Der er sendt mange forespørgsler herfra. Prøv igen om en time.",
       image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", missing_fields: "Udfyld de felter, der er markeret med *.", other: "Noget gik galt. Prøv igen." },
   },
   en: {
@@ -83,7 +83,7 @@ const SCRIPT_TEXT = {
     signup: "How should participants sign up?", signupOnline: "Online via Hjerterum", signupDirect: "Directly to you/the teacher", contact: "Contact details",
     name: "Name", email: "E-mail address", phone: "Phone number", social: "Social media / Web", add: "Add", cancel: "Cancel", send: "Send request", close: "Close",
     sending: "Sending …", sent: "Thank you! Your request has been sent to Hjerterum. We will get back to you by e-mail.", required: "Fill in the fields marked with *.",
-    failed: { not_delivered: "The request could not be sent right now. Please try again shortly, or write to team@holistisk.org.", too_many: "Many requests have been sent from here. Please try again in an hour.",
+    failed: { not_delivered: "The request could not be sent right now. Please try again shortly, or write to team@hjerterum.info.", too_many: "Many requests have been sent from here. Please try again in an hour.",
       image_too_large: "The picture is too large (at most 8 MB).", image_type: "The picture must be JPG, PNG, WebP or GIF.", missing_fields: "Fill in the fields marked with *.", other: "Something went wrong. Please try again." },
   },
 };
