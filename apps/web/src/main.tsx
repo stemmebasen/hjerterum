@@ -214,18 +214,18 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
  * løsninger med de skal være inaktive og det skal gøres tydeligt at man ved at være medlem får disse fordele." - the calculator on
  * /brug-hjerterum/lejepriser. Everyone books at the standard price; what the same booking costs a member is shown beside it, locked,
  * with the saving in kroner, the benefits and the way to become a member or log in. */
-const MEMBER_PERKS = ["Reduceret eller gratis leje af salen", "Du opretter selv dit event i medlemsområdet – Saga hjælper med tekst og opslag",
-  "Dit event på hjerterum.info og Hjerterums sociale medier", "En offentlig profil som underviser eller behandler", "Rabat eller gratis adgang til husets events"];
+const MEMBER_PERKS = ["Reduceret eller gratis leje", "Opret selv events – Saga hjælper", "Dit event på hjemmesiden og SoMe", "Profil som underviser", "Rabat på husets events"];
 const MEMBER_EVENTS_URL = "https://medlem.hjerterum.info/member-portal/events";
+// Reported: "Den er meget ukøn, stor og klodset. Den må kunne laves pænere og mere moderne" - one compact card in the site's own colours (light and dark).
+const START_TIMES = Array.from({ length: 36 }, (_, i) => `${String(6 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
 
 function RoomPriceCalculator() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [start, setStart] = useState("10:00");
-  const [hours, setHours] = useState("2");
+  const [hours, setHours] = useState(2);
   const dateValue = new Date(`${date}T12:00:00`);
   const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
-  const durationHours = Math.min(10, Math.max(2, Number(hours) || 2));
-  const when = { dayOfWeek: dateValue.getDay(), startMinutes: startHour * 60 + startMinute, durationMinutes: durationHours * 60 };
+  const when = { dayOfWeek: dateValue.getDay(), startMinutes: startHour * 60 + startMinute, durationMinutes: hours * 60 };
   const quote = (bookingType: RoomBookingType) => calculateRoomPriceQuote({ bookingType, ...when, ...(bookingType === "reduced" ? { memberPriceKr: 0 } : {}) });
   const standard = quote("standard"), reduced = quote("reduced"), free = quote("free");
   // A member's booking on a weekday lies wholly before or after 18.30.
@@ -233,45 +233,49 @@ function RoomPriceCalculator() {
   const saving = crosses ? null : standard.totalPriceKr - reduced.totalPriceKr;
   const monthKr = membershipPlans.standard.month / 100;
   const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
-  const band = standard.band === "A" ? "A-tid (weekend eller fra kl. 18.30)" : "B-tid (hverdage før kl. 18.30)";
-  const lock = <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
+  const band = standard.band === "A" ? "A-tid · weekend eller fra kl. 18.30" : "B-tid · hverdage før kl. 18.30";
+  const lock = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
 
   return (
-    <section className="price-calculator" aria-label="Prisberegner for leje af sal">
-      <div className="price-form">
+    <section className="rent-calc" aria-label="Prisberegner for leje af sal">
+      <div className="rc-when">
         <label>Dato<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
-        <label>Starttid<input type="time" value={start} onChange={(event) => setStart(event.target.value)} /></label>
-        <label>Varighed i timer<input type="number" min="2" max="10" step="0.5" value={hours} onChange={(event) => setHours(event.target.value)} /></label>
-        <p className="price-band">{band}</p>
+        <label>Start<select value={start} onChange={(event) => setStart(event.target.value)}>{START_TIMES.map((t) => <option key={t} value={t}>{t.replace(":", ".")}</option>)}</select></label>
+        <div className="rc-hours"><span id="rc-hours-label">Varighed</span>
+          <div role="group" aria-labelledby="rc-hours-label"><button type="button" onClick={() => setHours(Math.max(2, hours - 0.5))} disabled={hours <= 2} aria-label="Kortere">−</button>
+            <b aria-live="polite">{String(hours).replace(".", ",")} t</b><button type="button" onClick={() => setHours(Math.min(10, hours + 0.5))} disabled={hours >= 10} aria-label="Længere">+</button></div></div>
       </div>
-      <div className="price-options">
-        <article className="price-option open">
-          <p className="kicker">Standardpris · for alle</p>
+      <p className="rc-band">{band}</p>
+      <div className="rc-prices">
+        <article className="rc-tile open">
+          <span className="rc-label">Standardpris</span>
           <strong>{kr(standard.totalPriceKr)}</strong>
-          <p>Fast pakkepris – også uden medlemskab. Vises på Hjerterums hjemmeside og sociale medier.</p>
-          <a className="lys-btn" href="/beregner">Book til standardpris</a>
+          <span className="rc-sub">For alle · også uden medlemskab</span>
+          <a className="rc-book" href="/beregner">Book →</a>
         </article>
-        <article className="price-option locked" aria-disabled="true">
-          <p className="kicker">{lock} Reduceret pris · kun for medlemmer</p>
+        <article className="rc-tile locked" aria-disabled="true">
+          <span className="rc-label">{lock} Reduceret pris</span>
           <strong>{crosses ? "–" : kr(reduced.totalPriceKr)}</strong>
-          <p>{crosses ? "Går hen over kl. 18.30 – som medlem booker du helt før eller helt efter." : "Til events, hvor medlemmer betaler mindre end andre."}</p>
+          <span className="rc-sub">{crosses ? "Medlemmer booker før eller efter kl. 18.30" : "Kun for medlemmer"}</span>
         </article>
-        <article className="price-option locked" aria-disabled="true">
-          <p className="kicker">{lock} Gratis leje · kun for medlemmer</p>
+        <article className="rc-tile locked" aria-disabled="true">
+          <span className="rc-label">{lock} Gratis leje</span>
           <strong>{kr(free.totalPriceKr)}</strong>
-          <p>Ét event om ugen. Medlemmer deltager gratis; ikke-medlemmer betaler mindst {free.minimumNonMemberPriceKr} kr. pr. person til underviseren.</p>
+          <span className="rc-sub">Kun for medlemmer · én gang om ugen</span>
         </article>
       </div>
-      <div className="price-membership">
-        <h3>{saving && saving > 0 ? <>Som medlem sparer du <em>{kr(saving)}</em> på denne booking – eller lejer helt gratis én gang om ugen.</> : "Som medlem kan du leje salen helt gratis én gang om ugen."}</h3>
-        {saving !== null && saving >= monthKr && <p>Et medlemskab koster {kr(monthKr)} om måneden – det er tjent hjem på én booking.</p>}
-        <ul>{MEMBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}</ul>
-        <div className="price-membership-actions">
-          <a className="lys-btn" href={SIGNUP_URL}>Bliv medlem</a>
-          <a className="lys-btn ghost" href={MEMBER_EVENTS_URL}>Er du medlem? Log ind og book</a>
+      <div className="rc-member">
+        <div className="rc-member-text">
+          <b>{saving && saving > 0 ? <>Spar {kr(saving)} som medlem</> : "Lej gratis som medlem"}</b>
+          <span>{saving !== null && saving >= monthKr ? `Medlemskab ${kr(monthKr)}/md. – tjent hjem på én booking.` : `Medlemskab fra ${kr(monthKr)}/md.`}</span>
+          <ul>{MEMBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}</ul>
         </div>
-        <small>Prisen er en beregning og ikke en endelig bookingbekræftelse. Alle priser er inkl. moms.</small>
+        <div className="rc-member-actions">
+          <a className="rc-join" href={SIGNUP_URL}>Bliv medlem</a>
+          <a className="rc-login" href={MEMBER_EVENTS_URL}>Medlem? Log ind og book</a>
+        </div>
       </div>
+      <p className="rc-note">Alle priser er inkl. moms. Prisen er en beregning, ikke en bookingbekræftelse.</p>
     </section>
   );
 }
