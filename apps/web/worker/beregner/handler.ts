@@ -112,6 +112,9 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
     if (!probe && (field(form, "website", 200) || !Number.isFinite(started) || deps.now() - started < MIN_FILL_MS)) return json({ ok: true });
     const input = parseCalcInput(Object.fromEntries(["day", "start", "hours", "type", "memberPrice"].map(k => [k, form.get(k)])));
     if (!input || crossesBand(input)) return json({ error: "invalid_calculation" }, 400);
+    // Requested: "Det bør være muligt at booke lokalet uden at være medlem" - here, at the standard price. Reduced price and free rent are
+    // the members': they book those themselves in the member area. (The chair's control check still runs its usual reduced request.)
+    if (input.type !== "standard" && !probe) return json({ error: "members_only" }, 403);
     const req: BookingRequest = {
       eventName: field(form, "eventName", 160), dates: form.getAll("dates").map(d => String(d)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).slice(0, 30),
       maxParticipants: field(form, "maxParticipants", 10), payment: field(form, "payment", 120), description: field(form, "description", 5000),

@@ -2,14 +2,19 @@
  * gerne komme så tæt på dette design i V1: https://prisberegner.replit.app". One page: the calculator, the result and the
  * booking request; the sums come from the server (quote.ts), the request is laid in team@'s inbox (handler.ts). */
 
+import { membershipPlans } from "../../membership.js";
+import { SIGNUP_URL } from "../../site/pages.js";
+
 export type Lang = "da" | "en";
+const MEMBER_EVENTS = "https://medlem.hjerterum.info/member-portal/events";
 
 const TEXT = {
   da: {
     title: "Udregn pris og send bookingforespørgsel", lead: "Husk at medregne tid til klargøring og oprydning - som regel ca. 30 minutter ekstra, både før og efter eventet.",
     touch: "Berør mindst to af felterne: ugedag, starttidspunkt eller antal timer.", guide: "Start med at<br>vælge tidspunkt",
-    day: "Ugedag", start: "Starttidspunkt", hours: "Antal timer", what: "Hvad vil du booke?", whatHint: "Klik på en af kasserne herunder",
-    standard: "Standardpris", standardSub: "Uden medlemsrabat.", reduced: "Reduceret pris", reducedSub: "Med medlemsrabat.", free: "Gratis leje", freeSub: "Gratis for medlemmer",
+    day: "Ugedag", start: "Starttidspunkt", hours: "Antal timer", what: "Hvad vil du booke?", whatHint: "Uden medlemskab booker du til standardpris",
+    standard: "Standardpris", standardSub: "For alle - også uden medlemskab.", reduced: "Reduceret pris", reducedSub: "Kun for medlemmer", free: "Gratis leje", freeSub: "Kun for medlemmer",
+    lockedHint: "Reduceret pris og gratis leje er for medlemmer. Når du har beregnet prisen, ser du også, hvad du ville betale som medlem.",
     rules: "Priser og regler", unfold: "Klik for at folde ud", pickType: "Vælg en bookingtype ovenfor for at se priser og regler.", vat: "Alle priser er inkl. moms.",
     calc: "Beregn pris", lang: "English", langHref: "?lang=en",
     days: ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"],
@@ -17,8 +22,9 @@ const TEXT = {
   en: {
     title: "Calculate the price and send a booking request", lead: "Remember to include time for setting up and tidying - usually about 30 minutes extra, both before and after the event.",
     touch: "Touch at least two of the fields: weekday, start time or number of hours.", guide: "Start by<br>choosing a time",
-    day: "Weekday", start: "Start time", hours: "Number of hours", what: "What do you want to book?", whatHint: "Click one of the boxes below",
-    standard: "Standard price", standardSub: "Without member discount.", reduced: "Reduced price", reducedSub: "With member discount.", free: "Free rent", freeSub: "Free for members",
+    day: "Weekday", start: "Start time", hours: "Number of hours", what: "What do you want to book?", whatHint: "Without membership you book at the standard price",
+    standard: "Standard price", standardSub: "For everyone - no membership needed.", reduced: "Reduced price", reducedSub: "Members only", free: "Free rent", freeSub: "Members only",
+    lockedHint: "Reduced price and free rent are for members. Once you have calculated the price, you also see what you would pay as a member.",
     rules: "Prices and rules", unfold: "Click to unfold", pickType: "Choose a booking type above to see prices and rules.", vat: "All prices include VAT.",
     calc: "Calculate price", lang: "Dansk", langHref: "?lang=da",
     days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
@@ -35,7 +41,13 @@ const SCRIPT_TEXT = {
     memberAsk: "Indtast medlemspris og se herunder<br>hvad ikke-medlemmer min. skal betale:", nonMember: "Ikke-medlemmer skal mindst betale:", advantage: "Medlemsfordel:",
     noDiscount: "Ingen medlemsrabat på lejen.", freeRent: "Lejepris:", freeMembers: "Medlemmer deltager gratis.", freeMin: "Ikke-medlemmer skal mindst betale:",
     freeTeacher: "Underviseren opkræver selv deltagerbetalingen.", freeOnly: "Gratis leje gælder kun for betalende medlemmer af Hjerterum.",
-    book: "Udfyld bookingforespørgsel", again: "Ny beregning", cross: "Reduceret pris og gratis leje må ikke gå hen over kl. 18:30. Lav i stedet to bookinger: én før kl. 18:30 og én fra kl. 18:30.",
+    book: "Book til standardpris", again: "Ny beregning",
+    // Requested: "Det bør være muligt at booke lokalet uden at være medlem så i dette bookingvindue skal man også se prisen for de to andre medlem løsninger med de skal være inaktive og det skal gøres tydeligt at man ved at være medlem får disse fordele."
+    asMember: "Som medlem af Hjerterum", locked: "Kun for medlemmer", reducedNote: "Til events, hvor medlemmer betaler mindre end andre.", freeNote: "Ét event om ugen. Ikke-medlemmer betaler mindst 75 kr. pr. person til underviseren.",
+    crossNote: "Går hen over kl. 18.30 - som medlem booker du før eller efter.", save: "Som medlem sparer du <b>{kr}</b> på denne booking - eller lejer helt gratis én gang om ugen.", saveFree: "Som medlem kan du leje salen helt gratis én gang om ugen.",
+    payback: "Et medlemskab koster {kr} om måneden - det er tjent hjem på én booking.", perksTitle: "Det får du som medlem",
+    perks: ["Reduceret eller gratis leje af salen", "Du opretter selv dit event i medlemsområdet - Saga hjælper med tekst og opslag", "Dit event på hjerterum.info og Hjerterums sociale medier", "En offentlig profil som underviser eller behandler", "Rabat eller gratis adgang til husets events"],
+    join: "Bliv medlem", memberLogin: "Er du medlem? Log ind og book", cross: "Reduceret pris og gratis leje må ikke gå hen over kl. 18:30. Lav i stedet to bookinger: én før kl. 18:30 og én fra kl. 18:30.",
     bandA: "A-tid", bandB: "B-tid", weekend: "weekend", error: "Prisen kunne ikke beregnes lige nu. Prøv igen om lidt.",
     rules: {
       standard: "<p>Fast pakkepris efter antal timer - samme pris på hverdage og i weekenden. Ingen medlemsrabat på lejen.</p>{table}<p>Vises på Hjerterums hjemmeside og SoMe: <b>Inkluderet</b>.</p><p>Standardpris må gerne gå hen over kl. 18:30.</p>",
@@ -55,7 +67,7 @@ const SCRIPT_TEXT = {
     name: "Navn", email: "E-mailadresse", phone: "Telefonnummer", social: "Sociale medier / Web", add: "Tilføj", cancel: "Annuller", send: "Send forespørgsel", close: "Luk",
     sending: "Sender …", sent: "Tak! Din forespørgsel er sendt til Hjerterum. Vi vender tilbage på mail.", required: "Udfyld de felter, der er markeret med *.",
     failed: { not_delivered: "Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info.", too_many: "Der er sendt mange forespørgsler herfra. Prøv igen om en time.",
-      image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", missing_fields: "Udfyld de felter, der er markeret med *.", other: "Noget gik galt. Prøv igen." },
+      image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", missing_fields: "Udfyld de felter, der er markeret med *.", members_only: "Reduceret pris og gratis leje er for medlemmer: log ind i medlemsområdet, og opret dit event dér.", other: "Noget gik galt. Prøv igen." },
   },
   en: {
     hoursUnit: "hours", at: "at", chosen: "Chosen time:", result: "Your price", base: "Base price (incl. 2 hours):", basePackage: "Package price ({h} hours):",
@@ -65,7 +77,12 @@ const SCRIPT_TEXT = {
     memberAsk: "Enter the member price and see below<br>what non-members must pay at least:", nonMember: "Non-members pay at least:", advantage: "Member advantage:",
     noDiscount: "No member discount on the rent.", freeRent: "Rent:", freeMembers: "Members take part for free.", freeMin: "Non-members pay at least:",
     freeTeacher: "The teacher collects the participants' payment.", freeOnly: "Free rent is only for paying members of Hjerterum.",
-    book: "Fill in the booking request", again: "New calculation", cross: "Reduced price and free rent may not run past 18:30. Make two bookings instead: one before 18:30 and one from 18:30.",
+    book: "Book at the standard price", again: "New calculation",
+    asMember: "As a member of Hjerterum", locked: "Members only", reducedNote: "For events where members pay less than others.", freeNote: "One event a week. Non-members pay the teacher at least 75 kr. per person.",
+    crossNote: "Runs past 18:30 - as a member you book before or after.", save: "As a member you save <b>{kr}</b> on this booking - or rent it for free once a week.", saveFree: "As a member you can rent the room for free once a week.",
+    payback: "A membership costs {kr} a month - it pays for itself with one booking.", perksTitle: "What you get as a member",
+    perks: ["Reduced or free rent of the room", "You create your event yourself in the member area - Saga helps with the text and posts", "Your event on hjerterum.info and Hjerterum's social media", "A public profile as a teacher or therapist", "Discounts or free entry to the house's events"],
+    join: "Become a member", memberLogin: "Already a member? Log in and book", cross: "Reduced price and free rent may not run past 18:30. Make two bookings instead: one before 18:30 and one from 18:30.",
     bandA: "A time", bandB: "B time", weekend: "weekend", error: "The price could not be calculated right now. Please try again shortly.",
     rules: {
       standard: "<p>A fixed package price by number of hours - the same on weekdays and at weekends. No member discount on the rent.</p>{table}<p>Shown on Hjerterum's website and social media: <b>Included</b>.</p><p>A standard booking may run past 18:30.</p>",
@@ -84,7 +101,7 @@ const SCRIPT_TEXT = {
     name: "Name", email: "E-mail address", phone: "Phone number", social: "Social media / Web", add: "Add", cancel: "Cancel", send: "Send request", close: "Close",
     sending: "Sending …", sent: "Thank you! Your request has been sent to Hjerterum. We will get back to you by e-mail.", required: "Fill in the fields marked with *.",
     failed: { not_delivered: "The request could not be sent right now. Please try again shortly, or write to team@hjerterum.info.", too_many: "Many requests have been sent from here. Please try again in an hour.",
-      image_too_large: "The picture is too large (at most 8 MB).", image_type: "The picture must be JPG, PNG, WebP or GIF.", missing_fields: "Fill in the fields marked with *.", other: "Something went wrong. Please try again." },
+      image_too_large: "The picture is too large (at most 8 MB).", image_type: "The picture must be JPG, PNG, WebP or GIF.", missing_fields: "Fill in the fields marked with *.", members_only: "Reduced price and free rent are for members: log in to the member area and create your event there.", other: "Something went wrong. Please try again." },
   },
 };
 
@@ -98,7 +115,7 @@ const ICONS = {
   star: '<path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
-  chevron: '<path d="m6 9 6 6 6-6"/>', arrow: '<path d="M5 12h14M12 5l7 7-7 7"/>', check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>', lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', arrow: '<path d="M5 12h14M12 5l7 7-7 7"/>', check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>',
 };
 
 const STYLE = `
@@ -123,6 +140,16 @@ select:focus,input:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(
 .type.standard{background:#eff6ff;border-color:#bfdbfe}.type.standard svg{color:#3b82f6}.type.standard[aria-pressed=true]{background:#dbeafe;border:2px solid #3b82f6;padding:13px 9px}
 .type.reduced{background:#fefce8;border-color:#fde68a}.type.reduced svg{color:#d97706}.type.reduced[aria-pressed=true]{background:#fef3c7;border:2px solid #f59e0b;padding:13px 9px}
 .type.free{background:#f0fdf4;border-color:#bbf7d0}.type.free svg{color:#22c55e}.type.free[aria-pressed=true]{background:#dcfce7;border:2px solid #22c55e;padding:13px 9px}
+.type.locked{cursor:not-allowed;opacity:.55;filter:grayscale(.6)}.type.locked span{display:inline-flex;align-items:center;gap:5px;font-weight:600}
+.lockedhint{margin:10px 0 0;font-size:13.5px;color:var(--muted)}
+.members{margin:0 0 18px;padding:18px;border-radius:10px;border:1px dashed #cbd5e1;background:#f8fafc}.members .mh{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;margin:0 0 12px}
+.members .opt{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:#fff;border:1px solid var(--line);margin:0 0 8px;opacity:.7}
+.members .opt b.p{font-size:20px;white-space:nowrap}.members .opt small{display:block;color:var(--muted);font-size:13px;font-weight:400}.members .opt .tag{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-left:6px}
+.members .save{margin:14px 0 4px;font-size:16px;color:#065f46}.members .save b{color:var(--green-ink)}.members .payback{margin:0 0 12px;font-size:14px;color:var(--muted)}
+.members ul{margin:6px 0 14px;padding:0;list-style:none;display:grid;gap:6px;font-size:14.5px}.members li{display:flex;gap:8px;align-items:flex-start}.members li svg{flex:none;color:var(--green);margin-top:3px}
+.members .mbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}.members .mbtns a{display:flex;align-items:center;justify-content:center;text-align:center;min-height:40px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14.5px;padding:6px 10px}
+.members .mbtns .join{background:var(--ink);color:#fff}.members .mbtns .login{border:1px solid var(--ink);color:var(--ink);background:#fff}
+@media (max-width:640px){.members .mbtns{grid-template-columns:1fr}}
 .cross{margin:10px 0 0;padding:10px 14px;border-radius:8px;background:#fef2f2;color:#b91c1c;font-size:14px;font-weight:600}
 details.rules{margin:16px 0 18px}details.rules summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;padding:8px 0}
 details.rules summary::-webkit-details-marker{display:none}details.rules summary b{display:flex;align-items:center;gap:8px;font-size:16px;color:#334155}details.rules summary b svg{color:var(--green)}
@@ -168,7 +195,7 @@ export function calculatorPage(lang: Lang, nowMs: number): string {
   const packages = `<div class="pk">${PACKAGES.map(([h, p]) => `<div><span>${String(h).replace(".", lang === "da" ? "," : ".")} ${s.hoursUnit}</span><b>${p.toLocaleString(lang === "da" ? "da-DK" : "en-GB")} kr.</b></div>`).join("")}</div>`;
   const diff = `<table><tr>${s.diffHead.map(h => `<th>${h}</th>`).join("")}</tr>${s.diffRows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
   const rules = { standard: s.rules.standard.replace("{table}", packages), reduced: s.rules.reduced.replace("{diff}", diff), free: s.rules.free };
-  const config = JSON.stringify({ lang, t: s, days: t.days, rules, started: nowMs }).replace(/</g, "\\u003c");
+  const config = JSON.stringify({ lang, t: s, days: t.days, rules, started: nowMs, names: { reduced: t.reduced, free: t.free }, memberMonthKr: membershipPlans.standard.month / 100, join: SIGNUP_URL, memberArea: MEMBER_EVENTS }).replace(/</g, "\\u003c");
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.title)} · Hjerterum</title><meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -182,8 +209,9 @@ export function calculatorPage(lang: Lang, nowMs: number): string {
 <p class="what" id="what">${t.what}<span>${t.whatHint}</span></p>
 <div class="types" role="group" aria-labelledby="what">
 <button type="button" class="type standard" data-type="standard" aria-pressed="false">${icon(ICONS.tag)}<b>${t.standard}</b><span>${t.standardSub}</span></button>
-<button type="button" class="type reduced" data-type="reduced" aria-pressed="false">${icon(ICONS.star)}<b>${t.reduced}</b><span>${t.reducedSub}</span></button>
-<button type="button" class="type free" data-type="free" aria-pressed="false">${icon(ICONS.gift)}<b>${t.free}</b><span>${t.freeSub}</span></button></div>
+<button type="button" class="type reduced locked" data-type="reduced" data-locked="1" aria-disabled="true" aria-describedby="lockedhint">${icon(ICONS.star)}<b>${t.reduced}</b><span>${icon(ICONS.lock, 13)}${t.reducedSub}</span></button>
+<button type="button" class="type free locked" data-type="free" data-locked="1" aria-disabled="true" aria-describedby="lockedhint">${icon(ICONS.gift)}<b>${t.free}</b><span>${icon(ICONS.lock, 13)}${t.freeSub}</span></button></div>
+<p class="lockedhint" id="lockedhint">${esc(t.lockedHint)}</p>
 <p class="cross" id="cross" hidden role="alert"></p>
 <details class="rules" id="rules"><summary><b>${icon(ICONS.info, 18)}${t.rules}</b><span>${t.unfold} ${icon(ICONS.chevron, 16)}</span></summary><div class="rules-body"><div id="rules-text"><p>${t.pickType}</p></div><p>${t.vat}</p></div></details>
 <button type="button" class="go" id="go" disabled>${t.calc} ${icon(ICONS.arrow, 16)}</button></section>
@@ -195,7 +223,7 @@ export function calculatorPage(lang: Lang, nowMs: number): string {
 /** The page's behaviour: the guide, the choices, the price from the server, the result and the booking request. */
 const SCRIPT = String.raw`(function(){
 var C=window.HJ,T=C.t,$=function(id){return document.getElementById(id)};
-var state={hours:2,type:null,touched:{},calc:null,member:""};
+var state={hours:2,type:"standard",touched:{},calc:null,member:"",compare:null};
 var fmt=function(n){return Number(n).toLocaleString(C.lang==="da"?"da-DK":"en-GB")+" kr."};
 var hoursText=function(h){return String(h).replace(".",C.lang==="da"?",":".")};
 var esc=function(v){return String(v==null?"":v).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
@@ -209,7 +237,7 @@ function guide(){var g=$("guide"),card=$("calc");if($("calc").hidden){g.hidden=t
 function minutes(v){var p=v.split(":");return +p[0]*60+ +p[1]}
 function crosses(){if(!state.type||state.type==="standard")return false;var d=+$("day").value;if(d===0||d===6)return false;var a=minutes($("start").value),b=a+state.hours*60;return a<1110&&b>1110}
 function sync(){$("hours").textContent=hoursText(state.hours);$("minus").disabled=state.hours<=2;$("plus").disabled=state.hours>=10;
-  document.querySelectorAll(".type").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.type===state.type))});
+  document.querySelectorAll(".type").forEach(function(b){if(!b.dataset.locked)b.setAttribute("aria-pressed",String(b.dataset.type===state.type))});
   var x=crosses();$("cross").hidden=!x;$("cross").textContent=x?T.cross:"";$("go").disabled=!state.type||x;
   $("rules-text").innerHTML=state.type?C.rules[state.type]:"<p>"+esc(C.lang==="da"?"Vælg en bookingtype ovenfor for at se priser og regler.":"Choose a booking type above to see prices and rules.")+"</p>";
   guide();post()}
@@ -217,12 +245,25 @@ function touch(k){state.touched[k]=1;sync()}
 $("day").addEventListener("change",function(){touch("day")});$("start").addEventListener("change",function(){touch("start")});
 $("day").addEventListener("focus",function(){});
 $("minus").onclick=function(){state.hours=Math.max(2,state.hours-0.5);touch("hours")};$("plus").onclick=function(){state.hours=Math.min(10,state.hours+0.5);touch("hours")};
-document.querySelectorAll(".type").forEach(function(b){b.onclick=function(){state.type=b.dataset.type;sync()}});
+document.querySelectorAll(".type").forEach(function(b){b.onclick=function(){if(b.dataset.locked){var h=$("lockedhint");h.style.color="#b45309";setTimeout(function(){h.style.color=""},1600);return}state.type=b.dataset.type;sync()}});
 $("rules").addEventListener("toggle",function(){guide();post()});
 function payload(extra){return Object.assign({day:+$("day").value,start:$("start").value,hours:state.hours,type:state.type},extra||{})}
-async function price(member){var body=payload(state.type==="reduced"&&member!==""?{memberPrice:+member}:{});
+async function price(member,type){var body=payload(Object.assign(type?{type:type}:{},state.type==="reduced"&&member!==""?{memberPrice:+member}:{}));
   var r=await fetch("/beregner/api/pris",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});if(!r.ok)throw new Error("price");return r.json()}
 function line(label,value,cls){return '<div class="line'+(cls?" "+cls:"")+'"><span>'+label+'</span><b>'+value+'</b></div>'}
+var LOCK='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+var CHECK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+// What the same booking costs as a member - shown, but not to be chosen here.
+function members(c){var r=state.compare&&state.compare[0],f=state.compare&&state.compare[1];
+  var opt=function(name,note,value){return '<div class="opt" aria-disabled="true"><span><b>'+name+'</b><span class="tag">'+LOCK+T.locked+'</span><small>'+note+'</small></span><b class="p">'+value+'</b></div>'};
+  var saving=r?c.totalKr-r.totalKr:null;
+  return '<div class="members"><div class="mh">'+LOCK+T.asMember+'</div>'
+    +opt(C.names.reduced,r?T.reducedNote:T.crossNote,r?fmt(r.totalKr):"–")
+    +opt(C.names.free,T.freeNote,fmt(f?f.totalKr:0))
+    +'<p class="save">'+(saving&&saving>0?T.save.replace("{kr}",fmt(saving)):T.saveFree)+'</p>'
+    +(saving&&saving>=C.memberMonthKr?'<p class="payback">'+T.payback.replace("{kr}",fmt(C.memberMonthKr))+'</p>':'')
+    +'<b style="font-size:14.5px">'+T.perksTitle+'</b><ul>'+T.perks.map(function(p){return "<li>"+CHECK+"<span>"+p+"</span></li>"}).join("")+'</ul>'
+    +'<div class="mbtns"><a class="join" href="'+C.join+'" target="_top" rel="noopener">'+T.join+'</a><a class="login" href="'+C.memberArea+'" target="_top">'+T.memberLogin+'</a></div></div>'}
 function result(){var c=state.calc,band=(c.band==="A"?T.bandA:T.bandB)+(c.weekend?", "+T.weekend:"");
   var rows=c.type==="standard"?line(T.basePackage.replace("{h}",hoursText(c.hours)),fmt(c.baseKr))+line(T.some,T.included)
     :c.type==="reduced"?line(T.base,fmt(c.firstTwoKr))+(c.extraHours?line(T.extra.replace("{n}",hoursText(c.extraHours)).replace("{r}",c.extraRateKr),fmt(c.extraHours*c.extraRateKr)):"")
@@ -230,7 +271,7 @@ function result(){var c=state.calc,band=(c.band==="A"?T.bandA:T.bandB)+(c.weeken
     :line(T.freeRent,fmt(0));
   var extra=c.type==="reduced"?'<div class="member"><span>'+T.memberAsk+'</span><label><input id="mp" inputmode="numeric" placeholder="0" value="'+esc(state.member)+'" aria-label="'+esc(T.members)+'"> kr.</label><div class="out" id="mpout"></div></div>'
     :c.type==="free"?'<div class="freebox"><p>'+T.freeMembers+'</p><p>'+T.freeMin+" <b>"+fmt(c.minimumNonMemberKr)+'</b></p><p>'+T.freeTeacher+'</p><p><b>'+T.freeOnly+'</b></p></div>'
-    :'<p class="obs" style="font-style:normal;margin-top:-10px">'+T.noDiscount+'</p>';
+    :'<p class="obs" style="font-style:normal;margin-top:-10px">'+T.noDiscount+'</p>'+members(c);
   $("result").innerHTML='<div class="head"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'+T.result+'</div><div class="body">'
     +'<div class="when"><small>'+T.chosen+'</small><b>'+C.days[c.day]+" "+T.at+" "+c.start+'</b><span>'+hoursText(c.hours)+" "+T.hoursUnit+" ("+band+')</span></div>'+rows
     +'<div class="total"><span>'+T.total+'</span><b>'+fmt(c.totalKr)+'</b></div><p class="obs">'+T.obs+'</p>'
@@ -242,7 +283,7 @@ function result(){var c=state.calc,band=(c.band==="A"?T.bandA:T.bandB)+(c.weeken
   post()}
 async function member(){var out=$("mpout");if(!out)return;if(state.member===""){out.innerHTML="";state.calc.memberPriceKr=null;state.calc.nonMemberPriceKr=null;post();return}
   try{var c=await price(state.member);state.calc=c;out.innerHTML="<div><span>"+T.nonMember+"</span><b>"+fmt(c.nonMemberPriceKr)+"</b></div><div><span>"+T.advantage+"</span><b>"+fmt(c.memberAdvantageKr)+"</b></div>"}catch(e){out.textContent=T.error}post()}
-$("go").onclick=async function(){$("go").disabled=true;try{state.calc=await price("");state.member="";$("calc").hidden=true;$("result").hidden=false;$("guide").hidden=true;result();window.scrollTo(0,0)}catch(e){alert(T.error)}finally{$("go").disabled=false}};
+$("go").onclick=async function(){$("go").disabled=true;try{state.calc=await price("");state.member="";state.compare=await Promise.all([price("","reduced").catch(function(){return null}),price("","free").catch(function(){return null})]);$("calc").hidden=true;$("result").hidden=false;$("guide").hidden=true;result();window.scrollTo(0,0)}catch(e){alert(T.error)}finally{$("go").disabled=false}};
 // The booking request.
 function openForm(){var c=state.calc,d=$("dlg");
   var mem=c.type==="reduced"?(c.memberPriceKr!=null?fmt(c.memberPriceKr):T.missingMember):c.type==="free"?fmt(0):"-";
