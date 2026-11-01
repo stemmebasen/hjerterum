@@ -13,7 +13,7 @@ import { queueMinutes } from "../saga/store.js";
 import { classifyDecisions, decisionKinds, onlyDecisions, setDecisionKind, unsorted, withKinds } from "./decisionKinds.js";
 import { DEPUTY_COOKIE, deputySessionValue, readDeputySession, cookie, codeGuessingBlocked, loginBlocked, readLoginCode, recordWrongCode, passwordMatches, PERSON_COOKIE, PERSON_DAYS, personSessionValue, readCookies, readPersonSession, readSessionMember, recordFailedLogin, SESSION_COOKIE, MEMBER_COOKIE, sessionMemberValue, SESSION_DAYS, sessionValue, validSession, WHO_COOKIE } from "./auth.js";
 import { linkMember, signedOutAfter, signOutMember, useCodeAs, useLinkAs, type LoginRole } from "./personalLogin.js";
-import { deputyRoute, deputyStillOpen, setSharing, sharing, sharingCard } from "./deputies.js";
+import { DEPUTY_POSTS, deputyStillOpen, deputyView, deputyWho } from "./deputies.js";
 import { allDecisions, allTasks, approvedMinutes, approvedMinutesById, boardMembers, boardPicture, deleteMeeting, groupNow, meeting, meetingInput, meetingOn, meetings, minutesDecisions, minutesInProgress,
   minutesStatusByDate, minutesTasks, sagaMeetings, saveMeeting, signOff, signoffs, lockIfApproved, inEditWindow, agendaClosed, meetingOver, answerLinks, tasksFor, unsignedFor, weeklySummary,
   addAgendaPoints, addTodo, approvalCounts, editAgendaPoint, editTodo, nextTeamMeeting, sagaRoom, reorderAgendaPoints, checkedTasks, currentTasks, lastMonthTasks, taskChecksByKey, tasksByPerson, currentTodos, openFor, removeAgendaPoint, removeTodo, removedTasks, markMemberDone, removeTaskFor, responsibilities, sagaItemsFor, setResponsibilities, setTaskChecked, setTodoDone, todosFor } from "./data.js";
@@ -102,6 +102,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const at = body.indexOf("</header>");
     response = new Response(at < 0 ? body : `${body.slice(0, at + 9)}${SIGN_STYLE}${state.banner}${body.slice(at + 9)}`, { status: response.status, headers: response.headers });
   }
+  // A deputy reads what the board reads; the buttons to approve minutes and to vote are not theirs (deputies.ts deputyView).
+  if (state.deputy && isHtml && response.status === 200) response = new Response(deputyView(await response.text()), { status: response.status, headers: response.headers });
   if (state.lang !== "en" || !isHtml) return response;
   const page = await response.text();
   // Requested: "I think that overview, tasks, and decisions should be automatically translated".
@@ -114,7 +116,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   return new Response(translateHtml(page), { status: response.status, headers: response.headers });
 }
 
-type State = { lang: Lang; banner?: string };
+type State = { lang: Lang; banner?: string; deputy?: boolean };
 
 async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: State): Promise<Response> {
   const url = new URL(request.url);
@@ -188,11 +190,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const jar = readCookies(request);
   const person = await readPersonSession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(PERSON_COOKIE), now);
   const personal = person && person.issuedMs > await signedOutAfter(db, person.member) ? person.member : null;
+  // Requested: "Vedr. suppleanter, så skal de have adgang til samme viden, men kan blot ikke stemme." A deputy (their own login, cockpit/deputies.ts)
+  // sees admin as the board does, under a name of their own ("Signe (suppleant)") so they can never act as a board member of the same
+  // name - but approving minutes and voting stay the board's: refused here, and the buttons are taken out of the page (handleCockpitRequest).
+  let deputyName: string | null = null;
   if (!personal && !(shared && await validSession(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), now))) {
-    // A deputy is sent to their own pages before any of the board's routes: nothing below this line is open to them (cockpit/deputies.ts).
     const deputy = await readDeputySession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(DEPUTY_COOKIE), now);
-    if (deputy && await deputyStillOpen(db, deputy.member, deputy.issuedMs)) return deputyRoute({ request, env, db, base, path, now, member: deputy.member });
-    return login("", shared || botLink ? 401 : 503);
+    if (!deputy || !(await deputyStillOpen(db, deputy.member, deputy.issuedMs))) return login("", shared || botLink ? 401 : 503);
+    deputyName = deputyWho(deputy.member);
+    state.deputy = true;
   }
   const members = await boardMembers(env, db);
   // A leader or moderator is someone on the board - or who the meeting already has (a name that has left the group stays until someone changes it).
@@ -207,11 +213,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // A personal login is that member, and stays so; with the shared password you say who you are - once per login
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
   const bound = personal || !shared ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
-  const who = personal ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
+  const who = personal ?? deputyName ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
+  // A deputy reads only: nothing is changed, created or voted on for them (deputies.ts).
+  if (deputyName && request.method !== "GET" && request.method !== "HEAD" && !DEPUTY_POSTS.has(path)) {
+    if (path.startsWith("/api/") || (request.headers.get("accept") ?? "").includes("application/json")) return answer({ error: "Som suppleant har du læseadgang." }, 403);
+    const minutes = /^\/referat\/(\d+)\//.exec(path);
+    return redirect(minutes ? `${base}/referat/${minutes[1]}?suppleant=1` : `${base}/?suppleant=1`);
+  }
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);
   // Not on a minutes' own page, where the approval stands at the top.
-  if (who && !path.startsWith("/referat/") && request.method === "GET") state.banner = signReminder(base, await unsignedFor(db, who, now).catch(() => []), now);
+  if (who && !deputyName && !path.startsWith("/referat/") && request.method === "GET") state.banner = signReminder(base, await unsignedFor(db, who, now).catch(() => []), now);
 
   if (path === "/hvem") {
     // Requested: "Once you have logged in, you can't change to another person." Chosen once; only logging out undoes it.
@@ -409,17 +421,6 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     return redirect(`${base}/referat/${id}#punkt-${point}`);
   }
 
-  // Requested: "Lad os starte med suppleant adgang" - minutes are internal until a board member shares them with the deputies (cockpit/deputies.ts).
-  const sharePath = /^\/referat\/(\d+)\/suppleanter$/.exec(path);
-  if (sharePath && request.method === "POST") {
-    const id = Number(sharePath[1]);
-    if (!(await approvedMinutesById(db, id))) return html(notFound(base, who), 404);
-    if (!who) return redirect(`${base}/hvem`);
-    const share = String((await request.formData().catch(() => null))?.get("del") ?? "") === "ja";
-    await setSharing(db, id, share, who, now);
-    return redirect(`${base}/referat/${id}?${share ? "delt" : "intern"}=1`);
-  }
-
   const minutesPath = /^\/referat\/(\d+)$/.exec(path);
   if (minutesPath && request.method === "GET") {
     const minutes = await approvedMinutesById(db, Number(minutesPath[1]));
@@ -430,9 +431,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const notice = url.searchParams.get("laast") ? "Referatet er godkendt af alle og låst. Det kan ikke længere ændres." : url.searchParams.get("godkendt") ? "Tak - din godkendelse er noteret." : url.searchParams.get("rettelse") ? "Tak - formanden har fået din besked."
       : url.searchParams.get("retperiode") ? "Referatet kan stadig rettes. Du godkender det, når rettelsesperioden er slut." : url.searchParams.get("lukket") ? "Rettelsesperioden er slut, så referatet kan ikke længere ændres. Nu godkender I det hver især."
       : url.searchParams.get("oversat") ? "Saga kunne ikke oversætte referatet lige nu. Prøv igen om lidt."
-      : url.searchParams.get("delt") ? "Referatet er delt med suppleanterne." : url.searchParams.get("intern") ? "Referatet er internt igen. Suppleanterne kan ikke længere se det." : "";
-    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now })
-      + sharingCard(base, minutes.id, await sharing(db, minutes.id), Boolean(who));
+      : url.searchParams.get("suppleant") ? "Som suppleant har du læseadgang: du kan læse referatet, men ikke rette eller godkende det." : "";
+    const panel = signoffPanel(base, minutes, { members: members.names, signoffs: await signoffs(db, minutes.id), who, notice, nowMs: now });
     // Requested: "Douglas taler engelsk" - the Danish summary is the original; the English one is made with it (translate.ts scheduledEnglishSummaries), and "Read in English" has Saga make it at once when it is missing.
     const english = state.lang === "en" && minutes.draft_markdown && !url.searchParams.get("original") ? await translatedMinutes(db, minutes.draft_markdown) : null;
     if (english) return html(layout(base, `Summary ${minutes.meeting_date ?? ""}`.trim(), `<main>${panel}${englishMinutes(base, minutes, english)}</main>`, { section: "/moder", who, style: MINUTES_STYLE }));
@@ -1147,7 +1147,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!input) return answer({ error: "Skriv et spørgsmål." }, 400);
     if (!env.AI_API_KEY || !env.AI_MODEL) return answer({ error: "Saga kan ikke svare lige nu (hendes AI er ikke sat op)." }, 503);
     if (await questionsToday(db, now) >= DAILY_QUESTIONS) return answer({ error: "Saga har svaret på mange spørgsmål det seneste døgn. Prøv igen i morgen." }, 429);
-    try { return answer({ html: await askSaga(env, deps, db, who, input, base, state.lang) }); }
+    try { return answer({ html: await askSaga(env, deps, db, who, input, base, state.lang, { readOnly: Boolean(deputyName) }) }); }
     catch (error) {
       console.warn("cockpit_ask_failed", error instanceof Error ? error.message : error);
       return answer({ error: "Saga kunne ikke svare lige nu. Prøv igen om lidt." }, 502);

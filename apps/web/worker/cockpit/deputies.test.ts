@@ -12,9 +12,9 @@ const NOW = Date.parse("2026-10-28T10:00:00Z");
 const DEPUTIES = "-100333";
 const MINUTES = "# Referat\n\n## Beslutninger\n- Vi holder åbent hus i november\n\n## Drøftelser\n- Hemmeligt om økonomien";
 
-async function setup(chatMembers: Record<string, string> = {}) {
+async function setup(chatMembers: Record<string, string> = {}, ai?: (system: string, user: string) => string) {
   const db = testDatabase();
-  const services = fakeServices({ chatMembers });
+  const services = fakeServices({ chatMembers, ...(ai ? { ai } : {}) });
   const env = sagaEnv(db, { COCKPIT_URL: ORIGIN, SAGA_DEPUTY_CHAT_ID: DEPUTIES });
   for (const [i, [name, id]] of ([["Jacob Hauge", OWNER], ["Gitta", "202"]] as const).entries())
     await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: id, text: "Hej", sentAtMs: NOW - 86_400_000 });
@@ -66,62 +66,59 @@ describe("a deputy's login", () => {
     expect((await loginFor(301)).path).toBeNull();
   });
 
-  it("logs in with a cookie of its own, and shows the deputy's pages only", async () => {
+  // Changed: "Vedr. suppleanter, så skal de have adgang til samme viden, men kan blot ikke stemme" - "Suppleanter har i øvrigt kun læseadgang".
+  it("logs in with a cookie of its own and sees admin as the board does - under a name of its own, read only", async () => {
     const { call, deputy } = await setup();
     const signe = await deputy();
     expect(signe).toContain("hjerterum_cockpit_deputy=");
     expect(signe).not.toContain("hjerterum_cockpit_person=");
     const home = await (await call("/", { cookie: signe })).text();
-    expect(home).toContain("Hej Signe");
-    expect(home).toContain("logget ind som suppleant");
-    expect(home).not.toContain('href="/posthus"');
-    expect(home).not.toContain('href="/opslag"');
-    expect(home).not.toContain('action="/saga"');
-    const meetings = await (await call("/moder", { cookie: signe })).text();
-    expect(meetings).toContain("Åbent hus");
-    expect(meetings).not.toContain("<form method=\"post\" action=\"/moder");
+    expect(home).toContain("Signe (suppleant)");
+    expect(home).toContain("Du er logget ind som suppleant og har læseadgang");
+    for (const path of ["/posthus", "/opslag", "/medlemmer", "/beslutninger", "/moder", "/arrangementer"])
+      expect((await call(path, { cookie: signe })).status, path).toBe(200);
+    // The same minutes as the board - nothing to share first.
+    const minutes = await (await call("/referat/1", { cookie: signe })).text();
+    expect(minutes).toContain("Vi holder åbent hus i november");
+    expect(minutes).toContain("Hemmeligt om økonomien");
+    expect(minutes).not.toContain("Del med suppleanterne");
+    // No form that changes something - only logging out and asking Saga.
+    const forms = [...home.matchAll(/<form\b[^>]*method="post"[^>]*action="([^"]*)"/gi), ...home.matchAll(/<form\b[^>]*action="([^"]*)"[^>]*method="post"/gi)].map(m => m[1]);
+    expect(forms.every(a => ["/logout", "/sprog", "/saga"].includes(a!))).toBe(true);
   });
 
-  it("closes every board page, whatever address is typed", async () => {
-    const { call, deputy } = await setup();
+  it("can neither change, create nor vote - whatever is posted", async () => {
+    const { db, call, deputy } = await setup();
     const signe = await deputy();
-    for (const path of ["/posthus", "/opslag", "/medlemmer", "/statistik", "/administratorer", "/samtaler", "/opgaver", "/hukommelse", "/formand/log", "/arkiv", "/status", "/moder/1", "/profil", "/arrangementer/undervisere"])
-      expect((await call(path, { cookie: signe })).status, path).toBe(404);
-    for (const path of ["/saga", "/opslag", "/afstemninger/stem", "/referat/1/godkend", "/referat/1/suppleanter", "/sprog"])
-      expect((await call(path, { method: "POST", cookie: signe })).status, path).toBe(404);
+    for (const path of ["/opslag", "/afstemninger/stem", "/afstemninger/ny", "/referat/1/godkend", "/referat/1/rettelse", "/opgaver/ny", "/moder", "/posthus/klaret"]) {
+      const response = await call(path, { method: "POST", cookie: signe, body: (() => { const f = new FormData(); f.append("id", "1"); f.append("vote", "for"); f.append("comment", "x"); f.append("title", "x"); return f; })() });
+      expect(response.status, path).toBe(303);
+    }
+    const signed = await db.prepare("SELECT COUNT(*) AS n FROM board_minutes_signoffs").first<{ n: number }>();
+    expect(signed?.n ?? 0).toBe(0);
+    expect((await call("/referat/1?suppleant=1", { cookie: signe }).then(r => r.text()))).toContain("Som suppleant har du læseadgang");
   });
 
-  it("sees minutes and their decisions only once the board has shared them", async () => {
-    const { call, deputy, update, loginFor, cookiesOf } = await setup();
+  it("asks Saga about the board's knowledge, but she does nothing for a deputy", async () => {
+    const { call, deputy, services } = await setup({}, (system, user) => user.includes("suppleant med læseadgang") && system.includes("Vi holder åbent hus i november")
+      ? "Bestyrelsen har besluttet åbent hus i november. [[GRUPPEN: Hej alle]]" : "Ved det ikke.");
     const signe = await deputy();
-    expect((await call("/referat/1", { cookie: signe })).status).toBe(404);
-    expect(await (await call("/beslutninger", { cookie: signe })).text()).not.toContain("åbent hus i november");
-
-    // Gitta (board) shares the minutes from her own login.
-    await update({ id: Number(BOARD), type: "supergroup" }, 202, "Hej", "Gitta");
-    const gitta = cookiesOf(await call((await loginFor(202)).path!, { method: "POST" }));
-    expect(await (await call("/referat/1", { cookie: gitta })).text()).toContain("Del med suppleanterne");
-    expect((await call("/referat/1/suppleanter", { method: "POST", cookie: gitta, body: (() => { const f = new FormData(); f.append("del", "ja"); return f; })() })).status).toBe(303);
-    expect(await (await call("/referat/1", { cookie: gitta })).text()).toContain("Delt med suppleanterne af Gitta");
-
-    const shared = await (await call("/referat/1", { cookie: signe })).text();
-    expect(shared).toContain("Vi holder åbent hus i november");
-    expect(await (await call("/beslutninger", { cookie: signe })).text()).toContain("Vi holder åbent hus i november");
-    // The other minutes stay internal.
-    expect((await call("/referat/2", { cookie: signe })).status).toBe(404);
-    expect(await (await call("/beslutninger", { cookie: signe })).text()).not.toContain("Internt punkt");
-
-    // Made internal again: gone for the deputy at once.
-    await call("/referat/1/suppleanter", { method: "POST", cookie: gitta, body: (() => { const f = new FormData(); f.append("del", "nej"); return f; })() });
-    expect((await call("/referat/1", { cookie: signe })).status).toBe(404);
+    const sentBefore = services.telegram("sendMessage").length;
+    const response = await call("/saga", { method: "POST", cookie: signe, body: JSON.stringify({ question: "Hvad har bestyrelsen besluttet om november?", history: [] }) });
+    const reply = await response.json() as { html?: string };
+    expect(reply.html).toContain("åbent hus i november");
+    expect(reply.html).not.toContain("GRUPPEN");
+    expect(services.telegram("sendMessage").length).toBe(sentBefore);
   });
 
   it("cannot be read as a board login, not even with a board member's name", async () => {
     const { call, update, loginFor, cookiesOf } = await setup();
-    // A deputy who happens to be called Gitta, like the board member.
+    // A deputy who happens to be called Gitta, like the board member: in admin they are "Gitta (suppleant)", never Gitta.
     await update({ id: Number(DEPUTIES), type: "supergroup" }, 302, "Hej", "Gitta");
     const fake = cookiesOf(await call((await loginFor(302)).path!, { method: "POST" }));
-    expect((await call("/posthus", { cookie: fake })).status).toBe(404);
+    const home = await (await call("/", { cookie: fake })).text();
+    expect(home).toContain("Gitta (suppleant)");
+    expect((await call("/referat/1/godkend", { method: "POST", cookie: fake })).status).toBe(303);
     // Nor does renaming the deputy's cookie to the board's make it a board login.
     const renamed = fake.replace("hjerterum_cockpit_deputy=", "hjerterum_cockpit_person=");
     expect((await call("/posthus", { cookie: renamed })).status).toBe(401);

@@ -258,12 +258,12 @@ const MISSING = /\[\[MANGLER(?::\s*([^\]]*))?\]\]/i;
 const MISSING_NOTE = `DU HAR KUN FÅET DE DELE AF VIDEN, SOM SER RELEVANTE UD FOR SPØRGSMÅLET. Kan du ikke svare ordentligt uden mere, så svar KUN med [[MANGLER: ${HEAVY_SECTIONS.join(", ")}]] og nævn kun de dele, du mangler (eller bare [[MANGLER]] hvis du er i tvivl) - skriv intet andet. Så får du dem med det samme. Gæt aldrig.`;
 
 /** Saga's answer as HTML (escaped by the Markdown renderer), and the question kept for the daily limit. */
-export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: AskInput, base = "", lang: "da" | "en" = "da"): Promise<string> {
-  return /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(await askSagaMarkdown(env, deps, db, who, input, base, lang)))?.[1] ?? "";
+export async function askSaga(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, input: AskInput, base = "", lang: "da" | "en" = "da", options: { readOnly?: boolean } = {}): Promise<string> {
+  return /<body>([\s\S]*)<\/body>/.exec(markdownToHtml(await askSagaMarkdown(env, deps, db, who, input, base, lang, options)))?.[1] ?? "";
 }
 
 /** The same answer as Markdown - for Matrix's chat (Requested: "Kan jeg have Saga og Zilla tilgængelig i chat i Matrix"). */
-export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, asked: AskInput, base = "", lang: "da" | "en" = "da"): Promise<string> {
+export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Database, who: string | null, asked: AskInput, base = "", lang: "da" | "en" = "da", options: { readOnly?: boolean } = {}): Promise<string> {
   const kept = await conversationTurns(db, who, asked.conversation, deps.now());
   const input = { ...asked, history: [...(asked.context ?? []), ...(kept.length ? kept : asked.history)] };
   // Requested: "Hun skal kunne rette i mit \"personlige\" cockpit, når jeg beder hende om det" (cockpit/personal.ts).
@@ -273,7 +273,7 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   const topic = [...input.history.filter(t => t.role === "user").map(t => t.content), input.question].join(" ");
   const board = await boardMembers(env, db).catch(() => ({ names: [] as string[], chair: null }));
   const isChair = Boolean(who && board.chair && who === board.chair);
-  const userTurn = { role: "user" as const, content: `${who ? `${who}${isChair ? " (formand og superadmin)" : ""} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` };
+  const userTurn = { role: "user" as const, content: `${who ? `${who}${isChair ? " (formand og superadmin)" : ""}${options.readOnly ? " - suppleant med læseadgang: svar ud fra det samme materiale som til bestyrelsen, men udfør, opret, send eller ret intet for vedkommende, og skriv ingen [[...]]-linjer" : ""} spørger` : "Spørgsmål"}${lang === "en" ? " (læser admin på engelsk - svar på engelsk, og kald et referat for \"summary\", aldrig \"minutes\")" : ""}: ${input.question}` };
   const langs = await Promise.all(board.names.map(async n => `${n}: ${await memberLang(db, n) === "en" ? "engelsk" : "dansk"}`));
   const tail = `${mine}${waiting}${await memorySection(db, who)}${langs.length ? `\n\nBESTYRELSENS SPROG (det sprog, hver har valgt i admin):\n${langs.join("\n")}` : ""}\n\nLINKS I ADMIN: opgaver ${base}/opgaver · arrangementer og nyt arrangement med Saga ${base}/arrangementer · møder ${base}/moder`;
   const build = async (only: ReadonlySet<string> | null): Promise<ChatMessage[]> => [{ role: "system", content: `${COCKPIT_SYSTEM}${only ? `\n\n${MISSING_NOTE}` : ""}\n\n${await boardKnowledge(env, deps, db, topic, only)}${tail}` }, ...input.history, userTurn];
@@ -287,7 +287,8 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
     raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
-  const answer = await applyTextChanges(db, await applySaveText(env, deps, db, await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who), who, input.question, base), who, isChair, base);
+  // Requested: "Suppleanter har i øvrigt kun læseadgang" - for a deputy, Saga only answers: any action line she writes anyway is dropped, never carried out.
+  const answer = options.readOnly ? raw.replace(MISSING, "").replace(/\[\[[^\]]*\]\]/g, "").trim() : await applyTextChanges(db, await applySaveText(env, deps, db, await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who), who, input.question, base), who, isChair, base);
   await db.prepare("INSERT INTO cockpit_questions (asked_by, question, answer, created_at_ms, conversation) VALUES (?, ?, ?, ?, ?)").bind(who, input.question, answer.slice(0, 8000), now, input.conversation ?? null).run();
   await db.prepare("DELETE FROM cockpit_questions WHERE created_at_ms < ?").bind(now - 90 * DAY).run();
   return answer;
