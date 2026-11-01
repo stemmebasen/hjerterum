@@ -1,4 +1,5 @@
 import { ROOM_RENTAL_RULES } from "../../../packages/core/src/legacy-room-pricing.js";
+import { cirklerKnowledge } from "./cockpit/cirkler.js";
 import { SIGNUP_URL } from "../site/pages.js";
 import type { D1Database } from "./db.js";
 import { houseKnowledge } from "./member-saga.js";
@@ -149,7 +150,9 @@ export const readLang = (value: unknown): "da" | "en" => value === "en" ? "en" :
 
 export async function publicAnswer(env: SagaEnv, deps: SagaDeps, history: WebMessage[], loggedIn: boolean, lang: "da" | "en" = "da"): Promise<{ reply: string; action: WebAction | null }> {
   const messages: AiMessage[] = history.slice(-12).map(m => ({ role: m.role, content: m.text }));
-  const answer = await completeAs(loggedIn ? "medlem-saga-gaest" : "hjemmeside-saga", "mid", 900)(env, deps, [{ role: "system", content: PUBLIC_SYSTEM(todayText(deps.now()), loggedIn) + (lang === "en" ? ENGLISH : "") }, ...messages]);
+  // Asked: "Ved hun virkelig ikke mere om cirkler? Er det en anden saga end hende vi har i admin?" - the same facts as in admin
+  // (cockpit/cirkler.ts), when the conversation is about CIRKLER.
+  const answer = await completeAs(loggedIn ? "medlem-saga-gaest" : "hjemmeside-saga", "mid", 900)(env, deps, [{ role: "system", content: PUBLIC_SYSTEM(todayText(deps.now()), loggedIn) + cirklerKnowledge(history) + (lang === "en" ? ENGLISH : "") }, ...messages]);
   return parsePublicAnswer(answer, loggedIn);
 }
 
