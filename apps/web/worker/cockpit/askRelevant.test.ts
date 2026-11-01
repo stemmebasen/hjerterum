@@ -115,7 +115,7 @@ describe("only what the question needs", () => {
     expect(asked).toContain("395 kr./md.");
     expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvem har ansvar?", new Set())).not.toContain("CIRKLER - SMÅ, FASTE FÆLLESSKABER");
     // Asked about what membership gives, she can name CIRKLER.
-    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad koster et medlemskab?", new Set(["medlemskab"]))).toContain("Gratis deltagelse i CIRKLER");
+    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad koster et medlemskab?", new Set(["medlemskab"]))).toContain("CIRKLER: gratis for medlemmer med Standard, Generøst og Reduceret pris");
   });
 
   it("leaves the heavy parts out unless they are named - and gives the whole pack when nothing is said", async () => {
