@@ -12,7 +12,7 @@ import { choicesFor, DESCRIBE, draftFrom, fixedAnswer, guidedPrompt, isBrief, me
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 
-import { SITE_PAGES } from "../site/pages.js";
+import { danishPages, sitePageText } from "./site-knowledge.js";
 import { isPartnerEvent } from "../partner-events.js";
 import { getExternalEvents, type ExternalEvent } from "./external-events.js";
 import { copenhagenDayRange } from "./room-day.js";
@@ -52,10 +52,7 @@ const json = (data: unknown, status = 200) => new Response(JSON.stringify(data),
  * hjemmesiden er basisviden." The whole Danish website - public, so Saga may repeat it - with the membership plans and their prices. */
 export function houseKnowledge(): string {
   const plans = Object.values(membershipPlans).map((plan) => `- ${plan.name}: ${membershipPrice(plan.month)} pr. måned eller ${membershipPrice(plan.year)} pr. år. ${plan.description}`).join("\n");
-  const pages = SITE_PAGES.filter((page) => page.lang === "da").map((page) => {
-    const body = page.body.replace(/^\{\{[^}]+\}\}\s*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
-    return `### ${[page.title, page.em].filter(Boolean).join(" ")} (https://www.hjerterum.info${page.path})\n${page.lead ?? ""}\n${body}`;
-  }).join("\n\n");
+  const pages = danishPages().map(sitePageText).join("\n\n");
   return `### Medlemskaber og priser\n${plans}\n\n${pages}`.slice(0, 70_000);
 }
 

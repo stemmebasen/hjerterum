@@ -29,9 +29,10 @@ describe("Saga's greeting and what she knows about membership", () => {
     expect(system).toContain("MEDLEMSKAB - TYPER, PRISER, FORDELE OG VILKÅR");
     expect(system).toContain("- Generøst medlemskab: 333 kr. / 3.465 kr.");
     expect(system).toContain("Support medlemskab: 50 kr. / 540 kr.");
-    expect(system).toContain("Bindingsperiode: løbende måned + 1 måned");
-    expect(system).toContain("tribes@holistisk.org");
-    expect(system).toContain("betaling dér er ikke åbnet endnu");
+    expect(system).toContain("Bindingsperioden er løbende måned + 1 måned");
+    expect(system).toContain("https://www.hjerterum.info/medlemskab/vilkaar");
+    expect(system).toContain("Indmeldelse sker indtil videre via https://holistisk.org/bliv-medlem/");
+    expect(system).not.toContain("Melder man sig ind inden 15. oktober");
     expect(system).toContain("Svar på det sprog, spørgsmålet er stillet på");
     // Requested: "Dette er alt for tungt. Her skal hun blot svare varmt og uformel og med et glimt i øjet" (e.g. to "Hvem er jeg?").
     expect(system).toContain("TONEN ER DET VIGTIGSTE");
