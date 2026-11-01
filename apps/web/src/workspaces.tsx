@@ -1123,7 +1123,9 @@ export function MemberWorkspace({
       {trial && !loading && <TrialNote />}
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError && normalized !== "/member-portal/profil" ? <>
-          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div></section>
+          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div>
+            {/* Requested: "Det bør være muligt at booke lokalet uden at være medlem" - the calculator books the room at the standard price and shows what members pay. */}
+            <div className="workspace-card"><h2>Vil du leje salen?</h2><p>Det kan du også uden medlemskab - til standardpris. I prisberegneren ser du samtidig, hvad du ville betale som medlem.</p><a className="pill-button dark" href="/beregner">Beregn pris og book salen</a></div></section>
           <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
         </> :
         normalized === "/member-portal/medlemskab" ? (

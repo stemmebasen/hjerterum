@@ -54,7 +54,7 @@ describe("the price calculator", () => {
     await connectTeamMail(e, e.DB!, { address: "team@holistisk.org", password: "pw", by: "Jacob Hauge", nowMs: NOW }, box.opener);
     const form = (fields: Record<string, string>, started = NOW - 60_000) => {
       const f = new FormData();
-      for (const [k, v] of Object.entries({ day: "3", start: "19:00", hours: "3", type: "reduced", memberPrice: "500", started: String(started), eventName: "Yin yoga", dates: "2026-10-21",
+      for (const [k, v] of Object.entries({ day: "3", start: "19:00", hours: "3", type: "standard", started: String(started), eventName: "Yin yoga", dates: "2026-10-21",
         description: "En rolig aften med yin yoga.", name: "Mette Holm", email: "mette@example.dk", phone: "12345678", links: "https://instagram.com/mette", signup: "Online via Hjerterum", payment: "MobilePay", ...fields })) f.append(k, v);
       return f;
     };
@@ -72,8 +72,11 @@ describe("the price calculator", () => {
     expect(raw).toMatch(/Subject: =\?UTF-8\?B\?/);
     expect(raw).toContain('filename="forside.png"');
     const body = decode(raw);
-    for (const text of ["Yin yoga", "onsdag den 21. oktober 2026", "onsdag den 28. oktober 2026", "Onsdag kl. 19:00-22:00 (A-tid)", "Reduceret pris", "Kampagnerabat: 25 %: -138 kr.",
-      "Lejepris i alt: 412 kr.", "Medlemspris pr. deltager: 500 kr.", "Ikke-medlemmer mindst: 625 kr.", "Mette Holm", "mette@example.dk", "https://instagram.com/mette", "En rolig aften med yin yoga."]) expect(body).toContain(text);
+    for (const text of ["Yin yoga", "onsdag den 21. oktober 2026", "onsdag den 28. oktober 2026", "Onsdag kl. 19:00-22:00 (A-tid)", "Standardpris",
+      "Lejepris (pakkepris): 1.080 kr.", "Mette Holm", "mette@example.dk", "https://instagram.com/mette", "En rolig aften med yin yoga."]) expect(body).toContain(text);
+    // Requested: "Det bør være muligt at booke lokalet uden at være medlem" - at the standard price; the members' prices are booked in the member area.
+    for (const type of ["reduced", "free"]) expect(await (await send(form({ type, memberPrice: "500" }), "5.5.5.5")).json()).toEqual({ error: "members_only" });
+    expect(box.appended).toHaveLength(1);
 
     // A robot filling the hidden field, or a form sent within seconds, gets a thank-you and nothing is laid in the inbox.
     expect(await (await send(form({ website: "spam" }))).json()).toEqual({ ok: true });
