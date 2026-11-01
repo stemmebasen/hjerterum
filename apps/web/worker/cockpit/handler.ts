@@ -37,6 +37,9 @@ import { knownContacts, listTeachers, saveContact, setTeacherHidden, summarizeTe
 import { comingEvents, eventStats, searchEvents } from "./events.js";
 import { eventsPage } from "./eventsPage.js";
 import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeeting, waitingOn } from "./board.js";
+import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
+import type { NewsletterEnv } from "../newsletter-send.js";
+import { newsletterPage } from "./newsletterPage.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
 import { deleteText, renameText, savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
@@ -868,6 +871,64 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; img-src 'self'; sandbox" } });
   }
 
+  // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" - Events → Nyhedsbrev
+  // (newsletter.ts, newsletterPage.ts). Read, changed and approved here; sent by the job on the 1st, never without an approval.
+  if (path.startsWith("/arrangementer/nyhedsbrev")) {
+    if (!who) return redirect(`${base}/hvem`);
+    const current = monthOf(now), coming = nextMonth(current);
+    const form = request.method === "POST" ? await request.formData().catch(() => null) : null;
+    const asked = String(form?.get("m") ?? url.searchParams.get("m") ?? "");
+    const month = [current, coming].includes(asked) ? asked : coming;
+    const back = (query = "") => redirect(`${base}/arrangementer/nyhedsbrev?m=${month}${query}`);
+    const mailchimpReady = Boolean((env as NewsletterEnv).MAILCHIMP_API_KEY);
+    if (path === "/arrangementer/nyhedsbrev" && request.method === "GET") {
+      const notices: Record<string, string> = { gemt: "Ændringerne er gemt.", skrevet: "Saga har skrevet nyhedsbrevet.", godkendt: `Godkendt. Det sendes den 1. kl. ${SEND_HOUR}.00.`, fortrudt: "Godkendelsen er fortrudt." };
+      const errors: Record<string, string> = { skrivning: "Saga kunne ikke skrive nyhedsbrevet lige nu. Prøv igen om lidt.", tom: "Der er ingen events i den måned endnu.", sendt: "Det er allerede sendt og kan ikke ændres." };
+      return html(newsletterPage(base, who, { month, issue: await getIssue(db, month), months: [current, coming], mailchimp: mailchimpReady, aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL),
+        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" }),
+        200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace("default-src 'none';", "default-src 'none'; frame-src 'self';") });
+    }
+    if ((path === "/arrangementer/nyhedsbrev/vis" || path === "/arrangementer/nyhedsbrev/html") && request.method === "GET") {
+      const issue = await getIssue(db, month);
+      if (!issue) return back();
+      const mail = newsletterHtml(issue, await monthEvents(db, month, deps.fetcher));
+      // The mail as it will arrive: its own pictures and fonts, shown inside the page above (same origin only).
+      return new Response(mail, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow", "referrer-policy": "same-origin",
+        "x-frame-options": "SAMEORIGIN", "content-security-policy": "default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'self'; form-action 'none'; base-uri 'none'",
+        ...(path.endsWith("/html") ? { "content-disposition": `attachment; filename="nyhedsbrev-${month}.html"` } : {}) } });
+    }
+    if (path === "/arrangementer/nyhedsbrev/skriv" && request.method === "POST") {
+      if ((await getIssue(db, month))?.status === "sent") return back("&fejl=sendt");
+      if (!(await monthEvents(db, month, deps.fetcher)).length) return back("&fejl=tom");
+      const written = await writeIssue(env, deps, db, month).catch(() => null);
+      return back(written ? "&besked=skrevet" : "&fejl=skrivning");
+    }
+    if (path === "/arrangementer/nyhedsbrev/gem" && request.method === "POST") {
+      const issue = await getIssue(db, month);
+      if (!issue) return back();
+      if (issue.status === "sent") return back("&fejl=sendt");
+      const text = (name: string, max: number) => String(form?.get(name) ?? "").replace(/\r\n?/g, "\n").trim().slice(0, max);
+      const link = (name: string) => { const v = text(name, 600); return /^https:\/\//.test(v) ? v : ""; };
+      const highlights = issue.highlights.map((h, i) => form?.get(`h${i}_remove`) ? null : { heading: text(`h${i}_heading`, 140) || h.heading, byline: text(`h${i}_byline`, 140),
+        text: text(`h${i}_text`, 1500) || h.text, image: link(`h${i}_image`) || null, link: link(`h${i}_link`) || h.link }).filter(Boolean);
+      // A changed draft is a new draft: an approval was for the words as they were.
+      await db.prepare(`UPDATE newsletter_issues SET subject = ?, preheader = ?, intro = ?, highlights = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, updated_at_ms = ? WHERE month = ?`)
+        .bind(text("subject", 150) || issue.subject, text("preheader", 150), text("intro", 1200) || issue.intro, JSON.stringify(highlights), now, month).run();
+      return back("&besked=gemt");
+    }
+    if (path === "/arrangementer/nyhedsbrev/godkend" && request.method === "POST") {
+      const issue = await getIssue(db, month);
+      if (!issue) return back();
+      if (issue.status === "sent") return back("&fejl=sendt");
+      if (form?.get("undo")) {
+        await db.prepare("UPDATE newsletter_issues SET status = 'draft', approved_by = NULL, approved_at_ms = NULL, updated_at_ms = ? WHERE month = ?").bind(now, month).run();
+        return back("&besked=fortrudt");
+      }
+      if (!mailchimpReady) return back();
+      await db.prepare("UPDATE newsletter_issues SET status = 'approved', approved_by = ?, approved_at_ms = ?, error = NULL, updated_at_ms = ? WHERE month = ?").bind(who, now, now, month).run();
+      return back("&besked=godkendt");
+    }
+  }
   if (path === "/arrangementer" && request.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
     const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;

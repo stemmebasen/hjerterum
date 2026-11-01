@@ -1,3 +1,4 @@
+import { runNewsletterJob, type NewsletterEnv } from "./newsletter-send.js";
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
 import { eventDetail } from "./event-detail.js";
@@ -174,6 +175,8 @@ export default {
       .catch(error => console.warn("saga_jobs_failed", error instanceof Error ? error.message : error));
     await runEventSync(env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() })
       .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
+    // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" (newsletter.ts).
+    await runNewsletterJob(env as NewsletterEnv, deps).catch(error => console.warn("newsletter_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
   }
