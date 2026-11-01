@@ -130,7 +130,7 @@ export function SiteFooter() {
       {/* Requested: "Kan du finde et sted til linjen: Autentisk er det nye cool" - the house's motto, under the name on every page. */}
       <p className="site-motto">Autentisk er det nye cool</p>
       <p>Et varmt rum for nærvær, oplevelser og fællesskab – skabt af medlemmer for medlemmer.</p>
-      <p>Guldsmedgade 26B, st., 8000 Aarhus C<br /><a href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org</a></p>
+      <p>Guldsmedgade 26B, st., 8000 Aarhus C<br /><a href="mailto:team@hjerterum.info">team@hjerterum.info</a></p>
     </div>
     <nav aria-label="Sidefod">
       {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}

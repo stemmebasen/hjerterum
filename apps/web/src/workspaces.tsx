@@ -533,7 +533,7 @@ function MemberEvents({
         code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "Salen lejes mindst 2 og højst 10 timer med klargøring og oprydning." :
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
-        "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til hjerterum@holistisk.org, hvis det bliver ved."
+        "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til team@hjerterum.info, hvis det bliver ved."
       );
     } finally {
       setSaving(false);
@@ -830,6 +830,8 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
     setBusy(false);
   }
 
+  const [cancelSent, setCancelSent] = useState(false);
+
   async function cancelMembership() {
     if (!window.confirm("Vil du opsige medlemskabet ved udgangen af den nuværende betalingsperiode?")) return;
     setBusy(true);
@@ -841,6 +843,30 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
     setBusy(false);
   }
 
+  // Requested: "Man skal selv kunne opsige når man er logget ind. Har man brug for hjælp kan man skrive team@hjerterum.info". Paid through
+  // MembershipWorks (or given by Hjerterum), the cancellation goes to the team, who end it there (worker/membership-cancel-request.ts).
+  async function requestCancel() {
+    if (!window.confirm("Vil du opsige dit medlemskab? Bindingsperioden er løbende måned + 1 måned.")) return;
+    setBusy(true);
+    setMessage("");
+    const response = await apiFetch(clerk, "/api/members/me/cancel-request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }).catch(() => null);
+    setMessage(response?.ok
+      ? "Tak – din opsigelse er modtaget. Du får svar på mail med datoen for sidste træk."
+      : "Opsigelsen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info.");
+    if (response?.ok) setCancelSent(true);
+    setBusy(false);
+  }
+
+  const cancelBlock = (
+    <>
+      <div className="workspace-actions">
+        {!cancelSent && <button type="button" className="text-button is-danger membership-cancel" disabled={busy} onClick={() => void requestCancel()}>Opsig medlemskab</button>}
+      </div>
+      {message && <p className="workspace-message" role="status">{message}</p>}
+      <p className="small muted">Brug for hjælp? Skriv til <a className="text-link" href="mailto:team@hjerterum.info">team@hjerterum.info</a>.</p>
+    </>
+  );
+
   if (member?.billing === "manual") {
     return (
       <section className="workspace-section member-page workspace-narrow">
@@ -851,7 +877,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
           <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret via MembershipWorks." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
-          <a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt os om medlemskabet →</a>
+          {cancelBlock}
         </div>
       </section>
     );
@@ -867,7 +893,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
           <p>Dit nuværende medlemskab og din betaling fortsætter uændret i MembershipWorks.</p>
-          <a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt os om medlemskabet →</a>
+          {cancelBlock}
         </div>
         <MembershipPlans />
       </section>
@@ -895,7 +921,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         {billingState === "ready" ? (
         <div className="workspace-actions">
           <button type="button" className="pill-button dark" disabled={busy} onClick={() => void openPortal()}>Administrér betaling</button>
-          {!subscription?.cancelAtPeriodEnd && <button type="button" className="text-button is-danger membership-cancel" disabled={busy} onClick={() => void cancelMembership()}>Afmeld</button>}
+          {!subscription?.cancelAtPeriodEnd && <button type="button" className="text-button is-danger membership-cancel" disabled={busy} onClick={() => void cancelMembership()}>Opsig medlemskab</button>}
         </div>
         ) : <p role="status">{billingState === "loading"
           ? "Henter betalingsoplysninger …"
@@ -1095,7 +1121,7 @@ export function MemberWorkspace({
       {trial && !loading && <TrialNote />}
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
         accessError && normalized !== "/member-portal/profil" ? <>
-          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:hjerterum@holistisk.org">Kontakt Hjerterum →</a></div></section>
+          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div></section>
           <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
         </> :
         normalized === "/member-portal/medlemskab" ? (

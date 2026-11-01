@@ -40,7 +40,7 @@ Healing, sharing, singing, music, dancing, talks, workshops, yoga, rebirthing, b
 Most events can be booked right here. If you can't sign up for an event, it is full, or registration happens elsewhere (e.g. by email or on the organiser's own website). Do you have a good idea for an event? Write to [events@holistisk.org](mailto:events@holistisk.org).
 
 ### Hjerterum Open {#hjerterum-open}
-Hjerterum Open are events created and organised by Hjerterum itself – concerts, talks, community dinners, dance, meditation, themed evenings and more – to strengthen and bring the community together, to invite new people in, and to create collaboration across the house. They are open to members and non-members, often free or reduced for members; prices for non-members are set event by event, and some events are free for everyone. Ideas are very welcome at [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
+Hjerterum Open are events created and organised by Hjerterum itself – concerts, talks, community dinners, dance, meditation, themed evenings and more – to strengthen and bring the community together, to invite new people in, and to create collaboration across the house. They are open to members and non-members, often free or reduced for members; prices for non-members are set event by event, and some events are free for everyone. Ideas are very welcome at [team@hjerterum.info](mailto:team@hjerterum.info).
 
 +++ Photography and video policy
 **Ask before filming and photographing – and respect a no.**
@@ -61,7 +61,7 @@ Write to us with the form, or to one of the addresses below.
 
 {{enquiry-generel}}
 
-- **Membership and bookings:** Team Hjerterum – [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org)
+- **Membership and bookings:** Team Hjerterum – [team@hjerterum.info](mailto:team@hjerterum.info)
 - **Accounting:** the treasurer – [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Other enquiries:** Jacob Hauge, chair – [jh@holistisk.org](mailto:jh@holistisk.org)
 
@@ -84,9 +84,7 @@ When you use Hjerterum, you are responsible for any damage to yourself or your b
     lead: "Choose the membership that suits you – and join a community built on presence and human warmth.",
     description: "Membership of Hjerterum in Aarhus: prices, benefits, terms and donations.",
     card: { title: "Membership", text: "Prices, benefits, terms and donations." },
-    body: `> **30-day free trial.** If you sign up by 15 October 2026 and have not been a member before, the first 30 days are free. If you cancel before the trial ends, you will not be charged anything.
-
-{{membership-plans}}
+    body: `{{membership-plans}}
 
 ## How to join {#join}
 For now, you sign up in our membership system on holistisk.org: [become a member here](${SIGNUP_URL_EN}). Already a member? [Log in](/sign-in) to see your membership.
@@ -107,7 +105,7 @@ The **reduced price** (111 DKK a month or 1,155 DKK a year) is for you on a low 
 - **Payment:** we accept Dankort/Visa-Dankort, Visa, Visa Electron and Mastercard. The first payment is drawn when you join; after that the price is drawn automatically the day before each new period. You are responsible for a valid card being registered.
 - **Receipt:** after joining you get a confirmation email with all information about your membership.
 - **Validity:** the membership is valid from the day you join until it is cancelled.
-- **Cancellation or pause:** write to [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org).
+- **Cancellation:** you cancel yourself when logged in: go to [My profile → Membership](https://medlem.hjerterum.info/member-portal/medlemskab) and choose **Cancel membership**. Need help, or want to pause for a few months? Write to [team@hjerterum.info](mailto:team@hjerterum.info).
 - **Binding period:** the current month + 1 month – you pay once more after cancelling. If a card payment fails, you remain a member until you cancel and are expected to continue paying.
 - **Free trial:** a free trial can only be used once. To rejoin, log in to your account and update your payment details.
 - **Your data:** we keep your account information for at most 2 years for statistical purposes.
@@ -170,10 +168,10 @@ Once the booking is agreed, we send you an invoice, and we create your event onc
 Once a booking is agreed, we email you an invoice; your event is created when it is paid. Questions: [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
 
 ### Cancellation {#cancellation}
-Hjerterum always keeps the base price to cover administration (for courses and recurring events only one base price). On weekdays you get 100% of the remaining amount back when cancelling 4 weeks before, 50% at 3 weeks; for weekends and courses 100% at 8 weeks and 50% at 6 weeks. A last-minute cancellation costs a 250 DKK fee unless you cancel by 14:00 the day before. If you are prevented at the last minute, you may cancel the event yourself to avoid the fee – only for last-minute cancellations – and always email [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org). [See the cancellation guide](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
+Hjerterum always keeps the base price to cover administration (for courses and recurring events only one base price). On weekdays you get 100% of the remaining amount back when cancelling 4 weeks before, 50% at 3 weeks; for weekends and courses 100% at 8 weeks and 50% at 6 weeks. A last-minute cancellation costs a 250 DKK fee unless you cancel by 14:00 the day before. If you are prevented at the last minute, you may cancel the event yourself to avoid the fee – only for last-minute cancellations – and always email [team@hjerterum.info](mailto:team@hjerterum.info). [See the cancellation guide](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
 
 ## Communication {#communication}
-Email is the first channel: always write to [hjerterum@holistisk.org](mailto:hjerterum@holistisk.org) first. [Hjerterum's Messenger page](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) is for PR material for events already created and for urgent matters – include your phone number and we'll call you back. Board members are often in the café on Thursday afternoons. Please don't send private Messenger messages to board members or call or text their private numbers – shared channels mean nothing gets lost.
+Email is the first channel: always write to [team@hjerterum.info](mailto:team@hjerterum.info) first. [Hjerterum's Messenger page](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) is for PR material for events already created and for urgent matters – include your phone number and we'll call you back. Board members are often in the café on Thursday afternoons. Please don't send private Messenger messages to board members or call or text their private numbers – shared channels mean nothing gets lost.
 
 ## Your events {#your-events}
 Log in to the [member area](/member-portal/events) and choose **My events** to see sign-ups, edit or cancel. Events in the former calendar on holistisk.org are still managed there ([video guide](https://www.youtube.com/watch?v=aKVv_aVjuTA)).

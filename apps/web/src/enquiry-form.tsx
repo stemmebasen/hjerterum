@@ -70,6 +70,6 @@ export function EnquiryForm({ topic: initial, lang = "da" }: { topic: string; la
       <p>{t.consent} <a href="/privatliv#henvendelser">{t.privacy}</a>.</p>
       <button className="lys-btn" type="submit" disabled={state.sending}>{state.sending ? t.sending : t.send}</button>
     </div>
-    {state.error && <p className="site-enquiry-error wide" role="alert">{state.error} {t.fallback} <a href="mailto:hjerterum@holistisk.org">hjerterum@holistisk.org</a>.</p>}
+    {state.error && <p className="site-enquiry-error wide" role="alert">{state.error} {t.fallback} <a href="mailto:team@hjerterum.info">team@hjerterum.info</a>.</p>}
   </form>;
 }

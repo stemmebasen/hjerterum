@@ -5,6 +5,7 @@ import { memberEventText } from "./event-text.js";
 import { memberEventVariety } from "./event-variety.js";
 import { memberSagaEvent } from "./member-saga-event.js";
 import { publicSagaChat } from "./web-saga.js";
+import { memberCancelRequest } from "./membership-cancel-request.js";
 import { memberSavings } from "./member-savings.js";
 import { authenticateAdmin } from "./admin-auth.js";
 import { getAdminOverview, listAdminBookings, listAdminMembers } from "./admin-dashboard.js";
@@ -440,6 +441,8 @@ export default {
     if (url.pathname === "/api/members/saga/event-text") return memberEventText(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/members/saga/event") return memberSagaEvent(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe" - the website's Saga, no login (web-saga.ts).
+    // Requested: "Man skal selv kunne opsige når man er logget ind" - for members still paying through MembershipWorks (membership-cancel-request.ts).
+    if (url.pathname === "/api/members/me/cancel-request") return memberCancelRequest(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/site/saga/chat") return publicSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (request.method === "GET" && url.pathname === "/api/members/me/savings") {
       if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
