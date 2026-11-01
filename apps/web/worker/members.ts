@@ -155,12 +155,29 @@ export async function cancelMembership(
   const member = await getMemberByClerkUserId(db, clerkUserId);
   if (!member?.stripeSubscriptionId) throw new Error("membership_subscription_missing");
 
-  await stripeRequest<Record<string, unknown>>(
-    stripeSecretKey,
-    "POST",
-    `/subscriptions/${encodeURIComponent(member.stripeSubscriptionId)}`,
-    { cancel_at_period_end: true }
-  );
+  const path = `/subscriptions/${encodeURIComponent(member.stripeSubscriptionId)}`;
+  const sub = await stripeRequest<Record<string, unknown>>(stripeSecretKey, "GET", path);
+  const item = ((sub.items as { data?: Array<Record<string, unknown>> } | undefined)?.data ?? [])[0] ?? {};
+  const periodEnd = typeof sub.current_period_end === "number" ? sub.current_period_end : typeof item.current_period_end === "number" ? item.current_period_end : null;
+  const interval = (item.price as { recurring?: { interval?: unknown } } | undefined)?.recurring?.interval;
+  const end = noticeEnd(periodEnd, typeof interval === "string" ? interval : null);
+  await stripeRequest<Record<string, unknown>>(stripeSecretKey, "POST", path,
+    end === null ? { cancel_at_period_end: true } : { cancel_at: end, proration_behavior: "none" });
+}
+
+/** Said by the chair: "Opsigelse er løbende måned plus 1" - the terms: "Bindingsperioden er løbende måned + 1 måned. Det betyder, at du
+ * betaler én gang mere, efter du har opsagt." A monthly membership ends one month after the current period (one more payment); a
+ * yearly one is paid ahead and ends with its year. The time is in Stripe's seconds; null when the period is not known. */
+export function noticeEnd(periodEndSeconds: number | null, interval: string | null): number | null {
+  if (periodEndSeconds === null) return null;
+  if (interval !== "month") return periodEndSeconds;
+  const end = new Date(periodEndSeconds * 1000);
+  const day = end.getUTCDate();
+  end.setUTCDate(1);
+  end.setUTCMonth(end.getUTCMonth() + 1);
+  const last = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  end.setUTCDate(Math.min(day, last));
+  return Math.floor(end.getTime() / 1000);
 }
 
 export async function createBillingPortalUrl(

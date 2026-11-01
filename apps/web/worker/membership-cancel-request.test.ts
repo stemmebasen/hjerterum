@@ -34,3 +34,19 @@ describe("cancelling a membership from the member area", () => {
     expect(all).not.toContain("by 15 October 2026");
   });
 });
+
+// Said: "Opsigelse er løbende måned plus 1" - a card member pays once more after cancelling.
+import { noticeEnd } from "./members.js";
+describe("the notice when a card member cancels", () => {
+  const at = (iso: string) => Date.parse(iso) / 1000;
+  it("ends a monthly membership one period after the current one", () => {
+    expect(noticeEnd(at("2026-11-14T09:00:00Z"), "month")).toBe(at("2026-12-14T09:00:00Z"));
+    expect(noticeEnd(at("2026-12-20T09:00:00Z"), "month")).toBe(at("2027-01-20T09:00:00Z"));
+    // A period ending on the 31st: the next month's last day.
+    expect(noticeEnd(at("2027-01-31T09:00:00Z"), "month")).toBe(at("2027-02-28T09:00:00Z"));
+  });
+  it("lets a yearly membership run out its paid year, and leaves an unknown period to Stripe", () => {
+    expect(noticeEnd(at("2027-03-01T09:00:00Z"), "year")).toBe(at("2027-03-01T09:00:00Z"));
+    expect(noticeEnd(null, "month")).toBeNull();
+  });
+});

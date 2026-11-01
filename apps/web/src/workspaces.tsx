@@ -833,13 +833,15 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   const [cancelSent, setCancelSent] = useState(false);
 
   async function cancelMembership() {
-    if (!window.confirm("Vil du opsige medlemskabet ved udgangen af den nuværende betalingsperiode?")) return;
+    if (!window.confirm(subscription?.interval === "year" ? "Vil du opsige dit medlemskab? Det fortsætter året ud, som du har betalt for." : "Vil du opsige dit medlemskab? Opsigelsen er løbende måned + 1 måned, så du betaler én gang mere.")) return;
     setBusy(true);
     setMessage("");
     const response = await apiFetch(clerk, "/api/members/me/cancel", { method: "POST" });
     setMessage(response.ok
-      ? "Opsigelsen er registreret. Medlemskabet fortsætter til periodens udløb."
+      ? (subscription?.interval === "year" ? "Opsigelsen er registreret. Medlemskabet fortsætter året ud og ophører på datoen ovenfor." : "Opsigelsen er registreret. Du betaler én gang mere, og medlemskabet ophører på datoen ovenfor.")
       : "Opsigelsen kunne ikke gennemføres.");
+    // The end date the member now has (løbende måned + 1).
+    if (response.ok) await apiFetch(clerk, "/api/members/me/subscription").then(async (sub) => { if (sub.ok) setSubscription(await sub.json()); }).catch(() => undefined);
     setBusy(false);
   }
 
