@@ -9,7 +9,7 @@ import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
 import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
-import { StrictMode, useEffect, useRef, useState } from "react";
+import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
@@ -219,10 +219,54 @@ const MEMBER_EVENTS_URL = "https://medlem.hjerterum.info/member-portal/events";
 // Reported: "Den er meget ukøn, stor og klodset. Den må kunne laves pænere og mere moderne" - one compact card in the site's own colours (light and dark).
 const START_TIMES = Array.from({ length: 36 }, (_, i) => `${String(6 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`);
 
+/** Asked: "Hvorfor videresendes man til https://www.hjerterum.info/beregner?" - the booking request opens right here, under the price, with the
+ * date and time already chosen; it goes to the same place as the calculator's form (worker/beregner/handler.ts → team@'s inbox). */
+const BOOKING_ERRORS: Record<string, string> = { missing_fields: "Udfyld de felter, der er markeret med *.", too_many: "Der er sendt mange forespørgsler herfra. Prøv igen om en time.",
+  image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", not_delivered: "Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info." };
+
+function RoomBookingForm({ date, start, end, hours, dayOfWeek, priceKr, onClose }: { date: string; start: string; end: string; hours: number; dayOfWeek: number; priceKr: number; onClose: () => void }) {
+  const [opened] = useState(() => Date.now());
+  const [state, setState] = useState<{ busy?: boolean; error?: string; sent?: boolean }>({});
+  const [dates, setDates] = useState<string[]>([date]);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    form.delete("dates");
+    dates.filter(Boolean).forEach((d) => form.append("dates", d));
+    for (const [k, v] of Object.entries({ day: String(dayOfWeek), start, hours: String(hours), type: "standard", started: String(opened) })) form.set(k, v);
+    setState({ busy: true });
+    const response = await fetch("/beregner/foresporgsel", { method: "POST", body: form }).catch(() => null);
+    const body = response ? await response.json().catch(() => ({})) as { ok?: boolean; error?: string } : {};
+    setState(response?.ok && body.ok ? { sent: true } : { error: BOOKING_ERRORS[body.error ?? ""] ?? "Noget gik galt. Prøv igen." });
+  }
+  if (state.sent) return <div className="rc-form rc-sent" role="status"><b>Tak – din bookingforespørgsel er sendt.</b><p>Vi vender tilbage på mail. Salen er først booket, når vi har bekræftet.</p><button type="button" className="rc-login" onClick={onClose}>Luk</button></div>;
+  return (
+    <form className="rc-form" onSubmit={(event) => void submit(event)}>
+      <div className="rc-form-head"><b>Bookingforespørgsel · standardpris {priceKr.toLocaleString("da-DK")} kr.</b><button type="button" className="rc-x" onClick={onClose} aria-label="Luk">×</button></div>
+      <p className="rc-sub">{new Date(`${date}T12:00:00`).toLocaleDateString("da-DK", { weekday: "long", day: "numeric", month: "long" })} kl. {start.replace(":", ".")}–{end.replace(":", ".")} · husk tid til klargøring og oprydning.</p>
+      <label>Eventnavn *<input name="eventName" required maxLength={160} /></label>
+      <div className="rc-dates"><span>Dato *</span>{dates.map((d, i) => <input key={i} type="date" value={d} required={i === 0} onChange={(e) => setDates(dates.map((x, j) => j === i ? e.target.value : x))} />)}
+        <button type="button" className="rc-more" onClick={() => setDates([...dates, ""])}>+ Flere datoer</button></div>
+      <label>Beskrivelse *<textarea name="description" required maxLength={5000} rows={5} /></label>
+      <div className="rc-two"><label>Navn *<input name="name" required maxLength={120} autoComplete="name" /></label><label>E-mail *<input name="email" type="email" required maxLength={200} autoComplete="email" /></label></div>
+      <div className="rc-two"><label>Telefon<input name="phone" maxLength={40} autoComplete="tel" /></label><label>Max. deltagere<input name="maxParticipants" inputMode="numeric" maxLength={6} /></label></div>
+      <div className="rc-two"><label>Tilmelding<select name="signup"><option>Online via Hjerterum</option><option>Direkte til dig/underviser</option></select></label>
+        <label>Betaling<select name="payment"><option value="">Vælg</option><option>Online via Hjerterum</option><option>MobilePay</option><option>Bankoverførsel</option><option>Kontant</option><option>Andet</option></select></label></div>
+      <label>Hjemmeside / sociale medier<input name="links" maxLength={1500} placeholder="https://" /></label>
+      <label>Billede til dit event<input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" /><span className="rc-sub">Uden ophavsret, helst ikke AI – gerne 1920 × 1005 px.</span></label>
+      <label>Bemærkninger<textarea name="notes" maxLength={3000} rows={2} /></label>
+      <input className="rc-trap" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+      {state.error && <p className="rc-error" role="alert">{state.error}</p>}
+      <div className="rc-form-actions"><button type="button" className="rc-login" onClick={onClose}>Annullér</button><button className="rc-book" disabled={state.busy}>{state.busy ? "Sender …" : "Send forespørgsel"}</button></div>
+    </form>
+  );
+}
+
 function RoomPriceCalculator() {
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [start, setStart] = useState("10:00");
   const [hours, setHours] = useState(2);
+  const [booking, setBooking] = useState(false);
   const dateValue = new Date(`${date}T12:00:00`);
   const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
   const when = { dayOfWeek: dateValue.getDay(), startMinutes: startHour * 60 + startMinute, durationMinutes: hours * 60 };
@@ -251,7 +295,7 @@ function RoomPriceCalculator() {
           <span className="rc-label">Standardpris</span>
           <strong>{kr(standard.totalPriceKr)}</strong>
           <span className="rc-sub">For alle · også uden medlemskab</span>
-          <a className="rc-book" href="/beregner">Book →</a>
+          <button type="button" className="rc-book" onClick={() => setBooking(true)} aria-expanded={booking}>Book →</button>
         </article>
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Reduceret pris</span>
@@ -264,6 +308,8 @@ function RoomPriceCalculator() {
           <span className="rc-sub">Kun for medlemmer · én gang om ugen</span>
         </article>
       </div>
+      {booking && <RoomBookingForm date={date} start={start} hours={hours} dayOfWeek={dateValue.getDay()} priceKr={standard.totalPriceKr}
+        end={`${String(Math.floor((startHour * 60 + startMinute + hours * 60) / 60) % 24).padStart(2, "0")}:${String((startMinute + hours * 60) % 60).padStart(2, "0")}`} onClose={() => setBooking(false)} />}
       <div className="rc-member">
         <div className="rc-member-text">
           <b>{saving && saving > 0 ? <>Spar {kr(saving)} som medlem</> : "Lej gratis som medlem"}</b>

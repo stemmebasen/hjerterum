@@ -105,6 +105,23 @@ p { line-height: 1.7; }
 .rc-join, .rc-login { padding:8px 14px; border-radius:999px; font-size:.85rem; font-weight:600; text-decoration:none; white-space:nowrap; }
 .rc-join { background:var(--lys-ink); color:var(--lys-bg); }
 .rc-login { border:1px solid currentColor; color:var(--lys-sage-ink); }
+button.rc-book { border:0; cursor:pointer; font:inherit; font-size:.85rem; font-weight:600; }
+button.rc-book:disabled { opacity:.6; cursor:default; }
+.rc-form { display:grid; gap:10px; padding:16px; border:1px solid var(--lys-accent); border-radius:16px; background:var(--lys-surface); }
+.rc-form label, .rc-dates { display:grid; gap:4px; font-size:.78rem; font-weight:600; color:var(--lys-muted); }
+.rc-form input, .rc-form textarea, .rc-form select { width:100%; box-sizing:border-box; padding:9px 11px; border:1px solid var(--lys-line); border-radius:10px; background:var(--lys-soft); color:var(--lys-ink); font:inherit; font-size:.92rem; font-weight:400; color-scheme:light dark; }
+.rc-form input[type=file] { padding:7px; }
+.rc-form-head { display:flex; justify-content:space-between; align-items:center; gap:10px; color:var(--lys-ink); }
+.rc-x { border:0; background:none; color:var(--lys-muted); font-size:1.4rem; line-height:1; cursor:pointer; }
+.rc-two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.rc-more { justify-self:start; border:0; background:none; padding:2px 0; color:var(--lys-ink); font:inherit; font-size:.8rem; text-decoration:underline; cursor:pointer; }
+.rc-trap { position:absolute; left:-5000px; }
+.rc-error { margin:0; color:var(--lys-danger); font-size:.85rem; font-weight:600; }
+.rc-form-actions { display:flex; justify-content:flex-end; gap:8px; }
+.rc-form-actions .rc-book { margin:0; }
+button.rc-login { background:none; cursor:pointer; font:inherit; font-size:.85rem; font-weight:600; color:var(--lys-ink); border:1px solid var(--lys-line); }
+.rc-sent { gap:6px; color:var(--lys-ink); } .rc-sent p { margin:0; color:var(--lys-muted); } .rc-sent .rc-login { justify-self:start; }
+@media (max-width:640px) { .rc-two { grid-template-columns:1fr; } }
 .rc-note { margin:0; font-size:.75rem; color:var(--lys-faint); }
 @media (max-width:640px) { .rc-when { grid-template-columns:1fr 1fr; } .rc-when label:first-child { grid-column:1 / -1; } .rc-prices { grid-template-columns:1fr; } .rc-tile { grid-template-columns:1fr auto; align-items:center; }
   .rc-tile strong { grid-row:span 2; grid-column:2; text-align:right; } .rc-book { grid-column:1; } }
