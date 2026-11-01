@@ -2,7 +2,7 @@ import { isPartnerEvent } from "../partner-events.js";
 const MEMBERSHIPWORKS_FEED_URL = "https://api.membershipworks.com/v2/events?_op=rss&org=22308";
 /** The list the membership system's own calendar widget reads. It holds every public event, also those in the categories that
  * are left out of the RSS feed ("Hjerterum events", "Dans & Bevægelse") - asked: "All of these appear in Membership works". */
-const membershipWorksListUrl = (fromMs: number, toMs: number) =>
+export const membershipWorksListUrl = (fromMs: number, toMs: number) =>
   `https://api.membershipworks.com/v2/events?sdp=${Math.floor(fromMs / 1000)}&edp=${Math.floor(toMs / 1000)}&org=22308&_st`;
 const LIST_DAYS = 183;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -127,7 +127,7 @@ export function parseMembershipWorksRss(xml: string): ExternalEvent[] {
   });
 }
 
-type MembershipWorksList = {
+export type MembershipWorksList = {
   evt?: Array<{ eid?: string; ttl?: string; sdp?: number; edp?: number; ezp?: string; grp?: number; url?: string; lgo?: { l?: string } }>;
   _st?: { evg?: Array<{ ttl?: string }> };
 };
