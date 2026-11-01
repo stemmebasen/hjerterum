@@ -107,11 +107,13 @@ describe("only what the question needs", () => {
     const db = testDatabase();
     const env = sagaEnv(db);
     const services = fakeServices({});
+    // From cirkler.net itself (the table cirkler_site, read each night) and Hjerterum's own side - not the old summary.
+    await db.prepare("INSERT INTO cirkler_site (path, title, text, fetched_at_ms) VALUES ('/', 'CIRKLER', 'Det koster 395 kr./md. pr. cirkel.', ?)").bind(NOW).run();
     const asked = await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad er Cirkler?", new Set(["cirkler"]));
-    expect(asked).toContain("CIRKLER (tidligere Tribes)");
+    expect(asked).toContain("CIRKLER - SMÅ, FASTE FÆLLESSKABER");
     expect(asked).toContain("Standard, Generøst og Reduceret pris");
-    expect(asked).toContain("395 kr. om måneden");
-    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvem har ansvar?", new Set())).not.toContain("CIRKLER (tidligere Tribes)");
+    expect(asked).toContain("395 kr./md.");
+    expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvem har ansvar?", new Set())).not.toContain("CIRKLER - SMÅ, FASTE FÆLLESSKABER");
     // Asked about what membership gives, she can name CIRKLER.
     expect(await boardKnowledge(env, deps(services.fetcher, NOW), db, "Hvad koster et medlemskab?", new Set(["medlemskab"]))).toContain("Gratis deltagelse i CIRKLER");
   });
