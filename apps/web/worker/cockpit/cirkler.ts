@@ -57,3 +57,10 @@ SÅDAN KOMMER MAN MED
 PRIVATLIV
 - Kun CIRKLER-teamet ser hele profilen. I cirklen ser man navnene på de andre; telefon og e-mail kun hos dem, der selv har valgt at dele dem.
 - Ingen kan se et katalog over alle medlemmer, og ingen ser personer i andre cirkler. Der gives ingen ratings.`;
+
+/** The website's and the member area's Saga: CIRKLER's facts when the conversation (its newest messages) is about CIRKLER - asked:
+ * "Ved hun virkelig ikke mere om cirkler? Er det en anden saga end hende vi har i admin?". Only then, so other questions cost no more. */
+export function cirklerKnowledge(history: ReadonlyArray<{ text: string }>): string {
+  const recent = history.slice(-6).map(m => m.text).join(" ");
+  return /cirk(el|ler)|circle|tribe/i.test(recent) ? `\n\nCIRKLER (tidligere Tribes) - SMÅ FASTE FÆLLESSKABER, SOM HJERTERUMS MEDLEMMER KAN DELTAGE I:\n${CIRKLER_FACTS}` : "";
+}
