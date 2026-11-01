@@ -226,7 +226,9 @@ export const TEMPLATES: Record<string, Template> = {
       text(ctx, weekday(w), 460 * u, 290 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
       text(ctx, `kl. ${w.time}`, 460 * u, 342 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
       const bottom = L ? H : spot.y;
-      block(ctx, { x: 62 * u, y: 520 * u, w: right - 130 * u, h: bottom - 640 * u }, w, { color: G.brownB, accent: G.accentB, muted: G.brownB2, kicker: null, size: 92 * u, maxLines: 3, meta: false }, "top", u);
+      // As on the shared slide: "Prøv dine evner af · med Rie Jespersen" - the subtitle and the teacher on one italic line.
+      const both = w.rest && w.teacher ? { ...w, teacher: null, rest: `${w.rest} · med ${w.teacher}` } : w;
+      block(ctx, { x: 62 * u, y: 520 * u, w: right - 130 * u, h: bottom - 640 * u }, both, { color: G.brownB, accent: G.accentB, muted: G.brownB2, kicker: null, size: 92 * u, maxLines: 3, meta: false }, "top", u);
       text(ctx, "Læs mere på hjerterum.info", 66 * u, bottom - 50 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
       text(ctx, "Kom som du er", right - 66 * u, bottom - 50 * u, `italic 400 ${Math.round(34 * u)}px ${SERIF}`, G.accentB, "right");
     }
@@ -379,6 +381,39 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = C.sand; ctx.beginPath(); ctx.roundRect(words.x, words.y, words.w, words.h, 18 * u); ctx.fill();
       logo(ctx, a.logo, words.x + 40 * u, words.y + 36 * u, 44 * u, C.ink);
       block(ctx, { x: words.x + 40 * u, y: words.y + 110 * u, w: words.w - 80 * u, h: words.h - 150 * u }, w, { color: C.ink, accent: C.terra, muted: C.muted, kicker: null, size: 80 * u, maxLines: 3, footer: null }, "center", u);
+    }
+  },
+  // ---- Shared by the chair from Hjerterum's Instagram (1 Nov 2026): "Mere inspiration til Instagram design" - Gitta's carousel
+  // slide "Mød underviseren": a quiet cream column with the teacher's name large, a thin rule and the event in italics, beside a
+  // portrait that fills the height. ----
+  underviser: {
+    photo: (W, H) => { const c = W * (land(W, H) ? 0.4 : 0.43); return { x: c, y: 0, w: W - c, h: H, shape: "rect" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!, m = (L ? 64 : 52) * u, cw = spot.x - 2 * m;
+      const mono = (size: number, weight = 400) => `${weight} ${Math.round(size * u)}px "Space Mono", ui-monospace, monospace`;
+      ctx.fillStyle = G.cream; ctx.fillRect(0, 0, W, H);
+      photoIn(ctx, a.photo, spot);
+      spaced(ctx, "Hjerterum", m, m + 26 * u, mono(26), G.cocoa, 6 * u);
+      // The teacher's first name, as large as the column allows; without a teacher, the event's own title.
+      const first = w.teacher?.split(/\s+/)[0] ?? null;
+      const big = fit(ctx, first ?? w.title, size => `400 ${size}px ${SERIF}`, cw, (first ? (L ? 150 : 170) : (L ? 84 : 96)) * u, first ? 1 : 3, Math.round(40 * u));
+      const sub = fit(ctx, [w.title, w.rest].filter(Boolean).join(" · "), size => `italic 400 ${size}px ${SERIF}`, cw, (L ? 40 : 44) * u, 5, Math.round(26 * u));
+      const facts = fit(ctx, `${w.day} · kl. ${w.time} · Hjerterum, Aarhus`, size => mono(size / u), cw, 22 * u, 4, Math.round(16 * u));
+      const bigLead = big.size * 1.02, subLead = sub.size * 1.3, factLead = facts.size * 1.6;
+      // The middle of the column: heading, name, rule and the event in italics.
+      const middle = 50 * u + big.lines.length * bigLead + 34 * u + (first ? sub.lines.length * subLead + 30 * u : 0);
+      let y = Math.max(H * 0.3, (H - middle) / 2 - 40 * u);
+      spaced(ctx, first ? "Mød underviseren" : w.kicker, m, y, mono(22), G.brownB2, 5 * u);
+      y += 34 * u;
+      big.lines.forEach(line => { y += bigLead * 0.9; text(ctx, line, m, y, `400 ${big.size}px ${SERIF}`, G.cocoa); y += bigLead * 0.1; });
+      y += 30 * u;
+      ctx.fillStyle = G.sageLine; ctx.fillRect(m, y, Math.min(cw * 0.6, 240 * u), 2 * u);
+      y += 34 * u;
+      if (first) sub.lines.forEach(line => { y += subLead * 0.8; text(ctx, line, m, y, `italic 400 ${sub.size}px ${SERIF}`, G.accentB); y += subLead * 0.2; });
+      // The facts at the foot of the column, in the typewriter voice; Hjerterum's stamp above them.
+      let fy = H - m - (facts.lines.length - 1) * factLead;
+      facts.lines.forEach(line => { text(ctx, line, m, fy, `400 ${facts.size}px "Space Mono", ui-monospace, monospace`, G.grey); fy += factLead; });
+      stamp(ctx, a.logo, m + 44 * u, H - m - (facts.lines.length - 1) * factLead - 110 * u, 44 * u, G.cocoa);
     }
   },
   nat: {

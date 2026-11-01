@@ -37,7 +37,9 @@ export const VARIANTS: Array<{ key: VariantKey; label: string; about: string }> 
   { key: "polaroid", label: "Polaroid", about: "To skæve polaroidbilleder med tape og håndskrevet dato." },
   { key: "baand", label: "Bånd", about: "Fotoet over det hele med et roligt grønt bånd med teksten." },
   { key: "mosaik", label: "Mosaik", about: "Fotoet i tre udsnit, datoen og titlen i hver sin flise." },
-  { key: "nat", label: "Nat", about: "Mørk bund med fotoet i en gylden cirkel." }
+  { key: "nat", label: "Nat", about: "Mørk bund med fotoet i en gylden cirkel." },
+  // Shared from Hjerterum's Instagram: "Mere inspiration til Instagram design".
+  { key: "underviser", label: "Mød underviseren", about: "Underviserens navn stort i en lys spalte ved siden af et portræt i fuld højde." }
 ];
 /** The five with their own hand-made post and story layouts below; the others are drawn by poster-templates.ts in every format. */
 const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", "split"]);
