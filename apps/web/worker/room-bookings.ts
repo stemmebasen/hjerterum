@@ -457,6 +457,31 @@ export async function cancelRoomBookingAsAdmin(
   if ((result.meta?.changes ?? 0) === 0) throw new Error("booking_not_found");
 }
 
+/** Requested by the chair: "Som admin skal man kunne redigere og slette events oprettet i systemet." The board changes a member's event from
+ * admin (cockpit/systemEvents.ts): its words and its time. The prices stay as the organiser set them (participants may have paid). A new
+ * time must be free in the hall and follow the rent rules; the rent is worked out again. The approval stands - the board made the change. */
+export type AdminEventChange = { title: string; description: string | null; teacherName: string; startsAt: number; endsAt: number; maxAttendees: number | null };
+
+export async function updateRoomBookingAsAdmin(db: D1Database, bookingId: number, change: AdminEventChange): Promise<void> {
+  const row = await db.prepare("SELECT booking_type, setup_minutes, cleanup_minutes, starts_at_ms, ends_at_ms FROM room_bookings WHERE id = ? AND status = 'scheduled'")
+    .bind(bookingId).first<{ booking_type: RoomBookingType | null; setup_minutes: number | null; cleanup_minutes: number | null; starts_at_ms: number; ends_at_ms: number }>();
+  if (!row) throw new Error("booking_not_found");
+  if (!(change.endsAt > change.startsAt)) throw new Error("invalid_time");
+  const setup = row.setup_minutes ?? 0, cleanup = row.cleanup_minutes ?? 0;
+  let feeMinor: number | null = null;
+  if (change.startsAt !== row.starts_at_ms || change.endsAt !== row.ends_at_ms) {
+    const { fromMs, toMs } = roomWindow(change.startsAt, change.endsAt, { setupMinutes: setup, cleanupMinutes: cleanup });
+    const conflict = await db.prepare(`SELECT id FROM room_bookings WHERE status = 'scheduled' AND id <> ? AND ${WINDOW_START} < ? AND ${WINDOW_END} > ? LIMIT 1`)
+      .bind(bookingId, toMs, fromMs).first<{ id: number }>();
+    if (conflict || await hasExternalEventConflict(fromMs, toMs)) throw new Error("booking_conflict");
+    const priced = pricedWindow(fromMs, toMs);
+    feeMinor = calculateFee(priced.fromMs, priced.toMs, row.booking_type ?? "standard") * 100;
+  }
+  await db.prepare(`UPDATE room_bookings SET title = ?, description = ?, teacher_name = ?, starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?,
+      fee_minor = COALESCE(?, fee_minor), updated_at_ms = ? WHERE id = ? AND status = 'scheduled'`)
+    .bind(change.title, change.description, change.teacherName, change.startsAt, change.endsAt, change.maxAttendees, feeMinor, Date.now(), bookingId).run();
+}
+
 export async function listBookingAttendees(
   db: D1Database,
   ownerClerkUserId: string,

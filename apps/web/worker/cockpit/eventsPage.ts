@@ -1,3 +1,4 @@
+import { SYSTEM_EVENTS_STYLE } from "./systemEvents.js";
 import type { EventStats, HouseEvent } from "./events.js";
 import { esc, fold, layout, SHOWN } from "./page.js";
 import { DESK_STYLE } from "./eventDesk.js";
@@ -45,5 +46,5 @@ ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join
   return layout(base, "Events", `<main><h1>Events</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>
-<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a> <a class="button" href="${base}/arrangementer/nyhedsbrev">Nyhedsbrev →</a></p>${data.desk ?? ""}${data.pr && !data.results ? prWishList(base, data.coming, data.pr.wishes, data.who) : ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE + PR_STYLE });
+<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a> <a class="button" href="${base}/arrangementer/nyhedsbrev">Nyhedsbrev →</a></p>${data.desk ?? ""}${data.pr && !data.results ? prWishList(base, data.coming, data.pr.wishes, data.who) : ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE + PR_STYLE + SYSTEM_EVENTS_STYLE });
 }

@@ -40,6 +40,8 @@ import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeetin
 import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
+import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
+import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
 import { deleteText, renameText, savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
@@ -929,6 +931,30 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return back("&besked=godkendt");
     }
   }
+  // Requested by the chair: "Som admin skal man kunne redigere og slette events oprettet i systemet" (systemEvents.ts).
+  const systemPath = /^\/arrangementer\/system\/(\d+)(\/slet)?$/.exec(path);
+  if (systemPath) {
+    if (!who) return redirect(`${base}/hvem`);
+    const id = Number(systemPath[1]);
+    const found = await systemEvent(db, id);
+    if (!found || found.cirkler_meeting_id) return html(notFound(base, who), 404);
+    if (systemPath[2] && request.method === "POST") {
+      await cancelRoomBookingAsAdmin(db, id).catch(() => undefined);
+      return redirect(`${base}/arrangementer?system=slettet#system-events`);
+    }
+    if (request.method === "POST") {
+      const read = readEventChange(await request.formData().catch(() => null));
+      if ("error" in read) return html(systemEventPage(base, who, found, read.error), 400);
+      try { await updateRoomBookingAsAdmin(db, id, read.change); }
+      catch (error) {
+        const code = error instanceof Error ? error.message : "";
+        const message = code === "booking_conflict" ? "Salen er optaget på det tidspunkt." : code.startsWith("invalid_") ? "Tidspunktet passer ikke med reglerne for leje: 2-10 timer i halve timer, og med medlemsrabat eller gratis leje ikke hen over kl. 18.30 på hverdage." : "Eventet kunne ikke gemmes. Prøv igen.";
+        return html(systemEventPage(base, who, { ...found, title: read.change.title, teacher_name: read.change.teacherName, description: read.change.description, starts_at_ms: read.change.startsAt, ends_at_ms: read.change.endsAt, max_attendees: read.change.maxAttendees }, message), 409);
+      }
+      return redirect(`${base}/arrangementer?system=rettet#system-events`);
+    }
+    return html(systemEventPage(base, who, found));
+  }
   if (path === "/arrangementer" && request.method === "GET") {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 100), yearText = url.searchParams.get("aar") ?? "";
     const year = /^20\d{2}$/.test(yearText) ? Number(yearText) : null;
@@ -942,7 +968,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
     const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     const wishes = await prWishes(db, coming.map(e => e.id));
-    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk, pr: { wishes } }));
+    const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig." };
+    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
+    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes } }));
   }
   // Gitta's PR wishes on the coming events (prWishes.ts).
   if (path === "/arrangementer/pr" && request.method === "POST") {
