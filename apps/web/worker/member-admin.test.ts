@@ -260,3 +260,18 @@ describe("MembershipWorks' full export", () => {
     expect(by["konto@example.dk"]).toMatchObject({ tier: null, plan: null, labels: [] });
   });
 });
+
+// Reported: "Filen kunne ikke læses som en MembershipWorks-eksport" - the full export stopped after 168 of 465 accounts, one query each.
+describe("saving a large MembershipWorks export", () => {
+  it("keeps every account, in few queries", async () => {
+    const db = testDatabase();
+    let queries = 0;
+    const counted = { prepare: (sql: string) => { queries += 1; return db.prepare(sql); } } as D1Database;
+    const head = "Account Name,Email,Standard medlemskab,Join Date,Renewal Date,Billing Method,Auto Billing ID,Account ID";
+    const rows = Array.from({ length: 465 }, (_, i) => `Person ${i},p${i}@example.dk,Standard medlemskab,"Jan 1, 2024","Dec 1, 2026",Standard medlemskab - månedlig betaling,cus_T${i},acc${i}`);
+    const saved = await saveMembershipWorksExport(counted, "export.csv", "Jacob Hauge", [head, ...rows].join("\n"), NOW);
+    expect(saved.accounts).toBe(465);
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM membershipworks_accounts").first<{ n: number }>()).toEqual({ n: 465 });
+    expect(queries).toBeLessThan(80);
+  });
+});

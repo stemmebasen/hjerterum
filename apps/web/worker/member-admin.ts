@@ -275,13 +275,16 @@ export async function saveMembershipWorksExport(db: D1Database, filename: string
   const upload = await db.prepare("INSERT INTO membershipworks_uploads (filename, uploaded_by, accounts, uploaded_at_ms) VALUES (?, ?, ?, ?)")
     .bind(filename.slice(0, 200), by, accounts.length, now).run();
   const uploadId = Number(upload.meta?.last_row_id);
-  for (const a of accounts) {
-    const rowJson = JSON.stringify({ ...a });
+  // Reported: "Filen kunne ikke læses som en MembershipWorks-eksport" - the full export (465 accounts) stopped after 168, one query per
+  // account being too many for one request. Seven accounts a statement (D1 takes at most 100 bound values; an account has 14).
+  const PER_STATEMENT = 7;
+  for (let i = 0; i < accounts.length; i += PER_STATEMENT) {
+    const part = accounts.slice(i, i + PER_STATEMENT);
     await db.prepare(`INSERT INTO membershipworks_accounts (email, account_id, full_name, phone, plan, tier, interval, billing, joined_on, renews_on, stripe_customer_id, labels, row_json, upload_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(email) DO UPDATE SET account_id = excluded.account_id, full_name = excluded.full_name, phone = excluded.phone,
+      VALUES ${part.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ")} ON CONFLICT(email) DO UPDATE SET account_id = excluded.account_id, full_name = excluded.full_name, phone = excluded.phone,
       plan = excluded.plan, tier = excluded.tier, interval = excluded.interval, billing = excluded.billing, joined_on = excluded.joined_on, renews_on = excluded.renews_on,
       stripe_customer_id = excluded.stripe_customer_id, labels = excluded.labels, row_json = excluded.row_json, upload_id = excluded.upload_id`)
-      .bind(a.email, a.accountId, a.fullName, a.phone, a.plan, a.tier, a.interval, a.billing, a.joinedOn, a.renewsOn, a.stripeCustomerId, JSON.stringify(a.labels), rowJson, uploadId).run();
+      .bind(...part.flatMap(a => [a.email, a.accountId, a.fullName, a.phone, a.plan, a.tier, a.interval, a.billing, a.joinedOn, a.renewsOn, a.stripeCustomerId, JSON.stringify(a.labels), JSON.stringify({ ...a }), uploadId])).run();
   }
   const { results } = await db.prepare("SELECT m.id FROM members m JOIN membershipworks_accounts a ON a.email = LOWER(m.email) WHERE m.membershipworks_id IS NULL").all<{ id: number }>();
   for (const r of results ?? []) await linkMembershipWorks(db, r.id, now);
