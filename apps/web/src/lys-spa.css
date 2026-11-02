@@ -947,3 +947,5 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 @keyframes cirkler-turn { from { transform: translateY(-50%) rotate(0deg); } to { transform: translateY(-50%) rotate(360deg); } }
 .site-cirkler-rings { animation: cirkler-turn 120s linear infinite; will-change: transform; }
 @media (prefers-reduced-motion: reduce) { .site-cirkler-rings { animation: none; } }
+.event-guest .event-guest-check { display: flex; gap: 8px; align-items: flex-start; font: 400 14.5px/1.4 var(--lys-sans); color: var(--lys-ink); }
+.event-guest .event-guest-check input { width: 18px; height: 18px; margin-top: 1px; padding: 0; flex: none; }

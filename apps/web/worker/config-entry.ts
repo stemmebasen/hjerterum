@@ -17,6 +17,7 @@ import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
 import { handleNewsletterSignup, NEWSLETTER_PATH } from "./newsletter-subscribe.js";
+import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
 
 interface Env {
@@ -205,6 +206,8 @@ async function scheduledRun(controller: ScheduledControllerLike, env: Env): Prom
       .catch(error => console.warn("house_events_failed", error instanceof Error ? error.message : error));
     // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" (newsletter.ts).
     await runNewsletterJob(env as NewsletterEnv, deps).catch(error => console.warn("newsletter_failed", error instanceof Error ? error.message : error));
+    // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - everyone who said yes, into the one audience (mailchimp-sync.ts).
+    await runMailchimpSync(env as NewsletterEnv, deps).catch(error => console.warn("mailchimp_sync_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
 }

@@ -1,5 +1,6 @@
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
+import { queueContact } from "./mailchimp-sync.js";
 import { isPartnerEvent } from "../partner-events.js";
 import {
   checkDatabase,
@@ -251,6 +252,8 @@ async function guestSignup(request: Request, env: Env, id: number): Promise<Resp
   if ("confirmed" in result) {
     const row = await publicEvent(env.DB, id).catch(() => null);
     if (row) await guestReceipt(env, fetch, row, { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase() }, `${url.origin}/events/h${id}`);
+    // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - a guest who ticked the newsletter goes to the list, confirming by mail first.
+    if (sent.newsletter === true) await queueContact(env.DB, { email: String(sent.email ?? ""), name: String(sent.name ?? ""), source: "event", member: false, doubleOptIn: true }, Date.now()).catch(() => undefined);
   }
   return json({ ok: true });
 }

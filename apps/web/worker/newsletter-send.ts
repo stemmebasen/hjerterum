@@ -17,7 +17,7 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
   if (!dc) throw new Error("mailchimp_key_invalid");
   const base = `https://${dc}.api.mailchimp.com/3.0`;
   const auth = `Basic ${btoa(`hjerterum:${apiKey}`)}`;
-  async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<T> {
+  async function call<T>(method: "GET" | "POST" | "PUT" | "PATCH", path: string, body?: unknown): Promise<T> {
     const response = await fetcher(`${base}${path}`, { method, headers: { authorization: auth, ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json().catch(() => null) as (T & { detail?: string; title?: string }) | null;
     if (!response.ok) throw new Error(`mailchimp_${response.status}: ${data?.detail ?? data?.title ?? ""}`.trim());
@@ -39,6 +39,21 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
     setContent: (id: string, html: string) => call<unknown>("PUT", `/campaigns/${id}/content`, { html }),
     send: (id: string) => call<unknown>("POST", `/campaigns/${id}/actions/send`),
     /** Into the audience with the "Månedens events" group: a new address waits for its own confirmation ("pending"); one already there keeps its status. */
+    /** Into the audience with the group, "Medlem" when they are one; a new address subscribed at once (they said yes elsewhere) or waiting for
+     * its own confirmation; someone already there keeps their status - one who unsubscribed stays unsubscribed. */
+    upsert: async (listId: string, contact: { email: string; name: string; interest: string; doubleOptIn: boolean; member: boolean }) => {
+      const hash = md5(contact.email.toLowerCase());
+      await call<unknown>("PUT", `/lists/${listId}/members/${hash}`, { email_address: contact.email, status_if_new: contact.doubleOptIn ? "pending" : "subscribed",
+        interests: { [contact.interest]: true }, ...(contact.name ? { merge_fields: { FNAME: contact.name.split(/\s+/)[0] ?? "", LNAME: contact.name.split(/\s+/).slice(1).join(" ") } } : {}) });
+      if (contact.member) await call<unknown>("POST", `/lists/${listId}/members/${hash}/tags`, { tags: [{ name: "Medlem", status: "active" }] });
+    },
+    /** Their status in the audience, or null when they are not in it. */
+    status: async (listId: string, email: string): Promise<string | null> => {
+      try { return (await call<{ status?: string }>("GET", `/lists/${listId}/members/${md5(email.toLowerCase())}`)).status ?? null; }
+      catch (error) { if (error instanceof Error && error.message.startsWith("mailchimp_404")) return null; throw error; }
+    },
+    resubscribe: (listId: string, email: string) => call<unknown>("PATCH", `/lists/${listId}/members/${md5(email.toLowerCase())}`, { status: "pending" }),
+    unsubscribe: (listId: string, email: string) => call<unknown>("PATCH", `/lists/${listId}/members/${md5(email.toLowerCase())}`, { status: "unsubscribed" }),
     subscribe: (listId: string, email: string, name: string, interest: string) => {
       return call<unknown>("PUT", `/lists/${listId}/members/${md5(email.toLowerCase())}`, {
         email_address: email, status_if_new: "pending", interests: { [interest]: true }, ...(name ? { merge_fields: { FNAME: name } } : {}) });
