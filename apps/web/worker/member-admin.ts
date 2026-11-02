@@ -209,13 +209,16 @@ export type MembershipWorksAccount = {
   email: string; accountId: string | null; fullName: string; phone: string | null; plan: string | null; tier: string | null;
   interval: "month" | "year" | null; billing: "auto" | "manual" | null; joinedOn: string | null; renewsOn: string | null;
   stripeCustomerId: string | null; labels: string[];
+  /** From MembershipWorks' full export: they ticked "Receive newsletter"; their payment is cancelled (it runs to renewsOn, or has ended). */
+  newsletter?: boolean; cancelled?: boolean;
 };
 
 /** MembershipWorks writes its labels as columns: a member's membership and labels ("Teacher", "Hjerterum Team") are the
- * columns that have a value. The rest are the account's fields. */
-const FIELDS = new Set(["Admin note", "Position/relation", "Account Name", "First Name", "Last Name", "Contact Person", "Address (Full)", "Address (Street)", "Address (City)",
-  "Address (State/Province)", "Address (Postal Code)", "Address (Country)", "Address (Autocorrect)", "Email", "Telephone", "Join Date", "Renewal Date", "Billing Method",
-  "Auto Billing ID", "Account ID", "Parent Account ID"]);
+ * columns that have a value. Its full export (2 Nov 2026: 62 columns - newsletter, terms, social links, IP address ...) has many
+ * more fields, so a membership is only a column named like one ("... medlemskab ...", "... membership ...", "Free Membership"),
+ * "Membership Payment Cancelled" says the payment is cancelled, and the people labels are Teacher / Team. */
+const PLAN_COLUMN = /medlemskab|membership/i;
+const CANCELLED_COLUMN = /^membership payment cancelled$/i;
 const PEOPLE_LABELS = /teacher|team/i;
 const MONTHS: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 
@@ -245,17 +248,21 @@ export function readMembershipWorksExport(text: string): { accounts: MembershipW
     const value = (name: string) => (row[name] ?? "").trim();
     const email = value("Email").toLowerCase();
     if (!EMAIL.test(email) || accounts.has(email)) { skipped += 1; continue; }
-    const labels = Object.keys(row).filter(name => !FIELDS.has(name) && value(name));
-    const plan = labels.find(label => !PEOPLE_LABELS.test(label)) ?? null;
+    const filled = Object.keys(row).filter(name => value(name));
+    const cancelled = filled.some(name => CANCELLED_COLUMN.test(name.trim()));
+    const plan = filled.find(name => PLAN_COLUMN.test(name) && !CANCELLED_COLUMN.test(name.trim())) ?? (cancelled ? "Membership Payment Cancelled" : null);
     const billingMethod = value("Billing Method");
     const autoBillingId = value("Auto Billing ID");
     accounts.set(email, {
       email, accountId: value("Account ID") || null, fullName: (value("Account Name") || [value("First Name"), value("Last Name")].filter(Boolean).join(" ") || email).slice(0, 160),
-      phone: value("Telephone").slice(0, 40) || null, plan: plan?.replace(/^-\s*/, "").slice(0, 200) ?? null, tier: plan ? tierOf(plan) : null,
+      phone: value("Telephone").slice(0, 40) || null, plan: plan?.replace(/^-\s*/, "").slice(0, 200) ?? null, tier: plan && !CANCELLED_COLUMN.test(plan) ? tierOf(plan) : null,
       interval: /årlig|yearly|annual/i.test(billingMethod) ? "year" : /månedlig|monthly/i.test(billingMethod) ? "month" : null,
-      billing: /manual/i.test(billingMethod) ? "manual" : billingMethod ? "auto" : null,
+      // "Cancelled" as the billing method: the membership runs to its renewal date and is not renewed.
+      billing: /cancel/i.test(billingMethod) ? null : /manual/i.test(billingMethod) ? "manual" : billingMethod ? "auto" : null,
       joinedOn: exportDay(value("Join Date")), renewsOn: exportDay(value("Renewal Date")),
-      stripeCustomerId: /^cus_[A-Za-z0-9]+$/.test(autoBillingId) ? autoBillingId : null, labels: labels.filter(label => PEOPLE_LABELS.test(label))
+      stripeCustomerId: /^cus_[A-Za-z0-9]+$/.test(autoBillingId) ? autoBillingId : /^cus_[A-Za-z0-9]+$/.test(value("Stripe Customer ID")) ? value("Stripe Customer ID") : null,
+      labels: filled.filter(name => PEOPLE_LABELS.test(name) && !PLAN_COLUMN.test(name)),
+      newsletter: /^(y|yes|ja)$/i.test(value("Receive newsletter")), cancelled: cancelled || /cancel/i.test(billingMethod)
     });
   }
   return { accounts: [...accounts.values()], skipped };
@@ -335,10 +342,14 @@ export async function turnoverPlan(db: D1Database, today: string): Promise<Turno
     const free = /free|gratis/i.test(a.plan ?? "");
     const group: TurnoverGroup = already.has(a.email) ? "medlem"
       : !a.tier && !free ? "springes"
+      : !free && a.billing === null ? "springes"
       : a.renewsOn !== null && a.renewsOn < today && !free ? "restance"
       : free ? "gratis"
       : a.billing === "auto" && a.stripeCustomerId ? "kort" : "manuel";
-    const reason = group === "medlem" ? "Er allerede medlem i det nye system" : group === "springes" ? (a.plan ? `Ukendt medlemskab: ${a.plan}` : "Intet medlemskab i MembershipWorks") : null;
+    const reason = group === "medlem" ? "Er allerede medlem i det nye system" : group !== "springes" ? null
+      : /cancel/i.test(a.plan ?? "") ? "Tidligere medlem - betalingen er opsagt"
+      : a.tier && a.billing === null ? `Har opsagt${a.renewsOn ? ` - medlemskabet løber til ${isoDay(a.renewsOn)}` : ""}`
+      : a.plan ? `Ukendt medlemskab: ${a.plan}` : "Intet medlemskab i MembershipWorks";
     return { ...a, group, reason };
   });
 }

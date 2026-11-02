@@ -76,13 +76,16 @@ export async function cockpitMembers(db: D1Database): Promise<CockpitData> {
     if (seen.has(a.email.toLowerCase())) continue;
     const free = /free|gratis/i.test(a.plan ?? "");
     const tier = free ? FREE_TIER : a.tier;
-    const status: CockpitStatus = !tier ? "uden" : !free && a.renews_on !== null && a.renews_on < exportDay ? "restance" : "aktiv";
+    // MembershipWorks' full export: "Membership Payment Cancelled" is a former member; a membership whose billing is cancelled runs to its renewal date and is not renewed.
+    const former = !tier && /cancel/i.test(a.plan ?? "");
+    const cancelled = Boolean(tier) && !free && a.billing === null;
+    const status: CockpitStatus = former || cancelled ? "opsagt" : !tier ? "uden" : !free && a.renews_on !== null && a.renews_on < exportDay ? "restance" : "aktiv";
     const labels = labelsOf(a.labels);
     members.push({
       key: `mw${encodeURIComponent(a.email.toLowerCase())}`, source: "membershipworks", platformId: null, name: a.full_name, email: a.email, phone: a.phone, address: null, birthday: null,
-      tier, plan: tier ? planName(tier) : a.plan ? a.plan : "Intet medlemskab", interval: a.interval === "year" ? "year" : a.interval === "month" ? "month" : null,
-      monthlyMinor: status === "aktiv" || status === "restance" ? monthlyMinor(tier, a.interval) : 0, status, statusSince: status === "restance" ? a.renews_on : null,
-      billing: free ? "gratis" : !tier ? "ingen" : a.billing === "auto" ? "kort" : "manuel", nextPayment: tier && !free ? a.renews_on : null, joinedOn: a.joined_on,
+      tier, plan: former ? "Tidligere medlem" : tier ? planName(tier) : a.plan ? a.plan : "Intet medlemskab", interval: a.interval === "year" ? "year" : a.interval === "month" ? "month" : null,
+      monthlyMinor: status === "aktiv" || status === "restance" ? monthlyMinor(tier, a.interval) : 0, status, statusSince: status === "restance" || cancelled ? a.renews_on : null,
+      billing: free ? "gratis" : !tier || cancelled ? "ingen" : a.billing === "auto" ? "kort" : "manuel", nextPayment: tier && !free && !cancelled ? a.renews_on : null, joinedOn: a.joined_on,
       labels, teacher: labels.some(l => /teacher/i.test(l)), stripeCustomerId: a.stripe_customer_id, paysInMembershipworks: a.billing === "auto"
     });
   }
@@ -149,7 +152,8 @@ const BILLING_LABEL: Record<CockpitBilling, string> = { kort: "Kort (automatisk)
 const daysSince = (iso: string | null, today: string) => iso ? Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${iso}T12:00:00Z`)) / DAY)) : null;
 const statusBadge = (m: CockpitMember, today: string) => {
   const days = m.status === "restance" ? daysSince(m.statusSince, today) : null;
-  return `<span class="mc-badge ${m.status}">${STATUS_LABEL[m.status]}${days ? ` ${days} dage` : ""}</span>`;
+  const ends = m.status === "opsagt" && m.statusSince && m.statusSince >= today ? ` · udløber ${shortDate(m.statusSince)}` : "";
+  return `<span class="mc-badge ${m.status}">${STATUS_LABEL[m.status]}${days ? ` ${days} dage` : ""}${ends}</span>`;
 };
 
 export function cockpitPage(base: string, who: string | null, d: { data: CockpitData; filter: CockpitFilter; today: string; notice: string }): string {
