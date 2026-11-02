@@ -18,7 +18,10 @@ export const POWERS = {
   "access.close": { label: "Lukke et medlems adgang på alle enheder", needs: "personal" },
   "mailbox.connect": { label: "Forbinde og afbryde Hjerterums fælles mailboks (team@)", needs: "personal" },
   "mailbox.see": { label: "Se kortet om mailboksen i Posthus", needs: "named" },
-  "audit.read": { label: "Læse formandens log", needs: "personal" }
+  "audit.read": { label: "Læse formandens log", needs: "personal" },
+  // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" (1-2 Nov 2026).
+  "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" },
+  "events.edit": { label: "Rette og slette events, medlemmerne har oprettet i systemet", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
 
 export type Power = keyof typeof POWERS;

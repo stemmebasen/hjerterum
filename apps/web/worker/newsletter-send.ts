@@ -61,7 +61,7 @@ export async function sendIssue(env: NewsletterEnv, deps: SagaDeps, db: D1Databa
   await db.prepare("UPDATE newsletter_issues SET status = 'sent', sent_at_ms = ?, error = NULL, updated_at_ms = ? WHERE month = ?").bind(deps.now(), deps.now(), issue.month).run();
 }
 
-/** Every five minutes: from the 20th, next month's draft (once, then the board is told); on the 1st from 19.00, an approved issue is sent. */
+/** Every five minutes: from the 20th, next month's draft (once, then the chair is told); on the 1st from 19.00, an approved issue is sent. */
 export async function runNewsletterJob(env: NewsletterEnv, deps: SagaDeps): Promise<void> {
   const db = env.DB;
   if (!db) return;
@@ -74,18 +74,20 @@ export async function runNewsletterJob(env: NewsletterEnv, deps: SagaDeps): Prom
     await sendIssue(env, deps, db, due).catch(async error => {
       const message = error instanceof Error ? error.message : String(error);
       await db.prepare("UPDATE newsletter_issues SET status = 'failed', error = ?, updated_at_ms = ? WHERE month = ?").bind(message.slice(0, 500), now, month).run();
-      await tellBoard(env, deps, `Nyhedsbrevet for ${monthName(month)} kunne ikke sendes: ${message.slice(0, 200)}. Se https://admin.hjerterum.info/arrangementer/nyhedsbrev`);
+      await tellChair(env, deps, `Nyhedsbrevet for ${monthName(month)} kunne ikke sendes: ${message.slice(0, 200)}. Se https://admin.hjerterum.info/arrangementer/nyhedsbrev`);
     });
   }
   // Drafting: next month's issue from the 20th.
   const coming = nextMonth(month);
   if (day >= DRAFT_FROM_DAY && !(await getIssue(db, coming)) && await claimJob(db, `newsletter_draft:${coming}`, day, now)) {
     const issue = await writeIssue(env, deps, db, coming);
-    if (issue) await tellBoard(env, deps, `Nyhedsbrevet for ${monthName(coming)} er klar til gennemsyn: "${issue.subject}". Læs det, ret det og godkend det her, så går det ud den 1. kl. 19.00: https://admin.hjerterum.info/arrangementer/nyhedsbrev`);
+    if (issue) await tellChair(env, deps, `Nyhedsbrevet for ${monthName(coming)} er klar til gennemsyn: "${issue.subject}". Læs det, ret det og godkend det her, så går det ud den 1. kl. 19.00: https://admin.hjerterum.info/arrangementer/nyhedsbrev`);
   }
 }
 
-async function tellBoard(env: SagaEnv, deps: SagaDeps, text: string): Promise<void> {
-  if (!env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_BOARD_CHAT_ID) return;
-  await telegramClient(env, deps).sendMessage(env.SAGA_BOARD_CHAT_ID, text).catch(error => console.warn("newsletter_notice_failed", error instanceof Error ? error.message : error));
+/** Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - the newsletter is the chair's, so Saga tells
+ * the chair privately (SAGA_OWNER_TELEGRAM_ID), never the board's group. */
+async function tellChair(env: SagaEnv, deps: SagaDeps, text: string): Promise<void> {
+  if (!env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return;
+  await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, text).catch(error => console.warn("newsletter_notice_failed", error instanceof Error ? error.message : error));
 }

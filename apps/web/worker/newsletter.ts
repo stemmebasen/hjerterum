@@ -11,8 +11,8 @@ import { designUrl } from "./event-designs.js";
  * - "Fremhævet i <måned>": two or three events Saga picks and writes about, each with its picture,
  * - "Resten af <måned>": every event in the house that month, week by week, the morning programme marked "Mornings",
  * - "Se alle events her", the Mornings banner and Mailchimp's footer.
- * From the 20th Saga writes next month's issue as a draft; the board reads it, may change the words, and approves it under
- * Events → Nyhedsbrev. An approved issue is sent through Mailchimp on the 1st at 19.00 to those who chose "Månedens events".
+ * From the 20th Saga writes next month's issue as a draft and tells the chair; the chair reads it, may change the words, and approves it under
+ * Events → Nyhedsbrev (the chair's alone: authority.ts "newsletter.manage"). An approved issue is sent through Mailchimp on the 1st at 19.00 to those who chose "Månedens events".
  * Nothing is sent without that approval - Saga never sends mail of her own accord. The list is read from the calendar when the
  * issue is shown or sent, so an event added after the draft is still in it. */
 

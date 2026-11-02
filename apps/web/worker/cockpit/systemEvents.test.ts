@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { createRoomBooking, normalizeCreateRoomBookingInput } from "../room-bookings.js";
-import { deps, fakeServices, sagaEnv, testDatabase, memberCookie } from "../saga/test-support.js";
+import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase, memberCookie } from "../saga/test-support.js";
+import { saveBoardMessage } from "../saga/store.js";
 
 // Requested by the chair: "Som admin skal man kunne redigere og slette events oprettet i systemet."
 const ORIGIN = "https://admin.hjerterum.example";
@@ -22,13 +23,25 @@ describe("the board changes and deletes members' events", () => {
       ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(fakeServices().fetcher, NOW));
     const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-    const cookie = await memberCookie(session, "Lisbeth");
+    for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth", "201"]] as const).entries())
+      await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: tid, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
     const id = yoga.id;
+    // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - the rest of the board sees neither.
+    const lisbeth = await memberCookie(session, "Lisbeth");
+    const hers = await (await call("/arrangementer", { cookie: lisbeth })).text();
+    expect(hers).not.toContain("Events oprettet i systemet");
+    expect(hers).not.toContain("/arrangementer/nyhedsbrev");
+    expect((await call(`/arrangementer/system/${id}`, { cookie: lisbeth })).status).toBe(403);
+    expect((await call(`/arrangementer/system/${id}/slet`, { method: "POST", cookie: lisbeth })).status).toBe(403);
+    expect((await call("/arrangementer/nyhedsbrev", { cookie: lisbeth })).status).toBe(403);
+    // The chair, with the personal login.
+    const cookie = await personalCookie("Jacob Hauge", NOW);
 
     const page = await (await call("/arrangementer", { cookie })).text();
     expect(page).toContain("Events oprettet i systemet");
     expect(page).toContain(`href="/arrangementer/system/${id}"`);
     expect(page).toContain(`action="/arrangementer/system/${id}/slet"`);
+    expect(page).toContain("/arrangementer/nyhedsbrev");
     expect(await (await call(`/arrangementer/system/${id}`, { cookie })).text()).toContain('value="Yin yoga"');
 
     // New words and a new time (10-12 Danish time).
@@ -46,5 +59,8 @@ describe("the board changes and deletes members' events", () => {
     expect((await call(`/arrangementer/system/${id}/slet`, { method: "POST", cookie })).status).toBe(303);
     expect((await db.prepare("SELECT status FROM room_bookings WHERE id = ?").bind(id).first<{ status: string }>())?.status).toBe("cancelled");
     expect(await (await call("/arrangementer", { cookie })).text()).not.toContain(`/arrangementer/system/${id}"`);
+    // Written in the chair's log.
+    const log = await db.prepare("SELECT power, detail FROM chair_audit ORDER BY id").all<{ power: string; detail: string }>();
+    expect(log.results?.map(r => r.detail)).toEqual(['Rettede "Yin yoga for alle" (Maria Holm)', 'Slettede "Yin yoga for alle" (Maria Holm)']);
   });
 });
