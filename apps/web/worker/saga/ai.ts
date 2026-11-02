@@ -20,6 +20,10 @@ export type CompleteOptions = { purpose?: string; /** `true`: a simple task (sor
  * (input, output) by model family - an estimate from ai_usage, close enough to steer by. */
 const PRICES: Array<[RegExp, number, number]> = [[/sonnet/i, 3, 15], [/opus/i, 15, 75], [/haiku/i, 1, 5], [/deepseek/i, 0.3, 1.2]];
 export const DEFAULT_MAX_TOKENS = 4000;
+/** The most a retry may ask for (Sonnet and Haiku 5.5 write up to 64 000). */
+export const MAX_TOKENS_CEILING = 64_000;
+/** Long texts - a meeting's minutes from an hour and a half of talk - with room for the thinking before them. */
+export const MINUTES_MAX_TOKENS = 32_000;
 export const DAILY_BUDGET_USD = 1;
 export function costUsd(model: string, promptTokens: number, completionTokens: number): number {
   const [, input, output] = PRICES.find(([re]) => re.test(model)) ?? [/./, 3, 15];
@@ -41,7 +45,9 @@ function cached(messages: ChatMessage[]): unknown[] {
     ? { role: "system", content: [{ type: "text", text: m.content, cache_control: { type: "ephemeral" } }] } : m);
 }
 
-async function ask(env: SagaEnv, deps: SagaDeps, model: string, messages: ChatMessage[], maxTokens = DEFAULT_MAX_TOKENS): Promise<{ text: string; promptTokens: number | null; completionTokens: number | null }> {
+type Answer = { text: string; truncated: boolean; promptTokens: number | null; completionTokens: number | null };
+
+async function ask(env: SagaEnv, deps: SagaDeps, model: string, messages: ChatMessage[], maxTokens = DEFAULT_MAX_TOKENS): Promise<Answer> {
   const base = (env.AI_BASE_URL || REQUESTY_EU).replace(/\/+$/, "");
   const send = (body: unknown) => deps.fetcher(`${base}/chat/completions`, {
     method: "POST",
@@ -52,13 +58,16 @@ async function ask(env: SagaEnv, deps: SagaDeps, model: string, messages: ChatMe
   let response = await send(isClaude(model) ? { model, messages: cached(messages), max_tokens: maxTokens } : { model, messages, max_tokens: maxTokens, temperature: 0.2 });
   // A router that will not take the cache mark gets the plain messages.
   if (response.status === 400 && isClaude(model)) response = await send({ model, messages, max_tokens: maxTokens });
-  const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: string } }>; error?: { message?: string } | string; usage?: { prompt_tokens?: number; completion_tokens?: number } } | null;
+  const data = await response.json().catch(() => null) as { choices?: Array<{ message?: { content?: string }; finish_reason?: string | null }>; error?: { message?: string } | string; usage?: { prompt_tokens?: number; completion_tokens?: number } } | null;
   const text = data?.choices?.[0]?.message?.content?.trim();
   // The chair's page shows whether Saga's AI answers, and what the provider said when it did not.
   const said = typeof data?.error === "string" ? data.error : data?.error?.message ?? "";
   if (env.DB) await setServiceStatus(env.DB, "ai", Boolean(response.ok && text), response.ok && text ? "" : `${response.status} ${said}`.trim(), deps.now());
   if (!response.ok || !text) throw new Error(`ai_request_failed: ${response.status}`);
-  return { text, promptTokens: typeof data?.usage?.prompt_tokens === "number" ? data.usage.prompt_tokens : null, completionTokens: typeof data?.usage?.completion_tokens === "number" ? data.usage.completion_tokens : null };
+  // Reported: "There seemed to be a lot missing in the summary, even though I did record the whole meeting" - Claude thinks before it writes, and the
+  // thinking counts against max_tokens: the minutes stopped at point 5 of 12 and were kept as if finished. A cut-off answer is marked as such.
+  const finish = data?.choices?.[0]?.finish_reason;
+  return { text, truncated: finish === "length" || finish === "max_tokens", promptTokens: typeof data?.usage?.prompt_tokens === "number" ? data.usage.prompt_tokens : null, completionTokens: typeof data?.usage?.completion_tokens === "number" ? data.usage.completion_tokens : null };
 }
 
 /** Requested: "We spend around $3 to $4 each day on AI calls ... save money" - "brug gerne den billige deep seek model hvorend det giver mening": every call says what it is for (`ai_usage` keeps what it cost in tokens),
@@ -76,18 +85,23 @@ export async function complete(env: SagaEnv, deps: SagaDeps, messages: ChatMessa
   const overBudget = !options.cheap && env.DB && env.AI_MID_MODEL ? await spentToday(env.DB, deps.now()) >= DAILY_BUDGET_USD : false;
   const tier = overBudget ? "mid" : options.cheap;
   const lighter = tier === "mid" ? env.AI_MID_MODEL : tier ? env.AI_CHEAP_MODEL : undefined;
-  if (lighter && lighter !== env.AI_MODEL) {
-    try {
-      const answer = await ask(env, deps, lighter, messages, options.maxTokens);
-      await record(lighter, true, false, answer);
-      return answer.text;
-    } catch { await record(lighter, false, false); fallback = true; }
-  }
-  try {
-    const answer = await ask(env, deps, env.AI_MODEL, messages, options.maxTokens);
-    await record(env.AI_MODEL, true, fallback, answer);
+  // An answer cut off at the limit is asked for once more with twice the room; cut off again, it is an error - never a half answer kept as a whole one.
+  const whole = async (model: string, fallback: boolean): Promise<string> => {
+    const limit = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+    let answer = await ask(env, deps, model, messages, limit);
+    if (answer.truncated) {
+      await record(model, false, fallback, answer);
+      answer = await ask(env, deps, model, messages, Math.min(limit * 2, MAX_TOKENS_CEILING));
+      if (answer.truncated) { await record(model, false, fallback, answer); throw new Error("ai_truncated"); }
+    }
+    await record(model, true, fallback, answer);
     return answer.text;
-  } catch (error) { await record(env.AI_MODEL, false, fallback); throw error; }
+  };
+  if (lighter && lighter !== env.AI_MODEL) {
+    try { return await whole(lighter, false); } catch (error) { if (!(error instanceof Error && error.message === "ai_truncated")) await record(lighter, false, false); fallback = true; }
+  }
+  try { return await whole(env.AI_MODEL, fallback); }
+  catch (error) { if (!(error instanceof Error && error.message === "ai_truncated")) await record(env.AI_MODEL, false, fallback); throw error; }
 }
 
 /** A call with what it is for - `completeAs("oversaet-tekster", true, 8000)(env, deps, messages)`. */

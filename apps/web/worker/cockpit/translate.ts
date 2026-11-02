@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { completeAs } from "../saga/ai.js";
+import { completeAs, MINUTES_MAX_TOKENS } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { latestBoardNow } from "./boardNow.js";
 import { approvedMinutes, boardPicture, minutesDecisions } from "./data.js";
@@ -83,7 +83,7 @@ export async function translatedMinutes(db: D1Database, markdown: string): Promi
 export async function translateMinutes(env: SagaEnv, deps: SagaDeps, db: D1Database, markdown: string): Promise<string> {
   const kept = await translatedMinutes(db, markdown);
   if (kept) return kept;
-  const answer = (await completeAs("oversaet-referat", true, 12000)(env, deps, [{ role: "system", content: DOC_SYSTEM }, { role: "user", content: markdown }])).trim();
+  const answer = (await completeAs("oversaet-referat", true, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: DOC_SYSTEM }, { role: "user", content: markdown }])).trim();
   if (answer.length < Math.min(200, markdown.length / 3)) throw new Error("translation_too_short");
   await keep(db, markdown, answer, deps.now());
   return answer;
