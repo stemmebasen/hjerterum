@@ -16,6 +16,7 @@ import { handleLoginMail, LOGIN_MAIL_PATH, type LoginMailEnv } from "./login-mai
 import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
+import { handleNewsletterSignup, NEWSLETTER_PATH } from "./newsletter-subscribe.js";
 import { posterImage } from "./poster-image.js";
 
 interface Env {
@@ -82,6 +83,8 @@ export default {
     if (url.pathname === VISIT_PATH) return handleVisit(request, env as StatsEnv, Date.now());
     if (url.pathname === STATS_API_PATH) return handleStatsApi(request, env as StatsEnv, Date.now());
     // The website's enquiry forms, laid in team@'s inbox (enquiries.ts).
+    // The website's newsletter form, into Mailchimp with "Månedens events" ticked (newsletter-subscribe.ts).
+    if (url.pathname === NEWSLETTER_PATH) return handleNewsletterSignup(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === ENQUIRY_PATH) return handleEnquiry(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.

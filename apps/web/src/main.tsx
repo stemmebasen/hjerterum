@@ -71,6 +71,22 @@ type CalendarEvent = {
  * loaded only where it is used - signing in and up, the member area and admin - and never on the public website's pages. */
 const CLERK_PATHS = /^\/(?:sign-in|login|sign-up|signup|admin|member-portal)(?:\/|$)/;
 
+/** Douglas' notes: "I lose the login when I go back to main site". The login lives on medlem., and the website (www.) does not load it, so it
+ * said "Log ind" to someone signed in. The member area now leaves a small mark on the whole domain while someone is signed in (and takes it away
+ * when they are not); the website reads it and says "Min side". It holds no identity - only that someone on this browser is signed in. */
+const SIGNED_IN = "hr_signed_in";
+function siteDomain(): string {
+  const host = window.location.hostname;
+  return /(^|\.)hjerterum\.info$/.test(host) ? "; domain=.hjerterum.info" : "";
+}
+export function markSignedIn(signedIn: boolean) {
+  try {
+    document.cookie = signedIn ? `${SIGNED_IN}=1${siteDomain()}; path=/; max-age=${7 * 24 * 3600}; secure; samesite=lax`
+      : `${SIGNED_IN}=${siteDomain()}; path=/; max-age=0; secure; samesite=lax`;
+  } catch { /* ignore */ }
+}
+export const looksSignedIn = () => { try { return new RegExp(`(?:^|; )${SIGNED_IN}=1`).test(document.cookie); } catch { return false; } };
+
 function useClerk(wanted: boolean) {
   const [clerk, setClerk] = useState<ClerkBrowser | null>(null);
   const [user, setUser] = useState<ClerkUser | null>(null);
@@ -88,8 +104,10 @@ function useClerk(wanted: boolean) {
         setUser(instance?.user ?? null);
         setLoaded(true);
         if (instance) {
+          markSignedIn(Boolean(instance.user));
           unsubscribe = instance.addListener((state) => {
             if (active) setUser(state.user ?? null);
+            markSignedIn(Boolean(state.user));
           });
         }
       })
@@ -109,7 +127,8 @@ function useClerk(wanted: boolean) {
 /** Requested: "Menuen skal pakkes ind i en hamburger" - on a phone the menu opens from a button beside Log ind. */
 function SiteHeader({ current }: { current?: Section | undefined }) {
   const [open, setOpen] = useState(false);
-  return <LysTop right={<><LanguageSwitch english={current === "en"} /><a className="lys-pill" href={sagaLoginHref("/sign-in")}>Log ind</a>
+  const signedIn = looksSignedIn();
+  return <LysTop right={<><LanguageSwitch />{signedIn ? <a className="lys-pill" href="/member-portal/">Min side</a> : <a className="lys-pill" href={sagaLoginHref("/sign-in")}>Log ind</a>}
     <button type="button" className={"site-burger" + (open ? " is-open" : "")} aria-expanded={open} aria-controls="site-menu" aria-label={open ? "Luk menuen" : "Åbn menuen"}
       onClick={() => setOpen(!open)}><span /><span /><span /></button></>}><SiteNav current={current} open={open} /></LysTop>;
 }
@@ -274,7 +293,6 @@ function RoomPriceCalculator() {
   const standard = quote("standard"), reduced = quote("reduced"), free = quote("free");
   // A member's booking on a weekday lies wholly before or after 18.30.
   const crosses = roomBookingProblems({ bookingType: "reduced", ...when }).includes("crosses_a_time_boundary");
-  const saving = crosses ? null : standard.totalPriceKr - reduced.totalPriceKr;
   const monthKr = membershipPlans.standard.month / 100;
   const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
   const band = standard.band === "A" ? "A-tid · weekend eller fra kl. 18.30" : "B-tid · hverdage før kl. 18.30";
@@ -312,8 +330,9 @@ function RoomPriceCalculator() {
         end={`${String(Math.floor((startHour * 60 + startMinute + hours * 60) / 60) % 24).padStart(2, "0")}:${String((startMinute + hours * 60) % 60).padStart(2, "0")}`} onClose={() => setBooking(false)} />}
       <div className="rc-member">
         <div className="rc-member-text">
-          <b>{saving && saving > 0 ? <>Spar {kr(saving)} som medlem</> : "Lej gratis som medlem"}</b>
-          <span>{saving !== null && saving >= monthKr ? `Medlemskab ${kr(monthKr)}/md. – tjent hjem på én booking.` : `Medlemskab fra ${kr(monthKr)}/md.`}</span>
+          {/* Douglas' notes: "? Save 570,- as a member" - "Need to remove besparelse al together" (only here, in the calculator). */}
+          <b>Det får du som medlem</b>
+          <span>Medlemskab fra {kr(monthKr)}/md.</span>
           <ul>{MEMBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}</ul>
         </div>
         <div className="rc-member-actions">

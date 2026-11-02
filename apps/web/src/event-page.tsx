@@ -131,6 +131,8 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
             <h2>Billetter</h2>
             <ul className="event-tickets">{event.tickets.map((t) => <li key={t}>{t}</li>)}</ul>
           </>}
+          {/* Douglas' notes: "'Tilmeld dig' maybe at the bottom as well". */}
+          {!past && <p className="event-signup event-signup-end"><a className="lys-btn" href="/member-portal/kalender">Tilmeld dig</a></p>}
           <Share title={event.title} id={event.id} />
         </section>
         <FindWay event={event} />

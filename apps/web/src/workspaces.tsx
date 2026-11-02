@@ -187,8 +187,9 @@ function WorkspaceHeader({
     ["/member-portal/profil", "Min profil"],
     // Reported (Gitta): "Når man er logget ind, forsvinder hele 'Brug Hjerterum'-menuen. Den bør nok blive, så medlemmer stadig kan læse betingelserne."
     ["https://www.hjerterum.info/brug-hjerterum", "Brug Hjerterum"],
-    // Requested: one "Om Hjerterum" page, the same here and on the website (site/pages.ts).
-    ["/member-portal/kontakt", "Om Hjerterum"]
+    // Douglas' notes: "When logged in, 'About Hjerterum' & 'Use ...' are different" - one led to the website, the other stayed here. Both lead to
+    // the website now, which says "Min side" while you are signed in.
+    ["https://www.hjerterum.info/om-os", "Om Hjerterum"]
   ];
   const adminLinks: Array<readonly [string, string]> = [
     ["/admin/", "Overblik"],

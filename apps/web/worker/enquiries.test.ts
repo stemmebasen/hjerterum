@@ -108,7 +108,7 @@ describe("the website's enquiry forms", () => {
     for (const { topic } of placed) expect(ENQUIRY_TOPICS.map(t => t.key)).toContain(topic);
     expect(placed).toEqual(expect.arrayContaining([
       { path: "/kontakt", topic: "generel" }, { path: "/events", topic: "event-deltagelse" }, { path: "/brug-hjerterum", topic: "event-opsaetning" }, { path: "/brug-hjerterum/lejepriser", topic: "event-opsaetning" },
-      { path: "/medlemskab", topic: "medlemskab" }, { path: "/om-os", topic: "samarbejde" }, { path: "/brug-hjerterum/vilkaar", topic: "oekonomi" }, { path: "/en", topic: "generel" }]));
+      { path: "/medlemskab", topic: "medlemskab" }, { path: "/om-os", topic: "samarbejde" }, { path: "/brug-hjerterum/vilkaar", topic: "oekonomi" }]));
     expect(SITE_PAGES.find(page => page.path === "/privatliv")!.body).toContain("{#henvendelser}");
   });
 });

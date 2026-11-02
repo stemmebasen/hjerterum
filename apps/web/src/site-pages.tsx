@@ -1,7 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
+import { CIRKLER_URL, ENGLISH, translateUrl, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { EnquiryForm } from "./enquiry-form";
 
 /** The public website in Hjerterum Lys (site/pages.ts): the homepage modelled on hjerterum.info ("En forside som denne
@@ -58,11 +58,13 @@ function SectionTabs({ page }: { page: SitePage }) {
   </nav>;
 }
 
-/** "EN" beside Log ind instead of "English" in the menu. Requested: "Make it possible to come back to the Danish version
- * after having clicked the English version" - on the English pages it says "DA" and leads to the Danish front page. */
-export function LanguageSwitch({ english = false }: { english?: boolean }) {
-  if (english) return <a className="site-lang" href="/" lang="da" hrefLang="da" title="Dansk" aria-label="Dansk">DA</a>;
-  return <a className="site-lang" href={ENGLISH.href} lang="en" hrefLang="en" title={ENGLISH.title} aria-label={ENGLISH.title}>{ENGLISH.label}</a>;
+/** "EN" beside Log ind. Douglas' notes: "Translate button, but not English pages" - "Browserens oversættelse": Google translates the page
+ * the reader is on; there are no English pages of our own any more. Not shown inside Google's translation itself. */
+export function LanguageSwitch() {
+  if (typeof window !== "undefined" && /translate\.goog$/.test(window.location.hostname)) return null;
+  const here = typeof window !== "undefined" ? window.location.href : "https://www.hjerterum.info/";
+  return <a className="site-lang" href={translateUrl(here)} rel="noopener" lang="en" hrefLang="en" title={ENGLISH.title} aria-label={ENGLISH.title}
+    onClick={event => { event.currentTarget.href = translateUrl(window.location.href); }}>{ENGLISH.label}</a>;
 }
 
 /** The build's version and commit, set by vite.config.ts. */
@@ -77,20 +79,39 @@ export function LegalLine() {
   </p>;
 }
 
+/** Douglas' notes: "Does newsletter addresses go to Mailchimp?" - yes, and now with "Månedens events" ticked: the form goes through our own
+ * /api/nyhedsbrev (worker/newsletter-subscribe.ts), and Mailchimp asks a new address to confirm. While Mailchimp is not connected there,
+ * the form goes to Mailchimp's own sign-up as before. */
 export function Newsletter({ lang = "da" }: { lang?: "da" | "en" }) {
   const en = lang === "en";
-  return <form className="site-newsletter" action={NEWSLETTER_ACTION} method="post" target="_blank">
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    const form = event.currentTarget;
+    if (form.dataset.native === "1") return;
+    event.preventDefault();
+    const data = new FormData(form);
+    setState("busy");
+    try {
+      const response = await fetch("/api/nyhedsbrev", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: data.get("FNAME"), email: data.get("EMAIL"), [NEWSLETTER_HONEYPOT]: data.get(NEWSLETTER_HONEYPOT) }) });
+      if (response.status === 503) { form.dataset.native = "1"; setState("idle"); form.submit(); return; }
+      setState(response.ok ? "done" : "error");
+    } catch { setState("error"); }
+  };
+  return <form className="site-newsletter" action={NEWSLETTER_ACTION} method="post" target="_blank" onSubmit={event => void submit(event)}>
     <div>
       <p className="lys-kicker">{en ? "Newsletter" : "Nyhedsbrev"}</p>
       <h3>{en ? "Stay in touch" : "Hold dig opdateret"}</h3>
-      <p>{en ? "News about events and life at Hjerterum, a few times a year." : "Nyt om events og livet i Hjerterum – et par gange om året."}</p>
+      <p>{en ? "The month's events at Hjerterum, once a month." : "Månedens events i Hjerterum – én gang om måneden."}</p>
     </div>
-    <div className="site-newsletter-fields">
+    {state === "done" ? <p className="site-newsletter-done" role="status">{en ? "Thank you! Check your inbox and confirm." : "Tak! Tjek din indbakke og bekræft tilmeldingen."}</p>
+      : <div className="site-newsletter-fields">
       <label>{en ? "First name" : "Navn"}<input name="FNAME" autoComplete="given-name" /></label>
       <label>{en ? "Email" : "E-mail"}<input type="email" name="EMAIL" required autoComplete="email" /></label>
       <div aria-hidden="true" className="site-honeypot"><input type="text" name={NEWSLETTER_HONEYPOT} tabIndex={-1} defaultValue="" /></div>
-      <button className="lys-btn" type="submit">{en ? "Subscribe" : "Tilmeld"}</button>
-    </div>
+      <button className="lys-btn" type="submit" disabled={state === "busy"}>{state === "busy" ? (en ? "Sending …" : "Sender …") : en ? "Subscribe" : "Tilmeld"}</button>
+      {state === "error" && <p className="site-newsletter-error" role="alert">{en ? "That did not work - try again in a moment." : "Det gik ikke - prøv igen om lidt."}</p>}
+    </div>}
   </form>;
 }
 
@@ -135,7 +156,6 @@ export function SiteFooter() {
     <nav aria-label="Sidefod">
       {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
       <a href="/om-os/foreningen">Foreningen</a>
-      <a href={ENGLISH.href} lang="en">{ENGLISH.title}</a>
       <a href="/sign-in">Log ind</a>
     </nav>
     <LegalLine />
@@ -239,7 +259,9 @@ const CATEGORIES = [
   { key: "foredrag", label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
   { key: "koncerter", label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
   { key: "cafe", label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
-  { key: "film", label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" }
+  { key: "film", label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" },
+  // Douglas' notes: "? Courses button".
+  { key: "kurser", label: "Kurser", href: "/events?vis=kurser", icon: "M3 8l9-4 9 4-9 4-9-4zM7 10v5c0 1.7 2.2 3 5 3s5-1.3 5-3v-5M21 8v6" }
 ];
 
 /** The kinds of evenings as round icons. Requested: "Knappelayoutet bør være det samme på forsiden som på /events?vis=koncerter - på
@@ -305,13 +327,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
       </div>
       <a className="site-cirkler-logo" href={CIRKLER_URL} target="_blank" rel="noopener noreferrer" aria-label="CIRKLER"><span /></a>
     </section>
-    <section className="site-home-section site-vision">
-      <div className="lys-intro">
-        <div><p className="lys-kicker">Om Hjerterum</p><h2 className="lys-title">Mere nærvær.<em>Mindre støj.</em></h2></div>
-        <div><p>{ABOUT_WORDS.intro}</p><p>{ABOUT_WORDS.welcome}</p></div>
-      </div>
-      <Cards paths={["/behandlere", "/brug-hjerterum", "/om-os", "/kontakt", "/en"]} />
-    </section>
+    {/* Douglas' notes: "overload → repetition" - "Mere nærvær. Mindre støj." and the cards that repeated the menu are gone from the front page. */}
     <Newsletter />
     <SiteFooter />
   </main>;

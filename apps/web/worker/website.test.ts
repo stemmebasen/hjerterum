@@ -95,7 +95,7 @@ describe("the website from holistisk.org", () => {
     const env = { ...sagaEnv(testDatabase(), { COCKPIT_PASSWORD: "x" }), ASSETS: { fetch: async (request: Request) => new Response(`spa ${new URL(request.url).pathname}`) } } as never;
     const old = await config.fetch(new Request("https://medlem.hjerterum.info/fordele-ved-medlemskab/"), env);
     expect(old.status).toBe(301);
-    expect(old.headers.get("location")).toBe("/medlemskab#fordele");
+    expect(old.headers.get("location")).toBe("/medlemskab/fordele");
     expect((await config.fetch(new Request("https://medlem.hjerterum.info/bliv-medlem"), env)).headers.get("location")).toBe("/medlemskab");
     expect(await (await config.fetch(new Request("https://medlem.hjerterum.info/medlemskab"), env)).text()).toBe("spa /medlemskab");
     expect(await (await config.fetch(new Request("https://medlem.hjerterum.info/events"), env)).text()).toBe("spa /events");

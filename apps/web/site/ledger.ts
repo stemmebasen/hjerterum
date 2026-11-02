@@ -44,7 +44,7 @@ The untouched originals are archived in \`docs/legacy/holistisk-org/pages/\`; th
 ## Struktur
 
 The menu follows hjerterum.info: Events · Behandlere & undervisere · Medlemskab · Lej Hjerterum ·
-Vision / om os · Kontakt · English. The content pages live in \`apps/web/site/pages.ts\` and \`pages-en.ts\`.
+Vision / om os · Kontakt. The content pages live in \`apps/web/site/pages.ts\`.
 
 ## Medier
 

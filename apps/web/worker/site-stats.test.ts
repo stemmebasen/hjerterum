@@ -84,7 +84,8 @@ describe("counting the website's visits", () => {
 
   it("reads paths, sources, campaigns and devices plainly", () => {
     expect(countedPath("/Medlemskab/")).toBe("/medlemskab");
-    expect(countedPath("/en/membership")).toBe("/en/membership");
+    expect(countedPath("/medlemskab/fordele")).toBe("/medlemskab/fordele");
+    expect(countedPath("/en/membership")).toBeNull();
     expect(countedPath("https://hjerterum.info/")).toBeNull();
     expect(referrerHost("https://medlem.hjerterum.info", "hjerterum.info")).toBeNull();
     expect(referrerHost("https://www.facebook.com", "hjerterum.info")).toBe("facebook.com");

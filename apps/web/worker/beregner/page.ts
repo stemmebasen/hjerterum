@@ -256,12 +256,9 @@ var CHECK='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="c
 // What the same booking costs as a member - shown, but not to be chosen here.
 function members(c){var r=state.compare&&state.compare[0],f=state.compare&&state.compare[1];
   var opt=function(name,note,value){return '<div class="opt" aria-disabled="true"><span><b>'+name+'</b><span class="tag">'+LOCK+T.locked+'</span><small>'+note+'</small></span><b class="p">'+value+'</b></div>'};
-  var saving=r?c.totalKr-r.totalKr:null;
   return '<div class="members"><div class="mh">'+LOCK+T.asMember+'</div>'
     +opt(C.names.reduced,r?T.reducedNote:T.crossNote,r?fmt(r.totalKr):"–")
     +opt(C.names.free,T.freeNote,fmt(f?f.totalKr:0))
-    +'<p class="save">'+(saving&&saving>0?T.save.replace("{kr}",fmt(saving)):T.saveFree)+'</p>'
-    +(saving&&saving>=C.memberMonthKr?'<p class="payback">'+T.payback.replace("{kr}",fmt(C.memberMonthKr))+'</p>':'')
     +'<b style="font-size:14.5px">'+T.perksTitle+'</b><ul>'+T.perks.map(function(p){return "<li>"+CHECK+"<span>"+p+"</span></li>"}).join("")+'</ul>'
     +'<div class="mbtns"><a class="join" href="'+C.join+'" target="_top" rel="noopener">'+T.join+'</a><a class="login" href="'+C.memberArea+'" target="_top">'+T.memberLogin+'</a></div></div>'}
 function result(){var c=state.calc,band=(c.band==="A"?T.bandA:T.bandB)+(c.weekend?", "+T.weekend:"");
