@@ -742,3 +742,10 @@ Still open:
 - Spørgsmål: "Ved saga hvordan hun skal integrere og gemme referat fra generalforsamlingen?" Svar: nej. I dag bliver en optagelse altid til et bestyrelsesreferat (skabelon "Referat - bestyrelsesmøde", godkendelse hos hele bestyrelsen, bestyrelsens referatdokument, bestyrelsens beslutninger og opgaver).
 - Forslaget: en egen skabelon (dirigent og referent, fremmødte og stemmeberettigede, beretning, regnskab og budget, kontingent, forslag med stemmetal, valg, eventuelt). Godkendelse ved dirigenten, evt. med et link, og derefter låst. Gemmes for sig under "Generalforsamlinger". Beslutninger mærkes "Generalforsamlingen", og valgene opdaterer bestyrelse og suppleanter. Offentliggøres for medlemmerne, når det er godkendt.
 - Åbent: hvem der godkender (dirigenten?), og om referatet skal være offentligt eller kun for medlemmer. Indtil det er bygget, skal optagelsen af generalforsamlingen ikke uploades.
+
+## Inviter din CIRKEL med (2026-11-02)
+
+- Ønsket: "Under hvert Hjerterum event skal der diskret stå: Inviter din CIRKEL med" - for alle events i salen. Linjen står under eventet på hjemmesiden og fører til `/member-portal/cirkel?event=<id>` (login først, og man kommer tilbage til samme event).
+- Er man med i en cirkel: en boks med eventet, cirklens navn og et skrivefelt. `POST /api/integrations/cirkler/invite` læser eventet fra Hjerterums egen kalender (aldrig fra browseren) og sender beskeden til CIRKLER (`POST /api/hjerterum/circle-invite`, samme delte nøgle som circle-status), hvor den lander i cirklens chat i medlemmets navn med billede, kort beskrivelse og link.
+- Er man ikke med i en cirkel: "Du er ikke medlem af en CIRKEL endnu - klik her for at blive det" (samme signerede billet som CIRKLER-kortet). Uden medlemskab: CIRKLER er for medlemmer.
+- CIRKLER-delen ligger i stemmebasen/cirkler.net (migration `20261102230000_circle_message_event`, som køres i Supabase før deploy).

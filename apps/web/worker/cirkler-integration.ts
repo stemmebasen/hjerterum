@@ -15,6 +15,8 @@ import { includesMemberBenefits } from "../membership.js";
 import { clerkPrimaryEmail } from "./admin-auth.js";
 import { authenticateBearer } from "./auth.js";
 import { handleReservationRequest } from "./cirkler-reservations.js";
+import { eventDetail } from "./event-detail.js";
+import { designUrl } from "./event-designs.js";
 import type { D1Database } from "./db.js";
 import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
 
@@ -222,6 +224,65 @@ async function circleStatus(request: Request, env: CirklerIntegrationEnv, deps: 
   }
 }
 
+/** Requested (Jacob, 2 November 2026): "Inviter din CIRKEL med" under every event in the hall. The member's words and the event - picture, short
+ * description, link - land in their circle's chat in CIRKLER, in their own name (POST /api/hjerterum/circle-invite there). The event is read here
+ * from Hjerterum's own calendar, never taken from the browser. Body: {event: "<id>" (an old-calendar id or "h<id>"), message}. */
+async function circleInvite(request: Request, env: CirklerIntegrationEnv, deps: CirklerIntegrationDeps): Promise<Response> {
+  const serviceKey = env.CIRKLER_SERVICE_KEY?.trim() ?? "";
+  if (!env.DB || !env.CLERK_SECRET_KEY || !serviceKey) return json({ error: "cirkler_integration_not_configured" }, { status: 503 });
+  let userId: string;
+  try {
+    userId = (await (deps.authenticate ?? authenticateBearer)(request, env.CLERK_JWT_ISSUER)).userId;
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "auth_failed";
+    return json({ error: code }, { status: code === "auth_not_configured" ? 503 : 401 });
+  }
+  const body = await request.json().catch(() => null) as { event?: unknown; message?: unknown } | null;
+  const message = typeof body?.message === "string" ? body.message.replace(/\r\n?/g, "\n").trim() : "";
+  if (typeof body?.event !== "string" || message.length > 1200) return json({ error: "invalid_request" }, { status: 400 });
+  try {
+    const membership = await resolveActiveMembership(env.DB, userId, env.CLERK_SECRET_KEY);
+    if (!membership) return json({ error: "active_membership_required" }, { status: 403 });
+    const event = await sharedEvent(env.DB, body.event, deps.fetcher ?? fetch, deps.now());
+    if (!event) return json({ error: "event_not_found" }, { status: 404 });
+    const base = (env.CIRKLER_BASE_URL || DEFAULT_CIRKLER_BASE_URL).replace(/\/+$/, "");
+    const response = await (deps.fetcher ?? fetch)(`${base}/api/hjerterum/circle-invite`, {
+      method: "POST", headers: { authorization: `Bearer ${serviceKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ ref: membershipReference(membership), message, event })
+    });
+    const answer = await response.json().catch(() => ({})) as { circle?: unknown; error?: unknown };
+    if (response.status === 409) return json({ error: answer.error === "no_profile" ? "no_profile" : "no_circle" }, { status: 409 });
+    if (!response.ok) return json({ error: "cirkler_unavailable" }, { status: 503 });
+    return json({ ok: true, circle: typeof answer.circle === "string" ? answer.circle.slice(0, 120) : null });
+  } catch (error) {
+    console.warn("cirkler_invite_failed", error instanceof Error ? error.message : error);
+    return json({ error: "cirkler_unavailable" }, { status: 503 });
+  }
+}
+
+const SITE = "https://www.hjerterum.info";
+const short = (text: string, max = 280) => { const t = text.replace(/\s+/g, " ").trim(); return t.length > max ? `${t.slice(0, max - 1).replace(/\s+\S*$/, "")} …` : t; };
+
+/** The event as CIRKLER shows it: from the house's own calendar ("h<id>") or the old calendar (its 24-character id), coming, in the hall. */
+export async function sharedEvent(db: D1Database, id: string, fetcher: typeof fetch, nowMs: number): Promise<{ title: string; url: string; image_url: string | null; summary: string; starts_at: string } | null> {
+  const own = /^h(\d+)$/.exec(id);
+  if (own) {
+    const row = await db.prepare(`SELECT b.id, b.title, b.description, b.starts_at_ms,
+        (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id,
+        (SELECT d.created_at_ms FROM room_booking_designs d WHERE d.room_booking_id = b.id) AS design_at
+      FROM room_bookings b WHERE b.id = ? AND b.status = 'scheduled' AND COALESCE(b.review_status, 'approved') = 'approved'`).bind(Number(own[1]))
+      .first<{ id: number; title: string; description: string | null; starts_at_ms: number; cover_id: number | null; design_at: number | null }>();
+    if (!row || row.starts_at_ms < nowMs) return null;
+    const image = row.design_at ? designUrl(row.id, row.design_at) : row.cover_id ? `/api/event-files/${row.cover_id}` : null;
+    return { title: row.title, url: `${SITE}/events/h${row.id}`, image_url: image ? `${SITE}${image}` : null, summary: short(row.description ?? ""), starts_at: new Date(row.starts_at_ms).toISOString() };
+  }
+  if (!/^[0-9a-f]{24}$/.test(id)) return null;
+  const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
+  if (!detail || Date.parse(detail.startsAt) < nowMs) return null;
+  return { title: detail.title, url: `${SITE}/events/${id}`, image_url: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : null,
+    summary: short(detail.paragraphs.join(" ")), starts_at: detail.startsAt };
+}
+
 async function eligibility(request: Request, env: CirklerIntegrationEnv): Promise<Response> {
   // Nøglen trimmes, så et mellemrum eller linjeskift fra indsætningen i
   // Cloudflare ikke giver 401 over for CIRKLER, der trimmer sin kopi.
@@ -266,5 +327,6 @@ export async function handleCirklerIntegrationRequest(
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/handoff") return handoff(request, env, deps);
   if (request.method === "POST" && pathname === "/api/integrations/cirkler/eligibility") return eligibility(request, env);
   if (request.method === "GET" && pathname === "/api/integrations/cirkler/status") return circleStatus(request, env, deps);
+  if (request.method === "POST" && pathname === "/api/integrations/cirkler/invite") return circleInvite(request, env, deps);
   return json({ error: "not_found" }, { status: 404 });
 }

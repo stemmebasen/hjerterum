@@ -190,6 +190,9 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
           </>}
           {/* Douglas' notes: "'Tilmeld dig' maybe at the bottom as well". */}
           {!past && <div className="event-signup-end"><SignUp event={event} /></div>}
+          {/* Requested: "Under hvert Hjerterum event skal der diskret stå: Inviter din CIRKEL med" (cirkel-invite.tsx, in the member area). */}
+          {!past && <p className="event-cirkel"><a href={`/member-portal/cirkel?event=${encodeURIComponent(event.id)}`}><span className="event-cirkel-mark" aria-hidden="true" />Inviter din CIRKEL med</a>
+            <small>Del eventet i din cirkels chat i CIRKLER</small></p>}
           <Share title={event.title} id={event.id} />
         </section>
         <FindWay event={event} />

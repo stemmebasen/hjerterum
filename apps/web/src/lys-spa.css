@@ -941,3 +941,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-guest input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--lys-line); border-radius: 10px; background: var(--lys-surface, #fff); color: var(--lys-ink); }
 .event-guest-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; }
 .event-guest-error { margin: 0; color: var(--lys-terra); font-size: 14px; }
+/* "Inviter din CIRKEL med" under every event - quiet, in CIRKLER's gold. */
+.event-cirkel { display: grid; gap: 2px; margin: 26px 0 0; padding: 14px 0 0; border-top: 1px solid var(--lys-line); }
+.event-cirkel a { display: inline-flex; align-items: center; gap: 8px; font: 600 15px/1.3 var(--lys-sans); color: var(--lys-ink); text-decoration: none; width: fit-content; }
+.event-cirkel a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.event-cirkel-mark { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #a9822c; box-shadow: inset 0 0 0 3px var(--lys-bg, #fff), inset 0 0 0 4.5px #a9822c; }
+.event-cirkel small { color: var(--lys-muted); font-size: 13px; }

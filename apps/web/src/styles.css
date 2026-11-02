@@ -1063,3 +1063,13 @@ h3 { font-size: 25px; line-height: 1.2; }
 .saga-panel header .saga-lang:hover, .saga-panel header .saga-lang:focus-visible { border-color: var(--lys-accent, #c9a48a); color: var(--lys-accent, #c9a48a); }
 .rc-free { color: #2f6b4f; font-weight: 600; } .rc-taken { color: var(--lys-terra, #b3261e); font-weight: 600; }
 @media (prefers-color-scheme: dark) { .rc-free { color: #8fd1ad; } }
+/* "Inviter din CIRKEL med" in the member area (cirkel-invite.tsx). */
+.cirkel-invite h1 { margin-bottom: 18px; }
+.cirkel-invite-event { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; padding: 14px; margin: 0 0 22px; border: 1px solid var(--profile-line, rgba(0,0,0,.1)); border-radius: 16px; }
+.cirkel-invite-event img { width: 120px; height: 80px; object-fit: cover; border-radius: 10px; }
+.cirkel-invite-event h2 { margin: 4px 0 0; font-size: 1.2rem; }
+.cirkel-invite-form { display: grid; gap: 10px; }
+.cirkel-invite-form textarea { font: inherit; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--profile-line, rgba(0,0,0,.15)); background: var(--profile-surface, transparent); color: inherit; width: 100%; box-sizing: border-box; }
+.cirkel-invite-form label { font-weight: 600; }
+.cirkel-invite-error { color: var(--lys-terra, #b3261e); }
+@media (max-width: 520px) { .cirkel-invite-event { grid-template-columns: 1fr; } .cirkel-invite-event img { width: 100%; height: 160px; } }
