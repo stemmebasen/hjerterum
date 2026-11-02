@@ -9,7 +9,11 @@ import { esc, layout } from "./page.js";
  *
  * A new power is added in three steps: a line in POWERS (what it is called and what it takes), `may(power)` where it is used, and - when it
  * reads or changes something about other people - `audit(...)`, so the chair's log shows it. Nothing else in the cockpit should ask
- * "is this the chair?" on its own. */
+ * "is this the chair?" on its own.
+ *
+ * The rule for new admin features (the chair, 2 Nov 2026): "generelt når vi udvikler ny admin funktion skal det til start kun være
+ * tilgængelig for mig". A new feature in admin starts as a power here with needs "personal"; it is opened to the board (removed from
+ * POWERS) only when the chair says so. See docs/decisions/0007-new-admin-features-chair-first.md. */
 
 export const POWERS = {
   "admins.read": { label: "Se, hvem der er administratorer, og hvordan de bruger admin", needs: "personal" },
@@ -19,9 +23,8 @@ export const POWERS = {
   "mailbox.connect": { label: "Forbinde og afbryde Hjerterums fælles mailboks (team@)", needs: "personal" },
   "mailbox.see": { label: "Se kortet om mailboksen i Posthus", needs: "named" },
   "audit.read": { label: "Læse formandens log", needs: "personal" },
-  // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" (1-2 Nov 2026).
-  "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" },
-  "events.edit": { label: "Rette og slette events, medlemmerne har oprettet i systemet", needs: "personal" }
+  // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - "Nej kun nyhedsbrevet delen" (2 Nov 2026).
+  "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
 
 export type Power = keyof typeof POWERS;

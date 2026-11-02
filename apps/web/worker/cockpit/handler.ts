@@ -937,13 +937,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const systemPath = /^\/arrangementer\/system\/(\d+)(\/slet)?$/.exec(path);
   if (systemPath) {
     if (!who) return redirect(`${base}/hvem`);
-    if (!may("events.edit")) return denied("events.edit");
     const id = Number(systemPath[1]);
     const found = await systemEvent(db, id);
     if (!found || found.cirkler_meeting_id) return html(notFound(base, who), 404);
     if (systemPath[2] && request.method === "POST") {
       await cancelRoomBookingAsAdmin(db, id).catch(() => undefined);
-      await audit(db, actor, "events.edit", `Slettede "${found.title}" (${found.teacher_name})`, now);
       return redirect(`${base}/arrangementer?system=slettet#system-events`);
     }
     if (request.method === "POST") {
@@ -955,7 +953,6 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const message = code === "booking_conflict" ? "Salen er optaget på det tidspunkt." : code.startsWith("invalid_") ? "Tidspunktet passer ikke med reglerne for leje: 2-10 timer i halve timer, og med medlemsrabat eller gratis leje ikke hen over kl. 18.30 på hverdage." : "Eventet kunne ikke gemmes. Prøv igen.";
         return html(systemEventPage(base, who, { ...found, title: read.change.title, teacher_name: read.change.teacherName, description: read.change.description, starts_at_ms: read.change.startsAt, ends_at_ms: read.change.endsAt, max_attendees: read.change.maxAttendees }, message), 409);
       }
-      await audit(db, actor, "events.edit", `Rettede "${read.change.title}" (${read.change.teacherName})`, now);
       return redirect(`${base}/arrangementer?system=rettet#system-events`);
     }
     return html(systemEventPage(base, who, found));
@@ -974,8 +971,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     const wishes = await prWishes(db, coming.map(e => e.id));
     const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig." };
-    // The chair's own (authority.ts): changing and deleting members' events, and the newsletter.
-    const system = may("events.edit") ? systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "") : "";
+    // The board changes and deletes members' events; the newsletter is the chair's own (authority.ts).
+    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage") }));
   }
   // Gitta's PR wishes on the coming events (prWishes.ts).
