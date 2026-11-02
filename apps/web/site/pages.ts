@@ -1169,7 +1169,7 @@ Hjerterum er desværre ikke tilgængeligt for kørestolsbrugere: selvom vi ligge
 ## Godt at vide
 Når du bruger Hjerterum, er du selv ansvarlig for eventuelle skader på dig selv og dine ejendele.
 
-Følg os på [Facebook](https://www.facebook.com/holistiskcenter). Søger du selvudvikling i mindre grupper, så se også [CIRKLER](${CIRKLER_URL}).
+Følg os på [Facebook](https://www.facebook.com/hjerterumaarhus). Søger du selvudvikling i mindre grupper, så se også [CIRKLER](${CIRKLER_URL}).
 
 {{newsletter}}`,
     gallery: {
