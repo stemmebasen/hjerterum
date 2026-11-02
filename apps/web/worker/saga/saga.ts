@@ -17,7 +17,7 @@ import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { EDIT_DAYS, inEditWindow, removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
-import { completeAs } from "./ai.js";
+import { completeAs, MINUTES_MAX_TOKENS } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
@@ -167,12 +167,12 @@ export async function draftOverview(env: SagaEnv, deps: SagaDeps, doc?: { text: 
   const read = doc ?? await readArchive(env, deps);
   const done = await ownerDone(db, deps.now() - 60 * DAY);
   const messages = [{ role: "system" as const, content: OVERVIEW_SYSTEM }, { role: "user" as const, content: `I DAG: ${danishDate(copenhagenDate(deps.now()))}\n\n${await context(env, deps, 14, read.text)}${doneContext(done)}${membersContext(responsibilitiesForSaga((await boardMembers(env, db)).names, await responsibilities(db)), await memberDoneForSaga(db, deps.now() - 60 * DAY))}` }];
-  let answer = await completeAs("overblik", "mid", 12000)(env, deps, messages);
+  let answer = await completeAs("overblik", "mid", 20_000)(env, deps, messages);
   let picture = parsePicture(answer);
   // Reported: the cockpit greeted with "```json {" - the answer was cut off mid-JSON (too long) and kept as
   // text. Once more, shorter; and a broken answer is never saved - the last good overview stands.
   if (!picture && looksLikeJson(answer)) {
-    answer = await completeAs("overblik", "mid", 12000)(env, deps, [...messages, { role: "assistant", content: answer.slice(0, 2000) },
+    answer = await completeAs("overblik", "mid", 20_000)(env, deps, [...messages, { role: "assistant", content: answer.slice(0, 2000) },
       { role: "user", content: "Dit svar blev for langt og blev afbrudt. Svar igen med præcis samme JSON-form, men kortere: højst 8 punkter i hver liste og korte tekster. Kun JSON." }]);
     picture = parsePicture(answer);
   }
@@ -241,7 +241,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     else audio = await telegramClient(env, deps).downloadFile(item.source_file_id);
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
-    const draft = await completeAs("referat", false, 12000)(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
+    const draft = await completeAs("referat", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
         + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
@@ -256,6 +256,75 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
       : `Jeg kunne ikke lave referat af ${item.file_name} (${message}).`).catch(() => undefined);
   }
   return true;
+}
+
+/** The points of a minutes that were written to the end: up to the last whole "### N." point (or up to "## Beslutninger" when all were),
+ * and the number the next point has. A point cut off midway - a heading without text, a "Beslutning:" line that stops in a word - is left out. */
+export function writtenPoints(draft: string): { kept: string; next: number } {
+  const body = draft.split(/^## Beslutninger\b/m)[0]!.trimEnd();
+  const blocks = body.split(/^(?=###)/m);
+  const head = blocks.shift() ?? "";
+  if (!/^## Punkter/m.test(head)) return { kept: "", next: 1 };
+  const whole = (block: string) => {
+    const last = block.trim().split("\n").at(-1)?.trim() ?? "";
+    return /^- Beslutning:/.test(last) && /(?:[.!)"”]|ingen beslutning)$/i.test(last);
+  };
+  // Every point but the last was followed by another; the last counts only when it ends as a point ends.
+  const done = blocks.filter((block, i) => i < blocks.length - 1 ? /\S/.test(block.replace(/^###\s*/, "")) : whole(block));
+  const numbers = done.map(block => Number(/^###\s*(\d+)/.exec(block)?.[1] ?? 0));
+  return { kept: [head, ...done].join("").trimEnd(), next: Math.max(0, ...numbers) + 1 };
+}
+
+/** Requested: "Begge skal laves igen og sendes ud til godkendelse igen. Implementer mine og andres rettelser først. ... Start med at sende dem til
+ * godkendelse hos mig." Minutes marked redo_requested_at_ms (migration 0090) are written again from the transcript: the points already written stay
+ * word for word - the board's corrections are in them - and Saga writes the rest (the points that are missing, Beslutninger, Aftaler, Opgaver,
+ * Næste møde) with every correction the board sent in. Then they go back to the chair as a new draft; when he approves them, the board corrects
+ * and approves them again (publishMinutes). One per round; a failure is tried again half an hour later, at most four times. */
+export async function redoMinutes(env: SagaEnv, deps: SagaDeps): Promise<boolean> {
+  const db = requireDb(env), now = deps.now();
+  const row = await db.prepare("SELECT id, redo_requested_at_ms FROM board_minutes WHERE redo_requested_at_ms IS NOT NULL AND locked_at_ms IS NULL AND transcript IS NOT NULL ORDER BY COALESCE(meeting_date, '') LIMIT 1")
+    .first<{ id: number; redo_requested_at_ms: number }>().catch(() => null);
+  if (!row) return false;
+  const key = `minutes_redo:${row.id}:${row.redo_requested_at_ms}`;
+  const tries = (await db.prepare("SELECT COUNT(*) AS n FROM job_claims WHERE job_key = ?").bind(key).first<{ n: number }>())?.n ?? 0;
+  if (tries >= 4 || !(await claimJob(db, key, Math.floor(now / (30 * 60_000)), now))) return false;
+  const item = await getMinutes(db, row.id);
+  if (!item?.transcript) return false;
+  try {
+    const { kept, next } = writtenPoints(item.draft_markdown ?? "");
+    const sent = (await db.prepare("SELECT point, member, correction, answer FROM board_minutes_corrections WHERE minutes_id = ? ORDER BY created_at_ms").bind(row.id)
+      .all<{ point: number; member: string; correction: string; answer: string | null }>()).results ?? [];
+    const comments = (await db.prepare("SELECT member, comment FROM board_minutes_signoffs WHERE minutes_id = ? AND status = 'correction' AND comment IS NOT NULL").bind(row.id)
+      .all<{ member: string; comment: string }>()).results ?? [];
+    const fixes = [...sent.map(c => `- Punkt ${c.point} (${c.member}): ${c.correction}${c.answer ? ` (uddybet: ${c.answer})` : ""}`), ...comments.map(c => `- ${c.member}: ${c.comment}`)];
+    const task = kept
+      ? `REFERATET INDTIL NU (skrevet og rettet af bestyrelsen - det stopper efter punkt ${next - 1}):\n${kept}\n\n`
+        + `Skriv KUN fortsættelsen, i samme skabelon: begynd med "### ${next}." (eller med "## Beslutninger", hvis alle dagsordenens punkter allerede står), og skriv de manglende punkter, `
+        + `og derefter "## Beslutninger", "## Aftaler", "## Opgaver" og "## Næste møde" for HELE mødet - også for de punkter, der allerede står ovenfor. Gentag ikke det, der allerede står.`
+      : "Skriv hele referatet efter skabelonen.";
+    const answer = (await completeAs("referat", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
+      { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${item.transcript}`
+        + (fixes.length ? `\n\nRETTELSER FRA BESTYRELSEN (de gælder frem for transskriptionen og skal stå sådan i hele referatet, også under Beslutninger, Aftaler og Opgaver):\n${fixes.join("\n")}` : "")
+        + `\n\n${task}\nSkriv ingen bemærkning om, at referatet er skrevet igen eller rettet.` }])).trim();
+    const rest = kept ? answer.slice(Math.max(0, answer.search(/^(?:### |## Beslutninger)/m))) : answer;
+    if (!/^## Beslutninger/m.test(rest) || !/^## Opgaver/m.test(rest)) throw new Error("minutes_redo_incomplete");
+    const draft = kept ? `${kept}\n\n${rest.trim()}` : rest;
+    await updateMinutes(db, row.id, { status: "drafted", draft, error: null }, now);
+    await db.prepare("UPDATE board_minutes SET redo_requested_at_ms = NULL WHERE id = ?").bind(row.id).run();
+    await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(row.id).run();
+    await db.prepare("UPDATE board_minutes_corrections SET status = 'applied', updated_at_ms = ? WHERE minutes_id = ? AND status <> 'applied'").bind(now, row.id).run();
+    // A new draft: the chair is reminded of it, and the board told when its correction days are over, as for any new minutes.
+    await db.prepare("DELETE FROM job_claims WHERE job_key IN ('minutes_draft_reminder', 'minutes_approval_open') AND scheduled_for_ms = ?").bind(row.id).run();
+    if (item.approval_message_id) await telegramClient(env, deps).editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);
+    await sendMinutesForApproval(env, deps, row.id, draft, item.meeting_date, `Referatet fra ${danishDate(item.meeting_date)} er skrevet færdigt - det første blev klippet af undervejs. `
+      + `Punkterne, der allerede stod, er de samme med jeres rettelser${fixes.length ? ` (${fixes.length} rettelse${fixes.length === 1 ? "" : "r"})` : ""}; resten er skrevet ud fra optagelsen. Læs det igennem, før det kommer op til bestyrelsen igen.`);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "minutes_redo_failed";
+    await updateMinutes(db, row.id, { error: message }, now).catch(() => undefined);
+    if (tries + 1 >= 4) await telegramClient(env, deps).sendMessage(owner(env), `Jeg kunne ikke skrive referatet fra ${danishDate(item.meeting_date)} færdigt (${message}).`).catch(() => undefined);
+    return false;
+  }
 }
 
 /** Requested: "Her skal vi lave et pænt layout og alt med dagsorden i toppen" - the agenda the board
@@ -353,7 +422,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
   }
   if (item.status === "approved") {
     // Already up: corrected in place, and the board's sign-offs start over.
-    const draft = await completeAs("referat-ret", false, 12000)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+    const draft = await completeAs("referat-ret", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
       { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
     await updateMinutes(db, id, { draft }, deps.now());
     await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(id).run();
@@ -364,7 +433,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     // Requested: "Ingen skal have en besked når noget rettes i referatet" - the group hears nothing of a correction.
     return;
   }
-  const draft = await completeAs("referat-ret", false, 12000)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+  const draft = await completeAs("referat-ret", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
     { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
   await updateMinutes(db, id, { draft }, deps.now());
   if (item.approval_message_id) await telegramClient(env, deps).editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);
@@ -466,6 +535,7 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // The document's meetings first: a recording of one of them then has its agenda to follow.
   await importDocMinutes(env, deps).catch(error => console.warn("saga_minutes_import_failed", error instanceof Error ? error.message : error));
   await processNextMinutes(env, deps).catch(error => console.warn("saga_minutes_failed", error instanceof Error ? error.message : error));
+  await redoMinutes(env, deps).catch(error => console.warn("saga_minutes_redo_failed", error instanceof Error ? error.message : error));
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", weekday: "short", hour: "2-digit", hour12: false })
     .formatToParts(deps.now()).map(p => [p.type, p.value]));
   await step("overblik, forespørgsler og events");
