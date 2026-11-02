@@ -4,7 +4,6 @@
  * accounts for all 56. The untouched originals are archived in docs/legacy/holistisk-org/. Markdown: site/markdown.ts;
  * a line "{{name}}" places a live part of the page (the calendar, the plans, the price calculator …). */
 
-import { SITE_PAGES_EN } from "./pages-en.js";
 import { STATUTES } from "./statutes.js";
 
 export type Lang = "da" | "en";
@@ -38,14 +37,19 @@ export type SitePage = {
 /** sub: the item opens a menu of its own pages - requested for Brug Hjerterum ("Altså under punktet: Brug Hjerterum") and for Om Hjerterum:
  * "Menupunktet for behandlere skal ikke være i menuen men appear under Om Hjerterum som menupunkt. Det samme skal de undersider du finder via Om Hjerterums side". */
 export const NAV: Array<{ section: Section; label: string; href: string; sub?: boolean }> = [
-  { section: "events", label: "Events", href: "/events" },
-  { section: "medlemskab", label: "Medlemskab", href: "/medlemskab" },
+  // Douglas' notes: "Menu → Events or Calendar" - "Kalender".
+  { section: "events", label: "Kalender", href: "/events" },
+  // "? Dropdown under 'Membership' (vilkår etc)" and "? Benefits on separate page".
+  { section: "medlemskab", label: "Medlemskab", href: "/medlemskab", sub: true },
   { section: "lej", label: "Brug Hjerterum", href: "/brug-hjerterum", sub: true },
   { section: "om-os", label: "Om Hjerterum", href: "/om-os", sub: true },
   { section: "kontakt", label: "Kontakt", href: "/kontakt" }
 ];
 /** Requested: "English skal stå på en anden måde så det ikke fylder i menuen" - a small language switch beside the menu. */
-export const ENGLISH = { section: "en" as Section, label: "EN", title: "English", href: "/en" };
+/** Then (Douglas' notes, 2 November 2026): "Translate button, but not English pages" - "Browserens oversættelse". No English pages of our own any more:
+ * the button has Google translate the page the reader is on. */
+export const ENGLISH = { label: "EN", title: "Read this page in English (Google Translate)" };
+export const translateUrl = (pageUrl: string) => `https://translate.google.com/translate?sl=da&tl=en&u=${encodeURIComponent(pageUrl)}`;
 /** Requested: "relevante links i footeren": Handelsbetingelser, Privatlivspolitik, Cookies, © Hjerterum F.M.B.A. and the version. */
 export const LEGAL_LINKS = [
   { label: "Handelsbetingelser", href: "/handelsbetingelser" },
@@ -217,7 +221,7 @@ ${DISCLAIMER}
       title: "Fællesspisning i Hjerterum",
       pictures: ["7222", "7223", "7224", "7225", "7226", "7229", "7231", "7232"].map(n => ({ src: `/media/2019-08-dsc-${n}-1.webp`, alt: "Fællesspisning i Hjerterum" }))
     },
-    sources: ["events", "kalendervisning", "nye-community-events-hjerterum-events", "online-events", "faellesspisning-i-hjerterum"]
+    sources: ["events", "kalendervisning", "nye-community-events-hjerterum-events", "online-events", "faellesspisning-i-hjerterum", "events-en"]
   },
 
   // ---------------------------------------------------------------- Behandlere & undervisere
@@ -253,13 +257,7 @@ Læs [vilkårene for medlemskab](/medlemskab/vilkaar), før du melder dig ind.
 Reduceret pris er til dig med en lav indkomst – fx SU eller kontanthjælp, eller en nettoløn under 13.500 kr. om måneden. Medlemskabet koster 111 kr. om måneden eller 1.155 kr. om året. Stiger din indkomst over grænsen, beder vi dig opgradere til standardpris.
 
 ## Fordele ved et medlemskab {#fordele}
-- Du deltager i events til rabatpris og ofte helt gratis.
-- Du får jævnligt tilbud på Hjerterums egne events – koncerter, foredrag, temaaftener, fællesspisning, filmaftener og meget mere – som en del af [Hjerterum Open](/events#hjerterum-open). Ofte gratis eller til særlig pris for medlemmer.
-- Det er nemmere at tilmelde sig events, når du er logget ind.
-- Du får rabat på økologisk specialkaffe, andre specialdrikke og biodynamisk kage og snacks i caféen hver torsdag eftermiddag og til andre arrangementer.
-- Du får tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.
-- Du kan være med i foreningen med bidrag, idéer og ønsker.
-- Du støtter Hjerterum økonomisk, så vi sammen kan blive ved med at udleve visionen om et hjerterum for healing, forbundethed og indre fred.
+Se [alle fordelene ved et medlemskab](/medlemskab/fordele).
 
 ## Støt Hjerterum {#stoet}
 Donationer er – sammen med medlemskontingent og leje af salen – det, der får Hjerterum til at løbe rundt. Enhver donation, lille som stor, modtages med stor taknemmelighed.
@@ -274,8 +272,30 @@ Skriv til os, hvis du vil vide mere om medlemskaberne, reduceret pris eller dit 
 
 {{enquiry-medlemskab}}`,
     image: { src: "/media/2021-05-cafe-time.webp", alt: "Café-stemning i Hjerterum" },
-    children: ["/medlemskab/vilkaar"],
-    sources: ["bliv-medlem", "fordele-ved-medlemskab", "lav-indkomst-medlemskab-low-income-membership", "donationer"]
+    children: ["/medlemskab/fordele", "/medlemskab/vilkaar"],
+    sources: ["bliv-medlem", "lav-indkomst-medlemskab-low-income-membership", "donationer", "become-a-member", "donations"]
+  },
+  // Douglas' notes: "? Benefits on separate page".
+  {
+    path: "/medlemskab/fordele", lang: "da", section: "medlemskab",
+    kicker: "Medlemskab", title: "Fordele", em: "ved et medlemskab",
+    lead: "Det får du som betalende medlem af Hjerterum.",
+    description: "Fordelene ved et medlemskab af Hjerterum i Aarhus: rabat og gratis adgang til events, egne events, CIRKLER, caféen og meget mere.",
+    card: { title: "Fordele ved medlemskab", text: "Rabat på events, egne events, CIRKLER og caféen." },
+    body: `Som betalende medlem af Hjerterum får du adgang til en række særlige fordele.
+
+- Du deltager i events til rabatpris og ofte helt gratis.
+- Du får jævnligt tilbud på Hjerterums egne events – koncerter, foredrag, temaaftener, fællesspisning, filmaftener og meget mere – som en del af [Hjerterum Open](/events#hjerterum-open). Ofte gratis eller til særlig pris for medlemmer.
+- Det er nemmere at tilmelde sig events, når du er logget ind.
+- Du får rabat på økologisk specialkaffe, andre specialdrikke og biodynamisk kage og snacks i caféen hver torsdag eftermiddag og til andre arrangementer.
+- Du får tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.
+- Du kan være med i foreningen med bidrag, idéer og ønsker.
+- Du støtter Hjerterum økonomisk, så vi sammen kan blive ved med at udleve visionen om et hjerterum for healing, forbundethed og indre fred.
+- Du kan oprette dine egne events for de andre medlemmer i [medlemsområdet](/sign-in).
+- Du får en plads i CIRKLER og kan lave en offentlig profil som behandler eller underviser.
+
+[Se medlemskaberne og meld dig ind](/medlemskab) · [Vilkår for medlemskab](/medlemskab/vilkaar)`,
+    sources: ["fordele-ved-medlemskab", "benefits-of-membership"]
   },
   {
     path: "/medlemskab/vilkaar", lang: "da", section: "medlemskab",
@@ -313,7 +333,7 @@ Vi opbevarer kun dine kontooplysninger i højst 2 år til statistiske formål.
 
 ## Vedtægterne
 Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-os/foreningen#vedtaegter).`,
-    sources: ["medlemskabs-betingelser"]
+    sources: ["medlemskabs-betingelser", "conditions-of-membership"]
   },
 
   // ---------------------------------------------------------------- Brug Hjerterum
@@ -346,7 +366,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
     gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
     children: ["/brug-hjerterum/booking", "/brug-hjerterum/praktisk", "/brug-hjerterum/eventguides"],
-    sources: ["brug-centret"]
+    sources: ["brug-centret", "use-hjerterum"]
   },
 
   // Booking & leje
@@ -428,7 +448,7 @@ Når bookingen er bekræftet, kan du [oprette eventet på Facebook](/brug-hjerte
 Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
 
 {{enquiry-event-opsaetning}}`,
-    sources: ["lejepriser", "book-dit-event"]
+    sources: ["lejepriser", "book-dit-event", "price-list", "book-your-event"]
   },
   {
     path: "/brug-hjerterum/vilkaar", lang: "da", section: "lej",
@@ -468,7 +488,7 @@ ${DISCLAIMER}
 
 ## Spørgsmål om faktura og betaling? {#skriv}
 {{enquiry-oekonomi}}`,
-    sources: ["betingelser-for-leje-af-sal", "fakturaer", "hjerterum-betalinger"]
+    sources: ["betingelser-for-leje-af-sal", "fakturaer", "hjerterum-betalinger", "conditions-for-renting-the-room", "pay-your-invoice"]
   },
   {
     path: "/brug-hjerterum/faq", lang: "da", section: "lej",
@@ -534,7 +554,7 @@ Vi lægger dit event på vores hjemmeside og Facebook-side. Markedsføring ud ov
     card: { title: "Praktisk information", text: "Nøgler, køkken, lyd, rengøring, wifi og husregler." },
     body: `Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
     children: ["/brug-hjerterum/adgang", "/brug-hjerterum/koekken", "/brug-hjerterum/udstyr", "/brug-hjerterum/rengoering", "/brug-hjerterum/wifi", "/brug-hjerterum/husregler"],
-    sources: ["guidelines-for-undervisere"]
+    sources: ["guidelines-for-undervisere", "guidelines-for-teachers"]
   },
   {
     path: "/brug-hjerterum/adgang", lang: "da", section: "lej",
@@ -728,7 +748,7 @@ Billeder fra selve eventet er gode til at dele bagefter – men husk [reglerne f
 Vil du nå endnu længere ud, er det dit eget ansvar. En effektiv måde er at købe annoncer på Facebook. Du kan også invitere dit netværk og dele dit event i relevante grupper på Facebook. Her er vores forslag – læs altid gruppens retningslinjer, før du deler, så du er sikker på, at dit event passer ind.
 
 ${FACEBOOK_GROUPS}`,
-    sources: ["markedsforing"]
+    sources: ["markedsforing", "marketing-of-your-event"]
   },
   {
     path: "/brug-hjerterum/aendr-event", lang: "da", section: "lej",
@@ -747,7 +767,7 @@ Har du booket til standardpris, så skriv til [team@hjerterum.info](mailto:team@
 
 ## Events i den tidligere kalender
 Events, der er oprettet i den tidligere kalender på holistisk.org, administrerer du stadig dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
-    sources: ["administrer-dine-events"]
+    sources: ["administrer-dine-events", "managing-your-event"]
   },
   {
     path: "/brug-hjerterum/aflys-event", lang: "da", section: "lej",
@@ -804,7 +824,7 @@ Har du en idé til et samarbejde – som forening, virksomhed, kunstner eller un
 {{enquiry-samarbejde}}`,
     image: { src: "/media/2026-06-vision.webp", alt: "Drømmefanger i sollys" },
     children: ["/behandlere", "/om-os/teamet", "/om-os/historien", "/om-os/foreningen", "/om-os/formandens-beretning"],
-    sources: ["vision"]
+    sources: ["vision", "welcome", "vision-en"]
   },
   {
     path: "/om-os/teamet", lang: "da", section: "om-os",
@@ -836,7 +856,7 @@ Jo bedre forberedt materialet er, desto nemmere kan vi finde tider og oprette ev
 At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst muligt ♡
 
 [Kontakt os](/kontakt)`,
-    sources: ["teamet"]
+    sources: ["teamet", "team"]
   },
   {
     // Requested: "Tilføj en rubrik med Formandens beretning that links to the full speech" - "Om Hjerterum". The chair's report to the general assembly, as he gave it.
@@ -1159,7 +1179,7 @@ Følg os på [Facebook](https://www.facebook.com/holistiskcenter). Søger du sel
         { src: "/media/2021-01-141092920-1831940920303618-8786842229571861787-n.webp", alt: "Kort over Hjerterums placering ved Guldsmedgade i Aarhus C" }
       ]
     },
-    sources: ["kontakt-os", "kontakt"]
+    sources: ["kontakt-os", "kontakt", "contact-us"]
   }
 ];
 
@@ -1210,4 +1230,4 @@ Vi har en flad struktur: ansatte og frivillige deler ansvaret og løfter opgaver
   sources: []
 };
 
-export const SITE_PAGES: SitePage[] = [...pages, ABOUT, ...SITE_PAGES_EN];
+export const SITE_PAGES: SitePage[] = [...pages, ABOUT];

@@ -3,6 +3,7 @@ import { DRAFT_FROM_DAY, getIssue, monthEvents, monthOf, monthName, newsletterHt
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 import { claimJob } from "./saga/store.js";
 import { telegramClient } from "./saga/telegram.js";
+import { md5 } from "./md5.js";
 
 /** The monthly mail through Mailchimp (newsletter.ts), and the job that drafts and sends it.
  * Mailchimp's audience is the one the website's sign-up form uses; the mail goes only to those who ticked "Månedens events"
@@ -36,7 +37,12 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
     defaults: (listId: string) => call<{ campaign_defaults: { from_name: string; from_email: string } }>("GET", `/lists/${listId}`).then(l => l.campaign_defaults),
     createCampaign: (body: unknown) => call<{ id: string }>("POST", "/campaigns", body),
     setContent: (id: string, html: string) => call<unknown>("PUT", `/campaigns/${id}/content`, { html }),
-    send: (id: string) => call<unknown>("POST", `/campaigns/${id}/actions/send`)
+    send: (id: string) => call<unknown>("POST", `/campaigns/${id}/actions/send`),
+    /** Into the audience with the "Månedens events" group: a new address waits for its own confirmation ("pending"); one already there keeps its status. */
+    subscribe: (listId: string, email: string, name: string, interest: string) => {
+      return call<unknown>("PUT", `/lists/${listId}/members/${md5(email.toLowerCase())}`, {
+        email_address: email, status_if_new: "pending", interests: { [interest]: true }, ...(name ? { merge_fields: { FNAME: name } } : {}) });
+    }
   };
 }
 

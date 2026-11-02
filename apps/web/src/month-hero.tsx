@@ -50,7 +50,7 @@ export function comingUp(events: MonthEvent[], now: number): MonthEvent | null {
 export function ComingUp({ event }: { event: MonthEvent | null }) {
   if (!event) return null;
   return <a className="nl-coming" href={href(event)}>
-    <span className="lys-kicker">Coming up i Hjerterum</span>
+    <span className="lys-kicker">Næste event i Hjerterum</span>
     <strong>{event.title}</strong>
     <span className="nl-coming-when">{featureLine(event.startsAt)}</span>
     <span className="nl-more">Læs mere →</span>
@@ -98,6 +98,7 @@ export function monthSections(events: MonthEvent[], now: number) {
 
 export function MonthSection({ events, now, reachable }: { events: MonthEvent[]; now: number; reachable: boolean }) {
   const { featured, announce, weeks, mornings } = monthSections(events, now);
+  void weeks;
   return <section className="nl-month" aria-label="Om lidt i Hjerterum">
     <div className="nl-head"><p className="lys-kicker">Kalender</p><h2 className="nl-big">Om lidt<em>i Hjerterum</em></h2><span className="nl-rule" aria-hidden="true" /></div>
     {/* While the calendar is on its way, nothing is said; only a calendar that came back empty says so. */}
@@ -108,12 +109,8 @@ export function MonthSection({ events, now, reachable }: { events: MonthEvent[];
     {announce && <div className="nl-announce"><div className="nl-date">{DAY_NUM.format(Date.parse(announce.startsAt)).replace(".", "")}<small>{MONTH.format(Date.parse(announce.startsAt))}</small></div>
       <div><b>{announce.title}</b>{capital(WEEKDAY.format(Date.parse(announce.startsAt)))} kl. {TIME.format(Date.parse(announce.startsAt)).replace(":", ".")}{announce.location ? ` i ${announce.location}` : ""}. Alle medlemmer er hjerteligt velkomne.</div>
       <a className="lys-btn" href={href(announce)}>Læs mere</a></div>}
-    {weeks.length > 0 && <>
-      <h3 className="nl-sub">De kommende uger</h3>
-      <div className="nl-weeks">{weeks.map(w => <div key={w.week} className="nl-week"><h4>Uge {w.week}</h4><ul>
-        {w.events.map(e => <li key={e.key}><span className="nl-d">{dayLine(e.startsAt)}</span><a href={href(e)}>{e.title}</a></li>)}
-        {w.more > 0 && <li className="nl-flere"><a href="/events">+ {w.more} flere</a></li>}</ul></div>)}</div>
-    </>}
+    {/* Douglas' notes: "Front page - overload → repetition" - "Maybe on front page keep only 'in a moment'": the week-by-week overview is
+        gone from the front page; the whole calendar is one click away. */}
     <p className="nl-center"><a className="lys-btn ghost" href="/events">Se hele kalenderen</a></p>
     {mornings && <a className="nl-series" href={href(mornings)}>
       {mornings.imageUrl && <img src={mornings.imageUrl} alt="" loading="lazy" />}

@@ -4,7 +4,9 @@ export const EVENT_KINDS = [
   { key: "foredrag", label: "Foredrag", test: /foredrag|\btalk\b|oplæg|lecture/i },
   { key: "koncerter", label: "Koncerter", test: /koncert|concert|kirtan|åben scene|sang|songs?\b|musik|music/i },
   { key: "cafe", label: "Café", test: /café|cafe|fællesspisning|spisning/i },
-  { key: "film", label: "Filmaftener", test: /\bfilm|movie|biograf/i }
+  { key: "film", label: "Filmaftener", test: /\bfilm|movie|biograf/i },
+  // Douglas' notes: "? Courses button" - courses, series and trainings.
+  { key: "kurser", label: "Kurser", test: /kursus|kurser|forløb|uddannelse|\bcourse|training|træning/i }
 ] as const;
 
 export type EventKind = (typeof EVENT_KINDS)[number]["key"];
