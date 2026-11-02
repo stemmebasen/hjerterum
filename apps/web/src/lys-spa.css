@@ -941,3 +941,5 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-guest input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--lys-line); border-radius: 10px; background: var(--lys-surface, #fff); color: var(--lys-ink); }
 .event-guest-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; }
 .event-guest-error { margin: 0; color: var(--lys-terra); font-size: 14px; }
+.event-guest .event-guest-check { display: flex; gap: 8px; align-items: flex-start; font: 400 14.5px/1.4 var(--lys-sans); color: var(--lys-ink); }
+.event-guest .event-guest-check input { width: 18px; height: 18px; margin-top: 1px; padding: 0; flex: none; }

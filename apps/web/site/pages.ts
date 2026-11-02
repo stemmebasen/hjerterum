@@ -1049,7 +1049,7 @@ Skriver du med Saga på medlemssiden, eller sender du et foto til hende, behandl
 ${HENVENDELSER}
 
 ## Nyhedsbrev {#nyhedsbrev}
-Tilmelder du dig nyhedsbrevet, får vi dit navn og din e-mail gennem Mailchimp. Du kan altid framelde dig med linket nederst i hvert nyhedsbrev.
+Tilmelder du dig nyhedsbrevet – på hjemmesiden, i Min profil eller når du tilmelder dig et event – får vi dit navn og din e-mail gennem Mailchimp, hvor alle modtagere står i én liste. Er du medlem, står det også dér. Du kan altid framelde dig med linket nederst i hvert nyhedsbrev eller i Min profil.
 
 ## Dem, der hjælper os {#databehandlere}
 Vi bruger leverandører (databehandlere), som kun må bruge oplysningerne efter vores anvisning: Cloudflare (hjemmeside, medlemsside og database), Clerk (login), Stripe (betaling, når den er slået til), Mailchimp (nyhedsbrev), One.com (mail) og en AI-tjeneste i EU (Saga). Ligger en leverandør uden for EU, sker overførslen på grundlag af EU-Kommissionens standardkontraktbestemmelser eller EU-U.S. Data Privacy Framework.

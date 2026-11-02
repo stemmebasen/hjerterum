@@ -1,4 +1,5 @@
 import { ownPublicProfile, profilePhoto, publicProfiles, uploadProfilePhoto } from "./public-profiles.js";
+import { memberNewsletterRoute } from "./mailchimp-sync.js";
 import { ownPrMaterial, ownPrPhotos, prPhoto } from "./pr-material.js";
 import { memberSagaChat } from "./member-saga.js";
 import { memberEventText } from "./event-text.js";
@@ -442,6 +443,8 @@ export default {
     if (url.pathname === "/api/members/saga/event") return memberSagaEvent(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     // Requested: "På den offentlige hjemmeside uden login må hun gerne tilbyde at hjælpe" - the website's Saga, no login (web-saga.ts).
     // Requested: "Man skal selv kunne opsige når man er logget ind" - for members still paying through MembershipWorks (membership-cancel-request.ts).
+    // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - the newsletter switch in Min profil (mailchimp-sync.ts).
+    if (url.pathname === "/api/members/me/newsletter") return memberNewsletterRoute(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/members/me/cancel-request") return memberCancelRequest(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === "/api/site/saga/chat") return publicSagaChat(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (request.method === "GET" && url.pathname === "/api/members/me/savings") {

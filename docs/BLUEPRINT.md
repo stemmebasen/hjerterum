@@ -742,3 +742,10 @@ Still open:
 - Spørgsmål: "Ved saga hvordan hun skal integrere og gemme referat fra generalforsamlingen?" Svar: nej. I dag bliver en optagelse altid til et bestyrelsesreferat (skabelon "Referat - bestyrelsesmøde", godkendelse hos hele bestyrelsen, bestyrelsens referatdokument, bestyrelsens beslutninger og opgaver).
 - Forslaget: en egen skabelon (dirigent og referent, fremmødte og stemmeberettigede, beretning, regnskab og budget, kontingent, forslag med stemmetal, valg, eventuelt). Godkendelse ved dirigenten, evt. med et link, og derefter låst. Gemmes for sig under "Generalforsamlinger". Beslutninger mærkes "Generalforsamlingen", og valgene opdaterer bestyrelse og suppleanter. Offentliggøres for medlemmerne, når det er godkendt.
 - Åbent: hvem der godkender (dirigenten?), og om referatet skal være offentligt eller kun for medlemmer. Indtil det er bygget, skal optagelsen af generalforsamlingen ikke uploades.
+
+## Én Mailchimp-liste for alle modtagere (2026-11-02)
+
+- Ønsket: "Jeg vil gerne have at alle modtagere gemmes samlet i vores Mailchimp konto" - "Alt med samtykke i én liste". Alle, der har sagt ja til nyhedsbrevet, står i Hjerterums ene Mailchimp-liste (`MAILCHIMP_LIST_ID`) med gruppen "Månedens events"; medlemmer får mærket "Medlem".
+- Kilderne: hjemmesidens formular (`/api/nyhedsbrev`, bekræftes pr. mail), MembershipWorks-medlemmer med kryds i "Receive newsletter" (læses fra formandens upload), medlemmernes egen kontakt i Min profil (til/fra, `/api/members/me/newsletter`) og gæster, der sætter kryds ved en eventtilmelding (bekræftes pr. mail).
+- `worker/mailchimp-sync.ts` bærer dem over i hver runde (højst 40 ad gangen) via `mailchimp_contacts` (migration 0091). Den, der har frameldt sig i Mailchimp, meldes aldrig til igen herfra; tænder et medlem selv for det igen, sender Mailchimp en bekræftelsesmail.
+- Når vores egen indmelding bygges, skal den have et kryds for nyhedsbrevet, der lægger medlemmet i samme liste.

@@ -51,13 +51,14 @@ function SignUp({ event }: { event: EventDetail }) {
     const data = new FormData(form);
     setState({ busy: true });
     const response = await fetch(`/api/room-bookings/${own.id}/guest`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: data.get("name"), email: data.get("email"), website: data.get("website"), started: opened }) }).catch(() => null);
+      body: JSON.stringify({ name: data.get("name"), email: data.get("email"), newsletter: data.get("newsletter") === "on", website: data.get("website"), started: opened }) }).catch(() => null);
     const body = response ? await response.json().catch(() => ({})) as { ok?: boolean; error?: string } : {};
     setState(response?.ok && body.ok ? { done: true } : { error: GUEST_ERRORS[body.error ?? ""] ?? "Tilmeldingen gik ikke igennem. Prøv igen om lidt." });
   };
   return <form className="event-signup event-guest" onSubmit={e => { e.preventDefault(); void submit(e.currentTarget); }}>
     <label>Navn<input name="name" required maxLength={120} autoComplete="name" /></label>
     <label>E-mail<input type="email" name="email" required maxLength={200} autoComplete="email" /></label>
+    <label className="event-guest-check"><input type="checkbox" name="newsletter" /> Ja tak til nyhedsbrevet Månedens events (én mail om måneden)</label>
     <div aria-hidden="true" className="site-honeypot"><input type="text" name="website" tabIndex={-1} defaultValue="" /></div>
     {state.error && <p className="event-guest-error" role="alert">{state.error}</p>}
     <p className="event-guest-actions"><button className="lys-btn" disabled={state.busy}>{state.busy ? "Tilmelder …" : "Tilmeld mig"}</button>
