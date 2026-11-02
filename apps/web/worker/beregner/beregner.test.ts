@@ -1,4 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// The old calendar (MembershipWorks): one evening is taken there in the tests.
+vi.mock("../external-events.js", () => ({
+  getExternalEvents: async () => [],
+  hasExternalEventConflict: async (fromMs: number, toMs: number) => fromMs < Date.parse("2026-11-11T21:00:00Z") && toMs > Date.parse("2026-11-11T18:00:00Z")
+}));
 import { connectTeamMail, type ImapOpener } from "../saga/teamMail.js";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./handler.js";
@@ -114,5 +120,28 @@ describe("the price calculator", () => {
     const response = await handleCalculatorRequest(new Request(`${ORIGIN}/beregner/foresporgsel`, { method: "POST", body: f }), e, deps(fakeServices().fetcher, NOW));
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "not_delivered" });
+  });
+});
+
+// Douglas' notes: "Standard needs to sync with real calendar".
+describe("booking at the standard price", () => {
+  it("says whether the hall is free, and refuses a request for a time that is taken", async () => {
+    const e = env(), box = mailbox();
+    await connectTeamMail(e, e.DB!, { address: "team@holistisk.org", password: "pw", by: "Jacob Hauge", nowMs: NOW }, box.opener);
+    // A member's event in the house's own system, 10.00-12.00 on 10 November with half an hour to clear away.
+    await e.DB!.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, setup_minutes, cleanup_minutes, status, created_at_ms, updated_at_ms)
+      VALUES ('u1', 'Anna', 'a@x.dk', 'Yoga', ?, ?, 0, 30, 'scheduled', 1, 1)`).bind(Date.parse("2026-11-10T09:00:00Z"), Date.parse("2026-11-10T11:00:00Z")).run();
+    const free = async (q: string) => (await (await handleCalculatorRequest(new Request(`${ORIGIN}/beregner/api/ledig?${q}`), e, deps(fakeServices().fetcher, NOW))).json() as { free: boolean }).free;
+    expect(await free("dato=2026-11-10&start=12:00&timer=2")).toBe(false);
+    expect(await free("dato=2026-11-10&start=12:30&timer=2")).toBe(true);
+    expect(await free("dato=2026-11-11&start=18:00&timer=2")).toBe(false);
+    expect(await free("dato=2026-11-12&start=19:00&timer=3")).toBe(true);
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ day: "3", start: "19:00", hours: "2", type: "standard", started: String(NOW - 60_000), eventName: "Kirtan", description: "Sang.", name: "Mette", email: "m@x.dk" })) f.append(k, v);
+    f.append("dates", "2026-11-11"); f.append("dates", "2026-11-18");
+    const response = await handleCalculatorRequest(new Request(`${ORIGIN}/beregner/foresporgsel`, { method: "POST", body: f }), e, deps(fakeServices().fetcher, NOW), box.opener);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "booked", dates: ["2026-11-11"] });
+    expect(box.appended).toHaveLength(0);
   });
 });
