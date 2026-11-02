@@ -13,6 +13,7 @@ import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, 
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MemberNewsletter } from "./member-newsletter";
+import { CirkelInvite } from "./cirkel-invite";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
@@ -1124,6 +1125,8 @@ export function MemberWorkspace({
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {trial && !loading && <TrialNote />}
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
+        // Requested: "Inviter din CIRKEL med" under every event (cirkel-invite.tsx) - it says itself when CIRKLER is for members only.
+        normalized === "/member-portal/cirkel" ? <CirkelInvite clerk={clerk} /> :
         accessError && normalized !== "/member-portal/profil" ? <>
           <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div>
             {/* Requested: "Det bør være muligt at booke lokalet uden at være medlem" - the calculator books the room at the standard price and shows what members pay. */}

@@ -754,3 +754,9 @@ Still open:
 
 - Ønsket: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". Events → Mail til listen (`/arrangementer/mail`): formanden skriver en løs mail (eller beder Saga om et udkast ud fra stikord), vælger "Alle i listen" eller "Kun medlemmer" (Mailchimp-mærket "Medlem"), ser mailen som den kommer frem, sender en prøve til sin egen mail og sender den. Intet sendes, før der trykkes Send, og en mail sendes aldrig to gange.
 - Kun formandens til at begynde med (beføjelsen `listmail.send`, docs/decisions/0007). Kode: `worker/list-mail.ts`, `worker/cockpit/listMailPage.ts`, migration 0092. Mailen har nyhedsbrevets udseende og fod med Mailchimps afmeld-links.
+## Inviter din CIRKEL med (2026-11-02)
+
+- Ønsket: "Under hvert Hjerterum event skal der diskret stå: Inviter din CIRKEL med" - for alle events i salen. Linjen står under eventet på hjemmesiden og fører til `/member-portal/cirkel?event=<id>` (login først, og man kommer tilbage til samme event).
+- Er man med i en cirkel: en boks med eventet, cirklens navn og et skrivefelt. `POST /api/integrations/cirkler/invite` læser eventet fra Hjerterums egen kalender (aldrig fra browseren) og sender beskeden til CIRKLER (`POST /api/hjerterum/circle-invite`, samme delte nøgle som circle-status), hvor den lander i cirklens chat i medlemmets navn med billede, kort beskrivelse og link.
+- Er man ikke med i en cirkel: "Du er ikke medlem af en CIRKEL endnu - klik her for at blive det" (samme signerede billet som CIRKLER-kortet). Uden medlemskab: CIRKLER er for medlemmer.
+- CIRKLER-delen ligger i stemmebasen/cirkler.net (migration `20261102230000_circle_message_event`, som køres i Supabase før deploy).
