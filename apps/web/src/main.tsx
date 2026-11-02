@@ -1,4 +1,4 @@
-import { EventCard } from "./event-card";
+import { calendarText, EventCard } from "./event-card";
 import { EventPage, eventPagePath } from "./event-page";
 import { ComingUp, comingUp, MonthSection } from "./month-hero";
 import { isKind, kindOf } from "./event-kinds";
@@ -204,6 +204,30 @@ function AuthPage({
   );
 }
 
+const EVENTS_PER_PAGE = 15;
+const ROW_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", timeZone: "Europe/Copenhagen" });
+const ROW_MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "Europe/Copenhagen" });
+const ROW_WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+const ROW_END = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+
+/** One event in the calendar's list: the date, a small picture, the title, when and with whom - the whole row leads to the event. */
+function EventRow({ event }: { event: CalendarEvent }) {
+  const start = new Date(event.startsAt);
+  const href = event.page ?? event.link ?? "/member-portal/kalender";
+  const external = !event.page && Boolean(event.link);
+  const when = `${ROW_WHEN.format(start).replace(/^\p{L}/u, c => c.toLocaleUpperCase("da-DK"))}${event.endsAt ? `–${ROW_END.format(new Date(event.endsAt))}` : ""}`.replace(/(\d{2}):(\d{2})/g, "$1.$2");
+  return <li className="event-row"><a href={href} {...(external ? { target: "_blank", rel: "noreferrer" } : {})}>
+    <span className="event-row-date"><b>{ROW_DAY.format(start)}</b>{ROW_MONTH.format(start).replace(".", "")}</span>
+    {event.imageUrl ? <img className="event-row-photo" src={event.imageUrl} alt="" loading="lazy" /> : <span className="event-row-photo is-empty" aria-hidden="true" />}
+    <span className="event-row-text">
+      {event.category && <small>{calendarText(event.category)}</small>}
+      <strong>{calendarText(event.title)}</strong>
+      <span>{when}{event.host ? ` · ${calendarText(event.host)}` : ""}</span>
+    </span>
+    <span className="event-row-more" aria-hidden="true">Læs mere →</span>
+  </a></li>;
+}
+
 function EventSection({ events, reachable, full = false, limit = 6 }: { events: CalendarEvent[]; reachable: boolean; full?: boolean; limit?: number }) {
   // The front page's icons open the full calendar with one kind (event-kinds.ts): /events?vis=koncerter.
   const kind = full && typeof window !== "undefined" ? kindOf(new URLSearchParams(window.location.search).get("vis")) : null;
@@ -220,12 +244,34 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
       : event.link ? <a className="text-link" href={event.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a>
       : <a className="text-link" href="/member-portal/kalender">Log ind og tilmeld →</a>}
   </EventCard>;
-  // Requested: "Her skal vi det ikke inddeles efter måneder - men bare 3 på stribe hele vejen ned" - the date is on every card.
+  // Douglas' notes: "Event overwhelm - simple (see MembershipWorks) - have 'see more events' option. Page 1,2,3". The full calendar is a short
+  // list, a row per event as in MembershipWorks, EVENTS_PER_PAGE at a time with the pages below; the cards stay for the shorter lists.
+  const pages = Math.max(1, Math.ceil(visible.length / EVENTS_PER_PAGE));
+  const [page, setPage] = useState(() => {
+    const asked = typeof window !== "undefined" ? Number(new URLSearchParams(window.location.search).get("side")) : 1;
+    return Number.isInteger(asked) && asked > 1 ? asked : 1;
+  });
+  const current = Math.min(page, pages);
+  const go = (next: number) => {
+    setPage(next);
+    const url = new URL(window.location.href);
+    if (next > 1) url.searchParams.set("side", String(next)); else url.searchParams.delete("side");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search);
+    document.getElementById("kalender")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const list = full ? visible.slice((current - 1) * EVENTS_PER_PAGE, current * EVENTS_PER_PAGE) : visible;
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
     {full && <CategoryNav current={kind?.key ?? null} />}
-    {reachable && visible.length ? <div className="member-event-grid calendar-all">{visible.map(card)}</div> : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
+    {reachable && visible.length ? full ? <>
+      <ol className="event-rows">{list.map(event => <EventRow key={event.key} event={event} />)}</ol>
+      {pages > 1 && <nav className="event-pages" aria-label="Sider i kalenderen">
+        {current > 1 && <button type="button" onClick={() => go(current - 1)}>← Forrige</button>}
+        {Array.from({ length: pages }, (_, i) => i + 1).map(n => <button key={n} type="button" aria-current={n === current ? "page" : undefined} onClick={() => go(n)}>{n}</button>)}
+        {current < pages && <button type="button" className="event-pages-more" onClick={() => go(current + 1)}>Se flere events →</button>}
+      </nav>}
+    </> : <div className="member-event-grid calendar-all">{visible.map(card)}</div> : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
     {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
-      <h2>{PARTNER_HEADING}</h2><div className="member-event-grid">{partnersShown.map(card)}</div></section>}
+      <h2>{PARTNER_HEADING}</h2><ol className="event-rows">{partnersShown.map(event => <EventRow key={event.key} event={event} />)}</ol></section>}
   </section>;
 }
 
@@ -255,8 +301,10 @@ function RoomBookingForm({ date, start, end, hours, dayOfWeek, priceKr, onClose 
     for (const [k, v] of Object.entries({ day: String(dayOfWeek), start, hours: String(hours), type: "standard", started: String(opened) })) form.set(k, v);
     setState({ busy: true });
     const response = await fetch("/beregner/foresporgsel", { method: "POST", body: form }).catch(() => null);
-    const body = response ? await response.json().catch(() => ({})) as { ok?: boolean; error?: string } : {};
-    setState(response?.ok && body.ok ? { sent: true } : { error: BOOKING_ERRORS[body.error ?? ""] ?? "Noget gik galt. Prøv igen." });
+    const body = response ? await response.json().catch(() => ({})) as { ok?: boolean; error?: string; dates?: string[] } : {};
+    const taken = body.error === "booked" && body.dates?.length
+      ? `Salen er optaget ${body.dates.map(d => new Date(`${d}T12:00:00`).toLocaleDateString("da-DK", { day: "numeric", month: "long" })).join(", ")} på det tidspunkt. Vælg en anden dato eller tid.` : null;
+    setState(response?.ok && body.ok ? { sent: true } : { error: taken ?? BOOKING_ERRORS[body.error ?? ""] ?? "Noget gik galt. Prøv igen." });
   }
   if (state.sent) return <div className="rc-form rc-sent" role="status"><b>Tak – din bookingforespørgsel er sendt.</b><p>Vi vender tilbage på mail. Salen er først booket, når vi har bekræftet.</p><button type="button" className="rc-login" onClick={onClose}>Luk</button></div>;
   return (
@@ -286,6 +334,17 @@ function RoomPriceCalculator() {
   const [start, setStart] = useState("10:00");
   const [hours, setHours] = useState(2);
   const [booking, setBooking] = useState(false);
+  // Douglas' notes: "Standard needs to sync with real calendar" - whether the hall is free then, from the house's calendar (worker/beregner/handler.ts).
+  const [hallFree, setHallFree] = useState<boolean | null>(null);
+  useEffect(() => {
+    let active = true;
+    setHallFree(null);
+    const timer = window.setTimeout(() => {
+      fetch(`/beregner/api/ledig?dato=${date}&start=${start}&timer=${hours}`).then(r => r.ok ? r.json() as Promise<{ free: boolean }> : null)
+        .then(answer => { if (active && answer) setHallFree(answer.free); }).catch(() => undefined);
+    }, 250);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [date, start, hours]);
   const dateValue = new Date(`${date}T12:00:00`);
   const [startHour = 10, startMinute = 0] = start.split(":").map(Number);
   const when = { dayOfWeek: dateValue.getDay(), startMinutes: startHour * 60 + startMinute, durationMinutes: hours * 60 };
@@ -307,13 +366,13 @@ function RoomPriceCalculator() {
           <div role="group" aria-labelledby="rc-hours-label"><button type="button" onClick={() => setHours(Math.max(2, hours - 0.5))} disabled={hours <= 2} aria-label="Kortere">−</button>
             <b aria-live="polite">{String(hours).replace(".", ",")} t</b><button type="button" onClick={() => setHours(Math.min(10, hours + 0.5))} disabled={hours >= 10} aria-label="Længere">+</button></div></div>
       </div>
-      <p className="rc-band">{band}</p>
+      <p className="rc-band">{band}{hallFree === true && <span className="rc-free"> · ✓ Salen er ledig</span>}{hallFree === false && <span className="rc-taken"> · Salen er optaget på det tidspunkt</span>}</p>
       <div className="rc-prices">
         <article className="rc-tile open">
           <span className="rc-label">Standardpris</span>
           <strong>{kr(standard.totalPriceKr)}</strong>
           <span className="rc-sub">For alle · også uden medlemskab</span>
-          <button type="button" className="rc-book" onClick={() => setBooking(true)} aria-expanded={booking}>Book →</button>
+          <button type="button" className="rc-book" onClick={() => setBooking(true)} aria-expanded={booking} disabled={hallFree === false}>Book →</button>
         </article>
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Reduceret pris</span>

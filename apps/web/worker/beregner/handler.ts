@@ -4,6 +4,9 @@ import { deliverToTeamInbox, verifyTeamInbox, type ImapOpener } from "../saga/te
 import { buildMime } from "./mime.js";
 import { calculatorPage, type Lang } from "./page.js";
 import { calculate, crossesBand, DAYS_DA, parseCalcInput, type CalcResult } from "./quote.js";
+import { copenhagenMs } from "../cockpit/data.js";
+import { WINDOW_END, WINDOW_START } from "../room-bookings.js";
+import { hasExternalEventConflict } from "../external-events.js";
 
 /** Requested: "Vi skal have implementeret denne prisberegner i systemet - den skal også bruges som iframe" (the blueprint
  * "Hjerterums prisberegner"). The calculator answers on /beregner and /ny-beregner-2026 on every address the platform has
@@ -96,6 +99,15 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
     return json(calculate(input));
   }
 
+  // Douglas' notes: "Standard needs to sync with real calendar". Whether the hall is free then - by the same calendar as the members' bookings:
+  // the events in the house's own system (with their setting up and clearing away), CIRKLER's reservations and the old calendar's events.
+  if (path === "/beregner/api/ledig" && request.method === "GET") {
+    if (!env.DB) return json({ error: "unavailable" }, 503);
+    const date = url.searchParams.get("dato") ?? "", start = url.searchParams.get("start") ?? "", hours = Number(url.searchParams.get("timer"));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(start) || !(hours >= 0.5 && hours <= 12)) return json({ error: "invalid" }, 400);
+    return json({ free: !(await hallTaken(env.DB, date, start, hours)) });
+  }
+
   if (path === "/beregner/foresporgsel" && request.method === "POST") {
     if (!env.DB) return json({ error: "unavailable" }, 503);
     const form = await request.formData().catch(() => null);
@@ -131,6 +143,11 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
       if (!/^image\/(jpeg|png|webp|gif)$/.test(f.type)) return json({ error: "image_type" }, 415);
       image = { filename: f.name || "forsidebillede", contentType: f.type, bytes: new Uint8Array(await f.arrayBuffer()) };
     }
+    if (!probe) {
+      const taken: string[] = [];
+      for (const date of req.dates) if (await hallTaken(env.DB, date, input.start, input.hours)) taken.push(date);
+      if (taken.length) return json({ error: "booked", dates: taken }, 409);
+    }
     if (!probe && await tooMany(env.DB, request, deps.now())) return json({ error: "too_many" }, 429);
     try {
       const calc = calculate(input);
@@ -151,4 +168,11 @@ export async function handleCalculatorRequest(request: Request, env: SagaEnv, de
     return new Response(calculatorPage(lang, deps.now()), { headers: headers("text/html; charset=utf-8") });
   }
   return new Response("Not found", { status: 404, headers: headers("text/plain; charset=utf-8") });
+}
+
+/** Is the hall taken on that day, from that time, for those hours (Copenhagen's clock)? */
+export async function hallTaken(db: D1Database, date: string, start: string, hours: number): Promise<boolean> {
+  const fromMs = copenhagenMs(date, start), toMs = fromMs + hours * 3_600_000;
+  const own = await db.prepare(`SELECT id FROM room_bookings WHERE status = 'scheduled' AND ${WINDOW_START} < ? AND ${WINDOW_END} > ? LIMIT 1`).bind(toMs, fromMs).first<{ id: number }>();
+  return Boolean(own) || await hasExternalEventConflict(fromMs, toMs);
 }
