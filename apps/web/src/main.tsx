@@ -557,4 +557,13 @@ function App() {
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing root element");
+// Requested: "Når man klikker på et menupunkt i footeren skal man tages til toppen af den side man har klikket på". A page opened by a link (not by
+// Back, and without a #place) starts at its top, also in browsers that keep the old place while the page draws itself.
+try {
+  const how = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+  if (how === "navigate" && !window.location.hash) {
+    window.scrollTo(0, 0);
+    window.addEventListener("load", () => { if (window.scrollY > 0 && !window.location.hash) window.scrollTo(0, 0); }, { once: true });
+  }
+} catch { /* an old browser: nothing to do */ }
 createRoot(root).render(<StrictMode><App /></StrictMode>);
