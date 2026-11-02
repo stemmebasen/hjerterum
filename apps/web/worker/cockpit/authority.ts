@@ -24,7 +24,9 @@ export const POWERS = {
   "mailbox.see": { label: "Se kortet om mailboksen i Posthus", needs: "named" },
   "audit.read": { label: "Læse formandens log", needs: "personal" },
   // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - "Nej kun nyhedsbrevet delen" (2 Nov 2026).
-  "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" }
+  "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" },
+  // Requested: "Vi skal udvikle et membership cockpit i admin ..." (2 Nov 2026) - new, so the chair's first (docs/decisions/0007).
+  "members.cockpit": { label: "Medlemsoverblik: se, rette og eksportere medlemmer, medlemskaber og abonnementer", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
 
 export type Power = keyof typeof POWERS;
