@@ -86,8 +86,9 @@ function Line({ text }: { text: string }) {
 }
 
 /** Requested: "Vis også de samme sociale links samt et kort og en rejseplan-integration". */
-const FACEBOOK = "https://www.facebook.com/holistiskcenter";
-function Share({ title, id }: { title: string; id: string }) {
+// Said by the chair: "Hjerterums facebook-side hedder https://www.facebook.com/hjerterumaarhus".
+const FACEBOOK = "https://www.facebook.com/hjerterumaarhus";
+function Share({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
   const url = typeof window === "undefined" ? "" : window.location.href;
   const share = async () => {
@@ -100,8 +101,8 @@ function Share({ title, id }: { title: string; id: string }) {
     <a href={`mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`}>Mail</a>
     <button type="button" onClick={() => void share()}>{copied ? "Linket er kopieret" : "Kopiér link"}</button>
     <a href={FACEBOOK} target="_blank" rel="noreferrer">Følg Hjerterum på Facebook</a>
-    {/* Requested: "fem varianter systemet kan vælge mellem" - the event's poster for social media (poster-page.tsx). */}
-    <a href={`/plakat/${id}`}>Lav et opslag til Instagram</a>
+    {/* Reported: "Man kan i øvrigt lave et opslag til instagram med forskellige layouts. Det er en fejl - disse layout muligheder er jo ikke til den
+        almindelige bruger". The posters (/plakat/<id>) are for the organiser, from their own event in the member area - not on the public page. */}
   </div>;
 }
 
@@ -190,7 +191,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
           </>}
           {/* Douglas' notes: "'Tilmeld dig' maybe at the bottom as well". */}
           {!past && <div className="event-signup-end"><SignUp event={event} /></div>}
-          <Share title={event.title} id={event.id} />
+          <Share title={event.title} />
         </section>
         <FindWay event={event} />
       </>}
