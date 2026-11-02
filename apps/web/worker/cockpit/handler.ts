@@ -40,6 +40,7 @@ import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeetin
 import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
+import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
@@ -605,7 +606,43 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const asked = url.searchParams.get("status") ?? "alle";
     const filter: StatusFilter = (STATUS_FILTERS as readonly string[]).includes(asked) ? asked as StatusFilter : "alle";
     const [list, counts, mw] = await Promise.all([listMembers(db, q, filter), memberCounts(db, now), membershipWorksSummary(db)]);
-    return html(membersListPage(base, who, { chair: may("admins.read"), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+    return html(membersListPage(base, who, { chair: may("admins.read"), cockpit: may("members.cockpit"), members: list, counts, q, filter, mw, now, notice: memberNotice(url.searchParams.get("besked")), error: MEMBER_ERRORS[url.searchParams.get("fejl") ?? ""] }));
+  }
+  // Requested: "Vi skal udvikle et membership cockpit i admin hvor vi kan tjekke og redigere alt vedrørende medlemmer, medlemskab og abonnementer,
+  // se statistik og historik - inspireret af membership works" (membershipCockpit.ts). The chair's alone for now.
+  if (path === "/medlemskab" || path.startsWith("/medlemskab/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("members.cockpit")) return denied("members.cockpit");
+    const data = await cockpitMembers(db);
+    if (path === "/medlemskab" && request.method === "GET") {
+      const notices: Record<string, string> = { gemt: "Oplysningerne er gemt.", note: "Noten er tilføjet." };
+      return html(cockpitPage(base, who, { data, filter: readFilter(url.searchParams), today, notice: notices[url.searchParams.get("besked") ?? ""] ?? "" }));
+    }
+    if (path === "/medlemskab/eksport.csv" && request.method === "GET") {
+      const list = applyFilter(data.members, readFilter(url.searchParams));
+      await audit(db, actor, "members.cockpit", `Eksporterede ${list.length} medlemmer`, now);
+      return new Response(membersCsv(list), { headers: { "content-type": "text/csv; charset=utf-8", "cache-control": "no-store", "content-disposition": `attachment; filename="medlemmer-${today}.csv"` } });
+    }
+    if (path === "/medlemskab/medlem") {
+      const member = data.members.find(m => m.key === (url.searchParams.get("k") ?? ""));
+      if (!member) return html(notFound(base, who), 404);
+      const card = async (notice = "", error = "", status = 200) => html(memberCardPage(base, who, { member: (await cockpitMembers(db)).members.find(m => m.key === member.key) ?? member,
+        timeline: member.platformId ? await cardTimeline(db, member.platformId) : [], today, notice, error }), status);
+      if (request.method === "POST") {
+        if (!member.platformId) return card("", "Medlemmet er kun i MembershipWorks og rettes dér indtil skæringsdagen.", 409);
+        const form = await request.formData().catch(() => null);
+        if (form?.get("action") === "note") {
+          await addNote(db, member.platformId, String(form.get("note") ?? ""), who, now);
+          return card("Noten er tilføjet.");
+        }
+        const saved = await saveMemberContact(db, member.platformId, form, who, now);
+        if ("error" in saved) return card("", saved.error, 400);
+        if (saved.changed.length) await audit(db, actor, "members.cockpit", `Rettede ${member.name}: ${saved.changed.join(", ")}`, now);
+        return card(saved.changed.length ? "Oplysningerne er gemt." : "Intet blev ændret.");
+      }
+      return card();
+    }
+    return html(notFound(base, who), 404);
   }
   if (path === "/medlemmer/giv" && request.method === "POST") {
     if (!who) return redirect(`${base}/hvem`);
