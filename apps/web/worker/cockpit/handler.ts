@@ -77,7 +77,7 @@ const memberNotice = (code: string | null) => code === "givet" ? "Medlemskabet e
 const MEMBER_ERRORS: Record<string, string> = {
   no_account: "Der er ingen bruger med den e-mail endnu. Bed personen logge ind på medlem.hjerterum.info én gang med sin e-mail, og prøv igen.",
   already_member: "Personen har allerede et aktivt medlemskab.", invalid_email: "Skriv en gyldig e-mail.", invalid_tier: "Vælg et medlemskab.",
-  clerk_not_configured: "Login-systemet er ikke sat op på serveren (CLERK_SECRET_KEY mangler).", no_accounts: "Filen kunne ikke læses som en MembershipWorks-eksport (CSV).",
+  clerk_not_configured: "Login-systemet er ikke sat op på serveren (CLERK_SECRET_KEY mangler).", no_accounts: "Filen kunne ikke læses som en MembershipWorks-eksport (CSV).", export_not_saved: "Eksporten blev læst, men kunne ikke gemmes helt. Upload den igen - intet bliver dobbelt.",
   failed: "Det lykkedes ikke. Prøv igen."
 };
 
@@ -664,8 +664,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const saved = await saveMembershipWorksExport(db, file.name || "export.csv", who, await file.text(), now);
       return redirect(`${base}/medlemmer?besked=eksport-${saved.accounts}`);
     } catch (error) {
-      console.warn("cockpit_membershipworks_export_failed", error instanceof Error ? error.message : error);
-      return redirect(`${base}/medlemmer?fejl=no_accounts`);
+      const code = error instanceof Error ? error.message : String(error);
+      console.warn("cockpit_membershipworks_export_failed", code);
+      // A file that is not an export says so; one that could not be saved says that instead (it can be uploaded again - nothing is doubled).
+      return redirect(`${base}/medlemmer?fejl=${code === "no_accounts" ? "no_accounts" : "export_not_saved"}`);
     }
   }
   // Requested: "det er meningen at vi ved turnover importerer alle medlemmer" - the preview, then the one button.
