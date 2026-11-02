@@ -935,3 +935,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .event-row-photo, .event-row-more { display: none; }
   .event-row-text strong { font-size: 17px; }
 }
+/* Guests sign up on the event's own page (event-page.tsx SignUp). */
+.event-guest { display: grid; gap: 10px; max-width: 420px; }
+.event-guest label { display: grid; gap: 4px; font: 600 13px/1.2 var(--lys-sans); color: var(--lys-muted); }
+.event-guest input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--lys-line); border-radius: 10px; background: var(--lys-surface, #fff); color: var(--lys-ink); }
+.event-guest-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; }
+.event-guest-error { margin: 0; color: var(--lys-terra); font-size: 14px; }

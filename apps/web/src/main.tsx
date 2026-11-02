@@ -434,6 +434,8 @@ function usePublicEvents() {
             location: "Hjerterum",
             imageUrl: event.imageUrl ?? null,
             link: null,
+            // Its own page on the website, where guests sign up too (event-page.tsx).
+            page: `/events/h${event.id}`,
             source: "hjerterum" as const
           }))
         : [];
@@ -486,7 +488,7 @@ function PublicHome() {
 function PublicContentPage({ path }: { path: string }) {
   // Requested: "man skal så kunne klikke ind på en behandler" - /behandlere/<navn>.
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
-  const eventMatch = /^\/events\/([0-9a-f]{24})\/?$/.exec(path);
+  const eventMatch = /^\/events\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
   if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
   const posterMatch = /^\/plakat\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
   if (posterMatch) return <PosterPage id={posterMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;

@@ -1,4 +1,5 @@
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
+import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
 import { isPartnerEvent } from "../partner-events.js";
 import {
   checkDatabase,
@@ -57,6 +58,9 @@ interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_MEMBER_WEBHOOK_SECRET?: string;
   STRIPE_EVENT_WEBHOOK_SECRET?: string;
+  /** The login mails' sender (login-mail.ts), also for a guest's receipt (guest-signup.ts). */
+  RESEND_API_KEY?: string;
+  RESEND_FROM_EMAIL?: string;
   DB?: D1Database;
   /** R2 bucket for events' cover photos and files (worker/event-files.ts). */
   EVENT_MEDIA?: EventMediaBucket;
@@ -216,6 +220,39 @@ async function publicRoomBookings(env: Env): Promise<Response> {
   } catch {
     return json({ error: "database_query_failed" }, { status: 503 });
   }
+}
+
+/** One event of the house's own, for its page on the website: what the public list holds, and the prices and seats. */
+async function publicRoomBooking(env: Env, id: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const row = await publicEvent(env.DB, id).catch(() => null);
+  if (!row) return json({ error: "booking_not_found" }, { status: 404 });
+  const files = await filesByBooking(env.DB, [id]).catch(() => new Map<number, EventFileView[]>());
+  const designs = await designsByBooking(env.DB, [id]).catch(() => new Map<number, string>());
+  return json({
+    id: row.id, title: row.title, description: row.description, teacherName: row.teacher_name,
+    startsAt: new Date(row.starts_at_ms).toISOString(), endsAt: new Date(row.ends_at_ms).toISOString(),
+    imageUrl: designs.get(id) ?? files.get(id)?.find((file) => file.kind === "cover")?.url ?? null,
+    maxAttendees: row.max_attendees, seatsLeft: row.max_attendees === null ? null : Math.max(0, row.max_attendees - row.taken),
+    memberPriceKr: row.ticket_price_minor / 100, nonMemberPriceKr: (row.non_member_price_minor ?? row.ticket_price_minor) / 100
+  }, { headers: { "cache-control": "public, max-age=30" } });
+}
+
+async function guestSignup(request: Request, env: Env, id: number): Promise<Response> {
+  if (!env.DB) return json({ error: "database_unbound" }, { status: 503 });
+  const url = new URL(request.url);
+  if (request.headers.get("origin") !== url.origin) return json({ error: "forbidden" }, { status: 403 });
+  const text = await request.text().catch(() => "");
+  if (!text || text.length > 4_000) return json({ error: "invalid_form" }, { status: 400 });
+  let sent: Record<string, unknown>;
+  try { sent = JSON.parse(text) as Record<string, unknown>; } catch { return json({ error: "invalid_form" }, { status: 400 }); }
+  const result = await signUpGuest(env.DB, id, sent, Date.now());
+  if ("error" in result) return json({ error: result.error }, { status: result.status });
+  if ("confirmed" in result) {
+    const row = await publicEvent(env.DB, id).catch(() => null);
+    if (row) await guestReceipt(env, fetch, row, { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase() }, `${url.origin}/events/h${id}`);
+  }
+  return json({ ok: true });
 }
 
 async function ownedRoomBookings(request: Request, env: Env): Promise<Response> {
@@ -833,6 +870,11 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/room-bookings/public") {
       return publicRoomBookings(env);
     }
+    // Douglas' notes: "Do they have to be a member to book an event?" - "Som gæst uden login" (guest-signup.ts).
+    const publicEventId = parseRouteId(url.pathname, /^\/api\/room-bookings\/public\/(\d+)$/);
+    if (request.method === "GET" && publicEventId !== null) return publicRoomBooking(env, publicEventId);
+    const guestId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/guest$/);
+    if (request.method === "POST" && guestId !== null) return guestSignup(request, env, guestId);
     if (request.method === "GET" && url.pathname === "/api/room-bookings/day") {
       return roomDay(request, env, url.searchParams.get("date") ?? "");
     }
