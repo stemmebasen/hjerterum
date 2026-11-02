@@ -749,3 +749,8 @@ Still open:
 - Kilderne: hjemmesidens formular (`/api/nyhedsbrev`, bekræftes pr. mail), MembershipWorks-medlemmer med kryds i "Receive newsletter" (læses fra formandens upload), medlemmernes egen kontakt i Min profil (til/fra, `/api/members/me/newsletter`) og gæster, der sætter kryds ved en eventtilmelding (bekræftes pr. mail).
 - `worker/mailchimp-sync.ts` bærer dem over i hver runde (højst 40 ad gangen) via `mailchimp_contacts` (migration 0091). Den, der har frameldt sig i Mailchimp, meldes aldrig til igen herfra; tænder et medlem selv for det igen, sender Mailchimp en bekræftelsesmail.
 - Når vores egen indmelding bygges, skal den have et kryds for nyhedsbrevet, der lægger medlemmet i samme liste.
+
+## Mail til listen fra admin (2026-11-02)
+
+- Ønsket: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". Events → Mail til listen (`/arrangementer/mail`): formanden skriver en løs mail (eller beder Saga om et udkast ud fra stikord), vælger "Alle i listen" eller "Kun medlemmer" (Mailchimp-mærket "Medlem"), ser mailen som den kommer frem, sender en prøve til sin egen mail og sender den. Intet sendes, før der trykkes Send, og en mail sendes aldrig to gange.
+- Kun formandens til at begynde med (beføjelsen `listmail.send`, docs/decisions/0007). Kode: `worker/list-mail.ts`, `worker/cockpit/listMailPage.ts`, migration 0092. Mailen har nyhedsbrevets udseende og fod med Mailchimps afmeld-links.

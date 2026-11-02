@@ -263,3 +263,26 @@ Du får denne mail, fordi du har tilmeldt dig via vores hjemmeside.<br><br>Hjert
 ${header}${greeting}${highlights}${rest}${mornings}${footer}
 </table></td></tr></table></body></html>`;
 }
+
+/** Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". A single mail to the list (list-mail.ts) in
+ * the newsletter's own dress: the word mark, an optional big heading with the caramel rule, the words, and the same footer with Mailchimp's links. */
+export function listMailHtml(mail: { subject: string; preheader: string; heading: string; body: string }): string {
+  const heading = mail.heading.trim() ? `<tr><td style="padding:8px 24px 0"><div style="font:400 40px/1.1 ${SERIF};color:${INK}">${esc(mail.heading.trim())}</div>
+<div style="width:56px;height:4px;background:${CARAMEL};margin:20px 0 4px;font-size:0;line-height:0">&nbsp;</div></td></tr>` : "";
+  const words = `<tr><td style="padding:24px 24px 12px;font:400 17px/1.6 ${SANS};color:${INK}">
+${paragraphs(mail.body).map(p => `<p style="margin:0 0 20px">${withLinks(p).replace(/\n/g, "<br>")}</p>`).join("")}</td></tr>`;
+  const footer = `<tr><td style="padding:12px 24px 0"><div style="border-top:2px solid ${INK};font-size:0;line-height:0">&nbsp;</div></td></tr>
+<tr><td style="padding:28px 24px 36px;text-align:center;font:400 14px/1.5 ${SANS};color:${INK}">
+<img src="${SITE}/brand/hjerterum-ordmaerke.png" alt="Hjerterum" width="148" style="display:inline-block;width:148px;height:auto;margin-bottom:18px"><br>
+<em>Copyright (C) *|CURRENT_YEAR|* Hjerterum F.M.B.A. All rights reserved.</em><br>
+Du får denne mail, fordi du har sagt ja til nyheder fra Hjerterum.<br><br>Hjerterum F.M.B.A · Guldsmedgade 26B, st. · 8000 Aarhus C<br><br>
+<a href="*|UPDATE_PROFILE|*" style="color:${INK}">Opdater dine valg</a> eller <a href="*|UNSUB|*" style="color:${INK}">afmeld</a></td></tr>`;
+  return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(mail.subject)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet"></head>
+<body style="margin:0;padding:0;background:#f2f2f2"><div style="display:none;max-height:0;overflow:hidden">${esc(mail.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2f2f2"><tr><td align="center" style="padding:24px 0">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff">
+<tr><td style="padding:40px 24px 24px;text-align:center"><img src="${SITE}/brand/hjerterum-ordmaerke.png" alt="Hjerterum" width="148" style="display:inline-block;width:148px;height:auto"></td></tr>
+${heading}${words}${footer}
+</table></td></tr></table></body></html>`;
+}

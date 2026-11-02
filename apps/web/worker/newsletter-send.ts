@@ -36,6 +36,7 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
     },
     defaults: (listId: string) => call<{ campaign_defaults: { from_name: string; from_email: string } }>("GET", `/lists/${listId}`).then(l => l.campaign_defaults),
     createCampaign: (body: unknown) => call<{ id: string }>("POST", "/campaigns", body),
+    updateCampaign: (id: string, body: unknown) => call<unknown>("PATCH", `/campaigns/${id}`, body),
     setContent: (id: string, html: string) => call<unknown>("PUT", `/campaigns/${id}/content`, { html }),
     send: (id: string) => call<unknown>("POST", `/campaigns/${id}/actions/send`),
     /** Into the audience with the "Månedens events" group: a new address waits for its own confirmation ("pending"); one already there keeps its status. */
@@ -52,6 +53,13 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
       try { return (await call<{ status?: string }>("GET", `/lists/${listId}/members/${md5(email.toLowerCase())}`)).status ?? null; }
       catch (error) { if (error instanceof Error && error.message.startsWith("mailchimp_404")) return null; throw error; }
     },
+    /** How many are subscribed: the whole list, or those with the tag (e.g. "Medlem"); and the tag's segment id. */
+    audience: async (listId: string, tag: string | null): Promise<{ count: number; segment: number | null }> => {
+      if (!tag) return { count: (await call<{ stats?: { member_count?: number } }>("GET", `/lists/${listId}`)).stats?.member_count ?? 0, segment: null };
+      const found = (await call<{ segments: Array<{ id: number; name: string; member_count?: number }> }>("GET", `/lists/${listId}/segments?type=static&count=1000`)).segments?.find(s => s.name.toLowerCase() === tag.toLowerCase());
+      return { count: found?.member_count ?? 0, segment: found?.id ?? null };
+    },
+    test: (id: string, emails: string[]) => call<unknown>("POST", `/campaigns/${id}/actions/test`, { test_emails: emails, send_type: "html" }),
     resubscribe: (listId: string, email: string) => call<unknown>("PATCH", `/lists/${listId}/members/${md5(email.toLowerCase())}`, { status: "pending" }),
     unsubscribe: (listId: string, email: string) => call<unknown>("PATCH", `/lists/${listId}/members/${md5(email.toLowerCase())}`, { status: "unsubscribed" }),
     subscribe: (listId: string, email: string, name: string, interest: string) => {
