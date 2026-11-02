@@ -545,7 +545,8 @@ function App() {
   if (path === "/member-portal" || path.startsWith("/member-portal/")) {
     if (!loaded) return <main className="auth-shell"><p>Åbner Hjerterum …</p></main>;
     if (!clerk) return <AuthPage clerk={null} loaded mode="sign-in" />;
-    if (!user) return <AuthPage clerk={clerk} loaded mode="sign-in" redirectUrl={path} />;
+    // The query goes along through the login (e.g. /member-portal/cirkel?event=... from "Inviter din CIRKEL med").
+    if (!user) return <AuthPage clerk={clerk} loaded mode="sign-in" redirectUrl={path + window.location.search} />;
     return <MemberWorkspace clerk={clerk} user={user} path={path} />;
   }
 

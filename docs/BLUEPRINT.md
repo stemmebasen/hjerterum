@@ -742,3 +742,21 @@ Still open:
 - Spørgsmål: "Ved saga hvordan hun skal integrere og gemme referat fra generalforsamlingen?" Svar: nej. I dag bliver en optagelse altid til et bestyrelsesreferat (skabelon "Referat - bestyrelsesmøde", godkendelse hos hele bestyrelsen, bestyrelsens referatdokument, bestyrelsens beslutninger og opgaver).
 - Forslaget: en egen skabelon (dirigent og referent, fremmødte og stemmeberettigede, beretning, regnskab og budget, kontingent, forslag med stemmetal, valg, eventuelt). Godkendelse ved dirigenten, evt. med et link, og derefter låst. Gemmes for sig under "Generalforsamlinger". Beslutninger mærkes "Generalforsamlingen", og valgene opdaterer bestyrelse og suppleanter. Offentliggøres for medlemmerne, når det er godkendt.
 - Åbent: hvem der godkender (dirigenten?), og om referatet skal være offentligt eller kun for medlemmer. Indtil det er bygget, skal optagelsen af generalforsamlingen ikke uploades.
+
+## Én Mailchimp-liste for alle modtagere (2026-11-02)
+
+- Ønsket: "Jeg vil gerne have at alle modtagere gemmes samlet i vores Mailchimp konto" - "Alt med samtykke i én liste". Alle, der har sagt ja til nyhedsbrevet, står i Hjerterums ene Mailchimp-liste (`MAILCHIMP_LIST_ID`) med gruppen "Månedens events"; medlemmer får mærket "Medlem".
+- Kilderne: hjemmesidens formular (`/api/nyhedsbrev`, bekræftes pr. mail), MembershipWorks-medlemmer med kryds i "Receive newsletter" (læses fra formandens upload), medlemmernes egen kontakt i Min profil (til/fra, `/api/members/me/newsletter`) og gæster, der sætter kryds ved en eventtilmelding (bekræftes pr. mail).
+- `worker/mailchimp-sync.ts` bærer dem over i hver runde (højst 40 ad gangen) via `mailchimp_contacts` (migration 0091). Den, der har frameldt sig i Mailchimp, meldes aldrig til igen herfra; tænder et medlem selv for det igen, sender Mailchimp en bekræftelsesmail.
+- Når vores egen indmelding bygges, skal den have et kryds for nyhedsbrevet, der lægger medlemmet i samme liste.
+
+## Mail til listen fra admin (2026-11-02)
+
+- Ønsket: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". Events → Mail til listen (`/arrangementer/mail`): formanden skriver en løs mail (eller beder Saga om et udkast ud fra stikord), vælger "Alle i listen" eller "Kun medlemmer" (Mailchimp-mærket "Medlem"), ser mailen som den kommer frem, sender en prøve til sin egen mail og sender den. Intet sendes, før der trykkes Send, og en mail sendes aldrig to gange.
+- Kun formandens til at begynde med (beføjelsen `listmail.send`, docs/decisions/0007). Kode: `worker/list-mail.ts`, `worker/cockpit/listMailPage.ts`, migration 0092. Mailen har nyhedsbrevets udseende og fod med Mailchimps afmeld-links.
+## Inviter din CIRKEL med (2026-11-02)
+
+- Ønsket: "Under hvert Hjerterum event skal der diskret stå: Inviter din CIRKEL med" - for alle events i salen. Linjen står under eventet på hjemmesiden og fører til `/member-portal/cirkel?event=<id>` (login først, og man kommer tilbage til samme event).
+- Er man med i en cirkel: en boks med eventet, cirklens navn og et skrivefelt. `POST /api/integrations/cirkler/invite` læser eventet fra Hjerterums egen kalender (aldrig fra browseren) og sender beskeden til CIRKLER (`POST /api/hjerterum/circle-invite`, samme delte nøgle som circle-status), hvor den lander i cirklens chat i medlemmets navn med billede, kort beskrivelse og link.
+- Er man ikke med i en cirkel: "Du er ikke medlem af en CIRKEL endnu - klik her for at blive det" (samme signerede billet som CIRKLER-kortet). Uden medlemskab: CIRKLER er for medlemmer.
+- CIRKLER-delen ligger i stemmebasen/cirkler.net (migration `20261102230000_circle_message_event`, som køres i Supabase før deploy).

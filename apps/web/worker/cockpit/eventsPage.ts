@@ -29,7 +29,7 @@ const line = (e: HouseEvent) => `<li><span class="small muted">${esc(when(e))}${
 ${e.removed_at_ms ? `<span class="small muted">Fjernet fra kalenderen</span>` : ""}</li>`;
 
 export function eventsPage(base: string, data: { stats: EventStats; coming: HouseEvent[]; recent: HouseEvent[]; results: HouseEvent[] | null; query: string; year: number | null;
-  thisYear: number; syncing: boolean; who: string | null; desk?: string; pr?: { wishes: Map<string, PrWish[]> }; newsletter?: boolean }): string {
+  thisYear: number; syncing: boolean; who: string | null; desk?: string; pr?: { wishes: Map<string, PrWish[]> }; newsletter?: boolean; listMail?: boolean }): string {
   const withPr = (e: HouseEvent) => card(e, data.pr ? prPicker(base, e.id, data.pr.wishes.get(e.id) ?? [], data.who) : "");
   const s = data.stats, count = (y: number) => s.byYear.find(b => b.year === String(y))?.n ?? 0, max = Math.max(1, ...s.byYear.map(b => b.n));
   const years = s.byYear.map(b => Number(b.year)).filter(Boolean).sort((a, b) => b - a);
@@ -46,5 +46,5 @@ ${data.results.length ? `<ul class="plain ev-list">${data.results.map(line).join
   return layout(base, "Events", `<main><h1>Events</h1>${data.syncing ? `<p class="notice">Saga henter stadig hele historikken fra kalenderen. Den er klar inden for en time.</p>` : ""}
 <div class="ev-stats"><div><b>${s.coming30}</b><span>de næste 30 dage</span></div><div><b>${count(data.thisYear)}</b><span>i ${data.thisYear}</span></div>
 <div><b>${count(data.thisYear - 1)}</b><span>i ${data.thisYear - 1}</span></div><div><b>${s.total}</b><span>i alt${s.first ? ` siden ${new Date(s.first).getUTCFullYear()}` : ""}</span></div></div>
-<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a>${data.newsletter ? ` <a class="button" href="${base}/arrangementer/nyhedsbrev">Nyhedsbrev →</a>` : ""}</p>${data.desk ?? ""}${data.pr && !data.results ? prWishList(base, data.coming, data.pr.wishes, data.who) : ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE + PR_STYLE + SYSTEM_EVENTS_STYLE });
+<p><a class="button" href="${base}/arrangementer/undervisere">Undervisere →</a>${data.newsletter ? ` <a class="button" href="${base}/arrangementer/nyhedsbrev">Nyhedsbrev →</a>` : ""}${data.listMail ? ` <a class="button" href="${base}/arrangementer/mail">Mail til listen →</a>` : ""}</p>${data.desk ?? ""}${data.pr && !data.results ? prWishList(base, data.coming, data.pr.wishes, data.who) : ""}${search}${results}${overview}</main>`, { section: "/arrangementer", who: data.who, style: STYLE + DESK_STYLE + PR_STYLE + SYSTEM_EVENTS_STYLE });
 }

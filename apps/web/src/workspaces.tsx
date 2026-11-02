@@ -12,6 +12,8 @@ import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, ty
 import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
+import { MemberNewsletter } from "./member-newsletter";
+import { CirkelInvite } from "./cirkel-invite";
 import { MembershipAdmin } from "./membership-admin";
 import { ProfileFeatures } from "./profile-features";
 import { CirklerCard } from "./cirkler-card";
@@ -1123,6 +1125,8 @@ export function MemberWorkspace({
       <WorkspaceHeader clerk={clerk} mode="member" path={path} />
       {trial && !loading && <TrialNote />}
       {loading ? <section className="workspace-loading">Henter dit medlemsområde …</section> :
+        // Requested: "Inviter din CIRKEL med" under every event (cirkel-invite.tsx) - it says itself when CIRKLER is for members only.
+        normalized === "/member-portal/cirkel" ? <CirkelInvite clerk={clerk} /> :
         accessError && normalized !== "/member-portal/profil" ? <>
           <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div>
             {/* Requested: "Det bør være muligt at booke lokalet uden at være medlem" - the calculator books the room at the standard price and shows what members pay. */}
@@ -1130,7 +1134,7 @@ export function MemberWorkspace({
           <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>
         </> :
         normalized === "/member-portal/medlemskab" ? (
-          <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div></>
+          <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div><MemberNewsletter clerk={clerk} /></>
         ) : !includesMemberBenefits(member?.tier ?? null) && (onEventsPage || normalized === "/member-portal/kalender") ? (
           <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
         ) : trial && onEventsPage ? (
@@ -1140,7 +1144,7 @@ export function MemberWorkspace({
         ) : onEventsPage ? (
           <MemberEvents clerk={clerk} member={member} bookings={ownedBookings} markedDates={markedDates} reload={loadCalendar} initialView={normalized === EVENTS_MINE ? "mine" : "create"} />
         ) : normalized === "/member-portal/profil" || normalized === "/member-portal/kontakt" ? (
-          normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div>}</> :
+          normalized === "/member-portal/profil" ? <><MemberProfile clerk={clerk} member={member} onSaved={setMember} />{member && !accessError && <><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div><MemberNewsletter clerk={clerk} /></>}</> :
           <section className="workspace-section member-page site-page member-about"><SitePageInner page={SITE_PAGES.find((page) => page.path === "/om-hjerterum")!} widgets={{}} /></section>
         ) : normalized === "/member-portal/kalender" ? (
           <MemberCalendar clerk={clerk} bookings={calendar} externalEvents={externalEvents} reload={loadCalendar} nonMember={trial} />

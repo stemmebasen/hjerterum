@@ -1,4 +1,7 @@
 import { webmailRoute } from "./webmail.js";
+import { listMailHtml } from "../newsletter.js";
+import { AUDIENCES, audienceCount, draftListMail, listMail, listMailReady, listMails, newListMail, readListMailForm, saveListMail, sendListMail, testListMail } from "../list-mail.js";
+import { listMailPage, listMailsPage } from "./listMailPage.js";
 import { adminsPage, aiUsage, cockpitAdmins, memberAreaAdmins } from "./admins.js";
 import { samtalerPage, sagaTranscript, transcriptText } from "./samtaler.js";
 import { allMemories, forget, memoryPage } from "./memory.js";
@@ -972,6 +975,66 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return back("&besked=godkendt");
     }
   }
+  // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". Events → Mail til listen (list-mail.ts):
+  // the chair's alone for now (listmail.send); nothing goes out before Send is pressed.
+  if (path === "/arrangementer/mail" || path.startsWith("/arrangementer/mail/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("listmail.send")) return denied("listmail.send");
+    const nenv = env as NewsletterEnv;
+    const mailchimpReady = Boolean(nenv.MAILCHIMP_API_KEY);
+    if (path === "/arrangementer/mail" && request.method === "GET") {
+      const notices: Record<string, string> = { slettet: "Udkastet er slettet." };
+      return html(listMailsPage(base, who, { mails: await listMails(db), mailchimp: mailchimpReady, notice: notices[url.searchParams.get("besked") ?? ""] ?? "" }));
+    }
+    if (path === "/arrangementer/mail/ny" && request.method === "POST") return redirect(`${base}/arrangementer/mail/${await newListMail(db, who, now)}`);
+    const m = /^\/arrangementer\/mail\/(\d+)(?:\/(vis|gem|saga|test|send|slet))?$/.exec(path);
+    const mail = m ? await listMail(db, Number(m[1])) : null;
+    if (!m || !mail) return html(notFound(base, who), 404);
+    const at = `${base}/arrangementer/mail/${mail.id}`;
+    const back = (query = "") => redirect(`${at}${query}`);
+    const action = m[2] ?? "";
+    if (!action && request.method === "GET") {
+      const notices: Record<string, string> = { gemt: "Gemt.", skrevet: "Saga har skrevet et udkast. Læs det igennem og ret det.", proeve: `En prøve er sendt til ${url.searchParams.get("til") ?? "dig"}.`,
+        sendt: "Sendt. Mailchimp sender den ud nu." };
+      const errors: Record<string, string> = { saga: "Saga kunne ikke skrive et udkast lige nu. Prøv igen, eller skriv selv.", proeve: "Prøven kunne ikke sendes.", send: "Mailen kunne ikke sendes. Se fejlen ovenfor og prøv igen.",
+        sendt: "Den er allerede sendt og kan ikke ændres.", tom: "Skriv en emnelinje og en tekst først." };
+      return html(listMailPage(base, who, mail, { mailchimp: mailchimpReady, aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), count: mail.status === "sent" ? mail.recipients : await audienceCount(nenv, deps, mail.audience),
+        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "", testTo: url.searchParams.get("til") ?? "" }),
+        200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace("default-src 'none';", "default-src 'none'; frame-src 'self';") });
+    }
+    if (action === "vis" && request.method === "GET") {
+      return new Response(listMailHtml(mail), { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow", "referrer-policy": "same-origin",
+        "x-frame-options": "SAMEORIGIN", "content-security-policy": "default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'self'; form-action 'none'; base-uri 'none'" } });
+    }
+    if (request.method !== "POST") return html(notFound(base, who), 404);
+    const form = await request.formData().catch(() => null);
+    if (mail.status === "sent") return back("?fejl=sendt");
+    if (action === "gem") { await saveListMail(db, mail.id, readListMailForm(form), now); return back("?besked=gemt"); }
+    if (action === "slet") { await db.prepare("DELETE FROM list_mails WHERE id = ? AND status <> 'sent'").bind(mail.id).run(); return redirect(`${base}/arrangementer/mail?besked=slettet`); }
+    if (action === "saga") {
+      const notes = String(form?.get("notes") ?? "").trim();
+      const draft = notes ? await draftListMail(nenv, deps, notes).catch(() => null) : null;
+      if (!draft) return back("?fejl=saga");
+      await saveListMail(db, mail.id, { ...draft, audience: mail.audience }, now);
+      return back("?besked=skrevet");
+    }
+    if (action === "test") {
+      const to = String(form?.get("to") ?? "").trim().toLowerCase();
+      if (!listMailReady(mail)) return back("?fejl=tom");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return back("?fejl=proeve");
+      try { await testListMail(nenv, deps, db, mail, to); } catch (error) { console.warn("list_mail_test_failed", error instanceof Error ? error.message : error); return back(`?fejl=proeve&til=${encodeURIComponent(to)}`); }
+      return back(`?besked=proeve&til=${encodeURIComponent(to)}`);
+    }
+    if (action === "send") {
+      if (!listMailReady(mail)) return back("?fejl=tom");
+      try {
+        const count = await sendListMail(nenv, deps, db, mail, who);
+        await audit(db, actor, "listmail.send", `Sendte "${mail.subject}" til ${AUDIENCES[mail.audience].label.toLowerCase()} (${count})`, now);
+      } catch (error) { console.warn("list_mail_send_failed", error instanceof Error ? error.message : error); return back("?fejl=send"); }
+      return back("?besked=sendt");
+    }
+    return html(notFound(base, who), 404);
+  }
   // Requested by the chair: "Som admin skal man kunne redigere og slette events oprettet i systemet" (systemEvents.ts).
   const systemPath = /^\/arrangementer\/system\/(\d+)(\/slet)?$/.exec(path);
   if (systemPath) {
@@ -1012,7 +1075,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig." };
     // The board changes and deletes members' events; the newsletter is the chair's own (authority.ts).
     const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
-    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage") }));
+    return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage"), listMail: may("listmail.send") }));
   }
   // Gitta's PR wishes on the coming events (prWishes.ts).
   if (path === "/arrangementer/pr" && request.method === "POST") {
