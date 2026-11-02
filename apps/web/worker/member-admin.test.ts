@@ -49,7 +49,7 @@ describe("MembershipWorks' export, kept for reference", () => {
     expect(accounts.map(a => a.email)).toEqual(["mette@example.dk", "ole@example.dk", "sara@example.dk"]);
     expect(accounts[0]).toEqual({ email: "mette@example.dk", accountId: "680f5aae37f3c27dfd0f0001", fullName: "Mette Holm", phone: "11223344",
       plan: "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)", tier: "standard", interval: "month", billing: "auto", joinedOn: "2025-04-28", renewsOn: "2026-11-28",
-      stripeCustomerId: "cus_TestMette01", labels: ["Teacher"] });
+      stripeCustomerId: "cus_TestMette01", labels: ["Teacher"], newsletter: false, cancelled: false });
     expect(accounts[1]).toMatchObject({ plan: "Free Membership", tier: null, billing: null, interval: null, labels: ["Hjerterum Team"], phone: null });
     expect(accounts[2]).toMatchObject({ tier: "reduceret", renewsOn: "2026-08-30" });
   });
@@ -230,5 +230,33 @@ describe("the switch from MembershipWorks", () => {
       expect(await resolveActiveMembership(db, "user_mette", "clerk-key")).toMatchObject({ source: "hjerterum", fullName: "Mette Holm" });
     } finally { globalThis.fetch = realFetch; }
     expect((await getMemberByClerkUserId(db, "user_mette"))!.paysInMembershipworks).toBe(true);
+  });
+});
+
+// Uploaded by the chair, 2 Nov 2026: MembershipWorks' full export - 62 columns (newsletter, terms, social links, IP address ...),
+// former members ("Membership Payment Cancelled") and cancelled billing. Everyone here is made up.
+describe("MembershipWorks' full export", () => {
+  const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  const head = ["Admin note", "Account Name", "First Name", "Last Name", "Email", "Telephone", "Stripe Customer ID", "When Signed Up", "Receive newsletter", "I accept the conditions",
+    "Instagram", "Free Membership", "Membership Payment Cancelled", "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)", "Teacher", "Join Date", "Renewal Date",
+    "Billing Method", "Auto Billing ID", "IP Address", "Account ID"];
+  const row = (v: Record<string, string>) => head.map(h => q(v[h] ?? "")).join(",");
+  const FULL = "﻿" + [head.map(q).join(","),
+    row({ "Account Name": "Mette Holm", Email: "mette@example.dk", "Receive newsletter": "Y", "I accept the conditions": "Acknowledged by Mette Holm on 2026-01-01", "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)": "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)",
+      Teacher: "Teacher", "Join Date": "Apr 28, 2025", "Renewal Date": "Nov 28, 2026", "Billing Method": "Standard medlemskab - månedlig betaling", "Auto Billing ID": "cus_TestMette01", "IP Address": "1.2.3.4", "Account ID": "a1" }),
+    row({ "Account Name": "Ole Berg", Email: "ole@example.dk", "Membership Payment Cancelled": "Membership Payment Cancelled", "Join Date": "Jan 5, 2021", "IP Address": "1.2.3.5", "Account ID": "a2" }),
+    row({ "Account Name": "Sara Lind", Email: "sara@example.dk", "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)": "Standard medlemskab - kr222 / md. eller kr2,310 / år (spar kr354)",
+      "Join Date": "Feb 1, 2024", "Renewal Date": "Dec 1, 2026", "Billing Method": "Cancelled", "Account ID": "a3" }),
+    row({ "Account Name": "Free Fie", Email: "fie@example.dk", "Free Membership": "Free Membership", "Join Date": "Mar 3, 2023", "Account ID": "a4" }),
+    row({ "Account Name": "Kun Konto", Email: "konto@example.dk", "When Signed Up": "July 2. 2026", "Join Date": "Jul 2, 2026", "Account ID": "a5" })].join("\r\n");
+
+  it("finds the membership among many fields, and knows former and cancelled members", () => {
+    const { accounts } = readMembershipWorksExport(FULL);
+    const by = Object.fromEntries(accounts.map(a => [a.email, a]));
+    expect(by["mette@example.dk"]).toMatchObject({ tier: "standard", interval: "month", billing: "auto", stripeCustomerId: "cus_TestMette01", labels: ["Teacher"], newsletter: true, cancelled: false });
+    expect(by["ole@example.dk"]).toMatchObject({ tier: null, plan: "Membership Payment Cancelled", billing: null, cancelled: true, labels: [] });
+    expect(by["sara@example.dk"]).toMatchObject({ tier: "standard", billing: null, renewsOn: "2026-12-01", cancelled: true });
+    expect(by["fie@example.dk"]).toMatchObject({ tier: null, plan: "Free Membership", cancelled: false });
+    expect(by["konto@example.dk"]).toMatchObject({ tier: null, plan: null, labels: [] });
   });
 });
