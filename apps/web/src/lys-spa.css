@@ -941,3 +941,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-guest input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--lys-line); border-radius: 10px; background: var(--lys-surface, #fff); color: var(--lys-ink); }
 .event-guest-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 0; }
 .event-guest-error { margin: 0; color: var(--lys-terra); font-size: 14px; }
+/* Requested: "Lad cirkel illustrationen i baggrunden langsomt dreje rundt" - one turn every two minutes, around its own centre; still for those who ask for less motion. */
+@keyframes cirkler-turn { from { transform: translateY(-50%) rotate(0deg); } to { transform: translateY(-50%) rotate(360deg); } }
+.site-cirkler-rings { animation: cirkler-turn 120s linear infinite; will-change: transform; }
+@media (prefers-reduced-motion: reduce) { .site-cirkler-rings { animation: none; } }
