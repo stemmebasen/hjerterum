@@ -52,8 +52,33 @@ const app = appWorker as unknown as {
   scheduled(controller: ScheduledControllerLike, env: Env): Promise<void>;
 };
 
+/** Reported: "Translate doesn't work" - the EN button opens the page through Google Translate (www-hjerterum-info.translate.goog), and the page
+ * stayed white: Google loads our scripts, styles, pictures and the calendar from www.hjerterum.info in the reader's browser, and the browser
+ * refused them without our permission. Google's translation may now read what anyone may read - the built files, the pictures and the public
+ * calendar - and nothing else: no cookies, no member or admin data. */
+const TRANSLATE_ORIGIN = /^https:\/\/[a-z0-9-]+\.translate\.goog$/;
+const OPEN_TO_TRANSLATION = /^\/(?:assets\/|media\/|dokumenter\/|logo\.png$|api\/events\/(?:external(?:\/[0-9a-f]{24})?|program|upcoming)$|api\/room-bookings\/public(?:\/\d+)?$|api\/public-profiles$)/;
+
+export function translationHeaders(request: Request, response: Response): Response {
+  const origin = request.headers.get("origin") ?? "";
+  if (!TRANSLATE_ORIGIN.test(origin) || (request.method !== "GET" && request.method !== "HEAD") || !OPEN_TO_TRANSLATION.test(new URL(request.url).pathname)) return response;
+  const open = new Response(response.body, response);
+  open.headers.set("access-control-allow-origin", origin);
+  open.headers.append("vary", "Origin");
+  return open;
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
+    return translationHeaders(request, await handle(request, env, ctx));
+  },
+
+  async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
+    return scheduledRun(controller, env);
+  }
+};
+
+async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
 
     // Requested: the price calculator "i systemet - den skal også bruges som iframe" (beregner/handler.ts): /beregner and
@@ -159,9 +184,9 @@ export default {
       );
     }
     return app.fetch(request, env);
-  },
+}
 
-  async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
+async function scheduledRun(controller: ScheduledControllerLike, env: Env): Promise<void> {
     const deps = { fetcher: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, init), now: () => Date.now() };
     // The test site (wrangler.jsonc env "test") runs only the platform's own jobs: no Saga, no team mail, no Telegram.
     if (env.ENVIRONMENT === "test") {
@@ -182,5 +207,4 @@ export default {
     await runNewsletterJob(env as NewsletterEnv, deps).catch(error => console.warn("newsletter_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
-  }
-};
+}
