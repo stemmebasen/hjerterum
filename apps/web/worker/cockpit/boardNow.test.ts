@@ -142,7 +142,12 @@ describe("the members as the numbers say", () => {
     const { memberTrend } = await import("./boardNow.js");
     const row = (taken_on: string, paying: number, with_membership: number) => ({ id: 0, taken_on, total_accounts: 0, with_membership, paying, free: null, past_due: null, pending_cancellation: null, cancelled: null, annual_revenue_kr: null, plans: [], added_by: "", created_at_ms: 0 });
     expect(memberTrend([row("2026-10-15", 177, 390), row("2026-10-09", 172, 380), row("2026-09-14", 160, 360)], Date.parse("2026-10-15T10:00:00Z")))
-      .toBe("MEDLEMSTAL (MembershipWorks - det er dem, medlemsudviklingen vurderes ud fra):\n- 2026-10-15: 177 betalende, 390 med medlemskab i alt\n- Siden 2026-09-14: betalende 160 → 177 (+17), med medlemskab 360 → 390 (+30)");
+      .toBe("MEDLEMSTAL (MembershipWorks - betalende medlemmer; det er medlemstallet, gratis prøvemedlemskaber tæller ikke med):\n- 2026-10-15: 177 medlemmer\n- Siden 2026-09-14 (160 medlemmer): steget med 17");
+    // Reported: "Medlemstallet er steget til 398" - "Forkert medlemstal": 398 had a membership of some kind (204 free trials); the paying members went down.
+    const trend = memberTrend([row("2026-10-28", 167, 398), row("2026-10-23", 174, 395), row("2026-09-28", 172, 370)], Date.parse("2026-11-02T10:00:00Z"));
+    expect(trend).toContain("167 medlemmer");
+    expect(trend).toContain("faldet med 5");
+    expect(trend).not.toContain("398");
     expect(memberTrend([], Date.now())).toBe("");
   });
 
