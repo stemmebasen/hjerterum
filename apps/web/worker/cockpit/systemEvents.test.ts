@@ -26,14 +26,13 @@ describe("the board changes and deletes members' events", () => {
     for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth", "201"]] as const).entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: tid, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
     const id = yoga.id;
-    // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - the rest of the board sees neither.
+    // "Nej kun nyhedsbrevet delen": the whole board changes and deletes events; only the newsletter is the chair's.
     const lisbeth = await memberCookie(session, "Lisbeth");
     const hers = await (await call("/arrangementer", { cookie: lisbeth })).text();
-    expect(hers).not.toContain("Events oprettet i systemet");
+    expect(hers).toContain("Events oprettet i systemet");
     expect(hers).not.toContain("/arrangementer/nyhedsbrev");
-    expect((await call(`/arrangementer/system/${id}`, { cookie: lisbeth })).status).toBe(403);
-    expect((await call(`/arrangementer/system/${id}/slet`, { method: "POST", cookie: lisbeth })).status).toBe(403);
     expect((await call("/arrangementer/nyhedsbrev", { cookie: lisbeth })).status).toBe(403);
+    expect((await call(`/arrangementer/system/${id}`, { cookie: lisbeth })).status).toBe(200);
     // The chair, with the personal login.
     const cookie = await personalCookie("Jacob Hauge", NOW);
 
@@ -59,8 +58,5 @@ describe("the board changes and deletes members' events", () => {
     expect((await call(`/arrangementer/system/${id}/slet`, { method: "POST", cookie })).status).toBe(303);
     expect((await db.prepare("SELECT status FROM room_bookings WHERE id = ?").bind(id).first<{ status: string }>())?.status).toBe("cancelled");
     expect(await (await call("/arrangementer", { cookie })).text()).not.toContain(`/arrangementer/system/${id}"`);
-    // Written in the chair's log.
-    const log = await db.prepare("SELECT power, detail FROM chair_audit ORDER BY id").all<{ power: string; detail: string }>();
-    expect(log.results?.map(r => r.detail)).toEqual(['Rettede "Yin yoga for alle" (Maria Holm)', 'Slettede "Yin yoga for alle" (Maria Holm)']);
   });
 });
