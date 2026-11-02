@@ -37,7 +37,7 @@ describe("the membership cockpit", () => {
     expect((await call("/medlemskab", { cookie: lisbeth })).status).toBe(403);
     expect((await call("/medlemskab/eksport.csv", { cookie: lisbeth })).status).toBe(403);
     expect(await (await call("/medlemmer", { cookie: lisbeth })).text()).not.toContain("/medlemskab");
-    expect(await (await call("/medlemmer", { cookie: chair })).text()).toContain("Åbn medlems-cockpittet");
+    expect(await (await call("/medlemmer", { cookie: chair })).text()).toContain("Åbn medlemsoverblikket");
   });
 
   it("shows everyone once - the platform's members first - with figures, filters and an export", async () => {

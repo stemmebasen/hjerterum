@@ -89,7 +89,7 @@ ${d.mw.latest ? `<p class="small" style="margin:0 0 8px"><strong>${d.mw.accounts
 ${d.mw.accounts ? `<a class="more" href="${base}/medlemmer/skifte">Skiftet fra MembershipWorks →</a>` : ""}
 <a class="more" href="${base}/medlemmer/tal">Tal fra MembershipWorks (skærmbillede) →</a></section>`;
   // Requested: "Vi skal udvikle et membership cockpit i admin" - the chair's alone for now (membershipCockpit.ts).
-  const cockpit = d.cockpit ? `<section class="panel"><header><h2>Medlems-cockpit</h2><p>Alle medlemmer fra Hjerterums system og MembershipWorks: nøgletal, liste med filtre og eksport, medlemskort. Kun for formanden indtil videre.</p></header><a class="more" href="${base}/medlemskab">Åbn medlems-cockpittet →</a></section>` : "";
+  const cockpit = d.cockpit ? `<section class="panel"><header><h2>Medlemsoverblik</h2><p>Alle medlemmer fra Hjerterums system og MembershipWorks: nøgletal, liste med filtre og eksport, medlemskort. Kun for formanden indtil videre.</p></header><a class="more" href="${base}/medlemskab">Åbn medlemsoverblikket →</a></section>` : "";
   const admins = d.chair ? `<section class="panel"><header><h2>Administratorer</h2><p>Se, hvem der har adgang til admin, og hvem der har været aktive. Kun for formanden.</p></header><a class="more" href="${base}/administratorer">Se administratorerne →</a></section>` : "";
   return layout(base, "Medlemmer", `<main><div class="hero"><h1>Medlemmer</h1><p>Medlemmerne i det nye system. Medlemmer i MembershipWorks fortsætter dér, indtil de selv melder sig ind her.</p></div>
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}

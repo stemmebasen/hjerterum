@@ -162,7 +162,7 @@ export function cockpitPage(base: string, who: string | null, d: { data: Cockpit
   const row = (m: CockpitMember) => `<tr><td><a href="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}"><b>${esc(m.name)}</b></a><span>${esc(m.email)}</span></td>
 <td>${esc(m.plan)}${m.interval ? `<span>${m.interval === "year" ? "årligt" : "månedligt"}</span>` : ""}</td><td>${statusBadge(m, d.today)}</td><td>${esc(BILLING_LABEL[m.billing])}${m.source === "membershipworks" ? `<span>MembershipWorks</span>` : ""}</td>
 <td>${shortDate(m.nextPayment)}</td><td>${shortDate(m.joinedOn)}</td><td>${m.labels.filter(l => !/^Active /i.test(l)).map(l => `<i class="mc-label">${esc(l)}</i>`).join("")}${m.teacher && !m.labels.length ? `<i class="mc-label">Underviser</i>` : ""}</td></tr>`;
-  const body = `<main class="mc"><p class="small"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Medlems-cockpit</h1>
+  const body = `<main class="mc"><p class="small"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Medlemsoverblik</h1>
 <p class="muted small">Kun for dig som formand (indtil du åbner det for bestyrelsen). ${d.data.export ? `Medlemmerne fra MembershipWorks er fra eksporten ${esc(shortDate(d.data.export.day))} - <a href="${base}/medlemmer#membershipworks">upload en nyere</a>.` : "Ingen MembershipWorks-eksport endnu."}</p>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <section class="mc-figs">
@@ -189,7 +189,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <p class="small muted">${shown.length} af ${all.length}</p>
 <div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Betaling</th><th>Næste betaling</th><th>Medlem siden</th><th>Labels</th></tr></thead>
 <tbody>${shown.map(row).join("") || `<tr><td colspan="7" class="muted">Ingen medlemmer passer.</td></tr>`}</tbody></table></div></main>`;
-  return layout(base, "Medlems-cockpit", body, { section: "/medlemmer", who, style: COCKPIT_MEMBERS_STYLE });
+  return layout(base, "Medlemsoverblik", body, { section: "/medlemmer", who, style: COCKPIT_MEMBERS_STYLE });
 }
 
 export function memberCardPage(base: string, who: string | null, d: { member: CockpitMember; timeline: TimelineEntry[]; today: string; notice: string; error: string }): string {
@@ -197,7 +197,7 @@ export function memberCardPage(base: string, who: string | null, d: { member: Co
   const field = (label: string, value: string) => `<div><dt>${label}</dt><dd>${value || "–"}</dd></div>`;
   const input = (label: string, name: string, value: string | null, type = "text") => `<label class="mc-field"><span>${label}</span><input type="${type}" name="${name}" value="${esc(value ?? "")}"></label>`;
   const TIME = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
-  const body = `<main class="mc mc-card"><p class="small"><a href="${base}/medlemskab">← Medlems-cockpit</a></p>
+  const body = `<main class="mc mc-card"><p class="small"><a href="${base}/medlemskab">← Medlemsoverblik</a></p>
 <h1>${esc(m.name)}</h1><p>${statusBadge(m, d.today)} <span class="muted">${esc(m.plan)}${m.monthlyMinor ? ` · ${kr(m.interval === "year" ? m.monthlyMinor * 12 : m.monthlyMinor)} ${m.interval === "year" ? "pr. år" : "pr. måned"}` : ""}</span></p>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice bad">${esc(d.error)}</p>` : ""}
 <section class="mc-grid">
