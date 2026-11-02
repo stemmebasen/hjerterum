@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dateLabel, getIssue, isoWeek, listTitle, monthEvents, monthStart, newsletterHtml, readDraft, sendTime, subjectOf, type NewsletterEvent } from "./newsletter.js";
 import { runNewsletterJob } from "./newsletter-send.js";
-import { deps, fakeServices, sagaEnv, testDatabase } from "./saga/test-support.js";
+import { deps, fakeServices, OWNER, sagaEnv, testDatabase } from "./saga/test-support.js";
 import type { D1Database } from "./db.js";
 
 // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" - the November mail as the model.
@@ -91,7 +91,9 @@ describe("the monthly newsletter", () => {
     const issue = (await getIssue(db, "2026-12"))!;
     expect(issue.status).toBe("draft");
     expect(issue.subject).toBe("December i Hjerterum: Guidekontakt 🤍");
-    expect(JSON.stringify(services.telegram("sendMessage").map(c => c.body))).toContain("Nyhedsbrevet for december er klar til gennemsyn");
+    // Only to the chair, privately - never the board's group.
+    const notice = services.telegram("sendMessage").map(c => c.body as { chat_id: string; text: string }).find(b => b.text.includes("Nyhedsbrevet for december er klar til gennemsyn"));
+    expect(notice?.chat_id).toBe(OWNER);
     // The 1st at 19.00 - but not approved: nothing is sent.
     await runNewsletterJob(env, deps(fetcher, at("2026-12-01T18:05:00Z")));
     expect(sent).toEqual([]);
