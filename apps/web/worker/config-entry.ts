@@ -17,6 +17,7 @@ import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
 import { handleNewsletterSignup, NEWSLETTER_PATH } from "./newsletter-subscribe.js";
+import { EVENT_PAGE, eventMeta, withEventMeta } from "./event-meta.js";
 import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
 
@@ -183,6 +184,18 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
         },
         { headers: { "cache-control": "public, max-age=300" } }
       );
+    }
+    // A shared event shows the event - its title, picture and words - not just "Hjerterum" (event-meta.ts).
+    const eventPage = (request.method === "GET" || request.method === "HEAD") ? EVENT_PAGE.exec(url.pathname) : null;
+    if (eventPage) {
+      const page = await app.fetch(request, env);
+      if (!page.ok || !(page.headers.get("content-type") ?? "").includes("text/html")) return page;
+      const meta = await eventMeta((env as SagaEnv).DB, eventPage[1]!, (input, init) => fetch(input, init), Date.now()).catch(() => null);
+      if (!meta) return page;
+      const headers = new Headers(page.headers);
+      headers.delete("content-length");
+      headers.set("cache-control", "public, max-age=300");
+      return new Response(withEventMeta(await page.text(), meta), { status: page.status, headers });
     }
     return app.fetch(request, env);
 }
