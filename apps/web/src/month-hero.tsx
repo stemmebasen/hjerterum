@@ -50,7 +50,7 @@ export function comingUp(events: MonthEvent[], now: number): MonthEvent | null {
 export function ComingUp({ event }: { event: MonthEvent | null }) {
   if (!event) return null;
   return <a className="nl-coming" href={href(event)}>
-    <span className="lys-kicker">Næste event i Hjerterum</span>
+    <span className="lys-kicker">Næste event</span>
     <strong>{event.title}</strong>
     <span className="nl-coming-when">{featureLine(event.startsAt)}</span>
     <span className="nl-more">Læs mere →</span>
