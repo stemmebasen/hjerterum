@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
 import { CIRKLER_URL, ENGLISH, translateUrl, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
@@ -144,6 +144,17 @@ export function BookingChoice() {
   </div>;
 }
 
+/** A click on a link to the page one is already on scrolls to its top instead of reloading where one stands. */
+function toTopOnSamePage(event: MouseEvent<HTMLElement>) {
+  const link = (event.target as HTMLElement).closest("a");
+  if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+  const target = new URL(link.href, window.location.href);
+  if (target.origin !== window.location.origin || target.pathname.replace(/\/+$/, "") !== window.location.pathname.replace(/\/+$/, "") || target.hash) return;
+  event.preventDefault();
+  if (target.search !== window.location.search) { window.location.assign(target.href); return; }
+  window.scrollTo({ top: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
 export function SiteFooter() {
   return <footer className="site-foot">
     <div className="site-foot-brand">
@@ -153,7 +164,9 @@ export function SiteFooter() {
       <p>Et varmt rum for nærvær, oplevelser og fællesskab – skabt af medlemmer for medlemmer.</p>
       <p>Guldsmedgade 26B, st., 8000 Aarhus C<br /><a href="mailto:team@hjerterum.info">team@hjerterum.info</a></p>
     </div>
-    <nav aria-label="Sidefod">
+    {/* Requested: "Når man klikker på et menupunkt i footeren skal man tages til toppen af den side man har klikket på". The page one is on: up to
+        the top at once (a browser may keep the place when the address does not change); another page opens at the top (main.tsx). */}
+    <nav aria-label="Sidefod" onClick={toTopOnSamePage}>
       {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
       <a href="/om-os/foreningen">Foreningen</a>
       <a href="/sign-in">Log ind</a>
