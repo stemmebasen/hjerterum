@@ -38,10 +38,10 @@ export function CirklerCard({ clerk }: { clerk: ClerkBrowser }) {
       <p className="lys-kicker">CIRKLER</p>
       {status.circle ? <>
         <h2>Du er med i cirklen {status.circle}</h2>
-        <p className="member-overview-more"><a className="lys-btn" href="https://cirkler.net" target="_blank" rel="noopener">Gå til CIRKLER</a></p>
+        <p className="member-overview-more"><a className="lys-btn" href="https://cirkler.net/?fra=hjerterum" target="_blank" rel="noopener">Gå til CIRKLER</a></p>
       </> : status.profile ? <>
         <h2>Du har en profil og venter på en cirkel</h2>
-        <p className="member-overview-more"><a className="lys-link" href="https://cirkler.net" target="_blank" rel="noopener">Gå til CIRKLER →</a></p>
+        <p className="member-overview-more"><a className="lys-link" href="https://cirkler.net/?fra=hjerterum" target="_blank" rel="noopener">Gå til CIRKLER →</a></p>
       </> : <>
         <h2>Du er endnu ikke med i en cirkel</h2>
         <p className="lys-sub">Små, faste fællesskaber - gratis for medlemmer.</p>
