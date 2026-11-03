@@ -161,7 +161,7 @@ export const plainShareText = (author: string | null) => `Tak til ${firstName(au
 export const instagramShareText = (intro: string, author: string | null, original: string, network: Channel = "instagram") =>
   `${intro.trim()}\n\nFoto og tekst: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
 /** An event's post on Instagram: its words, and where to read more (Instagram has no links in the text). */
-export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig via linket i bio.`;
+export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).`;
 
 async function shareIntro(env: SagaEnv, deps: SagaDeps, post: TaggedPost): Promise<string> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return plainShareText(post.author);
@@ -234,7 +234,14 @@ const WEEK_SYSTEM = `Du skriver Hjerterums opslag på Facebook og Instagram (Hje
 Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: {"uge": "...", "events": {"E1": "..."}}
 - "uge": 1-2 korte, varme sætninger (højst 35 ord), der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
 - "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår (ugedag og "kl. TT.MM", som de står i feltet "hvornaar" - aldrig en dato). Linket til eventet sættes på af systemet, så skriv ingen adresse.
-Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn. Skriv på dansk.`;
+Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn.
+Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
+- Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
+- Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."
+- Dansk kommatering: intet komma foran "med", "og" eller "i", som man ville sætte det på engelsk.
+- Ingen stive vendinger som "X leder den", "X faciliterer" eller "Oplev ...". Skriv fx "Marianne guider dig", "Kom med Marianne" eller "Marianne inviterer til".
+- Kun underviserens fornavn.
+Et eksempel på tonen (efterlign ikke ordene): "Lørdag kl. 13.00 inviterer Marianne til fire timers aurabalancering. Der er ro og nærvær og plads til bare at være."`;
 
 type WeekWords = { intro: string; events: Record<string, string> };
 

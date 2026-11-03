@@ -961,3 +961,16 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Download** er kun til at bruge et design andre steder. Saga poster selv opslaget. Knappen hed før "Hent billede".
 - **Tilbage:** Links til siden fra Ugens opslag og fra Events har `?fra=<side>` med. "← Tilbage" fører derhen, til det samme opslag (`#opslag-<id>`). Uden `fra` fører den til PR og SoMe → Events.
 - **Teknik:** `POST /plakater/<id>/publicer` (JSON: tekst, Instagram-tekst, kanaler, `now`) gemmer ordene og godkender opslaget (`editPost` og `decidePost`). Det kræver både `posters.design` og `social.manage` og står i formandens log. Billedet lægges først i opslaget med `POST /plakater/<id>/opslag` som før.
+
+## Linket i bio, og bedre dansk i opslagene (2026-11-03)
+
+- **Linket i bio.** Formanden spurgte: "Men skriver vi så linket i bio?" Nej. Meta lader ikke apps ændre bio eller link på en Instagram-profil, så linket sættes i hånden i Instagram-appen (Rediger profil → Links). Anbefalet: `https://www.hjerterum.info/events`.
+  - På formandens "Ja" nævner teksterne på Instagram nu adressen direkte. Det gælder eventopslag, Ugens events og reelens slutside: "... på hjerterum.info/events (link i bio)". Man kan ikke klikke på et link i et Instagram-opslag, men man kan læse adressen.
+- **Bedre dansk.** Formanden skrev: "Dette er dårligt dansk: Fire timers aura balancering i ro og nærvær, med plads til bare at være. Marianne Teglgaard leder den lørdag kl. 13.00." Sagas instruktion til opslagene (`WEEK_SYSTEM` i `worker/social/social.ts`) har nu regler for sproget:
+  - mundret dansk, ikke oversat engelsk;
+  - sammensatte ord i ét ord;
+  - hele sætninger;
+  - dansk kommatering;
+  - ingen stive vendinger som "X leder den";
+  - kun fornavnet.
+  - Instruktionen har også et eksempel på tonen. Reglerne gælder for nye opslag. Kladder, der allerede er skrevet, kan rettes i trin 2 på plakatsiden eller under Ugens opslag.
