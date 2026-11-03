@@ -115,8 +115,8 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
     const at = body.indexOf("</header>");
     response = new Response(at < 0 ? body : `${body.slice(0, at + 9)}${SIGN_STYLE}${state.banner}${body.slice(at + 9)}`, { status: response.status, headers: response.headers });
   }
-  // A deputy reads what the board reads; the buttons to approve minutes and to vote are not theirs (deputies.ts deputyView).
-  if (state.deputy && isHtml && response.status === 200) response = new Response(deputyView(await response.text()), { status: response.status, headers: response.headers });
+  // A deputy reads what the board reads; the buttons to approve minutes and to vote are not theirs (deputies.ts deputyView) - nor the member list.
+  if (state.deputy && isHtml && response.status === 200) response = new Response(withoutMemberList(deputyView(await response.text())), { status: response.status, headers: response.headers });
   if (state.lang !== "en" || !isHtml) return response;
   const page = await response.text();
   // Requested: "I think that overview, tasks, and decisions should be automatically translated".
@@ -128,6 +128,11 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   }
   return new Response(translateHtml(page), { status: response.status, headers: response.headers });
 }
+
+/** "Nej" to deputies seeing the member list: its links go, and the menu's Medlemmer opens on Statistik. */
+export const withoutMemberList = (page: string) => page
+  .replace(/(<a href="[^"]*?)\/medlemmer(" class="grp-top)/g, "$1/statistik$2")
+  .replace(/<a href="[^"]*\/medlemmer(?!\/tal)(?:[\/?#][^"]*)?"[^>]*>[^<]*<\/a>/g, "");
 
 type State = { lang: Lang; banner?: string; deputy?: boolean; may?: (power: Power) => boolean };
 
@@ -233,6 +238,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const minutes = /^\/referat\/(\d+)\//.exec(path);
     return redirect(minutes ? `${base}/referat/${minutes[1]}?suppleant=1` : `${base}/?suppleant=1`);
   }
+  // Asked: "Skal suppleanterne fortsat kunne se medlemslisten?" - "Nej" (3 Nov 2026): the members' names, e-mails and phones are the board's.
+  // Only the counts (/medlemmer/tal, no names) stay open to them.
+  if (deputyName && (path === "/medlemmer" || path.startsWith("/medlemmer/")) && path !== "/medlemmer/tal") return html(problem(base, who, "Medlemslisten er kun for bestyrelsen."), 403);
   const today = copenhagenDay(now);
   state.lang = await memberLang(db, who);
   // Not on a minutes' own page, where the approval stands at the top.
