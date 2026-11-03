@@ -223,6 +223,12 @@ async function markWebhook(
     )
     .bind(eventId, eventType, Date.now())
     .run();
+  // Security review (3 Nov 2026), point 7: an event that failed (a database hiccup) is taken again when Stripe retries it - before, the retry
+  // was counted as a duplicate, and someone who had paid never became a member.
+  if ((result.meta?.changes ?? 0) === 0) {
+    const retry = await db.prepare("UPDATE webhook_events SET status = 'received', last_error = NULL WHERE provider = 'stripe' AND event_id = ? AND status = 'failed'").bind(eventId).run();
+    return (retry.meta?.changes ?? 0) > 0;
+  }
   return (result.meta?.changes ?? 0) > 0;
 }
 

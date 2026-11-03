@@ -40,7 +40,7 @@ import {
   fixedTeacherByAccount,
   type RoomBookingRow
 } from "./room-bookings.js";
-import { verifyStripeWebhook } from "./stripe.js";
+import { stripeRequest, verifyStripeWebhook } from "./stripe.js";
 import { listDayItems } from "./room-day.js";
 import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
@@ -473,7 +473,15 @@ async function unattendBooking(
 
   // A non-member can take back their own registration too; it only ever touches the caller's own.
   try {
+    // Security review (3 Nov 2026), point 7: a registration that still waits for payment closes its Stripe payment page too, so nobody pays
+    // for a seat they have given up (should a payment slip through all the same, the webhook gives it back).
+    const open = await env.DB.prepare(`SELECT a.stripe_checkout_session_id AS session, p.stripe_account_id AS account FROM room_booking_attendees a
+      JOIN room_bookings b ON b.id = a.room_booking_id JOIN member_payout_accounts p ON p.clerk_user_id = b.payout_clerk_user_id
+      WHERE a.room_booking_id = ? AND a.clerk_user_id = ? AND a.registration_status = 'pending' AND a.stripe_checkout_session_id IS NOT NULL`)
+      .bind(bookingId, user.userId).first<{ session: string; account: string }>().catch(() => null);
     await unattendRoomBooking(env.DB, user.userId, bookingId);
+    if (open && env.STRIPE_SECRET_KEY) await stripeRequest(env.STRIPE_SECRET_KEY, "POST", `/checkout/sessions/${encodeURIComponent(open.session)}/expire`, {}, { connectedAccount: open.account })
+      .catch(error => console.warn("event_checkout_expire_failed", error instanceof Error ? error.message : error));
     return json({ status: "not_attending" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "unattend_failed";
@@ -760,7 +768,11 @@ async function eventPaymentWebhook(request: Request, env: Env): Promise<Response
     const event = await verifyStripeWebhook(
       rawBody, request.headers.get("stripe-signature"), env.STRIPE_EVENT_WEBHOOK_SECRET
     );
-    const result = await processEventPaymentWebhook(env.DB, event);
+    const secret = env.STRIPE_SECRET_KEY;
+    const result = await processEventPaymentWebhook(env.DB, event, secret ? async (paymentIntent, account) => {
+      await stripeRequest(secret, "POST", "/refunds", { payment_intent: paymentIntent, refund_application_fee: true, "metadata[reason]": "registration_cancelled" },
+        { connectedAccount: account, idempotencyKey: `hjerterum-refund-${paymentIntent}` });
+    } : undefined);
     return json({ received: true, duplicate: result.duplicate });
   } catch (error) {
     const code = error instanceof Error ? error.message : "event_webhook_failed";
