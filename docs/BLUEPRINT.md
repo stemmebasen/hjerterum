@@ -800,3 +800,10 @@ Still open:
   - Er materialet klar, står der "✓ Dit PR-materiale er klar" og et link til at rette det.
 - Det er stadig ikke et krav. Eventet kan oprettes uden.
 - Materialet er det samme som under Min profil → Mit PR-materiale og gælder alle underviserens events.
+
+## Undervisere som samarbejdspartner på Instagram (2026-11-03)
+
+- Gittas forslag, formandens ja: underviseren inviteres som *samarbejdspartner* på opslaget. Så får de besked med det samme, og opslaget vises også for deres følgere.
+- Underviserne kan skrive deres **Instagram-navn** i PR-materialet (Min profil → Mit PR-materiale og "Billeder til PR" i eventformularen). Navnet gemmes i `pr_material.quotes_json` (`instagram`) og renses til selve brugernavnet (`instagramName`). Ingen skemaændring.
+- **"Ugens events"** på Instagram inviterer op til tre af ugens undervisere: dem, der har givet samtykke og et Instagram-navn, i ugens rækkefølge. **Et genopslag** af et Instagram-opslag inviterer den, der lavede det. Formanden kan rette listen på opslaget i PR og SoMe, før det godkendes.
+- Det sker med Instagram-API'ets `collaborators` på fotoet eller karrusellen (højst tre). Facebooks API kan ikke invitere samarbejdspartnere, så eventopslagene på Facebook gør det ikke.

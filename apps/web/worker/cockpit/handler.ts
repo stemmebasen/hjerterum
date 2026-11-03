@@ -48,6 +48,7 @@ import { newsletterPage } from "./newsletterPage.js";
 import { approveWeek, connectSocial, decidePost, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
+import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
@@ -1028,6 +1029,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const atMs = form.has("at") ? fromLocalInput(field("at")) : undefined;
         await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
+          ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
           ...(post.kind === "event" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
       }
       if (action === "godkend") {

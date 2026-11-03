@@ -6,6 +6,7 @@ import type { NewsletterEvent } from "../newsletter.js";
 import { at, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, planDue, weekKey } from "./plan.js";
 import { runSocialJob, socialPosts } from "./social.js";
 import { loginUrl } from "./meta.js";
+import { instagramName, parsePrQuotes } from "../../pr-material.js";
 
 // Requested (the chair, 3 Nov 2026): "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen. Så vi skal have kontakt
 // til vores sociale medier. ... 1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med
@@ -19,6 +20,15 @@ const GRAPH = "https://graph.facebook.com/v25.0";
 const event = (key: string, title: string, iso: string, extra: Partial<NewsletterEvent> = {}): NewsletterEvent => ({
   key, title, startsMs: Date.parse(iso), endsMs: null, host: "Kasper", category: null, imageUrl: `https://img.example/${key}.jpg`, link: `https://www.hjerterum.info/events/${key}`,
   description: "", mornings: false, ...extra });
+
+describe("an Instagram name in the PR material", () => {
+  it("is kept as the bare username, whatever way it is written", () => {
+    for (const written of ["@Anna.Yoga", "anna.yoga", "https://www.instagram.com/anna.yoga/", "instagram.com/anna.yoga?hl=da"]) expect(instagramName(written)).toBe("anna.yoga");
+    expect(instagramName("Anna Yoga")).toBeNull();
+    expect(parsePrQuotes({ instagram: "@Anna.Yoga" }).instagram).toBe("anna.yoga");
+    expect(parsePrQuotes({ facilitator: "Ro" })).toMatchObject({ facilitator: "Ro", instagram: "" });
+  });
+});
 
 describe("the week's plan", () => {
   it("knows the weeks and Thursday from 10.00", () => {
@@ -162,7 +172,7 @@ describe("the PR cockpit", () => {
     await run(NOW + 3 * 60_000);
     expect(graph.filter(c => c.path === "/755/feed")).toEqual([{ method: "POST", path: "/755/feed", params: { message: "Tak, Kasper!", link: "https://www.facebook.com/kasper/posts/1", access_token: "page-token" } }]);
     // On Instagram from the picture as it is now, with the chair's words.
-    expect(graph.find(c => c.path === "/17841/media")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans" });
+    expect(graph.find(c => c.path === "/17841/media")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", collaborators: '["gitta.dans"]' });
     expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
     shares = await socialPosts(db, "kind = 'share'");
     expect(shares.map(p => p.status).sort()).toEqual(["published", "published", "skipped"]);
@@ -172,6 +182,9 @@ describe("the PR cockpit", () => {
     const insert = (id: string, title: string, iso: string, extra: { location?: string; image?: string | null } = {}) =>
       db.prepare("INSERT INTO house_events (id, title, starts_at_ms, host, image_url, location, description, content_hash, updated_at_ms) VALUES (?, ?, ?, 'Kasper', ?, ?, 'En aften med ro.', 'x', 0)")
         .bind(id, title, Date.parse(iso), extra.image === undefined ? `https://d1tif55lvfk8gc.cloudfront.net/${id}.jpg` : extra.image, extra.location ?? null).run();
+    // Kasper has given his Instagram name with his PR material: he is invited as collaborator on "Ugens events".
+    await db.prepare(`INSERT INTO pr_material (clerk_user_id, quotes_json, consent_at_ms, updated_at_ms) VALUES ('user_k', '{"instagram":"kasper.yoga"}', 1, 0)`).run();
+    await db.prepare(`INSERT INTO public_profiles (clerk_user_id, public_id, draft_json, updated_at_ms) VALUES ('user_k', 'k', '{"name":"Kasper"}', 0)`).run();
     for (let i = 0; i < 11; i++) await insert(`e${i}`, `Workshop ${i}`, `2026-11-${String(9 + (i % 7)).padStart(2, "0")}T${String(17 + (i % 3)).padStart(2, "0")}:00:00Z`);
     await insert("partner", "Hos Hjerteland", "2026-11-11T18:00:00Z", { location: "Hjerteland" });
     await insert("this-week", "I aften", "2026-11-05T18:00:00Z");
@@ -211,6 +224,7 @@ describe("the PR cockpit", () => {
     const carousel = graph.find(c => c.path === "/17841/media" && c.params.media_type === "CAROUSEL")!;
     expect(carousel.params.children!.split(",")).toHaveLength(10);
     expect(carousel.params.caption).toContain("linket i bio");
+    expect(carousel.params.collaborators).toBe('["kasper.yoga"]');
     // A round at each post's time (the cron runs every five minutes): everything goes out, once.
     for (const due of (await socialPosts(db, "week = '2026-W46' AND status = 'approved'")).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-16T09:00:00Z"));

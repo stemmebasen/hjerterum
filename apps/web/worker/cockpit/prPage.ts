@@ -69,7 +69,8 @@ ${s.network === "instagram" && s.media === "video" ? `<p class="small muted">Vid
 ${s.network === "instagram" && !s.consent ? `<p class="small muted">Instagram har ingen "del"-knap for os: opslaget lægges op igen på Hjerterums profil med afsenderen nævnt. Gør det kun, når afsenderen har sagt ja.</p>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>Hjerterums ord over delingen${s.network === "instagram" ? " (Facebook)" : ""}</span><textarea name="text" rows="3"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
-${s.network === "instagram" && instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>` : ""}
+${s.network === "instagram" && instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>
+<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((s.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 ${channelBoxes(p, allowed, locked)}
 ${actions(base, p, "Del nu")}</form></article>`;
 }
@@ -83,7 +84,8 @@ function weekCard(base: string, p: SocialPost, account: SocialAccount | null): s
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>${p.kind === "week" ? "Teksten på Facebook" : "Opslaget på Facebook"}</span><textarea name="text" rows="${p.kind === "week" ? 10 : 4}"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
-${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>` : ""}
+${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
+<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 <div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
 ${p.kind === "week" ? channelBoxes(p, allowed, locked) : ""}</div>
 ${actions(base, p, "Godkend")}</form></article>`;

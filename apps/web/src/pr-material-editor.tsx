@@ -78,6 +78,7 @@ export function PrMaterialEditor({ clerk, onBack, inline = false }: { clerk: Cle
       {field("facilitator", "Om dig som facilitator", "Fx: Anna holder rummet med en rolig og varm tilstedeværelse.")}
       {field("offering", "Det, deltagerne får med", "Fx: Du går hjem med mere ro i kroppen og nye værktøjer til hverdagen.")}
       <div className="workspace-form-row">{field("participant", "Fra en tidligere deltager", "Fx: Det bedste, jeg har gjort for mig selv i år.")}{field("participantName", "Deltagerens navn (valgfrit)", "Fx: Mette, 42", 80)}</div>
+      {field("instagram", "Dit Instagram-navn (valgfrit) - så inviterer vi dig som samarbejdspartner på vores opslag, og dine følgere ser dem også", "Fx: @anna.yoga", 80)}
     </fieldset>
     <div className="workspace-actions"><button type="button" className="pill-button" disabled={busy || !material} onClick={() => void save()}>Gem citater</button></div>
 
