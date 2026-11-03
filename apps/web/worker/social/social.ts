@@ -175,9 +175,9 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
   try {
     const { page, instagram } = await access(env, account);
     found.push(...await taggedOnFacebook(deps.fetcher, page).catch(error => { problems.push(`Facebook: ${error instanceof Error ? error.message : error}`); return []; }));
-    // Reading Instagram's tags needs instagram_manage_comments, which the app does not have yet (meta.ts META_SCOPES): a refusal is noted plainly.
+    // Reading Instagram's tags needs instagram_manage_comments (not instagram_business_manage_comments, which belongs to Instagram's own login): a refusal is noted plainly.
     if (instagram) found.push(...await taggedOnInstagram(deps.fetcher, instagram).catch(error => {
-      problems.push(/permission|\(#10\)|\(#200\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Instagram-tags kan ikke læses endnu: appen mangler tilladelsen instagram_manage_comments" : `Instagram: ${error instanceof Error ? error.message : error}`);
+      problems.push(/permission|\(#10\)|\(#200\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Instagram-tags kan ikke læses: appen mangler tilladelsen instagram_manage_comments (ikke instagram_business_manage_comments)" : `Instagram: ${error instanceof Error ? error.message : error}`);
       return [];
     }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }

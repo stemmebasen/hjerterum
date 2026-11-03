@@ -8,10 +8,8 @@ export const GRAPH_VERSION = "v25.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 /** What the page's token must be able to do: read the page and what it is tagged in, post on it, and read and publish on its Instagram. */
-/** Meta refused instagram_manage_comments at login ("Invalid Scopes", 3 Nov 2026), so it is not asked for: without it the Instagram posts that tag
- * Hjerterum cannot be read (Facebook's tags, publishing on Facebook and Instagram, and everything else work). Add it back once the app has it. */
 export const META_SCOPES = ["pages_show_list", "pages_read_engagement", "pages_read_user_content", "pages_manage_posts",
-  "instagram_basic", "instagram_content_publish", "business_management"];
+  "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management"];
 
 export type MetaEnv = { META_APP_ID?: string; META_APP_SECRET?: string; META_LOGIN_CONFIG_ID?: string };
 export const metaReady = (env: MetaEnv) => Boolean(env.META_APP_ID && env.META_APP_SECRET);
