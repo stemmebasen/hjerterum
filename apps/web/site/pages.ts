@@ -405,7 +405,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
 Alle priser er inkl. moms.
 
 ### A) Standardpris – uden medlemsrabat
-Fast pris efter bookingens længde.
+Fast pris efter bookingens varighed.
 
 | Varighed | Pris |
 |---|---|
