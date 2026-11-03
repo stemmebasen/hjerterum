@@ -78,18 +78,6 @@ jobs:
           echo "database_id=$D1_ID" >> "$GITHUB_OUTPUT"
           node .github/scripts/configure-staging-d1.mjs "$D1_ID"
 
-      # Requested: "Og så skal der i admin være et form for filarkiv" - the archive's bucket (archive.ts), made once, in western Europe.
-      - name: Ensure the archive's R2 bucket
-        if: steps.credentials.outputs.cloudflare == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if pnpm --dir apps/web exec wrangler r2 bucket list 2>/dev/null | grep -q "hjerterum-arkiv-eu"; then
-            echo "The archive bucket exists."
-          else
-            pnpm --dir apps/web exec wrangler r2 bucket create hjerterum-arkiv-eu --location weur
-          fi
-
       - name: Apply staging D1 migrations
         if: steps.credentials.outputs.cloudflare == 'true'
         shell: bash
