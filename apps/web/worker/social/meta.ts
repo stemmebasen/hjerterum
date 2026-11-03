@@ -140,3 +140,11 @@ export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: 
   }
   return (await graph<{ id: string }>(fetcher, "POST", `${me}/media_publish`, { creation_id: container, access_token: token })).id;
 }
+
+/** Requested: "månedlig indsigt" - the page's followers and the Instagram account's followers and posts, as they are now. Each is null when Meta does not answer it. */
+export async function followerCounts(fetcher: Fetcher, page: { id: string; token: string }, instagram: { igUserId: string; token: string } | null): Promise<{ fb: number | null; ig: number | null; igMedia: number | null }> {
+  const fb = await graph<{ followers_count?: number; fan_count?: number }>(fetcher, "GET", `/${page.id}`, { fields: "followers_count,fan_count", access_token: page.token })
+    .then(d => d.followers_count ?? d.fan_count ?? null).catch(() => null);
+  const ig = instagram ? await graph<{ followers_count?: number; media_count?: number }>(fetcher, "GET", `/${instagram.igUserId}`, { fields: "followers_count,media_count", access_token: instagram.token }).catch(() => null) : null;
+  return { fb, ig: ig?.followers_count ?? null, igMedia: ig?.media_count ?? null };
+}

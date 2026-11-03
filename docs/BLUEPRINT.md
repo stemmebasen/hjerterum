@@ -807,3 +807,10 @@ Still open:
 - Underviserne kan skrive deres **Instagram-navn** i PR-materialet (Min profil → Mit PR-materiale og "Billeder til PR" i eventformularen). Navnet gemmes i `pr_material.quotes_json` (`instagram`) og renses til selve brugernavnet (`instagramName`). Ingen skemaændring.
 - **"Ugens events"** på Instagram inviterer op til tre af ugens undervisere: dem, der har givet samtykke og et Instagram-navn, i ugens rækkefølge. **Et genopslag** af et Instagram-opslag inviterer den, der lavede det. Formanden kan rette listen på opslaget i PR og SoMe, før det godkendes.
 - Det sker med Instagram-API'ets `collaborators` på fotoet eller karrusellen (højst tre). Facebooks API kan ikke invitere samarbejdspartnere, så eventopslagene på Facebook gør det ikke.
+
+## Månedlig indsigt i PR og SoMe (2026-11-03)
+
+- Planens punkt "mål få ting, en gang om måneden", formandens ja.
+- Én gang om dagen tæller Saga Hjerterums følgere på Facebook (`followers_count`) og på Instagram (`followers_count`, `media_count`). Tallene gemmes i `social_stats` (migration 0094, kun en ny tabel).
+- Nederst på PR og SoMe står **Indsigt** for de seneste tre måneder (`worker/cockpit/prInsight.ts`): følgere ved månedens slutning med månedens ændring, og hvor mange "Ugens events", eventopslag og delinger der er sendt, og hvor mange af dem der kom på Instagram.
+- Rækkevidde pr. opslag kræver flere tilladelser fra Meta (`read_insights`, `instagram_manage_insights`) og er ikke med endnu.

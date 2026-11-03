@@ -21,7 +21,7 @@ export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }>
   { title: "PR-materiale, når eventet oprettes", status: "klar", note: "Billeder, citater og samtykke i selve eventformularen og hos Saga, med klar besked: uden billeder ingen PR fra huset." },
   { title: "Undervisere som samarbejdspartner på Instagram", status: "klar", note: "Ugens events inviterer op til tre af ugens undervisere, og et genopslag inviterer den, der lavede det. Underviserne skriver deres Instagram-navn i PR-materialet." },
   { title: "Ugens events som reel", status: "bygges", note: "En kort video af ugens billeder, som Gittas ugentlige reel." },
-  { title: "Månedlig indsigt", status: "bygges", note: "Følgere og det, der er sendt, måned for måned, her i cockpittet." },
+  { title: "Månedlig indsigt", status: "klar", note: "Følgere på Facebook og Instagram og det, der er sendt, måned for måned, nederst på siden. Rækkevidde pr. opslag kræver flere tilladelser fra Meta." },
   { title: "Ny, kortere samtykketekst", status: "venter-paa-dig", note: "Gitta: indholdet er rigtigt, men den skal være enklere. Den skal stadig gælde fremtidige events og fælles opslag." },
   { title: "Påmindelse til undervisere uden billeder", status: "venter-paa-dig", note: "Gittas forslag: en mail efter tre dage. Husets regel er, at Saga aldrig sender mail af sig selv - det kræver dit ja." },
   { title: "Delinger uden godkendelse", status: "venter-paa-dig", note: "Skal opslag fra undervisere med PR-samtykke kunne deles uden dit tryk? Lige nu kræver alt dit ja." }
@@ -42,7 +42,7 @@ export const RHYTHM: Array<[string, string]> = [
   ["Mandag kl. 15.30", "Ugens events på Facebook og som karrusel på Instagram."],
   ["Dagen før hvert event", "7-10 events får hvert sit lille opslag på Facebook, kl. 15 eller 16.30."],
   ["Den 20.", "Saga skriver næste måneds nyhedsbrev. Du godkender det, og det går ud den 1. kl. 19."],
-  ["Hver måned", "Kig på følgere og rækkevidde, og justér hvert kvartal."]
+  ["Hver måned", "Kig på Indsigt nederst på siden, og justér hvert kvartal."]
 ];
 
 export type PlanData = { todo: Todo[]; next: Array<{ at: number; text: string }>; campaign: { now: (typeof YEAR)[number] | null; next: (typeof YEAR)[number] } };
