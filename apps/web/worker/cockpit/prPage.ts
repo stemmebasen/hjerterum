@@ -34,7 +34,7 @@ const when = (ms: number | null) => ms ? WHEN.format(ms) : "";
 const SHARED_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
 const NETWORK: Record<Channel, string> = { facebook: "Facebook", instagram: "Instagram" };
 const STATUS: Record<SocialPost["status"], [string, string]> = {
-  draft: ["Udkast", "wait"], approved: ["Godkendt", "good"], publishing: ["Sendes nu", "good"], published: ["Sendt", "good"], failed: ["Fejlede", "wait"], skipped: ["Sprunget over", ""]
+  draft: ["Udkast", "wait"], approved: ["Godkendt", "good"], publishing: ["Publiceres nu", "good"], published: ["Publiceret", "good"], failed: ["Fejlede", "wait"], skipped: ["Sprunget over", ""]
 };
 /** "2026-11-12T10:00" in Danish time, for a datetime-local field. */
 export const localInput = (ms: number | null) => ms ? `${dateOf(ms)}T${clock(ms).replace(".", ":")}` : "";
@@ -60,7 +60,7 @@ function channelBoxes(p: SocialPost, allowed: Channel[], disabled: boolean): str
 }
 
 function actions(base: string, p: SocialPost, approveLabel: string): string {
-  if (!open(p)) return `<p class="small muted">${p.status === "published" ? `Sendt ${esc(when(p.published_at_ms))}. ${sentLinks(p)}` : "Sendes nu."}</p>`;
+  if (!open(p)) return `<p class="small muted">${p.status === "published" ? `Publiceret ${esc(when(p.published_at_ms))}. ${sentLinks(p)}` : "Publiceres nu."}</p>`;
   const buttons = p.status === "approved"
     ? `<button name="do" value="fortryd" class="ghost">Fortryd godkendelsen</button>`
     : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}`;
@@ -122,7 +122,7 @@ ${actions(base, p, "Godkend")}</form></article>`;
 
 /** Requested: "Jeg synes, at siden bliver ret rodet, når der er så meget indhold. Kan du ikke dele det op i underpunkter?" - PR og SoMe in tabs. */
 export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "uge" | "sendt";
-export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Sendt og indsigt"]];
+export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
 
 export function prPage(base: string, who: string | null, d: PrPageData, tab: PrTab = "overblik"): string {
   const a = d.account;
@@ -151,7 +151,7 @@ ${d.week.posts.map(p => weekCard(base, p, a, d.week.monday)).join("")}`
 ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button>Lad Saga planlægge uge ${weekNumber(d.week.key)} nu</button></form>` : ""}`;
 
   const recent = d.recent.length ? `<ul class="pr-log">${d.recent.map(p => `<li><span class="at">${esc(when(p.published_at_ms ?? p.updated_at_ms))}</span><span>${status(p)} ${p.kind === "share" ? `Deling fra ${esc(p.source.author ?? "?")}` : p.kind === "week" ? "Ugens events" : esc(p.source.title ?? "Event")}
-${p.status === "published" ? `<small>${sentLinks(p)}</small>` : p.error ? `<small class="warn">${esc(p.error)}</small>` : ""}</span></li>`).join("")}</ul>` : `<p class="empty">Intet sendt endnu.</p>`;
+${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.note)}</small>` : p.status === "published" ? `<small>${sentLinks(p)}</small>` : p.error ? `<small class="warn">${esc(p.error)}</small>` : ""}</span></li>`).join("")}</ul>` : `<p class="empty">Intet publiceret endnu.</p>`;
 
   const waiting = d.shares.filter(p => !p.source.sharedAt).length;
   const count = (n: number) => n ? ` <span class="pr-count">${n}</span>` : "";
@@ -163,7 +163,7 @@ ${p.status === "published" ? `<small>${sentLinks(p)}</small>` : p.error ? `<smal
     events: prEventsSection(base, d.events ?? [], d.nowMs),
     tagget: `<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>`,
     uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,
-    sendt: `<section class="panel" id="sendt"><header><h2>Sendt og fejlet</h2></header>${recent}</section>
+    sendt: `<section class="panel" id="sendt"><header><h2>Publiceret og fejlet</h2></header>${recent}</section>
 ${insightSection(d.insight)}`
   };
   const body = `<main class="pr"><div class="hero"><h1>PR og sociale medier</h1>

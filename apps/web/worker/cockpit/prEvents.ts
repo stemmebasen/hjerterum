@@ -19,7 +19,7 @@ export type PrEventRow = {
 
 export async function prEventsData(db: D1Database, nowMs: number): Promise<PrEventRow[]> {
   const events = await facebookEvents(db, nowMs, LIST_DAYS);
-  const posts = await db.prepare(`SELECT id, status, publish_at_ms, published_at_ms, json_extract(source, '$.key') AS key FROM social_posts WHERE kind = 'event'
+  const posts = await db.prepare(`SELECT id, status, publish_at_ms, published_at_ms, json_extract(source, '$.key') AS key FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.removed') IS NULL
       AND json_extract(source, '$.key') IN (SELECT value FROM json_each(?)) ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'approved' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END`)
     .bind(JSON.stringify(events.map(e => e.key))).all<{ id: number; status: SocialStatus; publish_at_ms: number | null; published_at_ms: number | null; key: string }>()
     .then(r => r.results ?? []).catch(() => []);

@@ -47,7 +47,7 @@ import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
 import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
-import { approveWeek, connectSocial, decidePost, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, connectSocial, decidePost, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -972,7 +972,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const account = await socialAccount(db);
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         events: tab === "events" ? await prEventsData(db, now) : [],
-        ...(tab === "kalender" ? { calendar: await prCalendarData(db, now) } : {}),
+        ...(tab === "kalender" ? { calendar: await prCalendarData(db, now, url.searchParams.get("start")) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
@@ -1057,6 +1057,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const decided = await decidePost(db, post.id, "approve", who, now);
         if (!decided) return backHere("fejl=kanaler");
         if (post.kind === "share") await audit(db, actor, "social.manage", `Delte ${post.source.author ?? "et"} opslag fra ${post.source.network === "instagram" ? "Instagram" : "Facebook"} videre`, now);
+        // A post whose time has come (a share, or one set to now) goes out at once.
+        if ((decided.publish_at_ms ?? Infinity) <= now) await publishOne(social, deps, db, decided);
         return backHere(post.kind === "share" ? "besked=delt" : "besked=godkendt");
       }
       return backHere("besked=gemt");
@@ -1117,7 +1119,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const decided = await decidePost(db, current.id, "approve", who, now);
       if (!decided) return answer({ error: "no_channels" }, 422);
       await audit(db, actor, "social.manage", `Godkendte opslaget om "${data.event.title}"`, now);
-      return answer({ ok: true, publishAtMs: decided.publish_at_ms, channels: decided.channels });
+      // "Nu" is now: out at once, not in Saga's next round.
+      const out = (decided.publish_at_ms ?? Infinity) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
+      const after = await socialPost(db, decided.id);
+      return answer({ ok: true, publishAtMs: decided.publish_at_ms, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
     }
     if (part === "/design" && request.method === "POST") {
       const booking = /^h(\d+)$/.exec(id!);
