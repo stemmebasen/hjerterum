@@ -52,6 +52,7 @@ import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
+import { prEventsData } from "./prEvents.js";
 import { setStudioDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
@@ -954,19 +955,20 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
-    const tab = ({ "/pr": "overblik", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as const)[path as "/pr"];
+    const tab = ({ "/pr": "overblik", "/pr/events": "events", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
     if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
       const asked = url.searchParams.get("uge") ?? "";
       const monday = [thisMonday, coming].includes(asked) ? asked : coming;
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
-        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags." };
+        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres." };
       const account = await socialAccount(db);
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
+        events: tab === "events" ? await prEventsData(db, now) : [],
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` }],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
@@ -1012,6 +1014,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const { made, events } = await planWeek(social, deps, db, monday);
       return back(made ? "besked=planlagt" : events ? "besked=intet-nyt" : "fejl=tom", monday);
     }
+    // From the Events tab (prEvents.ts): "Lav opslag" plans that event's week - or adds what is missing in it - within the six weeks shown.
+    if (path === "/pr/events/opslag") {
+      const monday = field("uge");
+      const first = mondayOf(now), last = mondayOf(now + 42 * 86_400_000);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(monday) || monday < first || monday > last || mondayOf(Date.parse(`${monday}T12:00:00Z`)) !== monday) return back("", undefined, "/events");
+      const { made, events } = await planWeek(social, deps, db, monday);
+      return back(made ? "besked=planlagt" : events ? "besked=intet-nyt" : "fejl=tom", undefined, "/events");
+    }
     if (path === "/pr/uge/godkend") {
       const monday = weekOf(field("uge"));
       if (!monday) return back();
@@ -1024,7 +1034,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const post = await socialPost(db, Number(postMatch[1]));
       if (!post) return back();
       const week = post.week ? weekOf(mondayOf(post.publish_at_ms ?? now)) ?? undefined : undefined;
-      const backHere = (query: string) => post.kind === "share" ? back(query, undefined, "/tagget") : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
+      const backHere = (query: string) => field("tilbage") === "events" ? back(query, undefined, "/events") : post.kind === "share" ? back(query, undefined, "/tagget") : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
       if (post.status === "published" || post.status === "publishing") return backHere("fejl=sendt");
       const action = field("do");
       if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }
@@ -1313,6 +1323,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const form = await request.formData().catch(() => null);
       const key = String(form?.get("event") ?? "").slice(0, 120), done = String(form?.get("done") ?? "") === "1";
       await markFacebookEvent(db, key, done, who, String(form?.get("link") ?? ""), now);
+      // From PR og SoMe's Events tab, back there.
+      if (String(form?.get("tilbage") ?? "") === "pr-events") return redirect(`${base}/pr/events?besked=fb`);
       return redirect(`${base}/arrangementer/facebook?besked=${done ? "oprettet" : "fortrudt"}`);
     }
     const notices: Record<string, string> = { oprettet: "Markeret som oprettet på Facebook.", fortrudt: "Markeringen er fortrudt." };
