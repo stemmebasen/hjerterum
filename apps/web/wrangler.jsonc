@@ -42,7 +42,6 @@
           "bucket_name": "hjerterum-event-media"
         },
         {
-          // The file archive and the nightly copies (worker/archive.ts), made by the chair under the EU jurisdiction.
           "binding": "ARCHIVE",
           "bucket_name": "hjerterum-arkiv-eu",
           "jurisdiction": "eu"
