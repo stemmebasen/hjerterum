@@ -30,7 +30,9 @@ export const POWERS = {
   // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja" (2 Nov 2026) - new, so the chair's first.
   "listmail.send": { label: "Skrive og sende en mail til nyhedsbrevslisten i Mailchimp", needs: "personal" },
   // Requested: "Og så skal der i admin være et form for filarkiv" (3 Nov 2026) - new, so the chair's first.
-  "archive.manage": { label: "Filarkivet: se, lægge op, hente og slette filer, og hente de natlige kopier af databasen", needs: "personal" }
+  "archive.manage": { label: "Filarkivet: se, lægge op, hente og slette filer, og hente de natlige kopier af databasen", needs: "personal" },
+  // Requested: "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen" (3 Nov 2026).
+  "social.manage": { label: "PR og sociale medier: forbinde Facebook og Instagram, dele opslag Hjerterum er tagget i, og godkende ugens opslag", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
 
 export type Power = keyof typeof POWERS;

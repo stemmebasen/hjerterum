@@ -22,4 +22,5 @@ Suppleanter har altid kun læseadgang (se `apps/web/worker/cockpit/deputies.ts`)
 ## Status 2. november 2026
 
 - Kun formanden: nyhedsbrevet "Månedens events" (`newsletter.manage`).
+- Kun formanden (3. november): PR og sociale medier (`social.manage`).
 - Åbnet for bestyrelsen: ret og slet af events oprettet i systemet ("Nej kun nyhedsbrevet delen").
