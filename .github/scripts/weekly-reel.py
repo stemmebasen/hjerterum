@@ -188,7 +188,7 @@ def main():
     slides = [card(["UGENS EVENTS"], f"Uge {week_no}", "i Hjerterum, Guldsmedgade 26B, Aarhus")]
     for e in events[:10]:
         slides.append(event_slide(e, fetch(e["image"]) if e["image"] else None))
-    slides.append(card([], "Se alle events", "og tilmeld dig via linket i bio", background=TERRA, ink=CREAM))
+    slides.append(card([], "Se alle events", "og tilmeld dig på hjerterum.info/events (link i bio)", background=TERRA, ink=CREAM))
     name = f"{w['week'].lower()}-{secrets.token_hex(6)}"
     render(slides, os.path.join(out_dir, "reel.mp4"))
     try: source = json.loads(w.get("source") or "{}")

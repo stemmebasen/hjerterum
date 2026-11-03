@@ -120,5 +120,5 @@ export function weekList(events: NewsletterEvent[]): string {
 
 /** "Ugens events" in full: Saga's words, the week's list and where to read more (Instagram has no links in the text, so it points to the bio). */
 export function weekText(key: string, intro: string, events: NewsletterEvent[], network: "facebook" | "instagram"): string {
-  return `Ugens events i Hjerterum · uge ${weekNumber(key)}\n\n${intro.trim()}\n\n${weekList(events)}\n\n${network === "facebook" ? `Se alle events og tilmeld dig: ${SITE}/events` : "Se alle events og tilmeld dig via linket i bio."}`;
+  return `Ugens events i Hjerterum · uge ${weekNumber(key)}\n\n${intro.trim()}\n\n${weekList(events)}\n\n${network === "facebook" ? `Se alle events og tilmeld dig: ${SITE}/events` : "Se alle events og tilmeld dig på hjerterum.info/events (link i bio)."}`;
 }

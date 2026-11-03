@@ -200,7 +200,7 @@ describe("the PR cockpit", () => {
     expect(weekly.text).toContain("Ugens events i Hjerterum · uge 46");
     expect(weekly.text).toContain("En uge med dans, stilhed og healing.");
     expect(weekly.text).not.toContain("Hjerteland");
-    expect(weekly.source.instagramText).toContain("linket i bio");
+    expect(weekly.source.instagramText).toContain("hjerterum.info/events (link i bio)");
     expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T14:30:00.000Z");
     expect(week[1]!.text).toBe("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
@@ -225,7 +225,7 @@ describe("the PR cockpit", () => {
     // Instagram: a carousel of the events' pictures.
     const carousel = graph.find(c => c.path === "/17841/media" && c.params.media_type === "CAROUSEL")!;
     expect(carousel.params.children!.split(",")).toHaveLength(10);
-    expect(carousel.params.caption).toContain("linket i bio");
+    expect(carousel.params.caption).toContain("hjerterum.info/events (link i bio)");
     expect(carousel.params.collaborators).toBe('["kasper.yoga"]');
     // A round at each post's time (the cron runs every five minutes): everything goes out, once.
     for (const due of (await socialPosts(db, "week = '2026-W46' AND status = 'approved'")).map(p => p.publish_at_ms!)) await run(due + 60_000);
