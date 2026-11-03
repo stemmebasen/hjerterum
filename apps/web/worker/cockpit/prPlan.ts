@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import { getIssue, monthName, monthOf, nextMonth, sendTime, DRAFT_FROM_DAY } from "../newsletter.js";
 import { prReadyNames } from "./prMaterial.js";
-import { facebookEvents, FB_EVENTS_PERSON, missingSoon } from "./fbEvents.js";
+import { facebookEvents, FB_EVENTS_NAMES, missingSoon } from "./fbEvents.js";
 import { esc } from "./page.js";
 import { nextMonday, planDue, weekKey, at, mondayOf } from "../social/plan.js";
 import type { SocialAccount } from "../social/social.js";
@@ -18,12 +18,13 @@ export type Todo = { text: string; href?: string; urgent?: boolean };
 export type PlanStatus = "klar" | "bygges" | "venter-paa-dig";
 /** The plan's parts and where each stands. Changed here when a part is built or decided. */
 export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }> = [
-  { title: "Opslag kl. 15-17", status: "klar", note: "Gittas erfaring: eftermiddagen virker bedst. Eventopslag kl. 15 og 16.30 dagen før, Ugens events mandag kl. 15.30." },
+  { title: "Opslag kl. 15-17", status: "klar", note: "Gittas erfaring: eftermiddagen virker bedst. Eventopslag kl. 15, 16 eller 17 dagen før, Ugens events mandag kl. 15.30." },
   { title: "PR-materiale, når eventet oprettes", status: "klar", note: "Billeder, citater og samtykke i selve eventformularen og hos Saga, med klar besked: uden billeder ingen PR fra huset." },
   { title: "Undervisere som samarbejdspartner på Instagram", status: "klar", note: "Ugens events inviterer op til tre af ugens undervisere, og et genopslag inviterer den, der lavede det. Underviserne skriver deres Instagram-navn i PR-materialet." },
   { title: "Ugens events som reel", status: "klar", note: "Et job laver hver uge en kort video af ugens events, når Saga har planlagt ugen. Du godkender den med resten af ugen, og den går ud på Instagram mandag kl. 16.30." },
   { title: "Månedlig indsigt", status: "klar", note: "Følgere på Facebook og Instagram og det, der er sendt, måned for måned, nederst på siden. Rækkevidde pr. opslag kræver flere tilladelser fra Meta." },
-  { title: "Facebook-begivenhed for hvert event", status: "klar", note: "Hjemmesidens løfte. Meta lader ikke systemet oprette begivenheder, så Lisbeth opretter dem i hånden. Listen står under Events → Facebook-begivenheder, og Saga minder hende mandag og torsdag." },
+  { title: "Alle events deles mindst én gang", status: "klar", note: "Hvert event får sit eget opslag på Facebook (et fast hold én gang om ugen), også events, der kommer til efter torsdagens planlægning. Et aflyst event får aldrig sit opslag." },
+  { title: "Facebook-begivenhed for hvert event", status: "klar", note: "Hjemmesidens løfte. Meta lader ikke systemet oprette begivenheder, så Lisbeth og Frederik opretter dem i hånden. Listen står under Events → Facebook-begivenheder, og Saga minder dem mandag og torsdag." },
   { title: "Ny, kortere samtykketekst", status: "venter-paa-dig", note: "Gitta: indholdet er rigtigt, men den skal være enklere. Den skal stadig gælde fremtidige events og fælles opslag." },
   { title: "Påmindelse til undervisere uden billeder", status: "venter-paa-dig", note: "Gittas forslag: en mail efter tre dage. Husets regel er, at Saga aldrig sender mail af sig selv - det kræver dit ja." },
   { title: "Delinger uden godkendelse", status: "venter-paa-dig", note: "Skal opslag fra undervisere med PR-samtykke kunne deles uden dit tryk? Lige nu kræver alt dit ja." }
@@ -44,8 +45,8 @@ export const RHYTHM: Array<[string, string]> = [
   ["Torsdag-søndag", "Et job laver Ugens events som reel af ugens billeder og lægger den her."],
   ["Mandag kl. 15.30", "Ugens events på Facebook og som karrusel på Instagram."],
   ["Mandag kl. 16.30", "Ugens events som reel på Instagram."],
-  ["Dagen før hvert event", "7-10 events får hvert sit lille opslag på Facebook, kl. 15 eller 16.30."],
-  ["Mandag og torsdag kl. 9", "Saga minder Lisbeth om events, der mangler en begivenhed på Facebook."],
+  ["Dagen før hvert event", "Alle events får hvert sit lille opslag på Facebook, kl. 15, 16 eller 17. Events, der kommer til senere, får deres af sig selv."],
+  ["Mandag og torsdag kl. 9", "Saga minder Lisbeth og Frederik om events, der mangler en begivenhed på Facebook."],
   ["Den 20.", "Saga skriver næste måneds nyhedsbrev. Du godkender det, og det går ud den 1. kl. 19."],
   ["Hver måned", "Kig på Indsigt nederst på siden, og justér hvert kvartal."]
 ];
@@ -102,7 +103,7 @@ export async function prPlanData(db: D1Database, input: { ready: boolean; accoun
   if (missing.length) todo.push({ text: `${missing.length === 1 ? "Én underviser" : `${missing.length} undervisere`} med events de næste to uger har ikke delt PR-materiale: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? " …" : ""}. Uden billeder kan vi kun dele deres coverfoto.`, href: "/arrangementer/undervisere" });
   // The website's promise of every event on the Facebook page, made by hand (fbEvents.ts): what is missing in the next two weeks.
   const noFacebook = missingSoon(await facebookEvents(db, nowMs, 14), nowMs, 14);
-  if (noFacebook.length) todo.push({ text: `${noFacebook.length === 1 ? "Ét event" : `${noFacebook.length} events`} de næste to uger mangler en begivenhed på Facebook. ${FB_EVENTS_PERSON} opretter dem; Saga minder hende om det.`, href: "/arrangementer/facebook" });
+  if (noFacebook.length) todo.push({ text: `${noFacebook.length === 1 ? "Ét event" : `${noFacebook.length} events`} de næste to uger mangler en begivenhed på Facebook. ${FB_EVENTS_NAMES} opretter dem; Saga minder dem om det.`, href: "/arrangementer/facebook" });
   for (const r of ROADMAP.filter(r => r.status === "venter-paa-dig")) todo.push({ text: `Beslut: ${r.title.toLowerCase()}. ${r.note}` });
 
   // What comes next: the next few posts that will go out, the next planning and the next newsletter.

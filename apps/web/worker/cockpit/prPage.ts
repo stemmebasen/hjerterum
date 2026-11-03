@@ -137,7 +137,7 @@ ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden"
 ${p.status === "published" ? `<small>${sentLinks(p)}</small>` : p.error ? `<small class="warn">${esc(p.error)}</small>` : ""}</span></li>`).join("")}</ul>` : `<p class="empty">Intet sendt endnu.</p>`;
 
   const body = `<main class="pr"><div class="hero"><h1>PR og sociale medier</h1>
-<p>Saga finder de opslag, Hjerterum bliver tagget i, og planlægger hver torsdag næste uges opslag: "Ugens events" mandag eftermiddag og 7-10 events med hvert sit lille opslag på Facebook. Du læser, retter og godkender - intet sendes uden dit ja. Kun for formanden indtil videre.</p></div>
+<p>Saga finder de opslag, Hjerterum bliver tagget i, og planlægger hver torsdag næste uges opslag: "Ugens events" mandag eftermiddag og alle ugens events med hvert sit lille opslag på Facebook. Du læser, retter og godkender - intet sendes uden dit ja. Kun for formanden indtil videre.</p></div>
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
 ${prPlanSection(base, d.plan)}
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>

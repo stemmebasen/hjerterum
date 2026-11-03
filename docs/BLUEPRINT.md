@@ -846,3 +846,13 @@ Still open:
 - **Påmindelse:** mandag og torsdag fra kl. 9 skriver Saga privat på Telegram til Lisbeth (`FB_EVENTS_PERSON`), hvis noget mangler de næste tre uger. Én gang pr. dag, og intet, når alt er oprettet.
 - **Formanden** ser i "Det kræver dig lige nu" på PR og SoMe, hvor mange events de næste to uger der mangler en begivenhed.
 - **Det cockpittet ikke dækker:** links til opslag og reels, som underviserne sender via Messenger-siden. Det fanger kun opslag, hvor Hjerterum er tagget.
+
+## Alle events deles mindst én gang (2026-11-03)
+
+- Formandens ønske: "Kan vi systematisk sørge for at alle events deles mindst én gang. Vi kan vel godt dele et event selvom det ikke er oprettet som en begivenhed." Og: "Lisbeth og Frederik står for at oprette events."
+- **Hvert event får sit eget opslag** på Facebook. Før var det 7-10 om ugen. Et fast hold, der kører flere gange samme uge, får ét opslag pr. uge. Opslaget linker til eventets side på hjerterum.info, så det virker, uanset om der findes en Facebook-begivenhed.
+  - Tidspunkterne er kl. 15, 16 eller 17 dagen før (højst tre om dagen), ellers to-tre dage før, ellers samme morgen (`POST_HOURS`).
+- **Events, der kommer til senere,** får deres opslag af sig selv. Hver tredje time lægger Saga nye events i allerede planlagte uger (denne og næste) som kladder (`topUpWeeks`), og formanden får besked. Kun nye events får ord fra Saga. Det, formanden har rettet eller sprunget over, bliver stående.
+- **Et aflyst eller fjernet event** får aldrig sit opslag. Det springes over med grunden.
+- **Påmindelsen om Facebook-begivenheder** går til både Lisbeth og Frederik (`FB_EVENTS_PEOPLE`).
+- **Systemet holder øje med tags:** hver halve time ser det efter Facebook-opslag, der tagger Hjerterums side, og Instagram-opslag, der tagger @hjerterum_aarhus på billedet. Meta giver ikke adgang til stories, @-omtaler kun i Instagram-teksten eller links sendt via Messenger.

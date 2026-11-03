@@ -18,7 +18,7 @@ describe("Facebook-begivenheder", () => {
     const db = testDatabase();
     const services = fakeServices();
     const env = sagaEnv(db);
-    for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth Nielsen", "201"], ["Douglas", "202"]] as const).entries())
+    for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth Nielsen", "201"], ["Douglas", "202"], ["Frederik", "203"]] as const).entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: tid, text: "Hej", sentAtMs: MONDAY - 86_400_000, fromAssistant: false });
     const event = (id: string, title: string, days: number, location: string | null = null) => db.prepare(`INSERT INTO house_events (id, title, starts_at_ms, host, location, content_hash, updated_at_ms) VALUES (?, ?, ?, 'Kasper', ?, 'x', 0)`)
       .bind(id, title, MONDAY + days * 86_400_000, location).run();
@@ -53,23 +53,24 @@ describe("Facebook-begivenheder", () => {
     expect(await db.prepare("SELECT COUNT(*) AS n FROM facebook_events").first<{ n: number }>()).toEqual({ n: 1 });
   });
 
-  it("reminds Lisbeth on Monday and Thursday from 9, once a day, of what is missing in the next three weeks - and is in the chair's plan", async () => {
+  it("reminds Lisbeth and Frederik on Monday and Thursday from 9, once a day, of what is missing in the next three weeks - and is in the chair's plan", async () => {
     const { db, env, services } = await setup();
     const remind = (now: number) => scheduledFacebookReminder(env, deps(services.fetcher, now), db, (key, slot) => claimJob(db, key, slot, now));
     expect(await remind(MONDAY - 2 * 3_600_000)).toBe(false); // 7.30
     expect(await remind(MONDAY)).toBe(true);
     expect(await remind(MONDAY + 3_600_000)).toBe(false);
     expect(await remind(MONDAY + 86_400_000)).toBe(false); // Tuesday
+    // "Lisbeth og Frederik står for at oprette events" - both are told.
     const sent = services.telegram("sendMessage");
-    expect(sent).toHaveLength(1);
-    expect(sent[0]!.body).toMatchObject({ chat_id: "201" });
+    expect(sent.map(c => (c.body as { chat_id: string }).chat_id).sort()).toEqual(["201", "203"]);
+    expect(String((sent.find(c => (c.body as { chat_id: string }).chat_id === "203")!.body as { text: string }).text)).toContain("Hej Frederik.");
     const text = String((sent[0]!.body as { text: string }).text);
     expect(text).toContain("Hej Lisbeth. 3 events de næste tre uger mangler en begivenhed");
     expect(text).toContain("Lydhealing");
     expect(text).not.toContain("Retreat");
     expect(text).toContain("/arrangementer/facebook");
     const plan = await prPlanData(db, { ready: true, account: null, nowMs: MONDAY });
-    expect(plan.todo.map(t => t.text)).toContain("3 events de næste to uger mangler en begivenhed på Facebook. Lisbeth opretter dem; Saga minder hende om det.");
+    expect(plan.todo.map(t => t.text)).toContain("3 events de næste to uger mangler en begivenhed på Facebook. Lisbeth og Frederik opretter dem; Saga minder dem om det.");
     // All made: Thursday is quiet.
     for (const key of ["mw:SFa", "mw:SFb", "hr:1"]) await db.prepare("INSERT INTO facebook_events (event_key, title, starts_at_ms, done_by, done_at_ms) VALUES (?, 'x', 0, 'Lisbeth', 0)").bind(key).run();
     expect(await remind(MONDAY + 3 * 86_400_000)).toBe(false);
