@@ -882,3 +882,20 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - Gitta: indholdet var rigtigt, men teksten skulle være enklere og kortere, og den skal stadig gælde fremtidige events og fælles opslag. Formanden valgte forslag A ("Med steder").
 - Underviserne krydser nu af: "Hjerterum må bruge mine billeder og citater til at fortælle om mine events – nu og fremover – også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier. Jeg kan trække samtykket tilbage når som helst." (`PR_CONSENT_TEXT` i `pr-material.ts`).
 - Den nye tekst dækker det samme som den første, så samtykker givet før gælder stadig. Den første tekst er gemt som `PR_CONSENT_TEXT_V1`. Hvert samtykke vises med de ord, det blev givet til (`consentTextAt`: før 4. november 2026 den første, derefter den nye), både for underviseren og i admin.
+
+## Brug Hjerterum: én proces og færre sider (2026-11-03)
+
+- Formandens ønske: "Vi skal generelt have ryddet op og simplificeret processen og beskrivelsesteksterne både på den gamle og nye side". Først den nye side ("Ja"). Den gamle, holistisk.org, er WordPress og tages for sig.
+- **Én proces i fem trin**, ens overalt: 1) find dato og pris, 2) book (medlemmer opretter selv, andre sender en bookingforespørgsel), 3) del billeder til PR og tag Hjerterum, 4) vi godkender og deler, 5) nå længere ud selv.
+- **Sammenlagt:**
+  - "Kom godt i gang", "Booking & leje" og "Eventguides & PR" er blevet til **Sådan booker du** (`/brug-hjerterum/booking`, med "det sender du med" og lejepriser, vilkår, FAQ og ændr eller aflys under sig).
+  - "Facebook-begivenhed", "Eventbillede & grafik" og "Markedsføring" er blevet til **PR for dit event** (`/brug-hjerterum/pr`: det gør vi, det gør du, coverbilledet, din egen Facebook-begivenhed og Facebook-grupperne).
+  - "Ændr dit event" og "Aflys dit event" er blevet til **Ændr eller aflys** (`/brug-hjerterum/aendr-event`).
+  - Lejepriser viser nu kun priser og prisberegner.
+- **De gamle adresser** sender videre til den nye side og det rigtige sted på den (`site/redirects.ts`). Indholdsregnskabet for holistisk.org er opdateret.
+- **PR-løftet** står ens alle steder og svarer til det, Hjerterum gør nu:
+  - hjemmesiden og Hjerterums Facebook-side;
+  - Ugens events på Facebook og Instagram og nyhedsbrevet Månedens events;
+  - opslag, hvor Hjerterum er tagget, deles videre.
+  - Markedsføring ud over det er stadig underviserens eget ansvar. Messenger-siden er nu kun til akutte henvendelser. Til PR skal man tagge Hjerterum.
+- Priser, lejeregler og vilkår er ikke ændret.
