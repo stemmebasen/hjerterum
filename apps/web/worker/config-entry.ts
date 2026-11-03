@@ -6,7 +6,7 @@ import { program, programCandidates, upcomingFeed } from "./program.js";
 import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
-import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
+import { handleCockpitRequest, isCockpitHost, isCockpitRequest } from "./cockpit/handler.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { isMailRun, runSagaJobs, runTeamMailRound } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
@@ -124,6 +124,12 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
       if (!object) return new Response("Ikke fundet", { status: 404 });
       return new Response(request.method === "HEAD" ? null : object.body, { headers: { "content-type": "video/mp4", "cache-control": "public, max-age=86400",
         ...(object.size ? { "content-length": String(object.size) } : {}), "x-content-type-options": "nosniff" } });
+    }
+
+    // Plakater og opslag (cockpit/posterStudio.ts) is the website's own app, served behind the chair's login: its built files and the logo it draws
+    // with come from admin's own address too. Only those public files - nothing else of the website or its API.
+    if (isCockpitHost(url.hostname) && (request.method === "GET" || request.method === "HEAD") && /^\/(?:assets|brand)\/[A-Za-z0-9._-]+$/.test(url.pathname)) {
+      return app.fetch(request, env);
     }
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.

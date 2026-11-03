@@ -46,9 +46,9 @@ import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
   type EventFileView, type EventMediaBucket, type FileKind
 } from "./event-files.js";
-import { designForDownload, designsByBooking, removeDesign, storeDesign } from "./event-designs.js";
+import { designForDownload, designsByBooking } from "./event-designs.js";
 import { contactsByBooking, isContactShare, setContactShare } from "./event-contact.js";
-import { isPosterVariant, posterForDownload, posterInfo, postersByBooking, removePoster, setPosterVariant, storePoster } from "./event-posters.js";
+import { posterForDownload, posterInfo, postersByBooking, removePoster, storePoster } from "./event-posters.js";
 import type { SagaEnv } from "./saga/env.js";
 import { getExternalEvents } from "./external-events.js";
 
@@ -585,17 +585,6 @@ async function getPosterInfo(request: Request, env: Env, bookingId: number): Pro
   return json(await posterInfo(owned.db, bookingId));
 }
 
-async function putPosterVariant(request: Request, env: Env, bookingId: number): Promise<Response> {
-  const owned = await ownedPosterBooking(env, request, bookingId);
-  if (isResponse(owned)) return owned;
-  const body = await request.json().catch(() => null) as { variant?: unknown } | null;
-  const variant = body?.variant ?? null;
-  if (variant !== null && !isPosterVariant(variant)) return json({ error: "invalid_variant" }, { status: 400 });
-  if (variant === "eget" && !(await posterInfo(owned.db, bookingId)).poster) return json({ error: "poster_missing" }, { status: 409 });
-  await setPosterVariant(owned.db, bookingId, variant, Date.now());
-  return json(await posterInfo(owned.db, bookingId));
-}
-
 /** "Må interesserede kontakte dig?" - e-mail, telefon, begge eller nej (null), on the organiser's own event (event-contact.ts). */
 async function putContactShare(request: Request, env: Env, bookingId: number): Promise<Response> {
   const owned = await ownedPosterBooking(env, request, bookingId);
@@ -605,16 +594,6 @@ async function putContactShare(request: Request, env: Env, bookingId: number): P
   if (share !== null && !isContactShare(share)) return json({ error: "invalid_share" }, { status: 400 });
   await setContactShare(owned.db, bookingId, share);
   return json({ share });
-}
-
-/** The design drawn wide for the website, from the organiser's browser (event-designs.ts): a 1920 × 1005 png or jpg as the body. */
-async function putDesign(request: Request, env: Env, bookingId: number): Promise<Response> {
-  if (!env.EVENT_MEDIA) return json({ error: "uploads_not_configured" }, { status: 503 });
-  const owned = await ownedPosterBooking(env, request, bookingId);
-  if (isResponse(owned)) return owned;
-  if (request.method === "DELETE") { await removeDesign(owned.db, env.EVENT_MEDIA, bookingId); return json({ removed: true }); }
-  const stored = await storeDesign(owned.db, env.EVENT_MEDIA, bookingId, await request.arrayBuffer(), Date.now());
-  return stored.ok ? json(stored) : json(stored, { status: stored.error === "too_large" ? 413 : 422 });
 }
 
 async function downloadDesign(request: Request, env: Env, bookingId: number): Promise<Response> {
@@ -927,10 +906,9 @@ export default {
     if (posterId !== null && request.method === "DELETE") return deletePoster(request, env, posterId);
     const posterInfoId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-info$/);
     if (posterInfoId !== null && request.method === "GET") return getPosterInfo(request, env, posterInfoId);
-    const posterVariantId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/poster-variant$/);
-    if (posterVariantId !== null && request.method === "PUT") return putPosterVariant(request, env, posterVariantId);
-    const designId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/design$/);
-    if (designId !== null && (request.method === "PUT" || request.method === "DELETE")) return putDesign(request, env, designId);
+    // Requested: "de designskabeloner ... skal kun bruges i cockpittet" (3 Nov 2026) - a design is chosen and drawn in admin (cockpit/posterStudio.ts), no longer by the organiser.
+    if (/^\/api\/room-bookings\/\d+\/(?:poster-variant|design)$/.test(url.pathname) && (request.method === "PUT" || request.method === "DELETE"))
+      return json({ error: "designs_admin_only" }, { status: 410 });
     const designDownloadId = parseRouteId(url.pathname, /^\/api\/event-designs\/(\d+)$/);
     if (designDownloadId !== null && request.method === "GET") return downloadDesign(request, env, designDownloadId);
     const contactId = parseRouteId(url.pathname, /^\/api\/room-bookings\/(\d+)\/contact$/);
