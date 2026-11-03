@@ -791,3 +791,12 @@ Still open:
   - "Det mangler": planens dele med status (Klar / Bygges / Venter på dig) i `ROADMAP`. Den rettes, efterhånden som delene bygges eller besluttes.
   - "Planen": ugens rytme og året med den nuværende og den næste kampagne.
 - **Tidspunkter** (Gittas erfaring, formandens ja): eventopslag kl. 15 eller 16.30 dagen før (`POST_HOURS`), "Ugens events" mandag kl. 15.30 (`WEEK_POST_AT`). Opslag, der allerede er planlagt, beholder deres tid.
+
+## PR-materiale, når eventet oprettes (2026-11-03)
+
+- Gittas forslag, formandens ja: "det er crucial, at de bliver presset til at dele de her billeder med det samme ... i hvert fald, at man meget tydeligt bliver informeret om, hvis du ikke uploader det, så kan du ikke forvente noget PR fra huset."
+- Eventformularen og Sagas "Dit event er oprettet" har nu boksen **"Billeder til PR"** (`EventPrMaterial` i `src/pr-material-editor.tsx`).
+  - Mangler underviserens PR-materiale, står der tydeligt: "Uden billeder kan du ikke forvente PR fra huset". PR-editoren (billeder, citater, samtykke) er åben lige dér.
+  - Er materialet klar, står der "✓ Dit PR-materiale er klar" og et link til at rette det.
+- Det er stadig ikke et krav. Eventet kan oprettes uden.
+- Materialet er det samme som under Min profil → Mit PR-materiale og gælder alle underviserens events.

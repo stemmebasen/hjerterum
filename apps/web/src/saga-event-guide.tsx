@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
+import { EventPrMaterial } from "./pr-material-editor";
 import { cropCover } from "./cover-crop";
 import { isFixedStep, UPLOAD_NOW } from "../site/guide-choices";
 import { planInstants } from "./event-planner-logic";
@@ -151,6 +152,8 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
     <p className="lys-kicker">Opret med Saga</p>
     <h2>Dit event er oprettet</h2>
     <p className="guide-lead">{created.text}</p>
+    {/* Gitta: "mens de er i gang med" - the PR material right after the event is made (pr-material-editor.tsx). */}
+    <EventPrMaterial clerk={clerk} />
     <div className="guide-buttons">
       {guide.facts.social !== false && <a className="pill-button dark" href={`/plakat/h${created.id}`}>Se dine opslag til Instagram og Facebook</a>}
       <button type="button" className="pill-button" onClick={restart}>Opret et nyt event</button>
