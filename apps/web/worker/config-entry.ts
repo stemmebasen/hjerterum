@@ -20,6 +20,7 @@ import { handleNewsletterSignup, NEWSLETTER_PATH } from "./newsletter-subscribe.
 import { EVENT_PAGE, eventMeta, withEventMeta } from "./event-meta.js";
 import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
+import { runSocialJob, type SocialEnv } from "./social/social.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -221,6 +222,8 @@ async function scheduledRun(controller: ScheduledControllerLike, env: Env): Prom
     await runNewsletterJob(env as NewsletterEnv, deps).catch(error => console.warn("newsletter_failed", error instanceof Error ? error.message : error));
     // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - everyone who said yes, into the one audience (mailchimp-sync.ts).
     await runMailchimpSync(env as NewsletterEnv, deps).catch(error => console.warn("mailchimp_sync_failed", error instanceof Error ? error.message : error));
+    // Requested: "Vi skal lave et PR-cockpit i admin ... Så vi skal have kontakt til vores sociale medier" - what is approved goes out, new tags are found, next week is planned (social/social.ts).
+    await runSocialJob(env as SocialEnv, deps).catch(error => console.warn("social_job_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
 }

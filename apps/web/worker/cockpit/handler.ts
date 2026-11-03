@@ -45,6 +45,9 @@ import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeetin
 import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
+import { approveWeek, connectSocial, decidePost, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
+import { fromLocalInput, prPage } from "./prPage.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -924,6 +927,106 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       "cache-control": "private, no-store", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; img-src 'self'; sandbox" } });
   }
 
+  // Requested: "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen. Så vi skal have kontakt til vores sociale
+  // medier" (3 Nov 2026) - Kommunikation → PR og SoMe (social/social.ts, prPage.ts). The chair's alone for now (social.manage).
+  if (path === "/pr" || path.startsWith("/pr/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("social.manage")) return denied("social.manage");
+    const social = env as SocialEnv;
+    const back = (query = "", week?: string) => redirect(`${base}/pr${[week ? `uge=${week}` : "", query].filter(Boolean).join("&") ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
+    const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
+    const secure = url.protocol === "https:";
+    if (path === "/pr" && request.method === "GET") {
+      const thisMonday = mondayOf(now), coming = nextMonday(now);
+      const asked = url.searchParams.get("uge") ?? "";
+      const monday = [thisMonday, coming].includes(asked) ? asked : coming;
+      const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
+        godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
+        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags." };
+      const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
+        afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
+        sendt: "Opslaget er allerede sendt og kan ikke ændres." };
+      const page = prPage(base, who, { ready: metaReady(social), account: await socialAccount(db), shares: await waitingShares(db),
+        weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` }],
+        week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
+        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" });
+      // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
+      return html(page, 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:") });
+    }
+    // Facebook Login: a state kept in a short cookie, so only the login this browser began can come back.
+    if (path === "/pr/forbind" && request.method === "GET") {
+      if (!metaReady(social)) return back("fejl=opsat");
+      const state = [...crypto.getRandomValues(new Uint8Array(24))].map(b => b.toString(16).padStart(2, "0")).join("");
+      return new Response(null, { status: 303, headers: { location: loginUrl(social, redirectUri, state), "cache-control": "no-store", "set-cookie": cookie("hr_social_state", state, 600, secure) } });
+    }
+    if (path === "/pr/forbind/svar" && request.method === "GET") {
+      const expected = readCookies(request).get("hr_social_state") ?? "";
+      const clear = cookie("hr_social_state", "", 0, secure);
+      if (url.searchParams.get("error")) return redirect(`${base}/pr?fejl=afvist`, [clear]);
+      const code = url.searchParams.get("code") ?? "";
+      if (!code || !expected || url.searchParams.get("state") !== expected) return redirect(`${base}/pr?fejl=login`, [clear]);
+      const pages = await pagesFromCode(social, deps.fetcher, code, redirectUri).catch(error => { console.warn("social_connect_failed", error instanceof Error ? error.message : error); return null; });
+      if (!pages) return redirect(`${base}/pr?fejl=login`, [clear]);
+      const page = hjerterumPage(pages);
+      if (!page) return redirect(`${base}/pr?fejl=side`, [clear]);
+      await connectSocial(env, db, page, who, now);
+      await audit(db, actor, "social.manage", `Forbandt Facebook-siden ${page.name}${page.igUsername ? ` og Instagram @${page.igUsername}` : ""}`, now);
+      return redirect(`${base}/pr?besked=forbundet`, [clear]);
+    }
+    if (request.method !== "POST") return html(notFound(base, who), 404);
+    const form = await request.formData().catch(() => null);
+    const field = (name: string) => String(form?.get(name) ?? "");
+    if (path === "/pr/afbryd") {
+      await disconnectSocial(db);
+      await audit(db, actor, "social.manage", "Afbrød forbindelsen til Facebook og Instagram", now);
+      return back("besked=afbrudt");
+    }
+    if (path === "/pr/tags") {
+      await scanTags(social, deps, db).catch(() => 0);
+      return back("besked=tags");
+    }
+    const weekOf = (value: string) => [mondayOf(now), nextMonday(now)].includes(value) ? value : null;
+    if (path === "/pr/uge/planlaeg") {
+      const monday = weekOf(field("uge"));
+      if (!monday) return back();
+      const { made, events } = await planWeek(social, deps, db, monday);
+      return back(made ? "besked=planlagt" : events ? "besked=intet-nyt" : "fejl=tom", monday);
+    }
+    if (path === "/pr/uge/godkend") {
+      const monday = weekOf(field("uge"));
+      if (!monday) return back();
+      const n = await approveWeek(db, weekKey(monday), who, now);
+      if (n) await audit(db, actor, "social.manage", `Godkendte ${n} opslag for uge ${Number(weekKey(monday).slice(6))}`, now);
+      return back("besked=uge-godkendt", monday);
+    }
+    const postMatch = /^\/pr\/opslag\/(\d+)$/.exec(path);
+    if (postMatch) {
+      const post = await socialPost(db, Number(postMatch[1]));
+      if (!post) return back();
+      const week = post.week ? weekOf(mondayOf(post.publish_at_ms ?? now)) ?? undefined : undefined;
+      const backHere = (query: string) => post.kind === "share" ? back(query) : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
+      if (post.status === "published" || post.status === "publishing") return backHere("fejl=sendt");
+      const action = field("do");
+      if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }
+      if (action === "spring") { await decidePost(db, post.id, "skip", who, now); return backHere("besked=sprunget"); }
+      // Saving and approving both keep what is in the form first (a disabled form sends nothing, and then nothing is changed).
+      if (form?.has("text")) {
+        const channels = (form.getAll("channel") ?? []).map(String).filter((c): c is Channel => c === "facebook" || c === "instagram");
+        const atMs = form.has("at") ? fromLocalInput(field("at")) : undefined;
+        await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
+          ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
+          ...(post.kind === "event" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
+      }
+      if (action === "godkend") {
+        const decided = await decidePost(db, post.id, "approve", who, now);
+        if (!decided) return backHere("fejl=kanaler");
+        if (post.kind === "share") await audit(db, actor, "social.manage", `Delte ${post.source.author ?? "et"} opslag fra ${post.source.network === "instagram" ? "Instagram" : "Facebook"} videre`, now);
+        return backHere(post.kind === "share" ? "besked=delt" : "besked=godkendt");
+      }
+      return backHere("besked=gemt");
+    }
+    return html(notFound(base, who), 404);
+  }
   // Requested: "this is how the newsletter should be designed and compiled each month, sent out on the first" - Events → Nyhedsbrev
   // (newsletter.ts, newsletterPage.ts). Read, changed and approved here; sent by the job on the 1st, never without an approval.
   if (path.startsWith("/arrangementer/nyhedsbrev")) {

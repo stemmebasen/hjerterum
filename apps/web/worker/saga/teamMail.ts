@@ -77,7 +77,7 @@ export const imapflowOpener: ImapOpener = async login => {
 
 // ---- The password, sealed (AES-GCM) with a key derived from Hjerterum's own secret ----
 
-function keySecret(env: SagaEnv): string {
+export function keySecret(env: SagaEnv): string {
   const secret = env.MAIL_ENCRYPTION_KEY || env.SAGA_TELEGRAM_WEBHOOK_SECRET || "";
   if (secret.length < 16) throw new Error("mail_key_missing");
   return secret;
