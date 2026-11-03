@@ -1,4 +1,5 @@
-import { EventCard, calendarMonth } from "./event-card";
+import { EventCard, calendarMonth, calendarText } from "./event-card";
+import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
@@ -670,7 +671,7 @@ function MemberEvents({
   );
 }
 
-function MemberCalendar({
+export function MemberCalendar({
   clerk,
   bookings,
   externalEvents,
@@ -718,59 +719,67 @@ function MemberCalendar({
     ...externalEvents.filter(external => !isPartnerEvent(external)).map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external }))
   ].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const partnerEvents = externalEvents.filter(external => isPartnerEvent(external)).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-  const months = [...new Set(entries.map(event => calendarMonth(event.startsAt)))];
+  // "In case you did not know, you have not changed the calendar within the member's portal" - the same list as the website's calendar
+  // (event-row.tsx): a row per event with its picture, 15 to a page with the pages below; signing up and off stays on each row.
+  const pages = Math.max(1, Math.ceil(entries.length / EVENTS_PER_PAGE));
+  const [page, setPage] = useState(initialPage);
+  const current = Math.min(page, pages);
+  const go = (next: number) => { setPage(next); rememberPage(next, "medlemskalender"); };
+  const shown = entries.slice((current - 1) * EVENTS_PER_PAGE, current * EVENTS_PER_PAGE);
 
   return (
-    <section className="workspace-section member-page member-calendar-page">
+    <section className="workspace-section member-page member-calendar-page" id="medlemskalender">
       <div className="calendar-intro"><div><p className="kicker">Kalender</p>
         <h1>Find dit næste pusterum</h1>
         <p>Bevægelse, fordybelse og fællesskab. Se, hvad der sker i Hjerterum.</p>
       </div><a className="pill-button subtle" href="/member-portal/events">Opret dit eget event →</a></div>
       {message && <p className="workspace-message" role="status">{message}</p>}
       {!entries.length && <div className="calendar-empty"><h2>Plads til nye oplevelser</h2><p>Der er ingen kommende events at vise lige nu.</p></div>}
-      {months.map(month => <section className="calendar-month" key={month} aria-label={month}>
-        <h2>{month}</h2>
-        <div className="member-event-grid">
-          {entries.filter(entry => calendarMonth(entry.startsAt) === month).map(({ key, booking, external }) => {
-            const event = booking ?? external!;
-            const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
-            const priceKr = booking ? (nonMember ? booking.nonMemberPriceKr ?? booking.ticketPriceKr : booking.ticketPriceKr) : 0;
-            return <EventCard key={key} title={event.title} description={event.description} startsAt={event.startsAt} endsAt={event.endsAt}
-              host={booking?.teacherName || external?.host || null} location={external?.location || "Hjerterum"}
-              imageUrl={booking?.imageUrl || external?.imageUrl || null} category={external?.category} attending={booking?.isAttending} expandDescription={!!booking}>
-                  {booking ? <>
-                    <p className="member-event-price">{nonMember ? (priceKr > 0 ? priceKr.toLocaleString("da-DK") + " kr. for ikke-medlemmer" : "Gratis") : booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. " + (booking.handlingFeeKr ?? 0).toLocaleString("da-DK") + " kr. gebyr" : "Gratis"}<small>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte</small></p>
-              {booking.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
-              {booking.contact && (booking.contact.email || booking.contact.phone) && <p className="member-event-contact">Kontakt {booking.teacherName.split(" ")[0]}:{" "}
+      {shown.length > 0 && <ol className="event-rows member-event-rows">
+        {shown.map(({ key, booking, external }) => {
+          const event = booking ?? external!;
+          const full = booking ? booking.maxAttendees !== null && (booking.attendeeCount ?? 0) >= booking.maxAttendees : false;
+          const priceKr = booking ? (nonMember ? booking.nonMemberPriceKr ?? booking.ticketPriceKr : booking.ticketPriceKr) : 0;
+          // Each event's own page; the organiser's own event that still waits for the board is managed under Mine events.
+          const href = booking ? (booking.isOwner && booking.reviewStatus !== "approved" ? "/member-portal/events" : `/events/h${booking.id}`)
+            : eventPagePath(external!.id) ?? external!.link ?? null;
+          const away = !booking && !eventPagePath(external!.id) && Boolean(external!.link);
+          const linkProps = away ? { target: "_blank", rel: "noreferrer" } : {};
+          const price = booking ? (nonMember ? (priceKr > 0 ? priceKr.toLocaleString("da-DK") + " kr. for ikke-medlemmer" : "Gratis")
+            : booking.ticketPriceKr > 0 ? (booking.ticketPriceKr + (booking.handlingFeeKr ?? 0)).toLocaleString("da-DK") + " kr. inkl. gebyr" : "Gratis") : null;
+          return <li className={"event-row member-event-row" + (booking?.isAttending ? " is-attending" : "")} key={key}><div className="event-row-body">
+            <RowDate startsAt={event.startsAt} />
+            {href ? <a className="event-row-photo-link" href={href} {...linkProps} tabIndex={-1} aria-hidden="true"><RowPhoto src={booking?.imageUrl || external?.imageUrl || null} /></a> : <RowPhoto src={booking?.imageUrl || external?.imageUrl || null} />}
+            <RowText category={external?.category} title={href ? <a href={href} {...linkProps}>{calendarText(event.title)}</a> : calendarText(event.title)} startsAt={event.startsAt} endsAt={event.endsAt} host={booking?.teacherName || external?.host || null}>
+              {booking && <span className="member-row-meta">{price} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte{booking.isAttending ? " · Du er tilmeldt" : ""}</span>}
+              {booking?.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
+              {booking?.contact && (booking.contact.email || booking.contact.phone) && <span className="member-row-meta">Kontakt {booking.teacherName.split(" ")[0]}:{" "}
                 {booking.contact.email && <a href={`mailto:${booking.contact.email}`}>{booking.contact.email}</a>}
                 {booking.contact.email && booking.contact.phone && " · "}
                 {booking.contact.phone && <a href={`tel:${booking.contact.phone.replace(/\s+/g, "")}`}>{booking.contact.phone}</a>}
-              </p>}
-              {booking.isOwner ? (
-                <a className="text-link" href="/member-portal/events">Administrér dit event →</a>
-              ) : (
-                <button
-                  type="button"
-                  className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
+              </span>}
+            </RowText>
+            <span className="event-row-more">
+              {booking ? booking.isOwner ? <a className="text-link" href="/member-portal/events">Administrér →</a> : (
+                <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
-                  onClick={() => void toggleAttendance(booking)}
-                >
+                  onClick={() => void toggleAttendance(booking)}>
                   {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
-                </button>
-              )}
-                  </> : external && eventPagePath(external.id) ? <a className="text-link" href={eventPagePath(external.id)!}>Læs mere og tilmeld →</a> : external?.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
-            </EventCard>;
-          })}
-        </div>
-      </section>)}
+                </button>)
+                : href ? <a className="text-link" href={href} {...linkProps}>Læs mere{away ? " ↗" : " →"}</a> : <span className="member-row-meta">Kontakt arrangøren</span>}
+            </span>
+          </div></li>;
+        })}
+      </ol>}
+      <Pager pages={pages} current={current} go={go} />
       {partnerEvents.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
         <h2>{PARTNER_HEADING}</h2>
-        <div className="member-event-grid">
-          {partnerEvents.map((external) => <EventCard key={"partner-" + external.id} title={external.title} description={external.description} startsAt={external.startsAt} endsAt={external.endsAt}
-            host={external.host || null} location={external.location || null} imageUrl={external.imageUrl || null} category={external.category}>
-            {external.link ? <a className="text-link" href={external.link} target="_blank" rel="noreferrer">Læs mere og tilmeld ↗</a> : <p>Kontakt arrangøren for mere information.</p>}
-          </EventCard>)}
-        </div>
+        <ol className="event-rows">{partnerEvents.map((external) => <li className="event-row" key={"partner-" + external.id}>
+          <a href={external.link ?? eventPagePath(external.id) ?? "#"} {...(external.link ? { target: "_blank", rel: "noreferrer" } : {})}>
+            <RowDate startsAt={external.startsAt} /><RowPhoto src={external.imageUrl || null} />
+            <RowText category={external.category} title={external.title} startsAt={external.startsAt} endsAt={external.endsAt} host={external.host || null} />
+            <span className="event-row-more" aria-hidden="true">Læs mere ↗</span>
+          </a></li>)}</ol>
       </section>}
     </section>
   );
