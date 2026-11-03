@@ -1,4 +1,6 @@
 import { webmailRoute } from "./webmail.js";
+import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, makeFolder, MAX_UPLOAD_BYTES, uploadFile, type ArchiveObject } from "../archive.js";
+import { copiesPage, fileArchivePage } from "./filearchivePage.js";
 import { listMailHtml } from "../newsletter.js";
 import { AUDIENCES, audienceCount, draftListMail, listMail, listMailReady, listMails, newListMail, readListMailForm, saveListMail, sendListMail, testListMail } from "../list-mail.js";
 import { listMailPage, listMailsPage } from "./listMailPage.js";
@@ -471,7 +473,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const actor = actorOf(who, personal, members.chair);
   const may = (power: Power) => can(actor, power);
   const denied = (power: Power) => html(problem(base, who, denial(actor, power)), 403);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: may("access.close") ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: may("admins.read"),
+  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: may("access.close") ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: may("admins.read"), archive: may("archive.manage"),
     responsibilities: who ? (await responsibilities(db)).get(who) ?? "" : "", saved: url.searchParams.get("ansvar") === "gemt" }));
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" (data.ts responsibilities).
   if (path === "/profil/ansvar" && request.method === "POST") {
@@ -974,6 +976,57 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       await audit(db, actor, "newsletter.manage", `Godkendte nyhedsbrevet for ${month}: ${issue.subject}`, now);
       return back("&besked=godkendt");
     }
+  }
+  // Requested: "Og så skal der i admin være et form for filarkiv" (archive.ts). The chair's alone for now (archive.manage).
+  if (path === "/filarkiv" || path.startsWith("/filarkiv/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("archive.manage")) return denied("archive.manage");
+    const bucket = env.ARCHIVE;
+    const download = (object: ArchiveObject & { body: ReadableStream }, name: string) => new Response(object.body, { headers: { "content-type": object.httpMetadata?.contentType || "application/octet-stream",
+      "content-length": String(object.size), "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff",
+      "content-security-policy": "default-src 'none'; sandbox" } });
+    if (request.method === "GET" && path === "/filarkiv") {
+      if (url.searchParams.get("vis") === "kopier") return html(copiesPage(base, who, bucket ? await copies(bucket) : [], { ready: Boolean(bucket) }));
+      const notices: Record<string, string> = { oppe: "Filerne er lagt op.", mappe: "Mappen er oprettet.", slettet: "Filen er slettet.", "mappe-slettet": "Mappen er slettet." };
+      const errors: Record<string, string> = { stor: "Filerne fylder for meget på én gang. Læg dem op i mindre portioner.", tom: "Vælg mindst én fil.", navn: "Skriv et navn til mappen.", "ikke-tom": "Mappen er ikke tom." };
+      const view = bucket ? await listFolder(bucket, url.searchParams.get("mappe") ?? "") : { folder: "", folders: [], files: [] };
+      return html(fileArchivePage(base, who, view, { ready: Boolean(bucket), notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" }));
+    }
+    if (!bucket) return redirect(`${base}/filarkiv`);
+    if (request.method === "GET" && (path === "/filarkiv/fil" || path === "/filarkiv/kopi")) {
+      const key = url.searchParams.get("k") ?? "";
+      if (!key.startsWith(path === "/filarkiv/fil" ? FILES : COPIES)) return html(notFound(base, who), 404);
+      const object = await bucket.get(key);
+      if (!object) return html(notFound(base, who), 404);
+      if (path === "/filarkiv/kopi") await audit(db, actor, "archive.manage", `Hentede kopien ${key.slice(COPIES.length)}`, now);
+      return download(object, key.slice(key.lastIndexOf("/") + 1));
+    }
+    if (request.method !== "POST") return html(notFound(base, who), 404);
+    const form = await request.formData().catch(() => null);
+    const folder = cleanFolder(String(form?.get("mappe") ?? ""));
+    const back = (query: string, at = folder) => redirect(`${base}/filarkiv?${at ? `mappe=${encodeURIComponent(at)}&` : ""}${query}`);
+    if (path === "/filarkiv/upload") {
+      const files = (form?.getAll("filer") ?? []).filter((f): f is File => typeof f === "object" && f !== null && "arrayBuffer" in f && (f as File).size > 0);
+      if (!files.length) return back("fejl=tom");
+      if (files.reduce((sum, f) => sum + f.size, 0) > MAX_UPLOAD_BYTES) return back("fejl=stor");
+      for (const f of files) await uploadFile(bucket, folder, { name: f.name, type: f.type, bytes: await f.arrayBuffer() }, who, now);
+      await audit(db, actor, "archive.manage", `Lagde ${files.length === 1 ? `"${files[0]!.name}"` : `${files.length} filer`} op i ${folder || "Filarkiv"}`, now);
+      return back("besked=oppe");
+    }
+    if (path === "/filarkiv/mappe") {
+      const made = await makeFolder(bucket, folder, String(form?.get("navn") ?? ""));
+      return made ? back("besked=mappe", made) : back("fejl=navn");
+    }
+    if (path === "/filarkiv/slet") {
+      const key = String(form?.get("k") ?? "");
+      if (await deleteFile(bucket, key)) await audit(db, actor, "archive.manage", `Slettede "${key.slice(FILES.length)}" i filarkivet`, now);
+      return back("besked=slettet");
+    }
+    if (path === "/filarkiv/slet-mappe") {
+      const up = folder.split("/").slice(0, -1).join("/");
+      return await deleteFolder(bucket, folder) ? back("besked=mappe-slettet", up) : back("fejl=ikke-tom");
+    }
+    return html(notFound(base, who), 404);
   }
   // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja". Events → Mail til listen (list-mail.ts):
   // the chair's alone for now (listmail.send); nothing goes out before Send is pressed.

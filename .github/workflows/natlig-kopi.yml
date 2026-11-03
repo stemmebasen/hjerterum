@@ -1,0 +1,46 @@
+name: Natlig kopi
+
+# Requested (3 November 2026): "kan vi ikke helt erstatte Google-kontoen og så lave 'vores egen Google-konto' med R2 i admin?" - "Ja".
+# Every night a full copy of the platform's database (D1, SQL) is packed and laid in the archive's R2 bucket under kopier/. The Worker keeps
+# the newest 30 and the first of each month for a year, and admin → Filarkiv → Sikkerhedskopier lets the chair download them (apps/web/worker/archive.ts).
+
+on:
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: natlig-kopi
+  cancel-in-progress: false
+
+jobs:
+  copy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Export the database and lay the copy in the archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          DAY="$(TZ=Europe/Copenhagen date +%F)"
+          FILE="$RUNNER_TEMP/hjerterum-$DAY.sql"
+          pnpm --dir apps/web exec wrangler d1 export hjerterum-staging --remote --output "$FILE"
+          test -s "$FILE"
+          gzip -9 "$FILE"
+          ls -la "$FILE.gz"
+          pnpm --dir apps/web exec wrangler r2 object put "hjerterum-arkiv-eu/kopier/hjerterum-$DAY.sql.gz" --file "$FILE.gz" --content-type application/gzip --remote
+          rm -f "$FILE.gz"

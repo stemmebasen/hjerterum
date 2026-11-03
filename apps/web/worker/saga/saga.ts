@@ -11,6 +11,7 @@ import { scheduledDecisionKinds } from "../cockpit/decisionKinds.js";
 import { placePending } from "../cockpit/board.js";
 import { agendaRequests, scheduledAgendaReminder } from "../cockpit/agenda.js";
 import { scheduledBackup } from "./backup.js";
+import { scheduledArchive } from "../archive-jobs.js";
 import { writeProgramIntro } from "../program.js";
 import { getExternalEvents } from "../external-events.js";
 import { scheduledRecordingCleanup } from "./recordingRetention.js";
@@ -582,6 +583,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
     await removeDuplicateTodos(env.DB).then(n => { if (n) console.info("cockpit_todo_duplicates_removed", n); })
       .catch(error => console.warn("cockpit_todo_duplicates_failed", error instanceof Error ? error.message : error));
   }
+  // Requested: "Og så skal der i admin være et form for filarkiv" - the copies are kept tidy, and the chair reminded on the 1st (archive-jobs.ts).
+  await scheduledArchive(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
+    .catch(error => console.warn("archive_jobs_failed", error instanceof Error ? error.message : error));
   // Requested: the audio of a meeting is deleted once the minutes are made (saga/recordingRetention.ts).
   await scheduledRecordingCleanup(env, deps, env.DB, (key, slot) => claimJob(env.DB!, key, slot, deps.now()))
     .catch(error => console.warn("saga_recording_cleanup_failed", error instanceof Error ? error.message : error));

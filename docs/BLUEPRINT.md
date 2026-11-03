@@ -760,3 +760,11 @@ Still open:
 - Er man med i en cirkel: en boks med eventet, cirklens navn og et skrivefelt. `POST /api/integrations/cirkler/invite` læser eventet fra Hjerterums egen kalender (aldrig fra browseren) og sender beskeden til CIRKLER (`POST /api/hjerterum/circle-invite`, samme delte nøgle som circle-status), hvor den lander i cirklens chat i medlemmets navn med billede, kort beskrivelse og link.
 - Er man ikke med i en cirkel: "Du er ikke medlem af en CIRKEL endnu - klik her for at blive det" (samme signerede billet som CIRKLER-kortet). Uden medlemskab: CIRKLER er for medlemmer.
 - CIRKLER-delen ligger i stemmebasen/cirkler.net (migration `20261102230000_circle_message_event`, som køres i Supabase før deploy).
+
+## Filarkiv og natlige kopier i R2 i stedet for Google (2026-11-03)
+
+- Ønsket: "kan vi ikke helt erstatte Google-kontoen og så lave 'vores egen Google-konto' med R2 i admin?" - "Ja. Bare dér, hvor det er nemmest at etablere. Og så skal der i admin være et form for filarkiv."
+- R2-spanden `hjerterum-arkiv-eu` (binding `ARCHIVE`, oprettes i Vesteuropa af deploy-trinnet). `filer/` er Filarkivet i admin (`/filarkiv`: mapper, upload op til 95 MB ad gangen, download, slet; kun formanden, `archive.manage`; findes under initialerne). `kopier/` er de natlige kopier.
+- `.github/workflows/natlig-kopi.yml`: hver nat kl. ca. 03.23 eksporteres hele D1-databasen (`wrangler d1 export`, SQL, gzip) til `kopier/hjerterum-ÅÅÅÅ-MM-DD.sql.gz`. Workeren beholder de nyeste 30 og den første i hver måned et år tilbage (`archive.ts`), og formanden kan hente dem under Filarkiv → Sikkerhedskopier.
+- Kopi uden for Cloudflare: den 1. i hver måned fra kl. 9 minder Saga formanden (privat på Telegram) om at hente månedens kopi og gemme den uden for Cloudflare (`archive-jobs.ts`).
+- Google: referatdokumentet i Google Docs læses ikke længere (`GOOGLE_MINUTES_DOC_ID` er fjernet); referaterne bor i admin. Den gamle Drev-kopi (`backup.ts`) var aldrig slået til og er afløst af den natlige kopi.
