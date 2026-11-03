@@ -65,11 +65,15 @@ describe("the week's plan", () => {
     // Thursday 5 November, 10.00 Danish time. Requested: "hurtigst muligt".
     const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-05T15:00:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    // The nearest first: D (today 16.00) at 12.00; then A at 15.00 - 17.00 is too close, so B at 19.30; C on Friday at 9.00.
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-05T14:00:00.000Z", "2026-11-05T18:30:00.000Z", "2026-11-06T08:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // The nearest first: D (today 16.00) at 12.00 (15.00 is too close); then one a day at 15.00 - the emptiest of the first days.
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // Many at once: soon and evenly - never more than three a day, and no day of the first ones left empty while another has three.
+    const many = Array.from({ length: 9 }, (_, i) => event(`m${i}`, `M${i}`, "2026-11-20T18:00:00Z"));
+    const perDay = new Map<string, number>(); for (const t of eventPostTimes(many, NOW)) { const d = new Date(t + 3_600_000).toISOString().slice(0, 10); perDay.set(d, (perDay.get(d) ?? 0) + 1); }
+    expect([...perDay.values()].sort()).toEqual([2, 2, 2, 3]);
     // A class that comes back waits for the week before.
     const repeat = eventPostTimes([event("y", "Yoga", "2026-11-25T07:00:00Z")], NOW, [], [Date.parse("2026-11-25T07:00:00Z") - 7 * 86_400_000]);
-    expect(new Date(repeat[0]!).toISOString()).toBe("2026-11-18T08:00:00.000Z");
+    expect(new Date(repeat[0]!).toISOString()).toBe("2026-11-18T14:00:00.000Z");
     times.forEach((t, i) => expect(t).toBeLessThan(chosen[i]!.startsMs));
   });
 });
@@ -206,14 +210,14 @@ describe("the PR cockpit", () => {
     expect(weekly.text).not.toContain("Hjerteland");
     expect(weekly.source.instagramText).toContain("hjerterum.info/events (link i bio)");
     expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T14:30:00.000Z");
-    expect(week[1]!.text).toBe("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
+    expect(week.filter(p => p.kind === "event").map(p => p.text)).toContain("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
     // Planned once: Saga's next round does not plan it again.
     await run(NOW + 125 * 60_000);
     expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(12);
 
     // The chair moves one, approves the week, and the posts go out at their times - each once.
-    const first = week[1]!;
+    const first = week.find(p => p.text.startsWith("Kasper guider"))!;
     await call(`/pr/opslag/${first.id}`, { method: "POST", cookie, body: form({ do: "gem", text: "Rettet af formanden.", at: "2026-11-08T12:15" }) });
     expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr/uge?uge=2026-11-09&besked=uge-godkendt");
     expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);

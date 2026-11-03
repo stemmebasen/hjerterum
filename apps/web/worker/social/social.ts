@@ -33,7 +33,10 @@ export type EventSource = { key: string; title: string; startsMs: number; host: 
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
   source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
     /** The chair's design from Plakater og opslag is the post's picture: on Facebook as a photo post, not a link card. */
-    design?: boolean }; publish_at_ms: number | null; status: SocialStatus;
+    design?: boolean;
+    /** Taken down again on Facebook and Instagram by hand (the chair, 3 Nov 2026: "Jeg har slettet opslagene igen for Aura-eventet, for det var bare
+     * en test. Det må du gerne registrere."): kept in the history, and the event may get a new post. */
+    removed?: { atMs: number; note: string } }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
@@ -355,7 +358,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   const now = deps.now();
   if (!(await socialAccount(db))) return 0;
   if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
-  if (await claimJob(db, "social_asap_retime", 0, now)) await retimeUntouched(db, now);
+  if (await claimJob(db, "social_balance_retime", 0, now)) { await retimeUntouched(db, now); await addInstagram(db, now); }
   let fresh = 0;
   const titles = new Set<string>();
   for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
@@ -364,7 +367,18 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   return fresh;
 }
 
-/** Once: the event drafts nobody has changed, planned for the day before, are moved to the first free slot (only ever earlier). */
+/** Once: the event drafts with a picture made before Instagram was connected go on Instagram too (asked: "hvorfor bliver Instagram stort set ikke
+ * inkluderet?"). Only drafts nobody has changed. */
+async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
+  if (!(await socialAccount(db))?.ig_user_id) return;
+  const drafts = await socialPosts(db, "kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND images <> '[]' AND channels = '[\"facebook\"]' AND publish_at_ms > ?", [nowMs], "publish_at_ms, id", 500);
+  for (const p of drafts) {
+    const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.host ?? null]) };
+    await db.prepare("UPDATE social_posts SET channels = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify(["facebook", "instagram"]), JSON.stringify(source), p.id).run();
+  }
+}
+
+/** Once: the event drafts nobody has changed are given their time again by the rule of now (soon, and evenly over the days). */
 async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
   const rows = await db.prepare(`SELECT id, publish_at_ms, json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts
       WHERE kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND publish_at_ms > ? ORDER BY starts`).bind(nowMs)
@@ -378,7 +392,7 @@ async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
   const events = movable.map(r => ({ title: r.title ?? "", startsMs: r.starts! }) as NewsletterEvent);
   const earliest = events.map(e => { const k = titleKey(e), seen = titles.has(k); titles.add(k); return seen ? e.startsMs - REPEAT_LEAD_MS : 0; });
   const times = eventPostTimes(events, nowMs + 30 * MINUTE, taken, earliest);
-  for (const [i, r] of movable.entries()) if (times[i]! < r.publish_at_ms)
+  for (const [i, r] of movable.entries()) if (times[i]! !== r.publish_at_ms)
     await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(times[i], r.id).run();
 }
 
@@ -457,39 +471,46 @@ async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
 
 /** Every round: the approved posts whose time has come go out, each once. An event's post whose event has begun is not sent late. */
 export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
-  const now = deps.now();
-  const due = await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [now], "publish_at_ms, id", 5);
+  const due = await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [deps.now()], "publish_at_ms, id", 5);
   let sent = 0;
-  for (const post of due) {
-    if (post.kind === "event" && post.source.key && !(await eventStillOn(db, post.source.key))) {
-      await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet er aflyst eller fjernet fra kalenderen", now, post.id).run();
-      continue;
-    }
-    if (post.kind === "event" && post.source.startsMs && post.source.startsMs <= now) {
-      await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet var begyndt, før opslaget skulle ud", now, post.id).run();
-      continue;
-    }
-    // Claimed first, so two rounds never send the same post.
-    const claimed = await db.prepare("UPDATE social_posts SET status = 'publishing', updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, post.id).run();
-    if (Number(claimed.meta?.changes ?? 0) !== 1) continue;
-    try {
-      await publishPost(env, deps, db, post);
-      sent++;
-    } catch (error) {
-      if (error instanceof ReelPending) {
-        // Tried again in the next round, at most for six hours.
-        if (deps.now() - (post.publish_at_ms ?? deps.now()) < 6 * 3_600_000) {
-          await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE id = ?").bind(deps.now(), post.id).run();
-          continue;
-        }
-        error = new Error("Instagram blev ikke færdig med videoen inden for seks timer");
-      }
-      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-      await db.prepare("UPDATE social_posts SET status = 'failed', error = ?, updated_at_ms = ? WHERE id = ?").bind(message, deps.now(), post.id).run();
-      await tellChair(env, deps, `Et opslag kunne ikke komme ud (${post.kind === "share" ? "deling" : post.kind === "week" ? "Ugens events" : "event"}): ${message.slice(0, 200)}. Se ${cockpitUrl(env)}/pr`);
-    }
-  }
+  for (const post of due) if (await publishOne(env, deps, db, post)) sent++;
   return sent;
+}
+
+/** One approved post out now, once: skipped when its event is cancelled or has begun; a failure is kept with its reason, and the chair is told.
+ * Asked (the chair, 3 Nov 2026): "Hvorfor skal der gå så lang tid?" - a post approved for "nu" goes out at once from the cockpit, not in Saga's next
+ * round (every ten minutes). Returns whether it went out. */
+export async function publishOne(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<boolean> {
+  const now = deps.now();
+  if (post.status !== "approved" || (post.publish_at_ms ?? Infinity) > now) return false;
+  if (post.kind === "event" && post.source.key && !(await eventStillOn(db, post.source.key))) {
+    await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet er aflyst eller fjernet fra kalenderen", now, post.id).run();
+    return false;
+  }
+  if (post.kind === "event" && post.source.startsMs && post.source.startsMs <= now) {
+    await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet var begyndt, før opslaget skulle ud", now, post.id).run();
+    return false;
+  }
+  // Claimed first, so two rounds (or a round and the cockpit) never send the same post.
+  const claimed = await db.prepare("UPDATE social_posts SET status = 'publishing', updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, post.id).run();
+  if (Number(claimed.meta?.changes ?? 0) !== 1) return false;
+  try {
+    await publishPost(env, deps, db, post);
+    return true;
+  } catch (error) {
+    if (error instanceof ReelPending) {
+      // Tried again in the next round, at most for six hours.
+      if (deps.now() - (post.publish_at_ms ?? deps.now()) < 6 * 3_600_000) {
+        await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE id = ?").bind(deps.now(), post.id).run();
+        return false;
+      }
+      error = new Error("Instagram blev ikke færdig med videoen inden for seks timer");
+    }
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+    await db.prepare("UPDATE social_posts SET status = 'failed', error = ?, updated_at_ms = ? WHERE id = ?").bind(message, deps.now(), post.id).run();
+    await tellChair(env, deps, `Et opslag kunne ikke komme ud (${post.kind === "share" ? "deling" : post.kind === "week" ? "Ugens events" : "event"}): ${message.slice(0, 200)}. Se ${cockpitUrl(env)}/pr`);
+    return false;
+  }
 }
 
 /** A post stuck in "publishing" (the run stopped halfway) is tried again: what reached a channel is kept, so nothing goes out twice. */

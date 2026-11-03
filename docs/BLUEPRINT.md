@@ -998,3 +998,29 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Kalenderen viser alle opslag denne uge og de næste seks, på den dag og det klokkeslæt, de går ud: forslag, der venter på formandens ja, godkendte, sendte og fejlede.
   - Et eventopslag åbner plakatsiden (billedet, så det færdige opslag). Ugens events og reelen åbner Ugens opslag, der nu kan vise alle kalenderens uger.
 - **Adskillelse på Ugens opslag.** Formanden skrev: "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." Hvert opslag står nu i sin egen boks, og hver anden har en svagt anden baggrund.
+
+## "Nu" er nu, jævn fordeling, farver, historik og Instagram (2026-11-03)
+
+- **Formandens ord:**
+  - "Hvorfor skal der gå så lang tid?"
+  - "Så opslagene bliver ikke sendt ud, medmindre de er godkendt? Og hvorfor bliver Instagram stort set ikke inkluderet?"
+  - "Hvorfor er der stort set ingen farveforskel mellem godkendt og sendt? Og kan sendt ikke hedde publiceret? Det er også vigtigt, at jeg kan se tilbage historisk på, hvad vi har sendt ud. Så det skal gemmes."
+  - "Det virker heller ikke så balanceret, at der bliver udsendt fem på én dag, tre den næste og så kun én dagene efter."
+- **Godkendelse:** Intet sendes uden formandens ja. Sådan er det fortsat.
+- **"Nu" er nu.** Sagas runde kører hvert 10. minut, fordi hver anden 5-minutters runde er team@-mailen. Et opslag, der godkendes til "Nu", publiceres nu med det samme fra cockpittet (`publishOne`). Det gælder trin 2 på plakatsiden og delinger.
+- **Jævn fordeling:**
+  - Hvert opslag lægges på den dag med færrest opslag blandt de første fire mulige dage (`BALANCE_DAYS`). Højst tre om dagen og mindst 2,5 timer imellem.
+  - Inden for dagen er rækkefølgen kl. 15, så 12 og så 19.30.
+  - Kladder, ingen har rørt, får én gang ny tid efter reglen.
+- **Kalenderen:**
+  - Tydelige farver: forslag er orange, godkendt blå, publiceret grøn, fejlet rød, og slettet igen er overstreget.
+  - "Sendt" hedder nu "Publiceret" overalt i PR og SoMe. Fanen hedder "Publiceret og indsigt".
+- **Historik:**
+  - Alle opslag gemmes; intet sletter `social_posts`.
+  - Kalenderen kan bladres bagud og fremad syv uger ad gangen (`?start=`).
+  - Et opslag, der er taget ned igen i hånden, markeres med `source.removed` og vises som "Slettet igen".
+  - Aura Balancering (opslag 30) var en test, som formanden slettede igen på Facebook og Instagram. Det er registreret sådan, og eventet får et nyt forslag.
+- **Instagram:**
+  - Instagram tager kun opslag med et billede.
+  - 9 kladder med billede var lavet, før Instagram blev forbundet. De kommer nu også på Instagram (én gang, kun kladder ingen har rørt).
+  - Et event uden billede viser "IG kræver et billede: lav et design" i kalenderen. Designet fra plakatsiden bringer Instagram med.

@@ -14,9 +14,13 @@ export const SITE = "https://www.hjerterum.info";
  * eftermiddagen" gets the most views, though Meta recommends later in the evening. Then the chair: "Men hvad siger forskningen i forhold til de gode
  * tidspunkter? Jeg tænker sagtens, at vi kan strække os ud over de timer." The big studies disagree (Buffer 2025: weekday afternoons around 15; Buffer
  * 2026: 9, 12 and 18; Sprout Social: late morning to afternoon; all: never at night), so the day is spread over morning, lunch, Gitta's afternoon and
- * the evening - at most three a day, and two and a half hours apart, so the followers' feed is not filled in one go. The insight page shows what works. */
+ * the evening - at most three a day, two and a half hours apart, spread evenly over the days (eventPostTimes). The insight page shows what works. */
 export const POST_HOURS: Array<[number, number]> = [[9, 0], [12, 0], [15, 0], [17, 0], [19, 30]];
 export const POSTS_PER_DAY = 3;
+/** Within a day: Gitta's afternoon first, then lunch, then the evening (2.5 hours apart, so three a day fill 12, 15 and 19.30). */
+const DAY_ORDER: Array<[number, number]> = [[15, 0], [12, 0], [19, 30], [9, 0], [17, 0]];
+/** How many of the first possible days a post is spread over. */
+export const BALANCE_DAYS = 4;
 export const POST_GAP_MS = 2.5 * 3_600_000;
 /** "Ugens events" goes out on the Monday afternoon of its week. */
 export const WEEK_POST_AT: [number, number] = [15, 30];
@@ -93,15 +97,16 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
   const order = events.map((e, i) => i).sort((a, b) => events[a]!.startsMs - events[b]!.startsMs);
   for (const i of order) {
     const e = events[i]!, from = Math.max(notBeforeMs, earliest[i] ?? 0), last = e.startsMs - 2 * 3_600_000;
-    let slot: number | null = null;
-    for (let day = dateOf(from); slot === null && at(day, 0) <= last; day = addDays(day, 1)) {
+    // Asked: "Det virker heller ikke så balanceret, at der bliver udsendt fem på én dag, tre den næste og så kun én dagene efter." The first few days
+    // the post could go out on, and of those the day with the fewest posts (the earliest of equals) - soon, and evenly.
+    const candidates: Array<{ slot: number; count: number }> = [];
+    for (let day = dateOf(from); candidates.length < BALANCE_DAYS && at(day, 0) <= last; day = addDays(day, 1)) {
       const same = [...taken].filter(t => dateOf(t) === day);
       if (same.length >= POSTS_PER_DAY) continue;
-      for (const [h, m] of POST_HOURS) {
-        const t = at(day, h, m);
-        if (t >= from && t <= last && same.every(o => Math.abs(o - t) >= POST_GAP_MS)) { slot = t; break; }
-      }
+      const free = DAY_ORDER.map(([h, m]) => at(day, h, m)).find(t => t >= from && t <= last && same.every(o => Math.abs(o - t) >= POST_GAP_MS));
+      if (free !== undefined) candidates.push({ slot: free, count: same.length });
     }
+    const slot = candidates.length ? candidates.reduce((best, c) => c.count < best.count ? c : best).slot : null;
     // No free slot before it begins: as soon as may be.
     out[i] = slot ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
     if (slot !== null) taken.add(slot);

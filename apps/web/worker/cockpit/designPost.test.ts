@@ -79,7 +79,15 @@ describe("a design from Plakater og opslag in an event's post", () => {
       .bind(`SF${HEX}`, Date.parse("2026-11-10T18:00:00Z")).run();
     await planWeek(env as never, deps(services.fetcher, NOW), db, "2026-11-09");
     const cookie = await personalCookie("Jacob Hauge", NOW);
-    const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(services.fetcher, NOW));
+    // Facebook and Instagram, faked: "Nu" goes out at once from the cockpit ("Hvorfor skal der gå så lang tid?").
+    const graph: string[] = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
+      const [path] = url.slice(GRAPH.length).split("?"); graph.push(path!);
+      return new Response(JSON.stringify(path === "/755/photos" ? { id: "p1", post_id: "755_9" } : /^\/c/.test(path!) ? { status_code: "FINISHED" } : { id: path === "/17841/media" ? "c1" : "ig1" }));
+    };
+    const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(fetcher, NOW));
     const data = await (await call(`/plakater/${HEX}/data`)).json() as { post: Record<string, unknown> };
     expect(data.post).toMatchObject({ channels: ["facebook", "instagram"], instagram: true, text: expect.any(String), instagramText: expect.stringContaining("hjerterum.info/events (link i bio)") });
     const jpg = new Uint8Array(4000); jpg.set([0xff, 0xd8, 0xff, 0xe0]);
@@ -87,9 +95,10 @@ describe("a design from Plakater og opslag in an event's post", () => {
     // No channel: refused, and nothing is approved.
     expect((await call(`/plakater/${HEX}/publicer`, { method: "POST", body: JSON.stringify({ text: "Kom og vær med", channels: [] }) })).status).toBe(422);
     const done = await (await call(`/plakater/${HEX}/publicer`, { method: "POST", body: JSON.stringify({ text: "Kom og vær med", instagramText: "Kom og vær med på Instagram", channels: ["facebook", "instagram"], now: true }) })).json() as Record<string, unknown>;
-    expect(done).toMatchObject({ ok: true, publishAtMs: NOW, channels: ["facebook", "instagram"] });
+    expect(done).toMatchObject({ ok: true, publishAtMs: NOW, channels: ["facebook", "instagram"], published: true, status: "published" });
     const [post] = await socialPosts(db, "kind = 'event'");
-    expect(post).toMatchObject({ status: "approved", text: "Kom og vær med", publish_at_ms: NOW, approved_by: "Jacob Hauge", source: { design: true, instagramText: "Kom og vær med på Instagram" } });
+    expect(post).toMatchObject({ status: "published", text: "Kom og vær med", publish_at_ms: NOW, approved_by: "Jacob Hauge", source: { design: true, instagramText: "Kom og vær med på Instagram" }, published: { facebook: "755_9", instagram: "ig1" } });
+    expect(graph).toContain("/755/photos");
     // A board member without the chair's login may not.
     const other = await handleCockpitRequest(new Request(ORIGIN + `/plakater/${HEX}/publicer`, { method: "POST", headers: { origin: ORIGIN }, body: "{}" }), env, deps(services.fetcher, NOW));
     expect(other.status).not.toBe(200);
