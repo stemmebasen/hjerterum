@@ -33,7 +33,9 @@ describe("the plan at the top of PR og SoMe", () => {
     expect(plan.campaign.now?.title).toBe("Årets afslutning og jul");
     expect(plan.campaign.next.title).toBe("Nyt år og medlemskab");
     const html = prPlanSection("", plan);
-    for (const heading of ["Det kræver dig lige nu", "Det næste", "Det mangler", "Planen"]) expect(html).toContain(heading);
+    for (const heading of ["Det kræver dig lige nu", "Det næste", "Planen"]) expect(html).toContain(heading);
+    // "Ja fjern 'det mangler'": the plan's list of parts is not shown.
+    expect(html).not.toContain("Det mangler");
     expect(html).toContain('href="/pr?uge=2026-11-23#uge"');
   });
 
