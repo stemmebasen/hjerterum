@@ -997,3 +997,4 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **PR-kalender** (PR og SoMe → Kalender, `/pr/kalender`, `cockpit/prCalendar.ts`):
   - Kalenderen viser alle opslag denne uge og de næste seks, på den dag og det klokkeslæt, de går ud: forslag, der venter på formandens ja, godkendte, sendte og fejlede.
   - Et eventopslag åbner plakatsiden (billedet, så det færdige opslag). Ugens events og reelen åbner Ugens opslag, der nu kan vise alle kalenderens uger.
+- **Adskillelse på Ugens opslag.** Formanden skrev: "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." Hvert opslag står nu i sin egen boks, og hver anden har en svagt anden baggrund.
