@@ -9,7 +9,7 @@ describe("PR og SoMe in tabs", () => {
     const parts = { overblik: ["Det kræver dig lige nu", "Forbindelse"], tagget: ["Tagget i"], uge: ["Ugens opslag", 'href="/pr/uge?uge=2026-11-09"'], sendt: ["Sendt og fejlet", "Indsigt"] } as const;
     for (const [tab] of PR_TABS) {
       const html = prPage("", "Jacob Hauge", data, tab);
-      for (const [, path, label] of PR_TABS) expect(html).toContain(`href="${path}"`) && expect(html).toContain(label);
+      for (const [, path, label] of PR_TABS) { expect(html).toContain(`href="${path}"`); expect(html).toContain(label); }
       for (const text of parts[tab]) expect(html, `${tab}: ${text}`).toContain(text);
       for (const [other, texts] of Object.entries(parts)) if (other !== tab) expect(html).not.toContain(`<h2>${texts[0]}`);
       expect(html).toContain(`class="on" aria-current="page"`);
