@@ -23,7 +23,7 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       # Its own token ("hjerterum natlig kopi": D1 Edit + Workers R2 Storage Edit), made by the chair, so the deploy token is untouched.
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_TOKEN }}
+      BACKUP_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -37,6 +37,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A token pasted into GitHub can carry a line break or spaces; the token itself is the first non-empty line.
+          CLOUDFLARE_API_TOKEN="$(printf '%s\n' "$BACKUP_TOKEN" | tr -d ' \t\r' | grep -m1 . || true)"
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "CLOUDFLARE_BACKUP_TOKEN is missing"; exit 1; }
+          echo "::add-mask::$CLOUDFLARE_API_TOKEN"
+          export CLOUDFLARE_API_TOKEN
           DAY="$(TZ=Europe/Copenhagen date +%F)"
           FILE="$RUNNER_TEMP/hjerterum-$DAY.sql"
           pnpm --dir apps/web exec wrangler d1 export hjerterum-staging --remote --output "$FILE"
