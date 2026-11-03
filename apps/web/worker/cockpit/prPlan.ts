@@ -83,17 +83,17 @@ export async function prPlanData(db: D1Database, input: { ready: boolean; accoun
   const count = async (where: string, ...values: unknown[]) =>
     (await db.prepare(`SELECT COUNT(*) AS n FROM social_posts WHERE ${where}`).bind(...values).first<{ n: number }>().catch(() => null))?.n ?? 0;
   const shares = await count("kind = 'share' AND status = 'draft' AND json_extract(source, '$.sharedAt') IS NULL");
-  if (shares) todo.push({ text: `${shares === 1 ? "Ét opslag" : `${shares} opslag`}, Hjerterum er tagget i, venter på dig.`, href: "/pr#tagget", urgent: true });
+  if (shares) todo.push({ text: `${shares === 1 ? "Ét opslag" : `${shares} opslag`}, Hjerterum er tagget i, venter på dig.`, href: "/pr/tagget", urgent: true });
   const failed = await count("status = 'failed'");
-  if (failed) todo.push({ text: `${failed === 1 ? "Ét opslag" : `${failed} opslag`} kunne ikke komme ud. Se fejlen, og godkend det igen.`, href: "/pr#sendt", urgent: true });
+  if (failed) todo.push({ text: `${failed === 1 ? "Ét opslag" : `${failed} opslag`} kunne ikke komme ud. Se fejlen, og godkend det igen.`, href: "/pr/sendt", urgent: true });
   // The week to approve: next week from Thursday, else this week's drafts that have not gone out.
   for (const monday of [mondayOf(nowMs), nextMonday(nowMs)]) {
     const week = weekKey(monday);
     const drafts = await count("week = ? AND status = 'draft' AND (publish_at_ms IS NULL OR publish_at_ms > ?)", week, nowMs);
-    if (drafts) todo.push({ text: `Uge ${Number(week.slice(6))}: ${drafts} opslag venter på din godkendelse.`, href: `/pr?uge=${monday}#uge`, urgent: true });
+    if (drafts) todo.push({ text: `Uge ${Number(week.slice(6))}: ${drafts} opslag venter på din godkendelse.`, href: `/pr/uge?uge=${monday}`, urgent: true });
   }
   if (input.account && planDue(nowMs) && !(await count("source_key = ?", `week:${weekKey(nextMonday(nowMs))}`)))
-    todo.push({ text: `Uge ${Number(weekKey(nextMonday(nowMs)).slice(6))} er ikke planlagt endnu. Saga prøver hver time; du kan også lade hende gøre det nu.`, href: `/pr?uge=${nextMonday(nowMs)}#uge` });
+    todo.push({ text: `Uge ${Number(weekKey(nextMonday(nowMs)).slice(6))} er ikke planlagt endnu. Saga prøver hver time; du kan også lade hende gøre det nu.`, href: `/pr/uge?uge=${nextMonday(nowMs)}` });
   // The newsletter: next month's issue from the 20th, until it is approved.
   const coming = nextMonth(monthOf(nowMs));
   if (dayOfMonth(nowMs) >= DRAFT_FROM_DAY) {

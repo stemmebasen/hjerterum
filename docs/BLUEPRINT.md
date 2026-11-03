@@ -896,3 +896,13 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - **Facebook:** Hvis siden har delt eller linket til netop det opslag, får forslaget mærket **"Delt d. <dato>"**.
   - **Instagram:** Her kan delinger ikke ses direkte. Mærket kommer, hvis Hjerterum efter opslaget har lagt noget op, der nævner afsenderen (@navn).
 - Et forslag, der allerede er delt, kan stadig deles eller springes over. Det tæller ikke med i "Det kræver dig lige nu", og formanden får ikke besked om det.
+
+## PR og SoMe i faner (2026-11-03)
+
+- Formandens ønske: "Jeg synes, at siden bliver ret rodet, når der er så meget indhold. Kan du ikke dele det op i underpunkter?"
+- PR og SoMe har nu fire faner (`PR_TABS` i `prPage.ts`):
+  - **Overblik** (`/pr`): det, der kræver dig, det næste, planen og forbindelsen.
+  - **Tagget i** (`/pr/tagget`).
+  - **Ugens opslag** (`/pr/uge`, med denne og næste uge).
+  - **Sendt og indsigt** (`/pr/sendt`).
+- Fanerne viser, hvor mange der venter: delinger, der ikke er delt endnu, og ugens udkast. Efter et tryk kommer man tilbage til den fane, handlingen hører til.

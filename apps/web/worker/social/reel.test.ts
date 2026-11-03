@@ -44,7 +44,7 @@ describe("Ugens events as a reel", () => {
     const { db, env, graph, run } = await setup(["IN_PROGRESS", "IN_PROGRESS", "FINISHED"]);
     const [reel] = await socialPosts(db, "source_key = 'reel:2026-W46'");
     const cookie = await personalCookie("Jacob Hauge", AT - 3_600_000);
-    const page = await (await handleCockpitRequest(new Request("https://admin.hjerterum.example/pr?uge=2026-11-09", { headers: { cookie } }), env, deps(async () => new Response("{}"), Date.parse("2026-11-05T10:00:00Z")))).text();
+    const page = await (await handleCockpitRequest(new Request("https://admin.hjerterum.example/pr/uge?uge=2026-11-09", { headers: { cookie } }), env, deps(async () => new Response("{}"), Date.parse("2026-11-05T10:00:00Z")))).text();
     expect(page).toContain("Ugens events som reel");
     expect(page).toContain(`<video class="pr-reel" src="${VIDEO}"`);
     // Changed and approved in admin: still Instagram, new words, the invited teacher kept.

@@ -36,7 +36,7 @@ describe("the plan at the top of PR og SoMe", () => {
     for (const heading of ["Det kræver dig lige nu", "Det næste", "Planen"]) expect(html).toContain(heading);
     // "Ja fjern 'det mangler'": the plan's list of parts is not shown.
     expect(html).not.toContain("Det mangler");
-    expect(html).toContain('href="/pr?uge=2026-11-23#uge"');
+    expect(html).toContain('href="/pr/uge?uge=2026-11-23"');
   });
 
   it("starts with connecting, before anything else can run", async () => {

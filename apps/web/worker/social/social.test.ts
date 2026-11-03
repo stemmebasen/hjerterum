@@ -176,7 +176,7 @@ describe("the PR cockpit", () => {
     expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
     shares = await socialPosts(db, "kind = 'share'");
     expect(shares.map(p => p.status).sort()).toEqual(["published", "published", "skipped"]);
-    expect((await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Igen" }) })).headers.get("location")).toBe("/pr?fejl=sendt");
+    expect((await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Igen" }) })).headers.get("location")).toBe("/pr/tagget?fejl=sendt");
 
     // 2 and 3. Next week: twelve events in the house (one a partner's), planned on Thursday from 10.00.
     const insert = (id: string, title: string, iso: string, extra: { location?: string; image?: string | null } = {}) =>
@@ -210,7 +210,7 @@ describe("the PR cockpit", () => {
     // The chair moves one, approves the week, and the posts go out at their times - each once.
     const first = week[1]!;
     await call(`/pr/opslag/${first.id}`, { method: "POST", cookie, body: form({ do: "gem", text: "Rettet af formanden.", at: "2026-11-08T12:15" }) });
-    expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr?uge=2026-11-09&besked=uge-godkendt");
+    expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr/uge?uge=2026-11-09&besked=uge-godkendt");
     expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);
     const before = graph.filter(c => c.path === "/755/feed").length;
     await run(Date.parse("2026-11-08T11:20:00Z"));

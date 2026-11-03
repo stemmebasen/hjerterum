@@ -40,7 +40,7 @@ describe("a tagged post Hjerterum has already shared", () => {
     expect(services.telegram("sendMessage").map(c => (c.body as { text: string }).text)).toEqual([expect.stringContaining("Ét nyt opslag har tagget Hjerterum")]);
     expect((await prPlanData(db, { ready: true, account: null, nowMs: NOW })).todo.map(t => t.text)).toContain("Ét opslag, Hjerterum er tagget i, venter på dig.");
     const html = prPage("", "Jacob Hauge", { ready: true, account: null, shares, weeks: [], week: { monday: "2026-11-09", key: "2026-W46", posts: [] }, recent: [], aiReady: true,
-      plan: { todo: [], next: [], campaign: { now: null, next: { months: [1], title: "x", about: "x" } } }, insight: [], nowMs: NOW, notice: "", error: "" });
+      plan: { todo: [], next: [], campaign: { now: null, next: { months: [1], title: "x", about: "x" } } }, insight: [], nowMs: NOW, notice: "", error: "" }, "tagget");
     expect(html).toContain("Delt d. 2. nov.");
     expect(html).toContain("Hjerterum har allerede delt det d. 2. nov.");
   });

@@ -950,10 +950,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who) return redirect(`${base}/hvem`);
     if (!may("social.manage")) return denied("social.manage");
     const social = env as SocialEnv;
-    const back = (query = "", week?: string) => redirect(`${base}/pr${[week ? `uge=${week}` : "", query].filter(Boolean).join("&") ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
+    // Back to the tab the action belongs to (prPage.ts PR_TABS): a week's posts to Ugens opslag, a tagged post to Tagget i, the rest to Overblik.
+    const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
-    if (path === "/pr" && request.method === "GET") {
+    const tab = ({ "/pr": "overblik", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as const)[path as "/pr"];
+    if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
       const asked = url.searchParams.get("uge") ?? "";
       const monday = [thisMonday, coming].includes(asked) ? asked : coming;
@@ -964,12 +966,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres." };
       const account = await socialAccount(db);
-      const page = prPage(base, who, { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
+      const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` }],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
-        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" });
+        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
-      return html(page, 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
+      return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
     }
     // Facebook Login: a state kept in a short cookie, so only the login this browser began can come back.
     if (path === "/pr/forbind" && request.method === "GET") {
@@ -1001,7 +1003,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     }
     if (path === "/pr/tags") {
       await scanTags(social, deps, db).catch(() => 0);
-      return back("besked=tags");
+      return back("besked=tags", undefined, "/tagget");
     }
     const weekOf = (value: string) => [mondayOf(now), nextMonday(now)].includes(value) ? value : null;
     if (path === "/pr/uge/planlaeg") {
@@ -1022,7 +1024,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const post = await socialPost(db, Number(postMatch[1]));
       if (!post) return back();
       const week = post.week ? weekOf(mondayOf(post.publish_at_ms ?? now)) ?? undefined : undefined;
-      const backHere = (query: string) => post.kind === "share" ? back(query) : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
+      const backHere = (query: string) => post.kind === "share" ? back(query, undefined, "/tagget") : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
       if (post.status === "published" || post.status === "publishing") return backHere("fejl=sendt");
       const action = field("do");
       if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }

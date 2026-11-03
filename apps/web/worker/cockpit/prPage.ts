@@ -109,7 +109,11 @@ ${p.kind === "week" ? channelBoxes(p, allowed, locked) : ""}</div>
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 
-export function prPage(base: string, who: string | null, d: PrPageData): string {
+/** Requested: "Jeg synes, at siden bliver ret rodet, når der er så meget indhold. Kan du ikke dele det op i underpunkter?" - PR og SoMe in tabs. */
+export type PrTab = "overblik" | "tagget" | "uge" | "sendt";
+export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["tagget", "/pr/tagget", "Tagget i"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Sendt og indsigt"]];
+
+export function prPage(base: string, who: string | null, d: PrPageData, tab: PrTab = "overblik"): string {
   const a = d.account;
   const connection = !d.ready
     ? `<p>Meta-appen er ikke sat op endnu: hemmelighederne <code>META_APP_ID</code> og <code>META_APP_SECRET</code> mangler på serveren. Når de er lagt ind, kan du forbinde Facebook og Instagram her.</p>`
@@ -124,7 +128,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
 
   const shares = d.shares.length ? d.shares.map(p => shareCard(base, p, a)).join("") : `<p class="empty">Intet nyt. Saga kigger efter nye opslag, der tagger Hjerterum, hver halve time.</p>`;
 
-  const tabs = d.weeks.map(w => `<a class="${w.monday === d.week.monday ? "on" : ""}" href="${base}/pr?uge=${w.monday}">${esc(w.label)}</a>`).join("");
+  const tabs = d.weeks.map(w => `<a class="${w.monday === d.week.monday ? "on" : ""}" href="${base}/pr/uge?uge=${w.monday}">${esc(w.label)}</a>`).join("");
   const drafts = d.week.posts.filter(p => p.status === "draft" && p.channels.length && (p.publish_at_ms ?? Infinity) > d.nowMs).length;
   const eventCount = d.week.posts.filter(p => p.kind === "event").length;
   const week = d.week.posts.length
@@ -138,19 +142,26 @@ ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden"
   const recent = d.recent.length ? `<ul class="pr-log">${d.recent.map(p => `<li><span class="at">${esc(when(p.published_at_ms ?? p.updated_at_ms))}</span><span>${status(p)} ${p.kind === "share" ? `Deling fra ${esc(p.source.author ?? "?")}` : p.kind === "week" ? "Ugens events" : esc(p.source.title ?? "Event")}
 ${p.status === "published" ? `<small>${sentLinks(p)}</small>` : p.error ? `<small class="warn">${esc(p.error)}</small>` : ""}</span></li>`).join("")}</ul>` : `<p class="empty">Intet sendt endnu.</p>`;
 
+  const waiting = d.shares.filter(p => !p.source.sharedAt).length;
+  const count = (n: number) => n ? ` <span class="pr-count">${n}</span>` : "";
+  const nav = `<nav class="pr-nav" aria-label="PR og SoMe">${PR_TABS.map(([key, path, label]) => `<a href="${base}${path}"${key === tab ? ' class="on" aria-current="page"' : ""}>${label}${key === "tagget" ? count(waiting) : key === "uge" ? count(drafts) : ""}</a>`).join("")}</nav>`;
+  const sections: Record<PrTab, string> = {
+    overblik: `${prPlanSection(base, d.plan)}
+<section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>`,
+    tagget: `<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>`,
+    uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,
+    sendt: `<section class="panel" id="sendt"><header><h2>Sendt og fejlet</h2></header>${recent}</section>
+${insightSection(d.insight)}`
+  };
   const body = `<main class="pr"><div class="hero"><h1>PR og sociale medier</h1>
-<p>Saga finder de opslag, Hjerterum bliver tagget i, og planlægger hver torsdag næste uges opslag: "Ugens events" mandag eftermiddag og alle ugens events med hvert sit lille opslag på Facebook. Du læser, retter og godkender - intet sendes uden dit ja. Kun for formanden indtil videre.</p></div>
+${tab === "overblik" ? `<p>Saga gør alle opslag klar - delinger af det, Hjerterum er tagget i, et opslag for hvert event, Ugens events og ugens reel - og du godkender. Intet sendes uden dit ja. Kun for formanden indtil videre.</p>` : ""}</div>
+${nav}
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
-${prPlanSection(base, d.plan)}
-<section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
-<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>
-<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>
-<section class="panel" id="sendt"><header><h2>Sendt og fejlet</h2></header>${recent}</section>
-${insightSection(d.insight)}</main>`;
+${sections[tab]}</main>`;
   return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE });
 }
 
-const STYLE = `.pr{display:grid;gap:20px}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
+const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
 .pr-post{border-top:1px solid var(--line);padding:16px 0}.pr-post:first-of-type{border-top:0}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
 .pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
