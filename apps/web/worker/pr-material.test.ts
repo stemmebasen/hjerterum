@@ -85,3 +85,15 @@ describe("a teacher's PR material", () => {
     expect((await list())[0]).not.toHaveProperty("pr");
   });
 });
+
+describe("the consent's words", () => {
+  it("are the chair's new, shorter ones from 4 November 2026, and each consent is shown with the words it was given to", async () => {
+    const { consentTextAt, PR_CONSENT_TEXT, PR_CONSENT_TEXT_V1 } = await import("../pr-material.js");
+    expect(PR_CONSENT_TEXT).toContain("nu og fremover");
+    expect(PR_CONSENT_TEXT).toContain("fælles opslag med andre events");
+    expect(PR_CONSENT_TEXT).toContain("trække samtykket tilbage");
+    expect(consentTextAt(Date.parse("2026-10-20T10:00:00Z"))).toBe(PR_CONSENT_TEXT_V1);
+    expect(consentTextAt(Date.parse("2026-11-04T10:00:00Z"))).toBe(PR_CONSENT_TEXT);
+    expect(consentTextAt(null)).toBe(PR_CONSENT_TEXT);
+  });
+});

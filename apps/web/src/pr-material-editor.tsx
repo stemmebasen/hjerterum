@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
-import { EMPTY_QUOTES, PR_CONSENT_TEXT, PR_MAX_PHOTOS, PR_MIN_PHOTOS, PR_MIN_SIDE, readyForPr, type PrMaterial, type PrQuotes } from "../pr-material";
+import { consentTextAt, EMPTY_QUOTES, PR_CONSENT_TEXT, PR_MAX_PHOTOS, PR_MIN_PHOTOS, PR_MIN_SIDE, readyForPr, type PrMaterial, type PrQuotes } from "../pr-material";
 
 /** Requested (Gitta, via the chair): "At de udtrykkeligt bliver opfordret til at dele minimun 3 billeder af dem selv/relevante billeder til PR. At det ligger
  * inde på deres siden. At de vinger noget ala det her af ..." and "Citater til brug i PR" - "måske vi må nøjes med en kraftig opfordring? Måske gøre det
@@ -84,7 +84,7 @@ export function PrMaterialEditor({ clerk, onBack, inline = false }: { clerk: Cle
 
     <div className="profile-publication">
       {material?.consentAt ? <>
-        <p>✓ Du gav samtykke {DAY.format(material.consentAt)}:<br /><em>"{PR_CONSENT_TEXT}"</em></p>
+        <p>✓ Du gav samtykke {DAY.format(material.consentAt)}:<br /><em>"{consentTextAt(material.consentAt)}"</em></p>
         <button type="button" className="text-button" disabled={busy} onClick={() => { if (window.confirm("Vil du trække dit samtykke tilbage? Så bruger vi ikke længere dine billeder og citater i vores PR.")) void save({ consent: false }); }}>Træk mit samtykke tilbage</button>
       </> : <>
         <label className="profile-consent"><input type="checkbox" checked={consent} disabled={busy || !material} onChange={e => setConsent(e.target.checked)} /> {PR_CONSENT_TEXT}</label>
