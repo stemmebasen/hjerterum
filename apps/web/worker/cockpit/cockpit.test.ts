@@ -834,11 +834,12 @@ describe("each member's task list", () => {
     let page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
     expect(page).toContain("Lav event-mail");
     expect(page.slice(0, page.indexOf("Hele bestyrelsen"))).not.toContain("Book lokale");
-    expect(page).toContain('href="/cockpit/opgaver" class="grp-top on"');
+    expect(page).toContain('href="/cockpit/opgaver" class="grp-top on">Bestyrelse</a>');
+    expect(page).toContain('<a href="/cockpit/opgaver" class="on" aria-current="page">Opgaver</a>');
     // Requested: "We need to make a smarter menu for admin, with submenus" - "Ja, det er fint": six places with their pages beneath,
     // the chair's own pages only for the chair, and nothing but what is personal under the initials.
     const menu = page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"));
-    for (const label of [">Overblik<", ">Opgaver<", ">Bestyrelse<", ">Events<", ">Kommunikation<", ">Medlemmer<"]) expect(menu).toContain(label);
+    for (const label of [">Overblik<", ">Bestyrelse<", ">Events<", ">Kommunikation<", ">Medlemmer<"]) expect(menu).toContain(label);
     for (const path of ["/cockpit/status", "/cockpit/beslutninger", "/cockpit/opslag", "/cockpit/arkiv", "/cockpit/arrangementer/undervisere", "/cockpit/posthus", "/cockpit/medlemmer", "/cockpit/statistik"]) expect(menu).toContain(`href="${path}"`);
     for (const path of ["/cockpit/filarkiv", "/cockpit/arrangementer/nyhedsbrev", "/cockpit/arrangementer/mail", "/cockpit/medlemskab"]) expect(menu).not.toContain(`href="${path}"`);
     expect(page).not.toContain("data-power=");

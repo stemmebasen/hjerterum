@@ -178,15 +178,15 @@ const ICONS: Record<string, string> = {
 const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[key] ?? ""}</svg>`;
 
 /** Requested: "We need to make a smarter menu for admin, with submenus, a little bit like the one we have on our homepage, so there's not a lot of
- * extra links hidden underneath Profile" - "Ja, det er fint" (3 Nov 2026) to six places with their pages beneath, and only what is personal
+ * extra links hidden underneath Profile" - "Ja, det er fint" (3 Nov 2026) to five places with their pages beneath, and only what is personal
  * under the initials. An item with a power is shown only to whoever may use it (handleCockpitRequest takes the others out); every page keeps
  * its address. A page lights its place by its section - the item's path, or one listed in `also`. */
 export type MenuItem = { path: string; label: string; power?: Power; also?: string[] };
 export type MenuGroup = { path: string; label: string; items: MenuItem[] };
 export const MENU: MenuGroup[] = [
   { path: "/", label: "Overblik", items: [{ path: "/", label: "Overblik" }, { path: "/status", label: "Sagas fulde overblik" }] },
-  { path: "/opgaver", label: "Opgaver", items: [] },
-  { path: "/moder", label: "Bestyrelse", items: [{ path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
+  // Requested: "Put i øvrigt gerne \"Opgaver\" som det første i Bestyrelse".
+  { path: "/opgaver", label: "Bestyrelse", items: [{ path: "/opgaver", label: "Opgaver" }, { path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
     { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv", power: "archive.manage" }] },
   { path: "/arrangementer", label: "Events", items: [{ path: "/arrangementer", label: "Alle events" }, { path: "/arrangementer#new-event", label: "Nyt event" },
     { path: "/arrangementer/undervisere", label: "Undervisere" }] },
@@ -231,7 +231,7 @@ export function layout(base: string, title: string, body: string, options: { sec
   // Requested: "Ja, det er fint" to the phone's five buttons: Overblik, Opgaver, Events, Posthus and Menu - the whole menu, in the same groups.
   // A page under Menu lights Menu; the profile lights nothing (it is the initials at the top).
   const group = groupOf(here)?.path;
-  const tab = here === "/posthus" ? "/posthus" : group && ["/", "/opgaver", "/arrangementer"].includes(group) ? group : here && here !== "/profil" ? "/mere" : "";
+  const tab = here === "/posthus" || here === "/opgaver" ? here : group && ["/", "/arrangementer"].includes(group) ? group : here && here !== "/profil" ? "/mere" : "";
   const tabs = PHONE_TABS.map(([path, label]) => `<a href="${base}${path}"${tab === path ? ' class="on" aria-current="page"' : ""}>${icon(path)}<span>${label}</span></a>`).join("");
   // The tab on the right edge on every page, for whoever has said who they are.
   const drawer = options.section !== undefined && Boolean(options.who);
