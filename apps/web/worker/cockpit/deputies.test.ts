@@ -75,8 +75,14 @@ describe("a deputy's login", () => {
     const home = await (await call("/", { cookie: signe })).text();
     expect(home).toContain("Signe (suppleant)");
     expect(home).toContain("Du er logget ind som suppleant og har læseadgang");
-    for (const path of ["/posthus", "/opslag", "/medlemmer", "/beslutninger", "/moder", "/arrangementer"])
+    for (const path of ["/posthus", "/opslag", "/beslutninger", "/moder", "/arrangementer"])
       expect((await call(path, { cookie: signe })).status, path).toBe(200);
+    // Asked: "Skal suppleanterne fortsat kunne se medlemslisten?" - "Nej": not the list, not a member's page, and no link to them.
+    for (const path of ["/medlemmer", "/medlemmer/1", "/medlemmer/skifte"]) expect((await call(path, { cookie: signe })).status, path).toBe(403);
+    expect(home).not.toMatch(/href="[^"]*\/medlemmer(?!\/tal)/);
+    // The counts, without names, stay theirs.
+    expect((await call("/medlemmer/tal", { cookie: signe })).status).toBe(200);
+    expect(home).toContain('href="/statistik" class="grp-top">Medlemmer</a>');
     // The same minutes as the board - nothing to share first.
     const minutes = await (await call("/referat/1", { cookie: signe })).text();
     expect(minutes).toContain("Vi holder åbent hus i november");
