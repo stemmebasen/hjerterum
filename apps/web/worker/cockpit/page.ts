@@ -209,7 +209,7 @@ export const menuForPowers = (page: string, may: (power: Power) => boolean) =>
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.18.0";
+export const COCKPIT_VERSION = "1.18.1";
 export const COCKPIT_RELEASED = "2026-11-03";
 /** Requested: "this footer should change accordingly" - the day and the commit each deploy was built from (vite.config.ts), so the line follows
  * what is live; the hand-set day only stands in where nothing was built (the tests). */

@@ -235,6 +235,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
   const bound = personal || !shared ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
   const who = personal ?? deputyName ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
+  // Reported (3 Nov 2026): "Der er kun Posthus derinde, ikke PR og Some" - the menu is made on every page, also on those answered before the chair's
+  // powers further down (Overblik, Møder, Status): what the person may open is known as soon as we know who they are.
+  state.may = power => can(actorOf(who, personal, members.chair), power);
   // A deputy reads only: nothing is changed, created or voted on for them (deputies.ts).
   if (deputyName && request.method !== "GET" && request.method !== "HEAD" && !DEPUTY_POSTS.has(path)) {
     if (path.startsWith("/api/") || (request.headers.get("accept") ?? "").includes("application/json")) return answer({ error: "Som suppleant har du læseadgang." }, 403);
