@@ -4,6 +4,8 @@ import { handleSagaRequest } from "../saga/handler.js";
 import { saveBoardMessage } from "../saga/store.js";
 import { BOARD, deps, fakeServices, OWNER, sagaEnv, testDatabase, memberCookie, memberCookies } from "../saga/test-support.js";
 import type { SagaEnv } from "../saga/env.js";
+import { ACCESS_SINCE_MS } from "./loginAccess.js";
+import { boardMembers } from "./data.js";
 
 // Requested: "Hvordan kan vi sikre os, at kontoen, når først den er identificeret, bliver låst fast til den
 // enkelte bruger?" - "1." (a personal login link from Saga).
@@ -27,7 +29,10 @@ async function setup(extra: Partial<SagaEnv> = {}) {
     return { sent, path: /\/login\/link\/[A-Za-z0-9_-]+/.exec(sent.text)?.[0] ?? null };
   };
   const cookiesOf = (response: Response) => (response.headers.get("set-cookie") ?? "").split(/,(?=\s*hjerterum_)/).map(c => c.split(";")[0]!.trim()).join("; ");
-  return { db, env, services, call, telegram, linkFor, cookiesOf };
+  const press = (from: number, data: string) => handleSagaRequest(new Request("https://hjerterum.test/api/saga/telegram", {
+    method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "hook-secret" },
+    body: JSON.stringify({ update_id: 2, callback_query: { id: "cb1", from: { id: from, first_name: "X" }, data, message: { message_id: 77, chat: { id: from } } } }) }), env, deps(services.fetcher, NOW));
+  return { db, env, services, call, telegram, linkFor, cookiesOf, press };
 }
 
 describe("a personal login from Saga", () => {
@@ -211,5 +216,58 @@ describe("the shared password", () => {
     expect((await call("/login", { form: { password: "hjerte-2026" } })).status).toBe(303);
     const off = await opened({ COCKPIT_SHARED_LOGIN: "off" });
     expect(await (await off.call("/login")).text()).not.toContain('name="password"');
+  });
+});
+
+describe("the account, not the name (security review, 3 Nov 2026)", () => {
+  // Point 1: a board member who takes the chair's name in Telegram gets no login in it, and the chair hears of it.
+  it("gives no login under a name another Telegram account goes by - the chair's least of all", async () => {
+    const { db, services, linkFor } = await setup();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 40, author: "Bob", authorId: "303", text: "Hej", sentAtMs: NOW - 3_600_000 });
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 41, author: "Jacob Hauge", authorId: "303", text: "Hej igen", sentAtMs: NOW - 60_000 });
+    const { sent, path } = await linkFor(303);
+    expect(path).toBeNull();
+    expect(sent.text).toContain("bruges også af en anden");
+    const toChair = services.telegram("sendMessage").map(m => m.body as { chat_id: string; text: string }).find(m => String(m.chat_id) === OWNER);
+    expect(toChair?.text).toContain('som "Jacob Hauge"');
+    // The real chair still gets his own.
+    expect((await linkFor(Number(OWNER))).path).toBeTruthy();
+  });
+
+  it("finds the chair by the owner's account, whatever the other accounts' ids are", async () => {
+    const { db, env } = await setup();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 50, author: "Zed", authorId: "999999999999", text: "Hej", sentAtMs: NOW });
+    expect((await boardMembers(env, db)).chair).toBe("Jacob Hauge");
+  });
+
+  // Point 2: an account new to the group waits for the chair's Godkend; those already there keep their access.
+  it("lets a new account in only when the chair presses Godkend", async () => {
+    const { db, services, linkFor, press } = await setup();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 60, author: "Ny Person", authorId: "404", text: "Hej alle", sentAtMs: ACCESS_SINCE_MS + 60_000 });
+    let { sent, path } = await linkFor(404);
+    expect(path).toBeNull();
+    expect(sent.text).toContain("formanden godkende dig");
+    const ask = services.telegram("sendMessage").map(m => m.body as { chat_id: string; text: string; reply_markup?: { inline_keyboard: { callback_data: string }[][] } }).find(m => String(m.chat_id) === OWNER);
+    expect(ask?.text).toContain("Ny Person beder om login");
+    expect(ask?.reply_markup?.inline_keyboard[0]?.[0]?.callback_data).toBe("approve:login:404");
+    // Asking again does not ask the chair twice, and nobody but the chair can press Godkend.
+    ({ sent } = await linkFor(404));
+    expect(sent.text).toContain("venter stadig");
+    await press(202, "approve:login:404");
+    expect((await linkFor(404)).path).toBeNull();
+    await press(Number(OWNER), "approve:login:404");
+    expect(services.telegram("sendMessage").map(m => m.body as { chat_id: string; text: string }).some(m => String(m.chat_id) === "404" && m.text.includes("Formanden har godkendt dig"))).toBe(true);
+    ({ path } = await linkFor(404));
+    expect(path).toBeTruthy();
+  });
+
+  it("keeps an account out when the chair presses Afvis", async () => {
+    const { db, linkFor, press } = await setup();
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 61, author: "Ukendt", authorId: "505", text: "Hej", sentAtMs: ACCESS_SINCE_MS + 60_000 });
+    await linkFor(505);
+    await press(Number(OWNER), "reject:login:505");
+    const { sent, path } = await linkFor(505);
+    expect(path).toBeNull();
+    expect(sent.text).toContain("ikke givet dig adgang");
   });
 });

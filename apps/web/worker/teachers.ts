@@ -185,7 +185,10 @@ async function claimWebhook(db: D1Database, event: StripeEvent): Promise<boolean
     `INSERT OR IGNORE INTO webhook_events (provider, event_id, event_type, first_seen_at_ms)
      VALUES ('stripe-teacher', ?, ?, ?)`
   ).bind(event.id, event.type, Date.now()).run();
-  return (result.meta?.changes ?? 0) > 0;
+  if ((result.meta?.changes ?? 0) > 0) return true;
+  // Security review (3 Nov 2026), point 7: a failed event is taken again when Stripe retries it, not counted as a duplicate.
+  const retry = await db.prepare("UPDATE webhook_events SET status = 'received', last_error = NULL WHERE provider = 'stripe-teacher' AND event_id = ? AND status = 'failed'").bind(event.id).run();
+  return (retry.meta?.changes ?? 0) > 0;
 }
 
 export async function processTeacherStripeEvent(

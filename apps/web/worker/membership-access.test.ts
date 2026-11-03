@@ -77,4 +77,28 @@ describe("active membership resolution", () => {
     expect(await membershipFromUpload(db, "stoette@example.dk", false)).toMatchObject({ fullName: "Støtte" });
     expect(await membershipFromUpload(db, "ukendt@example.dk")).toBeNull();
   });
+
+  // Security review (3 Nov 2026), point 3: a cancelled membership that has run out, or an account with no membership, is not a member.
+  it("keeps cancelled, lapsed and plan-less accounts from the export out", async () => {
+    const db = testDatabase();
+    const now = Date.parse("2026-11-03T10:00:00Z");
+    await db.prepare("INSERT INTO membershipworks_uploads (filename, uploaded_by, accounts, uploaded_at_ms) VALUES ('x.csv', 'Jacob', 6, 1)").run();
+    const add = (email: string, plan: string | null, tier: string | null, renews: string | null, cancelled = false) => db.prepare(`INSERT INTO membershipworks_accounts (email, full_name, plan, tier, renews_on, row_json, upload_id)
+      VALUES (?, ?, ?, ?, ?, ?, 1)`).bind(email, email, plan, tier, renews, JSON.stringify({ cancelled })).run();
+    await add("aktiv@x.dk", "Standard medlemskab", "standard", "2026-12-01");
+    await add("opsagt-loeber@x.dk", "Standard medlemskab", "standard", "2026-11-20", true);
+    await add("opsagt-udloebet@x.dk", "Standard medlemskab", "standard", "2026-10-01", true);
+    await add("kun-opsagt@x.dk", "Membership Payment Cancelled", null, null, true);
+    await add("ubetalt@x.dk", "Standard medlemskab", "standard", "2026-09-01");
+    await add("intet@x.dk", null, null, null);
+    await add("gratis@x.dk", "Free Membership", null, null);
+    const member = async (email: string) => Boolean(await membershipFromUpload(db, email, true, now));
+    expect(await member("aktiv@x.dk")).toBe(true);
+    expect(await member("opsagt-loeber@x.dk")).toBe(true);
+    expect(await member("opsagt-udloebet@x.dk")).toBe(false);
+    expect(await member("kun-opsagt@x.dk")).toBe(false);
+    expect(await member("ubetalt@x.dk")).toBe(false);
+    expect(await member("intet@x.dk")).toBe(false);
+    expect(await member("gratis@x.dk")).toBe(true);
+  });
 });

@@ -276,3 +276,15 @@ describe("saving a large MembershipWorks export", () => {
     expect(queries).toBeLessThan(80);
   });
 });
+
+// Security review (3 Nov 2026), point 7: a payment Stripe sends again after it failed with us is taken again - not dropped as a duplicate.
+describe("a membership payment that failed with us", () => {
+  it("is taken when Stripe tries again, and a processed one only once", async () => {
+    const db = testDatabase();
+    await db.prepare("INSERT INTO webhook_events (provider, event_id, event_type, first_seen_at_ms, status, last_error) VALUES ('stripe', 'evt_join', 'checkout.session.completed', 1, 'failed', 'D1_ERROR')").run();
+    const member = await stripeMember(db);
+    expect(member.fullName).toBe("Nina Dahl");
+    const again = await processMemberStripeEvent(db, { id: "evt_join", type: "checkout.session.completed", data: { object: {} } } as never);
+    expect(again.duplicate).toBe(true);
+  });
+});

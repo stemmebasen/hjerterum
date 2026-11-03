@@ -2,6 +2,7 @@ import { teamMailAccount } from "./teamMail.js";
 import { chairItemDone, chairItems } from "../cockpit/chairTasks.js";
 import { askInput, askSagaMarkdown, DAILY_QUESTIONS, questionsToday } from "../cockpit/ask.js";
 import { boardMembers } from "../cockpit/data.js";
+import { decideAccess } from "../cockpit/loginAccess.js";
 import { sagaBrief } from "./brief.js";
 import { answerLoginRequest, isLoginRequest } from "../cockpit/personalLogin.js";
 import { recordDeputy } from "../cockpit/deputies.js";
@@ -23,7 +24,7 @@ type TgFile = { file_id: string; file_name?: string; mime_type?: string; file_si
 type TgMessage = { message_id: number; date: number; chat: { id: number; type: string }; from?: TgUser; text?: string; caption?: string;
   entities?: Array<{ type: string; offset: number; length: number }>; reply_to_message?: { message_id: number; from?: TgUser };
   voice?: TgFile; audio?: TgFile; video?: TgFile; document?: TgFile };
-type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: { id: string; from: TgUser; data?: string } };
+type TgUpdate = { update_id: number; message?: TgMessage; callback_query?: { id: string; from: TgUser; data?: string; message?: { message_id: number; chat: { id: number } } } };
 
 const POST_LABELS: Record<string, string> = { reply: "Svar i bestyrelseschatten", weekly_summary: "Ugeopsummering", announcement: "Opslag i bestyrelseschatten" };
 /** The stored picture without what the chair already marked as done. */
@@ -63,9 +64,17 @@ async function handleUpdate(env: SagaEnv, deps: SagaDeps, update: TgUpdate): Pro
   const callback = update.callback_query;
   if (callback) {
     if (String(callback.from.id) !== ownerId) { await telegram.answerCallbackQuery(callback.id, "Kun formanden kan godkende."); return; }
-    const match = /^(approve|reject):(post|minutes):(\d+)$/.exec(callback.data ?? "");
+    const match = /^(approve|reject):(post|minutes|login):(\d+)$/.exec(callback.data ?? "");
     if (!match) { await telegram.answerCallbackQuery(callback.id); return; }
     const approve = match[1] === "approve", id = Number(match[3]);
+    // A first login to admin waits for the chair (cockpit/loginAccess.ts).
+    if (match[2] === "login") {
+      const result = await decideAccess(env, deps, requireDb(env), match[3]!, approve);
+      await telegram.answerCallbackQuery(callback.id, result);
+      if (callback.message) await telegram.editMessageReplyMarkup(String(callback.message.chat.id), callback.message.message_id).catch(() => undefined);
+      await telegram.sendMessage(String(ownerId), result);
+      return;
+    }
     // Requested: "Når et referat er færdigskrevet skal formanden først have det til gennemlæsning" - his Godkend puts it up for the board.
     const result = match[2] === "post" ? await approvePost(env, deps, id, approve) : approve ? await publishMinutes(env, deps, id, "Tak.") : await approveMinutes(env, deps, id, false);
     await telegram.answerCallbackQuery(callback.id, result);

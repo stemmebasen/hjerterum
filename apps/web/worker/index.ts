@@ -1,3 +1,4 @@
+import { tooMany } from "./beregner/handler.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
 import { queueContact } from "./mailchimp-sync.js";
@@ -17,7 +18,7 @@ import {
   processMemberStripeEvent
 } from "./members.js";
 import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
-import { clerkPerson } from "./admin-auth.js";
+import { clerkPerson, clerkPrimaryEmail } from "./admin-auth.js";
 import {
   createEventCheckout,
   createPayoutOnboarding,
@@ -36,10 +37,10 @@ import {
   normalizeCreateRoomBookingInput,
   unattendRoomBooking,
   updateOwnedRoomBooking,
-  isFixedTeacher,
+  fixedTeacherByAccount,
   type RoomBookingRow
 } from "./room-bookings.js";
-import { verifyStripeWebhook } from "./stripe.js";
+import { stripeRequest, verifyStripeWebhook } from "./stripe.js";
 import { listDayItems } from "./room-day.js";
 import {
   coverIsPublic, fileForDownload, filesByBooking, isConfirmedAttendee, removeEventFile, storeEventFile,
@@ -247,6 +248,9 @@ async function guestSignup(request: Request, env: Env, id: number): Promise<Resp
   if (!text || text.length > 4_000) return json({ error: "invalid_form" }, { status: 400 });
   let sent: Record<string, unknown>;
   try { sent = JSON.parse(text) as Record<string, unknown>; } catch { return json({ error: "invalid_form" }, { status: 400 }); }
+  // Security review (3 Nov 2026), point 6: a script could fill an event with made-up guests and have Hjerterum mail anyone - now at most ten
+  // sign-ups an hour from one connection, besides five an hour for one address.
+  if (await tooMany(env.DB, request, Date.now(), "gaest", 10)) return json({ error: "too_many" }, { status: 429 });
   const result = await signUpGuest(env.DB, id, sent, Date.now());
   if ("error" in result) return json({ error: result.error }, { status: result.status });
   if ("confirmed" in result) {
@@ -299,7 +303,7 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
     }
     const result = await createRoomBooking(env.DB, user.userId, {
       ...input,
-      preApproved: await isFixedTeacher(env.DB, membership.email),
+      preApproved: await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail),
       teacherName: membership.fullName,
       teacherEmail: membership.email,
       memberName: membership.fullName,
@@ -346,7 +350,7 @@ async function putRoomBooking(
       env.DB,
       user.userId,
       bookingId,
-      { ...input, preApproved: await isFixedTeacher(env.DB, membership.email) }
+      { ...input, preApproved: await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail) }
     );
     return json({ status: "updated", ...result });
   } catch (error) {
@@ -469,7 +473,15 @@ async function unattendBooking(
 
   // A non-member can take back their own registration too; it only ever touches the caller's own.
   try {
+    // Security review (3 Nov 2026), point 7: a registration that still waits for payment closes its Stripe payment page too, so nobody pays
+    // for a seat they have given up (should a payment slip through all the same, the webhook gives it back).
+    const open = await env.DB.prepare(`SELECT a.stripe_checkout_session_id AS session, p.stripe_account_id AS account FROM room_booking_attendees a
+      JOIN room_bookings b ON b.id = a.room_booking_id JOIN member_payout_accounts p ON p.clerk_user_id = b.payout_clerk_user_id
+      WHERE a.room_booking_id = ? AND a.clerk_user_id = ? AND a.registration_status = 'pending' AND a.stripe_checkout_session_id IS NOT NULL`)
+      .bind(bookingId, user.userId).first<{ session: string; account: string }>().catch(() => null);
     await unattendRoomBooking(env.DB, user.userId, bookingId);
+    if (open && env.STRIPE_SECRET_KEY) await stripeRequest(env.STRIPE_SECRET_KEY, "POST", `/checkout/sessions/${encodeURIComponent(open.session)}/expire`, {}, { connectedAccount: open.account })
+      .catch(error => console.warn("event_checkout_expire_failed", error instanceof Error ? error.message : error));
     return json({ status: "not_attending" });
   } catch (error) {
     const code = error instanceof Error ? error.message : "unattend_failed";
@@ -494,6 +506,9 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
     const designs = await designsByBooking(env.DB, rows.map((row) => row.id));
     return json(rows.map((row) => ({
       ...roomBookingView(row),
+      // Security review (3 Nov 2026), point 5: anyone with a free login could read every organiser's e-mail here, also when they chose to show
+      // no contact. Only the organiser sees their own address, account and the board's note; the others get what "contact" shares.
+      ...(row.clerk_user_id === user.userId ? {} : { teacherEmail: null, ownerClerkUserId: null, reviewNote: null }),
       // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
       imageUrl: (row.review_status ?? "approved") === "approved" ? designs.get(row.id) ?? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
       files: row.clerk_user_id === user.userId ? files.get(row.id) ?? [] : row.is_attending === 1 ? files.get(row.id) ?? [] : [],
@@ -535,7 +550,7 @@ async function uploadEventFile(request: Request, env: Env, bookingId: number): P
   const stored = await storeEventFile(env.DB, env.EVENT_MEDIA, { bookingId, userId: user.userId, kind: kind as FileKind, name: upload.name, bytes: await upload.arrayBuffer(), now: Date.now() });
   if (!stored.ok) return json({ error: stored.error }, { status: FILE_ROUTE_ERRORS[stored.error] ?? 400 });
   let reviewReset = false;
-  if (kind === "cover" && (booking.review_status ?? "approved") === "approved" && !(await isFixedTeacher(env.DB, booking.teacher_email))) {
+  if (kind === "cover" && (booking.review_status ?? "approved") === "approved" && !(await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail))) {
     await env.DB.prepare("UPDATE room_bookings SET review_status = 'pending', review_note = NULL, reviewed_by = NULL, reviewed_at_ms = NULL, updated_at_ms = ? WHERE id = ?").bind(Date.now(), bookingId).run();
     reviewReset = true;
   }
@@ -753,7 +768,11 @@ async function eventPaymentWebhook(request: Request, env: Env): Promise<Response
     const event = await verifyStripeWebhook(
       rawBody, request.headers.get("stripe-signature"), env.STRIPE_EVENT_WEBHOOK_SECRET
     );
-    const result = await processEventPaymentWebhook(env.DB, event);
+    const secret = env.STRIPE_SECRET_KEY;
+    const result = await processEventPaymentWebhook(env.DB, event, secret ? async (paymentIntent, account) => {
+      await stripeRequest(secret, "POST", "/refunds", { payment_intent: paymentIntent, refund_application_fee: true, "metadata[reason]": "registration_cancelled" },
+        { connectedAccount: account, idempotencyKey: `hjerterum-refund-${paymentIntent}` });
+    } : undefined);
     return json({ received: true, duplicate: result.duplicate });
   } catch (error) {
     const code = error instanceof Error ? error.message : "event_webhook_failed";

@@ -1,3 +1,4 @@
+import { tooMany } from "./beregner/handler.js";
 import { mailchimp, MAILCHIMP_LIST_ID, type NewsletterEnv } from "./newsletter-send.js";
 import type { SagaDeps } from "./saga/env.js";
 import { NEWSLETTER_HONEYPOT } from "../site/pages.js";
@@ -13,6 +14,8 @@ export async function handleNewsletterSignup(request: Request, env: NewsletterEn
   const url = new URL(request.url);
   if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   if (request.headers.get("origin") !== url.origin) return json({ error: "forbidden" }, 403);
+  // Security review (3 Nov 2026): the public form could be used to send confirmation mails to anyone - at most five an hour from one connection.
+  if (env.DB && await tooMany(env.DB, request, deps.now(), "nyhedsbrev")) return json({ error: "too_many" }, 429);
   const body = await request.text().catch(() => "");
   if (!body || body.length > 4_000) return json({ error: "invalid_form" }, 400);
   let sent: Record<string, unknown>;

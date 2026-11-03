@@ -273,11 +273,12 @@ export async function deleteMeeting(db: D1Database, id: number): Promise<void> {
  * marked (the one Telegram id that is Saga's owner). */
 export async function boardMembers(env: SagaEnv, db: D1Database): Promise<{ names: string[]; chair: string | null }> {
   if (!env.SAGA_BOARD_CHAT_ID) return { names: [], chair: null };
-  const rows = await db.prepare(`SELECT author_name, MAX(author_telegram_id) AS author_telegram_id FROM board_messages
-    WHERE chat_id = ? AND from_assistant = 0 GROUP BY author_name ORDER BY author_name COLLATE NOCASE`).bind(env.SAGA_BOARD_CHAT_ID).all<{ author_name: string; author_telegram_id: string | null }>();
-  const list = rows.results ?? [];
-  const chair = list.find(row => env.SAGA_OWNER_TELEGRAM_ID && row.author_telegram_id === env.SAGA_OWNER_TELEGRAM_ID)?.author_name ?? null;
-  return { names: list.map(row => row.author_name), chair };
+  const rows = await db.prepare(`SELECT DISTINCT author_name FROM board_messages
+    WHERE chat_id = ? AND from_assistant = 0 ORDER BY author_name COLLATE NOCASE`).bind(env.SAGA_BOARD_CHAT_ID).all<{ author_name: string }>();
+  // The chair is the name the owner's own Telegram account wrote under most recently - found by the account, never by comparing names or ids as text.
+  const chair = env.SAGA_OWNER_TELEGRAM_ID ? (await db.prepare(`SELECT author_name FROM board_messages WHERE chat_id = ? AND author_telegram_id = ? AND from_assistant = 0
+    ORDER BY sent_at_ms DESC LIMIT 1`).bind(env.SAGA_BOARD_CHAT_ID, env.SAGA_OWNER_TELEGRAM_ID).first<{ author_name: string }>())?.author_name ?? null : null;
+  return { names: (rows.results ?? []).map(row => row.author_name), chair };
 }
 
 /** Saga's latest picture of the board, without what the chair has already marked as done in Matrix. */

@@ -588,6 +588,15 @@ export async function unattendRoomBooking(
   if ((result.meta?.changes ?? 0) === 0) throw new Error("attendance_not_found");
 }
 
+/** Security review (3 Nov 2026), point 4: a member could type a fixed teacher's address on their profile and have their own events approved at once.
+ * Whether someone is a fixed teacher is decided by the e-mail Clerk has verified for their account - never by the one on their profile. */
+export async function fixedTeacherByAccount(db: D1Database, clerkUserId: string, clerkSecretKey: string | undefined,
+  primaryEmail: (userId: string, secretKey: string) => Promise<string>): Promise<boolean> {
+  if (!clerkSecretKey) return false;
+  const email = await primaryEmail(clerkUserId, clerkSecretKey).catch(() => null);
+  return email ? isFixedTeacher(db, email) : false;
+}
+
 /** The fixed teachers (the board's list): their events are approved at once. */
 export async function isFixedTeacher(db: D1Database, email: string): Promise<boolean> {
   const row = await db.prepare("SELECT 1 AS hit FROM fixed_teachers WHERE email = ?").bind(email.trim().toLowerCase()).first<{ hit: number }>();

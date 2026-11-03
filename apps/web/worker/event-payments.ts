@@ -358,9 +358,13 @@ function stringField(object: Record<string, unknown>, key: string): string | und
   return typeof object[key] === "string" ? object[key] as string : undefined;
 }
 
+/** Gives a ticket payment back, on the organiser's Stripe account, Hjerterum's fee included. */
+export type TicketRefund = (paymentIntentId: string, connectedAccount: string) => Promise<void>;
+
 export async function processEventPaymentWebhook(
   db: D1Database,
-  event: StripeEvent
+  event: StripeEvent,
+  refund?: TicketRefund
 ): Promise<{ duplicate: boolean }> {
   const existingEvent = await db.prepare(
     "SELECT status FROM webhook_events WHERE provider = 'stripe_event' AND event_id = ?"
@@ -422,7 +426,20 @@ export async function processEventPaymentWebhook(
 
     const succeeded = event.type === "checkout.session.async_payment_succeeded" ||
       (event.type === "checkout.session.completed" && paymentStatus === "paid");
-    if (succeeded) {
+    // Security review (3 Nov 2026), point 7: someone who signed off while on the payment page, or whose event was cancelled, and paid anyway
+    // got no seat and kept no money. Now the payment goes back at once, and the registration stays cancelled.
+    const giveBack = async () => {
+      if (!refund || !paymentIntentId) throw new Error("event_registration_not_pending");
+      await refund(paymentIntentId, event.account!);
+      console.info("event_ticket_refunded", { registrationId, bookingId });
+    };
+    const booking = succeeded ? await db.prepare("SELECT status FROM room_bookings WHERE id = ?").bind(bookingId).first<{ status: string }>() : null;
+    if (succeeded && booking?.status !== "scheduled") {
+      await db.prepare(`UPDATE room_booking_attendees SET registration_status = 'cancelled', cancelled_at_ms = ?, expires_at_ms = NULL
+         WHERE id = ? AND registration_status = 'pending'`).bind(Date.now(), registrationId).run();
+      const current = await db.prepare("SELECT registration_status FROM room_booking_attendees WHERE id = ?").bind(registrationId).first<{ registration_status: string }>();
+      if (current?.registration_status !== "confirmed") await giveBack();
+    } else if (succeeded) {
       const result = await db.prepare(
         `UPDATE room_booking_attendees
          SET registration_status = 'confirmed', stripe_checkout_session_id = ?,
@@ -433,9 +450,7 @@ export async function processEventPaymentWebhook(
         const current = await db.prepare(
           "SELECT registration_status FROM room_booking_attendees WHERE id = ?"
         ).bind(registrationId).first<{ registration_status: string }>();
-        if (current?.registration_status !== "confirmed") {
-          throw new Error("event_registration_not_pending");
-        }
+        if (current?.registration_status !== "confirmed") await giveBack();
       }
     } else if (
       event.type === "checkout.session.expired" ||

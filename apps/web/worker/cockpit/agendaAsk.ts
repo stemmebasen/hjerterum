@@ -7,6 +7,7 @@ import { copenhagenMs } from "./eventDesk.js";
 import { memberLang, type Lang } from "./i18n.js";
 import { askSagaMarkdown, DAILY_QUESTIONS, questionsToday, type AskTurn } from "./ask.js";
 import { memberByTelegram, stillOnBoard } from "./personalLogin.js";
+import { hasAccess } from "./loginAccess.js";
 
 /** Requested: "24 hours before a team meeting she should write to each and every board member directly and ask if they have anything to add to
  * the agenda and she should tell them that they can just write it to her in the chat and she will add it" - "Is there any way that she can write
@@ -71,6 +72,8 @@ export async function answerMemberPrivately(env: SagaEnv, deps: SagaDeps, db: D1
   const now = deps.now();
   const member = await memberByTelegram(env, db, telegramId);
   if (!member) return false;
+  // Only an account the chair has let in, under a name no other account goes by (loginAccess.ts).
+  if (!await hasAccess(env, db, telegramId, member, "bestyrelse")) return false;
   const ask = await openAsk(db, telegramId, now);
   // His replies to minutes and posts waiting for his approval stay where they were. Otherwise he gets the same Saga as in admin - she can change
   // meetings, agendas and his lists ("Frederik er ordstyrer i dag" - "Hun bør kunne forstå og rette i mødet"), which the old private chat could not.
