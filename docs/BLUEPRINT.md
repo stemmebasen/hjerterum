@@ -974,3 +974,26 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - ingen stive vendinger som "X leder den";
   - kun fornavnet.
   - Instruktionen har også et eksempel på tonen. Reglerne gælder for nye opslag. Kladder, der allerede er skrevet, kan rettes i trin 2 på plakatsiden eller under Ugens opslag.
+
+## Opslag hurtigst muligt, PR-kalender og eget tidspunkt (2026-11-03)
+
+- **Formandens ord:**
+  - "Det er også helt forkert, at der først skal fortælles om eventet dagen før. Det bør optimalt set være hurtigst muligt. Og så savner jeg også en mulighed for at planlægge udsendingen."
+  - "Jeg synes, vi bør have en kalender til PR, hvor vi kan se, hvad der er planlagt hvornår, og Saga kommer med forslag til samtlige events, der bliver skeduleret."
+  - "Men hvad siger forskningen i forhold til de gode tidspunkter? Jeg tænker sagtens, at vi kan strække os ud over de timer."
+- **Forslag til alle events, så snart de er i kalenderen:**
+  - Hver time laver Saga et forslag til et opslag (en kladde) for hvert event de næste seks uger, som ikke har et endnu. Det sker i `topUpWeeks` med `planWeek(..., { eventsOnly: true })`.
+  - Formanden får besked på Telegram med et link til PR-kalenderen.
+  - "Ugens events" laves stadig torsdag for næste uge.
+- **Tidspunkt:**
+  - Forslaget sættes til første ledige tid fra nu (`eventPostTimes`), ikke dagen før. De nærmeste events får tid først. Et opslag ligger aldrig senere end to timer før eventet begynder.
+  - Et fast hold med samme titel som i en tidligere uge får sit opslag i ugen før hver gang (`REPEAT_LEAD_MS`), så seks yoga-opslag ikke kommer på én gang.
+  - Første gang flyttes de kladder, ingen har rørt, fra dagen før til første ledige tid. De flyttes kun frem.
+- **Tiderne på dagen** er nu kl. 9, 12, 15, 17 og 19.30, højst tre opslag om dagen og mindst 2,5 timer imellem. Før var det kun kl. 15-17.
+  - Forskningen er ikke enig. Buffer 2025 (reach, 2 mio. opslag) fandt hverdage omkring kl. 15. Buffer 2026 (engagement, 9,6 mio. opslag) fandt torsdag kl. 9 samt onsdag kl. 12 og kl. 18. Sprout Social peger på formiddag til eftermiddag.
+  - Alle er enige om, at natten er dårligst, og fredag og lørdag svagest.
+  - Derfor er dagen spredt ud. Indsigtssiden skal vise, hvad der virker for Hjerterum.
+- **Eget tidspunkt:** I trin 2 på plakatsiden kan man vælge "Sagas forslag", "Nu" eller "Vælg tidspunkt" (fra nu og til senest en time før eventet). `POST /plakater/<id>/publicer` tager imod `at`.
+- **PR-kalender** (PR og SoMe → Kalender, `/pr/kalender`, `cockpit/prCalendar.ts`):
+  - Kalenderen viser alle opslag denne uge og de næste seks, på den dag og det klokkeslæt, de går ud: forslag, der venter på formandens ja, godkendte, sendte og fejlede.
+  - Et eventopslag åbner plakatsiden (billedet, så det færdige opslag). Ugens events og reelen åbner Ugens opslag, der nu kan vise alle kalenderens uger.

@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
+import { listTitle, monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { claimJob } from "../saga/store.js";
@@ -8,7 +8,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, REPEAT_LEAD_MS, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -291,9 +291,11 @@ async function wishedKeys(db: D1Database): Promise<Set<string>> {
  * its own little post on Facebook ("alle events deles mindst én gang"). Only what is not planned yet is added - so planning again keeps the chair's
  * changes and skips, and Saga only writes words for the new events. With onlyNew, a week that has not been planned is left alone.
  * Returns how many posts were made, how many events the week has, and how many of them were new. */
-export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, monday: string, options: { onlyNew?: boolean } = {}): Promise<{ made: number; events: number; fresh: number }> {
+export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, monday: string,
+  options: { onlyNew?: boolean; eventsOnly?: boolean; titles?: Set<string> } = {}): Promise<{ made: number; events: number; fresh: number }> {
   const now = deps.now(), week = weekKey(monday);
-  const planned = Boolean(await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null));
+  // With eventsOnly (Saga's proposals for every event as soon as it is in the calendar), "Ugens events" is left for Thursday's plan.
+  const planned = options.eventsOnly || Boolean(await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null));
   if (options.onlyNew && !planned) return { made: 0, events: 0, fresh: 0 };
   const events = await weekEvents(db, monday, deps.fetcher);
   if (!events.length) return { made: 0, events: 0, fresh: 0 };
@@ -303,6 +305,10 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const known = new Set(existing.map(r => r.source_key));
   // An event that begins within two hours is not given a post it could not get in time.
   const fresh = chosen.filter(e => !known.has(`event:${week}:${e.key}`) && e.startsMs > now + 2 * 3_600_000);
+  // A title already told about in an earlier week (a class that comes back) is told about again in the week before, not at once.
+  const titles = options.titles ?? new Set<string>();
+  const earliest = fresh.map(e => titles.has(titleKey(e)) ? e.startsMs - REPEAT_LEAD_MS : 0);
+  for (const e of chosen) titles.add(titleKey(e));
   if (planned && !fresh.length) return { made: 0, events: chosen.length, fresh: 0 };
   const words = await weekWords(env, deps, fresh);
   const account = await socialAccount(db);
@@ -319,7 +325,7 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
       source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.host)) },
       publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   }
-  const times = eventPostTimes(fresh, notBefore, existing.map(r => r.publish_at_ms).filter((t): t is number => t !== null));
+  const times = eventPostTimes(fresh, notBefore, await takenSlots(db, now), earliest);
   for (const [i, e] of fresh.entries()) {
     // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
     const text = words.events[`E${i + 1}`] ?? plainEventText(e);
@@ -331,14 +337,49 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   return { made, events: chosen.length, fresh: fresh.length };
 }
 
-/** Every three hours: events that came to the calendar after this week or next week was planned get their post too - "systematisk ... alle events". */
+const titleKey = (e: Pick<NewsletterEvent, "title">) => listTitle(e.title).toLocaleLowerCase("da-DK");
+
+/** The times already taken by an event's post (any week - a post now goes out as soon as may be, not in its event's week). */
+async function takenSlots(db: D1Database, nowMs: number): Promise<number[]> {
+  return db.prepare("SELECT publish_at_ms FROM social_posts WHERE kind = 'event' AND publish_at_ms >= ? AND status IN ('draft', 'approved', 'publishing', 'published')").bind(nowMs - 86_400_000)
+    .all<{ publish_at_ms: number }>().then(r => (r.results ?? []).map(x => x.publish_at_ms)).catch(() => []);
+}
+
+/** How far ahead Saga proposes posts for the calendar's events (the same six weeks as PR og SoMe → Events). */
+export const PROPOSE_WEEKS = 6;
+
+/** Requested (the chair, 3 Nov 2026): "Saga kommer med forslag til samtlige events, der bliver skeduleret" and "hurtigst muligt". Every hour: every
+ * event of the next six weeks that has no post yet gets Saga's proposal, to go out in the first free slot (a class that comes back: in the week before),
+ * and the chair is told. The first time, the drafts nobody has touched are moved from the day before to as soon as may be. */
 export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const now = deps.now();
-  if (!(await claimJob(db, "social_top_up", Math.floor(now / (3 * 3_600_000)) * 3 * 3_600_000, now))) return 0;
+  if (!(await socialAccount(db))) return 0;
+  if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
+  if (await claimJob(db, "social_asap_retime", 0, now)) await retimeUntouched(db, now);
   let fresh = 0;
-  for (const monday of [mondayOf(now), nextMonday(now)]) fresh += (await planWeek(env, deps, db, monday, { onlyNew: true })).fresh;
-  if (fresh) await tellChair(env, deps, `${fresh === 1 ? "Ét nyt event" : `${fresh} nye events`} i kalenderen har fået et opslag på Facebook. Læs ${fresh === 1 ? "det" : "dem"}, og godkend her: ${cockpitUrl(env)}/pr`);
+  const titles = new Set<string>();
+  for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
+    fresh += (await planWeek(env, deps, db, monday, { eventsOnly: true, titles })).fresh;
+  if (fresh) await tellChair(env, deps, `Saga har lavet ${fresh === 1 ? "et forslag til et opslag om et nyt event" : `forslag til opslag om ${fresh} nye events`}. Se ${fresh === 1 ? "det" : "dem"} i PR-kalenderen, og godkend: ${cockpitUrl(env)}/pr/kalender`);
   return fresh;
+}
+
+/** Once: the event drafts nobody has changed, planned for the day before, are moved to the first free slot (only ever earlier). */
+async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
+  const rows = await db.prepare(`SELECT id, publish_at_ms, json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts
+      WHERE kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND publish_at_ms > ? ORDER BY starts`).bind(nowMs)
+    .all<{ id: number; publish_at_ms: number; title: string | null; starts: number | null }>().then(r => r.results ?? []).catch(() => []);
+  const movable = rows.filter(r => r.starts);
+  if (!movable.length) return;
+  const ids = new Set(movable.map(r => r.id));
+  const taken = (await db.prepare("SELECT id, publish_at_ms FROM social_posts WHERE kind = 'event' AND publish_at_ms >= ? AND status IN ('draft', 'approved', 'publishing', 'published')").bind(nowMs - 86_400_000)
+    .all<{ id: number; publish_at_ms: number }>().then(r => r.results ?? []).catch(() => [])).filter(r => !ids.has(r.id)).map(r => r.publish_at_ms);
+  const titles = new Set<string>();
+  const events = movable.map(r => ({ title: r.title ?? "", startsMs: r.starts! }) as NewsletterEvent);
+  const earliest = events.map(e => { const k = titleKey(e), seen = titles.has(k); titles.add(k); return seen ? e.startsMs - REPEAT_LEAD_MS : 0; });
+  const times = eventPostTimes(events, nowMs + 30 * MINUTE, taken, earliest);
+  for (const [i, r] of movable.entries()) if (times[i]! < r.publish_at_ms)
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(times[i], r.id).run();
 }
 
 /** Thursday from 10.00: next week is planned (once), and the chair is told. */
@@ -351,7 +392,7 @@ export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Da
   // Tried at most once an hour - a week with nothing in the calendar yet is tried again later.
   if (!(await claimJob(db, `social_week_plan:${week}`, Math.floor(now / 3_600_000) * 3_600_000, now))) return false;
   const { made, events } = await planWeek(env, deps, db, monday);
-  if (made) await tellChair(env, deps, `Ugens opslag for uge ${Number(week.slice(6))} er klar: "Ugens events" og alle ugens ${events} events med hvert sit lille opslag på Facebook. Læs dem, ret dem og godkend ugen her: ${cockpitUrl(env)}/pr`);
+  if (made) await tellChair(env, deps, `"Ugens events" for uge ${Number(week.slice(6))} er klar (ugens ${events} events har hvert sit opslag). Læs det, ret det og godkend her: ${cockpitUrl(env)}/pr/uge`);
   return made > 0;
 }
 

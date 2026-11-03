@@ -38,12 +38,24 @@ describe("every event shared at least once", () => {
     expect(after).toHaveLength(16);
     expect(after.find(p => p.source.key === "mw:SFnew")).toMatchObject({ status: "draft" });
     expect(after.find(p => p.source.key === "mw:SF3")).toMatchObject({ status: "skipped" });
-    // Its slot is free: no two posts at the same time.
-    expect(new Set(after.map(p => p.publish_at_ms)).size).toBe(16);
-    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("Ét nyt event"))).toHaveLength(1);
-    // Once per three hours, and a week that has not been planned is left alone.
+    // No two posts at the same time (the skipped one's slot is free again, so the new event may take it), three a day at most.
+    const live = after.filter(p => p.status !== "skipped");
+    expect(new Set(live.map(p => p.publish_at_ms)).size).toBe(15);
+    const perDay = new Map<string, number>(); for (const p of live) { const d = new Date(p.publish_at_ms! + 3_600_000).toISOString().slice(0, 10); perDay.set(d, (perDay.get(d) ?? 0) + 1); }
+    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(3);
+    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("et forslag til et opslag om et nyt event"))).toHaveLength(1);
+    // Once an hour; nothing new, nothing more.
+    expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 60_000), db)).toBe(0);
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 3_600_000), db)).toBe(0);
-    expect(await socialPosts(db, "week = '2026-W47'")).toHaveLength(0);
+    // Requested: "Saga kommer med forslag til samtlige events, der bliver skeduleret" - an event weeks ahead gets its proposal at once (its week's
+    // "Ugens events" waits for Thursday), and a class that comes back is told about in the week before.
+    await add("SFfar", "Retreat", "2026-11-28T09:00:00Z");
+    await add("SFy3", "Yoga", "2026-11-26T07:00:00Z");
+    expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 2 * 3_600_000), db)).toBe(2);
+    const far = (await socialPosts(db, "kind = 'event' AND week = '2026-W48'"));
+    expect(far.find(p => p.source.key === "mw:SFfar")!.publish_at_ms!).toBeLessThan(Date.parse("2026-11-12T00:00:00Z"));
+    expect(far.find(p => p.source.key === "mw:SFy3")!.publish_at_ms!).toBeGreaterThanOrEqual(Date.parse("2026-11-19T07:00:00Z"));
+    expect(await socialPosts(db, "kind = 'week' AND week = '2026-W48'")).toHaveLength(0);
   });
 
   it("never posts about an event that has been cancelled or removed", async () => {
