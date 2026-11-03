@@ -1,4 +1,5 @@
 import { EventCard, calendarMonth } from "./event-card";
+import { EventPrMaterial } from "./pr-material-editor";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
@@ -619,6 +620,7 @@ function MemberEvents({
               </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
+              <EventPrMaterial clerk={clerk} />
               {/* Requested: "\"Opslag til de sociale medier\" sektionen bør først vises når tidspunktet er valgt." */}
               {plan.date && plan.start && plan.end ? <PosterChoice clerk={clerk} title={liveTitle} startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null}
                   teacher={member.fullName} cover={cover} coverUrl={existingFiles.find((file) => file.kind === "cover")?.url ?? null}

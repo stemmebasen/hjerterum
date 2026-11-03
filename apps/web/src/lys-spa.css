@@ -955,3 +955,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-cirkel a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .event-cirkel-mark { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #a9822c; box-shadow: inset 0 0 0 3px var(--lys-bg, #fff), inset 0 0 0 4.5px #a9822c; }
 .event-cirkel small { color: var(--lys-muted); font-size: 13px; }
+
+/* "Billeder til PR" in the event form (pr-material-editor.tsx EventPrMaterial): the teacher's PR material right where the event is made. */
+.event-pr-warn { margin: 0; padding: 12px 14px; border-radius: 12px; background: #f6e3d9; color: #6e2f20; line-height: 1.5; }
+.event-pr-ok { margin: 0; color: #3f6b3a; line-height: 1.5; }
+.pr-editor.is-inline { padding: 0; margin: 0; box-shadow: none; background: none; border: 0; }
