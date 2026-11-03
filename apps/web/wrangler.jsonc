@@ -40,6 +40,11 @@
         {
           "binding": "EVENT_MEDIA",
           "bucket_name": "hjerterum-event-media"
+        },
+        {
+          "binding": "ARCHIVE",
+          "bucket_name": "hjerterum-arkiv-eu",
+          "jurisdiction": "eu"
         }
       ]
     },
