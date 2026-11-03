@@ -51,7 +51,8 @@ function sentLinks(p: SocialPost): string {
 }
 
 function channelBoxes(p: SocialPost, allowed: Channel[], disabled: boolean): string {
-  return `<div class="pr-channels">${allowed.map(c => `<label><input type="checkbox" name="channel" value="${c}"${p.channels.includes(c) ? " checked" : ""}${disabled ? " disabled" : ""}> ${NETWORK[c]}</label>`).join("")}</div>`;
+  // "kanaler": the boxes were on the page, so what is not ticked was taken off (handler.ts).
+  return `<div class="pr-channels"><input type="hidden" name="kanaler" value="1">${allowed.map(c => `<label><input type="checkbox" name="channel" value="${c}"${p.channels.includes(c) ? " checked" : ""}${disabled ? " disabled" : ""}> ${NETWORK[c]}</label>`).join("")}</div>`;
 }
 
 function actions(base: string, p: SocialPost, approveLabel: string): string {
@@ -64,8 +65,8 @@ function actions(base: string, p: SocialPost, approveLabel: string): string {
 
 function shareCard(base: string, p: SocialPost, account: SocialAccount | null): string {
   const s = p.source;
-  const instagramOk = Boolean(account?.ig_user_id) && (s.media === "image" || s.media === "carousel");
-  const allowed: Channel[] = s.network === "instagram" ? (instagramOk ? ["instagram", "facebook"] : ["facebook"]) : ["facebook"];
+  const instagramOk = Boolean(account?.ig_user_id) && (s.media === "image" || s.media === "carousel") && p.images.length > 0;
+  const allowed: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
   const locked = !open(p) || p.status === "approved";
   return `<article class="pr-post">
 <header><span class="chip">${NETWORK[s.network ?? "facebook"]}</span>${status(p)}${s.sharedAt ? `<span class="chip good">Delt d. ${esc(SHARED_DAY.format(s.sharedAt))}</span>` : ""}${s.consent ? `<span class="chip good">PR-samtykke givet</span>` : ""}
@@ -73,10 +74,10 @@ function shareCard(base: string, p: SocialPost, account: SocialAccount | null): 
 <div class="pr-orig">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<p>${esc((s.text ?? "").slice(0, 500))}${(s.text ?? "").length > 500 ? " …" : ""}</p></div>
 ${s.sharedAt ? `<p class="small muted">Hjerterum har allerede delt det d. ${esc(SHARED_DAY.format(s.sharedAt))}. Du kan springe det over.</p>` : ""}
 ${s.network === "instagram" && s.media === "video" ? `<p class="small muted">Videoer kan ikke lægges op igen på Instagram herfra. Del den på Facebook som link, eller del den selv i appen.</p>` : ""}
-${s.network === "instagram" && !s.consent ? `<p class="small muted">Instagram har ingen "del"-knap for os: opslaget lægges op igen på Hjerterums profil med afsenderen nævnt. Gør det kun, når afsenderen har sagt ja.</p>` : ""}
+${instagramOk && !s.consent ? `<p class="small muted">Instagram har ingen "del"-knap for os: opslaget lægges op igen på Hjerterums profil med afsenderen nævnt. Gør det kun, når afsenderen har sagt ja.</p>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
-<label class="pr-field"><span>Hjerterums ord over delingen${s.network === "instagram" ? " (Facebook)" : ""}</span><textarea name="text" rows="3"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
-${s.network === "instagram" && instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>
+<label class="pr-field"><span>Hjerterums ord over delingen${instagramOk ? " (Facebook)" : ""}</span><textarea name="text" rows="3"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
+${instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>
 <label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((s.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 ${channelBoxes(p, allowed, locked)}
 ${actions(base, p, "Del nu")}</form></article>`;
@@ -99,7 +100,7 @@ function weekCard(base: string, p: SocialPost, account: SocialAccount | null): s
   if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
   const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
-  const allowed: Channel[] = p.kind === "week" && account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
+  const allowed: Channel[] = account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
   return `<article class="pr-post">
 <header>${status(p)}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
@@ -108,7 +109,7 @@ ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(s
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
 <label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 <div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
-${p.kind === "week" ? channelBoxes(p, allowed, locked) : ""}</div>
+${channelBoxes(p, allowed, locked)}</div>
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 

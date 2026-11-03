@@ -1046,7 +1046,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
           ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
-          ...(post.kind === "event" || post.source.format === "reel" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
+          ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);

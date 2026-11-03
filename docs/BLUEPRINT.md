@@ -923,3 +923,12 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Facebook-begivenhed oprettet;
   - Lav design (Plakater og opslag).
   - Man kommer tilbage til oversigten efter hvert tryk.
+
+## Facebook og Instagram samtidig, når det er muligt (2026-11-03)
+
+- Formandens ønske: "Jeg vil rigtig gerne kunne dele simultant på begge medier, når som helst det er muligt."
+- **Eventopslag:** Er Instagram forbundet, og har eventet et billede, går opslaget både på Facebook og Instagram. På Instagram får teksten "Læs mere og tilmeld dig via linket i bio", og underviseren inviteres som samarbejdspartner.
+- **Delinger:** Et tagget opslag med billede går begge steder hen fra start. Facebook deler opslaget som link. Instagram lægger billedet op igen med "Foto og tekst: <afsender>", også når opslaget kommer fra Facebook.
+- **Ugens events** gik allerede begge steder hen. **Reelen** er kun på Instagram; Facebook-video kræver tilladelsen `publish_video`.
+- Ved hvert opslag kan man fjerne et af medierne med fluebenene. Kanalerne ændres kun, når fluebenene er på siden (`kanaler`).
+- Instagram tager kun jpg. Afviser Instagram et billede, er Facebook-delen allerede sendt, og fejlen siger, hvad man kan gøre.

@@ -153,7 +153,8 @@ describe("the PR cockpit", () => {
     let shares = await socialPosts(db, "kind = 'share'");
     expect(shares).toHaveLength(3);
     expect(shares.find(p => p.source.id === "fb-1")).toMatchObject({ status: "draft", channels: ["facebook"], text: "Tak til Kasper for at dele sin workshop.", link: "https://www.facebook.com/kasper/posts/1" });
-    expect(shares.find(p => p.source.id === "ig-1")).toMatchObject({ channels: ["instagram"] });
+    // "simultant på begge medier, når som helst det er muligt": a photo goes to both from the start.
+    expect(shares.find(p => p.source.id === "ig-1")).toMatchObject({ channels: ["facebook", "instagram"] });
     expect(shares.find(p => p.source.id === "ig-1")!.source.instagramText).toContain("Foto og tekst: @gitta.dans");
     // A video cannot go up again on Instagram: it is offered as a link on Facebook.
     expect(shares.find(p => p.source.id === "ig-2")).toMatchObject({ channels: ["facebook"] });
@@ -165,8 +166,8 @@ describe("the PR cockpit", () => {
 
     // The chair passes two of them on; the third is skipped.
     const fb = shares.find(p => p.source.id === "fb-1")!, ig = shares.find(p => p.source.id === "ig-1")!, video = shares.find(p => p.source.id === "ig-2")!;
-    await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Kasper!", channel: "facebook" }) });
-    await call(`/pr/opslag/${ig.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Gitta.", instagram_text: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", channel: "instagram" }) });
+    await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Kasper!", channel: "facebook", kanaler: "1" }) });
+    await call(`/pr/opslag/${ig.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Gitta.", instagram_text: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", channel: "instagram", kanaler: "1" }) });
     await call(`/pr/opslag/${video.id}`, { method: "POST", cookie, body: form({ do: "spring" }) });
     await run(NOW + 2 * 60_000);
     await run(NOW + 3 * 60_000);
