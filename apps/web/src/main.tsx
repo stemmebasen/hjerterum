@@ -354,7 +354,7 @@ function RoomPriceCalculator() {
   const crosses = roomBookingProblems({ bookingType: "reduced", ...when }).includes("crosses_a_time_boundary");
   const monthKr = membershipPlans.standard.month / 100;
   const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
-  const band = standard.band === "A" ? "A-tid · weekend eller fra kl. 18.30" : "B-tid · hverdage før kl. 18.30";
+  const band = standard.band === "A" ? "A-tid (weekend eller fra kl. 18.30)" : "B-tid (hverdage før kl. 18.30)";
   const lock = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;
 
   return (
@@ -366,7 +366,9 @@ function RoomPriceCalculator() {
           <div role="group" aria-labelledby="rc-hours-label"><button type="button" onClick={() => setHours(Math.max(2, hours - 0.5))} disabled={hours <= 2} aria-label="Kortere">−</button>
             <b aria-live="polite">{String(hours).replace(".", ",")} t</b><button type="button" onClick={() => setHours(Math.min(10, hours + 0.5))} disabled={hours >= 10} aria-label="Længere">+</button></div></div>
       </div>
-      <p className="rc-band">{band}{hallFree === true && <span className="rc-free"> · ✓ Salen er ledig</span>}{hallFree === false && <span className="rc-taken"> · Salen er optaget på det tidspunkt</span>}</p>
+      {/* Douglas (3 Nov): "Need to remove the words: 'B-time · weekdays before 6:30 PM' on this section as it is not relevant for the standard
+          option" - the time band sets only the members' prices, so it is said there. */}
+      {hallFree !== null && <p className="rc-band">{hallFree === true && <span className="rc-free">✓ Salen er ledig</span>}{hallFree === false && <span className="rc-taken">Salen er optaget på det tidspunkt</span>}</p>}
       <div className="rc-prices">
         <article className="rc-tile open">
           <span className="rc-label">Standardpris</span>
@@ -377,7 +379,7 @@ function RoomPriceCalculator() {
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Reduceret pris</span>
           <strong>{crosses ? "–" : kr(reduced.totalPriceKr)}</strong>
-          <span className="rc-sub">{crosses ? "Medlemmer booker før eller efter kl. 18.30" : "Kun for medlemmer"}</span>
+          <span className="rc-sub">{crosses ? "Medlemmer booker før eller efter kl. 18.30" : `Kun for medlemmer · ${band}`}</span>
         </article>
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Gratis leje</span>
