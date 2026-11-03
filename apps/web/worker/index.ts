@@ -17,7 +17,7 @@ import {
   processMemberStripeEvent
 } from "./members.js";
 import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
-import { clerkPerson } from "./admin-auth.js";
+import { clerkPerson, clerkPrimaryEmail } from "./admin-auth.js";
 import {
   createEventCheckout,
   createPayoutOnboarding,
@@ -36,7 +36,7 @@ import {
   normalizeCreateRoomBookingInput,
   unattendRoomBooking,
   updateOwnedRoomBooking,
-  isFixedTeacher,
+  fixedTeacherByAccount,
   type RoomBookingRow
 } from "./room-bookings.js";
 import { verifyStripeWebhook } from "./stripe.js";
@@ -299,7 +299,7 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
     }
     const result = await createRoomBooking(env.DB, user.userId, {
       ...input,
-      preApproved: await isFixedTeacher(env.DB, membership.email),
+      preApproved: await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail),
       teacherName: membership.fullName,
       teacherEmail: membership.email,
       memberName: membership.fullName,
@@ -346,7 +346,7 @@ async function putRoomBooking(
       env.DB,
       user.userId,
       bookingId,
-      { ...input, preApproved: await isFixedTeacher(env.DB, membership.email) }
+      { ...input, preApproved: await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail) }
     );
     return json({ status: "updated", ...result });
   } catch (error) {
@@ -535,7 +535,7 @@ async function uploadEventFile(request: Request, env: Env, bookingId: number): P
   const stored = await storeEventFile(env.DB, env.EVENT_MEDIA, { bookingId, userId: user.userId, kind: kind as FileKind, name: upload.name, bytes: await upload.arrayBuffer(), now: Date.now() });
   if (!stored.ok) return json({ error: stored.error }, { status: FILE_ROUTE_ERRORS[stored.error] ?? 400 });
   let reviewReset = false;
-  if (kind === "cover" && (booking.review_status ?? "approved") === "approved" && !(await isFixedTeacher(env.DB, booking.teacher_email))) {
+  if (kind === "cover" && (booking.review_status ?? "approved") === "approved" && !(await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail))) {
     await env.DB.prepare("UPDATE room_bookings SET review_status = 'pending', review_note = NULL, reviewed_by = NULL, reviewed_at_ms = NULL, updated_at_ms = ? WHERE id = ?").bind(Date.now(), bookingId).run();
     reviewReset = true;
   }

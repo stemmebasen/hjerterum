@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createRoomBooking, normalizeCreateRoomBookingInput } from "./room-bookings.js";
+import { createRoomBooking, fixedTeacherByAccount, normalizeCreateRoomBookingInput } from "./room-bookings.js";
 import { testDatabase } from "./saga/test-support.js";
 
 function futureIso(minutes: number): string {
@@ -148,5 +148,18 @@ describe("setup and cleanup around a booking", () => {
   it("allows only none, 15, 30, 45 or 60 minutes", () => {
     expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 20, 0)).toThrow("invalid_setup_minutes");
     expect(() => withBuffers("2027-11-16T09:30:00Z", "2027-11-16T11:30:00Z", 0, 90)).toThrow("invalid_cleanup_minutes");
+  });
+});
+
+// Security review (3 Nov 2026), point 4: a fixed teacher is known by the e-mail Clerk has verified, not by the one a member types on their profile.
+describe("fixed teachers", () => {
+  it("are found by the account's verified e-mail only", async () => {
+    const db = testDatabase();
+    await db.prepare("INSERT INTO fixed_teachers (email, name, added_by, added_at_ms) VALUES ('fast@x.dk', 'Fast', 'Jacob', 1)").run();
+    const verified = (email: string) => async () => email;
+    expect(await fixedTeacherByAccount(db, "user_1", "sk", verified("fast@x.dk"))).toBe(true);
+    expect(await fixedTeacherByAccount(db, "user_2", "sk", verified("anden@x.dk"))).toBe(false);
+    expect(await fixedTeacherByAccount(db, "user_1", undefined, verified("fast@x.dk"))).toBe(false);
+    expect(await fixedTeacherByAccount(db, "user_1", "sk", async () => { throw new Error("clerk_down"); })).toBe(false);
   });
 });
