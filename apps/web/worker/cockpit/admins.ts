@@ -135,5 +135,5 @@ export function adminsPage(base: string, who: string | null, d: { cockpit: Cockp
 <section class="panel"><header><h2>AI-forbrug<span class="count">seneste døgn: ${d.usage?.day.calls ?? 0} kald, ${tokens(d.usage?.day.tokens ?? 0)} tokens${d.usage?.day.usd !== undefined ? ` · i dag ca. $${d.usage.day.usd.toFixed(2)} af $${DAILY_BUDGET_USD.toFixed(2)}` : ""}</span></h2><p>Hvad Sagas AI-kald har været til de seneste 7 dage - mest forbrug øverst. "Ind" er det, hun sender med; "Ud" er svaret. Når dagens skøn passerer budgettet, bruger Saga den mellemstore model resten af dagen.</p></header>${usage}</section>
 <section class="panel"><header><h2>Samtaler med Saga</h2><p>Det, bestyrelsens medlemmer har spurgt Saga om, og hvad hun svarede.</p></header><a class="more" href="${base}/samtaler">Se samtalerne →</a></section>
 <section class="panel"><header><h2>Admin i medlemsområdet<span class="count">${active(d.area)} aktive af ${d.area.length}</span></h2><p>E-mails, der må åbne admin-siderne på medlem.hjerterum.info. Login og sidste login hentes hos Clerk.</p></header>${area}</section></main>`,
-    { section: "/medlemmer", who, style: ADMINS_STYLE });
+    { section: "/profil", who, style: ADMINS_STYLE });
 }

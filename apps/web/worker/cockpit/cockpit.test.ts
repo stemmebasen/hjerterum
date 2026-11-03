@@ -834,15 +834,22 @@ describe("each member's task list", () => {
     let page = await (await call("/cockpit/opgaver", { cookie: as("Gitta") })).text();
     expect(page).toContain("Lav event-mail");
     expect(page.slice(0, page.indexOf("Hele bestyrelsen"))).not.toContain("Book lokale");
-    expect(page).toContain('href="/cockpit/opgaver" class="on"');
-    // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - they are under the initials (Profil), not in the menu bar.
+    expect(page).toContain('href="/cockpit/opgaver" class="grp-top on"');
+    // Requested: "We need to make a smarter menu for admin, with submenus" - "Ja, det er fint": six places with their pages beneath,
+    // the chair's own pages only for the chair, and nothing but what is personal under the initials.
     const menu = page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"));
-    expect(menu).toContain("/cockpit/arrangementer");
-    expect(menu).not.toContain("/cockpit/medlemmer");
-    expect(menu).not.toContain("/cockpit/statistik");
+    for (const label of [">Overblik<", ">Opgaver<", ">Bestyrelse<", ">Events<", ">Kommunikation<", ">Medlemmer<"]) expect(menu).toContain(label);
+    for (const path of ["/cockpit/status", "/cockpit/beslutninger", "/cockpit/opslag", "/cockpit/arkiv", "/cockpit/arrangementer/undervisere", "/cockpit/posthus", "/cockpit/medlemmer", "/cockpit/statistik"]) expect(menu).toContain(`href="${path}"`);
+    for (const path of ["/cockpit/filarkiv", "/cockpit/arrangementer/nyhedsbrev", "/cockpit/arrangementer/mail", "/cockpit/medlemskab"]) expect(menu).not.toContain(`href="${path}"`);
+    expect(page).not.toContain("data-power=");
     const profile = await (await call("/cockpit/profil", { cookie: as("Gitta") })).text();
-    expect(profile).toContain('href="/cockpit/medlemmer"');
-    expect(profile).toContain('href="/cockpit/statistik"');
+    expect(profile).not.toContain('<div class="menu">\n<a href="/cockpit/beslutninger"');
+    expect(profile).not.toContain("Formanden</h2>");
+    // On a phone: Overblik, Opgaver, Events, Posthus and Menu, and Menu holds every place.
+    const tabs = page.slice(page.indexOf('<nav class="tabs"'));
+    expect(tabs.slice(0, tabs.indexOf("</nav>")).match(/<span>[^<]+<\/span>/g)).toEqual(["<span>Overblik</span>", "<span>Opgaver</span>", "<span>Events</span>", "<span>Posthus</span>", "<span>Menu</span>"]);
+    const phoneMenu = await (await call("/cockpit/mere", { cookie: as("Gitta") })).text();
+    for (const text of ["<h2>Bestyrelse</h2>", "<h2>Kommunikation</h2>", 'href="/cockpit/statistik"', "Logget ind som Gitta"]) expect(phoneMenu).toContain(text);
 
     // Checked off: it folds into "Klaret" and leaves the front page.
     const key = /name="id" value="([^"]+)"/.exec(page)![1]!.replace(/&amp;/g, "&").replace(/&#39;/g, "'");
@@ -1014,10 +1021,11 @@ describe("Administratorer", () => {
     // The link is on Medlemmer, for the chair only.
     expect(await (await call("/cockpit/medlemmer", { cookie: chairCookie })).text()).toContain("/administratorer");
     expect(await (await call("/cockpit/medlemmer", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
-    // Medlemmer is tucked away from the menu, so the chair finds Administratorer and Samtaler on Profil - and the others do not.
+    // The chair's own pages are on Profil under "Formanden" - and the others do not see them; the chair's menu also holds her new pages.
     const chairProfile = await (await call("/cockpit/profil", { cookie: chairCookie })).text();
-    expect(chairProfile).toContain('<a href="/cockpit/administratorer">Administratorer →</a>');
-    expect(chairProfile).toContain('<a href="/cockpit/samtaler">Samtaler med Saga →</a>');
+    expect(chairProfile).toContain('<a href="/cockpit/administratorer">Administratorer</a>');
+    expect(chairProfile).toContain('<a href="/cockpit/samtaler">Samtaler med Saga</a>');
+    for (const path of ["/cockpit/filarkiv", "/cockpit/arrangementer/nyhedsbrev", "/cockpit/arrangementer/mail", "/cockpit/medlemskab"]) expect(chairProfile).toContain(`href="${path}"`);
     expect(await (await call("/cockpit/profil", { cookie: as("Lisbeth") })).text()).not.toContain("/administratorer");
     // With the shared password anyone can pick the chair's name - so the name alone opens nothing of hers.
     const picked = await call("/cockpit/administratorer", { cookie: as("Jacob Hauge") });

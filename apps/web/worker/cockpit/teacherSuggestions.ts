@@ -113,5 +113,5 @@ export function suggestionsPage(base: string, data: { suggestions: Suggestion[];
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}
 <p class="muted">Systemet har ledt efter den mail eller det telefonnummer, en underviser mangler, i mails til team@, hjemmesidens underviserregister og medlemslisterne. Det matcher på for- og efternavn og ser bort fra store bogstaver, accenter og mellemnavne - så intet gemmes, før I har sagt <strong>Brug</strong>. <strong>Nej tak</strong> betyder, at forslaget ikke kommer igen.</p>
 ${cards || `<div class="card"><p class="muted" style="margin:0">${data.missing ? `Ingen forslag lige nu. ${data.missing} undervisere mangler stadig al kontakt - de står ikke i mails til team@ eller medlemslisterne under samme for- og efternavn. Skriv kontakten ind på underviserens side, når I får den.` : "Ingen forslag lige nu - alle undervisere har en kontakt."}</p></div>`}</main>`,
-  { section: "/arrangementer", who: data.who, style: STYLE });
+  { section: "/arrangementer/undervisere", who: data.who, style: STYLE });
 }

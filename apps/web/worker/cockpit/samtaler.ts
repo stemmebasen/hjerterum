@@ -88,5 +88,5 @@ ${c.turns.map(turn => `<div class="turn"><div class="q">${esc(turn.question)}</d
 <form class="m-search" method="get" action="${base}/samtaler">${d.member ? `<input type="hidden" name="medlem" value="${esc(d.member)}">` : ""}<input type="search" name="q" value="${esc(d.q)}" placeholder="Søg i spørgsmål og svar" maxlength="80" aria-label="Søg"><button class="ghost">Søg</button>${t.turns ? `<a class="ghost" href="${esc(download)}" style="align-self:center">Hent udskrift (tekst)</a>` : ""}</form>
 ${picks}${list || `<p class="empty">${total ? "Ingen samtaler passer til det valgte." : "Ingen har spurgt Saga endnu."}</p>`}
 ${t.more ? `<p class="small muted">Her vises de seneste ${SHOWN_TURNS} spørgsmål. Vælg et medlem eller søg for at komme længere tilbage.</p>` : ""}</main>`,
-    { section: "/medlemmer", who, style: SAMTALER_STYLE });
+    { section: "/profil", who, style: SAMTALER_STYLE });
 }

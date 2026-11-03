@@ -64,7 +64,7 @@ import { signReminder, SIGN_STYLE } from "./signReminder.js";
 import { associationEvents, isAssocMeeting, rsvps, toggleRsvp } from "./assocEvents.js";
 import { cleanupCard, cleanupForChair, decideCleanup } from "./cleanup.js";
 import { autoTranslated, frontPageTexts, translatePage, translatedMinutes, translateMinutes, translateTexts, translations } from "./translate.js";
-import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
+import { archivePage, decisionsPage, layout, linkPage, loginPage, meetingPage, meetingsPage, menuForPowers, menuPage, morePage, overviewPage, shortDay, statusPage, whoPage, type PastMeeting } from "./page.js";
 
 /** Requested: "Lad os bygge cockpit.hjerterum.info for bestyrelsen. Her er der styr på referater og
  * dagsorden. Samt et overblik som er det jeg har i dag - både generelt og personligt (f.eks.
@@ -104,6 +104,11 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   const state: State = { lang: "da" };
   let response = await route(request, env, deps, state);
   const isHtml = (response.headers.get("content-type") ?? "").startsWith("text/html");
+  // The menu shows only the pages the person may open (page.ts MENU); before we know who it is, none of those.
+  if (isHtml && response.body) {
+    const page = await response.text();
+    response = new Response(menuForPowers(page, state.may ?? (() => false)), { status: response.status, headers: response.headers });
+  }
   // The reminder to approve minutes: a coloured bar right under the header, on every page (signReminder.ts).
   if (state.banner && isHtml && response.status === 200) {
     const body = await response.text();
@@ -124,7 +129,7 @@ export async function handleCockpitRequest(request: Request, env: SagaEnv, deps:
   return new Response(translateHtml(page), { status: response.status, headers: response.headers });
 }
 
-type State = { lang: Lang; banner?: string; deputy?: boolean };
+type State = { lang: Lang; banner?: string; deputy?: boolean; may?: (power: Power) => boolean };
 
 async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: State): Promise<Response> {
   const url = new URL(request.url);
@@ -473,7 +478,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   const actor = actorOf(who, personal, members.chair);
   const may = (power: Power) => can(actor, power);
   const denied = (power: Power) => html(problem(base, who, denial(actor, power)), 403);
-  if ((path === "/profil" || path === "/mere") && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: may("access.close") ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: may("admins.read"), archive: may("archive.manage"),
+  state.may = may;
+  if (path === "/mere" && request.method === "GET") return html(menuPage(base, who));
+  if (path === "/profil" && request.method === "GET") return html(morePage(base, who, { lang: state.lang, locked: Boolean(personal), members: may("access.close") ? members.names.filter(n => n !== personal) : [], done: url.searchParams.get("lukket"), chair: may("admins.read"),
     responsibilities: who ? (await responsibilities(db)).get(who) ?? "" : "", saved: url.searchParams.get("ansvar") === "gemt" }));
   // Requested: "Indbyg at man skal skrive hvad ens ansvarsområder er, så Saga ved besked" (data.ts responsibilities).
   if (path === "/profil/ansvar" && request.method === "POST") {

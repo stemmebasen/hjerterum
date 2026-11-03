@@ -207,7 +207,7 @@ ${missing ? `<p class="small" style="margin:12px 0 0"><a href="${base}/arrangeme
 <div class="card"><h2>Aktive <span class="pill">${active.length}</span></h2><p class="small muted">Kommende arrangementer eller aktive det seneste år.</p>${active.length ? `<ul class="tl">${active.map(item).join("")}</ul>` : `<p class="muted">Ingen.</p>`}</div>
 ${earlier.length ? `<div class="card"><details${q ? " open" : ""}><summary><strong>Tidligere (${earlier.length})</strong></summary><ul class="tl">${earlier.map(item).join("")}</ul></details></div>` : ""}
 ${hiddenRows.length ? `<details class="card"><summary class="small muted">Fjernet fra listen (${hiddenRows.length})</summary><ul class="tl">${hiddenRows.map(t => `<li><span>${esc(t.name)}</span><form method="post" action="${base}/arrangementer/undervisere/skjul" class="x-form"><input type="hidden" name="key" value="${esc(t.key)}"><input type="hidden" name="hide" value="0"><button class="ghost">Sæt tilbage</button></form></li>`).join("")}</ul></details>` : ""}</main>`,
-  { section: "/arrangementer", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
+  { section: "/arrangementer/undervisere", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
 }
 
 export function teacherPage(base: string, data: { name: string; record: TeacherRecord | null; known: KnownContact[]; events: TeacherEvent[]; fixed: boolean; nowMs: number; notice: string; aiReady: boolean; who: string | null; pr?: string }): string {
@@ -231,7 +231,7 @@ ${data.aiReady ? `<form method="post" action="${base}/arrangementer/undervisere/
 <p class="small muted">Saga læser arrangementerne, mails til team@, bestyrelsens gruppe og referaterne - hun finder ikke på noget.</p></div></div>
 ${data.pr ?? ""}<div class="card"><h2>Events</h2>${upcoming.length ? `<h3>Kommende</h3><ul class="plain evlist">${upcoming.map(evLine).join("")}</ul>` : ""}
 ${past.length ? `<details${upcoming.length ? "" : " open"}><summary>Afholdte (${past.length})</summary><ul class="plain evlist">${past.slice(0, 200).map(evLine).join("")}</ul></details>` : ""}${data.events.length ? "" : `<p class="muted">Ingen arrangementer fundet.</p>`}</div></main>`,
-  { section: "/arrangementer", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
+  { section: "/arrangementer/undervisere", who: data.who, style: STYLE + PR_MATERIAL_STYLE });
 }
 
 /** Saga's points as a small list, escaped. */

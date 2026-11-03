@@ -7,6 +7,7 @@ import { APPROVED_BADGE, HANDSHAKE, laurel, VOTES_STYLE, type VoteBlocks } from 
 import { DRAWER_STYLE, postDrawer, type PostKind } from "./postDrawer.js";
 import { agendaAuthors, agreedLabel, DEFAULT_PLACE, guessKind, meetingHeading, rolesLine, sagaRoom, tasksByPerson, type ApprovedMinutes, type Decision, type GroupNow, type Meeting, type Task } from "./data.js";
 import { LYS_CSS } from "../../lys.js";
+import type { Power } from "./authority.js";
 
 /** The admin's own typeface (the blue design from before 3 October): Bricolage Grotesque. */
 const BRICOLAGE_FONT_URL = "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..700&display=swap";
@@ -51,13 +52,21 @@ header.bar::before{content:"";position:absolute;inset:0;z-index:-1;background:co
 @media (prefers-color-scheme:dark){.brand-mark img{filter:none;opacity:1}}
 .brand b{font-weight:700;font-size:18px;letter-spacing:-.01em}.brand .names span{font-size:12.5px;color:var(--muted);font-weight:500}
 .brand .names{display:grid;line-height:1.15}
-nav.desk{display:flex;gap:4px;flex:1;min-width:0;justify-content:center}nav.desk a{padding:8px 14px;border-radius:999px;text-decoration:none;color:var(--ink);font-weight:500;font-size:15px;white-space:nowrap}
-nav.desk a:hover{color:var(--accent)}nav.desk a.on{background:var(--card);box-shadow:var(--shadow);font-weight:600}
+nav.desk{display:flex;gap:4px;flex:1;min-width:0;justify-content:center}nav.desk a{text-decoration:none;color:var(--ink);white-space:nowrap}
+nav.desk .grp{position:relative}nav.desk .grp-top{display:block;padding:8px 14px;border-radius:999px;font-weight:500;font-size:15px}
+nav.desk .has-sub>.grp-top::after{content:"";display:inline-block;width:6px;height:6px;margin:0 0 3px 8px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:rotate(45deg);opacity:.55}
+nav.desk .grp-top:hover,nav.desk .grp:focus-within>.grp-top{color:var(--accent)}nav.desk .grp-top.on{background:var(--card);box-shadow:var(--shadow);font-weight:600}
+nav.desk .sub{position:absolute;top:100%;left:50%;transform:translate(-50%,4px);min-width:230px;padding:8px;margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px -12px rgba(0,0,0,.28);
+display:grid;gap:2px;opacity:0;visibility:hidden;transition:opacity .15s ease,transform .15s ease,visibility 0s linear .15s;z-index:30}
+nav.desk .sub::before{content:"";position:absolute;left:0;right:0;top:-12px;height:12px}
+nav.desk .grp:hover>.sub,nav.desk .grp:focus-within>.sub{opacity:1;visibility:visible;transform:translate(-50%,0);transition:opacity .15s ease,transform .15s ease}
+nav.desk .sub a{padding:9px 14px;border-radius:10px;font-size:14.5px;font-weight:500}nav.desk .sub a:hover{background:var(--soft);color:var(--accent)}nav.desk .sub a.on{background:var(--tint);color:var(--accent);font-weight:600}
+@media (prefers-reduced-motion:reduce){nav.desk .sub{transition:none}}
 .me{display:flex;align-items:center;gap:10px;font-size:14px;margin-left:auto;flex:none}.me .who-name{white-space:nowrap;color:var(--muted)}
 .avatar{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--ink);color:var(--ink);display:grid;place-items:center;font-weight:650;font-size:13px;text-decoration:none}
 .avatar:hover{border-color:var(--accent);color:var(--accent)}
 .logout{margin:0}.logout button{background:none;border:0;box-shadow:none;color:var(--muted);font-size:13.5px;font-weight:500;padding:6px 8px;min-height:0;cursor:pointer}.logout button:hover{color:var(--ink);filter:none}
-@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:980px){.brand .names span{display:none}nav.desk a{padding:8px 10px;font-size:14.5px}}
+@media (max-width:1100px){.me .who-name{display:none}}@media (max-width:980px){.brand .names span{display:none}nav.desk .grp-top{padding:8px 10px;font-size:14.5px}}
 nav.tabs{display:none}
 main{max-width:1160px;margin:0 auto;padding:40px 24px 88px;display:grid;gap:20px}
 h1,h2,h3{font-family:var(--font)}
@@ -164,16 +173,44 @@ const ICONS: Record<string, string> = {
   "/posthus": '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/>',
   "/opgaver": '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="m8 12 3 3 5-6"/>',
   "/arrangementer": '<path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/>',
-  "/mere": '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>'
+  "/mere": '<path d="M4 7h16M4 12h16M4 17h16"/>'
 };
 const icon = (key: string) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[key] ?? ""}</svg>`;
+
+/** Requested: "We need to make a smarter menu for admin, with submenus, a little bit like the one we have on our homepage, so there's not a lot of
+ * extra links hidden underneath Profile" - "Ja, det er fint" (3 Nov 2026) to six places with their pages beneath, and only what is personal
+ * under the initials. An item with a power is shown only to whoever may use it (handleCockpitRequest takes the others out); every page keeps
+ * its address. A page lights its place by its section - the item's path, or one listed in `also`. */
+export type MenuItem = { path: string; label: string; power?: Power; also?: string[] };
+export type MenuGroup = { path: string; label: string; items: MenuItem[] };
+export const MENU: MenuGroup[] = [
+  { path: "/", label: "Overblik", items: [{ path: "/", label: "Overblik" }, { path: "/status", label: "Sagas fulde overblik" }] },
+  { path: "/opgaver", label: "Opgaver", items: [] },
+  { path: "/moder", label: "Bestyrelse", items: [{ path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
+    { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv", power: "archive.manage" }] },
+  { path: "/arrangementer", label: "Events", items: [{ path: "/arrangementer", label: "Alle events" }, { path: "/arrangementer#new-event", label: "Nyt event" },
+    { path: "/arrangementer/undervisere", label: "Undervisere" }] },
+  { path: "/posthus", label: "Kommunikation", items: [{ path: "/posthus", label: "Posthus" }, { path: "/arrangementer/nyhedsbrev", label: "Nyhedsbrev", power: "newsletter.manage" },
+    { path: "/arrangementer/mail", label: "Mail til listen", power: "listmail.send" }] },
+  { path: "/medlemmer", label: "Medlemmer", items: [{ path: "/medlemmer", label: "Medlemmer" }, { path: "/medlemskab", label: "Medlemsoverblik", power: "members.cockpit" },
+    { path: "/statistik", label: "Statistik" }] }
+];
+const PHONE_TABS: [string, string][] = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/arrangementer", "Events"], ["/posthus", "Posthus"], ["/mere", "Menu"]];
+const groupOf = (section: string) => MENU.find(group => group.path === section || group.items.some(item => item.path === section || item.also?.includes(section)));
+const menuLink = (base: string, item: MenuItem, here: string) => {
+  const on = item.path === here || Boolean(item.also?.includes(here));
+  return `<a href="${base}${item.path}"${item.power ? ` data-power="${item.power}"` : ""}${on ? ' class="on" aria-current="page"' : ""}>${item.label}</a>`;
+};
+/** Takes out the menu items the person may not use - the pages themselves refuse them all the same. */
+export const menuForPowers = (page: string, may: (power: Power) => boolean) =>
+  page.replace(/<a [^>]*data-power="([a-z.]+)"[^>]*>[^<]*<\/a>/g, (link, power: string) => may(power as Power) ? link.replace(/ data-power="[a-z.]+"/, "") : "");
 
 /** Requested: "Lav et mere moderne layout og som er mobilvenligt". A top bar on a computer; on a phone
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.16.0";
-export const COCKPIT_RELEASED = "2026-10-13";
+export const COCKPIT_VERSION = "1.17.0";
+export const COCKPIT_RELEASED = "2026-11-03";
 /** Requested: "this footer should change accordingly" - the day and the commit each deploy was built from (vite.config.ts), so the line follows
  * what is live; the hand-set day only stands in where nothing was built (the tests). */
 const BUILT = typeof __APP_BUILT__ === "string" && __APP_BUILT__ ? __APP_BUILT__ : COCKPIT_RELEASED;
@@ -184,20 +221,18 @@ export function layout(base: string, title: string, body: string, options: { sec
   // The version sits quietly at the end of every page's main column.
   const end = body.lastIndexOf("</main>");
   if (options.section !== undefined && end >= 0) body = `${body.slice(0, end)}${versionLine()}${body.slice(end)}`;
-  // Requested: "Er du sikker på, at det er gennemtænkt? ... Jeg synes stadig, det virker rodet." Five places,
-  // the same on a computer and a phone; Status and Arkiv are reached from Overblik and Møder, you from your initials.
-  const places = [["/", "Overblik"], ["/opgaver", "Opgaver"], ["/moder", "Møder"], ["/opslag", "Opslagstavle"], ["/beslutninger", "Beslutninger"], ["/posthus", "Posthus"], ["/medlemmer", "Medlemmer"], ["/arrangementer", "Events"], ["/statistik", "Statistik"]];
-  const parent: Record<string, string> = { "/status": "/", "/arkiv": "/moder" };
-  const here = parent[options.section ?? ""] ?? options.section;
-  // Requested: "Medlemmer og Statistik skal gemmes i hovedmenuen for nu" - still there under your initials (Profil), and on the phone's Huset.
-  const tucked = ["/medlemmer", "/statistik"];
-  const desk = places.filter(([path]) => !tucked.includes(path!)).map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${label}</a>`).join("");
-  // On a phone the five labels must fit side by side.
-  const short: Record<string, string> = { "/beslutninger": "Besluttet", "/arrangementer": "Events" };
-  // The phone's tab bar keeps five places; Medlemmer, Statistik and Beslutninger are under the initials.
-  // The phone keeps five tabs: Opslag is reached from Overblik ("Dine opgaver" and "+ Nyt opslag").
-  // Requested: "Posthus bør være i mobilmenuen fremfor Beslutter".
-  const tabs = places.filter(([path]) => path !== "/beslutninger" && path !== "/statistik" && path !== "/medlemmer" && path !== "/opslag").map(([path, label]) => `<a href="${base}${path}"${here === path ? ' class="on" aria-current="page"' : ""}>${icon(path!)}<span>${short[path!] ?? label}</span></a>`).join("");
+  const here = options.section ?? "";
+  const desk = MENU.map(group => {
+    const on = groupOf(here) === group;
+    const head = `<a href="${base}${group.path}" class="grp-top${on ? " on" : ""}">${group.label}</a>`;
+    if (!group.items.length) return `<div class="grp">${head}</div>`;
+    return `<div class="grp has-sub">${head}<div class="sub" role="group" aria-label="${group.label}">${group.items.map(item => menuLink(base, item, here)).join("")}</div></div>`;
+  }).join("");
+  // Requested: "Ja, det er fint" to the phone's five buttons: Overblik, Opgaver, Events, Posthus and Menu - the whole menu, in the same groups.
+  // A page under Menu lights Menu; the profile lights nothing (it is the initials at the top).
+  const group = groupOf(here)?.path;
+  const tab = here === "/posthus" ? "/posthus" : group && ["/", "/opgaver", "/arrangementer"].includes(group) ? group : here && here !== "/profil" ? "/mere" : "";
+  const tabs = PHONE_TABS.map(([path, label]) => `<a href="${base}${path}"${tab === path ? ' class="on" aria-current="page"' : ""}>${icon(path)}<span>${label}</span></a>`).join("");
   // The tab on the right edge on every page, for whoever has said who they are.
   const drawer = options.section !== undefined && Boolean(options.who);
   const initials = (options.who ?? "").split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
@@ -238,20 +273,25 @@ function memoryCard(base: string): string {
 <p style="margin:0"><a href="${base}/hukommelse">Se, hvad Saga husker →</a></p></div>`;
 }
 
-/** The chair's way to the board members' details - whether each has activated their login, what they are responsible for and what they asked Saga. */
-function adminsCard(base: string): string {
-  return `<div class="card"><h2>Bestyrelsens medlemmer</h2><p class="small muted">Hvem der har aktiveret deres login, hvad de har ansvar for, og hvad de har spurgt Saga om. Kun for formanden.</p>
-<p style="margin:0;display:flex;gap:18px;flex-wrap:wrap"><a href="${base}/administratorer">Administratorer →</a><a href="${base}/samtaler">Samtaler med Saga →</a><a href="${base}/formand/log">Formandens log →</a></p></div>`;
+/** The chair's own: the board members' details, Saga's conversations, the chair's log and the nightly copies. Each link only for whoever may
+ * (handleCockpitRequest takes out the others). */
+function chairCard(base: string): string {
+  const links = [["/administratorer", "Administratorer", "admins.read"], ["/samtaler", "Samtaler med Saga", "conversations.read"], ["/formand/log", "Formandens log", "audit.read"],
+    ["/filarkiv?vis=kopier", "Sikkerhedskopier", "archive.manage"]];
+  return `<div class="card"><h2>Formanden</h2><p class="small muted">Kun for formanden.</p>
+<div class="menu">${links.map(([path, label, power]) => `<a href="${base}${path}" data-power="${power}">${label}</a>`).join("")}</div></div>`;
 }
 
-/** Requested: "Og så skal der i admin være et form for filarkiv" - the way in, under your initials (the chair's for now). */
-function archiveCard(base: string): string {
-  return `<div class="card"><h2>Filarkiv</h2><p class="small muted">Bestyrelsens filer i mapper, og de natlige kopier af databasen. Kun for formanden.</p>
-<p style="margin:0;display:flex;gap:18px;flex-wrap:wrap"><a href="${base}/filarkiv">Filer →</a><a href="${base}/filarkiv?vis=kopier">Sikkerhedskopier →</a></p></div>`;
+/** Requested: "Ja, det er fint" - the phone's Menu: every place and its pages, in the same groups as the menu at the top on a computer. */
+export function menuPage(base: string, who: string | null): string {
+  const groups = MENU.map(group => `<div class="card"><h2>${group.label}</h2><div class="menu">${(group.items.length ? group.items : [{ path: group.path, label: group.label }]).map(item => menuLink(base, item, "")).join("")}</div></div>`).join("");
+  const me = who ? `<p class="small muted" style="margin:0">Logget ind som ${esc(who)} · <a href="${base}/profil">Din profil</a></p>` : `<p style="margin:0"><a href="${base}/hvem">Vælg hvem du er</a></p>`;
+  return layout(base, "Menu", `<main><h1>Menu</h1><div class="grid">${groups}</div>${me}
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost">Log ud</button></form></main>`, { section: "/mere", who });
 }
 
-/** The phone's "Mere": the pages that do not fit the tab bar, and who you are. */
-export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null; responsibilities?: string; saved?: boolean; chair?: boolean; archive?: boolean } = {}): string {
+/** Your profile, under your initials: only what is personal - who you are, what you are responsible for, what Saga has learnt, your language - and, for the chair, the chair's own. */
+export function morePage(base: string, who: string | null, options: { lang?: "da" | "en"; locked?: boolean; members?: string[]; done?: string | null; responsibilities?: string; saved?: boolean; chair?: boolean } = {}): string {
   // Logged in with Saga's personal link you are who you are; the chair can close a member's access.
   // Requested: "Once you have logged in, you can't change to another person." No switching - log out to be someone else.
   const me = who ? `<span class="muted" style="padding:12px 0;display:block">Logget ind som ${esc(who)}</span>` : `<a href="${base}/hvem">Vælg hvem du er</a>`;
@@ -259,8 +299,8 @@ export function morePage(base: string, who: string | null, options: { lang?: "da
 ${options.done ? `<p class="notice">${esc(options.done)}s adgang er lukket.</p>` : ""}<ul class="plain">${options.members.map(m => `<li style="display:flex;justify-content:space-between;align-items:center;gap:12px">${esc(m)}
 <form method="post" action="${base}/adgang" style="margin:0"><input type="hidden" name="member" value="${esc(m)}"><button class="ghost">Luk adgang</button></form></li>`).join("")}</ul></div>` : "";
   return layout(base, "Profil", `<main><h1>${esc(who ?? "Profil")}</h1><div class="card"><div class="menu">
-<a href="${base}/beslutninger">Beslutninger</a><a href="${base}/statistik">Statistik</a><a href="${base}/medlemmer">Medlemmer</a><a href="${base}/status">Sagas fulde overblik</a><a href="${base}/arkiv">Ældre referater</a>${me}
-<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? memoryCard(base) : ""}${options.chair ? adminsCard(base) : ""}${options.archive ? archiveCard(base) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
+${me}
+<form method="post" action="${base}/logout" style="margin:0"><button class="ghost" style="border:0">Log ud</button></form></div></div>${who ? responsibilitiesCard(base, options.responsibilities ?? "", Boolean(options.saved)) : ""}${who ? memoryCard(base) : ""}${options.chair ? chairCard(base) : ""}${who ? languageCard(base, options.lang ?? "da") : ""}${access}</main>`, { section: "/profil", who });
 }
 
 /* Requested: "der er rigtig meget blåt på siden, så jeg tænker, om du ikke kan finde en alternativ farve til chatwidgetten, som passer til temaet": Saga has her own warm

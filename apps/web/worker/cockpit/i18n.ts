@@ -33,6 +33,11 @@ export async function englishReaders(db: D1Database): Promise<string[]> {
 
 export const EN: Record<string, string> = {
   // Menus and frame
+  // The menu with its groups (page.ts MENU), and the chair's card on Profil
+  "Bestyrelse": "Board", "Kommunikation": "Communication", "Beslutninger og afstemninger": "Decisions and votes", "Alle events": "All events", "Nyt event": "New event",
+  "Filarkiv": "File archive", "Nyhedsbrev": "Newsletter", "Mail til listen": "Mail to the list", "Medlemsoverblik": "Membership overview", "Statistik": "Statistics",
+  "Formanden": "The chair", "Kun for formanden.": "For the chair only.", "Din profil": "Your profile", "Sikkerhedskopier": "Backups", "Administratorer": "Administrators",
+  "Samtaler med Saga": "Conversations with Saga", "Formandens log": "The chair's log",
   "Overblik": "Overview", "Opgaver": "Tasks", "Møder": "Meetings", "Beslutninger": "Decisions", "Besluttet": "Decided", "Afstemninger": "Votes", "Forespørgsler": "Enquiries",
   "Arrangementer": "Events", "Huset": "Events", "Mere": "More", "Menu": "Menu", "Bestyrelsen": "The board", "Profil": "Profile", "Status": "Status", "Medlemmer": "Members",
   "Sagas fulde overblik": "Saga's full overview", "Ældre referater": "Older summaries", "Log ud": "Log out", "Vælg hvem du er": "Choose who you are", "Hjerterum bestyrelse": "Hjerterum board",

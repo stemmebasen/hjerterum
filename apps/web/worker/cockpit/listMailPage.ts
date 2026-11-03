@@ -14,7 +14,7 @@ export function listMailsPage(base: string, who: string | null, data: { mails: L
 ${data.mailchimp ? "" : `<p class="notice bad">Mailchimp er ikke forbundet endnu (hemmeligheden MAILCHIMP_API_KEY mangler). Du kan skrive mails, men ikke sende dem.</p>`}
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}
 <form method="post" action="${base}/arrangementer/mail/ny"><button>Skriv en ny mail</button></form>
-${data.mails.length ? `<ul class="plain lm-list">${data.mails.map(row).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}</main>`, { section: "/arrangementer", who, style: STYLE });
+${data.mails.length ? `<ul class="plain lm-list">${data.mails.map(row).join("")}</ul>` : `<p class="muted">Ingen mails endnu.</p>`}</main>`, { section: "/arrangementer/mail", who, style: STYLE });
 }
 
 export function listMailPage(base: string, who: string | null, mail: ListMail, data: { mailchimp: boolean; aiReady: boolean; count: number | null; notice: string; error: string; testTo: string }): string {
@@ -44,7 +44,7 @@ ${field("Tekst", `<textarea name="body" rows="16" maxlength="8000" ${off}>${esc(
 ${locked ? "" : `<p><button>Gem</button></p>`}</form>
 ${actions}
 ${locked ? "" : `<form method="post" action="${at}/slet" onsubmit="return confirm('Slet udkastet?')"><button class="ghost danger">Slet udkastet</button></form>`}
-</section><section><iframe class="lm-preview" src="${at}/vis" title="Sådan ser mailen ud"></iframe></section></div></main>`, { section: "/arrangementer", who, style: STYLE });
+</section><section><iframe class="lm-preview" src="${at}/vis" title="Sådan ser mailen ud"></iframe></section></div></main>`, { section: "/arrangementer/mail", who, style: STYLE });
 }
 
 const STYLE = `.lm-list li{display:grid;gap:2px;padding:10px 0;border-top:1px solid var(--line)}.lm-list li:first-child{border-top:0}
