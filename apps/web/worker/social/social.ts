@@ -7,8 +7,8 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { instagramMedia, postToPage, publishToInstagram, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { clock, dayName, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { followerCounts, instagramMedia, postToPage, publishToInstagram, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { clock, dateOf, dayName, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -364,6 +364,20 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
     await scanTags(env, deps, db).catch(error => console.warn("social_tags_failed", error instanceof Error ? error.message : error));
   await scheduledWeekPlan(env, deps, db).catch(error => console.warn("social_week_plan_failed", error instanceof Error ? error.message : error));
+  await countFollowers(env, deps, db).catch(error => console.warn("social_stats_failed", error instanceof Error ? error.message : error));
+}
+
+/** Once a day: Hjerterum's followers on Facebook and Instagram, for the month's insight on PR og SoMe (cockpit/prInsight.ts). */
+export async function countFollowers(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<boolean> {
+  const now = deps.now(), day = dateOf(now);
+  const account = await socialAccount(db);
+  if (!account || !(await claimJob(db, `social_stats:${day}`, 0, now))) return false;
+  const { page, instagram } = await access(env, account);
+  const counts = await followerCounts(deps.fetcher, page, instagram);
+  await db.prepare(`INSERT INTO social_stats (day, fb_followers, ig_followers, ig_media, at_ms) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(day) DO UPDATE SET fb_followers = excluded.fb_followers, ig_followers = excluded.ig_followers, ig_media = excluded.ig_media, at_ms = excluded.at_ms`)
+    .bind(day, counts.fb, counts.ig, counts.igMedia, now).run();
+  return true;
 }
 
 const cockpitUrl = (env: SagaEnv) => (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");

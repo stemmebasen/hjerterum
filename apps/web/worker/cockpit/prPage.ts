@@ -2,6 +2,7 @@ import { esc, layout } from "./page.js";
 import type { Channel, SocialAccount, SocialPost } from "../social/social.js";
 import { at, clock, dateOf, dayName, weekNumber } from "../social/plan.js";
 import { PLAN_STYLE, prPlanSection, type PlanData } from "./prPlan.js";
+import { INSIGHT_STYLE, insightSection, type MonthInsight } from "./prInsight.js";
 
 /** Kommunikation → PR og SoMe (/pr): the chair's PR cockpit (social.ts). Connect Facebook and Instagram; pass on what Hjerterum is tagged in;
  * read, change and approve the week's posts. Nothing goes out before it is approved here. */
@@ -15,6 +16,7 @@ export type PrPageData = {
   recent: SocialPost[];
   aiReady: boolean;
   plan: PlanData;
+  insight: MonthInsight[];
   nowMs: number;
   notice: string;
   error: string;
@@ -127,8 +129,9 @@ ${prPlanSection(base, d.plan)}
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
 <section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>
 <section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>
-<section class="panel" id="sendt"><header><h2>Sendt og fejlet</h2></header>${recent}</section></main>`;
-  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE });
+<section class="panel" id="sendt"><header><h2>Sendt og fejlet</h2></header>${recent}</section>
+${insightSection(d.insight)}</main>`;
+  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE });
 }
 
 const STYLE = `.pr{display:grid;gap:20px}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
