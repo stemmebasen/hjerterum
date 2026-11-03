@@ -56,6 +56,7 @@ import { setStudioDesign, studioData, studioEvents, studioListPage, studioPictur
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
+import { releaseForMeeting } from "../cirkler-reservations.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
 import { deleteText, renameText, savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
@@ -1258,7 +1259,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who) return redirect(`${base}/hvem`);
     const id = Number(systemPath[1]);
     const found = await systemEvent(db, id);
-    if (!found || found.cirkler_meeting_id) return html(notFound(base, who), 404);
+    if (!found) return html(notFound(base, who), 404);
+    // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" - only deleted, never changed here, and the chair's alone (cirkler.delete).
+    if (found.cirkler_meeting_id) {
+      if (!systemPath[2] || request.method !== "POST") return html(notFound(base, who), 404);
+      if (!may("cirkler.delete")) return denied("cirkler.delete");
+      await releaseForMeeting(db, found.cirkler_meeting_id, now);
+      await audit(db, actor, "cirkler.delete", `Slettede CIRKLER-mødet ${new Date(found.starts_at_ms).toISOString().slice(0, 16).replace("T", " ")} UTC (frigav salen)`, now);
+      return redirect(`${base}/arrangementer?system=cirkler-slettet#system-events`);
+    }
     if (systemPath[2] && request.method === "POST") {
       await cancelRoomBookingAsAdmin(db, id).catch(() => undefined);
       return redirect(`${base}/arrangementer?system=slettet#system-events`);
@@ -1289,9 +1298,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
     const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     const wishes = await prWishes(db, coming.map(e => e.id));
-    const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig." };
+    const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig.",
+      "cirkler-slettet": "CIRKLER-mødet er slettet, og salen er ledig. CIRKLER har ikke fået besked - giv cirklen besked." };
     // The board changes and deletes members' events; the newsletter is the chair's own (authority.ts).
-    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
+    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "", { deleteCirkler: may("cirkler.delete") });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage"), listMail: may("listmail.send") }));
   }
   // Requested (the chair, 3 Nov 2026): every event on Hjerterum's Facebook page, made by hand - "Lisbeth opretter dem" - and open to "Hele bestyrelsen" (fbEvents.ts).
