@@ -25,7 +25,6 @@
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
         "AI_CHEAP_MODEL": "deepseek-v4-flash",
         "AI_MID_MODEL": "anthropic/claude-haiku-5-5",
-        "GOOGLE_MINUTES_DOC_ID": "1fqEys6iYSXu5XG81EyT45YVfbhRjVlq86ERVbHn1Mzs",
         "COCKPIT_URL": "https://admin.hjerterum.info",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>",
         "SAGA_MINUTES_PING": "off"
@@ -41,6 +40,10 @@
         {
           "binding": "EVENT_MEDIA",
           "bucket_name": "hjerterum-event-media"
+        },
+        {
+          "binding": "ARCHIVE",
+          "bucket_name": "hjerterum-arkiv-eu"
         }
       ]
     },

@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import type { ArchiveBucket } from "../archive.js";
 import type { EventMediaBucket } from "../event-files.js";
 
 /** Saga, Hjerterum's board assistant. Every value is configured per environment; a missing one
@@ -43,6 +44,8 @@ export interface SagaEnv {
   BOARD_RECORDINGS?: RecordingBucket;
   /** Member events' cover photos and files; the cockpit shows them to the board when it approves an event. */
   EVENT_MEDIA?: EventMediaBucket;
+  /** The file archive and the nightly copies (archive.ts): R2 bucket hjerterum-arkiv-eu. */
+  ARCHIVE?: ArchiveBucket;
   /** The board's one shared cockpit password ("Til start laver vi bare ét samlet login"). No longer used by default: the shared login is off
    * ("Du må gerne fjerne fælles password") and only opens again if COCKPIT_SHARED_LOGIN is "on". */
   COCKPIT_PASSWORD?: string;
