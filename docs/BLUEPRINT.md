@@ -932,3 +932,15 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Ugens events** gik allerede begge steder hen. **Reelen** er kun på Instagram; Facebook-video kræver tilladelsen `publish_video`.
 - Ved hvert opslag kan man fjerne et af medierne med fluebenene. Kanalerne ændres kun, når fluebenene er på siden (`kanaler`).
 - Instagram tager kun jpg. Afviser Instagram et billede, er Facebook-delen allerede sendt, og fejlen siger, hvad man kan gøre.
+
+## Designskabelonerne laver opslagets billede (2026-11-03)
+
+- Formandens rettelse: "I forhold til designskabelonerne skal vi kun bruge dem til sociale medier, og derfor er hele tanken, at jeg kan generere et design til et social media-post."
+- **Sådan virker det:**
+  - Ved et eventopslag (Ugens opslag) og i Events står **"Lav design"**. Det åbner Plakater og opslag for eventet.
+  - Værktøjet viser eventets opslag. I formaterne Opslag (4:5) og Facebook-cover (1,91:1) har hvert design **"Brug i opslaget"**.
+  - Designet gemmes som jpg i R2 (`social/designs/<tilfældigt navn>.jpg`) og er offentligt på `https://www.hjerterum.info/api/social-designs/<navn>.jpg`, så Facebook og Instagram kan hente det.
+  - Designet bliver opslagets billede, og opslaget bliver en kladde igen, som formanden godkender.
+  - På Ugens opslag står der "Skift design". Det står i formandens log.
+- **Udgivelse:** Et opslag med design går på Facebook som billedopslag med linket i teksten (`/{side}/photos`) og på Instagram med samme billede. Opslag uden design er stadig et link-kort på Facebook.
+- **"Brug på hjemmesiden" er fjernet.** Skabelonerne bruges kun til sociale medier. Designs, der allerede ligger på hjemmesiden, bliver stående.

@@ -7,7 +7,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -31,7 +31,9 @@ export type ShareSource = { network: Channel; id: string; author: string | null;
   sharedAt?: number | null };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
-  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string }; publish_at_ms: number | null; status: SocialStatus;
+  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
+    /** The chair's design from Plakater og opslag is the post's picture: on Facebook as a photo post, not a link card. */
+    design?: boolean }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
@@ -360,7 +362,9 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
   try {
     for (const channel of post.channels) {
       if (done[channel]) continue;
-      if (channel === "facebook") done.facebook = await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
+      if (channel === "facebook") done.facebook = post.source.design && post.images[0]
+        ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: post.link ? `${post.text}\n\n${post.link}` : post.text })
+        : await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
         if (post.source.format === "reel") {
@@ -481,3 +485,19 @@ async function tellChair(env: SagaEnv, deps: SagaDeps, text: string): Promise<vo
 }
 
 export { mondayOf, nextMonday, weekKey };
+
+/** Requested (the chair, 3 Nov 2026): "I forhold til designskabelonerne skal vi kun bruge dem til sociale medier, og derfor er hele tanken, at jeg kan generere et
+ * design til et social media-post." The open post of an event (draft, approved or failed - not one that has gone out), for Plakater og opslag. */
+export async function eventPost(db: D1Database, key: string): Promise<SocialPost | null> {
+  const [post] = await socialPosts(db, "kind = 'event' AND json_extract(source, '$.key') = ? AND status IN ('draft', 'approved', 'failed')", [key], "publish_at_ms DESC, id DESC", 1);
+  return post ?? null;
+}
+
+/** The design becomes the post's picture (on Facebook and Instagram); a changed post is a draft again, for the chair to approve. */
+export async function setPostDesign(db: D1Database, postId: number, url: string, nowMs: number): Promise<boolean> {
+  const post = await socialPost(db, postId);
+  if (!post || !["draft", "approved", "failed"].includes(post.status)) return false;
+  await db.prepare("UPDATE social_posts SET images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
+    .bind(JSON.stringify([url]), JSON.stringify({ ...post.source, design: true }), nowMs, postId).run();
+  return true;
+}

@@ -115,6 +115,12 @@ export async function postToPage(fetcher: Fetcher, page: { id: string; token: st
   return made.id;
 }
 
+/** A photo post on the page - the chair's design from Plakater og opslag - with the words (and the link in them). */
+export async function postPhotoToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { url: string; caption: string }): Promise<string> {
+  const made = await graph<{ id: string; post_id?: string }>(fetcher, "POST", `/${page.id}/photos`, { url: post.url, caption: post.caption, published: "true", access_token: page.token });
+  return made.post_id ?? made.id;
+}
+
 /** A photo or a carousel (2-10 photos) on Instagram: the containers first, then published. Instagram reads the photos from their (public) addresses. */
 export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[]; collaborators?: string[] },
   wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<string> {

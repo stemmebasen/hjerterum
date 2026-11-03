@@ -5,6 +5,7 @@ import { posterImage, posterImageAllowed } from "../poster-image.js";
 import { removeDesign, storeDesign } from "../event-designs.js";
 import { parsePrQuotes, EMPTY_QUOTES, type PrQuotes } from "../../pr-material.js";
 import { esc, layout } from "./page.js";
+import { mondayOf as mondayOfMs } from "../social/plan.js";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det
  * vil sige mig til at begynde med - kan bruge dem" - and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i
@@ -21,7 +22,13 @@ export type StudioEvent = { id: string; title: string; startsAt: string; endsAt:
   bookingId: number | null; design: string | null };
 export type StudioPicture = { url: string; label: string; width?: number | null; height?: number | null };
 export type StudioTeacher = { name: string; consent: "given" | "withdrawn" | "none"; quotes: PrQuotes; pictures: StudioPicture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> };
-export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; files: Array<{ url: string; label: string }>; teacher: StudioTeacher | null };
+export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; files: Array<{ url: string; label: string }>; teacher: StudioTeacher | null;
+  /** The event's open post in PR og SoMe, which a design can be used in ("Brug i opslaget"). */
+  post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean } | null };
+
+/** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
+export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
+export const studioIdOf = (key: string) => /^mw:SF([0-9a-f]{24})$/.exec(key)?.[1] ?? (/^hr:(\d+)$/.test(key) ? `h${key.slice(3)}` : null);
 
 const plain = (html: string | null) => (html ?? "").replace(/<[^>]+>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").split(/\n+/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
 const iso = (ms: number | null) => ms === null ? null : new Date(ms).toISOString();
@@ -97,7 +104,12 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     const consent = material?.consent_at_ms && !material.withdrawn_at_ms ? "given" : material?.withdrawn_at_ms ? "withdrawn" : "none";
     teacher = { name: event.host ?? "Underviseren", consent, quotes, pictures, events: others.map(o => ({ title: o.title, startsAt: iso(o.starts_at_ms)!, picture: o.cover ? `${base}/fil/${o.cover}` : null })) };
   }
-  return { event, eventPictures, files, teacher };
+  const open = await db.prepare(`SELECT id, status, week, images, publish_at_ms, json_extract(source, '$.design') AS design FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.key') = ?
+      AND status IN ('draft', 'approved', 'failed') ORDER BY publish_at_ms DESC, id DESC LIMIT 1`).bind(eventKeyOf(id))
+    .first<{ id: number; status: string; week: string | null; images: string; publish_at_ms: number | null; design: number | null }>().catch(() => null);
+  const post = open ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
+    image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design) } : null;
+  return { event, eventPictures, files, teacher, post };
 }
 
 const IMAGE_HEADERS = { "cache-control": "private, max-age=600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" };
@@ -160,4 +172,15 @@ ${e.house ? `<small>${e.design ? "Har et design på hjemmesiden" : "Medlemmets e
 <section class="panel">${events.length ? `<ul>${rows}</ul>` : `<p class="empty">Ingen events de næste seks uger.</p>`}</section></main>`,
     { section: "/plakater", who, style: `.studio-list ul{list-style:none;margin:0;padding:0}.studio-list li a{display:grid;grid-template-columns:170px 1fr;gap:12px;padding:11px 0;border-top:1px solid var(--line);text-decoration:none;color:var(--ink)}
 .studio-list li:first-child a{border-top:0}.studio-list .at{color:var(--muted);font-size:13.5px}.studio-list small{display:block;color:var(--faint);font-size:12.5px}@media (max-width:760px){.studio-list li a{grid-template-columns:1fr;gap:2px}}` });
+}
+
+/** "Brug i opslaget": the design (a jpg, as drawn in the studio) is kept in R2 under a long random name and served publicly - Facebook and Instagram fetch
+ * it from there when the post goes out (worker/config-entry.ts /api/social-designs/<name>.jpg). Only a jpg the size of a post or a wide picture. */
+export async function storeSocialDesign(bucket: EventMediaBucket, bytes: ArrayBuffer, site = "https://www.hjerterum.info"): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const b = new Uint8Array(bytes);
+  if (b.length < 1000 || b.length > 8 * 1024 * 1024) return { ok: false, error: "size" };
+  if (b[0] !== 0xff || b[1] !== 0xd8) return { ok: false, error: "not_jpeg" };
+  const name = [...crypto.getRandomValues(new Uint8Array(16))].map(x => x.toString(16).padStart(2, "0")).join("");
+  await bucket.put(`social/designs/${name}.jpg`, bytes, { httpMetadata: { contentType: "image/jpeg" } });
+  return { ok: true, url: `${site}/api/social-designs/${name}.jpg` };
 }
