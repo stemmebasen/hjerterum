@@ -156,8 +156,10 @@ const SHARE_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus f
 export const firstName = (name: string | null) => (name ?? "").replace(/^@/, "").split(/\s+/)[0] ?? "";
 export const plainShareText = (author: string | null) => `Tak til ${firstName(author) || "jer"} for at dele. Vi glæder os til at se jer i Hjerterum.`;
 /** On Instagram the post is published again by Hjerterum, so the maker is named, and their own words follow. */
-export const instagramShareText = (intro: string, author: string | null, original: string) =>
-  `${intro.trim()}\n\nFoto og tekst: ${author ? `@${author.replace(/^@/, "")}` : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
+export const instagramShareText = (intro: string, author: string | null, original: string, network: Channel = "instagram") =>
+  `${intro.trim()}\n\nFoto og tekst: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
+/** An event's post on Instagram: its words, and where to read more (Instagram has no links in the text). */
+export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig via linket i bio.`;
 
 async function shareIntro(env: SagaEnv, deps: SagaDeps, post: TaggedPost): Promise<string> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return plainShareText(post.author);
@@ -205,14 +207,15 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
   for (const post of fresh) {
     const intro = await shareIntro(env, deps, post);
     const consent = Boolean(post.author && ready.has(post.author.trim().toLowerCase()));
-    // Facebook: shared as a link to the post. Instagram: published again (photos only), with its maker named.
-    const instagramOk = post.network === "instagram" && (post.media === "image" || post.media === "carousel") && Boolean(account.ig_user_id);
-    const channels: Channel[] = post.network === "facebook" ? ["facebook"] : instagramOk ? ["instagram"] : ["facebook"];
+    // Requested: "Jeg vil rigtig gerne kunne dele simultant på begge medier, når som helst det er muligt." Facebook: shared as a link to the post.
+    // Instagram: its photos published again with its maker named - also a Facebook post's picture. Both from the start, when both can be.
+    const instagramOk = (post.media === "image" || post.media === "carousel") && post.images.length > 0 && Boolean(account.ig_user_id);
+    const channels: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
     const shared = sharedAt(post);
     const source: ShareSource & { instagramText?: string; collaborators?: string[] } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
-      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text),
+      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(instagramOk ? { instagramText: instagramShareText(intro, post.author, post.text, post.network),
         // The one who made it is invited as collaborator on Hjerterum's post of it.
-        collaborators: [instagramName(post.author)].filter((n): n is string => Boolean(n)) } : {}) };
+        collaborators: post.network === "instagram" ? [instagramName(post.author)].filter((n): n is string => Boolean(n)) : [] } : {}) };
     if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) {
       made++;
       if (!shared) waiting++;
@@ -309,8 +312,12 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   }
   const times = eventPostTimes(fresh, notBefore, existing.map(r => r.publish_at_ms).filter((t): t is number => t !== null));
   for (const [i, e] of fresh.entries()) {
-    if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: ["facebook"], text: words.events[`E${i + 1}`] ?? plainEventText(e),
-      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: eventSource(e), publishAtMs: times[i]! }, now)) made++;
+    // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
+    const text = words.events[`E${i + 1}`] ?? plainEventText(e);
+    const both = Boolean(account?.ig_user_id && e.imageUrl);
+    if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text,
+      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]) } : {}) },
+      publishAtMs: times[i]! }, now)) made++;
   }
   return { made, events: chosen.length, fresh: fresh.length };
 }
@@ -371,7 +378,11 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
           ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
-        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || post.text, images, collaborators: post.source.collaborators ?? [] });
+        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || (post.kind === "event" ? instagramEventText(post.text) : post.text), images,
+          collaborators: post.source.collaborators ?? [] }).catch(error => {
+          // Instagram takes only jpg pictures.
+          throw /format|image.*(type|jpeg)|2207/i.test(error instanceof Error ? error.message : String(error)) ? new Error("Instagram kunne ikke bruge billedet (Instagram tager kun jpg). Facebook-delen er sendt; fjern Instagram og godkend igen, eller lav et design.") : error;
+        });
       }
       // Kept at once: a retry never posts the same thing twice on a channel it already reached.
       await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
