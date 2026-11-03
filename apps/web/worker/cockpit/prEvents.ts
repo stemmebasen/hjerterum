@@ -63,7 +63,7 @@ export function prEventsSection(base: string, rows: PrEventRow[], nowMs: number)
     if (r.post) acts.push(`<a class="button ghost" href="${base}/pr/uge?uge=${r.monday}">Se opslaget</a>`);
     if (!r.facebookEvent)
       acts.push(`<form method="post" action="${base}/arrangementer/facebook"><input type="hidden" name="event" value="${esc(r.key)}"><input type="hidden" name="done" value="1"><input type="hidden" name="tilbage" value="pr-events"><button class="ghost">Facebook-begivenhed oprettet</button></form>`);
-    if (r.studio) acts.push(`<a class="button ghost" href="${base}/plakater/${esc(r.studio)}">Lav design</a>`);
+    if (r.studio) acts.push(`<a class="button ghost" href="${base}/plakater/${esc(r.studio)}?fra=%2Fpr%2Fevents">Lav design</a>`);
     return `<li class="${ok(r) ? "is-ok" : ""}"><div class="pe-main"><span class="at">${esc(WHEN.format(r.startsMs))}</span><b>${esc(r.title)}</b>${r.host ? `<span class="muted"> · ${esc(r.host)}</span>` : ""}
 <div class="pe-acts">${acts.join("")}</div></div>
 <div class="pe-status">${postChip(r)}${r.facebookEvent ? `<span class="chip good">${r.facebookEvent.link ? `<a href="${esc(r.facebookEvent.link)}" target="_blank" rel="noopener">Facebook-begivenhed</a>` : "Facebook-begivenhed"} ✓</span>` : `<span class="chip wait">Ingen Facebook-begivenhed</span>`}

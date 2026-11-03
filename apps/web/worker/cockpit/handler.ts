@@ -1067,7 +1067,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
     const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1091,6 +1091,25 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       await setPostDesign(db, data.post.id, stored.url, now);
       await audit(db, actor, "posters.design", `Lagde et design i opslaget om "${data.event.title}"`, now);
       return answer({ ok: true, url: stored.url, monday: data.post.monday });
+    }
+    // Requested: "så jeg får præsenteret et forslag. Jeg klikker på næste, og så kan jeg se det færdige opslag med billede og tekst, som jeg så kan
+    // publicere." The words as the chair left them, and the post approved: Saga sends it at its time, or at once ("nu").
+    if (part === "/publicer" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown } | null;
+      if (!body || typeof body.text !== "string" || !Array.isArray(body.channels)) return answer({ error: "bad_request" }, 400);
+      const current = await socialPost(db, data.post.id);
+      if (!current) return answer({ error: "no_post" }, 404);
+      const channels = [...new Set(body.channels.filter((c): c is Channel => c === "facebook" || (c === "instagram" && data.post!.instagram && current.images.length > 0)))];
+      await editPost(db, current.id, { text: body.text.replace(/\r\n?/g, "\n").trim().slice(0, 5000) || current.text, channels,
+        ...(typeof body.instagramText === "string" ? { instagramText: body.instagramText.replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
+        ...(body.now === true ? { publishAtMs: now } : {}) }, now);
+      const decided = await decidePost(db, current.id, "approve", who, now);
+      if (!decided) return answer({ error: "no_channels" }, 422);
+      await audit(db, actor, "social.manage", `Godkendte opslaget om "${data.event.title}"`, now);
+      return answer({ ok: true, publishAtMs: decided.publish_at_ms, channels: decided.channels });
     }
     if (part === "/design" && request.method === "POST") {
       const booking = /^h(\d+)$/.exec(id!);

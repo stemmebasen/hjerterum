@@ -97,17 +97,17 @@ ${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 
-function weekCard(base: string, p: SocialPost, account: SocialAccount | null): string {
+function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string): string {
   if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
   const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
   const allowed: Channel[] = account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
-  return `<article class="pr-post">
+  return `<article class="pr-post" id="opslag-${p.id}">
 <header>${status(p)}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 ${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
   return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.design ? "Dit design" : "Eventets billede"}</span>
-${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(studio)}">${p.source.design ? "Skift design" : "Lav design"}</a>` : ""}</div>`; })() : ""}
+${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(studio)}?fra=${encodeURIComponent(`/pr/uge?uge=${monday}#opslag-${p.id}`)}">${p.source.design ? "Skift design" : "Lav design"}</a>` : ""}</div>`; })() : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>${p.kind === "week" ? "Teksten på Facebook" : "Opslaget på Facebook"}</span><textarea name="text" rows="${p.kind === "week" ? 10 : 4}"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
@@ -143,7 +143,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
     ? `<div class="pr-acts">${drafts ? `<form method="post" action="${base}/pr/uge/godkend"><input type="hidden" name="uge" value="${d.week.monday}"><button>Godkend hele ugen (${drafts})</button></form>` : ""}
 <form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button class="ghost">Tilføj nye events fra kalenderen</button></form></div>
 <p class="small muted">"Ugens events" og ${eventCount} events med hvert sit opslag på Facebook. Et godkendt opslag går ud på sit tidspunkt; et event, der er begyndt, får ikke sit opslag bagefter.</p>
-${d.week.posts.map(p => weekCard(base, p, a)).join("")}`
+${d.week.posts.map(p => weekCard(base, p, a, d.week.monday)).join("")}`
     : `<p class="empty">Ugen er ikke planlagt endnu. Saga planlægger næste uge torsdag fra kl. 10.</p>
 ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button>Lad Saga planlægge uge ${weekNumber(d.week.key)} nu</button></form>` : ""}`;
 
