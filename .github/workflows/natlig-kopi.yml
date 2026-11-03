@@ -22,7 +22,8 @@ jobs:
     timeout-minutes: 20
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # Its own token ("hjerterum natlig kopi": D1 Edit + Workers R2 Storage Edit), made by the chair, so the deploy token is untouched.
+      BACKUP_TOKEN: ${{ secrets.CLOUDFLARE_BACKUP_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v7
@@ -36,6 +37,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # A token pasted into GitHub can carry line breaks, or Cloudflare's whole test command ("Authorization: Bearer <token>").
+          # The token is the word after "Bearer", or else the longest run of token characters (Cloudflare tokens are 40+ long).
+          CLOUDFLARE_API_TOKEN="$(printf '%s\n' "$BACKUP_TOKEN" | grep -oE 'Bearer [A-Za-z0-9_-]{30,}' | head -n1 | cut -d' ' -f2 || true)"
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            CLOUDFLARE_API_TOKEN="$(printf '%s\n' "$BACKUP_TOKEN" | grep -oE '[A-Za-z0-9_-]{30,}' | awk '{ print length, $0 }' | sort -rn | head -n1 | cut -d' ' -f2 || true)"
+          fi
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "CLOUDFLARE_BACKUP_TOKEN is missing"; exit 1; }
+          echo "::add-mask::$CLOUDFLARE_API_TOKEN"
+          export CLOUDFLARE_API_TOKEN
           DAY="$(TZ=Europe/Copenhagen date +%F)"
           FILE="$RUNNER_TEMP/hjerterum-$DAY.sql"
           pnpm --dir apps/web exec wrangler d1 export hjerterum-staging --remote --output "$FILE"
