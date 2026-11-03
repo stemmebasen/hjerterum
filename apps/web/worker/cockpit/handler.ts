@@ -966,7 +966,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" });
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
-      return html(page, 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:") });
+      return html(page, 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
     }
     // Facebook Login: a state kept in a short cookie, so only the login this browser began can come back.
     if (path === "/pr/forbind" && request.method === "GET") {
@@ -1031,7 +1031,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
           ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
-          ...(post.kind === "event" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
+          ...(post.kind === "event" || post.source.format === "reel" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);
