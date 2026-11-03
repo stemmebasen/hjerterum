@@ -153,12 +153,18 @@ const FACEBOOK_GROUPS = `**Danske Facebook-grupper**
 - Det Spirituelle fællesskab Midt- & Nordjylland
 - Alternative Behandlere mv. – arrangementer, messer, workshops (Jylland)`;
 
+/** The hall as it is now: the chair's own photos (3 Nov 2026, "See if you can use these pictures around, and you could optimize them a little bit
+ * with some modern filter") - the lamplight's yellow taken out, a lighter, airy exposure and a calmer orange in the floor. */
+const HALL = {
+  bright: { src: "/media/2026-11-salen-1.webp", alt: "Salen i Hjerterum: lyst trægulv, hvide bjælker med vedbend, bogreol og køkken" },
+  wide: { src: "/media/2026-11-salen-2.webp", alt: "Hele salen set fra indgangen, med træstammesøjlen, lænestole og maleriet af livets træ" },
+  love: { src: "/media/2026-11-salen-3.webp", alt: "Salen med køkkenet, LOVE-hylden og tæpper til hvile" },
+  windows: { src: "/media/2026-11-salen-4.webp", alt: "Salen med de høje vinduer og sofahjørnet" },
+  curtains: { src: "/media/2026-11-salen-5.webp", alt: "Salen med trukne gardiner og lydanlæg, klar til et event" }
+} satisfies Record<string, Picture>;
+
 const ROOM_GALLERY: Picture[] = [
-  { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
-  { src: "/media/2020-11-hjerterum-a.webp", alt: "Salen set fra indgangen" },
-  { src: "/media/2021-03-hjerterum-d-1.webp", alt: "Sofahjørnet i salen" },
-  { src: "/media/2021-03-hjerterum-f.webp", alt: "Salen med de høje vinduer" },
-  { src: "/media/2021-03-hjerterum-c.webp", alt: "Salen badet i lys" },
+  HALL.bright, HALL.wide, HALL.love, HALL.windows, HALL.curtains,
   { src: "/media/2021-05-room-2-1.webp", alt: "Madrasser lagt frem til en session" },
   { src: "/media/2021-06-p1010197.webp", alt: "Stole i rundkreds om et lys" },
   { src: "/media/2026-06-hjerterum2-1.webp", alt: "Yoga i salen" },
@@ -363,7 +369,7 @@ ${DISCLAIMER}
 Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
 
 {{enquiry-event-opsaetning}}`,
-    image: { src: "/media/2021-03-hjerterum-e.webp", alt: "Salen i Hjerterum med trægulv, hvide bjælker og planter" },
+    image: HALL.bright,
     gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
     children: ["/brug-hjerterum/booking", "/brug-hjerterum/praktisk", "/brug-hjerterum/eventguides"],
     sources: ["brug-centret", "use-hjerterum"]
@@ -376,6 +382,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     lead: "Priser, sådan booker du, vilkårene for leje – og svar på de spørgsmål, vi oftest får.",
     description: "Booking og leje af Hjerterums sal: lejepriser og booking, vilkår for leje og ofte stillede spørgsmål.",
     card: { title: "Booking & leje", text: "Lejepriser, vilkår og ofte stillede spørgsmål." },
+    image: HALL.wide,
     body: `Planlæg gerne 4–8 uger før dit event. Find prisen i [prisberegneren](/brug-hjerterum/lejepriser#beregner), og læs [vilkårene](/brug-hjerterum/vilkaar), før du booker.`,
     children: ["/brug-hjerterum/lejepriser", "/brug-hjerterum/vilkaar", "/brug-hjerterum/faq"],
     sources: []
@@ -386,6 +393,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     lead: "Tre måder at leje salen på, prisberegneren – og det, du sender med, når du booker.",
     description: "Lejepriser for Hjerterums sal: standardpris, medlemsrabat og gratis leje, prisberegner og sådan booker du.",
     card: { title: "Lejepriser & booking", text: "Priser, prisberegner og sådan booker du." },
+    image: HALL.curtains,
     body: `## Sådan kommer du i gang {#booking}
 1. **Find prisen.** Vælg tidspunkt i [prisberegneren](#beregner) herunder – du ser standardprisen og, hvad samme booking koster som medlem.
 2. **Book.** Er du medlem og vil du bruge Hjerterum til reduceret pris eller med helt gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – vores digitale assistent, Saga, hjælper dig gerne. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
@@ -552,6 +560,7 @@ Vi lægger dit event på vores hjemmeside og Facebook-side. Markedsføring ud ov
     lead: "Alt det praktiske, når du bruger Hjerterum: nøgler, køkken, lyd og udstyr, rengøring, wifi og husregler.",
     description: "Praktisk information til undervisere i Hjerterum: nøgler, dørtelefon, køkken, lydanlæg, projektor, rengøring og husregler.",
     card: { title: "Praktisk information", text: "Nøgler, køkken, lyd, rengøring, wifi og husregler." },
+    image: HALL.love,
     body: `Føl jer hjemme, og nyd jeres tid i Hjerterum ♡ – Team Hjerterum`,
     children: ["/brug-hjerterum/adgang", "/brug-hjerterum/koekken", "/brug-hjerterum/udstyr", "/brug-hjerterum/rengoering", "/brug-hjerterum/wifi", "/brug-hjerterum/husregler"],
     sources: ["guidelines-for-undervisere", "guidelines-for-teachers"]
