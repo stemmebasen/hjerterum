@@ -7,10 +7,11 @@ const TZ = "Europe/Copenhagen";
 export const WEEK_MIN = 7;
 export const WEEK_MAX = 10;
 export const SITE = "https://www.hjerterum.info";
-/** The slots a single event's post may go out in (Danish time): mornings and late afternoons, at most two a day. */
-export const POST_HOURS: Array<[number, number]> = [[10, 0], [16, 0]];
-/** "Ugens events" goes out on the Monday morning of its week. */
-export const WEEK_POST_AT: [number, number] = [8, 30];
+/** The slots a single event's post may go out in (Danish time), at most two a day. Gitta (3 Nov 2026): what she shares "omkring 3-4-5 sidst på
+ * eftermiddagen" gets the most views, though Meta recommends later in the evening - and the chair: "Ja" to posting between 15 and 17. */
+export const POST_HOURS: Array<[number, number]> = [[15, 0], [16, 30]];
+/** "Ugens events" goes out on the Monday afternoon of its week. */
+export const WEEK_POST_AT: [number, number] = [15, 30];
 /** The plan for next week is made on Thursday from 10.00, so the chair has days to read and approve it. */
 export const PLAN_WEEKDAY = 4;
 export const PLAN_FROM_HOUR = 10;
@@ -74,7 +75,7 @@ export function pickWeekEvents(events: NewsletterEvent[], wished: Set<string>, m
 
 // ---- When ----
 
-/** When each event's post goes out: a free slot (10.00 or 16.00) the day before, else two or three days before, else the morning of the day -
+/** When each event's post goes out: a free slot (15.00 or 16.30) the day before, else two or three days before, else the morning of the day -
  * never after the event has begun, never before `notBeforeMs`, and never two posts in one slot. */
 export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number): number[] {
   const taken = new Set<number>();
