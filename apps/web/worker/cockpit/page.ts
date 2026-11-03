@@ -189,7 +189,7 @@ export const MENU: MenuGroup[] = [
   { path: "/opgaver", label: "Bestyrelse", items: [{ path: "/opgaver", label: "Opgaver" }, { path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
     { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv", power: "archive.manage" }] },
   { path: "/arrangementer", label: "Events", items: [{ path: "/arrangementer", label: "Alle events" }, { path: "/arrangementer#new-event", label: "Nyt event" },
-    { path: "/arrangementer/undervisere", label: "Undervisere" }] },
+    { path: "/arrangementer/undervisere", label: "Undervisere" }, { path: "/plakater", label: "Plakater og opslag", power: "posters.design" }] },
   { path: "/posthus", label: "Kommunikation", items: [{ path: "/posthus", label: "Posthus" }, { path: "/arrangementer/nyhedsbrev", label: "Nyhedsbrev", power: "newsletter.manage" },
     { path: "/arrangementer/mail", label: "Mail til listen", power: "listmail.send" }, { path: "/pr", label: "PR og SoMe", power: "social.manage" }] },
   { path: "/medlemmer", label: "Medlemmer", items: [{ path: "/medlemmer", label: "Medlemmer" }, { path: "/medlemskab", label: "Medlemsoverblik", power: "members.cockpit" },
@@ -209,7 +209,7 @@ export const menuForPowers = (page: string, may: (power: Power) => boolean) =>
  * a fixed tab bar at the bottom (Overblik, Møder, Status, Arrangementer, Mere), large touch targets
  * and tables that become stacked rows. */
 /** Requested: "Sørg også for, at der er et versionsnummer på Hjerterum-cockpittet". Raised with each release. */
-export const COCKPIT_VERSION = "1.22.0";
+export const COCKPIT_VERSION = "1.23.0";
 export const COCKPIT_RELEASED = "2026-11-03";
 /** Requested: "this footer should change accordingly" - the day and the commit each deploy was built from (vite.config.ts), so the line follows
  * what is live; the hand-set day only stands in where nothing was built (the tests). */

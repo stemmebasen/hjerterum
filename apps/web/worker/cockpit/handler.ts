@@ -51,6 +51,7 @@ import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
+import { setStudioDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -1040,6 +1041,42 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         return backHere(post.kind === "share" ? "besked=delt" : "besked=godkendt");
       }
       return backHere("besked=gemt");
+    }
+    return html(notFound(base, who), 404);
+  }
+  // Requested: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet" and "alt det materiale, der er lagt op i forbindelse
+  // med eventet, og også ... alt fra den pågældende underviser" (3 Nov 2026) - Events → Plakater og opslag (posterStudio.ts, src/poster-studio.tsx).
+  if (path === "/plakater" || path.startsWith("/plakater/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("posters.design")) return denied("posters.design");
+    const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
+    if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
+    const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
+    if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design)?$/.exec(path);
+    if (!studio) return html(notFound(base, who), 404);
+    const [, id, part] = studio;
+    if (!part && request.method === "GET") {
+      // The studio is the website's own app (the templates are drawn there), served here behind the chair's login.
+      const assets = (env as { ASSETS?: { fetch(request: Request): Promise<Response> } }).ASSETS;
+      const shell = assets ? await assets.fetch(new Request(`${url.origin}/`)).then(r => r.ok ? r.text() : null).catch(() => null) : null;
+      if (!shell) return html(problem(base, who, "Værktøjet kunne ikke åbnes lige nu. Prøv igen om lidt."), 503);
+      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" } });
+    }
+    if (part === "/data" && request.method === "GET") {
+      const data = await studioData(db, id!, now, deps.fetcher);
+      return data ? answer({ ...data, who, back: `${base}/plakater` }) : answer({ error: "not_found" }, 404);
+    }
+    if (part === "/design" && request.method === "POST") {
+      const booking = /^h(\d+)$/.exec(id!);
+      if (!booking || !media) return answer({ error: "not_possible" }, 400);
+      const exists = await db.prepare("SELECT title FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(Number(booking[1])).first<{ title: string }>().catch(() => null);
+      if (!exists) return answer({ error: "not_found" }, 404);
+      const remove = url.searchParams.get("fjern") === "1";
+      const result = await setStudioDesign(db, media, Number(booking[1]), remove ? null : await request.arrayBuffer(), now);
+      if (!result.ok) return answer(result, 422);
+      await audit(db, actor, "posters.design", `${remove ? "Fjernede designet fra" : "Satte et design på"} "${exists.title}" på hjemmesiden`, now);
+      return answer({ ok: true });
     }
     return html(notFound(base, who), 404);
   }

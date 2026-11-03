@@ -23,4 +23,5 @@ Suppleanter har altid kun læseadgang (se `apps/web/worker/cockpit/deputies.ts`)
 
 - Kun formanden: nyhedsbrevet "Månedens events" (`newsletter.manage`).
 - Kun formanden (3. november): PR og sociale medier (`social.manage`).
+- Kun formanden (3. november): Plakater og opslag med designskabelonerne (`posters.design`).
 - Åbnet for bestyrelsen: ret og slet af events oprettet i systemet ("Nej kun nyhedsbrevet delen").
