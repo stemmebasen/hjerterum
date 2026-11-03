@@ -834,3 +834,15 @@ Still open:
 - **Fra eventet**: eventets foto, billederne blandt dets filer (andre filer som links), underviserens eget opslag og kalenderens foto. **Fra underviseren**: PR-billederne, profilfotoet, billeder fra deres andre events i huset, deres tre citater (med "Kopiér") og om de har givet PR-samtykke. Underviseren findes ved sit login, når eventet er deres eget, ellers ved navn.
 - Teknik: værktøjet er hjemmesidens egen app (`src/poster-studio.tsx`, sin egen kodeklump), som admin serverer bag formandens login; admin-adressen udleverer kun appens byggede filer og logoet (`/assets/`, `/brand/`) derudover. Alle billeder går gennem admins egen adresse (`/plakater/billede/...`), så canvas må gemme det tegnede. `worker/cockpit/posterStudio.ts`.
 - **Medlemmerne**: Eventformularen og "Opret med Saga" viser ikke længere skabeloner, og der tegnes intet design, når et medlem gemmer. Tilbage er "Dit eget opslag (valgfrit)", som Saga stadig tjekker, og som formanden kan bruge. Den offentlige side `/plakat/<id>` er fjernet, og medlems-API'ets `PUT /api/room-bookings/<id>/design` og `/poster-variant` svarer 410.
+
+## Facebook-begivenhed for hvert event (2026-11-03)
+
+- **Løftet** på hjemmesiden (holistisk.org/markedsforing, lejepriser, "Brug centret" og den nye `/brug-hjerterum/markedsfoering`): "Når du booker Hjerterum, får dit event automatisk en god eksponering: det bliver offentliggjort både på vores hjemmeside og på vores Facebook-side". Og: "Så opretter vi eventet på vores hjemmeside og Facebook-side og sender dig et link." Markedsføring ud over det er underviserens eget ansvar. Instagram og nyhedsbrevet loves ikke.
+- **Meta lader ikke en app oprette begivenheder på en side.** Formandens valg: "Lisbeth opretter dem" i hånden, cockpittet minder hende om det, og "Hele bestyrelsen" må se og afkrydse listen. Funktionen er åben for bestyrelsen fra start, efter formandens udtrykkelige ja (docs/decisions/0007).
+- Events → **Facebook-begivenheder** (`/arrangementer/facebook`, `worker/cockpit/fbEvents.ts`):
+  - de næste seks ugers events, husets egne og kalenderens, men ikke samarbejdspartneres eller CIRKLER-møder;
+  - "Oprettet" med et link, hvis man vil, og "Fortryd".
+  - Det gemmes i `facebook_events` (migration 0095, kun en ny tabel).
+- **Påmindelse:** mandag og torsdag fra kl. 9 skriver Saga privat på Telegram til Lisbeth (`FB_EVENTS_PERSON`), hvis noget mangler de næste tre uger. Én gang pr. dag, og intet, når alt er oprettet.
+- **Formanden** ser i "Det kræver dig lige nu" på PR og SoMe, hvor mange events de næste to uger der mangler en begivenhed.
+- **Det cockpittet ikke dækker:** links til opslag og reels, som underviserne sender via Messenger-siden. Det fanger kun opslag, hvor Hjerterum er tagget.

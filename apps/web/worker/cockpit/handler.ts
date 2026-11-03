@@ -45,6 +45,7 @@ import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeetin
 import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
+import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
 import { approveWeek, connectSocial, decidePost, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
@@ -1292,6 +1293,18 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     // The board changes and deletes members' events; the newsletter is the chair's own (authority.ts).
     const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage"), listMail: may("listmail.send") }));
+  }
+  // Requested (the chair, 3 Nov 2026): every event on Hjerterum's Facebook page, made by hand - "Lisbeth opretter dem" - and open to "Hele bestyrelsen" (fbEvents.ts).
+  if (path === "/arrangementer/facebook") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const key = String(form?.get("event") ?? "").slice(0, 120), done = String(form?.get("done") ?? "") === "1";
+      await markFacebookEvent(db, key, done, who, String(form?.get("link") ?? ""), now);
+      return redirect(`${base}/arrangementer/facebook?besked=${done ? "oprettet" : "fortrudt"}`);
+    }
+    const notices: Record<string, string> = { oprettet: "Markeret som oprettet på Facebook.", fortrudt: "Markeringen er fortrudt." };
+    return html(facebookEventsPage(base, who, await facebookEvents(db, now), now, notices[url.searchParams.get("besked") ?? ""] ?? ""));
   }
   // Gitta's PR wishes on the coming events (prWishes.ts).
   if (path === "/arrangementer/pr" && request.method === "POST") {
