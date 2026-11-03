@@ -6,7 +6,7 @@ import { LOGO_FILE, chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VA
  * og også har en sektion med alt fra den pågældende underviser."
  * admin.hjerterum.info/plakater/<id> (behind the chair's login, worker/cockpit/posterStudio.ts): every design in every format, drawn from the picture
  * the chair picks - the event's own (cover, pictures among its files, the teacher's own poster, the calendar's photo) or the teacher's (PR photos,
- * profile photo, pictures from their other events) - to download, and for the house's own events to keep as the design on the website. */
+ * profile photo, pictures from their other events) - to use in the event's post in PR og SoMe ("Brug i opslaget"), or to download. Only for social media. */
 
 type Picture = { url: string; label: string; width?: number | null; height?: number | null };
 type Quotes = { facilitator: string; offering: string; participant: string; participantName: string };
@@ -15,6 +15,7 @@ type Data = {
   eventPictures: Picture[];
   files: Array<{ url: string; label: string }>;
   teacher: { name: string; consent: "given" | "withdrawn" | "none"; quotes: Quotes; pictures: Picture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> } | null;
+  post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean } | null;
   back: string;
 };
 
@@ -41,7 +42,7 @@ function Design({ variant, words, assets, format, chosen, title, onUse }: { vari
     <figcaption>
       <div><b>{info.label}</b>{chosen && <span className="poster-badge">Systemets valg</span>}<p>{info.about}</p></div>
       <p className="studio-actions"><button type="button" className="lys-btn" onClick={save}>Hent billede</button>
-        {onUse && <button type="button" className="lys-btn ghost" onClick={() => ref.current && onUse(ref.current)}>Brug på hjemmesiden</button>}</p>
+        {onUse && <button type="button" className="lys-btn ghost" onClick={() => ref.current && onUse(ref.current)}>Brug i opslaget</button>}</p>
     </figcaption>
   </figure>;
 }
@@ -65,7 +66,7 @@ export function PosterStudio({ id }: { id: string }) {
   const [logo, setLogo] = useState<HTMLImageElement | null>(null);
   const [format, setFormat] = useState<Format>("opslag");
   const [message, setMessage] = useState("");
-  const [design, setDesign] = useState<string | null>(null);
+  const [postImage, setPostImage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -74,7 +75,6 @@ export function PosterStudio({ id }: { id: string }) {
       setData(found);
       if (!found) return;
       document.title = `Plakater: ${found.event.title} · Hjerterum admin`;
-      setDesign(found.event.design);
       setPicked((found.eventPictures[0] ?? found.teacher?.pictures[0])?.url ?? null);
     });
     void Promise.all(FONTS.map(f => document.fonts.load(f).catch(() => []))).then(() => image(LOGO_FILE)).then(img => { if (active) setLogo(img); });
@@ -98,26 +98,24 @@ export function PosterStudio({ id }: { id: string }) {
   const systems = chooseVariant({ ...event, imageUrl: photo ? "photo" : null }, size, format);
   const order: VariantKey[] = [systems, ...VARIANTS.map(v => v.key).filter(k => k !== systems)];
   if (photo) order.push(OWN_PICTURE.key);
-  const house = event.bookingId !== null;
-
+  // Requested: "skal vi kun bruge dem til sociale medier ... at jeg kan generere et design til et social media-post". A post (4:5) or a wide picture
+  // (1,91:1) - the shapes Facebook and Instagram take in the feed - goes into the event's post in PR og SoMe.
+  const post = data.post;
   const use = async (canvas: HTMLCanvasElement) => {
-    setMessage("Gemmer designet …");
+    setMessage("Lægger designet i opslaget …");
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    const response = blob ? await fetch(`/plakater/${id}/design`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob }).catch(() => null) : null;
-    if (response?.ok) { setDesign(`/plakater/billede/design/${event.bookingId}?v=${Date.now()}`); setMessage("Designet vises nu på hjemmesiden, i programmet og i nyhedsbrevet."); }
-    else setMessage("Designet kunne ikke gemmes. Prøv igen.");
-  };
-  const remove = async () => {
-    const response = await fetch(`/plakater/${id}/design?fjern=1`, { method: "POST" }).catch(() => null);
-    if (response?.ok) { setDesign(null); setMessage("Designet er fjernet. Hjemmesiden viser eventets eget foto."); }
+    const response = blob ? await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: blob }).catch(() => null) : null;
+    const body = response?.ok ? await response.json().catch(() => null) as { url?: string; monday?: string | null } | null : null;
+    if (body?.url) { setPostImage(body.url); setMessage("Designet er lagt i opslaget. Opslaget er en kladde igen - godkend det under PR og SoMe."); }
+    else setMessage("Designet kunne ikke lægges i opslaget. Prøv igen.");
   };
   const t = data.teacher;
 
   return <main className="page-shell site-page poster-page studio">
     <section className="lys-intro site-intro">
-      <div><p className="lys-kicker"><a href={data.back}>← Plakater og opslag</a></p><h1 className="lys-title">{event.title}</h1>
+      <div><p className="lys-kicker"><a href="/pr/events">← PR og SoMe</a> · <a href={data.back}>Plakater og opslag</a></p><h1 className="lys-title">{event.title}</h1>
         <p>{DAY.format(new Date(event.startsAt))}{event.host ? ` · ${event.host}` : ""}</p></div>
-      <div className="site-intro-side"><p>Vælg et billede fra eventet eller fra underviseren. Alle designs tegnes med det - hent dem til Instagram og Facebook{house ? ", eller brug et som eventets billede på hjemmesiden (vælg formatet Facebook-cover)" : ""}.</p>
+      <div className="site-intro-side"><p>Vælg et billede fra eventet eller fra underviseren. Alle designs tegnes med det - brug et i eventets opslag på Facebook og Instagram, eller hent det.</p>
         <div className="poster-format" role="group" aria-label="Format">
           {(Object.keys(SIZES) as Format[]).map(key => <button key={key} type="button" className={"lys-btn" + (format === key ? "" : " ghost")} aria-pressed={format === key} onClick={() => setFormat(key)}>{SIZES[key].label}</button>)}
         </div></div>
@@ -128,10 +126,12 @@ export function PosterStudio({ id }: { id: string }) {
         <h2>Fra eventet</h2>
         {data.eventPictures.length ? <Thumbs pictures={data.eventPictures} picked={picked} onPick={setPicked} /> : <p className="studio-muted">Der er ikke lagt billeder op med eventet.</p>}
         {data.files.length > 0 && <ul className="studio-files">{data.files.map(f => <li key={f.url}><a href={f.url}>{f.label}</a></li>)}</ul>}
-        {house && <div className="studio-site"><h3>På hjemmesiden</h3>
-          {design ? <><img src={design} alt="Eventets design på hjemmesiden" /><button type="button" className="text-button" onClick={() => void remove()}>Fjern designet - vis eventets eget foto</button></>
-            : <p className="studio-muted">Hjemmesiden viser eventets eget foto. Vælg formatet Facebook-cover, og tryk "Brug på hjemmesiden" ved et design.</p>}
-        </div>}
+        <div className="studio-site"><h3>Opslaget i PR og SoMe</h3>
+          {post ? <>{(postImage ?? post.image) && <img src={postImage ?? post.image!} alt="Opslagets billede" />}
+            <p className="studio-muted">{postImage ? "Dit nye design er opslagets billede." : post.design ? "Opslaget bruger et design." : "Opslaget bruger eventets eget billede."} Vælg formatet Opslag eller Facebook-cover, og tryk "Brug i opslaget" ved et design.</p>
+            <a className="text-button" href={post.monday ? `/pr/uge?uge=${post.monday}` : "/pr/events"}>Se opslaget</a></>
+            : <p className="studio-muted">Eventet har intet opslag endnu. Lav det under <a href="/pr/events">PR og SoMe → Events</a>, og kom tilbage hertil.</p>}
+        </div>
         <p className="studio-actions"><button type="button" className={"lys-btn" + (picked ? " ghost" : "")} onClick={() => setPicked(null)}>Uden billede</button></p>
       </div>
       {t && <div className="studio-box">
@@ -152,7 +152,7 @@ export function PosterStudio({ id }: { id: string }) {
       {order.map(variant => {
         const fits = photoFits(variant, format, size);
         return fits.ok ? <Design key={variant} variant={variant} words={words} assets={assets} format={format} chosen={variant === systems} title={event.title}
-          onUse={house && format === "cover" ? (canvas) => void use(canvas) : null} />
+          onUse={post && format !== "story" ? (canvas) => void use(canvas) : null} />
           : <figure key={variant} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
             <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === variant)!.label}</b></div></figcaption></figure>;
       })}

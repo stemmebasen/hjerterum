@@ -117,6 +117,14 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
     if (url.pathname === NEWSLETTER_PATH) return handleNewsletterSignup(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === ENQUIRY_PATH) return handleEnquiry(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
 
+    // A design from Plakater og opslag used in a post (cockpit/posterStudio.ts storeSocialDesign): the picture Facebook and Instagram fetch. Public, as the post will be.
+    const design = /^\/api\/social-designs\/([0-9a-f]{32})\.jpg$/.exec(url.pathname);
+    if (design && (request.method === "GET" || request.method === "HEAD")) {
+      const media = (env as { EVENT_MEDIA?: { get(key: string): Promise<{ body: ReadableStream } | null> } }).EVENT_MEDIA;
+      const object = media ? await media.get(`social/designs/${design[1]}.jpg`).catch(() => null) : null;
+      if (!object) return new Response("Ikke fundet", { status: 404 });
+      return new Response(request.method === "HEAD" ? null : object.body, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+    }
     // "Ugens events" as a reel (.github/workflows/ugens-reel.yml): the video Instagram fetches when the reel is published. Public, as the post itself will be;
     // only that folder, only an mp4 by its long random name.
     const reel = /^\/api\/social-reels\/([a-z0-9-]{8,80})\.mp4$/.exec(url.pathname);

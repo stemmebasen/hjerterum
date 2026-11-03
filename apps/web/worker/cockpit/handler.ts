@@ -46,14 +46,14 @@ import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, w
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
-import { approveWeek, connectSocial, decidePost, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, connectSocial, decidePost, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
 import { prEventsData } from "./prEvents.js";
-import { setStudioDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
+import { setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -1067,7 +1067,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
     const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1080,6 +1080,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (part === "/data" && request.method === "GET") {
       const data = await studioData(db, id!, now, deps.fetcher);
       return data ? answer({ ...data, who, back: `${base}/plakater` }) : answer({ error: "not_found" }, 404);
+    }
+    // "Brug i opslaget": the design becomes the picture of the event's open post in PR og SoMe, which is a draft again for the chair to approve.
+    if (part === "/opslag" && request.method === "POST") {
+      if (!media) return answer({ error: "not_possible" }, 400);
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const stored = await storeSocialDesign(media, await request.arrayBuffer());
+      if (!stored.ok) return answer(stored, 422);
+      await setPostDesign(db, data.post.id, stored.url, now);
+      await audit(db, actor, "posters.design", `Lagde et design i opslaget om "${data.event.title}"`, now);
+      return answer({ ok: true, url: stored.url, monday: data.post.monday });
     }
     if (part === "/design" && request.method === "POST") {
       const booking = /^h(\d+)$/.exec(id!);

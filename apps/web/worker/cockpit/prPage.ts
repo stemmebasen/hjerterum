@@ -4,6 +4,7 @@ import { at, clock, dateOf, dayName, weekNumber } from "../social/plan.js";
 import { PLAN_STYLE, prPlanSection, type PlanData } from "./prPlan.js";
 import { INSIGHT_STYLE, insightSection, type MonthInsight } from "./prInsight.js";
 import { PR_EVENTS_STYLE, prEventsSection, type PrEventRow } from "./prEvents.js";
+import { studioIdOf } from "./posterStudio.js";
 
 /** Kommunikation → PR og SoMe (/pr): the chair's PR cockpit (social.ts). Connect Facebook and Instagram; pass on what Hjerterum is tagged in;
  * read, change and approve the week's posts. Nothing goes out before it is approved here. */
@@ -104,6 +105,9 @@ function weekCard(base: string, p: SocialPost, account: SocialAccount | null): s
   return `<article class="pr-post">
 <header>${status(p)}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
+${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
+  return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.design ? "Dit design" : "Eventets billede"}</span>
+${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(studio)}">${p.source.design ? "Skift design" : "Lav design"}</a>` : ""}</div>`; })() : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>${p.kind === "week" ? "Teksten på Facebook" : "Opslaget på Facebook"}</span><textarea name="text" rows="${p.kind === "week" ? 10 : 4}"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
@@ -169,7 +173,7 @@ ${sections[tab]}</main>`;
 const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
 .pr-post{border-top:1px solid var(--line);padding:16px 0}.pr-post:first-of-type{border-top:0}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
-.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
+.pr-design{display:flex;align-items:center;gap:12px;margin:0 0 12px}.pr-design img{width:72px;height:90px;object-fit:cover;border-radius:10px}.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
 .pr-field{display:block;margin:0 0 10px}.pr-field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.pr-field textarea,.pr-field input{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .pr-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}.pr-time{max-width:260px}.pr-channels{display:flex;gap:18px;margin:0 0 10px}.pr-channels label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer}.pr-channels input{width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent);flex:none}
 .pr-acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.pr-acts form{margin:0}
