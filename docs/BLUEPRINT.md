@@ -876,3 +876,9 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - en AI laver ud fra billederne, teksten og oplysningerne en reel, en omtale og en lille opslagstekst, som kan hentes fra eventet og postes direkte.
   Besluttet og bygget: billederne i eventformularen med den tydelige besked (se "PR-materiale, når eventet oprettes"). Åbent: mailen strider mod reglen om, at Saga aldrig sender mail af sig selv, så den kræver formandens ja. En reel pr. event er ikke bygget, kun Ugens events som reel.
 - **Canva** bruges mest til eventfotos og ugens eventbillede. Gitta rydder op i sine egne designs og lægger dem i en mappe, der hedder "Gitta".
+
+## Ny, kortere samtykketekst til PR-materialet (2026-11-03)
+
+- Gitta: indholdet var rigtigt, men teksten skulle være enklere og kortere, og den skal stadig gælde fremtidige events og fælles opslag. Formanden valgte forslag A ("Med steder").
+- Underviserne krydser nu af: "Hjerterum må bruge mine billeder og citater til at fortælle om mine events – nu og fremover – også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier. Jeg kan trække samtykket tilbage når som helst." (`PR_CONSENT_TEXT` i `pr-material.ts`).
+- Den nye tekst dækker det samme som den første, så samtykker givet før gælder stadig. Den første tekst er gemt som `PR_CONSENT_TEXT_V1`. Hvert samtykke vises med de ord, det blev givet til (`consentTextAt`: før 4. november 2026 den første, derefter den nye), både for underviseren og i admin.

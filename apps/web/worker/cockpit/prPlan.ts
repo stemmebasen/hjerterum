@@ -25,7 +25,7 @@ export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }>
   { title: "Månedlig indsigt", status: "klar", note: "Følgere på Facebook og Instagram og det, der er sendt, måned for måned, nederst på siden. Rækkevidde pr. opslag kræver flere tilladelser fra Meta." },
   { title: "Alle events deles mindst én gang", status: "klar", note: "Hvert event får sit eget opslag på Facebook (et fast hold én gang om ugen), også events, der kommer til efter torsdagens planlægning. Et aflyst event får aldrig sit opslag." },
   { title: "Facebook-begivenhed for hvert event", status: "klar", note: "Hjemmesidens løfte. Meta lader ikke systemet oprette begivenheder, så Lisbeth og Frederik opretter dem i hånden. Listen står under Events → Facebook-begivenheder, og Saga minder dem mandag og torsdag." },
-  { title: "Ny, kortere samtykketekst", status: "venter-paa-dig", note: "Gitta: indholdet er rigtigt, men den skal være enklere. Den skal stadig gælde fremtidige events og fælles opslag." },
+  { title: "Ny, kortere samtykketekst", status: "klar", note: "Underviserne krydser nu af: Hjerterum må bruge mine billeder og citater til at fortælle om mine events - nu og fremover - også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier." },
   { title: "Påmindelse til undervisere uden billeder", status: "venter-paa-dig", note: "Gittas forslag: en mail efter tre dage. Husets regel er, at Saga aldrig sender mail af sig selv - det kræver dit ja." },
   { title: "Delinger uden godkendelse", status: "venter-paa-dig", note: "Skal opslag fra undervisere med PR-samtykke kunne deles uden dit tryk? Lige nu kræver alt dit ja." }
 ];
