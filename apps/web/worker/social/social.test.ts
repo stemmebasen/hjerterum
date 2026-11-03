@@ -61,10 +61,10 @@ describe("the week's plan", () => {
     expect(pickWeekEvents(events.slice(0, 4), new Set())).toHaveLength(4);
   });
 
-  it("posts each event the day before at 15.00 or 16.30, two a day at most, never after it begins", () => {
+  it("posts each event the day before at 15.00, 16.00 or 17.00, three a day at most, never after it begins", () => {
     const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-09T07:30:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T14:00:00.000Z", "2026-11-09T15:30:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-08T15:30:00.000Z"]);
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T14:00:00.000Z", "2026-11-09T15:00:00.000Z", "2026-11-09T16:00:00.000Z", "2026-11-08T14:00:00.000Z"]);
     expect(new Set(times).size).toBe(times.length);
     times.forEach((t, i) => expect(t).toBeLessThan(chosen[i]!.startsMs));
   });
@@ -191,7 +191,8 @@ describe("the PR cockpit", () => {
     await run(NOW + 61 * 60_000);
     const week = await socialPosts(db, "week = '2026-W46'", [], "CASE kind WHEN 'week' THEN 0 ELSE 1 END, publish_at_ms");
     expect(week.filter(p => p.kind === "week")).toHaveLength(1);
-    expect(week.filter(p => p.kind === "event")).toHaveLength(10);
+    // Every event of the week gets its post - "alle events deles mindst én gang".
+    expect(week.filter(p => p.kind === "event")).toHaveLength(11);
     expect(week.every(p => p.status === "draft")).toBe(true);
     const weekly = week[0]!;
     expect(weekly.channels).toEqual(["facebook", "instagram"]);
@@ -204,13 +205,13 @@ describe("the PR cockpit", () => {
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
     // Planned once: Saga's next round does not plan it again.
     await run(NOW + 125 * 60_000);
-    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(11);
+    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(12);
 
     // The chair moves one, approves the week, and the posts go out at their times - each once.
     const first = week[1]!;
     await call(`/pr/opslag/${first.id}`, { method: "POST", cookie, body: form({ do: "gem", text: "Rettet af formanden.", at: "2026-11-08T12:15" }) });
     expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr?uge=2026-11-09&besked=uge-godkendt");
-    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(11);
+    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);
     const before = graph.filter(c => c.path === "/755/feed").length;
     await run(Date.parse("2026-11-08T11:20:00Z"));
     const posted = graph.filter(c => c.path === "/755/feed").slice(before);
@@ -229,8 +230,8 @@ describe("the PR cockpit", () => {
     for (const due of (await socialPosts(db, "week = '2026-W46' AND status = 'approved'")).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-16T09:00:00Z"));
     const final = await socialPosts(db, "week = '2026-W46'");
-    expect(final.filter(p => p.status === "published")).toHaveLength(11);
-    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 11);
+    expect(final.filter(p => p.status === "published")).toHaveLength(12);
+    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 12);
   });
 
   it("does not post an event late, and uses a Facebook Login for Business configuration when there is one", async () => {

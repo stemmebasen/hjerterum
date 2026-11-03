@@ -4,12 +4,15 @@ import { listTitle, type NewsletterEvent } from "../newsletter.js";
  * out without AI: which events get their own little post on Facebook, when each goes out, and when "Ugens events" goes out. */
 
 const TZ = "Europe/Copenhagen";
+/** Requested (the chair, 3 Nov 2026): "Kan vi systematisk sørge for at alle events deles mindst én gang" - every event of the week gets its own post
+ * (a class that runs several times a week, once a week). WEEK_MAX is no longer a limit; it is kept for the order of "Ugens events"' pictures. */
 export const WEEK_MIN = 7;
 export const WEEK_MAX = 10;
+export const EVERY_EVENT = Number.POSITIVE_INFINITY;
 export const SITE = "https://www.hjerterum.info";
-/** The slots a single event's post may go out in (Danish time), at most two a day. Gitta (3 Nov 2026): what she shares "omkring 3-4-5 sidst på
+/** The slots a single event's post may go out in (Danish time), at most three a day (now that every event gets one). Gitta (3 Nov 2026): what she shares "omkring 3-4-5 sidst på
  * eftermiddagen" gets the most views, though Meta recommends later in the evening - and the chair: "Ja" to posting between 15 and 17. */
-export const POST_HOURS: Array<[number, number]> = [[15, 0], [16, 30]];
+export const POST_HOURS: Array<[number, number]> = [[15, 0], [16, 0], [17, 0]];
 /** "Ugens events" goes out on the Monday afternoon of its week. */
 export const WEEK_POST_AT: [number, number] = [15, 30];
 /** The plan for next week is made on Thursday from 10.00, so the chair has days to read and approve it. */
@@ -75,10 +78,10 @@ export function pickWeekEvents(events: NewsletterEvent[], wished: Set<string>, m
 
 // ---- When ----
 
-/** When each event's post goes out: a free slot (15.00 or 16.30) the day before, else two or three days before, else the morning of the day -
+/** When each event's post goes out: a free slot (15.00, 16.00 or 17.00) the day before, else two or three days before, else the morning of the day -
  * never after the event has begun, never before `notBeforeMs`, and never two posts in one slot. */
-export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number): number[] {
-  const taken = new Set<number>();
+export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = []): number[] {
+  const taken = new Set<number>(alreadyTaken);
   return events.map(e => {
     const day = dateOf(e.startsMs);
     for (const back of [1, 2, 3, 0]) {

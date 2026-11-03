@@ -7,9 +7,11 @@ import { esc, layout } from "./page.js";
  * på vores hjemmeside og på vores Facebook-side" - and "Så opretter vi eventet på vores hjemmeside og Facebook-side og sender dig et link". Meta does not let
  * an app create a Page's events, so the chair chose: "Lisbeth opretter dem", the cockpit reminds her - and "Hele bestyrelsen" may see and tick the list.
  * Events → Facebook-begivenheder (/arrangementer/facebook): the coming six weeks' events, each ticked off when it is on Facebook. On Monday and Thursday
- * at 9 Saga tells Lisbeth privately on Telegram what is missing in the next three weeks. */
+ * at 9 Saga tells Lisbeth and Frederik privately on Telegram what is missing in the next three weeks. */
 
-export const FB_EVENTS_PERSON = "Lisbeth";
+/** Requested: "Lisbeth og Frederik står for at oprette events" - both are reminded. */
+export const FB_EVENTS_PEOPLE = ["Lisbeth", "Frederik"];
+export const FB_EVENTS_NAMES = "Lisbeth og Frederik";
 const DAY = 86_400_000;
 export const LIST_DAYS = 42;
 export const REMIND_DAYS = 21;
@@ -59,14 +61,17 @@ export async function scheduledFacebookReminder(env: SagaEnv, deps: SagaDeps, db
   if (!["Mon", "Thu"].includes(p.weekday ?? "") || Number(p.hour) < 9 || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_BOARD_CHAT_ID) return false;
   const missing = missingSoon(await facebookEvents(db, now, REMIND_DAYS), now);
   if (!missing.length) return false;
-  const person = await db.prepare(`SELECT author_name, author_telegram_id FROM board_messages WHERE chat_id = ? AND from_assistant = 0 AND author_telegram_id IS NOT NULL
-      AND lower(author_name) LIKE ? ORDER BY sent_at_ms DESC LIMIT 1`).bind(env.SAGA_BOARD_CHAT_ID, `${FB_EVENTS_PERSON.toLowerCase()}%`)
-    .first<{ author_name: string; author_telegram_id: string }>().catch(() => null);
-  if (!person || !(await claim("facebook_events_reminder", Date.parse(`${p.year}-${p.month}-${p.day}T00:00:00Z`)))) return false;
+  const people = (await Promise.all(FB_EVENTS_PEOPLE.map(first => db.prepare(`SELECT author_name, author_telegram_id FROM board_messages WHERE chat_id = ? AND from_assistant = 0
+      AND author_telegram_id IS NOT NULL AND lower(author_name) LIKE ? ORDER BY sent_at_ms DESC LIMIT 1`).bind(env.SAGA_BOARD_CHAT_ID, `${first.toLowerCase()}%`)
+    .first<{ author_name: string; author_telegram_id: string }>().catch(() => null)))).filter((p): p is { author_name: string; author_telegram_id: string } => Boolean(p));
+  if (!people.length || !(await claim("facebook_events_reminder", Date.parse(`${p.year}-${p.month}-${p.day}T00:00:00Z`)))) return false;
   const url = (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
   const lines = missing.slice(0, 12).map(e => `• ${WHEN.format(e.startsMs)}: ${e.title}`).join("\n");
-  const text = `Hej ${person.author_name.split(/\s+/)[0]}. ${missing.length === 1 ? "Ét event" : `${missing.length} events`} de næste tre uger mangler en begivenhed på Hjerterums Facebook-side:\n\n${lines}${missing.length > 12 ? "\n…" : ""}\n\nOpret dem på Facebook, og sæt flueben her, når de er oprettet: ${url}/arrangementer/facebook`;
-  await telegramClient(env, deps).sendMessage(person.author_telegram_id, text);
+  const telegram = telegramClient(env, deps);
+  for (const person of people) {
+    const text = `Hej ${person.author_name.split(/\s+/)[0]}. ${missing.length === 1 ? "Ét event" : `${missing.length} events`} de næste tre uger mangler en begivenhed på Hjerterums Facebook-side:\n\n${lines}${missing.length > 12 ? "\n…" : ""}\n\nOpret dem på Facebook, og sæt flueben her, når de er oprettet: ${url}/arrangementer/facebook`;
+    await telegram.sendMessage(person.author_telegram_id, text).catch(error => console.warn("facebook_events_reminder_send_failed", error instanceof Error ? error.message : error));
+  }
   return true;
 }
 
@@ -78,7 +83,7 @@ ${e.done ? `<small>Oprettet af ${esc(e.done.by)} ${esc(WHEN.format(e.done.at))}$
     ? `<input type="hidden" name="done" value="0"><button class="ghost">Fortryd</button>`
     : `<input type="hidden" name="done" value="1"><input name="link" placeholder="Link til begivenheden (valgfrit)" aria-label="Link til begivenheden"><button>Oprettet</button>`}</form></li>`;
   return layout(base, "Facebook-begivenheder", `<main class="fb-events"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/arrangementer">← Events</a></p><h1>Facebook-begivenheder</h1>
-<p>Hjemmesiden lover, at hvert event kommer på Hjerterums Facebook-side. Meta lader ikke systemet oprette begivenheder, så de oprettes i hånden. Sæt flueben, når et event er oprettet. Saga minder ${esc(FB_EVENTS_PERSON)} om det mandag og torsdag.</p></div>
+<p>Hjemmesiden lover, at hvert event kommer på Hjerterums Facebook-side. Meta lader ikke systemet oprette begivenheder, så de oprettes i hånden. Sæt flueben, når et event er oprettet. Saga minder ${esc(FB_EVENTS_NAMES)} om det mandag og torsdag.</p></div>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}
 <section class="panel"><header><h2>Mangler (${missing.length})</h2><p>De næste seks uger, de nærmeste først.</p></header>${missing.length ? `<ul>${missing.map(row).join("")}</ul>` : `<p class="good">Alle events de næste seks uger er på Facebook.</p>`}</section>
 ${done.length ? `<details class="panel"><summary><b>Oprettet (${done.length})</b></summary><ul>${done.map(row).join("")}</ul></details>` : ""}</main>`,
