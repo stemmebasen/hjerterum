@@ -95,7 +95,7 @@ def title_from(title):
 def card(lines_top, big, small, background=CREAM, ink=INK):
     img = Image.new("RGB", (W, H), background); d = ImageDraw.Draw(img)
     logo = logo_image(260, ink)
-    if logo: img.paste(logo, ((W - logo.width) // 2, 420), logo)
+    if logo: img.logo = (logo, W // 2, 420 + logo.height // 2)  # turned into place in render()
     y = 820
     for t in lines_top:
         f = font("sans-bold", 40); d.text(((W - d.textlength(t, font=f)) / 2, y), t, font=f, fill=TERRA); y += 70
@@ -127,26 +127,38 @@ def event_slide(event, photo):
     if event.get("host"):
         f = font("serif-italic", 56); d.text((90, y + 14), f"med {event['host']}", font=f, fill=ink)
     logo = logo_image(130, CREAM if photo is not None else INK)
-    if logo: img.paste(logo, (W - 90 - logo.width, 90), logo)
+    if logo: img.logo = (logo, W - 90 - logo.width // 2, 90 + logo.height // 2)
     return img
+
+
+LOGO_TURN = 1.6  # seconds the stamp takes to turn from 270 degrees into place
 
 
 def render(slides, out):
     folder = os.path.dirname(out)
-    parts = []
-    for i, slide in enumerate(slides):
-        png = os.path.join(folder, f"s{i:02d}.png"); slide.save(png); parts.append(png)
     frames = int(SECONDS * 30)
-    inputs, filters = [], []
-    for i, png in enumerate(parts):
-        inputs += ["-loop", "1", "-t", str(SECONDS), "-i", png]
+    inputs, filters, n = [], [], 0
+    for i, slide in enumerate(slides):
+        png = os.path.join(folder, f"s{i:02d}.png"); slide.save(png)
+        inputs += ["-loop", "1", "-t", str(SECONDS), "-i", png]; bg = n; n += 1
         # A slow push in, and a short fade between the slides.
-        filters.append(f"[{i}:v]scale={int(W*1.08)}:{int(H*1.08)},zoompan=z='min(1+0.0009*on,1.06)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps=30,"
-                       f"fade=t=in:st=0:d=0.35,fade=t=out:st={SECONDS-0.35}:d=0.35,setsar=1[v{i}]")
-    filters.append("".join(f"[v{i}]" for i in range(len(parts))) + f"concat=n={len(parts)}:v=1:a=0[v]")
-    total = SECONDS * len(parts)
+        filters.append(f"[{bg}:v]scale={int(W*1.08)}:{int(H*1.08)},zoompan=z='min(1+0.0009*on,1.06)':d={frames}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s={W}x{H}:fps=30,"
+                       f"trim=end_frame={frames},setpts=PTS-STARTPTS[b{i}]")
+        last = f"b{i}"
+        logo = getattr(slide, "logo", None)
+        if logo:
+            # The stamp turns from 270 degrees back to 0 at the start of each slide, slowing down as it lands.
+            stamp, cx, cy = logo
+            path = os.path.join(folder, f"l{i:02d}.png"); stamp.save(path)
+            inputs += ["-framerate", "30", "-loop", "1", "-t", str(SECONDS), "-i", path]; lg = n; n += 1
+            filters.append(f"[{lg}:v]format=rgba,rotate=a='3*PI/2*pow(1-min(t/{LOGO_TURN},1),3)':c=none:ow='hypot(iw,ih)':oh=ow[l{i}]")
+            filters.append(f"[{last}][l{i}]overlay=x={cx}-overlay_w/2:y={cy}-overlay_h/2:eof_action=pass:format=auto[o{i}]")
+            last = f"o{i}"
+        filters.append(f"[{last}]fade=t=in:st=0:d=0.35,fade=t=out:st={SECONDS-0.35}:d=0.35,format=yuv420p,setsar=1[v{i}]")
+    filters.append("".join(f"[v{i}]" for i in range(len(slides))) + f"concat=n={len(slides)}:v=1:a=0[v]")
+    total = SECONDS * len(slides)
     cmd = ["ffmpeg", "-y", "-v", "error", *inputs, "-f", "lavfi", "-t", str(total), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-           "-filter_complex", ";".join(filters), "-map", "[v]", "-map", f"{len(parts)}:a", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
+           "-filter_complex", ";".join(filters), "-map", "[v]", "-map", f"{n}:a", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p",
            "-r", "30", "-b:v", "6M", "-maxrate", "8M", "-bufsize", "12M", "-c:a", "aac", "-b:a", "128k", "-shortest", "-movflags", "+faststart", out]
     subprocess.run(cmd, check=True)
 
