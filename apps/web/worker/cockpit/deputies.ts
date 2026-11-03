@@ -17,8 +17,8 @@ export const deputyKey = (member: string) => `${DEPUTY}:${member}`;
 
 /** Saga notes who writes in the deputies' group - their Telegram account and name, never the text. */
 export async function recordDeputy(db: D1Database, telegramId: string, name: string, nowMs: number): Promise<void> {
-  await db.prepare(`INSERT INTO cockpit_deputies (telegram_id, name, seen_at_ms) VALUES (?, ?, ?)
-    ON CONFLICT(telegram_id) DO UPDATE SET name = excluded.name, seen_at_ms = excluded.seen_at_ms`).bind(telegramId, name.slice(0, 80), nowMs).run();
+  await db.prepare(`INSERT INTO cockpit_deputies (telegram_id, name, seen_at_ms, first_seen_at_ms) VALUES (?, ?, ?, ?)
+    ON CONFLICT(telegram_id) DO UPDATE SET name = excluded.name, seen_at_ms = excluded.seen_at_ms`).bind(telegramId, name.slice(0, 80), nowMs, nowMs).run();
 }
 
 /** The deputy behind a Telegram account, when the deputies' group is set up and they have written there. */

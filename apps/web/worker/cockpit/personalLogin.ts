@@ -3,6 +3,7 @@ import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { telegramClient } from "../saga/telegram.js";
 import { LINK_MINUTES, linkHash, loginCodeHash, newLinkToken, newLoginCode } from "./auth.js";
 import { deputyByTelegram, stillDeputy } from "./deputies.js";
+import { checkAccess } from "./loginAccess.js";
 
 /** Requested: "Hvordan kan vi sikre os, at kontoen, når først den er identificeret, bliver låst fast til
  * den enkelte bruger?" - "1.". A board member writes /login to Saga in a private Telegram chat (or taps
@@ -118,11 +119,13 @@ export async function answerLoginRequest(env: SagaEnv, deps: SagaDeps, db: D1Dat
     const deputy = await deputyByTelegram(env, db, telegramId);
     const deputyHere = deputy ? await stillDeputy(env, deps, telegramId) : false;
     if (deputy && deputyHere === null) { await telegram.sendMessage(chatId, "Jeg kan ikke tjekke lige nu, om du er med i suppleanternes gruppe. Prøv igen om lidt."); return; }
-    if (deputy && deputyHere) { await sendLogin(env, deps, db, chatId, telegramId, deputy, "suppleant"); return; }
+    if (deputy && deputyHere) { if (await checkAccess(env, deps, db, chatId, telegramId, deputy, "suppleant")) await sendLogin(env, deps, db, chatId, telegramId, deputy, "suppleant"); return; }
     if (member) { await telegram.sendMessage(chatId, "Du er ikke længere med i bestyrelsens gruppe, så jeg kan ikke give dig login til admin. Er det en fejl, så skriv til formanden."); return; }
     await telegram.sendMessage(chatId, "Login til admin er kun for Hjerterums bestyrelse og suppleanter. Er du med, så skriv først en besked i din gruppe, og prøv igen.");
     return;
   }
+  // The account, not the name: a name another account goes by gets nothing, and a new account waits for the chair (loginAccess.ts).
+  if (!await checkAccess(env, deps, db, chatId, telegramId, member, "bestyrelse")) return;
   await sendLogin(env, deps, db, chatId, telegramId, member, "bestyrelse");
 }
 
