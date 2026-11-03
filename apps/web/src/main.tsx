@@ -11,6 +11,7 @@ import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
+import { startTranslation } from "./translate-in-place";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
@@ -567,3 +568,5 @@ try {
   }
 } catch { /* an old browser: nothing to do */ }
 createRoot(root).render(<StrictMode><App /></StrictMode>);
+// Douglas: "When I click 'EN', I am no longer logged in" - English is now Google translating the page where it is.
+startTranslation();
