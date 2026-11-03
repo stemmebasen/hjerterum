@@ -77,7 +77,21 @@ ${channelBoxes(p, allowed, locked)}
 ${actions(base, p, "Del nu")}</form></article>`;
 }
 
+/** "Ugens events" as a reel, made by the weekly job (.github/workflows/ugens-reel.yml): the video, its words and its time; Instagram only. */
+function reelCard(base: string, p: SocialPost): string {
+  const locked = !open(p) || p.status === "approved";
+  return `<article class="pr-post">
+<header>${status(p)}<b>Ugens events som reel</b> <span class="small muted">Instagram</span></header>
+${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video>` : ""}
+<form method="post" action="${base}/pr/opslag/${p.id}">
+<label class="pr-field"><span>Teksten på Instagram</span><textarea name="text" rows="8"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
+<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>
+<div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label></div>
+${actions(base, p, "Godkend")}</form></article>`;
+}
+
 function weekCard(base: string, p: SocialPost, account: SocialAccount | null): string {
+  if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
   const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
   const allowed: Channel[] = p.kind === "week" && account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
@@ -137,7 +151,7 @@ ${insightSection(d.insight)}</main>`;
 const STYLE = `.pr{display:grid;gap:20px}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
 .pr-post{border-top:1px solid var(--line);padding:16px 0}.pr-post:first-of-type{border-top:0}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
-.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
+.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
 .pr-field{display:block;margin:0 0 10px}.pr-field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.pr-field textarea,.pr-field input{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .pr-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}.pr-time{max-width:260px}.pr-channels{display:flex;gap:18px;margin:0 0 10px}.pr-channels label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer}.pr-channels input{width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent);flex:none}
 .pr-acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.pr-acts form{margin:0}

@@ -814,3 +814,14 @@ Still open:
 - Én gang om dagen tæller Saga Hjerterums følgere på Facebook (`followers_count`) og på Instagram (`followers_count`, `media_count`). Tallene gemmes i `social_stats` (migration 0094, kun en ny tabel).
 - Nederst på PR og SoMe står **Indsigt** for de seneste tre måneder (`worker/cockpit/prInsight.ts`): følgere ved månedens slutning med månedens ændring, og hvor mange "Ugens events", eventopslag og delinger der er sendt, og hvor mange af dem der kom på Instagram.
 - Rækkevidde pr. opslag kræver flere tilladelser fra Meta (`read_insights`, `instagram_manage_insights`) og er ikke med endnu.
+
+## Ugens events som reel, helt automatisk (2026-11-03)
+
+- Formandens svar på, om reelen skal laves med et klik eller automatisk: "Alt der kan automatiseres skal automatiseres."
+- **Jobbet:** `.github/workflows/ugens-reel.yml` kører hver time torsdag-søndag. Når Saga har planlagt næste uge (torsdag fra kl. 10), og ugen ikke har sin reel endnu, gør jobbet tre ting:
+  - `.github/scripts/weekly-reel.py` laver en lodret video (1080 × 1920, H.264, cirka 3 sekunder pr. billede, stille lydspor): en titelside "Ugens events · Uge N", ét billede pr. event med dag, tid, titel og underviser i Hjerterums farver og skrifter, og en slutside "Se alle events · linket i bio". Husets eget stempel er farvet mørkt eller lyst efter baggrunden; formen ændres aldrig.
+  - Videoen lægges i R2 (`hjerterum-event-media/social/reels/<uge>-<tilfældigt navn>.mp4`). Den er offentlig på `https://www.hjerterum.info/api/social-reels/<navn>.mp4`, så Instagram kan hente den.
+  - Reelen lægges i PR og SoMe som kladde (`kind 'week'`, `source_key 'reel:<uge>'`, `source.format 'reel'`). Den bliver kun på Instagram og sendes mandag en time efter "Ugens events" (kl. 16.30).
+- **Formanden** ser videoen på ugens side, kan rette teksten, tidspunktet og samarbejdspartnerne, og godkender den med resten af ugen. Intet går ud uden godkendelse.
+- **Udgivelsen** sker over Sagas runder: Instagram får videoen én gang (`REELS`-container), Saga spørger hver runde, hvordan det går, og udgiver, når videoen er færdig. Fejler Instagram, står reelen som "Fejlede" med grunden og kan godkendes igen. Efter seks timer gives der op.
+- Facebook-reels kræver tilladelsen `publish_video` og er ikke med endnu.

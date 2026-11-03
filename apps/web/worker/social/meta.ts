@@ -148,3 +148,17 @@ export async function followerCounts(fetcher: Fetcher, page: { id: string; token
   const ig = instagram ? await graph<{ followers_count?: number; media_count?: number }>(fetcher, "GET", `/${instagram.igUserId}`, { fields: "followers_count,media_count", access_token: instagram.token }).catch(() => null) : null;
   return { fb, ig: ig?.followers_count ?? null, igMedia: ig?.media_count ?? null };
 }
+
+/** Requested: "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel (.github/workflows/ugens-reel.yml makes the video). Instagram fetches
+ * the video from its public address and works on it for a while, so a reel goes out in steps over Saga's rounds: the container, its status, the publishing. */
+export async function startReel(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { videoUrl: string; caption: string; collaborators?: string[] }): Promise<string> {
+  const invited = (post.collaborators ?? []).slice(0, 3);
+  return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media`, { media_type: "REELS", video_url: post.videoUrl, caption: post.caption, share_to_feed: "true",
+    ...(invited.length ? { collaborators: JSON.stringify(invited) } : {}), access_token: account.token })).id;
+}
+export async function reelStatus(fetcher: Fetcher, token: string, container: string): Promise<string> {
+  return (await graph<{ status_code?: string }>(fetcher, "GET", `/${container}`, { fields: "status_code", access_token: token })).status_code ?? "IN_PROGRESS";
+}
+export async function finishReel(fetcher: Fetcher, account: { igUserId: string; token: string }, container: string): Promise<string> {
+  return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media_publish`, { creation_id: container, access_token: account.token })).id;
+}

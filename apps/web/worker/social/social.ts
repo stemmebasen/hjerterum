@@ -7,7 +7,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { followerCounts, instagramMedia, postToPage, publishToInstagram, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, instagramMedia, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { clock, dateOf, dayName, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -28,8 +28,8 @@ export type SocialAccount = { page_id: string; page_name: string; page_token_sea
 export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
-  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[] }; publish_at_ms: number | null; status: SocialStatus;
-  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel, string>>; published_at_ms: number | null; error: string | null;
+  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string }; publish_at_ms: number | null; status: SocialStatus;
+  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
 const MINUTE = 60_000;
@@ -297,6 +297,9 @@ export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Da
 
 // ---- Publishing ----
 
+/** Instagram is still working on a reel's video: the post waits for the next round. */
+export class ReelPending extends Error { constructor() { super("reel_pending"); } }
+
 /** One approved post goes out: on each of its channels that it has not gone out on yet. */
 export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<void> {
   const account = await socialAccount(db);
@@ -309,6 +312,18 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
       if (channel === "facebook") done.facebook = await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
+        if (post.source.format === "reel") {
+          // "Ugens events" as a reel: Instagram processes the video between Saga's rounds.
+          if (!post.source.video) throw new Error("Reelen har ingen video");
+          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption: post.text, collaborators: post.source.collaborators ?? [] });
+          await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
+          const status = await reelStatus(deps.fetcher, instagram.token, done.instagram_container);
+          if (status === "ERROR" || status === "EXPIRED") { delete done.instagram_container; throw new Error(`Instagram kunne ikke behandle videoen (${status})`); }
+          if (status !== "FINISHED") throw new ReelPending();
+          done.instagram = await finishReel(deps.fetcher, instagram, done.instagram_container);
+          await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
+          continue;
+        }
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
           ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
@@ -341,6 +356,14 @@ export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database)
       await publishPost(env, deps, db, post);
       sent++;
     } catch (error) {
+      if (error instanceof ReelPending) {
+        // Tried again in the next round, at most for six hours.
+        if (deps.now() - (post.publish_at_ms ?? deps.now()) < 6 * 3_600_000) {
+          await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE id = ?").bind(deps.now(), post.id).run();
+          continue;
+        }
+        error = new Error("Instagram blev ikke færdig med videoen inden for seks timer");
+      }
       const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
       await db.prepare("UPDATE social_posts SET status = 'failed', error = ?, updated_at_ms = ? WHERE id = ?").bind(message, deps.now(), post.id).run();
       await tellChair(env, deps, `Et opslag kunne ikke komme ud (${post.kind === "share" ? "deling" : post.kind === "week" ? "Ugens events" : "event"}): ${message.slice(0, 200)}. Se ${cockpitUrl(env)}/pr`);
