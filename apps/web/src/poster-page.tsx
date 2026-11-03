@@ -1,3 +1,4 @@
+import { plainLine } from "../site/event-links";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LOGO_FILE, chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterEvent, type PosterWords, type VariantKey } from "./event-poster";
 
@@ -14,7 +15,7 @@ async function loadEvent(id: string): Promise<Loaded | null> {
     if (!response.ok) return null;
     const e = await response.json() as { id: string; title: string; startsAt: string; endsAt: string | null; host: string | null; category: string | null; imageUrl: string | null; paragraphs?: string[] };
     return { event: { id: e.id, title: e.title, startsAt: e.startsAt, endsAt: e.endsAt, host: e.host, category: e.category,
-      imageUrl: e.imageUrl ? `/api/poster-image?src=${encodeURIComponent(e.imageUrl)}` : null }, lines: e.paragraphs ?? [] };
+      imageUrl: e.imageUrl ? `/api/poster-image?src=${encodeURIComponent(e.imageUrl)}` : null }, lines: (e.paragraphs ?? []).map(plainLine) };
   }
   const house = /^h(\d+)$/.exec(id);
   if (!house) return null;

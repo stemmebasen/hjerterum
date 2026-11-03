@@ -10,6 +10,7 @@
 //
 // Begge kører automatisk; Hjerterums team har ingen manuelle trin (Jake, 3. oktober 2026).
 // Medlemmer med medlemsgoder (Standard, Generøst, Reduceret pris) er berettigede; Support er ikke.
+import { plainLine } from "../site/event-links.js";
 import type { CirclesEntitlementGateway } from "../../../packages/core/src/index.js";
 import { includesMemberBenefits } from "../membership.js";
 import { clerkPrimaryEmail } from "./admin-auth.js";
@@ -280,7 +281,7 @@ export async function sharedEvent(db: D1Database, id: string, fetcher: typeof fe
   const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
   if (!detail || Date.parse(detail.startsAt) < nowMs) return null;
   return { title: detail.title, url: `${SITE}/events/${id}`, image_url: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : null,
-    summary: short(detail.paragraphs.join(" ")), starts_at: detail.startsAt };
+    summary: short(detail.paragraphs.map(plainLine).join(" ")), starts_at: detail.startsAt };
 }
 
 async function eligibility(request: Request, env: CirklerIntegrationEnv): Promise<Response> {
