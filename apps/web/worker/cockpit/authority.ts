@@ -34,7 +34,9 @@ export const POWERS = {
   // Requested: "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen" (3 Nov 2026).
   "social.manage": { label: "PR og sociale medier: forbinde Facebook og Instagram, dele opslag Hjerterum er tagget i, og godkende ugens opslag", needs: "personal" },
   // Requested: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige mig til at begynde med - kan bruge dem" (3 Nov 2026).
-  "posters.design": { label: "Plakater og opslag: lave opslag med Hjerterums skabeloner af eventets og underviserens materiale, og sætte eventets design på hjemmesiden", needs: "personal" }
+  "posters.design": { label: "Plakater og opslag: lave opslag med Hjerterums skabeloner af eventets og underviserens materiale, og sætte eventets design på hjemmesiden", needs: "personal" },
+  // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" (3 Nov 2026) - new, so the chair's first.
+  "cirkler.delete": { label: "Slette et CIRKLER-møde i salen, så salen bliver ledig", needs: "personal" }
 } as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
 
 export type Power = keyof typeof POWERS;

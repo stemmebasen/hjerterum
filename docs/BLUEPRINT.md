@@ -882,3 +882,9 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - Gitta: indholdet var rigtigt, men teksten skulle være enklere og kortere, og den skal stadig gælde fremtidige events og fælles opslag. Formanden valgte forslag A ("Med steder").
 - Underviserne krydser nu af: "Hjerterum må bruge mine billeder og citater til at fortælle om mine events – nu og fremover – også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier. Jeg kan trække samtykket tilbage når som helst." (`PR_CONSENT_TEXT` i `pr-material.ts`).
 - Den nye tekst dækker det samme som den første, så samtykker givet før gælder stadig. Den første tekst er gemt som `PR_CONSENT_TEXT_V1`. Hvert samtykke vises med de ord, det blev givet til (`consentTextAt`: før 4. november 2026 den første, derefter den nye), både for underviseren og i admin.
+
+## Formanden kan slette CIRKLER-møder (2026-11-03)
+
+- Ønsket: "Gør mig i stand til at slette CIRKLER-møder som formand." Kun formanden, med beføjelsen `cirkler.delete` (`needs: "personal"`, docs/decisions/0007).
+- Under Events → "Events oprettet i systemet" har et CIRKLER-møde nu **Slet** for formanden. Det frigiver salen (`releaseForMeeting`, som når CIRKLER selv aflyser) og skrives i formandens log. Et CIRKLER-møde kan stadig ikke rettes her, kun slettes.
+- **CIRKLER får ikke besked.** Der findes ingen vej fra Hjerterum til CIRKLER for det. Bekræftelsen og beskeden siger, at cirklen skal have besked. Flytter cirklen senere mødet i CIRKLER, reserveres salen igen.
