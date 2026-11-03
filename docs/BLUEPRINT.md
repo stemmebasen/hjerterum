@@ -856,3 +856,23 @@ Still open:
 - **Et aflyst eller fjernet event** får aldrig sit opslag. Det springes over med grunden.
 - **Påmindelsen om Facebook-begivenheder** går til både Lisbeth og Frederik (`FB_EVENTS_PEOPLE`).
 - **Systemet holder øje med tags:** hver halve time ser det efter Facebook-opslag, der tagger Hjerterums side, og Instagram-opslag, der tagger @hjerterum_aarhus på billedet. Meta giver ikke adgang til stories, @-omtaler kun i Instagram-teksten eller links sendt via Messenger.
+
+## Overdragelse af PR-arbejdet fra Gitta (2026-11-03)
+
+Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, og det, der følger af det for PR-cockpittet (`/pr`):
+
+- **Intet planlagt frem.** Gitta har ingen opslag planlagt i Meta. Det eneste faste er hendes ugentlige reel med ugens events. Der er altså ikke noget, PR-cockpittet kan komme til at poste dobbelt.
+- **Tidspunkter.** Hendes reels får flest visninger, når de deles **omkring kl. 15-17**, selvom Meta anbefaler senere på aftenen. Besluttet: opslagene går nu ud kl. 15-17 (se "PR-planen i cockpittet, og opslag kl. 15-17").
+- **Formater.** Karruseller (billede med lidt tekst) får nok mest interaktion, reels flest visninger. Interaktionen er generelt lav. Uden reels, stories og karruseller på de rigtige tidspunkter falder synligheden.
+- **Dele undervisernes opslag** er "høj værdi for meget lidt": det når både deres og vores følgere. Underviserne forventer det; det står i PR-guiden. Teksten er kort og varm, fx "Skønne Rie fortæller om sit spændende foredrag på lørdag", og **uden link til eventet**, medmindre underviseren ikke selv har linket til det.
+- **Samarbejdspartner.** Gitta inviterer underviseren som *samarbejdspartner* på opslaget, ud over @-tag i teksten. Det kan nu både Instagram og Facebook. Så får underviseren besked automatisk, og opslaget vises også for deres følgere. Besluttet og bygget for Instagram (se "Undervisere som samarbejdspartner på Instagram"). Facebooks API kan ikke invitere samarbejdspartnere.
+- **Meta Business Suite.** Gitta deler via Meta, så det går til Facebook, Instagram og Facebook-stories på én gang. Stories kan PR-cockpittet ikke lave. Ugens events laves nu automatisk som reel (se "Ugens events som reel, helt automatisk").
+- **Reels, stories og video** laver ingen fremover. Lisbeth står for coverbillede og tekst på de events, hun arrangerer, og deler events som opslag med tekst på Facebook.
+- **Kommentarer og beskeder.** Der kommer cirka 2-5 kommentarer om måneden, og beskeder ind imellem. Formanden vil sandsynligvis bede Lisbeth og Frederik om at tage beskederne. Det er nemmest med Meta Business Suite-appen på telefonen, så der kommer notifikationer.
+- **Samtykketeksten** til undervisernes PR-materiale (`PR_CONSENT_TEXT` i `pr-material.ts`) er stadig rigtig i indhold, men skal gøres enklere og kortere. Den skal stadig sige, at den gælder for fremtidige events og for grupperede opslag. Åbent: ny formulering til formandens godkendelse.
+- **PR-materialet skal ind, når eventet oprettes.** Gitta: underviserne husker ikke at gå ind på deres profil bagefter, og manglende materiale har været "noget af den største hovedpine" i PR-arbejdet. Hendes forslag:
+  - billeder uploades under eventoprettelsen; det skal være næsten en betingelse, men i hvert fald sige meget tydeligt, at uden billeder kan man ikke forvente PR fra huset;
+  - en automatisk mail-påmindelse efter cirka tre dage, hvis der ikke er uploadet billeder;
+  - en AI laver ud fra billederne, teksten og oplysningerne en reel, en omtale og en lille opslagstekst, som kan hentes fra eventet og postes direkte.
+  Besluttet og bygget: billederne i eventformularen med den tydelige besked (se "PR-materiale, når eventet oprettes"). Åbent: mailen strider mod reglen om, at Saga aldrig sender mail af sig selv, så den kræver formandens ja. En reel pr. event er ikke bygget, kun Ugens events som reel.
+- **Canva** bruges mest til eventfotos og ugens eventbillede. Gitta rydder op i sine egne designs og lægger dem i en mappe, der hedder "Gitta".
