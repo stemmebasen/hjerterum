@@ -19,7 +19,7 @@ export type Todo = { text: string; href?: string; urgent?: boolean };
 export type PlanStatus = "klar" | "bygges" | "venter-paa-dig";
 /** The plan's parts and where each stands. Changed here when a part is built or decided. */
 export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }> = [
-  { title: "Opslag kl. 15-17", status: "klar", note: "Gittas erfaring: eftermiddagen virker bedst. Eventopslag kl. 15, 16 eller 17 dagen før, Ugens events mandag kl. 15.30." },
+  { title: "Opslag hurtigst muligt", status: "klar", note: "Saga foreslår et opslag til hvert event, så snart det er i kalenderen, til første ledige tid (kl. 9, 12, 15, 17 eller 19.30, højst tre om dagen). Ugens events mandag kl. 15.30." },
   { title: "PR-materiale, når eventet oprettes", status: "klar", note: "Billeder, citater og samtykke i selve eventformularen og hos Saga, med klar besked: uden billeder ingen PR fra huset." },
   { title: "Undervisere som samarbejdspartner på Instagram", status: "klar", note: "Ugens events inviterer op til tre af ugens undervisere, og et genopslag inviterer den, der lavede det. Underviserne skriver deres Instagram-navn i PR-materialet." },
   { title: "Ugens events som reel", status: "klar", note: "Et job laver hver uge en kort video af ugens events, når Saga har planlagt ugen. Du godkender den med resten af ugen, og den går ud på Instagram mandag kl. 16.30." },
@@ -46,7 +46,7 @@ export const RHYTHM: Array<[string, string]> = [
   ["Torsdag-søndag", "Et job laver Ugens events som reel af ugens billeder og lægger den her."],
   ["Mandag kl. 15.30", "Ugens events på Facebook og som karrusel på Instagram."],
   ["Mandag kl. 16.30", "Ugens events som reel på Instagram."],
-  ["Dagen før hvert event", "Alle events får hvert sit lille opslag på Facebook, kl. 15, 16 eller 17. Events, der kommer til senere, får deres af sig selv."],
+  ["Så snart et event er i kalenderen", "Saga laver et forslag til et opslag og sætter det til første ledige tid. Du godkender det eller vælger selv tiden. Et fast hold får et opslag i ugen før hver gang."],
   ["Mandag og torsdag kl. 9", "Saga minder Lisbeth og Frederik om events, der mangler en begivenhed på Facebook."],
   ["Den 20.", "Saga skriver næste måneds nyhedsbrev. Du godkender det, og det går ud den 1. kl. 19."],
   ["Hver måned", "Kig på Indsigt nederst på siden, og justér hvert kvartal."]

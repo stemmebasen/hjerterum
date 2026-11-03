@@ -61,11 +61,15 @@ describe("the week's plan", () => {
     expect(pickWeekEvents(events.slice(0, 4), new Set())).toHaveLength(4);
   });
 
-  it("posts each event the day before at 15.00, 16.00 or 17.00, three a day at most, never after it begins", () => {
-    const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-09T07:30:00Z")];
+  it("posts each event as soon as may be, spread over the day, three a day at most, never after it begins", () => {
+    // Thursday 5 November, 10.00 Danish time. Requested: "hurtigst muligt".
+    const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-05T15:00:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T14:00:00.000Z", "2026-11-09T15:00:00.000Z", "2026-11-09T16:00:00.000Z", "2026-11-08T14:00:00.000Z"]);
-    expect(new Set(times).size).toBe(times.length);
+    // The nearest first: D (today 16.00) at 12.00; then A at 15.00 - 17.00 is too close, so B at 19.30; C on Friday at 9.00.
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-05T14:00:00.000Z", "2026-11-05T18:30:00.000Z", "2026-11-06T08:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // A class that comes back waits for the week before.
+    const repeat = eventPostTimes([event("y", "Yoga", "2026-11-25T07:00:00Z")], NOW, [], [Date.parse("2026-11-25T07:00:00Z") - 7 * 86_400_000]);
+    expect(new Date(repeat[0]!).toISOString()).toBe("2026-11-18T08:00:00.000Z");
     times.forEach((t, i) => expect(t).toBeLessThan(chosen[i]!.startsMs));
   });
 });
@@ -214,6 +218,7 @@ describe("the PR cockpit", () => {
     expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr/uge?uge=2026-11-09&besked=uge-godkendt");
     expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);
     const before = graph.filter(c => c.path === "/755/feed").length;
+    for (const due of (await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [Date.parse("2026-11-08T11:20:00Z")])).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-08T11:20:00Z"));
     const posted = graph.filter(c => c.path === "/755/feed").slice(before);
     expect(posted.map(c => c.params.message)).toContain("Rettet af formanden.");

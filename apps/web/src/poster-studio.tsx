@@ -116,6 +116,8 @@ function Quote({ label, text }: { label: string; text: string }) {
 }
 
 type Step = "forslag" | "opslag" | "sendt";
+/** "2026-11-20T19:00" in the browser's own time, for a datetime-local field. */
+const localInput = (ms: number) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60_000); return d.toISOString().slice(0, 16); };
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 const channelNames = (channels: string[]) => channels.map(c => c === "instagram" ? "Instagram" : "Facebook").join(" og ");
 
@@ -137,7 +139,9 @@ export function PosterStudio({ id }: { id: string }) {
   const [text, setText] = useState("");
   const [instagramText, setInstagramText] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
-  const [now, setNow] = useState(false);
+  // "Og så savner jeg også en mulighed for at planlægge udsendingen": as planned, now, or a time of the chair's own.
+  const [when, setWhen] = useState<"plan" | "nu" | "valgt">("plan");
+  const [chosenAt, setChosenAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[] } | null>(null);
@@ -211,11 +215,14 @@ export function PosterStudio({ id }: { id: string }) {
     setBusy(true); setMessage("Publicerer …");
     const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, instagramText, channels, now: now || !planned }) }).catch(() => null) : null;
+      body: JSON.stringify({ text, instagramText, channels, ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime() } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
     const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[] } | null : null;
     setBusy(false);
     if (body) { setSent(body); setMessage(""); setStep("sendt"); window.scrollTo(0, 0); }
-    else setMessage(!stored?.ok ? "Billedet kunne ikke gemmes. Prøv igen." : response?.status === 422 ? "Vælg mindst ét sted, opslaget skal ud." : "Opslaget kunne ikke publiceres. Prøv igen.");
+    else {
+      const error = response?.status === 422 ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+      setMessage(!stored?.ok ? "Billedet kunne ikke gemmes. Prøv igen." : error === "time" ? "Vælg et tidspunkt fra nu og til senest en time, før eventet begynder." : error ? "Vælg mindst ét sted, opslaget skal ud." : "Opslaget kunne ikke publiceres. Prøv igen.");
+    }
   };
   const toggle = (c: string) => setChannels(list => list.includes(c) ? list.filter(x => x !== c) : [...list, c]);
 
@@ -247,7 +254,7 @@ export function PosterStudio({ id }: { id: string }) {
       </div>
       <div className="studio-box">
         <h2>Det færdige opslag</h2>
-        <p className="studio-muted">Sådan kommer opslaget til at se ud. Ret teksten, hvis du vil, og tryk Publicér.</p>
+        <p className="studio-muted">Sådan kommer opslaget til at se ud. Ret teksten, hvis du vil, vælg hvornår, og godkend.</p>
         <label className="studio-field"><span>Teksten på Facebook</span><textarea rows={5} value={text} onChange={e => setText(e.target.value)} /></label>
         {post.instagram && channels.includes("instagram") && <label className="studio-field"><span>Teksten på Instagram (link virker ikke dér, så den peger på bio)</span>
           <textarea rows={5} value={instagramText} onChange={e => setInstagramText(e.target.value)} /></label>}
@@ -257,13 +264,15 @@ export function PosterStudio({ id }: { id: string }) {
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
         </fieldset>
         <fieldset className="studio-choices"><legend>Hvornår</legend>
-          {planned ? <><label><input type="radio" name="hvornaar" checked={!now} onChange={() => setNow(false)} /> Som planlagt: {WHEN.format(new Date(planned))}</label>
-            <label><input type="radio" name="hvornaar" checked={now} onChange={() => setNow(true)} /> Nu</label></>
-            : <span>Med det samme (den planlagte tid er gået).</span>}
+          {planned ? <label><input type="radio" name="hvornaar" checked={when === "plan"} onChange={() => setWhen("plan")} /> Sagas forslag: {WHEN.format(new Date(planned))}</label> : null}
+          <label><input type="radio" name="hvornaar" checked={when === "nu" || (!planned && when === "plan")} onChange={() => setWhen("nu")} /> Nu</label>
+          <label><input type="radio" name="hvornaar" checked={when === "valgt"} onChange={() => setWhen("valgt")} /> Vælg tidspunkt</label>
+          {when === "valgt" && <input type="datetime-local" className="studio-when" value={chosenAt} min={localInput(Date.now())} max={localInput(Date.parse(event.startsAt) - 3_600_000)}
+            onChange={e => setChosenAt(e.target.value)} aria-label="Tidspunkt" />}
         </fieldset>
         {post.status === "approved" && <p className="studio-muted">Opslaget er allerede godkendt. Publicerer du, får det det nye billede og den nye tekst.</p>}
         {message && <p className="studio-message" role="status">{message}</p>}
-        <p className="studio-actions"><button type="button" className="lys-btn" disabled={busy || !channels.length} onClick={() => void publish()}>Publicér</button>
+        <p className="studio-actions"><button type="button" className="lys-btn" disabled={busy || !channels.length || (when === "valgt" && !chosenAt)} onClick={() => void publish()}>{when === "valgt" || (when === "plan" && planned) ? "Godkend og planlæg" : "Publicér nu"}</button>
           <button type="button" className="lys-btn ghost" disabled={busy} onClick={() => { setStep("forslag"); setMessage(""); }}>← Tilbage til billedet</button></p>
       </div>
     </section>
@@ -276,7 +285,7 @@ export function PosterStudio({ id }: { id: string }) {
       <div className="studio-box">
         <h2>Sagas forslag</h2>
         {post ? <>
-          <p>Det her er billedet til eventets opslag på Facebook og Instagram. Ser det godt ud, så tryk <b>Næste</b>. Så ser du det færdige opslag med teksten og kan publicere det.</p>
+          <p>Det her er billedet til eventets opslag på Facebook og Instagram. Ser det godt ud, så tryk <b>Næste</b>. Så ser du det færdige opslag med teksten, vælger hvornår, og godkender.</p>
           <p className="studio-muted">Står der tekst på fotoet, eller vil du have et andet billede eller design, så tryk <b>Ret forslaget</b>.</p>
           {message && <p className="studio-message" role="status">{message}</p>}
           <p className="studio-actions"><button type="button" className="lys-btn" disabled={!logo || !postable || Boolean(picked && !photo)} onClick={next}>Næste →</button>

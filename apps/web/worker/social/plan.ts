@@ -10,9 +10,14 @@ export const WEEK_MIN = 7;
 export const WEEK_MAX = 10;
 export const EVERY_EVENT = Number.POSITIVE_INFINITY;
 export const SITE = "https://www.hjerterum.info";
-/** The slots a single event's post may go out in (Danish time), at most three a day (now that every event gets one). Gitta (3 Nov 2026): what she shares "omkring 3-4-5 sidst på
- * eftermiddagen" gets the most views, though Meta recommends later in the evening - and the chair: "Ja" to posting between 15 and 17. */
-export const POST_HOURS: Array<[number, number]> = [[15, 0], [16, 0], [17, 0]];
+/** The slots a single event's post may go out in (Danish time). First (3 Nov 2026) 15.00-17.00, from Gitta: what she shares "omkring 3-4-5 sidst på
+ * eftermiddagen" gets the most views, though Meta recommends later in the evening. Then the chair: "Men hvad siger forskningen i forhold til de gode
+ * tidspunkter? Jeg tænker sagtens, at vi kan strække os ud over de timer." The big studies disagree (Buffer 2025: weekday afternoons around 15; Buffer
+ * 2026: 9, 12 and 18; Sprout Social: late morning to afternoon; all: never at night), so the day is spread over morning, lunch, Gitta's afternoon and
+ * the evening - at most three a day, and two and a half hours apart, so the followers' feed is not filled in one go. The insight page shows what works. */
+export const POST_HOURS: Array<[number, number]> = [[9, 0], [12, 0], [15, 0], [17, 0], [19, 30]];
+export const POSTS_PER_DAY = 3;
+export const POST_GAP_MS = 2.5 * 3_600_000;
 /** "Ugens events" goes out on the Monday afternoon of its week. */
 export const WEEK_POST_AT: [number, number] = [15, 30];
 /** The plan for next week is made on Thursday from 10.00, so the chair has days to read and approve it. */
@@ -78,24 +83,33 @@ export function pickWeekEvents(events: NewsletterEvent[], wished: Set<string>, m
 
 // ---- When ----
 
-/** When each event's post goes out: a free slot (15.00, 16.00 or 17.00) the day before, else two or three days before, else the morning of the day -
- * never after the event has begun, never before `notBeforeMs`, and never two posts in one slot. */
-export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = []): number[] {
+/** Requested (the chair, 3 Nov 2026): "Det er også helt forkert, at der først skal fortælles om eventet dagen før. Det bør optimalt set være hurtigst
+ * muligt." When each event's post goes out: the first free slot (POST_HOURS) from `earliest[i]` (else `notBeforeMs`) on,
+ * the events nearest in time first - never after it has begun (two hours before at the latest), never before `notBeforeMs`, and never two posts in one
+ * slot. Returned in the order given. */
+export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = [], earliest: number[] = []): number[] {
   const taken = new Set<number>(alreadyTaken);
-  return events.map(e => {
-    const day = dateOf(e.startsMs);
-    for (const back of [1, 2, 3, 0]) {
+  const out: number[] = new Array(events.length);
+  const order = events.map((e, i) => i).sort((a, b) => events[a]!.startsMs - events[b]!.startsMs);
+  for (const i of order) {
+    const e = events[i]!, from = Math.max(notBeforeMs, earliest[i] ?? 0), last = e.startsMs - 2 * 3_600_000;
+    let slot: number | null = null;
+    for (let day = dateOf(from); slot === null && at(day, 0) <= last; day = addDays(day, 1)) {
+      const same = [...taken].filter(t => dateOf(t) === day);
+      if (same.length >= POSTS_PER_DAY) continue;
       for (const [h, m] of POST_HOURS) {
-        const slot = at(addDays(day, -back), h, m);
-        if (slot < notBeforeMs || slot > e.startsMs - 2 * 3_600_000 || taken.has(slot)) continue;
-        taken.add(slot);
-        return slot;
+        const t = at(day, h, m);
+        if (t >= from && t <= last && same.every(o => Math.abs(o - t) >= POST_GAP_MS)) { slot = t; break; }
       }
     }
-    // No slot: as soon as may be, but before it begins.
-    return Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, at(day, 8)));
-  });
+    // No free slot before it begins: as soon as may be.
+    out[i] = slot ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
+    if (slot !== null) taken.add(slot);
+  }
+  return out;
 }
+/** A class that comes back (the same title in an earlier week) is told about in the week before each time, not all at once. */
+export const REPEAT_LEAD_MS = 7 * DAY;
 
 export const weekPostTime = (monday: string, notBeforeMs: number) => Math.max(notBeforeMs, at(monday, ...WEEK_POST_AT));
 
