@@ -944,3 +944,20 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - På Ugens opslag står der "Skift design". Det står i formandens log.
 - **Udgivelse:** Et opslag med design går på Facebook som billedopslag med linket i teksten (`/{side}/photos`) og på Instagram med samme billede. Opslag uden design er stadig et link-kort på Facebook.
 - **"Brug på hjemmesiden" er fjernet.** Skabelonerne bruges kun til sociale medier. Designs, der allerede ligger på hjemmesiden, bliver stående.
+
+## Opslaget i to trin: forslag, så det færdige opslag (2026-11-03)
+
+- **Formandens ord:**
+  - "Når jeg klikker tilbage, kommer jeg ikke til den side, jeg kom fra."
+  - "Men jeg forstår heller ikke helt, hvad jeg skal gøre her, og hvilket format jeg skal vælge."
+  - "Og som du kan se, får vi et problem med et billede som dette, hvor der er tekst over fotografiet. Er det muligt at croppe, forstørre og flytte rundt på kernebilledet?"
+  - "Når der står »hent billedet«, betyder det så, at du vil have mig til at downloade det og så poste det manuelt?"
+  - "Men så er det nødt til at være mere pædagogisk, så jeg får præsenteret et forslag. Jeg klikker på næste, og så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere."
+- **Siden `/plakater/<id>` har nu tre trin:**
+  - **1. Billedet:** Saga viser sit forslag, som er systemets design med eventets første billede i formatet Opslag (4:5). Knapperne er "Næste" og "Ret forslaget". "Ret forslaget" åbner billedvalg, zoom og flyt, format med en forklaring af hvert format, og alle designs med "Vælg".
+  - **2. Opslaget:** det færdige opslag, med billedet og teksten, som det kommer til at se ud. Teksterne til Facebook og Instagram kan rettes. Man vælger hvor (Facebook og/eller Instagram) og hvornår: som planlagt eller nu. Derefter trykker man "Publicér".
+  - **3. Publiceret:** "Saga sender det …". Man skal ikke gøre mere.
+- **Zoom og flyt:** Man zoomer ind og trækker et felt hen over selve fotoet, så tekst og kanter på billedet ikke kommer med. Designene tegnes med udsnittet i fotoets egen opløsning. Bliver udsnittet for lille til et design, står der "Passer ikke".
+- **Download** er kun til at bruge et design andre steder. Saga poster selv opslaget. Knappen hed før "Hent billede".
+- **Tilbage:** Links til siden fra Ugens opslag og fra Events har `?fra=<side>` med. "← Tilbage" fører derhen, til det samme opslag (`#opslag-<id>`). Uden `fra` fører den til PR og SoMe → Events.
+- **Teknik:** `POST /plakater/<id>/publicer` (JSON: tekst, Instagram-tekst, kanaler, `now`) gemmer ordene og godkender opslaget (`editPost` og `decidePost`). Det kræver både `posters.design` og `social.manage` og står i formandens log. Billedet lægges først i opslaget med `POST /plakater/<id>/opslag` som før.

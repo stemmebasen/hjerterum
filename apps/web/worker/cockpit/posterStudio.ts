@@ -6,6 +6,7 @@ import { removeDesign, storeDesign } from "../event-designs.js";
 import { parsePrQuotes, EMPTY_QUOTES, type PrQuotes } from "../../pr-material.js";
 import { esc, layout } from "./page.js";
 import { mondayOf as mondayOfMs } from "../social/plan.js";
+import { instagramEventText, socialAccount, socialPost, type Channel } from "../social/social.js";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det
  * vil sige mig til at begynde med - kan bruge dem" - and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i
@@ -24,7 +25,9 @@ export type StudioPicture = { url: string; label: string; width?: number | null;
 export type StudioTeacher = { name: string; consent: "given" | "withdrawn" | "none"; quotes: PrQuotes; pictures: StudioPicture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> };
 export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; files: Array<{ url: string; label: string }>; teacher: StudioTeacher | null;
   /** The event's open post in PR og SoMe, which a design can be used in ("Brug i opslaget"). */
-  post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean } | null };
+  post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
+    /** The finished post as it goes out (requested: "så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere"). */
+    text: string; instagramText: string; channels: Channel[]; publishAtMs: number | null; link: string | null; instagram: boolean } | null };
 
 /** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
 export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
@@ -107,8 +110,11 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
   const open = await db.prepare(`SELECT id, status, week, images, publish_at_ms, json_extract(source, '$.design') AS design FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.key') = ?
       AND status IN ('draft', 'approved', 'failed') ORDER BY publish_at_ms DESC, id DESC LIMIT 1`).bind(eventKeyOf(id))
     .first<{ id: number; status: string; week: string | null; images: string; publish_at_ms: number | null; design: number | null }>().catch(() => null);
-  const post = open ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
-    image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design) } : null;
+  const full = open ? await socialPost(db, open.id) : null;
+  const instagram = Boolean((await socialAccount(db).catch(() => null))?.ig_user_id);
+  const post = open && full ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
+    image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design),
+    text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram } : null;
   return { event, eventPictures, files, teacher, post };
 }
 

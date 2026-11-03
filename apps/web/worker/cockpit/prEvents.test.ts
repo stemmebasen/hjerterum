@@ -31,7 +31,7 @@ describe("PR og SoMe → Events", () => {
     expect(page).toContain("Kommende events (2)");
     expect(page.match(/Intet opslag/g)).toHaveLength(2);
     expect(page.match(/Ingen Facebook-begivenhed/g)).toHaveLength(2);
-    expect(page).toContain(`href="/plakater/${hex}"`);
+    expect(page).toContain(`href="/plakater/${hex}?fra=%2Fpr%2Fevents"`);
     // "Lav opslag" for the week three weeks ahead.
     const later = "2026-11-23";
     expect((await call("/pr/events/opslag", { method: "POST", body: form({ uge: later }) })).headers.get("location")).toBe("/pr/events?besked=planlagt");
