@@ -19,7 +19,7 @@ export type PlanStatus = "klar" | "bygges" | "venter-paa-dig";
 export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }> = [
   { title: "Opslag kl. 15-17", status: "klar", note: "Gittas erfaring: eftermiddagen virker bedst. Eventopslag kl. 15 og 16.30 dagen før, Ugens events mandag kl. 15.30." },
   { title: "PR-materiale, når eventet oprettes", status: "klar", note: "Billeder, citater og samtykke i selve eventformularen og hos Saga, med klar besked: uden billeder ingen PR fra huset." },
-  { title: "Undervisere som samarbejdspartner på Instagram", status: "bygges", note: "Underviseren inviteres på opslaget, så de får besked, og deres følgere ser det." },
+  { title: "Undervisere som samarbejdspartner på Instagram", status: "klar", note: "Ugens events inviterer op til tre af ugens undervisere, og et genopslag inviterer den, der lavede det. Underviserne skriver deres Instagram-navn i PR-materialet." },
   { title: "Ugens events som reel", status: "bygges", note: "En kort video af ugens billeder, som Gittas ugentlige reel." },
   { title: "Månedlig indsigt", status: "bygges", note: "Følgere og det, der er sendt, måned for måned, her i cockpittet." },
   { title: "Ny, kortere samtykketekst", status: "venter-paa-dig", note: "Gitta: indholdet er rigtigt, men den skal være enklere. Den skal stadig gælde fremtidige events og fælles opslag." },

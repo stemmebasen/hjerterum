@@ -10,12 +10,13 @@ export const PR_MAX_PHOTOS = 10;
 export const PR_MIN_SIDE = 1080;
 export const PR_PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 
-export type PrQuotes = { facilitator: string; offering: string; participant: string; participantName: string };
+/** instagram: the teacher's own Instagram username, so Hjerterum can invite them as a collaborator on its posts (Gitta, 3 Nov 2026). */
+export type PrQuotes = { facilitator: string; offering: string; participant: string; participantName: string; instagram: string };
 export type PrPhoto = { id: string; url: string; width: number | null; height: number | null };
 export type PrMaterial = { photos: PrPhoto[]; quotes: PrQuotes; consentAt: number | null; withdrawnAt: number | null };
 
-export const EMPTY_QUOTES: PrQuotes = { facilitator: "", offering: "", participant: "", participantName: "" };
-const LIMITS: Record<keyof PrQuotes, number> = { facilitator: 200, offering: 200, participant: 200, participantName: 80 };
+export const EMPTY_QUOTES: PrQuotes = { facilitator: "", offering: "", participant: "", participantName: "", instagram: "" };
+const LIMITS: Record<keyof PrQuotes, number> = { facilitator: 200, offering: 200, participant: 200, participantName: 80, instagram: 80 };
 
 export function parsePrQuotes(input: unknown): PrQuotes {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("invalid_quotes");
@@ -28,7 +29,14 @@ export function parsePrQuotes(input: unknown): PrQuotes {
     if (typeof value !== "string" || value.length > limit) throw new Error("invalid_quotes");
     out[key] = value.replace(/\s+/g, " ").trim();
   }
+  out.instagram = instagramName(out.instagram) ?? "";
   return out;
+}
+
+/** "@navn", "navn" or "instagram.com/navn" as the bare username Instagram knows - or null when it cannot be one. */
+export function instagramName(input: string | null | undefined): string | null {
+  const name = (input ?? "").trim().replace(/^(?:https?:\/\/)?(?:www\.)?instagram\.com\//i, "").replace(/^@/, "").replace(/[/?#].*$/, "").toLowerCase();
+  return /^[a-z0-9._]{1,30}$/.test(name) ? name : null;
 }
 
 /** Whether Hjerterum may promote them: consent given (and not withdrawn) and at least three photos. */

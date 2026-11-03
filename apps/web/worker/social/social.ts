@@ -6,6 +6,7 @@ import { claimJob } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
+import { instagramName } from "../../pr-material.js";
 import { instagramMedia, postToPage, publishToInstagram, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { clock, dayName, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
@@ -27,7 +28,7 @@ export type SocialAccount = { page_id: string; page_name: string; page_token_sea
 export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
-  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[] }; publish_at_ms: number | null; status: SocialStatus;
+  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[] }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel, string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
@@ -114,10 +115,10 @@ async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: s
 }
 
 /** The chair changes a post that has not gone out: its words, where it goes and (for the week's posts) when. A changed post is a draft again. */
-export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; channels?: Channel[]; publishAtMs?: number | null }, nowMs: number): Promise<boolean> {
+export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null }, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, id);
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
-  const source = change.instagramText !== undefined ? { ...post.source, instagramText: change.instagramText } : post.source;
+  const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -190,8 +191,10 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
     // Facebook: shared as a link to the post. Instagram: published again (photos only), with its maker named.
     const instagramOk = post.network === "instagram" && (post.media === "image" || post.media === "carousel") && Boolean(account.ig_user_id);
     const channels: Channel[] = post.network === "facebook" ? ["facebook"] : instagramOk ? ["instagram"] : ["facebook"];
-    const source: ShareSource & { instagramText?: string } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
-      media: post.media, createdMs: post.createdMs, consent, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text) } : {}) };
+    const source: ShareSource & { instagramText?: string; collaborators?: string[] } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
+      media: post.media, createdMs: post.createdMs, consent, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text),
+        // The one who made it is invited as collaborator on Hjerterum's post of it.
+        collaborators: [instagramName(post.author)].filter((n): n is string => Boolean(n)) } : {}) };
     if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) made++;
   }
   if (made) await tellChair(env, deps, `${made === 1 ? "Ét nyt opslag" : `${made} nye opslag`} har tagget Hjerterum. Se dem og del dem her: ${cockpitUrl(env)}/pr`);
@@ -229,6 +232,21 @@ export async function weekEvents(db: D1Database, monday: string, fetcher?: typeo
   return [...byKey.values()].filter(e => e.startsMs >= from && e.startsMs < to).sort((a, b) => a.startsMs - b.startsMs);
 }
 
+/** Requested (Gitta, 3 Nov 2026, the chair: "Ja"): invite the teachers as "samarbejdspartner" - the Instagram names they gave in their PR material
+ * (with their consent), for the events' teachers in order, at most three (Instagram's limit). */
+export async function instagramNames(db: D1Database, hosts: Array<string | null>): Promise<string[]> {
+  const names = [...new Set(hosts.map(h => (h ?? "").trim().toLowerCase()).filter(Boolean))];
+  if (!names.length) return [];
+  const rows = await db.prepare(`SELECT lower(trim(n.name)) AS name, m.quotes_json FROM pr_material m
+      JOIN (SELECT clerk_user_id, teacher_name AS name FROM room_bookings UNION SELECT clerk_user_id, full_name FROM members
+        UNION SELECT clerk_user_id, json_extract(draft_json, '$.name') FROM public_profiles) n ON n.clerk_user_id = m.clerk_user_id
+      WHERE m.consent_at_ms IS NOT NULL AND m.withdrawn_at_ms IS NULL AND lower(trim(n.name)) IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(names))
+    .all<{ name: string; quotes_json: string }>().then(r => r.results ?? []).catch(() => []);
+  const byName = new Map<string, string>();
+  for (const r of rows) { const ig = instagramName(parse<{ instagram?: string }>(r.quotes_json, {}).instagram); if (ig && !byName.has(r.name)) byName.set(r.name, ig); }
+  return [...new Set(names.map(n => byName.get(n)).filter((n): n is string => Boolean(n)))].slice(0, 3);
+}
+
 /** The board's PR wishes for events (Admin → Events): an event someone wished for is shown first. */
 async function wishedKeys(db: D1Database): Promise<Set<string>> {
   const rows = await db.prepare("SELECT DISTINCT event_id FROM event_pr_wishes WHERE done_at_ms IS NULL").all<{ event_id: string }>().then(r => r.results ?? []).catch(() => []);
@@ -253,7 +271,8 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host });
   if (await insertPost(db, { kind: "week", sourceKey: `week:${week}`, week, channels: instagram ? ["facebook", "instagram"] : ["facebook"],
     text: weekText(week, words.intro, listed, "facebook"), link: `${SITE}/events`, images: pictures,
-    source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource) }, publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
+    source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.host)) },
+    publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   const times = eventPostTimes(chosen, notBefore);
   for (const [i, e] of chosen.entries()) {
     if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: ["facebook"], text: words.events[`E${i + 1}`] ?? plainEventText(e),
@@ -293,7 +312,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
           ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
-        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || post.text, images });
+        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || post.text, images, collaborators: post.source.collaborators ?? [] });
       }
       // Kept at once: a retry never posts the same thing twice on a channel it already reached.
       await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();

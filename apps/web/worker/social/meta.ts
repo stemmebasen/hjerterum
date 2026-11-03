@@ -116,17 +116,20 @@ export async function postToPage(fetcher: Fetcher, page: { id: string; token: st
 }
 
 /** A photo or a carousel (2-10 photos) on Instagram: the containers first, then published. Instagram reads the photos from their (public) addresses. */
-export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[] },
+export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[]; collaborators?: string[] },
   wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<string> {
   const images = post.images.slice(0, 10);
   if (!images.length) throw new MetaError("instagram_needs_a_photo");
   const token = account.token, me = `/${account.igUserId}`;
+  // Requested (Gitta): invite the teacher as "samarbejdspartner" - they are told at once, and the post is shown to their followers too. At most three.
+  const invited = (post.collaborators ?? []).slice(0, 3);
+  const collaborators = invited.length ? { collaborators: JSON.stringify(invited) } : {};
   let container: string;
-  if (images.length === 1) container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: images[0]!, caption: post.caption, access_token: token })).id;
+  if (images.length === 1) container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: images[0]!, caption: post.caption, ...collaborators, access_token: token })).id;
   else {
     const children: string[] = [];
     for (const image of images) children.push((await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: image, is_carousel_item: "true", access_token: token })).id);
-    container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: post.caption, access_token: token })).id;
+    container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: post.caption, ...collaborators, access_token: token })).id;
   }
   // A container is usually ready at once; a carousel can take a moment.
   for (let i = 0; i < 6; i++) {

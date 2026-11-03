@@ -29,10 +29,10 @@ beforeEach(async () => {
 
 describe("a teacher's PR material", () => {
   it("keeps photos, quotes and consent - and stops showing the photos when consent is withdrawn", async () => {
-    expect(await (await material()).json()).toEqual({ photos: [], quotes: { facilitator: "", offering: "", participant: "", participantName: "" }, consentAt: null, withdrawnAt: null });
+    expect(await (await material()).json()).toEqual({ photos: [], quotes: { facilitator: "", offering: "", participant: "", participantName: "", instagram: "" }, consentAt: null, withdrawnAt: null });
     expect((await upload(png(800, 1200))).status).toBe(422);
     for (let i = 0; i < 3; i++) expect((await upload(png(1080, 1350))).status).toBe(201);
-    const quotes = { facilitator: "Anna holder rummet med stor ro.", offering: "Du går hjem med mere ro i kroppen.", participant: "Det bedste, jeg har gjort for mig selv i år.", participantName: "Mette" };
+    const quotes = { facilitator: "Anna holder rummet med stor ro.", offering: "Du går hjem med mere ro i kroppen.", participant: "Det bedste, jeg har gjort for mig selv i år.", participantName: "Mette", instagram: "" };
     let m = await (await material({ quotes, consent: true })).json() as { photos: Array<{ id: string; url: string }>; quotes: unknown; consentAt: number | null };
     expect(m.quotes).toEqual(quotes);
     expect(m.photos).toHaveLength(3);
