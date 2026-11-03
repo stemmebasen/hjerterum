@@ -51,10 +51,10 @@ describe("the week's plan", () => {
     expect(pickWeekEvents(events.slice(0, 4), new Set())).toHaveLength(4);
   });
 
-  it("posts each event the day before at 10.00 or 16.00, two a day at most, never after it begins", () => {
+  it("posts each event the day before at 15.00 or 16.30, two a day at most, never after it begins", () => {
     const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-09T07:30:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T09:00:00.000Z", "2026-11-09T15:00:00.000Z", "2026-11-08T09:00:00.000Z", "2026-11-08T15:00:00.000Z"]);
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T14:00:00.000Z", "2026-11-09T15:30:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-08T15:30:00.000Z"]);
     expect(new Set(times).size).toBe(times.length);
     times.forEach((t, i) => expect(t).toBeLessThan(chosen[i]!.startsMs));
   });
@@ -186,7 +186,7 @@ describe("the PR cockpit", () => {
     expect(weekly.text).toContain("En uge med dans, stilhed og healing.");
     expect(weekly.text).not.toContain("Hjerteland");
     expect(weekly.source.instagramText).toContain("linket i bio");
-    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T07:30:00.000Z");
+    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T14:30:00.000Z");
     expect(week[1]!.text).toBe("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
     // Planned once: Saga's next round does not plan it again.
@@ -202,8 +202,8 @@ describe("the PR cockpit", () => {
     await run(Date.parse("2026-11-08T11:20:00Z"));
     const posted = graph.filter(c => c.path === "/755/feed").slice(before);
     expect(posted.map(c => c.params.message)).toContain("Rettet af formanden.");
-    await run(Date.parse("2026-11-09T07:35:00Z"));
-    await run(Date.parse("2026-11-09T07:40:00Z"));
+    await run(Date.parse("2026-11-09T14:35:00Z"));
+    await run(Date.parse("2026-11-09T14:40:00Z"));
     const weekOut = graph.filter(c => c.path === "/755/feed" && c.params.message?.startsWith("Ugens events"));
     expect(weekOut).toHaveLength(1);
     expect(weekOut[0]!.params.link).toBe("https://www.hjerterum.info/events");

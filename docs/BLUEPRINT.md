@@ -779,3 +779,15 @@ Still open:
 - **Godkendelse.** Intet sendes, før formanden har godkendt det (husets regel om det, der går ud til mange). Hvert opslag kan rettes (tekst, tidspunkt, kanaler), springes over eller godkendes; "Godkend hele ugen" godkender ugens udkast. En deling går ud inden for fem minutter; ugens opslag på deres tidspunkt. Et opslag sendes kun én gang pr. kanal (hvad der nåede ud, gemmes med det samme), et event, der er begyndt, får ikke sit opslag bagefter, og et opslag, der fejler, bliver stående som "Fejlede" med fejlen, og formanden får besked.
 - Formandens log viser forbindelse, afbrydelse, delinger og godkendte uger.
 - Åbent: om delinger fra undervisere med PR-samtykke skal kunne gå ud uden godkendelse.
+
+## PR-planen i cockpittet, og opslag kl. 15-17 (2026-11-03)
+
+- Formandens svar på årsstrategien for SoMe: "Ja til det hele. Og lav det i cockpittet så klokkeklart hvad planen er og hvad der lige nu kræves af mig, hvad der mangler, hvad der er next."
+- **Strategien:** Maskinen klarer rytmen, menneskerne det, kun mennesker kan. Underviserne er Hjerterums største medie. Der laves få, men gode, reels. Oven på ugerytmen ligger fire kampagner om året: januar (nyt år og medlemskab), forår (workshops), august-september (sæsonstart, den største) og november-december (årets afslutning og jul). Der måles få ting en gang om måneden.
+- **Rækkefølgen for det, der bygges:** 1) opslag kl. 15-17 (bygget her), 2) PR-materiale, når eventet oprettes, 3) undervisere som samarbejdspartner på Instagram, 4) Ugens events som reel, 5) månedlig indsigt.
+- **Øverst på PR og SoMe** (`worker/cockpit/prPlan.ts`):
+  - "Det kræver dig lige nu" regnes ud fra data: forbindelsen, delinger, der venter, fejlede opslag, ugens udkast, en uge, der ikke er planlagt, næste måneds nyhedsbrev fra den 20., og undervisere med events de næste to uger uden PR-materiale. Dertil de beslutninger, der venter på formanden.
+  - "Det næste": de næste opslag, der går ud, næste planlægning og næste nyhedsbrev.
+  - "Det mangler": planens dele med status (Klar / Bygges / Venter på dig) i `ROADMAP`. Den rettes, efterhånden som delene bygges eller besluttes.
+  - "Planen": ugens rytme og året med den nuværende og den næste kampagne.
+- **Tidspunkter** (Gittas erfaring, formandens ja): eventopslag kl. 15 eller 16.30 dagen før (`POST_HOURS`), "Ugens events" mandag kl. 15.30 (`WEEK_POST_AT`). Opslag, der allerede er planlagt, beholder deres tid.
