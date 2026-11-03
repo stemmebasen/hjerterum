@@ -8,7 +8,8 @@ import type { SocialAccount } from "../social/social.js";
 
 /** Requested (the chair, 3 Nov 2026), after the plan for the year: "Ja til det hele. Og lav det i cockpittet så klokkeklart hvad planen er og hvad der
  * lige nu kræves af mig, hvad der mangler, hvad der er next." The top of PR og SoMe (/pr): what the chair must do now (worked out from the data),
- * what is not there yet (the plan's own list, kept here as each part is built), what comes next, and the plan itself - the week's rhythm and the year. */
+ * what comes next, and the plan itself - the week's rhythm and the year. The plan's own list of parts (ROADMAP) is no longer shown - the chair: "Ja fjern
+ * 'det mangler'" - only its decisions that wait for the chair are, among what he must do now. */
 
 const TZ = "Europe/Copenhagen";
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: TZ });
@@ -131,20 +132,15 @@ export async function prPlanData(db: D1Database, input: { ready: boolean; accoun
 
 const MONTHS = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
 const months = (list: number[]) => list.length === 1 ? MONTHS[list[0]! - 1]! : `${MONTHS[list[0]! - 1]}-${MONTHS[list[list.length - 1]! - 1]}`;
-const STATUS: Record<PlanStatus, [string, string]> = { klar: ["Klar", "good"], bygges: ["Bygges", ""], "venter-paa-dig": ["Venter på dig", "wait"] };
 
 export function prPlanSection(base: string, d: PlanData): string {
   const link = (t: Todo) => t.href ? `<a href="${base}${t.href}">${esc(t.text)}</a>` : esc(t.text);
   const todo = d.todo.length ? `<ul class="plan-list">${d.todo.map(t => `<li class="${t.urgent ? "is-urgent" : ""}">${link(t)}</li>`).join("")}</ul>` : `<p class="good">Intet lige nu. Alt kører.</p>`;
   const next = `<ul class="plan-next">${d.next.map(n => `<li><span class="at">${esc(WHEN.format(n.at))}</span><span>${esc(n.text)}</span></li>`).join("")}</ul>`;
-  const missing = `<ul class="plan-road">${ROADMAP.map(r => { const [label, tone] = STATUS[r.status]; return `<li><span class="chip ${tone}">${label}</span><span><b>${esc(r.title)}</b><small>${esc(r.note)}</small></span></li>`; }).join("")}</ul>`;
   const rhythm = `<ul class="plan-next">${RHYTHM.map(([when, what]) => `<li><span class="at">${esc(when)}</span><span>${esc(what)}</span></li>`).join("")}</ul>`;
   const year = `<ul class="plan-year">${YEAR.map(c => `<li class="${c === d.campaign.now ? "is-now" : c === d.campaign.next ? "is-next" : ""}"><b>${esc(months(c.months))}</b><span>${esc(c.title)}</span><small>${esc(c.about)}${c === d.campaign.now ? " · nu" : c === d.campaign.next ? " · næste" : ""}</small></li>`).join("")}</ul>`;
   return `<section class="panel plan-now" id="plan"><header><h2>Det kræver dig lige nu</h2></header>${todo}</section>
-<div class="plan-grid">
 <section class="panel"><header><h2>Det næste</h2></header>${next}</section>
-<section class="panel"><header><h2>Det mangler</h2><p>Planens dele, og hvor langt de er.</p></header>${missing}</section>
-</div>
 <details class="panel plan-plan"><summary><h2>Planen</h2><span class="small muted">Ugens rytme og årets fire kampagner</span></summary>
 <p>Maskinen klarer rytmen, menneskerne det, kun mennesker kan: dit ja i cockpittet, Lisbeths coverbilleder og events, Lisbeth og Frederik på beskederne. Underviserne er Hjerterums største medie, så deres billeder og deres deling betyder mest.</p>
 <div class="plan-grid"><div><h3>Ugens rytme</h3>${rhythm}</div><div><h3>Året</h3>${year}<p class="small muted">Generalforsamling og fundraising lægges ind, når datoerne kendes.</p></div></div></details>`;
