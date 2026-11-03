@@ -16,6 +16,24 @@ function tabs(base: string, on: "filer" | "kopier"): string {
   return `<nav class="fa-tabs"><a href="${base}/filarkiv" ${on === "filer" ? 'class="on" aria-current="page"' : ""}>Filer</a><a href="${base}/filarkiv?vis=kopier" ${on === "kopier" ? 'class="on" aria-current="page"' : ""}>Sikkerhedskopier</a></nav>`;
 }
 
+/** Requested: "Du må også gerne diskret nævne vores backupfrekvens på samme side" - the nightly copy (.github/workflows/natlig-kopi.yml, 02:23 UTC). */
+const BACKUP_LINE = "Sikkerhedskopi: hver nat ved 3-4-tiden gemmes en kopi af databasen. De seneste 30 nætter og én pr. måned et år tilbage gemmes.";
+
+/** Requested: "Vi skal have drag and drop i filarkivet". Files dropped anywhere on the page are put in the upload form and sent at once;
+ * the form itself still works without the script. */
+function dropScript(): string {
+  return `<script>(()=>{const form=document.getElementById("fa-upload"),input=document.getElementById("fa-files"),over=document.getElementById("fa-over"),status=document.getElementById("fa-status");
+if(!form||!input||!over)return;const max=${MAX_UPLOAD_BYTES};let depth=0;
+const hasFiles=e=>Array.from(e.dataTransfer?.types||[]).includes("Files");
+addEventListener("dragenter",e=>{if(!hasFiles(e))return;e.preventDefault();depth++;over.hidden=false});
+addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect="copy"});
+addEventListener("dragleave",e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)over.hidden=true});
+addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();depth=0;over.hidden=true;const files=e.dataTransfer.files;if(!files.length)return;
+let total=0;for(const f of files)total+=f.size;if(total>max){status.textContent="Filerne fylder for meget på én gang (højst "+Math.round(max/1048576)+" MB). Læg dem op i flere omgange.";status.classList.add("bad");return}
+input.files=files;status.classList.remove("bad");status.textContent="Lægger "+(files.length===1?"\u201d"+files[0].name+"\u201d":files.length+" filer")+" op …";form.classList.add("busy");form.requestSubmit()});
+form.addEventListener("submit",()=>{const b=form.querySelector("button");if(b){b.disabled=true;b.textContent="Lægger op …"}});})()</script>`;
+}
+
 export function fileArchivePage(base: string, who: string | null, view: FolderView, data: { ready: boolean; notice: string; error: string }): string {
   const parts = view.folder ? view.folder.split("/") : [];
   const crumbs = [`<a href="${base}/filarkiv">Filarkiv</a>`, ...parts.map((p, i) => i === parts.length - 1 ? `<b>${esc(p)}</b>` : `<a href="${base}/filarkiv${q(parts.slice(0, i + 1).join("/"))}">${esc(p)}</a>`)].join(" / ");
@@ -32,11 +50,14 @@ ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.error ? 
 <p class="fa-crumbs">${crumbs}</p>
 <section class="card fa-list">${empty ? `<p class="muted">Mappen er tom.</p>${view.folder ? `<form method="post" action="${base}/filarkiv/slet-mappe"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost small">Slet den tomme mappe</button></form>` : ""}` : `<ul class="plain">${folders}${files}</ul>`}</section>
 ${data.ready ? `<div class="fa-actions">
-<form method="post" action="${base}/filarkiv/upload" enctype="multipart/form-data" class="card"><input type="hidden" name="mappe" value="${esc(view.folder)}">
-<label for="fa-files"><b>Læg filer op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</b></label><input id="fa-files" type="file" name="filer" multiple required>
-<small class="muted">Højst ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB ad gangen.</small><button>Læg op</button></form>
+<form method="post" action="${base}/filarkiv/upload" enctype="multipart/form-data" class="card fa-drop" id="fa-upload"><input type="hidden" name="mappe" value="${esc(view.folder)}">
+<label for="fa-files"><b>Læg filer op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</b></label>
+<p class="fa-hint">Træk filerne hertil - eller vælg dem herunder.</p><input id="fa-files" type="file" name="filer" multiple required>
+<small class="muted" id="fa-status">Højst ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB ad gangen.</small><button>Læg op</button></form>
 <form method="post" action="${base}/filarkiv/mappe" class="card"><input type="hidden" name="mappe" value="${esc(view.folder)}">
-<label for="fa-new"><b>Ny mappe</b></label><input id="fa-new" name="navn" required maxlength="120" placeholder="Fx Regnskaber"><button class="ghost">Opret mappen</button></form></div>` : ""}
+<label for="fa-new"><b>Ny mappe</b></label><input id="fa-new" name="navn" required maxlength="120" placeholder="Fx Regnskaber"><button class="ghost">Opret mappen</button></form></div>
+<div class="fa-over" id="fa-over" hidden><p>Slip filerne for at lægge dem op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</p></div>${dropScript()}` : ""}
+<p class="small muted fa-backup">${BACKUP_LINE} <a href="${base}/filarkiv?vis=kopier">Se kopierne</a></p>
 </main>`;
   return layout(base, "Filarkiv", body, { section: "/filarkiv", who, style: STYLE });
 }
@@ -60,5 +81,9 @@ const STYLE = `.fa-tabs{display:flex;gap:8px;margin:14px 0 18px}.fa-tabs a{paddi
 .fa-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:16px}.fa-actions form{display:grid;gap:8px;align-content:start}
 .fa-actions input[type=text],.fa-actions input:not([type]){font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card,transparent);color:inherit}
 .fa-copies li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--line)}.fa-copies li:first-child{border-top:0}
+.fa-drop{border:1.5px dashed color-mix(in srgb,var(--accent) 45%,var(--line))}.fa-drop.busy{opacity:.7}.fa-hint{margin:0;color:var(--muted);font-size:14px}#fa-status.bad{color:#b3261e}
+.fa-over{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 80%,transparent);backdrop-filter:blur(3px);pointer-events:none}
+.fa-over p{margin:0;padding:28px 36px;border:2px dashed var(--accent);border-radius:20px;background:var(--card);font-size:19px;font-weight:600;color:var(--accent)}.fa-over[hidden]{display:none}
+.fa-backup{margin:18px 0 0}
 button.danger{color:var(--danger,#b3261e);border-color:currentColor}button.small{padding:4px 10px;font-size:13px}.notice.bad{color:#b3261e;border-color:#b3261e}
 @media(max-width:640px){.fa-list ul li{grid-template-columns:1fr auto}.fa-list li .small{grid-column:1/-1;order:3}}`;
