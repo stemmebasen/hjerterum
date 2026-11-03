@@ -82,7 +82,7 @@ export async function prPlanData(db: D1Database, input: { ready: boolean; accoun
   else if (!input.account.ig_user_id) todo.push({ text: "Instagram er ikke koblet til Facebook-siden. Forbind igen, og vælg @hjerterum_aarhus, når Facebook spørger." , href: "/pr/forbind" });
   const count = async (where: string, ...values: unknown[]) =>
     (await db.prepare(`SELECT COUNT(*) AS n FROM social_posts WHERE ${where}`).bind(...values).first<{ n: number }>().catch(() => null))?.n ?? 0;
-  const shares = await count("kind = 'share' AND status = 'draft'");
+  const shares = await count("kind = 'share' AND status = 'draft' AND json_extract(source, '$.sharedAt') IS NULL");
   if (shares) todo.push({ text: `${shares === 1 ? "Ét opslag" : `${shares} opslag`}, Hjerterum er tagget i, venter på dig.`, href: "/pr#tagget", urgent: true });
   const failed = await count("status = 'failed'");
   if (failed) todo.push({ text: `${failed === 1 ? "Ét opslag" : `${failed} opslag`} kunne ikke komme ud. Se fejlen, og godkend det igen.`, href: "/pr#sendt", urgent: true });

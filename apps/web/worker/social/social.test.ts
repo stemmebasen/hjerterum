@@ -172,7 +172,7 @@ describe("the PR cockpit", () => {
     await run(NOW + 3 * 60_000);
     expect(graph.filter(c => c.path === "/755/feed")).toEqual([{ method: "POST", path: "/755/feed", params: { message: "Tak, Kasper!", link: "https://www.facebook.com/kasper/posts/1", access_token: "page-token" } }]);
     // On Instagram from the picture as it is now, with the chair's words.
-    expect(graph.find(c => c.path === "/17841/media")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", collaborators: '["gitta.dans"]' });
+    expect(graph.find(c => c.path === "/17841/media" && c.method === "POST")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", collaborators: '["gitta.dans"]' });
     expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
     shares = await socialPosts(db, "kind = 'share'");
     expect(shares.map(p => p.status).sort()).toEqual(["published", "published", "skipped"]);

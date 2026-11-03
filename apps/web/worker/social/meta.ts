@@ -162,3 +162,18 @@ export async function reelStatus(fetcher: Fetcher, token: string, container: str
 export async function finishReel(fetcher: Fetcher, account: { igUserId: string; token: string }, container: string): Promise<string> {
   return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media_publish`, { creation_id: container, access_token: account.token })).id;
 }
+
+/** Requested (the chair, 3 Nov 2026): a tagged post that Hjerterum has already shared is shown "Delt d. <dato>". The page's own recent posts: when each was
+ * made, and what it shares or links to (the shared post's id, its address). */
+export async function pagePosts(fetcher: Fetcher, page: { id: string; token: string }, limit = 100): Promise<Array<{ createdMs: number; refs: string[] }>> {
+  const data = await graph<{ data?: Array<{ created_time?: string; parent_id?: string; permalink_url?: string; message?: string; attachments?: { data?: Array<{ url?: string; target?: { id?: string; url?: string } }> } }> }>(
+    fetcher, "GET", `/${page.id}/posts`, { fields: "created_time,parent_id,message,attachments{url,target{id,url}}", limit: String(limit), access_token: page.token });
+  return (data.data ?? []).map(p => ({ createdMs: Date.parse(p.created_time ?? "") || 0,
+    refs: [p.parent_id, ...(p.attachments?.data ?? []).flatMap(a => [a.url, a.target?.id, a.target?.url]), ...(p.message?.match(/https?:\/\/\S+/g) ?? [])].filter((r): r is string => Boolean(r)) }));
+}
+
+/** Hjerterum's own recent Instagram posts: when, and the words (an Instagram share is told by the maker named in them). */
+export async function ownInstagramMedia(fetcher: Fetcher, account: { igUserId: string; token: string }, limit = 50): Promise<Array<{ createdMs: number; caption: string }>> {
+  const data = await graph<{ data?: Array<{ caption?: string; timestamp?: string }> }>(fetcher, "GET", `/${account.igUserId}/media`, { fields: "caption,timestamp", limit: String(limit), access_token: account.token });
+  return (data.data ?? []).map(m => ({ createdMs: Date.parse(m.timestamp ?? "") || 0, caption: m.caption ?? "" }));
+}

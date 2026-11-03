@@ -888,3 +888,11 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - Ønsket: "Gør mig i stand til at slette CIRKLER-møder som formand." Kun formanden, med beføjelsen `cirkler.delete` (`needs: "personal"`, docs/decisions/0007).
 - Under Events → "Events oprettet i systemet" har et CIRKLER-møde nu **Slet** for formanden. Det frigiver salen (`releaseForMeeting`, som når CIRKLER selv aflyser) og skrives i formandens log. Et CIRKLER-møde kan stadig ikke rettes her, kun slettes.
 - **CIRKLER får ikke besked.** Der findes ingen vej fra Hjerterum til CIRKLER for det. Bekræftelsen og beskeden siger, at cirklen skal have besked. Flytter cirklen senere mødet i CIRKLER, reserveres salen igen.
+
+## "Delt d. <dato>" på opslag, Hjerterum allerede har delt (2026-11-03)
+
+- Formandens spørgsmål: "Hvordan ved jeg, at disse ikke allerede er delt, dem, hun foreslår?" Svar: "'Allerede delt' - eller bedre: 'Delt d. *dato*'".
+- Når Saga finder nye opslag, Hjerterum er tagget i, kigger hun også i Hjerterums egne seneste opslag (`pagePosts`, `ownInstagramMedia` i `meta.ts`).
+  - **Facebook:** Hvis siden har delt eller linket til netop det opslag, får forslaget mærket **"Delt d. <dato>"**.
+  - **Instagram:** Her kan delinger ikke ses direkte. Mærket kommer, hvis Hjerterum efter opslaget har lagt noget op, der nævner afsenderen (@navn).
+- Et forslag, der allerede er delt, kan stadig deles eller springes over. Det tæller ikke med i "Det kræver dig lige nu", og formanden får ikke besked om det.

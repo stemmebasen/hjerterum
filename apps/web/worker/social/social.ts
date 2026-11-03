@@ -7,7 +7,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, instagramMedia, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -26,7 +26,9 @@ export type SocialStatus = "draft" | "approved" | "publishing" | "published" | "
 export type SocialAccount = { page_id: string; page_name: string; page_token_sealed: string; ig_user_id: string | null; ig_username: string | null;
   connected_by: string; connected_at_ms: number; checked_at_ms: number | null; check_error: string | null };
 
-export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean };
+export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean;
+  /** When Hjerterum had already shared it (before Saga found it): "Delt d. <dato>". */
+  sharedAt?: number | null };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
   source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string }; publish_at_ms: number | null; status: SocialStatus;
@@ -189,20 +191,35 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
   const fresh = found.filter(p => !known.has(`${p.network}:${p.id}`)).slice(0, 10);
   if (!fresh.length) return 0;
   const ready = await prReadyNames(db);
-  let made = 0;
+  // "Delt d. <dato>": what Hjerterum has already shared, by hand or otherwise - on Facebook the post itself, on Instagram a post naming its maker.
+  const { page: ownPage, instagram: ownIg } = await access(env, account);
+  const ownPosts = await pagePosts(deps.fetcher, ownPage).catch(() => []);
+  const ownMedia = ownIg && fresh.some(p => p.network === "instagram") ? await ownInstagramMedia(deps.fetcher, ownIg).catch(() => []) : [];
+  const sharedAt = (post: TaggedPost): number | null => {
+    const times = post.network === "facebook"
+      ? ownPosts.filter(o => o.createdMs >= post.createdMs && o.refs.some(r => r === post.id || r.endsWith(`_${post.id.split("_").pop()}`) || (post.permalink && r.replace(/\/$/, "") === post.permalink.replace(/\/$/, "")))).map(o => o.createdMs)
+      : post.author ? ownMedia.filter(m => m.createdMs >= post.createdMs && m.caption.toLowerCase().includes(`@${post.author!.replace(/^@/, "").toLowerCase()}`)).map(m => m.createdMs) : [];
+    return times.length ? Math.min(...times) : null;
+  };
+  let made = 0, waiting = 0;
   for (const post of fresh) {
     const intro = await shareIntro(env, deps, post);
     const consent = Boolean(post.author && ready.has(post.author.trim().toLowerCase()));
     // Facebook: shared as a link to the post. Instagram: published again (photos only), with its maker named.
     const instagramOk = post.network === "instagram" && (post.media === "image" || post.media === "carousel") && Boolean(account.ig_user_id);
     const channels: Channel[] = post.network === "facebook" ? ["facebook"] : instagramOk ? ["instagram"] : ["facebook"];
+    const shared = sharedAt(post);
     const source: ShareSource & { instagramText?: string; collaborators?: string[] } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
-      media: post.media, createdMs: post.createdMs, consent, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text),
+      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text),
         // The one who made it is invited as collaborator on Hjerterum's post of it.
         collaborators: [instagramName(post.author)].filter((n): n is string => Boolean(n)) } : {}) };
-    if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) made++;
+    if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) {
+      made++;
+      if (!shared) waiting++;
+    }
   }
-  if (made) await tellChair(env, deps, `${made === 1 ? "Ét nyt opslag" : `${made} nye opslag`} har tagget Hjerterum. Se dem og del dem her: ${cockpitUrl(env)}/pr`);
+  // Only what has not been shared already is news for the chair.
+  if (waiting) await tellChair(env, deps, `${waiting === 1 ? "Ét nyt opslag" : `${waiting} nye opslag`} har tagget Hjerterum. Se dem og del dem her: ${cockpitUrl(env)}/pr`);
   return made;
 }
 
