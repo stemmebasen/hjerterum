@@ -350,16 +350,23 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
     path: "/brug-hjerterum", lang: "da", section: "lej",
     kicker: "Brug Hjerterum", title: "Et rum til det,", em: "du vil skabe",
     lead: "Har du en workshop, et foredrag, et forløb eller en lille begivenhed på hjerte? Lej vores sal på ca. 110 m² – fra tidlig morgen til sen aften, alle ugens dage.",
-    description: "Brug Hjerterums sal på ca. 110 m² i Aarhus C: booking og priser, praktisk information og guides til dit event.",
+    description: "Brug Hjerterums sal på ca. 110 m² i Aarhus C: sådan booker du, priser, PR for dit event og praktisk information.",
     card: { title: "Om at bruge Hjerterum", text: "Salen, priserne og alt det praktiske – samlet ét sted." },
-    body: `Du får et smukt rum på ca. 110 m² – og et fællesskab: dit event kommer på vores hjemmeside og Facebook-side, så du når ud til vores mange medlemmer og følgere. Du står selv for at planlægge og afvikle eventet, men vores frivillige giver gerne en hånd.
+    body: `Du får et smukt rum på ca. 110 m² – og et fællesskab, der hører om dit event. Du står selv for at planlægge og afvikle det, men vores frivillige giver gerne en hånd.
+
+## Sådan gør du – i fem trin {#trin}
+1. **Find dato og pris.** Tjek [kalenderen](/events), og brug [prisberegneren](/brug-hjerterum/lejepriser#beregner).
+2. **Book.** Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga hjælper dig. Ellers sender du en [bookingforespørgsel](/brug-hjerterum/booking#book).
+3. **Del billeder til PR, og tag Hjerterum.** Det giver dit event mest synlighed. Se [PR for dit event](/brug-hjerterum/pr).
+4. **Vi godkender og deler.** Dit event kommer på hjemmesiden og Hjerterums Facebook-side, i Ugens events og i nyhedsbrevet Månedens events.
+5. **Nå længere ud selv,** fx i [relevante Facebook-grupper](/brug-hjerterum/pr#grupper).
 
 {{booking-choice}}
 
 ## Her finder du
-- **[Booking & leje](/brug-hjerterum/booking)** – [lejepriser og booking](/brug-hjerterum/lejepriser), [vilkår for leje](/brug-hjerterum/vilkaar) og [ofte stillede spørgsmål](/brug-hjerterum/faq).
-- **[Praktisk information](/brug-hjerterum/praktisk)** – [adgang og nøgle](/brug-hjerterum/adgang), [køkken og faciliteter](/brug-hjerterum/koekken), [lydanlæg og udstyr](/brug-hjerterum/udstyr), [rengøring](/brug-hjerterum/rengoering), [wifi og praktiske detaljer](/brug-hjerterum/wifi) og [husregler og hensyn](/brug-hjerterum/husregler).
-- **[Eventguides & PR](/brug-hjerterum/eventguides)** – [kom godt i gang](/brug-hjerterum/kom-i-gang), [Facebook-begivenhed](/brug-hjerterum/facebook), [eventbillede og grafik](/brug-hjerterum/eventbillede), [markedsføring](/brug-hjerterum/markedsfoering), [ændr dit event](/brug-hjerterum/aendr-event) og [aflys dit event](/brug-hjerterum/aflys-event).
+- **[Sådan booker du](/brug-hjerterum/booking)** – de fem trin i detaljer, [lejepriser](/brug-hjerterum/lejepriser), [vilkår](/brug-hjerterum/vilkaar), [ofte stillede spørgsmål](/brug-hjerterum/faq) og [ændr eller aflys](/brug-hjerterum/aendr-event).
+- **[PR for dit event](/brug-hjerterum/pr)** – det gør vi, det gør du, coverbilledet og Facebook-grupper.
+- **[Praktisk information](/brug-hjerterum/praktisk)** – [adgang og nøgle](/brug-hjerterum/adgang), [køkken](/brug-hjerterum/koekken), [udstyr](/brug-hjerterum/udstyr), [rengøring](/brug-hjerterum/rengoering), [wifi](/brug-hjerterum/wifi) og [husregler](/brug-hjerterum/husregler).
 
 +++ Ansvarsfraskrivelse
 ${DISCLAIMER}
@@ -371,35 +378,61 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
 {{enquiry-event-opsaetning}}`,
     image: HALL.bright,
     gallery: { title: "Salen og livet i Hjerterum", pictures: ROOM_GALLERY },
-    children: ["/brug-hjerterum/booking", "/brug-hjerterum/praktisk", "/brug-hjerterum/eventguides"],
+    children: ["/brug-hjerterum/booking", "/brug-hjerterum/pr", "/brug-hjerterum/praktisk"],
     sources: ["brug-centret", "use-hjerterum"]
   },
 
   // Booking & leje
   {
     path: "/brug-hjerterum/booking", lang: "da", section: "lej",
-    kicker: "Brug Hjerterum", title: "Booking", em: "& leje",
-    lead: "Priser, sådan booker du, vilkårene for leje – og svar på de spørgsmål, vi oftest får.",
-    description: "Booking og leje af Hjerterums sal: lejepriser og booking, vilkår for leje og ofte stillede spørgsmål.",
-    card: { title: "Booking & leje", text: "Lejepriser, vilkår og ofte stillede spørgsmål." },
+    kicker: "Brug Hjerterum", title: "Sådan", em: "booker du",
+    lead: "Fra idé til event i kalenderen – i fem trin. Planlæg gerne 4–8 uger før.",
+    description: "Sådan booker du Hjerterums sal: find dato og pris, book som medlem eller til standardpris, del billeder til PR – og hvad vi gør bagefter.",
+    card: { title: "Sådan booker du", text: "Fem trin fra idé til event i kalenderen." },
+    menu: "Sådan booker du",
     image: HALL.wide,
-    body: `Planlæg gerne 4–8 uger før dit event. Find prisen i [prisberegneren](/brug-hjerterum/lejepriser#beregner), og læs [vilkårene](/brug-hjerterum/vilkaar), før du booker.`,
-    children: ["/brug-hjerterum/lejepriser", "/brug-hjerterum/vilkaar", "/brug-hjerterum/faq"],
-    sources: []
+    body: `## 1. Find dato og pris {#dato}
+Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før. I [prisberegneren](/brug-hjerterum/lejepriser#beregner) ser du standardprisen, og hvad samme booking koster som medlem.
+
+## 2. Book {#book}
+- **Er du medlem,** kan du leje til reduceret pris eller helt gratis. Du opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga, vores digitale assistent, hjælper dig. Hjerterums team godkender alle medlemsoprettede events.
+- **Er du ikke medlem,** lejer du til standardpris. Send en bookingforespørgsel med det, der står herunder. Du får en faktura, og når den er betalt, lægger vi eventet ud (op til ca. 5 hverdage).
+
+{{booking-choice}}
+
+### Det sender du med en bookingforespørgsel {#materiale}
+- **Titel og eventtekst** – formål, program og lidt om dig
+- **Pris og betaling** – pris for medlemmer og ikke-medlemmer, og hvordan der betales
+- **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig
+- **Datoforslag og tidspunkt** – eventets tid og bookingens tid med forberedelse og oprydning
+- **Coverbillede** – se [coverbilledet](/brug-hjerterum/pr#coverbillede)
+
+## 3. Del billeder til PR {#billeder}
+Del mindst tre billeder og dit samtykke, når du opretter eventet – eller under Min profil → Mit PR-materiale. Uden billeder kan vi kun dele dit coverbillede. Se [PR for dit event](/brug-hjerterum/pr).
+
+## 4. Vi godkender og deler {#deler}
+Vi lægger dit event på hjemmesiden og Hjerterums Facebook-side, og det kommer med i Ugens events og i nyhedsbrevet Månedens events.
+
+## 5. Nå længere ud {#ud}
+Markedsføring ud over det er dit eget ansvar. Invitér dit netværk, og del dit event i [relevante Facebook-grupper](/brug-hjerterum/pr#grupper). Tag Hjerterum, når du deler – så deler vi det videre.
+
+Skal noget ændres? Se [ændr eller aflys](/brug-hjerterum/aendr-event). Læs [det praktiske](/brug-hjerterum/praktisk), før du kommer.
+
+## Spørgsmål? {#skriv}
+Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
+
+{{enquiry-event-opsaetning}}`,
+    children: ["/brug-hjerterum/lejepriser", "/brug-hjerterum/vilkaar", "/brug-hjerterum/faq", "/brug-hjerterum/aendr-event"],
+    sources: ["book-dit-event", "book-your-event"]
   },
   {
     path: "/brug-hjerterum/lejepriser", lang: "da", section: "lej",
-    kicker: "Booking & leje", title: "Lejepriser", em: "& booking",
-    lead: "Tre måder at leje salen på, prisberegneren – og det, du sender med, når du booker.",
-    description: "Lejepriser for Hjerterums sal: standardpris, medlemsrabat og gratis leje, prisberegner og sådan booker du.",
-    card: { title: "Lejepriser & booking", text: "Priser, prisberegner og sådan booker du." },
+    kicker: "Sådan booker du", title: "Lejepriser", em: "& prisberegner",
+    lead: "Tre måder at leje salen på – og prisberegneren, der viser prisen for dit tidspunkt.",
+    description: "Lejepriser for Hjerterums sal: standardpris, medlemsrabat og gratis leje, og prisberegneren.",
+    card: { title: "Lejepriser", text: "Priser og prisberegner." },
     image: HALL.curtains,
-    body: `## Sådan kommer du i gang {#booking}
-1. **Find prisen.** Vælg tidspunkt i [prisberegneren](#beregner) herunder – du ser standardprisen og, hvad samme booking koster som medlem.
-2. **Book.** Er du medlem og vil du bruge Hjerterum til reduceret pris eller med helt gratis leje, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – vores digitale assistent, Saga, hjælper dig gerne. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
-3. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage). Planlæg gerne 4–8 uger før.
-
-{{booking-choice}}
+    body: `Sådan booker du: se [de fem trin](/brug-hjerterum/booking).
 
 ## Priser {#priser}
 Alle priser er inkl. moms.
@@ -443,28 +476,19 @@ Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-me
 ## Prisberegner {#beregner}
 {{price-calculator}}
 
-## Det sender du med en bookingforespørgsel {#materiale}
-- **Titel og eventtekst** – formål, program og lidt om dig
-- **Pris og betaling** – pris for medlemmer og ikke-medlemmer, og hvordan der betales
-- **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig
-- **Datoforslag og tidspunkt** – tjek [kalenderen](/events); eventets tid og bookingens tid med forberedelse og oprydning
-- **Coverbillede** – se [eventbillede og grafik](/brug-hjerterum/eventbillede)
-
-Når bookingen er bekræftet, kan du [oprette eventet på Facebook](/brug-hjerterum/facebook). Markedsføring ud over vores hjemmeside og Facebook er dit ansvar – [se vores råd og grupper](/brug-hjerterum/markedsfoering).
-
 ## Spørgsmål? {#skriv}
 Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, så skriv til os her.
 
 {{enquiry-event-opsaetning}}`,
-    sources: ["lejepriser", "book-dit-event", "price-list", "book-your-event"]
+    sources: ["lejepriser", "price-list"]
   },
   {
     path: "/brug-hjerterum/vilkaar", lang: "da", section: "lej",
-    kicker: "Booking & leje", title: "Vilkår", em: "for leje",
+    kicker: "Sådan booker du", title: "Vilkår", em: "for leje",
     lead: "Betaling, aflysning, rengøring – og hvordan du bedst kommunikerer med os.",
     description: "Vilkår for leje af salen i Hjerterum: betaling, aflysningspolitik, rengøringsgebyr og kommunikationspolitik.",
     card: { title: "Vilkår for leje", text: "Betaling, aflysning, rengøring og kommunikation." },
-    body: `Priser og sådan booker du: se [lejepriser og booking](/brug-hjerterum/lejepriser). Har du spørgsmål, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).
+    body: `Priser: se [lejepriser](/brug-hjerterum/lejepriser). Sådan booker du: se [de fem trin](/brug-hjerterum/booking). Har du spørgsmål, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).
 
 ## Betaling og oprettelse af event {#betaling}
 Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [skriv til os](#skriv) eller til [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
@@ -477,7 +501,7 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 | 100 % | ved aflysning 4 uger før | ved aflysning 8 uger før |
 | 50 % | ved aflysning 3 uger før | ved aflysning 6 uger før |
 
-**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Sådan gør du: [aflys dit event](/brug-hjerterum/aflys-event).
+**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Sådan gør du: [aflys dit event](/brug-hjerterum/aendr-event#aflys).
 
 ## Rengøring efter event
 Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
@@ -485,7 +509,7 @@ Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengo
 ## Kommunikation {#kommunikation}
 **Mail er kommunikationsvej nr. 1.** Skriv altid først til [team@hjerterum.info](mailto:team@hjerterum.info). Her fanger du os bedst, og alle bookinger, spørgsmål og henvendelser håndteres via mail.
 
-**Hjerterums Messenger-side – til PR og akutte henvendelser.** [Messenger-siden](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) bruges især til PR-materiale fra undervisere (fx links til opslag, reels eller andet for allerede oprettede events) og til akutte henvendelser, der kræver hurtigt svar. Skriv gerne dit telefonnummer ved akutte henvendelser, så kontakter vi dig hurtigst muligt.
+**Hjerterums Messenger-side – til akutte henvendelser.** [Messenger-siden](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) bruges til akutte henvendelser, der kræver hurtigt svar. Skriv gerne dit telefonnummer, så kontakter vi dig hurtigst muligt. Vil du have os til at dele et opslag eller en reel om dit event, så tag Hjerterum i det – se [PR for dit event](/brug-hjerterum/pr).
 
 **Hjerterum Café.** Der er ofte bestyrelsesmedlemmer i caféen torsdag eftermiddag. Kig forbi, eller aftal et møde med en af os.
 
@@ -500,7 +524,7 @@ ${DISCLAIMER}
   },
   {
     path: "/brug-hjerterum/faq", lang: "da", section: "lej",
-    kicker: "Booking & leje", title: "Ofte stillede", em: "spørgsmål",
+    kicker: "Sådan booker du", title: "Ofte stillede", em: "spørgsmål",
     lead: "Korte svar på det, undervisere og arrangører oftest spørger om. Står dit spørgsmål her ikke, så skriv til os.",
     description: "Ofte stillede spørgsmål om at leje Hjerterum: priser, booking, betaling, aflysning, nøgler, wifi og rengøring.",
     card: { title: "FAQ", text: "Korte svar på de spørgsmål, vi oftest får." },
@@ -510,6 +534,10 @@ Salen er på ca. 110 m², og den kan lejes fra tidlig morgen til sen aften, alle
 
 +++ Hvad koster det at leje salen?
 Det afhænger af, om du lejer til standardpris, med medlemsrabat eller gratis, og af tidspunktet. Standardprisen starter ved 720 kr. for 2 timer. Se alle [lejepriser](/brug-hjerterum/lejepriser#priser), eller brug [prisberegneren](/brug-hjerterum/lejepriser#beregner).
++++
+
++++ Hvordan booker jeg?
+Som medlem opretter du selv dit event på medlemssiden, og Saga hjælper dig. Ellers sender du en bookingforespørgsel. Se [sådan booker du](/brug-hjerterum/booking).
 +++
 
 +++ Skal jeg være medlem for at leje?
@@ -529,7 +557,7 @@ Når vi har aftalt en booking, sender vi en faktura pr. mail. Se [betaling](/bru
 +++
 
 +++ Hvad sker der, hvis jeg aflyser?
-Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser. Se [aflysning](/brug-hjerterum/vilkaar#aflysning) og [aflys dit event](/brug-hjerterum/aflys-event).
+Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser. Se [aflysning](/brug-hjerterum/vilkaar#aflysning) og [aflys dit event](/brug-hjerterum/aendr-event#aflys).
 +++
 
 +++ Hvordan kommer jeg ind?
@@ -545,7 +573,7 @@ Ja. Efterlad salen, køkkenet og toiletterne, som du fandt dem. Ellers opkræver
 +++
 
 +++ Hvem markedsfører mit event?
-Vi lægger dit event på vores hjemmeside og Facebook-side. Markedsføring ud over det er dit ansvar – se [markedsføring af dit event](/brug-hjerterum/markedsfoering).
+Vi lægger dit event på hjemmesiden og Hjerterums Facebook-side, og det kommer med i Ugens events og i nyhedsbrevet. Opslag, hvor du tagger Hjerterum, deler vi videre. Markedsføring ud over det er dit eget ansvar – se [PR for dit event](/brug-hjerterum/pr).
 +++
 
 ## Fandt du ikke svaret? {#skriv}
@@ -679,124 +707,60 @@ ${DISCLAIMER}`,
 
   // Eventguides & PR
   {
-    path: "/brug-hjerterum/eventguides", lang: "da", section: "lej",
-    kicker: "Brug Hjerterum", title: "Eventguides", em: "& PR",
-    lead: "Fra idé til event i kalenderen: sådan kommer du i gang, laver dit billede, når ud til flere – og ændrer eller aflyser.",
-    description: "Guides til dit event i Hjerterum: kom godt i gang, Facebook-begivenhed, eventbillede, markedsføring, ændring og aflysning.",
-    card: { title: "Eventguides & PR", text: "Fra idé til event – og ud til flere." },
-    body: `Har du ønsker eller idéer til indhold, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).`,
-    children: ["/brug-hjerterum/kom-i-gang", "/brug-hjerterum/facebook", "/brug-hjerterum/eventbillede", "/brug-hjerterum/markedsfoering", "/brug-hjerterum/aendr-event", "/brug-hjerterum/aflys-event"],
-    sources: []
-  },
-  {
-    path: "/brug-hjerterum/kom-i-gang", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Kom godt", em: "i gang",
-    lead: "Sådan får du dit event i Hjerterums kalender – trin for trin.",
-    description: "Kom godt i gang med dit event i Hjerterum: vælg lejetype, find en dato, book og få dit event i kalenderen.",
-    card: { title: "Kom godt i gang", text: "Fra idé til event i kalenderen, trin for trin." },
-    body: `1. **Vælg, hvordan du lejer.** Standardpris for alle – eller, hvis du er medlem, med medlemsrabat eller helt gratis. Se [lejepriser](/brug-hjerterum/lejepriser#priser).
-2. **Find en dato.** Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før.
-3. **Book.**
-   - Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events) – Saga hjælper dig. Alle medlemsoprettede events skal først godkendes af Hjerterums team.
-   - Ved standardpris sender du en bookingforespørgsel med [det, vi skal bruge](/brug-hjerterum/lejepriser#materiale).
-4. **Lav et godt eventbillede.** Se [eventbillede og grafik](/brug-hjerterum/eventbillede).
-5. **Vi bekræfter.** Ved standardpris får du en faktura, og når den er betalt, lægger vi eventet på hjemmesiden og Facebook (op til ca. 5 hverdage).
-6. **Del dit event.** [Opret det på Facebook](/brug-hjerterum/facebook), og [nå endnu længere ud](/brug-hjerterum/markedsfoering).
+    path: "/brug-hjerterum/pr", lang: "da", section: "lej",
+    kicker: "Brug Hjerterum", title: "PR", em: "for dit event",
+    lead: "Sådan får dit event mest synlighed: det, vi gør, det, du selv gør, coverbilledet og Facebook-grupper.",
+    description: "PR for dit event i Hjerterum: hjemmesiden, Facebook og Ugens events, billeder til PR, tag Hjerterum, coverbilledet og Facebook-grupper.",
+    card: { title: "PR for dit event", text: "Det gør vi, det gør du – og coverbilledet." },
+    menu: "PR for dit event",
+    body: `## Det gør vi {#vi}
+- Dit event kommer på **hjemmesiden** og på **Hjerterums Facebook-side**, der har over 6.000 følgere.
+- Det kommer med i **Ugens events** på Facebook og Instagram og i nyhedsbrevet **Månedens events**.
+- Opslag, hvor du **tagger Hjerterum** på Facebook eller Instagram, deler vi videre.
 
-Du står selv for at planlægge og afvikle eventet, men vores frivillige giver gerne en hånd. Læs [det praktiske](/brug-hjerterum/praktisk), før du kommer.`,
-    sources: []
-  },
-  {
-    path: "/brug-hjerterum/facebook", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Opret", em: "Facebook-begivenhed",
-    lead: "Vi lægger dit event på Hjerterums Facebook-side. Har du din egen side, kan du også oprette det dér.",
-    description: "Sådan opretter du en Facebook-begivenhed for dit event i Hjerterum og sender os linket.",
-    card: { title: "Opret Facebook-begivenhed", text: "Sådan opretter du eventet på din egen Facebook-side." },
-    body: `Når din booking er bekræftet, lægger vi dit event på Hjerterums hjemmeside og Facebook-side. Har du en Facebook-side, så opret gerne eventet dér også, og send os linket.
+## Det gør du {#du}
+1. **Del billeder til PR.** Del mindst tre billeder og dit samtykke under Min profil → Mit PR-materiale, eller når du opretter eventet. Uden billeder kan vi kun dele dit coverbillede.
+2. **Tag Hjerterum** i dine egne opslag og reels – Hjerterums side på Facebook og @hjerterum_aarhus på Instagram. Skriv dit Instagram-navn i dit PR-materiale, så inviterer vi dig som samarbejdspartner på vores opslag.
+3. **Nå længere ud.** Invitér dit netværk, boost din Facebook-begivenhed eller køb en annonce, og del dit event i [relevante grupper](#grupper). Læs altid gruppens retningslinjer, før du deler.
 
-## Sådan gør du
-1. Gå til din Facebook-side, og vælg at oprette en begivenhed.
-2. Giv den samme titel, dato og tidspunkt som dit event i Hjerterum.
-3. Skriv stedet: Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C.
-4. Brug samme eventtekst og [coverbillede](/brug-hjerterum/eventbillede) som til Hjerterum.
-5. Skriv, hvor man tilmelder sig – på Hjerterums hjemmeside eller direkte hos dig.
-6. Offentliggør begivenheden, og send linket til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr), som bruges til PR-materiale for allerede oprettede events.
-
-Vil du nå endnu længere ud, så se [markedsføring af dit event](/brug-hjerterum/markedsfoering).`,
-    sources: []
-  },
-  {
-    path: "/brug-hjerterum/eventbillede", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Eventbillede", em: "& grafik",
-    lead: "Et godt coverbillede er det første, folk ser. Sådan skal det være.",
-    description: "Eventbillede til dit event i Hjerterum: format 1920 × 1005 px, jpg eller png, uden ophavsret – og hvor du finder billeder.",
-    card: { title: "Eventbillede & grafik", text: "Format, rettigheder og hvor du finder billeder." },
-    body: `## Coverbilledet
+## Coverbilledet {#coverbillede}
 - **Format:** 1920 × 1005 px, jpg eller png
 - **Rettigheder:** uden ophavsret – du skal have lov til at bruge billedet
 - **Gerne ikke AI:** brug helst rigtige billeder
+- **Hvor finder jeg billeder?** Gratis billeder på [unsplash.com](https://unsplash.com), og opsætning med tekst og grafik på [canva.com](https://www.canva.com).
 
-## Hvor finder jeg billeder?
-- Gratis billeder: [unsplash.com](https://unsplash.com)
-- Opsætning med tekst og grafik: [canva.com](https://www.canva.com)
+Opretter du dit event som medlem, uploader du billedet på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga tjekker format, opløsning og kvalitet. Billeder fra selve eventet er gode til at dele bagefter – men husk [reglerne for foto og video](/brug-hjerterum/husregler).
 
-## Opretter du dit event som medlem?
-Så uploader du billedet, når du opretter eventet på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga tjekker format, opløsning og kvalitet.
+## Din egen Facebook-begivenhed {#facebook}
+Har du en Facebook-side, så opret gerne eventet dér også. Giv det samme titel, tid og tekst og samme coverbillede som i Hjerterum, skriv stedet (Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C), og skriv, hvor man tilmelder sig. Invitér Hjerterum som medarrangør, eller tag os, så ser vi det.
 
-Billeder fra selve eventet er gode til at dele bagefter – men husk [reglerne for foto og video](/brug-hjerterum/husregler).`,
-    sources: []
-  },
-  {
-    path: "/brug-hjerterum/markedsfoering", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Markedsføring", em: "af dit event",
-    lead: "Dit event bliver vist på vores hjemmeside og Facebook-side med over 6.000 følgere. Her er, hvordan du når endnu længere ud.",
-    description: "Sådan markedsfører du dit event i Hjerterum – med en liste over relevante Facebook-grupper.",
-    card: { title: "Markedsføring af dit event", text: "Råd og en liste over relevante Facebook-grupper." },
-    body: `Når du booker Hjerterum, får dit event automatisk en god eksponering: det bliver offentliggjort både på vores hjemmeside og på vores Facebook-side, som har over 6.000 følgere.
-
-Vil du nå endnu længere ud, er det dit eget ansvar. En effektiv måde er at købe annoncer på Facebook. Du kan også invitere dit netværk og dele dit event i relevante grupper på Facebook. Her er vores forslag – læs altid gruppens retningslinjer, før du deler, så du er sikker på, at dit event passer ind.
-
+## Facebook-grupper {#grupper}
 ${FACEBOOK_GROUPS}`,
     sources: ["markedsforing", "marketing-of-your-event"]
   },
   {
     path: "/brug-hjerterum/aendr-event", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Ændr", em: "dit event",
-    lead: "Ret titel, tekst, tidspunkt eller pris – og se, hvor mange der er tilmeldt.",
-    description: "Sådan ændrer du dit event i Hjerterum og ser dine deltagere i medlemsområdet.",
-    card: { title: "Ændr dit event", text: "Ret dit event, og se dine deltagere." },
-    body: `Events, du har oprettet i medlemsområdet, administrerer du samme sted:
-
-1. Log ind i [medlemsområdet](/member-portal/events).
-2. Vælg **Mine events**.
-3. Her ser du dine kommende events, hvor mange der er tilmeldt, og om eventet er godkendt.
-4. Vælg **Redigér** for at rette titel, tekst, tidspunkt eller pris.
+    kicker: "Sådan booker du", title: "Ændr", em: "eller aflys",
+    lead: "Ret dit event, se dine deltagere – eller aflys det, og se, hvad det koster.",
+    description: "Sådan ændrer eller aflyser du dit event i Hjerterum på medlemssiden, og hvad en aflysning koster.",
+    card: { title: "Ændr eller aflys", text: "Ret dit event, se dine deltagere, eller aflys." },
+    body: `## Ændr dit event {#aendr}
+1. Log ind på [medlemssiden](/member-portal/events), og vælg **Mine events**. Her ser du dine kommende events, hvor mange der er tilmeldt, og om eventet er godkendt.
+2. Vælg **Redigér** for at rette titel, tekst, tidspunkt eller pris.
 
 Har du booket til standardpris, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info), hvis noget skal ændres.
 
-## Events i den tidligere kalender
+## Aflys dit event {#aflys}
+1. Vælg **Annullér event** under **Mine events** på [medlemssiden](/member-portal/events).
+2. Skriv altid til [team@hjerterum.info](mailto:team@hjerterum.info), at du har aflyst.
+
+Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser – se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
+
+**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
+
+## Events i den tidligere kalender {#tidligere}
 Events, der er oprettet i den tidligere kalender på holistisk.org, administrerer du stadig dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
     sources: ["administrer-dine-events", "managing-your-event"]
-  },
-  {
-    path: "/brug-hjerterum/aflys-event", lang: "da", section: "lej",
-    kicker: "Eventguides & PR", title: "Aflys", em: "dit event",
-    lead: "Sådan aflyser du – og hvad det koster.",
-    description: "Sådan aflyser du dit event i Hjerterum: i medlemsområdet, i sidste øjeblik, og hvad du får tilbage.",
-    card: { title: "Aflys dit event", text: "Sådan aflyser du, og hvad det koster." },
-    body: `## Sådan aflyser du
-1. Log ind i [medlemsområdet](/member-portal/events), og vælg **Mine events**.
-2. Vælg **Annullér event** ved det event, du vil aflyse.
-3. Send altid en mail til [team@hjerterum.info](mailto:team@hjerterum.info) om, at du har aflyst.
-
-## Hvad koster det?
-Hjerterum beholder altid grundprisen, og hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser. Se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
-
-## Aflysning i sidste øjeblik
-Aflysning i sidste øjeblik koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00.
-
-Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik – ikke ved almindelige aflysninger. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).`,
-    sources: []
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)
   {
