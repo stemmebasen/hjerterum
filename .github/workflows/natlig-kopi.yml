@@ -42,5 +42,5 @@ jobs:
           test -s "$FILE"
           gzip -9 "$FILE"
           ls -la "$FILE.gz"
-          pnpm --dir apps/web exec wrangler r2 object put "hjerterum-arkiv-eu/kopier/hjerterum-$DAY.sql.gz" --file "$FILE.gz" --content-type application/gzip --remote
+          pnpm --dir apps/web exec wrangler r2 object put "hjerterum-arkiv-eu/kopier/hjerterum-$DAY.sql.gz" --file "$FILE.gz" --content-type application/gzip --jurisdiction eu --remote
           rm -f "$FILE.gz"
