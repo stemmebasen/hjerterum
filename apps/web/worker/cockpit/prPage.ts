@@ -24,6 +24,7 @@ export type PrPageData = {
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 const when = (ms: number | null) => ms ? WHEN.format(ms) : "";
+const SHARED_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
 const NETWORK: Record<Channel, string> = { facebook: "Facebook", instagram: "Instagram" };
 const STATUS: Record<SocialPost["status"], [string, string]> = {
   draft: ["Udkast", "wait"], approved: ["Godkendt", "good"], publishing: ["Sendes nu", "good"], published: ["Sendt", "good"], failed: ["Fejlede", "wait"], skipped: ["Sprunget over", ""]
@@ -64,9 +65,10 @@ function shareCard(base: string, p: SocialPost, account: SocialAccount | null): 
   const allowed: Channel[] = s.network === "instagram" ? (instagramOk ? ["instagram", "facebook"] : ["facebook"]) : ["facebook"];
   const locked = !open(p) || p.status === "approved";
   return `<article class="pr-post">
-<header><span class="chip">${NETWORK[s.network ?? "facebook"]}</span>${status(p)}${s.consent ? `<span class="chip good">PR-samtykke givet</span>` : ""}
+<header><span class="chip">${NETWORK[s.network ?? "facebook"]}</span>${status(p)}${s.sharedAt ? `<span class="chip good">Delt d. ${esc(SHARED_DAY.format(s.sharedAt))}</span>` : ""}${s.consent ? `<span class="chip good">PR-samtykke givet</span>` : ""}
 <b>${esc(s.author ?? "Ukendt afsender")}</b> <span class="small muted">${esc(when(s.createdMs ?? null))}</span>${s.permalink ? ` · <a href="${esc(s.permalink)}" target="_blank" rel="noopener">Se opslaget</a>` : ""}</header>
 <div class="pr-orig">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<p>${esc((s.text ?? "").slice(0, 500))}${(s.text ?? "").length > 500 ? " …" : ""}</p></div>
+${s.sharedAt ? `<p class="small muted">Hjerterum har allerede delt det d. ${esc(SHARED_DAY.format(s.sharedAt))}. Du kan springe det over.</p>` : ""}
 ${s.network === "instagram" && s.media === "video" ? `<p class="small muted">Videoer kan ikke lægges op igen på Instagram herfra. Del den på Facebook som link, eller del den selv i appen.</p>` : ""}
 ${s.network === "instagram" && !s.consent ? `<p class="small muted">Instagram har ingen "del"-knap for os: opslaget lægges op igen på Hjerterums profil med afsenderen nævnt. Gør det kun, når afsenderen har sagt ja.</p>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
