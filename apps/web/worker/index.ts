@@ -1,3 +1,4 @@
+import { tooMany } from "./beregner/handler.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
 import { queueContact } from "./mailchimp-sync.js";
@@ -247,6 +248,9 @@ async function guestSignup(request: Request, env: Env, id: number): Promise<Resp
   if (!text || text.length > 4_000) return json({ error: "invalid_form" }, { status: 400 });
   let sent: Record<string, unknown>;
   try { sent = JSON.parse(text) as Record<string, unknown>; } catch { return json({ error: "invalid_form" }, { status: 400 }); }
+  // Security review (3 Nov 2026), point 6: a script could fill an event with made-up guests and have Hjerterum mail anyone - now at most ten
+  // sign-ups an hour from one connection, besides five an hour for one address.
+  if (await tooMany(env.DB, request, Date.now(), "gaest", 10)) return json({ error: "too_many" }, { status: 429 });
   const result = await signUpGuest(env.DB, id, sent, Date.now());
   if ("error" in result) return json({ error: result.error }, { status: result.status });
   if ("confirmed" in result) {
@@ -494,6 +498,9 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
     const designs = await designsByBooking(env.DB, rows.map((row) => row.id));
     return json(rows.map((row) => ({
       ...roomBookingView(row),
+      // Security review (3 Nov 2026), point 5: anyone with a free login could read every organiser's e-mail here, also when they chose to show
+      // no contact. Only the organiser sees their own address, account and the board's note; the others get what \`contact\` shares.
+      ...(row.clerk_user_id === user.userId ? {} : { teacherEmail: null, ownerClerkUserId: null, reviewNote: null }),
       // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
       imageUrl: (row.review_status ?? "approved") === "approved" ? designs.get(row.id) ?? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
       files: row.clerk_user_id === user.userId ? files.get(row.id) ?? [] : row.is_attending === 1 ? files.get(row.id) ?? [] : [],
