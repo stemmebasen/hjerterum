@@ -507,7 +507,7 @@ async function memberCalendar(request: Request, env: Env): Promise<Response> {
     return json(rows.map((row) => ({
       ...roomBookingView(row),
       // Security review (3 Nov 2026), point 5: anyone with a free login could read every organiser's e-mail here, also when they chose to show
-      // no contact. Only the organiser sees their own address, account and the board's note; the others get what \`contact\` shares.
+      // no contact. Only the organiser sees their own address, account and the board's note; the others get what "contact" shares.
       ...(row.clerk_user_id === user.userId ? {} : { teacherEmail: null, ownerClerkUserId: null, reviewNote: null }),
       // The cover photo is public once approved; the organiser sees all of their own, and the registered see the other files.
       imageUrl: (row.review_status ?? "approved") === "approved" ? designs.get(row.id) ?? files.get(row.id)?.find((file) => file.kind === "cover")?.url ?? null : null,
