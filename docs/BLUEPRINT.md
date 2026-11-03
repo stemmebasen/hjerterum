@@ -906,3 +906,20 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - **Ugens opslag** (`/pr/uge`, med denne og næste uge).
   - **Sendt og indsigt** (`/pr/sendt`).
 - Fanerne viser, hvor mange der venter: delinger, der ikke er delt endnu, og ugens udkast. Efter et tryk kommer man tilbage til den fane, handlingen hører til.
+
+## Eventoversigt med PR-status (2026-11-03)
+
+- Formandens ønske: "en eventoversigt over alle kommende events, med en PR-status i højre side samt nogle actionknapper".
+- Ny fane **Events** i PR og SoMe (`/pr/events`, `worker/cockpit/prEvents.ts`) med de næste seks ugers events, dem nærmest først. Det er de samme events som i Facebook-begivenheder: husets egne og kalenderens, men ikke samarbejdspartneres eller CIRKLER-møder.
+- **Status til højre:**
+  - eventets opslag: intet, venter på dig, godkendt med tidspunkt, sendt med dato, fejlet eller sprunget over;
+  - Facebook-begivenheden: oprettet (med link) eller ingen;
+  - underviserens PR-materiale: klar eller intet.
+  - Et event, hvor opslaget er godkendt eller sendt og Facebook-begivenheden er oprettet, får et flueben.
+- **Knapper:**
+  - Godkend opslag;
+  - Lav opslag (planlægger eventets uge, eller tilføjer det, der mangler, inden for de seks uger);
+  - Se opslaget (på Ugens opslag);
+  - Facebook-begivenhed oprettet;
+  - Lav design (Plakater og opslag).
+  - Man kommer tilbage til oversigten efter hvert tryk.
