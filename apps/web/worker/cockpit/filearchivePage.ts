@@ -38,7 +38,7 @@ ${data.ready ? `<div class="fa-actions">
 <form method="post" action="${base}/filarkiv/mappe" class="card"><input type="hidden" name="mappe" value="${esc(view.folder)}">
 <label for="fa-new"><b>Ny mappe</b></label><input id="fa-new" name="navn" required maxlength="120" placeholder="Fx Regnskaber"><button class="ghost">Opret mappen</button></form></div>` : ""}
 </main>`;
-  return layout(base, "Filarkiv", body, { section: "/profil", who, style: STYLE });
+  return layout(base, "Filarkiv", body, { section: "/filarkiv", who, style: STYLE });
 }
 
 export function copiesPage(base: string, who: string | null, list: Copy[], data: { ready: boolean }): string {
@@ -51,7 +51,7 @@ ${tabs(base, "kopier")}
 <p class="notice"><b>Hent én kopi om måneden</b> og gem den et sikkert sted uden for Cloudflare (fx på din computer eller en krypteret USB). Så findes Hjerterums data også, hvis noget skulle gå galt hos Cloudflare. Du får en påmindelse den 1. i hver måned. Filen indeholder medlemmernes persondata - behandl den som det.</p>
 ${!data.ready ? `<p class="notice bad">Arkivet er ikke koblet på endnu (lageret ARCHIVE mangler).</p>` : stale ? `<p class="notice bad">${newest ? `Den nyeste kopi er fra ${esc(DAY.format(Date.parse(`${newest.day}T12:00:00Z`)))} - nattens kopi mangler.` : "Der er ingen kopier endnu. Den første laves i nat."}</p>` : ""}
 <section class="card">${list.length ? `<ul class="plain fa-copies">${rows}</ul>` : `<p class="muted">Ingen kopier endnu.</p>`}</section>
-<p class="small muted">Kopien er en SQL-fil (pakket med gzip). Den kan lægges tilbage i en ny database med Cloudflares eget værktøj (wrangler d1 execute).</p></main>`, { section: "/profil", who, style: STYLE });
+<p class="small muted">Kopien er en SQL-fil (pakket med gzip). Den kan lægges tilbage i en ny database med Cloudflares eget værktøj (wrangler d1 execute).</p></main>`, { section: "/filarkiv", who, style: STYLE });
 }
 
 const STYLE = `.fa-tabs{display:flex;gap:8px;margin:14px 0 18px}.fa-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none}.fa-tabs a.on{background:var(--ink,#2a2622);color:#fff;border-color:var(--ink,#2a2622)}

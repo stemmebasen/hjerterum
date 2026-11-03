@@ -193,7 +193,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <p class="small muted">${shown.length} af ${all.length}</p>
 <div class="mc-table-wrap"><table class="mc-table"><thead><tr><th>Navn</th><th>Medlemskab</th><th>Status</th><th>Betaling</th><th>Næste betaling</th><th>Medlem siden</th><th>Labels</th></tr></thead>
 <tbody>${shown.map(row).join("") || `<tr><td colspan="7" class="muted">Ingen medlemmer passer.</td></tr>`}</tbody></table></div></main>`;
-  return layout(base, "Medlemsoverblik", body, { section: "/medlemmer", who, style: COCKPIT_MEMBERS_STYLE });
+  return layout(base, "Medlemsoverblik", body, { section: "/medlemskab", who, style: COCKPIT_MEMBERS_STYLE });
 }
 
 export function memberCardPage(base: string, who: string | null, d: { member: CockpitMember; timeline: TimelineEntry[]; today: string; notice: string; error: string }): string {
@@ -220,7 +220,7 @@ ${editable ? `<section class="card"><h2>Historik</h2>${d.timeline.length ? `<ul 
 <form method="post" action="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}" class="mc-form"><input type="hidden" name="action" value="note"><label class="mc-field"><span>Ny note</span><textarea name="note" rows="2" maxlength="2000"></textarea></label><button class="ghost">Tilføj note</button></form></section>`
     : `<section class="card"><h2>Historik</h2><p class="muted small">Betalinger og ændringer fra MembershipWorks kommer med, når den fulde eksport med betalingshistorik er hentet på skæringsdagen.</p></section>`}
 </main>`;
-  return layout(base, m.name, body, { section: "/medlemmer", who, style: COCKPIT_MEMBERS_STYLE });
+  return layout(base, m.name, body, { section: "/medlemskab", who, style: COCKPIT_MEMBERS_STYLE });
 }
 
 /** A platform member's contact details from the card's form; what changed goes on their timeline. */

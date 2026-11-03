@@ -80,12 +80,12 @@ describe("a personal login from Saga", () => {
     expect(page).toContain("Hej Gitta");
     expect((await call("/hvem", { cookie: gitta })).headers.get("location")).toBe("/");
     expect(await (await call("/mere", { cookie: gitta })).text()).toContain("Logget ind som Gitta");
-    expect(await (await call("/mere", { cookie: gitta })).text()).not.toContain("Luk adgang");
+    expect(await (await call("/profil", { cookie: gitta })).text()).not.toContain("Luk adgang");
     expect((await call("/adgang", { method: "POST", cookie: gitta, body: (() => { const f = new FormData(); f.append("member", "Lisbeth"); return f; })() })).status).toBe(403);
 
     // The chair closes Gitta's access on every device.
     const chair = cookiesOf(await call((await linkFor(Number(OWNER))).path!, { method: "POST" }));
-    const more = await (await call("/mere", { cookie: chair })).text();
+    const more = await (await call("/profil", { cookie: chair })).text();
     expect(more).toContain("Luk adgang");
     const form = new FormData(); form.append("member", "Gitta");
     expect((await call("/adgang", { method: "POST", cookie: chair, body: form }, NOW + 1)).headers.get("location")).toBe("/profil?lukket=Gitta");

@@ -51,7 +51,7 @@ describe("the association's own gatherings on the admin's front page", () => {
     expect(home).not.toContain("20. november kl.");
     expect(home.indexOf("assoc-card")).toBeLessThan(home.indexOf('class="tiles'));
     // The footer follows what is built; in the tests, the day set by hand.
-    expect(home).toMatch(/Hjerterum admin v\d+\.\d+\.\d+ · \d+\. okt\. 2026/);
+    expect(home).toMatch(/Hjerterum admin v\d+\.\d+\.\d+ · \d+\. [a-zæø]+\. 2026/);
   });
 
   it("puts the agreements and milestones from the Telegram group under Hvad bevæger sig", async () => {

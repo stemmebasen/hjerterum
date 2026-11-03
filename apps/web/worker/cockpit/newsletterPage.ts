@@ -41,7 +41,7 @@ ${locked || !data.aiReady ? "" : `<form method="post" action="${base}/arrangemen
 <section><iframe class="nl-preview" src="${base}/arrangementer/nyhedsbrev/vis?m=${month}" title="Sådan ser mailen ud"></iframe></section></div>`
     : `<p>Der er intet nyhedsbrev for ${esc(name)} endnu.</p>${data.aiReady ? `<form method="post" action="${base}/arrangementer/nyhedsbrev/skriv"><input type="hidden" name="m" value="${month}"><button>Lad Saga skrive det nu</button></form>` : ""}`}
 </main>`;
-  return layout(base, "Nyhedsbrev", body, { section: "/arrangementer", who, style: STYLE });
+  return layout(base, "Nyhedsbrev", body, { section: "/arrangementer/nyhedsbrev", who, style: STYLE });
 }
 
 const STYLE = `.nl-tabs{display:flex;gap:8px;margin:16px 0}.nl-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line,#ddd);text-decoration:none}.nl-tabs a.on{background:var(--ink,#2a2622);color:#fff}

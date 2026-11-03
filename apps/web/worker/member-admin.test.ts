@@ -148,7 +148,8 @@ describe("admin → Medlemmer", () => {
     const page = await (await call("/medlemmer", { headers: { cookie } })).text();
     expect(page).toContain("Nina Dahl");
     expect(page).toContain("I restance 35 dage");
-    expect(page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"))).not.toContain("/medlemmer");
+    // Requested: "Ja, det er fint" to the menu with groups - Medlemmer is back in the menu, as its own place.
+    expect(page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"))).toContain('href="/medlemmer" class="grp-top on"');
     expect(page).not.toContain("Ingen medlemmer i det nye system endnu.");
     expect(await (await call("/medlemmer?q=nina%40example", { headers: { cookie } })).text()).toContain("Nina Dahl");
     expect(await (await call("/medlemmer?status=aktive", { headers: { cookie } })).text()).toContain("Ingen medlemmer matcher søgningen.");
