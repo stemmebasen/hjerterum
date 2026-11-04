@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { connectSocial, planWeek, publishDue, socialPosts } from "./social.js";
+import { connectSocial, planWeek, publishDue, socialPosts, topUpWeeks } from "./social.js";
 import { instagramPostTimes, POST_GAP_MS } from "./plan.js";
 import { prCalendarSection } from "../cockpit/prCalendar.js";
 import type { NewsletterEvent } from "../newsletter.js";
@@ -60,5 +60,24 @@ describe("Facebook and Instagram at their own times", () => {
     expect(now).toMatchObject({ status: "published", published: { facebook: "755_1", instagram: "ig1" } });
     expect(graph.filter(p => p === "/755/feed")).toHaveLength(1);
     expect(graph.filter(p => p === "/17841/media_publish")).toHaveLength(1);
+  });
+
+  // Asked: "Er det rigtigt forstået, at opslaget bliver sendt ud på begge medier på samme tid?"
+  it("gives a proposal whose time passed without a yes the next free times again - Facebook's and Instagram's own, never in the night", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "{}" });
+    const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
+    await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "page-token", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", 0);
+    await db.prepare(`INSERT INTO house_events (id, title, starts_at_ms, host, image_url, content_hash, updated_at_ms) VALUES ('SFq', 'Qi Gong', ?, 'Benji', 'https://d1tif55lvfk8gc.cloudfront.net/q.jpg', 'x', 0)`).bind(Date.parse("2026-11-13T09:30:00Z")).run();
+    await planWeek(env as never, deps(services.fetcher, THURSDAY), db, "2026-11-09", { eventsOnly: true });
+    // Its time passes in the night, nobody says yes.
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = json_remove(source, '$.instagramAtMs')").bind(Date.parse("2026-11-04T00:30:00Z")).run();
+    const later = Date.parse("2026-11-06T07:00:00Z");
+    await topUpWeeks(env as never, deps(services.fetcher, later), db);
+    const [post] = await socialPosts(db, "kind = 'event'");
+    expect(post!.publish_at_ms!).toBeGreaterThan(later);
+    expect(post!.source.instagramAtMs! - post!.publish_at_ms!).toBeGreaterThanOrEqual(POST_GAP_MS);
+    for (const t of [post!.publish_at_ms!, post!.source.instagramAtMs!]) expect(new Date(t).getUTCHours()).toBeGreaterThanOrEqual(7);
   });
 });

@@ -53,7 +53,8 @@ describe("every event shared at least once", () => {
     await add("SFy3", "Yoga", "2026-11-26T07:00:00Z");
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 2 * 3_600_000), db)).toBe(2);
     const far = (await socialPosts(db, "kind = 'event' AND week = '2026-W48'"));
-    expect(far.find(p => p.source.key === "mw:SFfar")!.publish_at_ms!).toBeLessThan(Date.parse("2026-11-12T00:00:00Z"));
+    // Weeks ahead, not the day before (the proposals whose time passed without a yes have the first days again).
+    expect(far.find(p => p.source.key === "mw:SFfar")!.publish_at_ms!).toBeLessThan(Date.parse("2026-11-20T00:00:00Z"));
     expect(far.find(p => p.source.key === "mw:SFy3")!.publish_at_ms!).toBeGreaterThanOrEqual(Date.parse("2026-11-19T07:00:00Z"));
     expect(await socialPosts(db, "kind = 'week' AND week = '2026-W48'")).toHaveLength(0);
   });
