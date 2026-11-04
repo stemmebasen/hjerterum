@@ -1051,3 +1051,39 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Nu:**
   - Hver time får et forslag, som ingen har rørt, og hvis tid er kommet uden formandens ja, næste ledige tid igen, med Facebooks og Instagrams egne tider (`retimeOverdue`). Det gælder kun, hvis eventet ikke begynder inden for tre timer.
   - Er der ingen ledig tid før eventet, bruges dagens første tid før det (også en fjerde den dag) og aldrig en tid om natten.
+
+## Videoer til alle events og en ny Ugens reel (2026-11-04)
+
+- **Formandens ord:** "Kan man udvikle flotte videoer på en smart måde evt med integration af tredjepart". Efter prøverne: "Ja. Lad os få dem op."
+- **Værktøjet:**
+  - Remotion (React). Det er gratis for foreninger; licensen siger "a non-profit or not-for-profit organization".
+  - Projektet ligger i `video/`, uden for pnpm-workspacet, så sidens build og CI ikke installerer det.
+  - Videoerne laves på GitHub, fordi Cloudflare ikke kan køre en browser.
+- **Skabelonerne, formanden beholdt:** 1 Organisk, 2 Organisk uden foto, 3 Plakat (med "Flower of Life" i baggrunden), 4 Stribe, 5 Polaroid, 7 Nat, 8 Citat og 10 Mød underviseren. Nr. 6 (Billet) og 9 (Nedtælling) udgik.
+- **Fælles for alle:**
+  - Logoet er stort øverst til højre, alt er centreret, og hele videoen zoomer langsomt ud.
+  - Underviserens billede vises altid helt, aldrig beskåret.
+  - Slutsiden har formandens tekst: titel, dato, "kl. …", "Vi ses i Hjerterum / Guldsmedgade 26 i Aarhus". Den har ingen URL og har bevægelse (zoom ud og et lys, der glider).
+  - I nr. 7 funkler stjernerne helt til slut. Nr. 8 og 10 viser ikke dato på første side og har bløde, tynde ringe i bevægelse på slutsiden.
+- **Sagas valg** (`video/jobs.mjs` `chooseTemplate`):
+  - formandens eget valg (`source.videoTemplate`), hvis der er et;
+  - ellers nr. 8, hvis underviseren har givet et citat med samtykke, og nr. 10, hvis der er et profilfoto med samtykke;
+  - nr. 2 uden billede, nr. 7 fra kl. 18;
+  - ellers 1, 3, 4 eller 5 på skift.
+  - Teksten er opslagets egen: titlen (første del, uden emoji), underviseren, tiden og én sætning af Sagas tekst, som ikke gentager klokkeslættet.
+- **Eventvideoer** (`.github/workflows/video-events.yml`, hver halve time):
+  - Hvert eventforslag, der skal på Instagram og ikke har en video, får én: højst seks pr. runde, de nærmeste først, og kun til events, der er mere end tre timer væk.
+  - Videoen lægges i R2 (`social/reels/event-<id>-<navn>.mp4`) og på forslaget (`source.video`).
+  - Kun en kladde får en video. Et godkendt opslag ændres aldrig.
+- **Udgivelse:**
+  - På Instagram går et eventopslag med video ud som reel. På Facebook beholdes billedet, fordi video dér kræver tilladelsen `publish_video`.
+  - Under Ugens opslag og i trin 2 på plakatsiden kan formanden se videoen og fravælge den ("Video på Instagram", ellers billedet; `source.noVideo`).
+  - Kalenderen viser "IG ▶", når Instagram får videoen.
+- **Ugens events som reel:**
+  - `.github/workflows/ugens-reel.yml` laver nu reelen med `video/` og ikke med ffmpeg (`weekly-reel.py` er fjernet).
+  - To events pr. side, op til otte events, samme bløde baggrund hele vejen.
+  - Første side siger "Ugens events / 9.–15. nov. / (Uge 46) / i Hjerterum", altid med ugens egne datoer. Sidste side siger "Kom som du er! / Vi ses i Hjerterum / Guldsmedgade 26 i Aarhus".
+- **Endnu ikke:**
+  - musik: formanden sender cirka 10 numre, som lægges i R2, ikke i det offentlige repo;
+  - citat og profilfoto fra PR-materialet til nr. 8 og 10;
+  - at formanden selv vælger skabelon på plakatsiden.

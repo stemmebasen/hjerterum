@@ -1,0 +1,5 @@
+node_modules/
+out/
+# Copied in before each render: the house's own stamp (apps/web/public/brand/hjerterum-stempel.png) and the jobs' pictures.
+public/stempel.png
+public/jobs/

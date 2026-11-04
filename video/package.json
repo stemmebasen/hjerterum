@@ -1,0 +1,24 @@
+{
+  "name": "hjerterum-video",
+  "private": true,
+  "type": "module",
+  "description": "Hjerterum's video templates (Remotion), rendered on GitHub (.github/workflows/video-events.yml, ugens-reel.yml). Outside the pnpm workspace on purpose: the site's build and CI never install it.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "studio": "remotion studio src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.290",
+    "@remotion/cli": "4.0.290",
+    "@remotion/google-fonts": "4.0.290",
+    "@remotion/renderer": "4.0.290",
+    "image-size": "1.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}

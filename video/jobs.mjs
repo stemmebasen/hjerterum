@@ -1,0 +1,144 @@
+// Builds the render jobs from Saga's proposals (run by .github/workflows/video-events.yml and ugens-reel.yml):
+//
+//   node video/jobs.mjs events <posts.json> <out-dir> <now-ms>          - a video for each event proposal on Instagram that has none yet
+//   node video/jobs.mjs week <week.json> <events.json> <out-dir> <now-ms> - "Ugens events" as a reel, once a week
+//
+// The json files are `wrangler d1 execute --json` answers. Writes <out-dir>/jobs.json ({ composition, props, out, name, sql }[]) - each job's sql
+// lays its video in admin once it is made - and copies the pictures into video/public/jobs/, so the render needs no network for them. A video only
+// ever says what the post says: its title, teacher, time and one sentence of Saga's text that the chair approves.
+import { createHash, randomBytes } from "node:crypto";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import sizeOf from "image-size";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const SITE = "https://www.hjerterum.info";
+const PICS = join(HERE, "public", "jobs");
+const TZ = "Europe/Copenhagen";
+
+const rows = path => { const d = JSON.parse(readFileSync(path, "utf8")); const first = Array.isArray(d) ? d[0] : d; return first?.results ?? []; };
+const json = (text, fallback) => { try { return JSON.parse(text ?? ""); } catch { return fallback; } };
+const sql = v => v === null || v === undefined ? "NULL" : `'${String(v).replace(/'/g, "''")}'`;
+const parts = ms => Object.fromEntries(new Intl.DateTimeFormat("da-DK", { timeZone: TZ, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })
+  .formatToParts(new Date(ms)).map(p => [p.type, p.value]));
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+const clock = ms => { const p = parts(ms); return `${Number(p.hour)}.${p.minute}`; };
+const hourOf = ms => Number(parts(ms).hour);
+
+/** The title as a video says it: the first part, no emoji. */
+export function cleanTitle(title) {
+  let t = String(title ?? "").split(" | ")[0].replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu, "").replace(/\s+/g, " ").trim();
+  if (t.length > 48) { const head = t.split(/\s[-–]\s/)[0]; if (head.length >= 8) t = head; }
+  return t;
+}
+
+/** One sentence of Saga's approved words that does not repeat the time (the video shows it). */
+export function lineOf(text) {
+  // "kl. 16.15" and "ca. 45" do not end a sentence.
+  const sentences = String(text ?? "").replace(/\s+/g, " ").replace(/\b(kl|ca|bl\.a|fx|evt|inkl|min)\. /gi, "$1\u2024 ").split(/(?<=[.!?])\s+/)
+    .map(s => s.replace(/\u2024/g, ".").trim()).filter(Boolean);
+  const s = sentences.find(x => !/\bkl\.?\s*\d/i.test(x) && x.length >= 20) ?? null;
+  if (!s) return null;
+  if (s.length <= 120) return s;
+  return s.slice(0, s.lastIndexOf(" ", 110)) + " …";
+}
+
+const KICKERS = [["yoga", "YOGA"], ["medit", "MEDITATION"], ["breathwork", "BREATHWORK"], ["healing", "HEALING"], ["dans", "DANS"], ["foredrag", "FOREDRAG"],
+  ["café", "CAFÉ"], ["cafe", "CAFÉ"], ["cirkel", "CIRKEL"], ["workshop", "WORKSHOP"], ["retreat", "RETREAT"], ["fællesskab", "FÆLLESSKAB"], ["ceremoni", "CEREMONI"]];
+const kickerOf = text => (KICKERS.find(([k]) => String(text).toLowerCase().includes(k)) ?? [null, "I HJERTERUM"])[1];
+
+/** The picture, copied in, with its shape (null when it cannot be had). */
+async function picture(url) {
+  if (!url || !/^https:\/\//.test(url)) return null;
+  try {
+    const r = await fetch(url, { headers: { "user-agent": "Hjerterum-video" } });
+    if (!r.ok || !String(r.headers.get("content-type")).startsWith("image/")) return null;
+    const bytes = Buffer.from(await r.arrayBuffer());
+    const { width, height, type } = sizeOf(bytes);
+    if (!width || !height) return null;
+    mkdirSync(PICS, { recursive: true });
+    const file = `${createHash("sha1").update(url).digest("hex").slice(0, 16)}.${type === "jpg" ? "jpg" : type}`;
+    writeFileSync(join(PICS, file), bytes);
+    return { file: `jobs/${file}`, ratio: width / height };
+  } catch { return null; }
+}
+
+/** Saga's choice of template - the chair kept 1, 2, 3, 4, 5, 7, 8 and 10. The chair's own choice (source.videoTemplate) wins. */
+export function chooseTemplate(post, hasPicture, startsMs) {
+  const own = Number(post.source?.videoTemplate);
+  if ([1, 2, 3, 4, 5, 7, 8, 10].includes(own) && (own === 2 || hasPicture)) return own;
+  if (post.source?.quote && hasPicture) return 8;
+  if (post.source?.portrait) return 10;
+  if (!hasPicture) return 2;
+  if (hourOf(startsMs) >= 18) return 7;
+  return [1, 3, 4, 5][Number(post.id) % 4];
+}
+
+async function eventJobs(postsPath, out, now) {
+  const jobs = [];
+  for (const r of rows(postsPath)) {
+    const source = json(r.source, {}), images = json(r.images, []);
+    if (!source.startsMs) continue;
+    const pic = await picture(images[0]);
+    const portrait = source.portrait ? await picture(source.portrait) : null;
+    const post = { id: r.id, source };
+    const p = parts(source.startsMs);
+    const template = chooseTemplate({ ...post, source: { ...source, portrait: portrait ? source.portrait : null } }, Boolean(pic), source.startsMs);
+    const props = { template, title: cleanTitle(source.title), host: source.host ?? null, picture: pic, portrait, quote: source.quote ?? null,
+      kicker: kickerOf(`${source.title} ${r.text}`), dayName: cap(p.weekday), dayNo: String(Number(p.day)), month: p.month, time: clock(source.startsMs), timeRange: clock(source.startsMs),
+      line: lineOf(r.text) };
+    const name = `event-${r.id}-${randomBytes(6).toString("hex")}`;
+    const video = `${SITE}/api/social-reels/${name}.mp4`;
+    jobs.push({ composition: "Event", props, out: `${name}.mp4`, name,
+      // Only on a proposal still waiting for the chair, that has no video yet - an approved post goes out as it was approved.
+      sql: `UPDATE social_posts SET source = json_set(source, '$.video', ${sql(video)}, '$.videoTemplate', ${template}, '$.videoAtMs', ${now}) WHERE id = ${Number(r.id)} AND status = 'draft' AND json_extract(source, '$.video') IS NULL;` });
+  }
+  writeFileSync(join(out, "jobs.json"), JSON.stringify(jobs, null, 2));
+  console.log(`${jobs.length} video${jobs.length === 1 ? "" : "er"} at lave`);
+}
+
+const MONTH_SHORT = ["jan.", "feb.", "mar.", "apr.", "maj", "jun.", "jul.", "aug.", "sep.", "okt.", "nov.", "dec."];
+function weekRange(mondayMs) {
+  const a = new Date(new Date(mondayMs).toLocaleString("en-US", { timeZone: TZ })), b = new Date(a.getTime() + 6 * 86_400_000);
+  return a.getMonth() === b.getMonth() ? `${a.getDate()}.–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}` : `${a.getDate()}. ${MONTH_SHORT[a.getMonth()]}–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}`;
+}
+
+async function weekJob(weekPath, eventsPath, out, now) {
+  const skip = why => { writeFileSync(join(out, "jobs.json"), "[]"); writeFileSync(join(out, "skip"), why + "\n"); console.log("skip:", why); };
+  const [w] = rows(weekPath);
+  if (!w) return skip("ingen kommende uge er planlagt");
+  if (w.has_reel) return skip(`${w.week} har allerede sin reel`);
+  if (!w.ig) return skip("Instagram er ikke forbundet");
+  const seen = new Set(), events = [];
+  const posts = rows(eventsPath).map(r => ({ source: json(r.source, {}), images: json(r.images, []) })).filter(r => r.source.startsMs && r.images[0]).sort((a, b) => a.source.startsMs - b.source.startsMs);
+  for (const r of posts) {
+    const title = cleanTitle(r.source.title);
+    if (seen.has(title.toLowerCase()) || events.length >= 8) continue;
+    const pic = await picture(r.images[0]);
+    if (!pic) continue;
+    seen.add(title.toLowerCase());
+    const p = parts(r.source.startsMs);
+    events.push({ picture: pic, day: cap(p.weekday), date: `${Number(p.day)}/${new Date(r.source.startsMs).toLocaleString("en-US", { timeZone: TZ, month: "numeric" })}`,
+      time: clock(r.source.startsMs), title, host: r.source.host ? String(r.source.host).split(" ")[0] : null });
+  }
+  if (!events.length) return skip("ugen har ingen events med billede");
+  const source = json(w.source, {});
+  const monday = Number(w.publish_at_ms) - 15.5 * 3_600_000;
+  const props = { weekNo: Number(String(w.week).slice(6)), range: weekRange(monday), events };
+  const name = `${String(w.week).toLowerCase()}-${randomBytes(6).toString("hex")}`;
+  const reelSource = { format: "reel", video: `${SITE}/api/social-reels/${name}.mp4`, events: source.events ?? [], collaborators: source.collaborators ?? [] };
+  const caption = String(source.instagramText || w.text || "").trim();
+  const at = Number(w.publish_at_ms) + 3_600_000;
+  writeFileSync(join(out, "jobs.json"), JSON.stringify([{ composition: "Week", props, out: `${name}.mp4`, name,
+    sql: "INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms) VALUES " +
+      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
+  console.log("Ugens reel:", name, events.length, "events");
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [mode, ...rest] = process.argv.slice(2);
+  if (mode === "events") { const [posts, out, now] = rest; mkdirSync(out, { recursive: true }); await eventJobs(posts, out, Number(now)); }
+  else if (mode === "week") { const [week, events, out, now] = rest; mkdirSync(out, { recursive: true }); await weekJob(week, events, out, Number(now)); }
+  else { console.error("brug: jobs.mjs events <posts.json> <out> <now> | week <week.json> <events.json> <out> <now>"); process.exit(2); }
+}

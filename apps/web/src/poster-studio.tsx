@@ -17,7 +17,8 @@ type Data = {
   files: Array<{ url: string; label: string }>;
   teacher: { name: string; consent: "given" | "withdrawn" | "none"; quotes: Quotes; pictures: Picture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> } | null;
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
-    text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null } | null;
+    text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
+    video: string | null; noVideo: boolean } | null;
   back: string;
 };
 
@@ -144,6 +145,8 @@ export function PosterStudio({ id }: { id: string }) {
   const [chosenAt, setChosenAt] = useState("");
   // "forskellige tidspunkter på de to medier": Instagram's own time (empty: with Facebook).
   const [chosenIg, setChosenIg] = useState("");
+  // The event's video for Instagram (made by Saga in the chosen template); the chair may keep the picture instead.
+  const [useVideo, setUseVideo] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
@@ -160,6 +163,7 @@ export function PosterStudio({ id }: { id: string }) {
       if (found.post) {
         setText(found.post.text); setInstagramText(found.post.instagramText);
         setChannels(found.post.instagram ? ["facebook", "instagram"] : ["facebook"]);
+        setUseVideo(!found.post.noVideo);
       }
     });
     void Promise.all(FONTS.map(f => document.fonts.load(f).catch(() => []))).then(() => image(LOGO_FILE)).then(img => { if (active) setLogo(img); });
@@ -217,7 +221,7 @@ export function PosterStudio({ id }: { id: string }) {
     setBusy(true); setMessage("Publicerer …");
     const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, instagramText, channels, ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
+      body: JSON.stringify({ text, instagramText, channels, ...(post.video ? { video: useVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
     const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null : null;
     setBusy(false);
     if (body) { setSent(body); setMessage(""); setStep("sendt"); window.scrollTo(0, 0); }
@@ -250,12 +254,16 @@ export function PosterStudio({ id }: { id: string }) {
 
   if (step === "opslag" && preview && post) return <main className="page-shell site-page poster-page studio">{head}
     <section className="studio-post">
-      <div className="studio-mock">
+      <div className="studio-mocks"><div className="studio-mock">
         <header><img src={LOGO_FILE} alt="" /><b>Hjerterum</b></header>
         <p className="studio-mock-text">{text}</p>
         {post.link && <p className="studio-mock-link">{post.link}</p>}
         <img className="studio-mock-picture" src={preview.url} alt="Opslagets billede" />
       </div>
+      {post.video && channels.includes("instagram") && <div className="studio-mock studio-mock-video">
+        <header><img src={LOGO_FILE} alt="" /><b>Instagram</b><span className="studio-muted">{useVideo ? "reel" : "billedet"}</span></header>
+        {useVideo ? <video src={post.video} controls muted playsInline autoPlay loop /> : <img className="studio-mock-picture" src={preview.url} alt="" />}
+      </div>}</div>
       <div className="studio-box">
         <h2>Det færdige opslag</h2>
         <p className="studio-muted">Sådan kommer opslaget til at se ud. Ret teksten, hvis du vil, vælg hvornår, og godkend.</p>
@@ -266,6 +274,7 @@ export function PosterStudio({ id }: { id: string }) {
           <label><input type="checkbox" checked={channels.includes("facebook")} onChange={() => toggle("facebook")} /> Facebook</label>
           {post.instagram ? <label><input type="checkbox" checked={channels.includes("instagram")} onChange={() => toggle("instagram")} /> Instagram</label>
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
+          {post.video && channels.includes("instagram") && <label><input type="checkbox" checked={useVideo} onChange={() => setUseVideo(!useVideo)} /> Videoen på Instagram (ellers billedet)</label>}
         </fieldset>
         <fieldset className="studio-choices"><legend>Hvornår</legend>
           {planned ? <label><input type="radio" name="hvornaar" checked={when === "plan"} onChange={() => setWhen("plan")} /> Sagas forslag: {post.instagramAtMs && post.instagramAtMs !== planned && channels.includes("instagram") && channels.includes("facebook")

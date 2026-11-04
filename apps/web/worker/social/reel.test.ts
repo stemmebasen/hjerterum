@@ -6,7 +6,7 @@ import { connectSocial, runSocialJob, socialPosts } from "./social.js";
 import site from "../config-entry.js";
 
 // Requested (the chair, 3 Nov 2026): "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel. The weekly job
-// (.github/workflows/ugens-reel.yml, .github/scripts/weekly-reel.py) lays the reel in social_posts as a draft; this is what happens after.
+// (.github/workflows/ugens-reel.yml, video/jobs.mjs and video/render.mjs) lays the reel in social_posts as a draft; this is what happens after.
 const GRAPH = "https://graph.facebook.com/v25.0";
 const VIDEO = "https://www.hjerterum.info/api/social-reels/2026-w46-abcdef123456.mp4";
 const AT = Date.parse("2026-11-09T15:30:00Z");
@@ -19,7 +19,7 @@ describe("Ugens events as a reel", () => {
     const db = testDatabase();
     const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key", META_APP_ID: "a", META_APP_SECRET: "b", COCKPIT_PASSWORD: "x", COCKPIT_SHARED_LOGIN: "off" } as never);
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "page-token", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", 0);
-    // What the weekly job writes (weekly-reel.py insert.sql).
+    // What the weekly job writes (video/jobs.mjs, the sql of the week job).
     await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
       VALUES ('week', 'reel:2026-W46', '2026-W46', '["instagram"]', 'Ugens events i Hjerterum · uge 46', NULL, '[]', ?, ?, 'draft', 0, 0)`)
       .bind(JSON.stringify({ format: "reel", video: VIDEO, events: [], collaborators: ["kasper.yoga"] }), AT).run();

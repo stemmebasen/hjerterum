@@ -1,0 +1,65 @@
+name: Eventvideoer
+
+# Requested (the chair, 4 Nov 2026): the video templates "Lad os få dem op". Every half hour: each of Saga's event proposals that goes on Instagram
+# and has no video yet gets one, in the template Saga chooses (video/jobs.mjs) - made here (video/, Remotion), put in R2 (hjerterum-event-media,
+# social/reels/) and laid on the proposal in admin → PR og SoMe. It goes out on Instagram as a reel only when the chair has approved the post; an
+# approved post is never changed. At most six a round, the soonest first.
+
+on:
+  schedule:
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eventvideoer
+  cancel-in-progress: false
+
+jobs:
+  videos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Find the proposals without a video
+        shell: bash
+        run: |
+          set -euo pipefail
+          D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs hjerterum-staging)"
+          test -n "$D1_ID"
+          node .github/scripts/configure-staging-d1.mjs "$D1_ID"
+          NOW="CAST(strftime('%s', 'now') AS INTEGER) * 1000"
+          pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
+            "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status = 'draft' AND channels LIKE '%instagram%' AND json_extract(source, '\$.video') IS NULL AND json_extract(source, '\$.noVideo') IS NULL AND json_extract(source, '\$.startsMs') > $NOW + 10800000 AND coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) > $NOW + 3600000 ORDER BY coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) LIMIT 6" > /tmp/posts.json
+      - name: Make the videos
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! node -e 'const d = JSON.parse(require("fs").readFileSync("/tmp/posts.json", "utf8")); process.exit(((d[0] ?? {}).results ?? []).length ? 0 : 1)'; then
+            echo "Ingen forslag uden video."; mkdir -p /tmp/videos && echo "[]" > /tmp/videos/done.json && : > /tmp/videos/update.sql; exit 0
+          fi
+          npm ci --prefix video --no-audit --no-fund
+          node video/jobs.mjs events /tmp/posts.json /tmp/videos "$(date +%s000)"
+          node video/render.mjs /tmp/videos
+      - name: Put them in R2 and on the proposals
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in $(node -e 'for (const j of JSON.parse(require("fs").readFileSync("/tmp/videos/done.json", "utf8"))) console.log(j.name)'); do
+            pnpm --dir apps/web exec wrangler r2 object put "hjerterum-event-media/social/reels/$name.mp4" --file "/tmp/videos/$name.mp4" --content-type video/mp4 --remote
+          done
+          if [ -s /tmp/videos/update.sql ]; then
+            pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --file /tmp/videos/update.sql
+            echo "Videoerne er lagt på forslagene: $(node -e 'console.log(JSON.parse(require("fs").readFileSync("/tmp/videos/done.json", "utf8")).length)')"
+          fi

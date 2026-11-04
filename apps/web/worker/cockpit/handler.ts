@@ -1052,7 +1052,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
           ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
           ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}),
-          ...(form.has("instagram_at") ? { instagramAtMs: field("instagram_at") ? fromLocalInput(field("instagram_at")) : null } : {}) }, now);
+          ...(form.has("instagram_at") ? { instagramAtMs: field("instagram_at") ? fromLocalInput(field("instagram_at")) : null } : {}),
+          // "Video på Instagram": the box was on the page, so what is not ticked was taken off.
+          ...(form.has("video_box") ? { noVideo: !form.has("video") } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);
@@ -1083,7 +1085,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const assets = (env as { ASSETS?: { fetch(request: Request): Promise<Response> } }).ASSETS;
       const shell = assets ? await assets.fetch(new Request(`${url.origin}/`)).then(r => r.ok ? r.text() : null).catch(() => null) : null;
       if (!shell) return html(problem(base, who, "Værktøjet kunne ikke åbnes lige nu. Prøv igen om lidt."), 503);
-      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" } });
+      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src https://www.hjerterum.info; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" } });
     }
     if (part === "/data" && request.method === "GET") {
       const data = await studioData(db, id!, now, deps.fetcher);
@@ -1106,7 +1108,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!may("social.manage")) return denied("social.manage");
       const data = await studioData(db, id!, now, deps.fetcher);
       if (!data?.post) return answer({ error: "no_post" }, 404);
-      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown; at?: unknown; instagramAt?: unknown } | null;
+      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown; at?: unknown; instagramAt?: unknown; video?: unknown } | null;
       if (!body || typeof body.text !== "string" || !Array.isArray(body.channels)) return answer({ error: "bad_request" }, 400);
       // "Og så savner jeg også en mulighed for at planlægge udsendingen": a time of the chair's own - from now until an hour before the event begins.
       const chosenAt = typeof body.at === "number" && Number.isFinite(body.at) ? Math.round(body.at) : null;
@@ -1120,7 +1122,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         ...(typeof body.instagramText === "string" ? { instagramText: body.instagramText.replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
         ...(chosenAt !== null ? { publishAtMs: Math.max(now, chosenAt) } : body.now === true ? { publishAtMs: now } : {}),
         // Instagram's own time ("forskellige tidspunkter på de to medier"); "Nu" is now on both.
-        ...(body.now === true && chosenAt === null ? { instagramAtMs: null } : chosenIg !== null ? { instagramAtMs: Math.max(now, chosenIg) } : chosenAt !== null ? { instagramAtMs: null } : {}) }, now);
+        ...(body.now === true && chosenAt === null ? { instagramAtMs: null } : chosenIg !== null ? { instagramAtMs: Math.max(now, chosenIg) } : chosenAt !== null ? { instagramAtMs: null } : {}),
+        ...(typeof body.video === "boolean" ? { noVideo: !body.video } : {}) }, now);
       const decided = await decidePost(db, current.id, "approve", who, now);
       if (!decided) return answer({ error: "no_channels" }, 422);
       await audit(db, actor, "social.manage", `Godkendte opslaget om "${data.event.title}"`, now);

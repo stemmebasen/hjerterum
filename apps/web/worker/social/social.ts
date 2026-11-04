@@ -38,7 +38,11 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
      * en test. Det må du gerne registrere."): kept in the history, and the event may get a new post. */
     removed?: { atMs: number; note: string };
     /** Instagram's own time, when it is not Facebook's (publish_at_ms) - "forskellige tidspunkter på de to medier". */
-    instagramAtMs?: number | null }; publish_at_ms: number | null; status: SocialStatus;
+    instagramAtMs?: number | null;
+    /** The event's video (video/, made on GitHub by .github/workflows/video-events.yml): on Instagram as a reel, unless the chair took it off. */
+    videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
+    /** For the templates "Citat" and "Mød underviseren": the teacher's own sentence and photo, given with consent. */
+    quote?: string; portrait?: string }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
@@ -126,11 +130,11 @@ async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: s
 
 /** The chair changes a post that has not gone out: its words, where it goes and (for the week's posts) when. A changed post is a draft again. */
 export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null;
-  instagramAtMs?: number | null }, nowMs: number): Promise<boolean> {
+  instagramAtMs?: number | null; noVideo?: boolean }, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, id);
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
   const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}),
-    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}) };
+    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}), ...(change.noVideo !== undefined ? { noVideo: change.noVideo || undefined } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -475,10 +479,12 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         : await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
-        if (post.source.format === "reel") {
-          // "Ugens events" as a reel: Instagram processes the video between Saga's rounds.
+        // "Ugens events" as a reel, and an event's post with its video (requested: the video templates, "Lad os få dem op"): Instagram processes the
+        // video between Saga's rounds. Facebook keeps the picture (a video there needs the permission publish_video).
+        if (post.source.format === "reel" || (post.kind === "event" && post.source.video && !post.source.noVideo)) {
           if (!post.source.video) throw new Error("Reelen har ingen video");
-          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption: post.text, collaborators: post.source.collaborators ?? [] });
+          const caption = post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text;
+          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption, collaborators: post.source.collaborators ?? [] });
           await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
           const status = await reelStatus(deps.fetcher, instagram.token, done.instagram_container);
           if (status === "ERROR" || status === "EXPIRED") { delete done.instagram_container; throw new Error(`Instagram kunne ikke behandle videoen (${status})`); }
