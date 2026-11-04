@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eventDetail, eventIdOf, htmlParagraphs } from "./event-detail.js";
+import { linkParts, plainLine } from "../site/event-links.js";
 import { getExternalEvents } from "./external-events.js";
 
 // Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside."
@@ -47,3 +48,18 @@ describe("finding the way to an event", () => {
   });
 });
 
+
+// Requested (3 Nov 2026): "I have Source Breathwork as a link in the old system, but it just gets the text but not the link."
+describe("links in an event's description", () => {
+  it("keep their address as [text](address), and a bare address stays bare", () => {
+    expect(htmlParagraphs('<p>Læs om <a href="https://example.dk/source?a=1&amp;b=2" target="_blank"><strong>Source Breathwork</strong></a> her.</p><p><a href="https://www.lisalawrie.com/">www.lisalawrie.com</a></p>'))
+      .toEqual(["Læs om [Source Breathwork](https://example.dk/source?a=1&b=2) her.", "https://www.lisalawrie.com/"]);
+    expect(htmlParagraphs('<p><a href="mailto:a@b.dk">Skriv til os</a> · <a href="javascript:alert(1)">klik</a> · <a href="/intern">her</a></p>')).toEqual(["[Skriv til os](mailto:a@b.dk) · klik · her"]);
+  });
+
+  it("are links on the page and plain text elsewhere", () => {
+    expect(linkParts("Mød [Source Breathwork](https://x.dk/sb) og se https://www.y.dk/ i dag")).toEqual([
+      { text: "Mød " }, { text: "Source Breathwork", href: "https://x.dk/sb" }, { text: " og se " }, { text: "y.dk", href: "https://www.y.dk/" }, { text: " i dag" }]);
+    expect(plainLine("Mød [Source Breathwork](https://x.dk/sb) i dag")).toBe("Mød Source Breathwork i dag");
+  });
+});

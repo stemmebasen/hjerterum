@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
-import { CIRKLER_URL, ENGLISH, translateUrl, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
+import { englishOn, setEnglish } from "./translate-in-place";
+import { CIRKLER_URL, ENGLISH, LEGAL_LINKS, NAV, NEWSLETTER_ACTION, NEWSLETTER_HONEYPOT, SITE_PAGES, BOARD, BOARD_PHOTO, BENEFITS, ABOUT_WORDS, type Section, type SitePage } from "../site/pages";
 import { EnquiryForm } from "./enquiry-form";
 
 /** The public website in Hjerterum Lys (site/pages.ts): the homepage modelled on hjerterum.info ("En forside som denne
@@ -63,12 +64,13 @@ function SectionTabs({ page }: { page: SitePage }) {
 }
 
 /** "EN" beside Log ind. Douglas' notes: "Translate button, but not English pages" - "Browserens oversættelse": Google translates the page
- * the reader is on; there are no English pages of our own any more. Not shown inside Google's translation itself. */
+ * the reader is on; there are no English pages of our own. Douglas (3 Nov): "When I click 'EN', I am no longer logged in" - now Google
+ * translates the page where it is (translate-in-place.ts), and DA brings the Danish back. Not shown inside Google's own address. */
 export function LanguageSwitch() {
   if (typeof window !== "undefined" && /translate\.goog$/.test(window.location.hostname)) return null;
-  const here = typeof window !== "undefined" ? window.location.href : "https://www.hjerterum.info/";
-  return <a className="site-lang" href={translateUrl(here)} rel="noopener" lang="en" hrefLang="en" title={ENGLISH.title} aria-label={ENGLISH.title}
-    onClick={event => { event.currentTarget.href = translateUrl(window.location.href); }}>{ENGLISH.label}</a>;
+  const en = typeof window !== "undefined" && englishOn();
+  return <button type="button" className="site-lang notranslate" translate="no" lang={en ? "da" : "en"} title={en ? ENGLISH.backTitle : ENGLISH.title} aria-label={en ? ENGLISH.backTitle : ENGLISH.title}
+    onClick={() => setEnglish(!en)}>{en ? ENGLISH.back : ENGLISH.label}</button>;
 }
 
 /** The build's version and commit, set by vite.config.ts. */
