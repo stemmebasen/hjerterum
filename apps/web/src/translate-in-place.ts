@@ -45,14 +45,16 @@ const STYLE = `.goog-te-banner-frame,.skiptranslate>iframe,#goog-gt-tt,.goog-te-
 /** Google turned "Hjerterum" into "Heart Room" and "Heart Space". The name (and CIRKLER) is kept: each time it appears in the page's text, it
  * is put in a span Google leaves alone - also in what the page shows later. */
 /** Labels Google cannot read right once the name is kept out of them. */
-const PHRASES: Record<string, string> = { "Om Hjerterum": "About Hjerterum", "Brug Hjerterum": "Use Hjerterum", "Bliv en del af Hjerterum": "Become part of Hjerterum" };
+// Asked (4 Nov): "'Front' in the top menu in English should be 'Home'".
+const PHRASES: Record<string, string> = { "Forside": "Home", "Om Hjerterum": "About Hjerterum", "Brug Hjerterum": "Use Hjerterum", "Bliv en del af Hjerterum": "Become part of Hjerterum" };
 // The spaces around the name go with it: Google trims them from the text it translates ("af Hjerterum" became "ofHjerterum").
 const NAME = /\s?(?:Hjerterums?|CIRKLER)\s?/g;
 function keepNames(root: Node): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: node => {
       const parent = node.parentElement;
-      if (!parent || !NAME.test(node.nodeValue ?? "")) { NAME.lastIndex = 0; return NodeFilter.FILTER_REJECT; }
+      const value = node.nodeValue ?? "";
+      if (!parent || !(NAME.test(value) || value.trim() in PHRASES)) { NAME.lastIndex = 0; return NodeFilter.FILTER_REJECT; }
       NAME.lastIndex = 0;
       return parent.closest('script,style,textarea,input,[translate="no"],.notranslate') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     }
