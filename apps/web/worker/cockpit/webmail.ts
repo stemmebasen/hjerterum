@@ -32,6 +32,10 @@ export type WebmailSession = {
   move(path: string, uids: number[], dest: string): Promise<{ uidValidity: string }>;
   /** Deletes mails for good (from Papirkurv). */
   remove(path: string, uids: number[]): Promise<{ uidValidity: string }>;
+  /** Makes a folder (with the ones above it); nothing happens when it is there. */
+  create?(path: string): Promise<void>;
+  /** Moves mails and says where each one went (its new UID in `dest`, and `dest`'s UIDVALIDITY), so Posthus can follow it. */
+  moveMapped?(path: string, uids: number[], dest: string): Promise<{ sourceValidity: string; destValidity: string; map: Array<[number, number]> }>;
   close(): Promise<void>;
 };
 export type WebmailLogin = { host: string; user: string; password: string };
@@ -136,6 +140,15 @@ export const imapflowWebmail: WebmailOpener = async login => {
       const box = await client.mailboxOpen(path, { readOnly: false });
       if (uids.length) await client.messageDelete(uids.join(","), { uid: true });
       return { uidValidity: String(box.uidValidity) };
+    },
+    async create(path) {
+      await client.mailboxCreate(path).catch((error: unknown) => { if (!/exist/i.test(String((error as { responseText?: string })?.responseText ?? error))) throw error; });
+    },
+    async moveMapped(path, uids, dest) {
+      const box = await client.mailboxOpen(path, { readOnly: false });
+      const moved = uids.length ? await client.messageMove(uids.join(","), dest, { uid: true }) : false;
+      const result = moved && typeof moved === "object" ? moved as { uidValidity?: bigint | number | string; uidMap?: Map<number, number> } : {};
+      return { sourceValidity: String(box.uidValidity), destValidity: String(result.uidValidity ?? ""), map: [...(result.uidMap ?? new Map<number, number>()).entries()] };
     },
     async close() { await client.logout().catch(() => client.close()); },
   };
@@ -323,6 +336,12 @@ export type WebmailContext = { base: string; path: string; url: URL; request: Re
 export const WEBMAIL_PAGE_HEADERS = { "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'; form-action 'self'; base-uri 'none'" };
 
 async function session(ctx: WebmailContext): Promise<{ s: WebmailSession; address: string; login: WebmailLogin } | { error: string }> {
+  return openWebmail(ctx.env, ctx.db, ctx.deps);
+}
+
+/** team@ opened for reading and writing (the cockpit's own login to the mailbox), or why it could not be. */
+export async function openWebmail(env: SagaEnv, db: D1Database, deps: SagaDeps & { webmail?: WebmailOpener }): Promise<{ s: WebmailSession; address: string; login: WebmailLogin } | { error: string }> {
+  const ctx = { env, db, deps };
   const account = await teamMailAccount(ctx.db);
   if (!account) return { error: "team@ er ikke forbundet. Formanden forbinder den under Posthus." };
   try {

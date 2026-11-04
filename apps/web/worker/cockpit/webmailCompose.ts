@@ -67,7 +67,11 @@ export function parseRecipients(text: string): string[] | null {
 // ---- What a new mail, an answer and a forward start with ----
 
 export type ComposeKind = "ny" | "svar" | "svaralle" | "videresend" | "kladde";
-export type Draft = { kind: ComposeKind; to: string; cc: string; bcc: string; subject: string; text: string; folder: string; uid: number; files: Array<{ index: number; filename: string }> };
+export type Draft = { kind: ComposeKind; to: string; cc: string; bcc: string; subject: string; text: string; folder: string; uid: number; files: Array<{ index: number; filename: string }>;
+  /** Where the writer came from and goes back to after sending (PR og SoMe → Mails), and a line about the draft (Saga's). */
+  returnTo?: string; note?: string };
+/** The pages a mail may be written from besides Posthus. */
+const RETURNS = ["/pr/mails"];
 
 const QUOTED_WHEN = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 const prefix = (subject: string, p: "Re" | "Fwd") => new RegExp(`^(?:${p === "Re" ? "re|sv|aw" : "fwd?|vs|wg"}):`, "i").test(subject.trim()) ? subject.trim() : `${p}: ${subject.trim()}`;
@@ -115,10 +119,11 @@ export const COMPOSE_STYLE = `
 const TITLE: Record<ComposeKind, string> = { ny: "Ny mail", svar: "Svar", svaralle: "Svar alle", videresend: "Videresend", kladde: "Kladde" };
 
 export function composePage(base: string, who: string, address: string, draft: Draft, error = ""): string {
-  const hidden = `<input type="hidden" name="type" value="${draft.kind}"><input type="hidden" name="mappe" value="${esc(draft.folder)}"><input type="hidden" name="uid" value="${draft.uid}">`;
-  const back = draft.uid ? mailUrl(base, draft.folder, draft.uid) : folderUrl(base, draft.folder);
+  const hidden = `<input type="hidden" name="type" value="${draft.kind}"><input type="hidden" name="mappe" value="${esc(draft.folder)}"><input type="hidden" name="uid" value="${draft.uid}">`
+    + (draft.returnTo ? `<input type="hidden" name="tilbage" value="${esc(draft.returnTo)}">` : "");
+  const back = draft.returnTo ? `${base}${draft.returnTo}` : draft.uid ? mailUrl(base, draft.folder, draft.uid) : folderUrl(base, draft.folder);
   return layout(base, TITLE[draft.kind], `<main><p class="small"><a href="${back}">← Tilbage</a> · Mailboks <span class="wm-test">Testversion</span></p><h1>${TITLE[draft.kind]}</h1>
-${error ? `<p class="notice warn">${esc(error)}</p>` : ""}
+${error ? `<p class="notice warn">${esc(error)}</p>` : ""}${draft.note ? `<p class="notice">${esc(draft.note)}</p>` : ""}
 <form class="card wm-compose" method="post" action="${base}/posthus/mail/send" enctype="multipart/form-data">${hidden}
 <p class="small muted" style="margin:0">Fra: ${esc(firstName(who))} | Hjerterum &lt;${esc(address)}&gt;</p>
 <label>Til<input type="text" name="til" value="${esc(draft.to)}" autocomplete="off" placeholder="navn@eksempel.dk, flere adskilt af komma"></label>
@@ -136,7 +141,7 @@ ${draft.files.length ? `<div><p class="small muted" style="margin:0 0 6px">Med f
 
 const kindOf = (value: unknown): ComposeKind => (["ny", "svar", "svaralle", "videresend", "kladde"] as const).find(k => k === value) ?? "ny";
 
-async function original(s: WebmailSession, folder: string, uid: number): Promise<(WebMessage & { folder: string; uid: number; messageId: string; references: string }) | null> {
+export async function original(s: WebmailSession, folder: string, uid: number): Promise<(WebMessage & { folder: string; uid: number; messageId: string; references: string }) | null> {
   if (!uid) return null;
   const found = await s.source(folder, uid);
   if (!found) return null;
@@ -161,7 +166,8 @@ export async function composeRoute(ctx: WebmailContext & { deps: SagaDeps & { we
   const kind = kindOf(form?.get("type")), folder = String(form?.get("mappe") ?? "INBOX").slice(0, 300) || "INBOX", uid = uidOf(form?.get("uid"));
   const asDraft = form?.get("handling") === "kladde";
   const field = (name: string, max = 4000) => String(form?.get(name) ?? "").slice(0, max);
-  const draft: Draft = { kind, to: field("til"), cc: field("cc"), bcc: field("bcc"), subject: field("emne", 300), text: field("tekst", 200_000), folder, uid, files: [] };
+  const returnTo = RETURNS.find(r => r === field("tilbage"));
+  const draft: Draft = { kind, to: field("til"), cc: field("cc"), bcc: field("bcc"), subject: field("emne", 300), text: field("tekst", 200_000), folder, uid, files: [], ...(returnTo ? { returnTo } : {}) };
   const again = (error: string) => ctx.html(composePage(ctx.base, who, login.user, draft, error), 400, WEBMAIL_PAGE_HEADERS);
   const to = parseRecipients(draft.to), cc = parseRecipients(draft.cc), bcc = parseRecipients(draft.bcc);
   if (!to || !cc || !bcc) return again("En af adresserne er ikke en mailadresse. Ret den, og prøv igen.");
@@ -206,6 +212,7 @@ export async function composeRoute(ctx: WebmailContext & { deps: SagaDeps & { we
     await s.setFlag(folder, [uid], "\\Answered", true).catch(() => undefined);
     await answeredInPosthus(ctx, folder, uid, reply, `${firstName(who)} | Hjerterum`, s);
   }
+  if (returnTo) return ctx.redirect(`${ctx.base}${returnTo}?besked=sendt`);
   return ctx.redirect(folderUrl(ctx.base, kind === "kladde" ? (sent ?? "INBOX") : folder, "&udfoert=sendt&n=1"));
 }
 
