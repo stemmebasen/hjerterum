@@ -1040,3 +1040,14 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - På Ugens opslag: "Facebook sendes" og "Instagram sendes (tomt: samtidig)".
   - I trin 2 på plakatsiden: "Sagas forslag" viser begge tider, og "Vælg tidspunkt" har et felt for hvert medie. "Nu" er nu på begge.
 - **Kalenderen** viser et event to gange, når tiderne er forskellige: én gang for Facebook og én gang for Instagram, hver med sin egen status.
+
+## Forslag, hvis tid er gået, får nye tider (2026-11-04)
+
+- **Formandens spørgsmål:** "Er det rigtigt forstået, at opslaget bliver sendt ud på begge medier på samme tid?" Svaret er nej, Saga foreslår som standard forskellige tider.
+- **Hvorfor kalenderen viste "FB + IG" på samme tid:**
+  - Nogle forslag stod på en tid, der var gået, før de blev godkendt. Derfor fik de aldrig Instagrams egen tid.
+  - Et par stod om natten (fx kl. 1.30). Det var en rest fra den gamle regel, når der ikke var en ledig tid.
+  - Ved events, der begynder kort efter Facebooks tid, er der ikke plads til en senere Instagram-tid.
+- **Nu:**
+  - Hver time får et forslag, som ingen har rørt, og hvis tid er kommet uden formandens ja, næste ledige tid igen, med Facebooks og Instagrams egne tider (`retimeOverdue`). Det gælder kun, hvis eventet ikke begynder inden for tre timer.
+  - Er der ingen ledig tid før eventet, bruges dagens første tid før det (også en fjerde den dag) og aldrig en tid om natten.

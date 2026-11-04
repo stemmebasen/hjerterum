@@ -107,8 +107,11 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
       if (free !== undefined) candidates.push({ slot: free, count: same.length });
     }
     const slot = candidates.length ? candidates.reduce((best, c) => c.count < best.count ? c : best).slot : null;
-    // No free slot before it begins: as soon as may be.
-    out[i] = slot ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
+    // No free slot before it begins: the first of the day's times that is still before it (even a fourth that day) - never a time in the night -
+    // and only when there is none, as soon as may be.
+    const anyTime = (() => { for (let day = dateOf(from); at(day, 0) <= e.startsMs; day = addDays(day, 1))
+      for (const [h, m] of POST_HOURS) { const t = at(day, h, m); if (t >= from && t <= e.startsMs - 3_600_000) return t; } return null; })();
+    out[i] = slot ?? anyTime ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
     if (slot !== null) taken.add(slot);
   }
   return out;

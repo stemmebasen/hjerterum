@@ -372,6 +372,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
   if (await claimJob(db, "social_balance_retime", 0, now)) { await retimeUntouched(db, now); await addInstagram(db, now); }
   if (await claimJob(db, "social_instagram_times", 0, now)) await instagramOwnTimes(db, now);
+  await retimeOverdue(db, now);
   let fresh = 0;
   const titles = new Set<string>();
   for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
@@ -388,6 +389,26 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
   for (const p of drafts) {
     const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.host ?? null]) };
     await db.prepare("UPDATE social_posts SET channels = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify(["facebook", "instagram"]), JSON.stringify(source), p.id).run();
+  }
+}
+
+/** Asked (the chair, 4 Nov 2026): "Er det rigtigt forstået, at opslaget bliver sendt ud på begge medier på samme tid?" - some proposals stood at a time
+ * that had passed before they were approved (and so kept one time for both). Every hour: a proposal nobody has changed whose time has come without the
+ * chair's yes, for an event that has not begun, gets the next free time again - Facebook's and Instagram's own. */
+async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
+  const late = (await socialPosts(db, `kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms
+      AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
+    .filter(p => p.source.startsMs);
+  if (!late.length) return;
+  const ids = new Set(late.map(p => p.id));
+  const others = await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ?", [nowMs - 86_400_000], "publish_at_ms, id", 1000);
+  const rest = others.filter(p => !ids.has(p.id));
+  const events = late.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
+  const fb = eventPostTimes(events, nowMs + 30 * MINUTE, rest.map(p => p.publish_at_ms!));
+  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!));
+  for (const [i, p] of late.entries()) {
+    const source = { ...p.source, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(fb[i], JSON.stringify(source), p.id).run();
   }
 }
 
