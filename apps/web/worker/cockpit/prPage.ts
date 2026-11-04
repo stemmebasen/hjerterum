@@ -6,6 +6,7 @@ import { INSIGHT_STYLE, insightSection, type MonthInsight } from "./prInsight.js
 import { PR_EVENTS_STYLE, prEventsSection, type PrEventRow } from "./prEvents.js";
 import { studioIdOf } from "./posterStudio.js";
 import { PR_CALENDAR_STYLE, prCalendarSection, type CalendarData } from "./prCalendar.js";
+import { PR_MAIL_STYLE, prMailSection, type PrMail } from "./prMail.js";
 
 /** Kommunikation → PR og SoMe (/pr): the chair's PR cockpit (social.ts). Connect Facebook and Instagram; pass on what Hjerterum is tagged in;
  * read, change and approve the week's posts. Nothing goes out before it is approved here. */
@@ -24,6 +25,8 @@ export type PrPageData = {
   events?: PrEventRow[];
   /** The Kalender tab (prCalendar.ts) - loaded only for that tab. */
   calendar?: CalendarData;
+  /** The Mails tab (prMail.ts) - loaded only for that tab. */
+  mails?: PrMail[];
   nowMs: number;
   notice: string;
   error: string;
@@ -124,8 +127,8 @@ ${actions(base, p, "Godkend")}</form></article>`;
 }
 
 /** Requested: "Jeg synes, at siden bliver ret rodet, når der er så meget indhold. Kan du ikke dele det op i underpunkter?" - PR og SoMe in tabs. */
-export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "uge" | "sendt";
-export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
+export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "mails" | "uge" | "sendt";
+export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["mails", "/pr/mails", "Mails"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
 
 export function prPage(base: string, who: string | null, d: PrPageData, tab: PrTab = "overblik"): string {
   const a = d.account;
@@ -158,11 +161,12 @@ ${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.
 
   const waiting = d.shares.filter(p => !p.source.sharedAt).length;
   const count = (n: number) => n ? ` <span class="pr-count">${n}</span>` : "";
-  const nav = `<nav class="pr-nav" aria-label="PR og SoMe">${PR_TABS.map(([key, path, label]) => `<a href="${base}${path}"${key === tab ? ' class="on" aria-current="page"' : ""}>${label}${key === "tagget" ? count(waiting) : key === "uge" ? count(drafts) : key === "kalender" && d.calendar ? count(d.calendar.posts.filter(p => p.status === "draft").length) : ""}</a>`).join("")}</nav>`;
+  const nav = `<nav class="pr-nav" aria-label="PR og SoMe">${PR_TABS.map(([key, path, label]) => `<a href="${base}${path}"${key === tab ? ' class="on" aria-current="page"' : ""}>${label}${key === "tagget" ? count(waiting) : key === "uge" ? count(drafts) : key === "kalender" && d.calendar ? count(d.calendar.posts.filter(p => p.status === "draft").length) : key === "mails" && d.mails ? count(d.mails.filter(m => !m.answered_at_ms && !m.handled_at_ms).length) : ""}</a>`).join("")}</nav>`;
   const sections: Record<PrTab, string> = {
     overblik: `${prPlanSection(base, d.plan)}
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>`,
     kalender: d.calendar ? prCalendarSection(base, d.calendar) : "",
+    mails: prMailSection(base, d.mails ?? []),
     events: prEventsSection(base, d.events ?? [], d.nowMs),
     tagget: `<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>`,
     uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,
@@ -174,7 +178,7 @@ ${tab === "overblik" ? `<p>Saga gør alle opslag klar - delinger af det, Hjerter
 ${nav}
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
 ${sections[tab]}</main>`;
-  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE });
+  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE + PR_MAIL_STYLE });
 }
 
 const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}

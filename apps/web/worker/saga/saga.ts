@@ -505,6 +505,9 @@ export async function runTeamMailRound(env: SagaEnv, deps: SagaDeps): Promise<vo
   // Requested: "medmindre det er mere optimalt at oprette den i hjerterums admin?" - "Godt". Saga reads team@ herself,
   // every run, read-only (teamMail.ts); the run's outcome is what the watch and Posthus show.
   await readTeamMail(env, deps, env.DB).catch(error => console.warn("saga_team_mail_failed", error instanceof Error ? error.message : error));
+  // Requested (the chair, 4 Nov 2026): the mails about PR, deling and sociale medier "lander i min undermappe" - 5 - JACOB › PR (cockpit/prMail.ts).
+  const { filePrMails } = await import("../cockpit/prMail.js");
+  await filePrMails(env, deps, env.DB).catch(error => console.warn("saga_pr_mail_failed", error instanceof Error ? error.message : error));
 }
 
 export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?: boolean } = {}): Promise<void> {

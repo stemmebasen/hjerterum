@@ -1,4 +1,4 @@
-import { webmailRoute } from "./webmail.js";
+import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
 import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, makeFolder, MAX_UPLOAD_BYTES, uploadFile, type ArchiveObject } from "../archive.js";
 import { copiesPage, fileArchivePage } from "./filearchivePage.js";
 import { listMailHtml } from "../newsletter.js";
@@ -47,6 +47,7 @@ import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
 import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
+import { prMailData, prReplyPage } from "./prMail.js";
 import { approveWeek, connectSocial, decidePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
@@ -956,7 +957,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
-    const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
+    const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/mails": "mails", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
     if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
       const asked = url.searchParams.get("uge") ?? "";
@@ -965,7 +966,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const monday = ahead.includes(asked) ? asked : coming;
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
-        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet." };
+        "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres." };
@@ -973,12 +974,18 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         events: tab === "events" ? await prEventsData(db, now) : [],
         ...(tab === "kalender" ? { calendar: await prCalendarData(db, now, url.searchParams.get("start")) } : {}),
+        ...(tab === "mails" ? { mails: await prMailData(db) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
       return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
+    }
+    // "smart at kunne svare tilbage i PR-sektionen": Posthus' own reply with Saga's draft (prMail.ts); it is sent from Posthus' send, and back here.
+    if (path === "/pr/mails/svar" && request.method === "GET") {
+      const page = await prReplyPage(env as SagaEnv, deps, db, base, who, Number(url.searchParams.get("id")) || 0);
+      return page ? html(page, 200, WEBMAIL_PAGE_HEADERS) : html(problem(base, who, "Mailen kunne ikke åbnes lige nu. Prøv igen om lidt, eller åbn den i Posthus."), 503);
     }
     // Facebook Login: a state kept in a short cookie, so only the login this browser began can come back.
     if (path === "/pr/forbind" && request.method === "GET") {

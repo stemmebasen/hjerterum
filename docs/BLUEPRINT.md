@@ -1087,3 +1087,19 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - musik: formanden sender cirka 10 numre, som lægges i R2, ikke i det offentlige repo;
   - citat og profilfoto fra PR-materialet til nr. 8 og 10;
   - at formanden selv vælger skabelon på plakatsiden.
+
+## PR-mails i formandens mappe og i PR og SoMe, med Sagas svarudkast (2026-11-04)
+
+- **Formandens ord:** "Jeg har brug for, at Saga finder de mails fra mailboksen, der vedrører PR, deling og sociale medier, at de lander i min undermappe og at de bliver vist i min PR-sektion. Jeg har også brug for smart at kunne svare tilbage i PR-sektionen." Mappen blev "Ny mappe "5 - JACOB › PR"" (formandens valg), i samme stil som de andres.
+- **Mærkatet "PR"** kom til i Posthus (`enquiries.ts`). Det bruges om PR, deling og sociale medier: at dele, omtale eller markedsføre noget, fx en underviser, der beder os dele sit event eller sender billeder og tekst til et opslag, samt presse, omtale og samarbejde om markedsføring. PR går foran Event, når mailen handler om at dele eller omtale. Én gang ser Saga indbakkens mails fra de sidste 45 dage igennem igen (dem med Event og Generel).
+- **Mappen:**
+  - I team@'s runde flytter Saga indbakkens PR-mails til `INBOX.5 - JACOB.PR`. Mappen oprettes, hvis den ikke findes.
+  - Posthus følger med: mailen beholder sin plads i Posthus med ny mappe og UID (`board_mail.pr_filed_at_ms`, migration 0096). Hver mail prøves én gang.
+  - Formanden får besked privat på Telegram med et link.
+  - Saga læser fortsat mappen read-only. Det eneste, hun skriver i postkassen, er netop denne flytning, som formanden har bedt om.
+- **PR og SoMe → Mails** (`/pr/mails`, `cockpit/prMail.ts`): alle PR-mails med afsender, emne, tekst og status ("Venter på svar", "Besvaret af …"), og et tal på fanen for dem, der venter.
+- **"Svar med Sagas udkast":**
+  - Svaret åbnes i Posthus' eget svarvindue med Sagas udkast over citatet (mellemmodellen).
+  - Udkastet holder sig til, hvad Hjerterum faktisk gør med PR: opslag til hvert event, deling, når man tagger Hjerterum eller @hjerterum_aarhus, billeder kun med PR-samtykke og samarbejdspartner på Instagram. Det lover ingen tider eller aftaler og har samme sprogregler som opslagene.
+  - Formanden retter og trykker Send. Mailen går fra team@, lægges i Sendt, markeres som besvaret, og formanden kommer tilbage til PR og SoMe → Mails.
+  - Saga sender aldrig selv.

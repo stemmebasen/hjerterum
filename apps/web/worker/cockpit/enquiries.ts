@@ -14,11 +14,11 @@ import { replyTarget } from "../saga/teamMail.js";
  * scan waits until Monday unless someone presses "Scan nu". */
 
 /** Requested: "I Posthus kan du lave forskellige mærkater, for eksempel medlem, event, generel og økonomi, og gøre det muligt at sortere under de forskellige mærkater.": every mail has one. */
-export const LABELS = ["Medlem", "Event", "Økonomi", "Generel", "Automatisk"] as const;
-export const LABEL_GUIDE = "Giv også HVER mail ét mærkat: Medlem (medlemskab, kontingent, medlemmer, opsigelse), Event (arrangementer, undervisere, kalenderen, leje af huset til events), Økonomi (fakturaer, betalinger, regnskab, bank, moms, priser, kvitteringer), "
+export const LABELS = ["Medlem", "Event", "PR", "Økonomi", "Generel", "Automatisk"] as const;
+export const LABEL_GUIDE = "Giv også HVER mail ét mærkat: Medlem (medlemskab, kontingent, medlemmer, opsigelse), Event (arrangementer, undervisere, kalenderen, leje af huset til events), PR (PR, deling og sociale medier: at dele, omtale eller markedsføre noget - fx en underviser, der beder os dele sit event eller sender billeder og tekst til et opslag, tags og beskeder fra Facebook og Instagram, presse, omtale, samarbejde om markedsføring; PR går foran Event, når mailen handler om at dele eller omtale), Økonomi (fakturaer, betalinger, regnskab, bank, moms, priser, kvitteringer), "
   + "Generel (alt andet fra en person eller virksomhed) eller Automatisk (nyhedsbreve, notifikationer, reklame og automatiske beskeder fra systemer). ";
 /** Requested: "mærkaterne skal have forskellige farver, og der skal være et lille mærkat ved hver mail": one colour for each label, and the small tag on every mail that has one. */
-export const LABEL_CLASS: Record<(typeof LABELS)[number], string> = { Medlem: "lab-medlem", Event: "lab-event", Økonomi: "lab-oekonomi", Generel: "lab-generel", Automatisk: "lab-automatisk" };
+export const LABEL_CLASS: Record<(typeof LABELS)[number], string> = { Medlem: "lab-medlem", Event: "lab-event", PR: "lab-pr", Økonomi: "lab-oekonomi", Generel: "lab-generel", Automatisk: "lab-automatisk" };
 export const labelTag = (label: string | null | undefined): string => label && label in LABEL_CLASS ? `<span class="kind label ${LABEL_CLASS[label as keyof typeof LABEL_CLASS]}">${esc(label)}</span> ` : "";
 export const KINDS = ["Lokaleleje", "Undervisning og arrangementer", "Medlemskab", "Samarbejde", "Andet"] as const;
 export type Enquiry = { id: number; sender: string; subject: string; received_at_ms: number; preview: string; enquiry_kind: string; enquiry_summary: string | null; handled_at_ms: number | null; handled_by: string | null; label?: string | null; assigned_to?: string | null;
@@ -280,7 +280,7 @@ const STYLE = `
 .inbox .from{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.inbox .at{font-size:12.5px;color:var(--faint);white-space:nowrap}
 .inbox .subj{grid-column:1/-1;font-size:14px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .inbox .body{margin:10px 0 0;font-size:14px;color:var(--muted);white-space:pre-wrap;overflow-wrap:anywhere}.mailbar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 14px}.labels{display:flex;gap:8px;flex-wrap:wrap;flex:1}.labels a{padding:7px 14px;border-radius:999px;background:var(--soft);color:var(--muted);text-decoration:none;font-size:14px;font-weight:600}
-.lab-medlem{--lc:#4f6bd8}.lab-event{--lc:#2f9e7a}.lab-oekonomi{--lc:#c98a1b}.lab-generel{--lc:#7b8794}.lab-automatisk{--lc:#9a6bc4}
+.lab-medlem{--lc:#4f6bd8}.lab-event{--lc:#2f9e7a}.lab-pr{--lc:#c2507a}.lab-oekonomi{--lc:#c98a1b}.lab-generel{--lc:#7b8794}.lab-automatisk{--lc:#9a6bc4}
 .labels a[class]{background:color-mix(in srgb,var(--lc) 15%,transparent);color:color-mix(in srgb,var(--lc) 78%,var(--ink))}.labels a[aria-current]:not([class]){background:var(--accent);color:var(--accent-ink)}.labels a[class][aria-current]{background:var(--lc);color:#fff}.labels small{opacity:.75;font-weight:500;margin-left:5px}.mailbar input{max-width:240px}
 .inbox .kind.label,.enq .kind.label{padding:1px 8px;border-radius:999px;font-weight:700;background:color-mix(in srgb,var(--lc) 16%,transparent);color:color-mix(in srgb,var(--lc) 82%,var(--ink))}.kind.assigned{background:var(--soft,rgba(0,0,0,.06));padding:1px 8px;border-radius:999px;font-weight:700}.labelform{margin:10px 0 0}.labelform label{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600}.labelform select{width:auto}
 .inbox .kind.urgent{color:var(--warn);background:var(--warn-soft);padding:1px 7px;border-radius:999px}.urgent-card{border-color:var(--warn)}
