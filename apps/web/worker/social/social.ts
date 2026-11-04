@@ -8,7 +8,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, REPEAT_LEAD_MS, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, REPEAT_LEAD_MS, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -36,7 +36,9 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     design?: boolean;
     /** Taken down again on Facebook and Instagram by hand (the chair, 3 Nov 2026: "Jeg har slettet opslagene igen for Aura-eventet, for det var bare
      * en test. Det må du gerne registrere."): kept in the history, and the event may get a new post. */
-    removed?: { atMs: number; note: string } }; publish_at_ms: number | null; status: SocialStatus;
+    removed?: { atMs: number; note: string };
+    /** Instagram's own time, when it is not Facebook's (publish_at_ms) - "forskellige tidspunkter på de to medier". */
+    instagramAtMs?: number | null }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
@@ -123,10 +125,12 @@ async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: s
 }
 
 /** The chair changes a post that has not gone out: its words, where it goes and (for the week's posts) when. A changed post is a draft again. */
-export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null }, nowMs: number): Promise<boolean> {
+export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null;
+  instagramAtMs?: number | null }, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, id);
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
-  const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}) };
+  const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}),
+    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -329,12 +333,13 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
       publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   }
   const times = eventPostTimes(fresh, notBefore, await takenSlots(db, now), earliest);
+  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now));
   for (const [i, e] of fresh.entries()) {
     // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
     const text = words.events[`E${i + 1}`] ?? plainEventText(e);
     const both = Boolean(account?.ig_user_id && e.imageUrl);
     if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text,
-      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]) } : {}) },
+      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
       publishAtMs: times[i]! }, now)) made++;
   }
   return { made, events: chosen.length, fresh: fresh.length };
@@ -348,6 +353,13 @@ async function takenSlots(db: D1Database, nowMs: number): Promise<number[]> {
     .all<{ publish_at_ms: number }>().then(r => (r.results ?? []).map(x => x.publish_at_ms)).catch(() => []);
 }
 
+/** The times already taken on Instagram by an event's post. */
+async function instagramSlots(db: D1Database, nowMs: number): Promise<number[]> {
+  return db.prepare(`SELECT coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms) AS at FROM social_posts WHERE kind = 'event' AND channels LIKE '%instagram%'
+      AND coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms) >= ? AND status IN ('draft', 'approved', 'publishing', 'published')`).bind(nowMs - 86_400_000)
+    .all<{ at: number }>().then(r => (r.results ?? []).map(x => x.at)).catch(() => []);
+}
+
 /** How far ahead Saga proposes posts for the calendar's events (the same six weeks as PR og SoMe → Events). */
 export const PROPOSE_WEEKS = 6;
 
@@ -359,6 +371,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (!(await socialAccount(db))) return 0;
   if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
   if (await claimJob(db, "social_balance_retime", 0, now)) { await retimeUntouched(db, now); await addInstagram(db, now); }
+  if (await claimJob(db, "social_instagram_times", 0, now)) await instagramOwnTimes(db, now);
   let fresh = 0;
   const titles = new Set<string>();
   for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
@@ -376,6 +389,18 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
     const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.host ?? null]) };
     await db.prepare("UPDATE social_posts SET channels = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify(["facebook", "instagram"]), JSON.stringify(source), p.id).run();
   }
+}
+
+/** Once: the event drafts on Instagram nobody has changed get Instagram's own time. */
+async function instagramOwnTimes(db: D1Database, nowMs: number): Promise<void> {
+  const drafts = (await socialPosts(db, "kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND channels LIKE '%instagram%' AND publish_at_ms > ? AND json_extract(source, '$.instagramAtMs') IS NULL", [nowMs], "publish_at_ms, id", 500))
+    .filter(p => p.source.startsMs);
+  if (!drafts.length) return;
+  const events = drafts.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
+  const times = instagramPostTimes(events, drafts.map(p => p.publish_at_ms!), nowMs + 30 * MINUTE, await instagramSlots(db, nowMs).then(all => {
+    const own = new Set(drafts.map(p => p.publish_at_ms!)); return all.filter(t => !own.has(t)); }));
+  for (const [i, p] of drafts.entries()) if (times[i] !== p.publish_at_ms)
+    await db.prepare("UPDATE social_posts SET source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify({ ...p.source, instagramAtMs: times[i] }), p.id).run();
 }
 
 /** Once: the event drafts nobody has changed are given their time again by the rule of now (soon, and evenly over the days). */
@@ -423,7 +448,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
   const done = { ...post.published };
   try {
     for (const channel of post.channels) {
-      if (done[channel]) continue;
+      if (done[channel] || dueAt(post, channel) > deps.now()) continue;
       if (channel === "facebook") done.facebook = post.source.design && post.images[0]
         ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: post.link ? `${post.text}\n\n${post.link}` : post.text })
         : await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
@@ -457,8 +482,17 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
     await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run().catch(() => undefined);
     throw error;
   }
-  await db.prepare("UPDATE social_posts SET status = 'published', published_at_ms = ?, error = NULL, updated_at_ms = ? WHERE id = ?").bind(deps.now(), deps.now(), post.id).run();
+  // Everything out: published. Instagram (or Facebook) still to come at its own time: approved, with what is out kept.
+  const all = post.channels.every(c => done[c]);
+  await db.prepare(`UPDATE social_posts SET status = ?, ${all ? "published_at_ms = ?," : ""} error = NULL, updated_at_ms = ? WHERE id = ?`).bind(...[all ? "published" : "approved", ...(all ? [deps.now()] : []), deps.now(), post.id]).run();
 }
+
+/** When a post goes out on a medium: Instagram at its own time, when it has one. */
+export const dueAt = (post: Pick<SocialPost, "publish_at_ms" | "source">, channel: Channel): number =>
+  (channel === "instagram" ? post.source.instagramAtMs ?? post.publish_at_ms : post.publish_at_ms) ?? Infinity;
+/** The first time anything of the post is due (on a medium it has not reached). */
+export const firstDue = (post: Pick<SocialPost, "publish_at_ms" | "source" | "channels" | "published">): number =>
+  Math.min(...post.channels.filter(c => !post.published[c]).map(c => dueAt(post, c)), Infinity);
 
 /** Whether an event is still in the calendar: a cancelled or removed one never gets its post. */
 async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
@@ -471,7 +505,7 @@ async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
 
 /** Every round: the approved posts whose time has come go out, each once. An event's post whose event has begun is not sent late. */
 export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
-  const due = await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [deps.now()], "publish_at_ms, id", 5);
+  const due = await socialPosts(db, "status = 'approved' AND (publish_at_ms <= ? OR json_extract(source, '$.instagramAtMs') <= ?)", [deps.now(), deps.now()], "publish_at_ms, id", 5);
   let sent = 0;
   for (const post of due) if (await publishOne(env, deps, db, post)) sent++;
   return sent;
@@ -482,13 +516,16 @@ export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database)
  * round (every ten minutes). Returns whether it went out. */
 export async function publishOne(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<boolean> {
   const now = deps.now();
-  if (post.status !== "approved" || (post.publish_at_ms ?? Infinity) > now) return false;
+  if (post.status !== "approved" || firstDue(post) > now) return false;
   if (post.kind === "event" && post.source.key && !(await eventStillOn(db, post.source.key))) {
     await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet er aflyst eller fjernet fra kalenderen", now, post.id).run();
     return false;
   }
   if (post.kind === "event" && post.source.startsMs && post.source.startsMs <= now) {
-    await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet var begyndt, før opslaget skulle ud", now, post.id).run();
+    // Out on one medium already: kept as published, with why the other did not follow.
+    const some = Object.keys(post.published).some(k => k === "facebook" || k === "instagram");
+    await db.prepare(`UPDATE social_posts SET status = ?, error = ?, ${some ? "published_at_ms = coalesce(published_at_ms, ?)," : ""} updated_at_ms = ? WHERE id = ?`)
+      .bind(...[some ? "published" : "skipped", some ? "Eventet var begyndt, før det skulle ud på det andet medie" : "Eventet var begyndt, før opslaget skulle ud", ...(some ? [now] : []), now, post.id]).run();
     return false;
   }
   // Claimed first, so two rounds (or a round and the cockpit) never send the same post.

@@ -48,7 +48,7 @@ describe("a design from Plakater og opslag in an event's post", () => {
     // The week page shows it, with "Skift design".
     expect(await (await call("/pr/uge?uge=2026-11-09")).text()).toContain(`href="/plakater/${HEX}?fra=%2Fpr%2Fuge%3Fuge%3D2026-11-09%23opslag-${data.post.id}">Skift design`);
     // Approved and out: a photo post on Facebook with the link in its words, and the same picture on Instagram.
-    await db.prepare("UPDATE social_posts SET status = 'approved', publish_at_ms = ? WHERE id = ?").bind(NOW + 60_000, after!.id).run();
+    await db.prepare("UPDATE social_posts SET status = 'approved', publish_at_ms = ?, source = json_remove(source, '$.instagramAtMs') WHERE id = ?").bind(NOW + 60_000, after!.id).run();
     const graph: Array<{ path: string; params: Record<string, string> }> = [];
     const fetcher: typeof fetch = async (input, init) => {
       const url = String(input);

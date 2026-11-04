@@ -40,7 +40,7 @@ describe("both Facebook and Instagram, whenever possible", () => {
     const [share] = await socialPosts(db, "kind = 'share'");
     expect(share).toMatchObject({ channels: ["facebook", "instagram"], source: { instagramText: expect.stringContaining("Foto og tekst: Kasper Holm") } });
     // Approved: each goes to both.
-    await db.prepare("UPDATE social_posts SET status = 'approved', publish_at_ms = ? WHERE source_key IN ('event:2026-W46:mw:SFa', 'facebook:1_2')").bind(THURSDAY + 60_000).run();
+    await db.prepare("UPDATE social_posts SET status = 'approved', publish_at_ms = ?, source = json_remove(source, '$.instagramAtMs') WHERE source_key IN ('event:2026-W46:mw:SFa', 'facebook:1_2')").bind(THURSDAY + 60_000).run();
     await publishDue(env as never, deps(fetcher, THURSDAY + 120_000), db);
     expect(calls.filter(c => c.path === "/755/feed" && c.method === "POST")).toHaveLength(2);
     const photos = calls.filter(c => c.path === "/17841/media" && c.method === "POST").map(c => c.params.image_url);

@@ -47,7 +47,7 @@ import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
 import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
-import { approveWeek, connectSocial, decidePost, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, connectSocial, decidePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -1051,14 +1051,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
           ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
-          ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
+          ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}),
+          ...(form.has("instagram_at") ? { instagramAtMs: field("instagram_at") ? fromLocalInput(field("instagram_at")) : null } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);
         if (!decided) return backHere("fejl=kanaler");
         if (post.kind === "share") await audit(db, actor, "social.manage", `Delte ${post.source.author ?? "et"} opslag fra ${post.source.network === "instagram" ? "Instagram" : "Facebook"} videre`, now);
         // A post whose time has come (a share, or one set to now) goes out at once.
-        if ((decided.publish_at_ms ?? Infinity) <= now) await publishOne(social, deps, db, decided);
+        if (firstDue(decided) <= now) await publishOne(social, deps, db, decided);
         return backHere(post.kind === "share" ? "besked=delt" : "besked=godkendt");
       }
       return backHere("besked=gemt");
@@ -1105,24 +1106,28 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!may("social.manage")) return denied("social.manage");
       const data = await studioData(db, id!, now, deps.fetcher);
       if (!data?.post) return answer({ error: "no_post" }, 404);
-      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown; at?: unknown } | null;
+      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown; at?: unknown; instagramAt?: unknown } | null;
       if (!body || typeof body.text !== "string" || !Array.isArray(body.channels)) return answer({ error: "bad_request" }, 400);
       // "Og så savner jeg også en mulighed for at planlægge udsendingen": a time of the chair's own - from now until an hour before the event begins.
       const chosenAt = typeof body.at === "number" && Number.isFinite(body.at) ? Math.round(body.at) : null;
-      if (chosenAt !== null && (chosenAt < now - 60_000 || chosenAt > Date.parse(data.event.startsAt) - 3_600_000)) return answer({ error: "time" }, 422);
+      const chosenIg = typeof body.instagramAt === "number" && Number.isFinite(body.instagramAt) ? Math.round(body.instagramAt) : null;
+      const late = (t: number | null) => t !== null && (t < now - 60_000 || t > Date.parse(data.event.startsAt) - 3_600_000);
+      if (late(chosenAt) || late(chosenIg)) return answer({ error: "time" }, 422);
       const current = await socialPost(db, data.post.id);
       if (!current) return answer({ error: "no_post" }, 404);
       const channels = [...new Set(body.channels.filter((c): c is Channel => c === "facebook" || (c === "instagram" && data.post!.instagram && current.images.length > 0)))];
       await editPost(db, current.id, { text: body.text.replace(/\r\n?/g, "\n").trim().slice(0, 5000) || current.text, channels,
         ...(typeof body.instagramText === "string" ? { instagramText: body.instagramText.replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
-        ...(chosenAt !== null ? { publishAtMs: Math.max(now, chosenAt) } : body.now === true ? { publishAtMs: now } : {}) }, now);
+        ...(chosenAt !== null ? { publishAtMs: Math.max(now, chosenAt) } : body.now === true ? { publishAtMs: now } : {}),
+        // Instagram's own time ("forskellige tidspunkter på de to medier"); "Nu" is now on both.
+        ...(body.now === true && chosenAt === null ? { instagramAtMs: null } : chosenIg !== null ? { instagramAtMs: Math.max(now, chosenIg) } : chosenAt !== null ? { instagramAtMs: null } : {}) }, now);
       const decided = await decidePost(db, current.id, "approve", who, now);
       if (!decided) return answer({ error: "no_channels" }, 422);
       await audit(db, actor, "social.manage", `Godkendte opslaget om "${data.event.title}"`, now);
       // "Nu" is now: out at once, not in Saga's next round.
-      const out = (decided.publish_at_ms ?? Infinity) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
+      const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
       const after = await socialPost(db, decided.id);
-      return answer({ ok: true, publishAtMs: decided.publish_at_ms, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
+      return answer({ ok: true, publishAtMs: decided.publish_at_ms, instagramAtMs: decided.source.instagramAtMs ?? null, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
     }
     if (part === "/design" && request.method === "POST") {
       const booking = /^h(\d+)$/.exec(id!);

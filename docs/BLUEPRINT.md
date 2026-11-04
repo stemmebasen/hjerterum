@@ -1024,3 +1024,19 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Instagram tager kun opslag med et billede.
   - 9 kladder med billede var lavet, før Instagram blev forbundet. De kommer nu også på Instagram (én gang, kun kladder ingen har rørt).
   - Et event uden billede viser "IG kræver et billede: lav et design" i kalenderen. Designet fra plakatsiden bringer Instagram med.
+
+## Facebook og Instagram på hver sin tid (2026-11-04)
+
+- **Formandens ord:** "Og så kan man jo argumentere for, at et event publiceres på forskellige tidspunkter på de to medier." Spørgsmålet var, om Saga som standard skal foreslå forskellige tider (fx Facebook kl. 12 og Instagram kl. 19.30). Svaret var "Ja".
+- **Forslaget:**
+  - Instagram får sin egen tid, `source.instagramAtMs`, mindst 2,5 timer efter Facebook. Den fordeles jævnt over Instagrams egne dage på samme måde (`instagramPostTimes`).
+  - Er der ingen sådan tid før eventet, er tiden den samme som Facebooks.
+  - Kladder, ingen har rørt, får én gang Instagrams egen tid.
+- **Udsendelsen:**
+  - Hvert medie går ud på sin egen tid.
+  - Når Facebook er ude, står opslaget som godkendt, til Instagram også er ude. Først derefter er det publiceret.
+  - Begynder eventet, før det andet medie er nået, beholdes opslaget som publiceret med en note.
+- **Rettes:**
+  - På Ugens opslag: "Facebook sendes" og "Instagram sendes (tomt: samtidig)".
+  - I trin 2 på plakatsiden: "Sagas forslag" viser begge tider, og "Vælg tidspunkt" har et felt for hvert medie. "Nu" er nu på begge.
+- **Kalenderen** viser et event to gange, når tiderne er forskellige: én gang for Facebook og én gang for Instagram, hver med sin egen status.
