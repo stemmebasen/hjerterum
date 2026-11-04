@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
-import { EMPTY_QUOTES, PR_CONSENT_TEXT, PR_MAX_PHOTOS, PR_MIN_PHOTOS, PR_MIN_SIDE, readyForPr, type PrMaterial, type PrQuotes } from "../pr-material";
+import { consentTextAt, EMPTY_QUOTES, PR_CONSENT_TEXT, PR_MAX_PHOTOS, PR_MIN_PHOTOS, PR_MIN_SIDE, readyForPr, type PrMaterial, type PrQuotes } from "../pr-material";
 
 /** Requested (Gitta, via the chair): "At de udtrykkeligt bliver opfordret til at dele minimun 3 billeder af dem selv/relevante billeder til PR. At det ligger
  * inde på deres siden. At de vinger noget ala det her af ..." and "Citater til brug i PR" - "måske vi må nøjes med en kraftig opfordring? Måske gøre det
  * helt klart at vi ikke kan reklamere for dem uden?" The teacher's own page for it: what it takes is said plainly, nothing is required. */
 const DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "long", year: "numeric" });
 
-export function PrMaterialEditor({ clerk, onBack }: { clerk: ClerkBrowser; onBack: () => void }) {
+export function PrMaterialEditor({ clerk, onBack, inline = false }: { clerk: ClerkBrowser; onBack?: () => void; inline?: boolean }) {
   const [material, setMaterial] = useState<PrMaterial | null>(null);
   const [quotes, setQuotes] = useState<PrQuotes>(EMPTY_QUOTES);
   const [consent, setConsent] = useState(false);
@@ -59,11 +59,11 @@ export function PrMaterialEditor({ clerk, onBack }: { clerk: ClerkBrowser; onBac
   const photos = material?.photos ?? [], ready = material ? readyForPr(material) : false;
   const missing = [photos.length < PR_MIN_PHOTOS ? `${PR_MIN_PHOTOS - photos.length} ${PR_MIN_PHOTOS - photos.length === 1 ? "billede" : "billeder"} mere` : "", material && !material.consentAt ? "dit samtykke" : ""].filter(Boolean);
   const field = (key: keyof PrQuotes, label: string, placeholder: string, max = 200) =>
-    <label>{label}<input value={quotes[key]} maxLength={max} placeholder={placeholder} onChange={e => { setQuotes(q => ({ ...q, [key]: e.target.value })); setMessage(""); }} /></label>;
+    <label>{label}<input value={quotes[key]} maxLength={max} placeholder={placeholder} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} onChange={e => { setQuotes(q => ({ ...q, [key]: e.target.value })); setMessage(""); }} /></label>;
 
-  return <section className="profile-editor pr-editor" aria-label="Mit PR-materiale" aria-busy={busy}>
-    <button className="text-button" disabled={busy} onClick={onBack}>← Tilbage til min profil</button>
-    <p className="kicker">Til undervisere · PR</p><h2>Lad os fortælle om dig</h2>
+  return <section className={`profile-editor pr-editor${inline ? " is-inline" : ""}`} aria-label="Mit PR-materiale" aria-busy={busy}>
+    {!inline && onBack && <button className="text-button" disabled={busy} onClick={onBack}>← Tilbage til min profil</button>}
+    {!inline && <><p className="kicker">Til undervisere · PR</p><h2>Lad os fortælle om dig</h2></>}
     <p>Hjerterum deler events på Instagram, Facebook og i nyhedsbrevet. <strong>Vi kan kun reklamere for dine events, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke herunder.</strong> Uden dem kommer dine events stadig i kalenderen, men vi kan ikke lave opslag om dem.</p>
     <p className={`profile-badge${ready ? " ok" : ""}`}>{!material ? "Henter …" : ready ? "✓ Klar til PR" : `Mangler: ${missing.join(" og ")}`}</p>
 
@@ -78,16 +78,17 @@ export function PrMaterialEditor({ clerk, onBack }: { clerk: ClerkBrowser; onBac
       {field("facilitator", "Om dig som facilitator", "Fx: Anna holder rummet med en rolig og varm tilstedeværelse.")}
       {field("offering", "Det, deltagerne får med", "Fx: Du går hjem med mere ro i kroppen og nye værktøjer til hverdagen.")}
       <div className="workspace-form-row">{field("participant", "Fra en tidligere deltager", "Fx: Det bedste, jeg har gjort for mig selv i år.")}{field("participantName", "Deltagerens navn (valgfrit)", "Fx: Mette, 42", 80)}</div>
+      {field("instagram", "Dit Instagram-navn (valgfrit) - så inviterer vi dig som samarbejdspartner på vores opslag, og dine følgere ser dem også", "Fx: @anna.yoga", 80)}
     </fieldset>
-    <div className="workspace-actions"><button className="pill-button" disabled={busy || !material} onClick={() => void save()}>Gem citater</button></div>
+    <div className="workspace-actions"><button type="button" className="pill-button" disabled={busy || !material} onClick={() => void save()}>Gem citater</button></div>
 
     <div className="profile-publication">
       {material?.consentAt ? <>
-        <p>✓ Du gav samtykke {DAY.format(material.consentAt)}:<br /><em>"{PR_CONSENT_TEXT}"</em></p>
-        <button className="text-button" disabled={busy} onClick={() => { if (window.confirm("Vil du trække dit samtykke tilbage? Så bruger vi ikke længere dine billeder og citater i vores PR.")) void save({ consent: false }); }}>Træk mit samtykke tilbage</button>
+        <p>✓ Du gav samtykke {DAY.format(material.consentAt)}:<br /><em>"{consentTextAt(material.consentAt)}"</em></p>
+        <button type="button" className="text-button" disabled={busy} onClick={() => { if (window.confirm("Vil du trække dit samtykke tilbage? Så bruger vi ikke længere dine billeder og citater i vores PR.")) void save({ consent: false }); }}>Træk mit samtykke tilbage</button>
       </> : <>
         <label className="profile-consent"><input type="checkbox" checked={consent} disabled={busy || !material} onChange={e => setConsent(e.target.checked)} /> {PR_CONSENT_TEXT}</label>
-        <button className="pill-button dark" disabled={busy || !consent} onClick={() => void save({ consent: true })}>Giv samtykke</button>
+        <button type="button" className="pill-button dark" disabled={busy || !consent} onClick={() => void save({ consent: true })}>Giv samtykke</button>
       </>}
     </div>
     {message && <p className="workspace-message" role="status">{message}</p>}
@@ -108,4 +109,25 @@ export function PrNudge({ clerk }: { clerk: ClerkBrowser }) {
     : <div className="workspace-message pr-nudge"><strong>Skal vi hjælpe med at fylde dit event?</strong>
       <p>Vi kan kun reklamere for dit event på Instagram, Facebook og i nyhedsbrevet, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke. Det tager et par minutter.</p>
       <a className="pill-button subtle" href="/member-portal/profil#pr">Del mit PR-materiale</a></div>;
+}
+
+/** Requested (Gitta, 3 Nov 2026, the chair: "Ja"): "det er crucial, at de bliver presset til at dele de her billeder med det samme ... mens de er i gang med"
+ * at oprette eventet - "i hvert fald, at man meget tydeligt bliver informeret om, hvis du ikke uploader det, så kan du ikke forvente noget PR fra huset."
+ * In the event form, and when Saga has made the event: the teacher's PR material right there, open while it is not ready. It is still not required. */
+export function EventPrMaterial({ clerk }: { clerk: ClerkBrowser }) {
+  const [m, setM] = useState<PrMaterial | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void apiFetch(clerk, "/api/members/me/pr-material", { cache: "no-store" }).then(async r => { if (r.ok && active) { const got = await r.json() as PrMaterial; setM(got); setOpen(!readyForPr(got)); } }).catch(() => undefined);
+    return () => { active = false; };
+  }, [clerk]);
+  if (!m) return null;
+  const ready = readyForPr(m);
+  return <fieldset className={`event-section event-pr${ready ? " is-ready" : ""}`}>
+    <legend>Billeder til PR</legend>
+    {ready ? <p className="event-pr-ok"><strong>✓ Dit PR-materiale er klar.</strong> Vi kan reklamere for dit event på Instagram, Facebook og i nyhedsbrevet med dine billeder og citater.</p>
+      : <p className="event-pr-warn" role="note"><strong>Uden billeder kan du ikke forvente PR fra huset.</strong> Dit event kommer i kalenderen, men vi kan kun reklamere for det på Instagram, Facebook og i nyhedsbrevet, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke. Gør det her, mens du opretter eventet - det tager et par minutter, og det gælder også dine næste events.</p>}
+    {open ? <PrMaterialEditor clerk={clerk} inline /> : <button type="button" className="text-button" onClick={() => setOpen(true)}>Se eller ret dit PR-materiale</button>}
+  </fieldset>;
 }

@@ -34,10 +34,17 @@ const deleteForm = (base: string, e: SystemEvent, label = "Slet") => {
   return `<form method="post" action="${base}/arrangementer/system/${e.id}/slet" class="se-del" onsubmit="return confirm(${esc(JSON.stringify(ask))})"><button class="ghost danger">${label}</button></form>`;
 };
 
+/** Requested: "Gør mig i stand til at slette CIRKLER-møder som formand". The chair (cirkler.delete) can free the hall from a CIRKLER meeting; it is
+ * only taken out of Hjerterum's calendar - CIRKLER is not told, so the circle must hear it from the chair - and the confirmation says so. */
+const cirklerDeleteForm = (base: string, e: SystemEvent) => {
+  const ask = `Slet CIRKLER-mødet ${WHEN.format(e.starts_at_ms)}?\n\nSalen bliver ledig, og mødet forsvinder fra Hjerterums kalender. CIRKLER får ikke besked - giv cirklen besked selv. Flytter cirklen senere mødet i CIRKLER, reserveres salen igen.`;
+  return `<form method="post" action="${base}/arrangementer/system/${e.id}/slet" class="se-del" onsubmit="return confirm(${esc(JSON.stringify(ask))})"><button class="ghost danger">Slet</button></form>`;
+};
+
 /** The list on the Events page. */
-export function systemEventsSection(base: string, events: SystemEvent[], notice: string): string {
+export function systemEventsSection(base: string, events: SystemEvent[], notice: string, options: { deleteCirkler?: boolean } = {}): string {
   const row = (e: SystemEvent) => `<li><div><b>${esc(e.title)}</b><span class="small muted">${esc(when(e))} · ${esc(e.teacher_name)}${e.review_status === "pending" ? " · afventer godkendelse" : ""}${e.attendees ? ` · ${e.attendees} tilmeldt` : ""}</span></div>
-${e.cirkler_meeting_id ? `<span class="small muted">CIRKLER-møde - rettes i CIRKLER</span>` : `<div class="se-acts"><a class="button ghost" href="${base}/arrangementer/system/${e.id}">Ret</a>${deleteForm(base, e)}</div>`}</li>`;
+${e.cirkler_meeting_id ? `<div class="se-acts"><span class="small muted">CIRKLER-møde - rettes i CIRKLER</span>${options.deleteCirkler ? cirklerDeleteForm(base, e) : ""}</div>` : `<div class="se-acts"><a class="button ghost" href="${base}/arrangementer/system/${e.id}">Ret</a>${deleteForm(base, e)}</div>`}</li>`;
   return `<section class="card" id="system-events"><h2>Events oprettet i systemet</h2>
 <p class="small muted">Events, medlemmerne har oprettet i medlemsområdet. Events i den gamle kalender rettes stadig i MembershipWorks.</p>
 ${notice ? `<p class="notice">${esc(notice)}</p>` : ""}${events.length ? `<ul class="plain se-list">${events.map(row).join("")}</ul>` : `<p class="muted">Ingen kommende events.</p>`}</section>`;

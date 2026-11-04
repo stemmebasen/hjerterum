@@ -779,3 +779,248 @@ Still open:
 - **Godkendelse.** Intet sendes, før formanden har godkendt det (husets regel om det, der går ud til mange). Hvert opslag kan rettes (tekst, tidspunkt, kanaler), springes over eller godkendes; "Godkend hele ugen" godkender ugens udkast. En deling går ud inden for fem minutter; ugens opslag på deres tidspunkt. Et opslag sendes kun én gang pr. kanal (hvad der nåede ud, gemmes med det samme), et event, der er begyndt, får ikke sit opslag bagefter, og et opslag, der fejler, bliver stående som "Fejlede" med fejlen, og formanden får besked.
 - Formandens log viser forbindelse, afbrydelse, delinger og godkendte uger.
 - Åbent: om delinger fra undervisere med PR-samtykke skal kunne gå ud uden godkendelse.
+
+## PR-planen i cockpittet, og opslag kl. 15-17 (2026-11-03)
+
+- Formandens svar på årsstrategien for SoMe: "Ja til det hele. Og lav det i cockpittet så klokkeklart hvad planen er og hvad der lige nu kræves af mig, hvad der mangler, hvad der er next."
+- **Strategien:** Maskinen klarer rytmen, menneskerne det, kun mennesker kan. Underviserne er Hjerterums største medie. Der laves få, men gode, reels. Oven på ugerytmen ligger fire kampagner om året: januar (nyt år og medlemskab), forår (workshops), august-september (sæsonstart, den største) og november-december (årets afslutning og jul). Der måles få ting en gang om måneden.
+- **Rækkefølgen for det, der bygges:** 1) opslag kl. 15-17 (bygget her), 2) PR-materiale, når eventet oprettes, 3) undervisere som samarbejdspartner på Instagram, 4) Ugens events som reel, 5) månedlig indsigt.
+- **Øverst på PR og SoMe** (`worker/cockpit/prPlan.ts`):
+  - "Det kræver dig lige nu" regnes ud fra data: forbindelsen, delinger, der venter, fejlede opslag, ugens udkast, en uge, der ikke er planlagt, næste måneds nyhedsbrev fra den 20., og undervisere med events de næste to uger uden PR-materiale. Dertil de beslutninger, der venter på formanden.
+  - "Det næste": de næste opslag, der går ud, næste planlægning og næste nyhedsbrev.
+  - "Det mangler": planens dele med status (Klar / Bygges / Venter på dig) i `ROADMAP`. Den rettes, efterhånden som delene bygges eller besluttes.
+  - "Planen": ugens rytme og året med den nuværende og den næste kampagne.
+- **Tidspunkter** (Gittas erfaring, formandens ja): eventopslag kl. 15 eller 16.30 dagen før (`POST_HOURS`), "Ugens events" mandag kl. 15.30 (`WEEK_POST_AT`). Opslag, der allerede er planlagt, beholder deres tid.
+
+## PR-materiale, når eventet oprettes (2026-11-03)
+
+- Gittas forslag, formandens ja: "det er crucial, at de bliver presset til at dele de her billeder med det samme ... i hvert fald, at man meget tydeligt bliver informeret om, hvis du ikke uploader det, så kan du ikke forvente noget PR fra huset."
+- Eventformularen og Sagas "Dit event er oprettet" har nu boksen **"Billeder til PR"** (`EventPrMaterial` i `src/pr-material-editor.tsx`).
+  - Mangler underviserens PR-materiale, står der tydeligt: "Uden billeder kan du ikke forvente PR fra huset". PR-editoren (billeder, citater, samtykke) er åben lige dér.
+  - Er materialet klar, står der "✓ Dit PR-materiale er klar" og et link til at rette det.
+- Det er stadig ikke et krav. Eventet kan oprettes uden.
+- Materialet er det samme som under Min profil → Mit PR-materiale og gælder alle underviserens events.
+
+## Undervisere som samarbejdspartner på Instagram (2026-11-03)
+
+- Gittas forslag, formandens ja: underviseren inviteres som *samarbejdspartner* på opslaget. Så får de besked med det samme, og opslaget vises også for deres følgere.
+- Underviserne kan skrive deres **Instagram-navn** i PR-materialet (Min profil → Mit PR-materiale og "Billeder til PR" i eventformularen). Navnet gemmes i `pr_material.quotes_json` (`instagram`) og renses til selve brugernavnet (`instagramName`). Ingen skemaændring.
+- **"Ugens events"** på Instagram inviterer op til tre af ugens undervisere: dem, der har givet samtykke og et Instagram-navn, i ugens rækkefølge. **Et genopslag** af et Instagram-opslag inviterer den, der lavede det. Formanden kan rette listen på opslaget i PR og SoMe, før det godkendes.
+- Det sker med Instagram-API'ets `collaborators` på fotoet eller karrusellen (højst tre). Facebooks API kan ikke invitere samarbejdspartnere, så eventopslagene på Facebook gør det ikke.
+
+## Månedlig indsigt i PR og SoMe (2026-11-03)
+
+- Planens punkt "mål få ting, en gang om måneden", formandens ja.
+- Én gang om dagen tæller Saga Hjerterums følgere på Facebook (`followers_count`) og på Instagram (`followers_count`, `media_count`). Tallene gemmes i `social_stats` (migration 0094, kun en ny tabel).
+- Nederst på PR og SoMe står **Indsigt** for de seneste tre måneder (`worker/cockpit/prInsight.ts`): følgere ved månedens slutning med månedens ændring, og hvor mange "Ugens events", eventopslag og delinger der er sendt, og hvor mange af dem der kom på Instagram.
+- Rækkevidde pr. opslag kræver flere tilladelser fra Meta (`read_insights`, `instagram_manage_insights`) og er ikke med endnu.
+
+## Ugens events som reel, helt automatisk (2026-11-03)
+
+- Formandens svar på, om reelen skal laves med et klik eller automatisk: "Alt der kan automatiseres skal automatiseres."
+- **Jobbet:** `.github/workflows/ugens-reel.yml` kører hver time torsdag-søndag. Når Saga har planlagt næste uge (torsdag fra kl. 10), og ugen ikke har sin reel endnu, gør jobbet tre ting:
+  - `.github/scripts/weekly-reel.py` laver en lodret video (1080 × 1920, H.264, cirka 3 sekunder pr. billede, stille lydspor): en titelside "Ugens events · Uge N", ét billede pr. event med dag, tid, titel og underviser i Hjerterums farver og skrifter, og en slutside "Se alle events · linket i bio". Husets eget stempel er farvet mørkt eller lyst efter baggrunden; formen ændres aldrig. Formandens ønske (2026-11-03): "Kan du lade Hjerterums logo cirkulere fra 270 grader til 0? Så er der lidt bevægelse." Stemplet drejer derfor på hvert billede fra 270 grader tilbage på plads (0 grader) i løbet af de første 1,6 sekunder og bremser blødt op, inden det lander.
+  - Videoen lægges i R2 (`hjerterum-event-media/social/reels/<uge>-<tilfældigt navn>.mp4`). Den er offentlig på `https://www.hjerterum.info/api/social-reels/<navn>.mp4`, så Instagram kan hente den.
+  - Reelen lægges i PR og SoMe som kladde (`kind 'week'`, `source_key 'reel:<uge>'`, `source.format 'reel'`). Den bliver kun på Instagram og sendes mandag en time efter "Ugens events" (kl. 16.30).
+- **Formanden** ser videoen på ugens side, kan rette teksten, tidspunktet og samarbejdspartnerne, og godkender den med resten af ugen. Intet går ud uden godkendelse.
+- **Udgivelsen** sker over Sagas runder: Instagram får videoen én gang (`REELS`-container), Saga spørger hver runde, hvordan det går, og udgiver, når videoen er færdig. Fejler Instagram, står reelen som "Fejlede" med grunden og kan godkendes igen. Efter seks timer gives der op.
+- Facebook-reels kræver tilladelsen `publish_video` og er ikke med endnu.
+
+## Plakater og opslag kun i admin (2026-11-03)
+
+- Ønsket: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige mig til at begynde med - kan bruge dem." Og: "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet, og også har en sektion med alt fra den pågældende underviser."
+- Formandens svar på, hvad hjemmesiden så viser: **medlemmets eget foto**, indtil formanden laver et design i admin. Designs, der allerede er gemt, bliver stående.
+- Events → **Plakater og opslag** (`/plakater`), kun formanden (beføjelsen `posters.design`, docs/decisions/0007): de næste seks ugers events (husets egne og kalenderens, ikke samarbejdspartneres). Et event åbner værktøjet `/plakater/<id>`: alle skabeloner i alle formater (opslag 4:5, story 9:16, Facebook-cover), tegnet af det billede, formanden vælger, med "Hent billede", og for husets egne events "Brug på hjemmesiden" (Facebook-cover, gemmes som eventets design i `room_booking_designs`; kan fjernes igen). Begge dele står i formandens log.
+- **Fra eventet**: eventets foto, billederne blandt dets filer (andre filer som links), underviserens eget opslag og kalenderens foto. **Fra underviseren**: PR-billederne, profilfotoet, billeder fra deres andre events i huset, deres tre citater (med "Kopiér") og om de har givet PR-samtykke. Underviseren findes ved sit login, når eventet er deres eget, ellers ved navn.
+- Teknik: værktøjet er hjemmesidens egen app (`src/poster-studio.tsx`, sin egen kodeklump), som admin serverer bag formandens login; admin-adressen udleverer kun appens byggede filer og logoet (`/assets/`, `/brand/`) derudover. Alle billeder går gennem admins egen adresse (`/plakater/billede/...`), så canvas må gemme det tegnede. `worker/cockpit/posterStudio.ts`.
+- **Medlemmerne**: Eventformularen og "Opret med Saga" viser ikke længere skabeloner, og der tegnes intet design, når et medlem gemmer. Tilbage er "Dit eget opslag (valgfrit)", som Saga stadig tjekker, og som formanden kan bruge. Den offentlige side `/plakat/<id>` er fjernet, og medlems-API'ets `PUT /api/room-bookings/<id>/design` og `/poster-variant` svarer 410.
+
+## Facebook-begivenhed for hvert event (2026-11-03)
+
+- **Løftet** på hjemmesiden (holistisk.org/markedsforing, lejepriser, "Brug centret" og den nye `/brug-hjerterum/markedsfoering`): "Når du booker Hjerterum, får dit event automatisk en god eksponering: det bliver offentliggjort både på vores hjemmeside og på vores Facebook-side". Og: "Så opretter vi eventet på vores hjemmeside og Facebook-side og sender dig et link." Markedsføring ud over det er underviserens eget ansvar. Instagram og nyhedsbrevet loves ikke.
+- **Meta lader ikke en app oprette begivenheder på en side.** Formandens valg: "Lisbeth opretter dem" i hånden, cockpittet minder hende om det, og "Hele bestyrelsen" må se og afkrydse listen. Funktionen er åben for bestyrelsen fra start, efter formandens udtrykkelige ja (docs/decisions/0007).
+- Events → **Facebook-begivenheder** (`/arrangementer/facebook`, `worker/cockpit/fbEvents.ts`):
+  - de næste seks ugers events, husets egne og kalenderens, men ikke samarbejdspartneres eller CIRKLER-møder;
+  - "Oprettet" med et link, hvis man vil, og "Fortryd".
+  - Det gemmes i `facebook_events` (migration 0095, kun en ny tabel).
+- **Påmindelse:** mandag og torsdag fra kl. 9 skriver Saga privat på Telegram til Lisbeth (`FB_EVENTS_PERSON`), hvis noget mangler de næste tre uger. Én gang pr. dag, og intet, når alt er oprettet.
+- **Formanden** ser i "Det kræver dig lige nu" på PR og SoMe, hvor mange events de næste to uger der mangler en begivenhed.
+- **Det cockpittet ikke dækker:** links til opslag og reels, som underviserne sender via Messenger-siden. Det fanger kun opslag, hvor Hjerterum er tagget.
+
+## Alle events deles mindst én gang (2026-11-03)
+
+- Formandens ønske: "Kan vi systematisk sørge for at alle events deles mindst én gang. Vi kan vel godt dele et event selvom det ikke er oprettet som en begivenhed." Og: "Lisbeth og Frederik står for at oprette events."
+- **Hvert event får sit eget opslag** på Facebook. Før var det 7-10 om ugen. Et fast hold, der kører flere gange samme uge, får ét opslag pr. uge. Opslaget linker til eventets side på hjerterum.info, så det virker, uanset om der findes en Facebook-begivenhed.
+  - Tidspunkterne er kl. 15, 16 eller 17 dagen før (højst tre om dagen), ellers to-tre dage før, ellers samme morgen (`POST_HOURS`).
+- **Events, der kommer til senere,** får deres opslag af sig selv. Hver tredje time lægger Saga nye events i allerede planlagte uger (denne og næste) som kladder (`topUpWeeks`), og formanden får besked. Kun nye events får ord fra Saga. Det, formanden har rettet eller sprunget over, bliver stående.
+- **Et aflyst eller fjernet event** får aldrig sit opslag. Det springes over med grunden.
+- **Påmindelsen om Facebook-begivenheder** går til både Lisbeth og Frederik (`FB_EVENTS_PEOPLE`).
+- **Systemet holder øje med tags:** hver halve time ser det efter Facebook-opslag, der tagger Hjerterums side, og Instagram-opslag, der tagger @hjerterum_aarhus på billedet. Meta giver ikke adgang til stories, @-omtaler kun i Instagram-teksten eller links sendt via Messenger.
+
+## Overdragelse af PR-arbejdet fra Gitta (2026-11-03)
+
+Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, og det, der følger af det for PR-cockpittet (`/pr`):
+
+- **Intet planlagt frem.** Gitta har ingen opslag planlagt i Meta. Det eneste faste er hendes ugentlige reel med ugens events. Der er altså ikke noget, PR-cockpittet kan komme til at poste dobbelt.
+- **Tidspunkter.** Hendes reels får flest visninger, når de deles **omkring kl. 15-17**, selvom Meta anbefaler senere på aftenen. Besluttet: opslagene går nu ud kl. 15-17 (se "PR-planen i cockpittet, og opslag kl. 15-17").
+- **Formater.** Karruseller (billede med lidt tekst) får nok mest interaktion, reels flest visninger. Interaktionen er generelt lav. Uden reels, stories og karruseller på de rigtige tidspunkter falder synligheden.
+- **Dele undervisernes opslag** er "høj værdi for meget lidt": det når både deres og vores følgere. Underviserne forventer det; det står i PR-guiden. Teksten er kort og varm, fx "Skønne Rie fortæller om sit spændende foredrag på lørdag", og **uden link til eventet**, medmindre underviseren ikke selv har linket til det.
+- **Samarbejdspartner.** Gitta inviterer underviseren som *samarbejdspartner* på opslaget, ud over @-tag i teksten. Det kan nu både Instagram og Facebook. Så får underviseren besked automatisk, og opslaget vises også for deres følgere. Besluttet og bygget for Instagram (se "Undervisere som samarbejdspartner på Instagram"). Facebooks API kan ikke invitere samarbejdspartnere.
+- **Meta Business Suite.** Gitta deler via Meta, så det går til Facebook, Instagram og Facebook-stories på én gang. Stories kan PR-cockpittet ikke lave. Ugens events laves nu automatisk som reel (se "Ugens events som reel, helt automatisk").
+- **Reels, stories og video** laver ingen fremover. Lisbeth står for coverbillede og tekst på de events, hun arrangerer, og deler events som opslag med tekst på Facebook.
+- **Kommentarer og beskeder.** Der kommer cirka 2-5 kommentarer om måneden, og beskeder ind imellem. Formanden vil sandsynligvis bede Lisbeth og Frederik om at tage beskederne. Det er nemmest med Meta Business Suite-appen på telefonen, så der kommer notifikationer.
+- **Samtykketeksten** til undervisernes PR-materiale (`PR_CONSENT_TEXT` i `pr-material.ts`) er stadig rigtig i indhold, men skal gøres enklere og kortere. Den skal stadig sige, at den gælder for fremtidige events og for grupperede opslag. Åbent: ny formulering til formandens godkendelse.
+- **PR-materialet skal ind, når eventet oprettes.** Gitta: underviserne husker ikke at gå ind på deres profil bagefter, og manglende materiale har været "noget af den største hovedpine" i PR-arbejdet. Hendes forslag:
+  - billeder uploades under eventoprettelsen; det skal være næsten en betingelse, men i hvert fald sige meget tydeligt, at uden billeder kan man ikke forvente PR fra huset;
+  - en automatisk mail-påmindelse efter cirka tre dage, hvis der ikke er uploadet billeder;
+  - en AI laver ud fra billederne, teksten og oplysningerne en reel, en omtale og en lille opslagstekst, som kan hentes fra eventet og postes direkte.
+  Besluttet og bygget: billederne i eventformularen med den tydelige besked (se "PR-materiale, når eventet oprettes"). Åbent: mailen strider mod reglen om, at Saga aldrig sender mail af sig selv, så den kræver formandens ja. En reel pr. event er ikke bygget, kun Ugens events som reel.
+- **Canva** bruges mest til eventfotos og ugens eventbillede. Gitta rydder op i sine egne designs og lægger dem i en mappe, der hedder "Gitta".
+
+## Ny, kortere samtykketekst til PR-materialet (2026-11-03)
+
+- Gitta: indholdet var rigtigt, men teksten skulle være enklere og kortere, og den skal stadig gælde fremtidige events og fælles opslag. Formanden valgte forslag A ("Med steder").
+- Underviserne krydser nu af: "Hjerterum må bruge mine billeder og citater til at fortælle om mine events – nu og fremover – også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier. Jeg kan trække samtykket tilbage når som helst." (`PR_CONSENT_TEXT` i `pr-material.ts`).
+- Den nye tekst dækker det samme som den første, så samtykker givet før gælder stadig. Den første tekst er gemt som `PR_CONSENT_TEXT_V1`. Hvert samtykke vises med de ord, det blev givet til (`consentTextAt`: før 4. november 2026 den første, derefter den nye), både for underviseren og i admin.
+
+## Formanden kan slette CIRKLER-møder (2026-11-03)
+
+- Ønsket: "Gør mig i stand til at slette CIRKLER-møder som formand." Kun formanden, med beføjelsen `cirkler.delete` (`needs: "personal"`, docs/decisions/0007).
+- Under Events → "Events oprettet i systemet" har et CIRKLER-møde nu **Slet** for formanden. Det frigiver salen (`releaseForMeeting`, som når CIRKLER selv aflyser) og skrives i formandens log. Et CIRKLER-møde kan stadig ikke rettes her, kun slettes.
+- **CIRKLER får ikke besked.** Der findes ingen vej fra Hjerterum til CIRKLER for det. Bekræftelsen og beskeden siger, at cirklen skal have besked. Flytter cirklen senere mødet i CIRKLER, reserveres salen igen.
+
+## "Delt d. <dato>" på opslag, Hjerterum allerede har delt (2026-11-03)
+
+- Formandens spørgsmål: "Hvordan ved jeg, at disse ikke allerede er delt, dem, hun foreslår?" Svar: "'Allerede delt' - eller bedre: 'Delt d. *dato*'".
+- Når Saga finder nye opslag, Hjerterum er tagget i, kigger hun også i Hjerterums egne seneste opslag (`pagePosts`, `ownInstagramMedia` i `meta.ts`).
+  - **Facebook:** Hvis siden har delt eller linket til netop det opslag, får forslaget mærket **"Delt d. <dato>"**.
+  - **Instagram:** Her kan delinger ikke ses direkte. Mærket kommer, hvis Hjerterum efter opslaget har lagt noget op, der nævner afsenderen (@navn).
+- Et forslag, der allerede er delt, kan stadig deles eller springes over. Det tæller ikke med i "Det kræver dig lige nu", og formanden får ikke besked om det.
+
+## PR og SoMe i faner (2026-11-03)
+
+- Formandens ønske: "Jeg synes, at siden bliver ret rodet, når der er så meget indhold. Kan du ikke dele det op i underpunkter?"
+- PR og SoMe har nu fire faner (`PR_TABS` i `prPage.ts`):
+  - **Overblik** (`/pr`): det, der kræver dig, det næste, planen og forbindelsen.
+  - **Tagget i** (`/pr/tagget`).
+  - **Ugens opslag** (`/pr/uge`, med denne og næste uge).
+  - **Sendt og indsigt** (`/pr/sendt`).
+- Fanerne viser, hvor mange der venter: delinger, der ikke er delt endnu, og ugens udkast. Efter et tryk kommer man tilbage til den fane, handlingen hører til.
+
+## Eventoversigt med PR-status (2026-11-03)
+
+- Formandens ønske: "en eventoversigt over alle kommende events, med en PR-status i højre side samt nogle actionknapper".
+- Ny fane **Events** i PR og SoMe (`/pr/events`, `worker/cockpit/prEvents.ts`) med de næste seks ugers events, dem nærmest først. Det er de samme events som i Facebook-begivenheder: husets egne og kalenderens, men ikke samarbejdspartneres eller CIRKLER-møder.
+- **Status til højre:**
+  - eventets opslag: intet, venter på dig, godkendt med tidspunkt, sendt med dato, fejlet eller sprunget over;
+  - Facebook-begivenheden: oprettet (med link) eller ingen;
+  - underviserens PR-materiale: klar eller intet.
+  - Et event, hvor opslaget er godkendt eller sendt og Facebook-begivenheden er oprettet, får et flueben.
+- **Knapper:**
+  - Godkend opslag;
+  - Lav opslag (planlægger eventets uge, eller tilføjer det, der mangler, inden for de seks uger);
+  - Se opslaget (på Ugens opslag);
+  - Facebook-begivenhed oprettet;
+  - Lav design (Plakater og opslag).
+  - Man kommer tilbage til oversigten efter hvert tryk.
+
+## Facebook og Instagram samtidig, når det er muligt (2026-11-03)
+
+- Formandens ønske: "Jeg vil rigtig gerne kunne dele simultant på begge medier, når som helst det er muligt."
+- **Eventopslag:** Er Instagram forbundet, og har eventet et billede, går opslaget både på Facebook og Instagram. På Instagram får teksten "Læs mere og tilmeld dig via linket i bio", og underviseren inviteres som samarbejdspartner.
+- **Delinger:** Et tagget opslag med billede går begge steder hen fra start. Facebook deler opslaget som link. Instagram lægger billedet op igen med "Foto og tekst: <afsender>", også når opslaget kommer fra Facebook.
+- **Ugens events** gik allerede begge steder hen. **Reelen** er kun på Instagram; Facebook-video kræver tilladelsen `publish_video`.
+- Ved hvert opslag kan man fjerne et af medierne med fluebenene. Kanalerne ændres kun, når fluebenene er på siden (`kanaler`).
+- Instagram tager kun jpg. Afviser Instagram et billede, er Facebook-delen allerede sendt, og fejlen siger, hvad man kan gøre.
+
+## Designskabelonerne laver opslagets billede (2026-11-03)
+
+- Formandens rettelse: "I forhold til designskabelonerne skal vi kun bruge dem til sociale medier, og derfor er hele tanken, at jeg kan generere et design til et social media-post."
+- **Sådan virker det:**
+  - Ved et eventopslag (Ugens opslag) og i Events står **"Lav design"**. Det åbner Plakater og opslag for eventet.
+  - Værktøjet viser eventets opslag. I formaterne Opslag (4:5) og Facebook-cover (1,91:1) har hvert design **"Brug i opslaget"**.
+  - Designet gemmes som jpg i R2 (`social/designs/<tilfældigt navn>.jpg`) og er offentligt på `https://www.hjerterum.info/api/social-designs/<navn>.jpg`, så Facebook og Instagram kan hente det.
+  - Designet bliver opslagets billede, og opslaget bliver en kladde igen, som formanden godkender.
+  - På Ugens opslag står der "Skift design". Det står i formandens log.
+- **Udgivelse:** Et opslag med design går på Facebook som billedopslag med linket i teksten (`/{side}/photos`) og på Instagram med samme billede. Opslag uden design er stadig et link-kort på Facebook.
+- **"Brug på hjemmesiden" er fjernet.** Skabelonerne bruges kun til sociale medier. Designs, der allerede ligger på hjemmesiden, bliver stående.
+
+## Opslaget i to trin: forslag, så det færdige opslag (2026-11-03)
+
+- **Formandens ord:**
+  - "Når jeg klikker tilbage, kommer jeg ikke til den side, jeg kom fra."
+  - "Men jeg forstår heller ikke helt, hvad jeg skal gøre her, og hvilket format jeg skal vælge."
+  - "Og som du kan se, får vi et problem med et billede som dette, hvor der er tekst over fotografiet. Er det muligt at croppe, forstørre og flytte rundt på kernebilledet?"
+  - "Når der står »hent billedet«, betyder det så, at du vil have mig til at downloade det og så poste det manuelt?"
+  - "Men så er det nødt til at være mere pædagogisk, så jeg får præsenteret et forslag. Jeg klikker på næste, og så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere."
+- **Siden `/plakater/<id>` har nu tre trin:**
+  - **1. Billedet:** Saga viser sit forslag, som er systemets design med eventets første billede i formatet Opslag (4:5). Knapperne er "Næste" og "Ret forslaget". "Ret forslaget" åbner billedvalg, zoom og flyt, format med en forklaring af hvert format, og alle designs med "Vælg".
+  - **2. Opslaget:** det færdige opslag, med billedet og teksten, som det kommer til at se ud. Teksterne til Facebook og Instagram kan rettes. Man vælger hvor (Facebook og/eller Instagram) og hvornår: som planlagt eller nu. Derefter trykker man "Publicér".
+  - **3. Publiceret:** "Saga sender det …". Man skal ikke gøre mere.
+- **Zoom og flyt:** Man zoomer ind og trækker et felt hen over selve fotoet, så tekst og kanter på billedet ikke kommer med. Designene tegnes med udsnittet i fotoets egen opløsning. Bliver udsnittet for lille til et design, står der "Passer ikke".
+- **Download** er kun til at bruge et design andre steder. Saga poster selv opslaget. Knappen hed før "Hent billede".
+- **Tilbage:** Links til siden fra Ugens opslag og fra Events har `?fra=<side>` med. "← Tilbage" fører derhen, til det samme opslag (`#opslag-<id>`). Uden `fra` fører den til PR og SoMe → Events.
+- **Teknik:** `POST /plakater/<id>/publicer` (JSON: tekst, Instagram-tekst, kanaler, `now`) gemmer ordene og godkender opslaget (`editPost` og `decidePost`). Det kræver både `posters.design` og `social.manage` og står i formandens log. Billedet lægges først i opslaget med `POST /plakater/<id>/opslag` som før.
+
+## Linket i bio, og bedre dansk i opslagene (2026-11-03)
+
+- **Linket i bio.** Formanden spurgte: "Men skriver vi så linket i bio?" Nej. Meta lader ikke apps ændre bio eller link på en Instagram-profil, så linket sættes i hånden i Instagram-appen (Rediger profil → Links). Anbefalet: `https://www.hjerterum.info/events`.
+  - På formandens "Ja" nævner teksterne på Instagram nu adressen direkte. Det gælder eventopslag, Ugens events og reelens slutside: "... på hjerterum.info/events (link i bio)". Man kan ikke klikke på et link i et Instagram-opslag, men man kan læse adressen.
+- **Bedre dansk.** Formanden skrev: "Dette er dårligt dansk: Fire timers aura balancering i ro og nærvær, med plads til bare at være. Marianne Teglgaard leder den lørdag kl. 13.00." Sagas instruktion til opslagene (`WEEK_SYSTEM` i `worker/social/social.ts`) har nu regler for sproget:
+  - mundret dansk, ikke oversat engelsk;
+  - sammensatte ord i ét ord;
+  - hele sætninger;
+  - dansk kommatering;
+  - ingen stive vendinger som "X leder den";
+  - kun fornavnet.
+  - Instruktionen har også et eksempel på tonen. Reglerne gælder for nye opslag. Kladder, der allerede er skrevet, kan rettes i trin 2 på plakatsiden eller under Ugens opslag.
+
+## Opslag hurtigst muligt, PR-kalender og eget tidspunkt (2026-11-03)
+
+- **Formandens ord:**
+  - "Det er også helt forkert, at der først skal fortælles om eventet dagen før. Det bør optimalt set være hurtigst muligt. Og så savner jeg også en mulighed for at planlægge udsendingen."
+  - "Jeg synes, vi bør have en kalender til PR, hvor vi kan se, hvad der er planlagt hvornår, og Saga kommer med forslag til samtlige events, der bliver skeduleret."
+  - "Men hvad siger forskningen i forhold til de gode tidspunkter? Jeg tænker sagtens, at vi kan strække os ud over de timer."
+- **Forslag til alle events, så snart de er i kalenderen:**
+  - Hver time laver Saga et forslag til et opslag (en kladde) for hvert event de næste seks uger, som ikke har et endnu. Det sker i `topUpWeeks` med `planWeek(..., { eventsOnly: true })`.
+  - Formanden får besked på Telegram med et link til PR-kalenderen.
+  - "Ugens events" laves stadig torsdag for næste uge.
+- **Tidspunkt:**
+  - Forslaget sættes til første ledige tid fra nu (`eventPostTimes`), ikke dagen før. De nærmeste events får tid først. Et opslag ligger aldrig senere end to timer før eventet begynder.
+  - Et fast hold med samme titel som i en tidligere uge får sit opslag i ugen før hver gang (`REPEAT_LEAD_MS`), så seks yoga-opslag ikke kommer på én gang.
+  - Første gang flyttes de kladder, ingen har rørt, fra dagen før til første ledige tid. De flyttes kun frem.
+- **Tiderne på dagen** er nu kl. 9, 12, 15, 17 og 19.30, højst tre opslag om dagen og mindst 2,5 timer imellem. Før var det kun kl. 15-17.
+  - Forskningen er ikke enig. Buffer 2025 (reach, 2 mio. opslag) fandt hverdage omkring kl. 15. Buffer 2026 (engagement, 9,6 mio. opslag) fandt torsdag kl. 9 samt onsdag kl. 12 og kl. 18. Sprout Social peger på formiddag til eftermiddag.
+  - Alle er enige om, at natten er dårligst, og fredag og lørdag svagest.
+  - Derfor er dagen spredt ud. Indsigtssiden skal vise, hvad der virker for Hjerterum.
+- **Eget tidspunkt:** I trin 2 på plakatsiden kan man vælge "Sagas forslag", "Nu" eller "Vælg tidspunkt" (fra nu og til senest en time før eventet). `POST /plakater/<id>/publicer` tager imod `at`.
+- **PR-kalender** (PR og SoMe → Kalender, `/pr/kalender`, `cockpit/prCalendar.ts`):
+  - Kalenderen viser alle opslag denne uge og de næste seks, på den dag og det klokkeslæt, de går ud: forslag, der venter på formandens ja, godkendte, sendte og fejlede.
+  - Et eventopslag åbner plakatsiden (billedet, så det færdige opslag). Ugens events og reelen åbner Ugens opslag, der nu kan vise alle kalenderens uger.
+- **Adskillelse på Ugens opslag.** Formanden skrev: "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." Hvert opslag står nu i sin egen boks, og hver anden har en svagt anden baggrund.
+
+## "Nu" er nu, jævn fordeling, farver, historik og Instagram (2026-11-03)
+
+- **Formandens ord:**
+  - "Hvorfor skal der gå så lang tid?"
+  - "Så opslagene bliver ikke sendt ud, medmindre de er godkendt? Og hvorfor bliver Instagram stort set ikke inkluderet?"
+  - "Hvorfor er der stort set ingen farveforskel mellem godkendt og sendt? Og kan sendt ikke hedde publiceret? Det er også vigtigt, at jeg kan se tilbage historisk på, hvad vi har sendt ud. Så det skal gemmes."
+  - "Det virker heller ikke så balanceret, at der bliver udsendt fem på én dag, tre den næste og så kun én dagene efter."
+- **Godkendelse:** Intet sendes uden formandens ja. Sådan er det fortsat.
+- **"Nu" er nu.** Sagas runde kører hvert 10. minut, fordi hver anden 5-minutters runde er team@-mailen. Et opslag, der godkendes til "Nu", publiceres nu med det samme fra cockpittet (`publishOne`). Det gælder trin 2 på plakatsiden og delinger.
+- **Jævn fordeling:**
+  - Hvert opslag lægges på den dag med færrest opslag blandt de første fire mulige dage (`BALANCE_DAYS`). Højst tre om dagen og mindst 2,5 timer imellem.
+  - Inden for dagen er rækkefølgen kl. 15, så 12 og så 19.30.
+  - Kladder, ingen har rørt, får én gang ny tid efter reglen.
+- **Kalenderen:**
+  - Tydelige farver: forslag er orange, godkendt blå, publiceret grøn, fejlet rød, og slettet igen er overstreget.
+  - "Sendt" hedder nu "Publiceret" overalt i PR og SoMe. Fanen hedder "Publiceret og indsigt".
+- **Historik:**
+  - Alle opslag gemmes; intet sletter `social_posts`.
+  - Kalenderen kan bladres bagud og fremad syv uger ad gangen (`?start=`).
+  - Et opslag, der er taget ned igen i hånden, markeres med `source.removed` og vises som "Slettet igen".
+  - Aura Balancering (opslag 30) var en test, som formanden slettede igen på Facebook og Instagram. Det er registreret sådan, og eventet får et nyt forslag.
+- **Instagram:**
+  - Instagram tager kun opslag med et billede.
+  - 9 kladder med billede var lavet, før Instagram blev forbundet. De kommer nu også på Instagram (én gang, kun kladder ingen har rørt).
+  - Et event uden billede viser "IG kræver et billede: lav et design" i kalenderen. Designet fra plakatsiden bringer Instagram med.
