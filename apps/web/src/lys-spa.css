@@ -642,7 +642,60 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .site-foot-legal { justify-content: center; text-align: center; }
 }
 
-/* An event's posters for social media (poster-page.tsx): five designs, the system's choice first. */
+/* Plakater og opslag in admin (poster-studio.tsx): the event's and the teacher's material, then every design. */
+.studio-material { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 24px; margin: 8px 0 28px; }
+.studio-box { background: var(--lys-soft); border-radius: 22px; padding: 22px 24px; min-width: 0; }
+.studio-box h2 { font: 400 26px/1.2 var(--lys-serif); margin: 0 0 12px; }
+.studio-box h3 { font-size: 15px; margin: 18px 0 8px; }
+.studio-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.studio-thumb { display: grid; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: 14px; background: var(--lys-bg, #fff); cursor: pointer; text-align: left; font: inherit; font-size: 12.5px; color: var(--lys-muted); }
+.studio-thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 9px; display: block; }
+.studio-thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-thumb.is-picked { border-color: var(--lys-terra, #94503f); color: var(--lys-ink, #2a2622); }
+.studio-muted { color: var(--lys-muted); font-size: 14.5px; }
+.studio-files { margin: 12px 0 0; padding-left: 18px; font-size: 14.5px; }
+.studio-files small { color: var(--lys-muted); margin-left: 6px; }
+.studio-site img { width: 100%; max-width: 420px; border-radius: 12px; display: block; margin: 0 0 8px; }
+.studio-consent { font-size: 14px; padding: 8px 12px; border-radius: 10px; background: var(--lys-bg, #fff); }
+.studio-consent.is-given { color: #3f6b3a; } .studio-consent.is-withdrawn, .studio-consent.is-none { color: #94503f; }
+.studio-quotes { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.studio-quotes li { background: var(--lys-bg, #fff); border-radius: 12px; padding: 10px 12px; display: grid; gap: 4px; justify-items: start; font-size: 14.5px; }
+.studio-quotes small { color: var(--lys-muted); }
+.studio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 0; }
+.studio-message { padding: 12px 16px; border-radius: 14px; background: var(--lys-soft); margin: 0 0 18px; }
+/* The two steps (requested: "så jeg får præsenteret et forslag. Jeg klikker på næste, og så kan jeg se det færdige opslag med billede og tekst"). */
+.studio-stepper { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; align-self: end; }
+.studio-stepper li { padding: 8px 14px; border-radius: 999px; background: var(--lys-soft); color: var(--lys-muted); font-size: 14px; }
+.studio-stepper li.is-on { background: var(--lys-terra, #94503f); color: #fff; }
+.studio-stepper li.is-done { color: var(--lys-ink, #2a2622); }
+.studio-proposal, .studio-post { display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 28px; align-items: start; margin: 8px 0 28px; }
+@media (max-width: 820px) { .studio-proposal, .studio-post { grid-template-columns: 1fr; } }
+.poster-card.is-proposal .poster-canvas { box-shadow: 0 18px 40px rgba(20, 16, 12, .25); }
+.studio-step { font: 400 24px/1.2 var(--lys-serif); margin: 28px 0 12px; }
+.studio-edit { border-top: 1px solid var(--lys-line, rgba(127, 127, 127, .25)); padding-top: 8px; }
+.poster-card.is-picked .poster-canvas { outline: 3px solid var(--lys-terra, #94503f); outline-offset: 4px; }
+.studio-crop { display: grid; gap: 12px; justify-items: start; margin-top: 10px; }
+.studio-crop-picture { position: relative; overflow: hidden; border-radius: 12px; touch-action: none; cursor: grab; user-select: none; line-height: 0; }
+.studio-crop-picture:active { cursor: grabbing; }
+.studio-crop-picture img { width: 100%; height: auto; display: block; pointer-events: none; }
+.studio-crop-frame { position: absolute; border: 2px solid #fff; border-radius: 4px; box-shadow: 0 0 0 9999px rgba(20, 16, 12, .6); pointer-events: none; }
+.studio-crop-zoom { display: flex; align-items: center; gap: 12px; font-size: 14.5px; width: min(100%, 460px); }
+.studio-crop-zoom input { flex: 1; accent-color: var(--lys-terra, #94503f); }
+.studio-format-help { margin: 8px 0 14px; }
+.studio-mock { background: #fff; color: #1c1e21; border-radius: 14px; overflow: hidden; box-shadow: 0 18px 40px rgba(20, 16, 12, .25); }
+.studio-mock header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.studio-mock header img { width: 36px; height: 36px; border-radius: 50%; background: #f3eee6; padding: 4px; }
+.studio-mock-text { white-space: pre-wrap; padding: 0 14px 10px; margin: 0; font-size: 15px; line-height: 1.4; }
+.studio-mock-link { padding: 0 14px 10px; margin: 0; font-size: 13.5px; color: #385898; overflow-wrap: anywhere; }
+.studio-mock-picture { width: 100%; display: block; }
+.studio-field { display: grid; gap: 6px; margin: 14px 0 0; font-size: 14.5px; }
+.studio-field textarea { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; resize: vertical; }
+.studio-choices { border: 0; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; }
+.studio-choices legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+.studio-choices label { display: inline-flex; gap: 8px; align-items: center; }
+.studio-done h2 { margin-bottom: 8px; }
+.studio-when { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; flex-basis: 100%; max-width: 260px; }
+/* An event's posters for social media (poster-studio.tsx): five designs, the system's choice first. */
 .poster-format { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .poster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 28px; margin: 12px 0 64px; }
 .poster-card { margin: 0; display: grid; gap: 14px; align-content: start; }
@@ -978,3 +1031,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-cirkel a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .event-cirkel-mark { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #a9822c; box-shadow: inset 0 0 0 3px var(--lys-bg, #fff), inset 0 0 0 4.5px #a9822c; }
 .event-cirkel small { color: var(--lys-muted); font-size: 13px; }
+
+/* "Billeder til PR" in the event form (pr-material-editor.tsx EventPrMaterial): the teacher's PR material right where the event is made. */
+.event-pr-warn { margin: 0; padding: 12px 14px; border-radius: 12px; background: #f6e3d9; color: #6e2f20; line-height: 1.5; }
+.event-pr-ok { margin: 0; color: #3f6b3a; line-height: 1.5; }
+.pr-editor.is-inline { padding: 0; margin: 0; box-shadow: none; background: none; border: 0; }

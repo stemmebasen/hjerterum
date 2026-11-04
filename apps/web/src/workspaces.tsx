@@ -1,11 +1,11 @@
 import { EventCard, calendarMonth, calendarText } from "./event-card";
 import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
+import { EventPrMaterial } from "./pr-material-editor";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
-import { saveDesign } from "./event-design";
 import { EventTextHelp } from "./event-text-help";
 import { EventVarietyNote } from "./event-variety-note";
 import { MIN_EVENT_WORDS, wordCount } from "../site/event-text";
@@ -437,7 +437,6 @@ function MemberEvents({
     void apiFetch(clerk, `/api/room-bookings/${editing.id}/poster-info`).then(r => r.ok ? r.json() as Promise<SavedPoster> : null).then(info => {
       if (!active || !info) return;
       setSavedPoster(info);
-      setPoster({ choice: info.variant ?? "auto", ownFile: null });
     }).catch(() => undefined);
     return () => { active = false; };
   }, [clerk, editing, prefill]);
@@ -507,8 +506,6 @@ function MemberEvents({
       const bookingId = editing ? editing.id : saved.id;
       const uploadProblems = bookingId && (cover || extraFiles.length) ? await uploadEventFiles(clerk, bookingId, cover, extraFiles) : [];
       const posterLine = bookingId ? await savePosterChoice(clerk, bookingId, poster, savedPoster) : "";
-      if (bookingId) await saveDesign(clerk, bookingId, poster.choice, { title: String(form.get("title") ?? "").trim(), ...planInstants(plan), teacher: member.fullName,
-        cover, coverUrl: existingFiles.find((file) => file.kind === "cover")?.url ?? null });
       const contactShare = form.get("contactShare") || null;
       if (bookingId && contactShare !== (editing?.contactShare ?? null))
         await apiFetch(clerk, `/api/room-bookings/${bookingId}/contact`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ share: contactShare }) }).catch(() => undefined);
@@ -620,10 +617,8 @@ function MemberEvents({
               </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />
-              {/* Requested: "\"Opslag til de sociale medier\" sektionen bør først vises når tidspunktet er valgt." */}
-              {plan.date && plan.start && plan.end ? <PosterChoice clerk={clerk} title={liveTitle} startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null}
-                  teacher={member.fullName} cover={cover} coverUrl={existingFiles.find((file) => file.kind === "cover")?.url ?? null}
-                  saved={savedPoster} value={poster} onChange={setPoster} onRemoveSaved={() => void removeSavedPoster()} /> : <p className="event-note poster-choice-wait">Opslagene til de sociale medier vises her, når du har valgt dato og tidspunkt.</p>}
+              <EventPrMaterial clerk={clerk} />
+              <PosterChoice clerk={clerk} saved={savedPoster} value={poster} onChange={setPoster} onRemoveSaved={() => void removeSavedPoster()} />
               <div className="workspace-actions">
                 <button className="pill-button dark" disabled={saving || planProblemCode !== null} title={planProblemCode && planProblemCode !== "loading" ? PROBLEM_TEXT[planProblemCode as keyof typeof PROBLEM_TEXT] : undefined}>{saving ? "Gemmer …" : editing ? "Gem ændringer" : "Opret event"}</button>
                 {editing && <button type="button" className="text-button" onClick={() => setEditing(null)}>Annullér redigering</button>}

@@ -6,7 +6,7 @@ import { program, programCandidates, upcomingFeed } from "./program.js";
 import type { D1Database } from "./db.js";
 import type { SagaEnv } from "./saga/env.js";
 import { handleSagaRequest } from "./saga/handler.js";
-import { handleCockpitRequest, isCockpitRequest } from "./cockpit/handler.js";
+import { handleCockpitRequest, isCockpitHost, isCockpitRequest } from "./cockpit/handler.js";
 import { handleCalculatorRequest, isCalculatorRequest } from "./beregner/handler.js";
 import { isMailRun, runSagaJobs, runTeamMailRound } from "./saga/saga.js";
 import { runEventSync } from "./cockpit/events.js";
@@ -21,6 +21,8 @@ import { EVENT_PAGE, eventMeta, withEventMeta } from "./event-meta.js";
 import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
 import { runSocialJob, type SocialEnv } from "./social/social.js";
+import { scheduledFacebookReminder } from "./cockpit/fbEvents.js";
+import { claimJob } from "./saga/store.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -114,6 +116,31 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
     // The website's newsletter form, into Mailchimp with "Månedens events" ticked (newsletter-subscribe.ts).
     if (url.pathname === NEWSLETTER_PATH) return handleNewsletterSignup(request, env as never, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
     if (url.pathname === ENQUIRY_PATH) return handleEnquiry(request, env as SagaEnv, { fetcher: (input, init) => fetch(input, init), now: () => Date.now() });
+
+    // A design from Plakater og opslag used in a post (cockpit/posterStudio.ts storeSocialDesign): the picture Facebook and Instagram fetch. Public, as the post will be.
+    const design = /^\/api\/social-designs\/([0-9a-f]{32})\.jpg$/.exec(url.pathname);
+    if (design && (request.method === "GET" || request.method === "HEAD")) {
+      const media = (env as { EVENT_MEDIA?: { get(key: string): Promise<{ body: ReadableStream } | null> } }).EVENT_MEDIA;
+      const object = media ? await media.get(`social/designs/${design[1]}.jpg`).catch(() => null) : null;
+      if (!object) return new Response("Ikke fundet", { status: 404 });
+      return new Response(request.method === "HEAD" ? null : object.body, { headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=31536000, immutable", "x-content-type-options": "nosniff" } });
+    }
+    // "Ugens events" as a reel (.github/workflows/ugens-reel.yml): the video Instagram fetches when the reel is published. Public, as the post itself will be;
+    // only that folder, only an mp4 by its long random name.
+    const reel = /^\/api\/social-reels\/([a-z0-9-]{8,80})\.mp4$/.exec(url.pathname);
+    if (reel && (request.method === "GET" || request.method === "HEAD")) {
+      const media = (env as { EVENT_MEDIA?: { get(key: string): Promise<{ body: ReadableStream; size?: number } | null> } }).EVENT_MEDIA;
+      const object = media ? await media.get(`social/reels/${reel[1]}.mp4`).catch(() => null) : null;
+      if (!object) return new Response("Ikke fundet", { status: 404 });
+      return new Response(request.method === "HEAD" ? null : object.body, { headers: { "content-type": "video/mp4", "cache-control": "public, max-age=86400",
+        ...(object.size ? { "content-length": String(object.size) } : {}), "x-content-type-options": "nosniff" } });
+    }
+
+    // Plakater og opslag (cockpit/posterStudio.ts) is the website's own app, served behind the chair's login: its built files and the logo it draws
+    // with come from admin's own address too. Only those public files - nothing else of the website or its API.
+    if (isCockpitHost(url.hostname) && (request.method === "GET" || request.method === "HEAD") && /^\/(?:assets|brand)\/[A-Za-z0-9._-]+$/.test(url.pathname)) {
+      return app.fetch(request, env);
+    }
 
     // The board's cockpit (cockpit/handler.ts): cockpit.<domain>, or /cockpit on any other host.
     if (isCockpitRequest(url)) {
@@ -224,6 +251,10 @@ async function scheduledRun(controller: ScheduledControllerLike, env: Env): Prom
     await runMailchimpSync(env as NewsletterEnv, deps).catch(error => console.warn("mailchimp_sync_failed", error instanceof Error ? error.message : error));
     // Requested: "Vi skal lave et PR-cockpit i admin ... Så vi skal have kontakt til vores sociale medier" - what is approved goes out, new tags are found, next week is planned (social/social.ts).
     await runSocialJob(env as SocialEnv, deps).catch(error => console.warn("social_job_failed", error instanceof Error ? error.message : error));
+    // Requested: every event on Hjerterum's Facebook page, by hand - Saga reminds Lisbeth on Monday and Thursday (cockpit/fbEvents.ts).
+    const sagaDb = (env as SagaEnv).DB;
+    if (sagaDb) await scheduledFacebookReminder(env as SagaEnv, deps, sagaDb, (key, slot) => claimJob(sagaDb, key, slot, deps.now()))
+      .catch(error => console.warn("facebook_events_reminder_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
 }

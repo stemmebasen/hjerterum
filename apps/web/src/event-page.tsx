@@ -103,7 +103,7 @@ function Share({ title }: { title: string }) {
     <button type="button" onClick={() => void share()}>{copied ? "Linket er kopieret" : "Kopiér link"}</button>
     <a href={FACEBOOK} target="_blank" rel="noreferrer">Følg Hjerterum på Facebook</a>
     {/* Reported: "Man kan i øvrigt lave et opslag til instagram med forskellige layouts. Det er en fejl - disse layout muligheder er jo ikke til den
-        almindelige bruger". The posters (/plakat/<id>) are for the organiser, from their own event in the member area - not on the public page. */}
+        almindelige bruger". The posters are made by the chair in admin (Plakater og opslag) - not on the public page. */}
   </div>;
 }
 

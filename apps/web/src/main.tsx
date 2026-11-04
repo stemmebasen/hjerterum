@@ -10,12 +10,11 @@ import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
 import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
-import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
-import { PosterPage } from "./poster-page";
 import { resetLogin } from "./code-login";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
@@ -466,8 +465,6 @@ function PublicContentPage({ path }: { path: string }) {
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
   const eventMatch = /^\/events\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
   if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
-  const posterMatch = /^\/plakat\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
-  if (posterMatch) return <PosterPage id={posterMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
   if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="om-os" />} footer={<SiteFooter />} />;
   return <SiteContentPage path={path} />;
 }
@@ -500,8 +497,14 @@ function NotFound() {
   </main>;
 }
 
+/** Plakater og opslag: only in admin (worker/cockpit/posterStudio.ts serves this app there, behind the chair's login) - "skal kun bruges i cockpittet". */
+const PosterStudio = lazy(() => import("./poster-studio").then(m => ({ default: m.PosterStudio })));
+const isAdminHost = () => /^(?:admin|cockpit)\./i.test(window.location.hostname);
+
 function App() {
   const path = window.location.pathname;
+  const studio = isAdminHost() ? /^\/plakater\/([0-9a-f]{24}|h\d+)\/?$/.exec(path) : null;
+  if (studio) return <Suspense fallback={<main className="page-shell site-page poster-page"><p className="poster-empty">Åbner værktøjet …</p></main>}><PosterStudio id={studio[1]!} /></Suspense>;
   const { clerk, user, loaded } = useClerk(CLERK_PATHS.test(path));
 
   if (path === "/sign-in" || path.startsWith("/sign-in/") || path === "/login" || path.startsWith("/login/")) {

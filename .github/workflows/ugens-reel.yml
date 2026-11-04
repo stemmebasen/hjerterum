@@ -1,0 +1,70 @@
+name: Ugens reel
+
+# Requested (the chair, 3 Nov 2026): "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel every week. After Saga has planned next
+# week (Thursday from 10.00), this makes the reel of the week's events (.github/scripts/weekly-reel.py), puts it in R2 (hjerterum-event-media,
+# social/reels/) and lays it in admin → PR og SoMe as a draft for the chair. It goes out on Instagram only when the chair has approved it. Every hour
+# Thursday-Sunday until the week has its reel; a week that has one is left alone.
+
+on:
+  schedule:
+    - cron: "41 * * * 4,5,6,0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ugens-reel
+  cancel-in-progress: false
+
+jobs:
+  reel:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@12.3.4 --activate
+      - run: pnpm install --frozen-lockfile
+      - name: Find the coming week
+        shell: bash
+        run: |
+          set -euo pipefail
+          D1_ID="$(pnpm --dir apps/web exec wrangler d1 list --json | node .github/scripts/find-d1-database-id.mjs hjerterum-staging)"
+          test -n "$D1_ID"
+          node .github/scripts/configure-staging-d1.mjs "$D1_ID"
+          WEEK="SELECT p.week FROM social_posts p WHERE p.kind = 'week' AND p.source_key LIKE 'week:%' AND p.status <> 'skipped' AND p.publish_at_ms > CAST(strftime('%s', 'now') AS INTEGER) * 1000 ORDER BY p.publish_at_ms LIMIT 1"
+          pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
+            "SELECT p.week, p.text, p.source, p.publish_at_ms, (SELECT 1 FROM social_posts r WHERE r.source_key = 'reel:' || p.week) AS has_reel, (SELECT ig_user_id FROM social_account WHERE id = 1) AS ig FROM social_posts p WHERE p.week = ($WEEK) AND p.source_key = 'week:' || p.week" > /tmp/week.json
+          pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
+            "SELECT images, source FROM social_posts WHERE kind = 'event' AND status <> 'skipped' AND week = ($WEEK)" > /tmp/events.json
+      - name: Make the reel
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Nothing to make (no week planned, it has its reel, or no Instagram): stop before installing anything.
+          if ! node -e 'const d = JSON.parse(require("fs").readFileSync("/tmp/week.json", "utf8")); const r = (d[0] ?? {}).results ?? []; process.exit(r.length && !r[0].has_reel && r[0].ig ? 0 : 1)'; then
+            mkdir -p /tmp/reel && echo "ingen uge uden reel med Instagram forbundet" > /tmp/reel/skip && exit 0
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-dejavu-core >/dev/null
+          python3 -m pip install --quiet pillow
+          # The house's typefaces (Playfair Display, Inter); without them the reel falls back to DejaVu.
+          mkdir -p /tmp/reel-fonts
+          curl -fsSL -o /tmp/reel-fonts/PlayfairDisplay.ttf "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf" || true
+          curl -fsSL -o /tmp/reel-fonts/PlayfairDisplay-Italic.ttf "https://github.com/google/fonts/raw/main/ofl/playfairdisplay/PlayfairDisplay-Italic%5Bwght%5D.ttf" || true
+          curl -fsSL -o /tmp/reel-fonts/Inter.ttf "https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz%2Cwght%5D.ttf" || true
+          python3 -I .github/scripts/weekly-reel.py /tmp/week.json /tmp/events.json /tmp/reel "$(date +%s000)"
+      - name: Put it in R2 and in admin
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f /tmp/reel/skip ]; then echo "Intet at lave: $(cat /tmp/reel/skip)"; exit 0; fi
+          NAME="$(cat /tmp/reel/name)"
+          pnpm --dir apps/web exec wrangler r2 object put "hjerterum-event-media/social/reels/$NAME.mp4" --file /tmp/reel/reel.mp4 --content-type video/mp4 --remote
+          pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --file /tmp/reel/insert.sql
+          echo "Ugens reel er lagt i admin: $NAME"
