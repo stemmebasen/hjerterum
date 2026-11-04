@@ -36,9 +36,23 @@ function decode(value: string): string {
     .replace(/&([a-z]+);/gi, (m, name: string) => named[name] ?? m);
 }
 
-/** HTML to paragraphs: block ends and line breaks become breaks, everything else is text. Empty and repeated lines go. */
+/** A link in the source: its text and address as [text](address) (site/event-links.ts), so the link is not lost. Only web and mail addresses;
+ * a link whose text is its own address stays the bare address. */
+function writtenLinks(html: string): string {
+  return html.replace(/<a\b[^>]*?\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a\s*>/gi, (_all, _q: string, rawHref: string, inner: string) => {
+    const text = decode(inner.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").replace(/[[\]]/g, "").trim();
+    const href = decode(rawHref).trim().replace(/\s/g, "%20").replace(/\)/g, "%29");
+    if (!/^(https?:\/\/|mailto:)/i.test(href)) return inner;
+    if (!text) return "";
+    const bare = (value: string) => value.replace(/^(https?:\/\/)?(www\.)?/i, "").replace(/\/$/, "").toLowerCase();
+    if (bare(text) === bare(href)) return href;
+    return `[${text}](${href})`;
+  });
+}
+
+/** HTML to paragraphs: block ends and line breaks become breaks, links keep their address, everything else is text. Empty and repeated lines go. */
 export function htmlParagraphs(html: string): string[] {
-  const text = decode(html
+  const text = decode(writtenLinks(html)
     .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, "\n")
