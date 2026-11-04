@@ -115,18 +115,27 @@ export async function postToPage(fetcher: Fetcher, page: { id: string; token: st
   return made.id;
 }
 
+/** A photo post on the page - the chair's design from Plakater og opslag - with the words (and the link in them). */
+export async function postPhotoToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { url: string; caption: string }): Promise<string> {
+  const made = await graph<{ id: string; post_id?: string }>(fetcher, "POST", `/${page.id}/photos`, { url: post.url, caption: post.caption, published: "true", access_token: page.token });
+  return made.post_id ?? made.id;
+}
+
 /** A photo or a carousel (2-10 photos) on Instagram: the containers first, then published. Instagram reads the photos from their (public) addresses. */
-export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[] },
+export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[]; collaborators?: string[] },
   wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<string> {
   const images = post.images.slice(0, 10);
   if (!images.length) throw new MetaError("instagram_needs_a_photo");
   const token = account.token, me = `/${account.igUserId}`;
+  // Requested (Gitta): invite the teacher as "samarbejdspartner" - they are told at once, and the post is shown to their followers too. At most three.
+  const invited = (post.collaborators ?? []).slice(0, 3);
+  const collaborators = invited.length ? { collaborators: JSON.stringify(invited) } : {};
   let container: string;
-  if (images.length === 1) container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: images[0]!, caption: post.caption, access_token: token })).id;
+  if (images.length === 1) container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: images[0]!, caption: post.caption, ...collaborators, access_token: token })).id;
   else {
     const children: string[] = [];
     for (const image of images) children.push((await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { image_url: image, is_carousel_item: "true", access_token: token })).id);
-    container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: post.caption, access_token: token })).id;
+    container = (await graph<{ id: string }>(fetcher, "POST", `${me}/media`, { media_type: "CAROUSEL", children: children.join(","), caption: post.caption, ...collaborators, access_token: token })).id;
   }
   // A container is usually ready at once; a carousel can take a moment.
   for (let i = 0; i < 6; i++) {
@@ -136,4 +145,41 @@ export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: 
     await wait(2000);
   }
   return (await graph<{ id: string }>(fetcher, "POST", `${me}/media_publish`, { creation_id: container, access_token: token })).id;
+}
+
+/** Requested: "månedlig indsigt" - the page's followers and the Instagram account's followers and posts, as they are now. Each is null when Meta does not answer it. */
+export async function followerCounts(fetcher: Fetcher, page: { id: string; token: string }, instagram: { igUserId: string; token: string } | null): Promise<{ fb: number | null; ig: number | null; igMedia: number | null }> {
+  const fb = await graph<{ followers_count?: number; fan_count?: number }>(fetcher, "GET", `/${page.id}`, { fields: "followers_count,fan_count", access_token: page.token })
+    .then(d => d.followers_count ?? d.fan_count ?? null).catch(() => null);
+  const ig = instagram ? await graph<{ followers_count?: number; media_count?: number }>(fetcher, "GET", `/${instagram.igUserId}`, { fields: "followers_count,media_count", access_token: instagram.token }).catch(() => null) : null;
+  return { fb, ig: ig?.followers_count ?? null, igMedia: ig?.media_count ?? null };
+}
+
+/** Requested: "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel (.github/workflows/ugens-reel.yml makes the video). Instagram fetches
+ * the video from its public address and works on it for a while, so a reel goes out in steps over Saga's rounds: the container, its status, the publishing. */
+export async function startReel(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { videoUrl: string; caption: string; collaborators?: string[] }): Promise<string> {
+  const invited = (post.collaborators ?? []).slice(0, 3);
+  return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media`, { media_type: "REELS", video_url: post.videoUrl, caption: post.caption, share_to_feed: "true",
+    ...(invited.length ? { collaborators: JSON.stringify(invited) } : {}), access_token: account.token })).id;
+}
+export async function reelStatus(fetcher: Fetcher, token: string, container: string): Promise<string> {
+  return (await graph<{ status_code?: string }>(fetcher, "GET", `/${container}`, { fields: "status_code", access_token: token })).status_code ?? "IN_PROGRESS";
+}
+export async function finishReel(fetcher: Fetcher, account: { igUserId: string; token: string }, container: string): Promise<string> {
+  return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media_publish`, { creation_id: container, access_token: account.token })).id;
+}
+
+/** Requested (the chair, 3 Nov 2026): a tagged post that Hjerterum has already shared is shown "Delt d. <dato>". The page's own recent posts: when each was
+ * made, and what it shares or links to (the shared post's id, its address). */
+export async function pagePosts(fetcher: Fetcher, page: { id: string; token: string }, limit = 100): Promise<Array<{ createdMs: number; refs: string[] }>> {
+  const data = await graph<{ data?: Array<{ created_time?: string; parent_id?: string; permalink_url?: string; message?: string; attachments?: { data?: Array<{ url?: string; target?: { id?: string; url?: string } }> } }> }>(
+    fetcher, "GET", `/${page.id}/posts`, { fields: "created_time,parent_id,message,attachments{url,target{id,url}}", limit: String(limit), access_token: page.token });
+  return (data.data ?? []).map(p => ({ createdMs: Date.parse(p.created_time ?? "") || 0,
+    refs: [p.parent_id, ...(p.attachments?.data ?? []).flatMap(a => [a.url, a.target?.id, a.target?.url]), ...(p.message?.match(/https?:\/\/\S+/g) ?? [])].filter((r): r is string => Boolean(r)) }));
+}
+
+/** Hjerterum's own recent Instagram posts: when, and the words (an Instagram share is told by the maker named in them). */
+export async function ownInstagramMedia(fetcher: Fetcher, account: { igUserId: string; token: string }, limit = 50): Promise<Array<{ createdMs: number; caption: string }>> {
+  const data = await graph<{ data?: Array<{ caption?: string; timestamp?: string }> }>(fetcher, "GET", `/${account.igUserId}/media`, { fields: "caption,timestamp", limit: String(limit), access_token: account.token });
+  return (data.data ?? []).map(m => ({ createdMs: Date.parse(m.timestamp ?? "") || 0, caption: m.caption ?? "" }));
 }

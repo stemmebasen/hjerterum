@@ -1,4 +1,5 @@
-import { calendarText, EventCard } from "./event-card";
+import { EventCard } from "./event-card";
+import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
 import { EventPage, eventPagePath } from "./event-page";
 import { ComingUp, comingUp, MonthSection } from "./month-hero";
 import { isKind, kindOf } from "./event-kinds";
@@ -9,13 +10,12 @@ import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
 import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
-import { StrictMode, useEffect, useRef, useState, type FormEvent } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { startTranslation } from "./translate-in-place";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
-import { PosterPage } from "./poster-page";
 import { resetLogin } from "./code-login";
 import { calculateRoomPriceQuote, roomBookingProblems, type RoomBookingType } from "../../../packages/core/src/legacy-room-pricing.js";
 import "./styles.css";
@@ -205,26 +205,14 @@ function AuthPage({
   );
 }
 
-const EVENTS_PER_PAGE = 15;
-const ROW_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", timeZone: "Europe/Copenhagen" });
-const ROW_MONTH = new Intl.DateTimeFormat("da-DK", { month: "short", timeZone: "Europe/Copenhagen" });
-const ROW_WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
-const ROW_END = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
-
-/** One event in the calendar's list: the date, a small picture, the title, when and with whom - the whole row leads to the event. */
+/** One event in the calendar's list: the date, a picture, the title, when and with whom - the whole row leads to the event (event-row.tsx). */
 function EventRow({ event }: { event: CalendarEvent }) {
-  const start = new Date(event.startsAt);
   const href = event.page ?? event.link ?? "/member-portal/kalender";
   const external = !event.page && Boolean(event.link);
-  const when = `${ROW_WHEN.format(start).replace(/^\p{L}/u, c => c.toLocaleUpperCase("da-DK"))}${event.endsAt ? `–${ROW_END.format(new Date(event.endsAt))}` : ""}`.replace(/(\d{2}):(\d{2})/g, "$1.$2");
   return <li className="event-row"><a href={href} {...(external ? { target: "_blank", rel: "noreferrer" } : {})}>
-    <span className="event-row-date"><b>{ROW_DAY.format(start)}</b>{ROW_MONTH.format(start).replace(".", "")}</span>
-    {event.imageUrl ? <img className="event-row-photo" src={event.imageUrl} alt="" loading="lazy" /> : <span className="event-row-photo is-empty" aria-hidden="true" />}
-    <span className="event-row-text">
-      {event.category && <small>{calendarText(event.category)}</small>}
-      <strong>{calendarText(event.title)}</strong>
-      <span>{when}{event.host ? ` · ${calendarText(event.host)}` : ""}</span>
-    </span>
+    <RowDate startsAt={event.startsAt} />
+    <RowPhoto src={event.imageUrl} />
+    <RowText category={event.category} title={event.title} startsAt={event.startsAt} endsAt={event.endsAt} host={event.host} />
     <span className="event-row-more" aria-hidden="true">Læs mere →</span>
   </a></li>;
 }
@@ -248,28 +236,15 @@ function EventSection({ events, reachable, full = false, limit = 6 }: { events: 
   // Douglas' notes: "Event overwhelm - simple (see MembershipWorks) - have 'see more events' option. Page 1,2,3". The full calendar is a short
   // list, a row per event as in MembershipWorks, EVENTS_PER_PAGE at a time with the pages below; the cards stay for the shorter lists.
   const pages = Math.max(1, Math.ceil(visible.length / EVENTS_PER_PAGE));
-  const [page, setPage] = useState(() => {
-    const asked = typeof window !== "undefined" ? Number(new URLSearchParams(window.location.search).get("side")) : 1;
-    return Number.isInteger(asked) && asked > 1 ? asked : 1;
-  });
+  const [page, setPage] = useState(initialPage);
   const current = Math.min(page, pages);
-  const go = (next: number) => {
-    setPage(next);
-    const url = new URL(window.location.href);
-    if (next > 1) url.searchParams.set("side", String(next)); else url.searchParams.delete("side");
-    window.history.replaceState(window.history.state, "", url.pathname + url.search);
-    document.getElementById("kalender")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  const go = (next: number) => { setPage(next); rememberPage(next, "kalender"); };
   const list = full ? visible.slice((current - 1) * EVENTS_PER_PAGE, current * EVENTS_PER_PAGE) : visible;
   return <section className={"events-section" + (full ? " public-calendar" : "")} id="kalender">
     {full && <CategoryNav current={kind?.key ?? null} />}
     {reachable && visible.length ? full ? <>
       <ol className="event-rows">{list.map(event => <EventRow key={event.key} event={event} />)}</ol>
-      {pages > 1 && <nav className="event-pages" aria-label="Sider i kalenderen">
-        {current > 1 && <button type="button" onClick={() => go(current - 1)}>← Forrige</button>}
-        {Array.from({ length: pages }, (_, i) => i + 1).map(n => <button key={n} type="button" aria-current={n === current ? "page" : undefined} onClick={() => go(n)}>{n}</button>)}
-        {current < pages && <button type="button" className="event-pages-more" onClick={() => go(current + 1)}>Se flere events →</button>}
-      </nav>}
+      <Pager pages={pages} current={current} go={go} />
     </> : <div className="member-event-grid calendar-all">{visible.map(card)}</div> : <div className="calendar-empty"><p>{!reachable ? "Kalenderen indlæses." : kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} i kalenderen lige nu.` : "Der er ingen kommende events i kalenderen endnu."}</p></div>}
     {reachable && partnersShown.length > 0 && <section className="calendar-month partner-events" aria-label={PARTNER_HEADING}>
       <h2>{PARTNER_HEADING}</h2><ol className="event-rows">{partnersShown.map(event => <EventRow key={event.key} event={event} />)}</ol></section>}
@@ -491,8 +466,6 @@ function PublicContentPage({ path }: { path: string }) {
   const profileMatch = /^\/behandlere\/([a-z0-9-]+)\/?$/.exec(path);
   const eventMatch = /^\/events\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
   if (eventMatch) return <EventPage id={eventMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
-  const posterMatch = /^\/plakat\/([0-9a-f]{24}|h\d+)\/?$/.exec(path);
-  if (posterMatch) return <PosterPage id={posterMatch[1]!} header={<SiteHeader current="events" />} footer={<SiteFooter />} />;
   if (profileMatch) return <ProfilePage slug={profileMatch[1]!} header={<SiteHeader current="om-os" />} footer={<SiteFooter />} />;
   return <SiteContentPage path={path} />;
 }
@@ -525,8 +498,14 @@ function NotFound() {
   </main>;
 }
 
+/** Plakater og opslag: only in admin (worker/cockpit/posterStudio.ts serves this app there, behind the chair's login) - "skal kun bruges i cockpittet". */
+const PosterStudio = lazy(() => import("./poster-studio").then(m => ({ default: m.PosterStudio })));
+const isAdminHost = () => /^(?:admin|cockpit)\./i.test(window.location.hostname);
+
 function App() {
   const path = window.location.pathname;
+  const studio = isAdminHost() ? /^\/plakater\/([0-9a-f]{24}|h\d+)\/?$/.exec(path) : null;
+  if (studio) return <Suspense fallback={<main className="page-shell site-page poster-page"><p className="poster-empty">Åbner værktøjet …</p></main>}><PosterStudio id={studio[1]!} /></Suspense>;
   const { clerk, user, loaded } = useClerk(CLERK_PATHS.test(path));
 
   if (path === "/sign-in" || path.startsWith("/sign-in/") || path === "/login" || path.startsWith("/login/")) {
