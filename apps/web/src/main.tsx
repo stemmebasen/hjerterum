@@ -328,7 +328,8 @@ function RoomPriceCalculator() {
   const standard = quote("standard"), reduced = quote("reduced"), free = quote("free");
   // A member's booking on a weekday lies wholly before or after 18.30.
   const crosses = roomBookingProblems({ bookingType: "reduced", ...when }).includes("crosses_a_time_boundary");
-  const monthKr = membershipPlans.standard.month / 100;
+  // Douglas (4 Nov 2026): "Actually there is membership from 111kr/md" - the chair: "Fra 111 kr./md." (the reduced membership, with member benefits).
+  const monthKr = membershipPlans.reduceret.month / 100;
   const kr = (n: number) => `${n.toLocaleString("da-DK")} kr.`;
   const band = standard.band === "A" ? "A-tid (weekend eller fra kl. 18.30)" : "B-tid (hverdage før kl. 18.30)";
   const lock = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>;

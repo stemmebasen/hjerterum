@@ -118,6 +118,24 @@ function calculateFee(startMs: number, endMs: number, bookingType: RoomBookingTy
   return calculateRoomPriceQuote({ ...timing, bookingType, ...(bookingType === "reduced" ? { memberPriceKr: 0 } : {}) }).totalPriceKr;
 }
 
+/** Decision 0006 and the price table, in the event form too (the chair, 4 Nov 2026, on the teacher Douglas' feedback: "Afvis med en klar forklaring"):
+ * the lowest price for non-members a rent type allows - free rent at least 75 kr. a person, reduced at least the member price plus the surcharge (A-time
+ * +100 kr., B-time +50 kr. under 400 kr.) - or null for standard rent. A blank non-member price is the members' price. The board's own events (from
+ * admin, "cockpit:") are not held to it, as decision 0006 says. */
+export function nonMemberMinimumKr(startMs: number, bookingType: RoomBookingType | undefined, memberPriceKr: number): number | null {
+  if (!bookingType || bookingType === "standard") return null;
+  const { dayOfWeek, startMinutes } = localPricingParts(startMs);
+  const quote = calculateRoomPriceQuote({ dayOfWeek, startMinutes, durationMinutes: 120, bookingType, ...(bookingType === "reduced" ? { memberPriceKr } : {}) });
+  return bookingType === "free" ? quote.minimumNonMemberPriceKr : quote.nonMemberPriceKr;
+}
+function checkNonMemberPrice(ownerClerkUserId: string, startMs: number, input: CreateRoomBookingInput): void {
+  if (ownerClerkUserId.startsWith("cockpit:")) return;
+  const memberKr = input.ticketPriceMinor / 100;
+  const minimum = nonMemberMinimumKr(startMs, input.bookingType, memberKr);
+  const nonMemberKr = (input.nonMemberPriceMinor ?? input.ticketPriceMinor) / 100;
+  if (minimum !== null && nonMemberKr < minimum) throw new Error(`invalid_non_member_minimum_${minimum}`);
+}
+
 const BOOKING_TYPES: readonly RoomBookingType[] = ["standard", "reduced", "free"];
 
 /** The time the room is taken: the event plus setup before and cleanup after. Conflicts and rent go by this. */
@@ -292,6 +310,7 @@ export async function createRoomBooking(
   if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, null)) throw new Error("free_rent_week_used");
 
   const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
+  checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const now = Date.now();
   const insert = await db
     .prepare(
@@ -388,6 +407,7 @@ export async function updateOwnedRoomBooking(
   }
 
   const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
+  checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const result = await db
     .prepare(
       `UPDATE room_bookings

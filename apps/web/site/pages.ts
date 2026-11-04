@@ -72,7 +72,7 @@ export const ABOUT_WORDS = {
   intro: "Hjerterum i Aarhus er et åbent og inkluderende rum, hvor du kan udforske personlig vækst, selvudvikling og fællesskab. Vi tilbyder arrangementer, workshops og inspirerende møder, der hjælper dig med at finde balance, indre styrke og nye perspektiver på livet.",
   welcome: "Uanset om du søger fordybelse, refleksion eller bare en pause fra hverdagen, er Hjerterum et sted, hvor alle er velkomne. Kom og bliv en del af et fællesskab, der inspirerer og forbinder mennesker på tværs af livets mange facetter.",
   kinds: "Fællesskab, film, sang, musik, dans, fællesspisning, foredrag, kurser, yoga, åndedrætsøvelser, meditation, bevægelse, kreativitet – og alt det, der skaber glæde, forbindelse og inspiration.",
-  membership: (monthKr: number) => `Bliv medlem for kun ${monthKr} kr./måned og deltag i medlemsarrangementer, og få en stor rabat på arrangementer, hvor ikke-medlemmer er tilladt – og nogle gange gratis.`,
+  membership: (monthKr: number) => `Bliv medlem fra kun ${monthKr} kr./måned og deltag i medlemsarrangementer, og få en stor rabat på arrangementer, hvor ikke-medlemmer er tilladt – og nogle gange gratis.`,
   teachers: "Som underviser kan du bruge vores skønne og veludstyrede rum til dine begivenheder til meget rimelige priser og drage fordel af vores store netværk af medlemmer og følgere."
 } as const;
 

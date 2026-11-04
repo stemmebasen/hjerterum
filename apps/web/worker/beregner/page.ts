@@ -195,7 +195,7 @@ export function calculatorPage(lang: Lang, nowMs: number): string {
   const packages = `<div class="pk">${PACKAGES.map(([h, p]) => `<div><span>${String(h).replace(".", lang === "da" ? "," : ".")} ${s.hoursUnit}</span><b>${p.toLocaleString(lang === "da" ? "da-DK" : "en-GB")} kr.</b></div>`).join("")}</div>`;
   const diff = `<table><tr>${s.diffHead.map(h => `<th>${h}</th>`).join("")}</tr>${s.diffRows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
   const rules = { standard: s.rules.standard.replace("{table}", packages), reduced: s.rules.reduced.replace("{diff}", diff), free: s.rules.free };
-  const config = JSON.stringify({ lang, t: s, days: t.days, rules, started: nowMs, names: { reduced: t.reduced, free: t.free }, memberMonthKr: membershipPlans.standard.month / 100, join: SIGNUP_URL, memberArea: MEMBER_EVENTS }).replace(/</g, "\\u003c");
+  const config = JSON.stringify({ lang, t: s, days: t.days, rules, started: nowMs, names: { reduced: t.reduced, free: t.free }, memberMonthKr: membershipPlans.reduceret.month / 100, join: SIGNUP_URL, memberArea: MEMBER_EVENTS }).replace(/</g, "\\u003c");
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.title)} · Hjerterum</title><meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
