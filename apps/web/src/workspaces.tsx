@@ -28,6 +28,7 @@ import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
+import { LanguageSwitch } from "./site-pages";
 
 const membershipPlansSupportText = membershipPlan("support")!.description;
 
@@ -203,7 +204,7 @@ function WorkspaceHeader({
   const links = mode === "admin" ? adminLinks : memberLinks;
 
   return (
-    <LysTop right={<UserButton clerk={clerk} />}>
+    <LysTop right={<><LanguageSwitch /><UserButton clerk={clerk} /></>}>
       <nav className="lys-nav" aria-label={mode === "admin" ? "Adminnavigation" : "Medlemsnavigation"}>
         {links.map(([href, label]) => {
           const isMemberOverview = href === "/member-portal/" && path === "/member-portal/dashboard";
