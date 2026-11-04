@@ -115,7 +115,8 @@ ${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(stud
 <label class="pr-field"><span>${p.kind === "week" ? "Teksten på Facebook" : "Opslaget på Facebook"}</span><textarea name="text" rows="${p.kind === "week" ? 10 : 4}"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
 <label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
-<div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
+<div class="pr-row"><label class="pr-field pr-time"><span>${p.kind === "event" && allowed.includes("instagram") ? "Facebook sendes" : "Sendes"}</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
+${p.kind === "event" && allowed.includes("instagram") ? `<label class="pr-field pr-time"><span>Instagram sendes (tomt: samtidig)</span><input type="datetime-local" name="instagram_at" value="${p.source.instagramAtMs ? localInput(p.source.instagramAtMs) : ""}"${locked ? " disabled" : ""}></label>` : ""}
 ${channelBoxes(p, allowed, locked)}</div>
 ${actions(base, p, "Godkend")}</form></article>`;
 }

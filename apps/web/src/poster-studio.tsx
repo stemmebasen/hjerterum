@@ -17,7 +17,7 @@ type Data = {
   files: Array<{ url: string; label: string }>;
   teacher: { name: string; consent: "given" | "withdrawn" | "none"; quotes: Quotes; pictures: Picture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> } | null;
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
-    text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean } | null;
+    text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null } | null;
   back: string;
 };
 
@@ -142,9 +142,11 @@ export function PosterStudio({ id }: { id: string }) {
   // "Og så savner jeg også en mulighed for at planlægge udsendingen": as planned, now, or a time of the chair's own.
   const [when, setWhen] = useState<"plan" | "nu" | "valgt">("plan");
   const [chosenAt, setChosenAt] = useState("");
+  // "forskellige tidspunkter på de to medier": Instagram's own time (empty: with Facebook).
+  const [chosenIg, setChosenIg] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[] } | null>(null);
+  const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
   const proposal = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -215,8 +217,8 @@ export function PosterStudio({ id }: { id: string }) {
     setBusy(true); setMessage("Publicerer …");
     const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, instagramText, channels, ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime() } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
-    const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[] } | null : null;
+      body: JSON.stringify({ text, instagramText, channels, ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
+    const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null : null;
     setBusy(false);
     if (body) { setSent(body); setMessage(""); setStep("sendt"); window.scrollTo(0, 0); }
     else {
@@ -239,7 +241,9 @@ export function PosterStudio({ id }: { id: string }) {
   if (step === "sendt" && sent) return <main className="page-shell site-page poster-page studio">{head}
     <section className="studio-box studio-done">
       <h2>Opslaget er godkendt</h2>
-      <p>{sent.publishAtMs && sent.publishAtMs > Date.now() + 60_000 ? `Saga sender det ${WHEN.format(new Date(sent.publishAtMs))}` : "Saga sender det inden for fem minutter"} på {channelNames(sent.channels)}. Du skal ikke gøre mere.</p>
+      <p>{sent.status === "published" ? `Det er publiceret på ${channelNames(sent.channels)}.` : sent.instagramAtMs && sent.instagramAtMs !== sent.publishAtMs && sent.channels.length > 1
+        ? `Saga sender det på Facebook ${WHEN.format(new Date(sent.publishAtMs!))} og på Instagram ${WHEN.format(new Date(sent.instagramAtMs))}.`
+        : sent.publishAtMs && sent.publishAtMs > Date.now() + 60_000 ? `Saga sender det ${WHEN.format(new Date(sent.publishAtMs))} på ${channelNames(sent.channels)}.` : `Saga sender det om lidt på ${channelNames(sent.channels)}.`} Du skal ikke gøre mere.</p>
       <p className="studio-actions"><a className="lys-btn" href={back}>Tilbage</a><a className="lys-btn ghost" href={postLink}>Se opslaget i PR og SoMe</a></p>
     </section>
   </main>;
@@ -264,11 +268,16 @@ export function PosterStudio({ id }: { id: string }) {
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
         </fieldset>
         <fieldset className="studio-choices"><legend>Hvornår</legend>
-          {planned ? <label><input type="radio" name="hvornaar" checked={when === "plan"} onChange={() => setWhen("plan")} /> Sagas forslag: {WHEN.format(new Date(planned))}</label> : null}
+          {planned ? <label><input type="radio" name="hvornaar" checked={when === "plan"} onChange={() => setWhen("plan")} /> Sagas forslag: {post.instagramAtMs && post.instagramAtMs !== planned && channels.includes("instagram") && channels.includes("facebook")
+            ? `Facebook ${WHEN.format(new Date(planned))} · Instagram ${WHEN.format(new Date(post.instagramAtMs))}` : WHEN.format(new Date(planned))}</label> : null}
           <label><input type="radio" name="hvornaar" checked={when === "nu" || (!planned && when === "plan")} onChange={() => setWhen("nu")} /> Nu</label>
           <label><input type="radio" name="hvornaar" checked={when === "valgt"} onChange={() => setWhen("valgt")} /> Vælg tidspunkt</label>
-          {when === "valgt" && <input type="datetime-local" className="studio-when" value={chosenAt} min={localInput(Date.now())} max={localInput(Date.parse(event.startsAt) - 3_600_000)}
-            onChange={e => setChosenAt(e.target.value)} aria-label="Tidspunkt" />}
+          {when === "valgt" && <div className="studio-whens">
+            <label><span>{channels.includes("instagram") && channels.includes("facebook") ? "Facebook" : "Tidspunkt"}</span><input type="datetime-local" className="studio-when" value={chosenAt} min={localInput(Date.now())} max={localInput(Date.parse(event.startsAt) - 3_600_000)}
+              onChange={e => setChosenAt(e.target.value)} /></label>
+            {channels.includes("instagram") && channels.includes("facebook") && <label><span>Instagram (tomt: samtidig)</span><input type="datetime-local" className="studio-when" value={chosenIg} min={localInput(Date.now())} max={localInput(Date.parse(event.startsAt) - 3_600_000)}
+              onChange={e => setChosenIg(e.target.value)} /></label>}
+          </div>}
         </fieldset>
         {post.status === "approved" && <p className="studio-muted">Opslaget er allerede godkendt. Publicerer du, får det det nye billede og den nye tekst.</p>}
         {message && <p className="studio-message" role="status">{message}</p>}

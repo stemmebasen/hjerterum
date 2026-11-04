@@ -18,7 +18,8 @@ export async function prCalendarData(db: D1Database, nowMs: number, start?: stri
   const mondays: string[] = [];
   for (let i = 0, m = first; i < CALENDAR_WEEKS; i++, m = nextMonday(weekStart(m))) mondays.push(m);
   const from = weekStart(mondays[0]!), to = weekStart(nextMonday(weekStart(mondays.at(-1)!)));
-  const posts = await socialPosts(db, "publish_at_ms >= ? AND publish_at_ms < ? AND status <> 'skipped'", [from, to], "publish_at_ms, id", 500);
+  const posts = await socialPosts(db, "((publish_at_ms >= ? AND publish_at_ms < ?) OR (json_extract(source, '$.instagramAtMs') >= ? AND json_extract(source, '$.instagramAtMs') < ?)) AND status <> 'skipped'",
+    [from, to, from, to], "publish_at_ms, id", 500);
   const instagram = Boolean((await socialAccount(db).catch(() => null))?.ig_user_id);
   return { mondays, posts, nowMs, instagram };
 }
@@ -48,7 +49,14 @@ const where = (p: SocialPost) => p.channels.map(c => c === "instagram" ? "IG" : 
 export function prCalendarSection(base: string, d: CalendarData): string {
   const today = dateOf(d.nowMs);
   const byDay = new Map<string, SocialPost[]>();
-  for (const p of d.posts) { const day = dateOf(p.publish_at_ms!); byDay.set(day, [...(byDay.get(day) ?? []), p]); }
+  // An event on Facebook and Instagram at different times ("forskellige tidspunkter på de to medier"): one entry for each, at its own time.
+  const entries = d.posts.flatMap((p): SocialPost[] => {
+    const ig = p.source.instagramAtMs;
+    if (!ig || ig === p.publish_at_ms || !p.channels.includes("instagram") || p.channels.length < 2) return [p];
+    const each = (c: "facebook" | "instagram", at: number | null): SocialPost => ({ ...p, channels: [c], publish_at_ms: at, status: p.published[c] ? "published" : p.status === "published" ? "approved" : p.status });
+    return [each("facebook", p.publish_at_ms), each("instagram", ig)];
+  }).sort((a, b) => (a.publish_at_ms ?? 0) - (b.publish_at_ms ?? 0));
+  for (const p of entries) { const day = dateOf(p.publish_at_ms!); byDay.set(day, [...(byDay.get(day) ?? []), p]); }
   const waiting = d.posts.filter(p => p.status === "draft").length;
   const thisMonday = mondayOf(d.nowMs), first = d.mondays[0]!;
   const earlier = addDays(first, -7 * CALENDAR_WEEKS), later = addDays(first, 7 * CALENDAR_WEEKS);

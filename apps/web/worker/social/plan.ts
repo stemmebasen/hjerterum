@@ -113,6 +113,15 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
   }
   return out;
 }
+/** Requested (the chair, 4 Nov 2026: "Og så kan man jo argumentere for, at et event publiceres på forskellige tidspunkter på de to medier." - asked
+ * whether Saga should propose different times as a rule, "Ja"): each event's Instagram post at its own time, at least POST_GAP_MS after Facebook's,
+ * spread over Instagram's own days the same way (alreadyTaken: Instagram's times). Where there is no such time before the event, the same as Facebook. */
+export function instagramPostTimes(events: NewsletterEvent[], facebookTimes: number[], notBeforeMs: number, alreadyTaken: number[] = []): number[] {
+  const earliest = facebookTimes.map(t => t + POST_GAP_MS);
+  return eventPostTimes(events, notBeforeMs, alreadyTaken, earliest).map((t, i) =>
+    t >= earliest[i]! && t <= events[i]!.startsMs - 2 * 3_600_000 && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
+}
+
 /** A class that comes back (the same title in an earlier week) is told about in the week before each time, not all at once. */
 export const REPEAT_LEAD_MS = 7 * DAY;
 

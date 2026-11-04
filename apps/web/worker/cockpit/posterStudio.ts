@@ -27,7 +27,9 @@ export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; f
   /** The event's open post in PR og SoMe, which a design can be used in ("Brug i opslaget"). */
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     /** The finished post as it goes out (requested: "så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere"). */
-    text: string; instagramText: string; channels: Channel[]; publishAtMs: number | null; link: string | null; instagram: boolean } | null };
+    text: string; instagramText: string; channels: Channel[]; publishAtMs: number | null; link: string | null; instagram: boolean;
+    /** Instagram's own time (else Facebook's). */
+    instagramAtMs: number | null } | null };
 
 /** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
 export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
@@ -114,7 +116,8 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
   const instagram = Boolean((await socialAccount(db).catch(() => null))?.ig_user_id);
   const post = open && full ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
     image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design),
-    text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram } : null;
+    text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram,
+    instagramAtMs: full.source.instagramAtMs ?? null } : null;
   return { event, eventPictures, files, teacher, post };
 }
 
