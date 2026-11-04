@@ -6,6 +6,7 @@ import type { NewsletterEvent } from "../newsletter.js";
 import { at, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, planDue, weekKey } from "./plan.js";
 import { runSocialJob, socialPosts } from "./social.js";
 import { loginUrl } from "./meta.js";
+import { instagramName, parsePrQuotes } from "../../pr-material.js";
 
 // Requested (the chair, 3 Nov 2026): "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen. Så vi skal have kontakt
 // til vores sociale medier. ... 1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med
@@ -19,6 +20,15 @@ const GRAPH = "https://graph.facebook.com/v25.0";
 const event = (key: string, title: string, iso: string, extra: Partial<NewsletterEvent> = {}): NewsletterEvent => ({
   key, title, startsMs: Date.parse(iso), endsMs: null, host: "Kasper", category: null, imageUrl: `https://img.example/${key}.jpg`, link: `https://www.hjerterum.info/events/${key}`,
   description: "", mornings: false, ...extra });
+
+describe("an Instagram name in the PR material", () => {
+  it("is kept as the bare username, whatever way it is written", () => {
+    for (const written of ["@Anna.Yoga", "anna.yoga", "https://www.instagram.com/anna.yoga/", "instagram.com/anna.yoga?hl=da"]) expect(instagramName(written)).toBe("anna.yoga");
+    expect(instagramName("Anna Yoga")).toBeNull();
+    expect(parsePrQuotes({ instagram: "@Anna.Yoga" }).instagram).toBe("anna.yoga");
+    expect(parsePrQuotes({ facilitator: "Ro" })).toMatchObject({ facilitator: "Ro", instagram: "" });
+  });
+});
 
 describe("the week's plan", () => {
   it("knows the weeks and Thursday from 10.00", () => {
@@ -51,11 +61,19 @@ describe("the week's plan", () => {
     expect(pickWeekEvents(events.slice(0, 4), new Set())).toHaveLength(4);
   });
 
-  it("posts each event the day before at 10.00 or 16.00, two a day at most, never after it begins", () => {
-    const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-09T07:30:00Z")];
+  it("posts each event as soon as may be, spread over the day, three a day at most, never after it begins", () => {
+    // Thursday 5 November, 10.00 Danish time. Requested: "hurtigst muligt".
+    const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-05T15:00:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-09T09:00:00.000Z", "2026-11-09T15:00:00.000Z", "2026-11-08T09:00:00.000Z", "2026-11-08T15:00:00.000Z"]);
-    expect(new Set(times).size).toBe(times.length);
+    // The nearest first: D (today 16.00) at 12.00 (15.00 is too close); then one a day at 15.00 - the emptiest of the first days.
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // Many at once: soon and evenly - never more than three a day, and no day of the first ones left empty while another has three.
+    const many = Array.from({ length: 9 }, (_, i) => event(`m${i}`, `M${i}`, "2026-11-20T18:00:00Z"));
+    const perDay = new Map<string, number>(); for (const t of eventPostTimes(many, NOW)) { const d = new Date(t + 3_600_000).toISOString().slice(0, 10); perDay.set(d, (perDay.get(d) ?? 0) + 1); }
+    expect([...perDay.values()].sort()).toEqual([2, 2, 2, 3]);
+    // A class that comes back waits for the week before.
+    const repeat = eventPostTimes([event("y", "Yoga", "2026-11-25T07:00:00Z")], NOW, [], [Date.parse("2026-11-25T07:00:00Z") - 7 * 86_400_000]);
+    expect(new Date(repeat[0]!).toISOString()).toBe("2026-11-18T14:00:00.000Z");
     times.forEach((t, i) => expect(t).toBeLessThan(chosen[i]!.startsMs));
   });
 });
@@ -143,7 +161,8 @@ describe("the PR cockpit", () => {
     let shares = await socialPosts(db, "kind = 'share'");
     expect(shares).toHaveLength(3);
     expect(shares.find(p => p.source.id === "fb-1")).toMatchObject({ status: "draft", channels: ["facebook"], text: "Tak til Kasper for at dele sin workshop.", link: "https://www.facebook.com/kasper/posts/1" });
-    expect(shares.find(p => p.source.id === "ig-1")).toMatchObject({ channels: ["instagram"] });
+    // "simultant på begge medier, når som helst det er muligt": a photo goes to both from the start.
+    expect(shares.find(p => p.source.id === "ig-1")).toMatchObject({ channels: ["facebook", "instagram"] });
     expect(shares.find(p => p.source.id === "ig-1")!.source.instagramText).toContain("Foto og tekst: @gitta.dans");
     // A video cannot go up again on Instagram: it is offered as a link on Facebook.
     expect(shares.find(p => p.source.id === "ig-2")).toMatchObject({ channels: ["facebook"] });
@@ -155,68 +174,74 @@ describe("the PR cockpit", () => {
 
     // The chair passes two of them on; the third is skipped.
     const fb = shares.find(p => p.source.id === "fb-1")!, ig = shares.find(p => p.source.id === "ig-1")!, video = shares.find(p => p.source.id === "ig-2")!;
-    await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Kasper!", channel: "facebook" }) });
-    await call(`/pr/opslag/${ig.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Gitta.", instagram_text: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", channel: "instagram" }) });
+    await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Kasper!", channel: "facebook", kanaler: "1" }) });
+    await call(`/pr/opslag/${ig.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Tak, Gitta.", instagram_text: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", channel: "instagram", kanaler: "1" }) });
     await call(`/pr/opslag/${video.id}`, { method: "POST", cookie, body: form({ do: "spring" }) });
     await run(NOW + 2 * 60_000);
     await run(NOW + 3 * 60_000);
     expect(graph.filter(c => c.path === "/755/feed")).toEqual([{ method: "POST", path: "/755/feed", params: { message: "Tak, Kasper!", link: "https://www.facebook.com/kasper/posts/1", access_token: "page-token" } }]);
     // On Instagram from the picture as it is now, with the chair's words.
-    expect(graph.find(c => c.path === "/17841/media")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans" });
+    expect(graph.find(c => c.path === "/17841/media" && c.method === "POST")!.params).toMatchObject({ image_url: "https://cdn.example/fresh.jpg", caption: "Tak, Gitta.\n\nFoto og tekst: @gitta.dans", collaborators: '["gitta.dans"]' });
     expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
     shares = await socialPosts(db, "kind = 'share'");
     expect(shares.map(p => p.status).sort()).toEqual(["published", "published", "skipped"]);
-    expect((await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Igen" }) })).headers.get("location")).toBe("/pr?fejl=sendt");
+    expect((await call(`/pr/opslag/${fb.id}`, { method: "POST", cookie, body: form({ do: "godkend", text: "Igen" }) })).headers.get("location")).toBe("/pr/tagget?fejl=sendt");
 
     // 2 and 3. Next week: twelve events in the house (one a partner's), planned on Thursday from 10.00.
     const insert = (id: string, title: string, iso: string, extra: { location?: string; image?: string | null } = {}) =>
       db.prepare("INSERT INTO house_events (id, title, starts_at_ms, host, image_url, location, description, content_hash, updated_at_ms) VALUES (?, ?, ?, 'Kasper', ?, ?, 'En aften med ro.', 'x', 0)")
         .bind(id, title, Date.parse(iso), extra.image === undefined ? `https://d1tif55lvfk8gc.cloudfront.net/${id}.jpg` : extra.image, extra.location ?? null).run();
+    // Kasper has given his Instagram name with his PR material: he is invited as collaborator on "Ugens events".
+    await db.prepare(`INSERT INTO pr_material (clerk_user_id, quotes_json, consent_at_ms, updated_at_ms) VALUES ('user_k', '{"instagram":"kasper.yoga"}', 1, 0)`).run();
+    await db.prepare(`INSERT INTO public_profiles (clerk_user_id, public_id, draft_json, updated_at_ms) VALUES ('user_k', 'k', '{"name":"Kasper"}', 0)`).run();
     for (let i = 0; i < 11; i++) await insert(`e${i}`, `Workshop ${i}`, `2026-11-${String(9 + (i % 7)).padStart(2, "0")}T${String(17 + (i % 3)).padStart(2, "0")}:00:00Z`);
     await insert("partner", "Hos Hjerteland", "2026-11-11T18:00:00Z", { location: "Hjerteland" });
     await insert("this-week", "I aften", "2026-11-05T18:00:00Z");
     await run(NOW + 61 * 60_000);
     const week = await socialPosts(db, "week = '2026-W46'", [], "CASE kind WHEN 'week' THEN 0 ELSE 1 END, publish_at_ms");
     expect(week.filter(p => p.kind === "week")).toHaveLength(1);
-    expect(week.filter(p => p.kind === "event")).toHaveLength(10);
+    // Every event of the week gets its post - "alle events deles mindst én gang".
+    expect(week.filter(p => p.kind === "event")).toHaveLength(11);
     expect(week.every(p => p.status === "draft")).toBe(true);
     const weekly = week[0]!;
     expect(weekly.channels).toEqual(["facebook", "instagram"]);
     expect(weekly.text).toContain("Ugens events i Hjerterum · uge 46");
     expect(weekly.text).toContain("En uge med dans, stilhed og healing.");
     expect(weekly.text).not.toContain("Hjerteland");
-    expect(weekly.source.instagramText).toContain("linket i bio");
-    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T07:30:00.000Z");
-    expect(week[1]!.text).toBe("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
+    expect(weekly.source.instagramText).toContain("hjerterum.info/events (link i bio)");
+    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T14:30:00.000Z");
+    expect(week.filter(p => p.kind === "event").map(p => p.text)).toContain("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
     // Planned once: Saga's next round does not plan it again.
     await run(NOW + 125 * 60_000);
-    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(11);
+    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(12);
 
     // The chair moves one, approves the week, and the posts go out at their times - each once.
-    const first = week[1]!;
+    const first = week.find(p => p.text.startsWith("Kasper guider"))!;
     await call(`/pr/opslag/${first.id}`, { method: "POST", cookie, body: form({ do: "gem", text: "Rettet af formanden.", at: "2026-11-08T12:15" }) });
-    expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr?uge=2026-11-09&besked=uge-godkendt");
-    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(11);
+    expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr/uge?uge=2026-11-09&besked=uge-godkendt");
+    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);
     const before = graph.filter(c => c.path === "/755/feed").length;
+    for (const due of (await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [Date.parse("2026-11-08T11:20:00Z")])).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-08T11:20:00Z"));
     const posted = graph.filter(c => c.path === "/755/feed").slice(before);
     expect(posted.map(c => c.params.message)).toContain("Rettet af formanden.");
-    await run(Date.parse("2026-11-09T07:35:00Z"));
-    await run(Date.parse("2026-11-09T07:40:00Z"));
+    await run(Date.parse("2026-11-09T14:35:00Z"));
+    await run(Date.parse("2026-11-09T14:40:00Z"));
     const weekOut = graph.filter(c => c.path === "/755/feed" && c.params.message?.startsWith("Ugens events"));
     expect(weekOut).toHaveLength(1);
     expect(weekOut[0]!.params.link).toBe("https://www.hjerterum.info/events");
     // Instagram: a carousel of the events' pictures.
     const carousel = graph.find(c => c.path === "/17841/media" && c.params.media_type === "CAROUSEL")!;
     expect(carousel.params.children!.split(",")).toHaveLength(10);
-    expect(carousel.params.caption).toContain("linket i bio");
+    expect(carousel.params.caption).toContain("hjerterum.info/events (link i bio)");
+    expect(carousel.params.collaborators).toBe('["kasper.yoga"]');
     // A round at each post's time (the cron runs every five minutes): everything goes out, once.
     for (const due of (await socialPosts(db, "week = '2026-W46' AND status = 'approved'")).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-16T09:00:00Z"));
     const final = await socialPosts(db, "week = '2026-W46'");
-    expect(final.filter(p => p.status === "published")).toHaveLength(11);
-    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 11);
+    expect(final.filter(p => p.status === "published")).toHaveLength(12);
+    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 12);
   });
 
   it("does not post an event late, and uses a Facebook Login for Business configuration when there is one", async () => {
