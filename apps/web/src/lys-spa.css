@@ -693,6 +693,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-mock-text { white-space: pre-wrap; padding: 0 14px 10px; margin: 0; font-size: 15px; line-height: 1.4; }
 .studio-mock-link { padding: 0 14px 10px; margin: 0; font-size: 13.5px; color: #385898; overflow-wrap: anywhere; }
 .studio-mock-picture { width: 100%; display: block; }
+.studio-mock-video { margin-top: 18px; }
+.studio-mock-video video { width: 100%; display: block; aspect-ratio: 9 / 16; background: #000; }
+.studio-mock-video header span { margin-left: auto; font-size: 13px; }
 .studio-field { display: grid; gap: 6px; margin: 14px 0 0; font-size: 14.5px; }
 .studio-field textarea { font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; resize: vertical; }
 .studio-choices { border: 0; padding: 0; margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 15px; }

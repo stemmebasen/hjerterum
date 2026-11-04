@@ -29,7 +29,9 @@ export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; f
     /** The finished post as it goes out (requested: "så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere"). */
     text: string; instagramText: string; channels: Channel[]; publishAtMs: number | null; link: string | null; instagram: boolean;
     /** Instagram's own time (else Facebook's). */
-    instagramAtMs: number | null } | null };
+    instagramAtMs: number | null;
+    /** The event's video for Instagram, and whether the chair took it off. */
+    video: string | null; noVideo: boolean } | null };
 
 /** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
 export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
@@ -117,7 +119,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
   const post = open && full ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
     image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design),
     text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram,
-    instagramAtMs: full.source.instagramAtMs ?? null } : null;
+    instagramAtMs: full.source.instagramAtMs ?? null, video: full.source.video ?? null, noVideo: Boolean(full.source.noVideo) } : null;
   return { event, eventPictures, files, teacher, post };
 }
 
