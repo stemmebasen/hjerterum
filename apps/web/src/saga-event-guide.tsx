@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
+import { EventPrMaterial } from "./pr-material-editor";
 import { cropCover } from "./cover-crop";
 import { isFixedStep, UPLOAD_NOW } from "../site/guide-choices";
 import { planInstants } from "./event-planner-logic";
-import { saveDesign } from "./event-design";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue } from "./poster-choice";
 import { preparePhoto, withLinks, type Photo, type SagaDraft } from "./saga-widget";
 
@@ -116,9 +116,6 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
       const body = await response.json().catch(() => ({})) as { reply?: string; id?: number };
       if (body.id) {
         const posterLine = guide.facts.social === false ? "" : await savePosterChoice(clerk, body.id, poster, null);
-        const instants = planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 });
-        await saveDesign(clerk, body.id, poster.choice, { title: draft.title, startsAt: instants.startsAt, endsAt: instants.endsAt, teacher: guide.facts.leader ?? firstName,
-          cover: coverCropped, coverUrl: null });
         setCreated({ id: body.id, text: (body.reply ?? "Eventet er oprettet.") + posterLine });
         try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
         onCreated(body.id);
@@ -151,8 +148,9 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
     <p className="lys-kicker">Opret med Saga</p>
     <h2>Dit event er oprettet</h2>
     <p className="guide-lead">{created.text}</p>
+    {/* Gitta: "mens de er i gang med" - the PR material right after the event is made (pr-material-editor.tsx). */}
+    <EventPrMaterial clerk={clerk} />
     <div className="guide-buttons">
-      {guide.facts.social !== false && <a className="pill-button dark" href={`/plakat/h${created.id}`}>Se dine opslag til Instagram og Facebook</a>}
       <button type="button" className="pill-button" onClick={restart}>Opret et nyt event</button>
     </div>
   </section>;
@@ -183,10 +181,7 @@ export function SagaEventGuide({ clerk, firstName, onFillForm, onCreated }: {
             </dl>
             <p className="guide-description">{draft.description}</p>
             {guide.facts.social !== false && <div className="guide-posters">
-              <PosterChoice clerk={clerk} title={draft.title} teacher={guide.facts.leader ?? firstName}
-                startsAt={planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 }).startsAt}
-                endsAt={planInstants({ date: draft.date, start: draft.start, end: draft.end, type: "standard", setup: 0, cleanup: 0 }).endsAt}
-                cover={photo?.file ?? null} coverUrl={null} saved={null} value={poster} onChange={setPoster} onRemoveSaved={() => undefined} />
+              <PosterChoice clerk={clerk} saved={null} value={poster} onChange={setPoster} onRemoveSaved={() => undefined} />
             </div>}
             <div className="guide-buttons">
               <button type="button" className="pill-button dark" disabled={busy} onClick={() => void create()}>Opret og læg online</button>

@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { PR_CONSENT_TEXT, PR_MIN_PHOTOS, readyForPr, type PrMaterial } from "../../pr-material.js";
+import { consentTextAt, PR_MIN_PHOTOS, readyForPr, type PrMaterial } from "../../pr-material.js";
 import { prMaterialOf } from "../pr-material.js";
 import { esc } from "./page.js";
 
@@ -44,7 +44,7 @@ export function prMaterialCard(m: PrMaterial | null): string {
 <span class="small muted">Samtykke givet ${esc(DAY.format(m.consentAt))}</span></p>
 ${m.photos.length ? `<div class="pr-photos">${m.photos.map(p => `<a href="${esc(p.url)}" target="_blank" rel="noopener" download><img src="${esc(p.url)}" alt="" loading="lazy"></a>`).join("")}</div><p class="small muted">Tryk på et billede for at åbne det i fuld størrelse.</p>` : ""}
 ${q.facilitator || q.offering || q.participant ? `<h3>Citater</h3><ul class="plain quotes">${quote("Om dem som facilitator", q.facilitator)}${quote("Det, deltagerne får med", q.offering)}${quote("Fra en tidligere deltager", q.participant, q.participantName)}</ul>` : ""}
-<details class="small muted"><summary>Samtykket</summary><p>"${esc(PR_CONSENT_TEXT)}"</p></details></div>`;
+<details class="small muted"><summary>Samtykket</summary><p>"${esc(consentTextAt(m.consentAt))}"</p></details></div>`;
 }
 
 export const PR_MATERIAL_STYLE = `.pr-material .pr-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin:12px 0 6px}

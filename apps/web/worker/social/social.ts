@@ -1,16 +1,18 @@
 import type { D1Database } from "../db.js";
-import { monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
+import { listTitle, monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { claimJob } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
-import { instagramMedia, postToPage, publishToInstagram, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { clock, dayName, eventPostTimes, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { instagramName } from "../../pr-material.js";
+import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, REPEAT_LEAD_MS, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
+ * (since: "Kan vi systematisk sørge for at alle events deles mindst én gang" - every event now gets its post)
  * 3 ugens events på SoMe" - "som skal automatiseres smart".
  * Saga does the work: she finds what Hjerterum is tagged in and drafts a few words for passing it on; on Thursday she plans next week
  * (7-10 events, each with a little post on Facebook, and "Ugens events" on Facebook and Instagram on Monday morning). Nothing goes out
@@ -24,11 +26,20 @@ export type SocialStatus = "draft" | "approved" | "publishing" | "published" | "
 export type SocialAccount = { page_id: string; page_name: string; page_token_sealed: string; ig_user_id: string | null; ig_username: string | null;
   connected_by: string; connected_at_ms: number; checked_at_ms: number | null; check_error: string | null };
 
-export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean };
+export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean;
+  /** When Hjerterum had already shared it (before Saga found it): "Delt d. <dato>". */
+  sharedAt?: number | null };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
-  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[] }; publish_at_ms: number | null; status: SocialStatus;
-  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel, string>>; published_at_ms: number | null; error: string | null;
+  source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
+    /** The chair's design from Plakater og opslag is the post's picture: on Facebook as a photo post, not a link card. */
+    design?: boolean;
+    /** Taken down again on Facebook and Instagram by hand (the chair, 3 Nov 2026: "Jeg har slettet opslagene igen for Aura-eventet, for det var bare
+     * en test. Det må du gerne registrere."): kept in the history, and the event may get a new post. */
+    removed?: { atMs: number; note: string };
+    /** Instagram's own time, when it is not Facebook's (publish_at_ms) - "forskellige tidspunkter på de to medier". */
+    instagramAtMs?: number | null }; publish_at_ms: number | null; status: SocialStatus;
+  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
 const MINUTE = 60_000;
@@ -114,10 +125,12 @@ async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: s
 }
 
 /** The chair changes a post that has not gone out: its words, where it goes and (for the week's posts) when. A changed post is a draft again. */
-export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; channels?: Channel[]; publishAtMs?: number | null }, nowMs: number): Promise<boolean> {
+export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null;
+  instagramAtMs?: number | null }, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, id);
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
-  const source = change.instagramText !== undefined ? { ...post.source, instagramText: change.instagramText } : post.source;
+  const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}),
+    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -152,8 +165,10 @@ const SHARE_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus f
 export const firstName = (name: string | null) => (name ?? "").replace(/^@/, "").split(/\s+/)[0] ?? "";
 export const plainShareText = (author: string | null) => `Tak til ${firstName(author) || "jer"} for at dele. Vi glæder os til at se jer i Hjerterum.`;
 /** On Instagram the post is published again by Hjerterum, so the maker is named, and their own words follow. */
-export const instagramShareText = (intro: string, author: string | null, original: string) =>
-  `${intro.trim()}\n\nFoto og tekst: ${author ? `@${author.replace(/^@/, "")}` : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
+export const instagramShareText = (intro: string, author: string | null, original: string, network: Channel = "instagram") =>
+  `${intro.trim()}\n\nFoto og tekst: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
+/** An event's post on Instagram: its words, and where to read more (Instagram has no links in the text). */
+export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).`;
 
 async function shareIntro(env: SagaEnv, deps: SagaDeps, post: TaggedPost): Promise<string> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return plainShareText(post.author);
@@ -173,7 +188,11 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
   try {
     const { page, instagram } = await access(env, account);
     found.push(...await taggedOnFacebook(deps.fetcher, page).catch(error => { problems.push(`Facebook: ${error instanceof Error ? error.message : error}`); return []; }));
-    if (instagram) found.push(...await taggedOnInstagram(deps.fetcher, instagram).catch(error => { problems.push(`Instagram: ${error instanceof Error ? error.message : error}`); return []; }));
+    // Reading Instagram's tags needs instagram_manage_comments (not instagram_business_manage_comments, which belongs to Instagram's own login): a refusal is noted plainly.
+    if (instagram) found.push(...await taggedOnInstagram(deps.fetcher, instagram).catch(error => {
+      problems.push(/permission|\(#10\)|\(#200\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Instagram-tags kan ikke læses: appen mangler tilladelsen instagram_manage_comments (ikke instagram_business_manage_comments)" : `Instagram: ${error instanceof Error ? error.message : error}`);
+      return [];
+    }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }
   await db.prepare("UPDATE social_account SET checked_at_ms = ?, check_error = ? WHERE id = 1").bind(now, problems.join(" · ").slice(0, 500) || null).run().catch(() => undefined);
   // Only what was posted after the page was connected: the first look does not bring up years of old tags.
@@ -183,18 +202,36 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
   const fresh = found.filter(p => !known.has(`${p.network}:${p.id}`)).slice(0, 10);
   if (!fresh.length) return 0;
   const ready = await prReadyNames(db);
-  let made = 0;
+  // "Delt d. <dato>": what Hjerterum has already shared, by hand or otherwise - on Facebook the post itself, on Instagram a post naming its maker.
+  const { page: ownPage, instagram: ownIg } = await access(env, account);
+  const ownPosts = await pagePosts(deps.fetcher, ownPage).catch(() => []);
+  const ownMedia = ownIg && fresh.some(p => p.network === "instagram") ? await ownInstagramMedia(deps.fetcher, ownIg).catch(() => []) : [];
+  const sharedAt = (post: TaggedPost): number | null => {
+    const times = post.network === "facebook"
+      ? ownPosts.filter(o => o.createdMs >= post.createdMs && o.refs.some(r => r === post.id || r.endsWith(`_${post.id.split("_").pop()}`) || (post.permalink && r.replace(/\/$/, "") === post.permalink.replace(/\/$/, "")))).map(o => o.createdMs)
+      : post.author ? ownMedia.filter(m => m.createdMs >= post.createdMs && m.caption.toLowerCase().includes(`@${post.author!.replace(/^@/, "").toLowerCase()}`)).map(m => m.createdMs) : [];
+    return times.length ? Math.min(...times) : null;
+  };
+  let made = 0, waiting = 0;
   for (const post of fresh) {
     const intro = await shareIntro(env, deps, post);
     const consent = Boolean(post.author && ready.has(post.author.trim().toLowerCase()));
-    // Facebook: shared as a link to the post. Instagram: published again (photos only), with its maker named.
-    const instagramOk = post.network === "instagram" && (post.media === "image" || post.media === "carousel") && Boolean(account.ig_user_id);
-    const channels: Channel[] = post.network === "facebook" ? ["facebook"] : instagramOk ? ["instagram"] : ["facebook"];
-    const source: ShareSource & { instagramText?: string } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
-      media: post.media, createdMs: post.createdMs, consent, ...(post.network === "instagram" ? { instagramText: instagramShareText(intro, post.author, post.text) } : {}) };
-    if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) made++;
+    // Requested: "Jeg vil rigtig gerne kunne dele simultant på begge medier, når som helst det er muligt." Facebook: shared as a link to the post.
+    // Instagram: its photos published again with its maker named - also a Facebook post's picture. Both from the start, when both can be.
+    const instagramOk = (post.media === "image" || post.media === "carousel") && post.images.length > 0 && Boolean(account.ig_user_id);
+    const channels: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
+    const shared = sharedAt(post);
+    const source: ShareSource & { instagramText?: string; collaborators?: string[] } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
+      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(instagramOk ? { instagramText: instagramShareText(intro, post.author, post.text, post.network),
+        // The one who made it is invited as collaborator on Hjerterum's post of it.
+        collaborators: post.network === "instagram" ? [instagramName(post.author)].filter((n): n is string => Boolean(n)) : [] } : {}) };
+    if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) {
+      made++;
+      if (!shared) waiting++;
+    }
   }
-  if (made) await tellChair(env, deps, `${made === 1 ? "Ét nyt opslag" : `${made} nye opslag`} har tagget Hjerterum. Se dem og del dem her: ${cockpitUrl(env)}/pr`);
+  // Only what has not been shared already is news for the chair.
+  if (waiting) await tellChair(env, deps, `${waiting === 1 ? "Ét nyt opslag" : `${waiting} nye opslag`} har tagget Hjerterum. Se dem og del dem her: ${cockpitUrl(env)}/pr`);
   return made;
 }
 
@@ -204,7 +241,14 @@ const WEEK_SYSTEM = `Du skriver Hjerterums opslag på Facebook og Instagram (Hje
 Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: {"uge": "...", "events": {"E1": "..."}}
 - "uge": 1-2 korte, varme sætninger (højst 35 ord), der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
 - "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår (ugedag og "kl. TT.MM", som de står i feltet "hvornaar" - aldrig en dato). Linket til eventet sættes på af systemet, så skriv ingen adresse.
-Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn. Skriv på dansk.`;
+Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn.
+Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
+- Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
+- Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."
+- Dansk kommatering: intet komma foran "med", "og" eller "i", som man ville sætte det på engelsk.
+- Ingen stive vendinger som "X leder den", "X faciliterer" eller "Oplev ...". Skriv fx "Marianne guider dig", "Kom med Marianne" eller "Marianne inviterer til".
+- Kun underviserens fornavn.
+Et eksempel på tonen (efterlign ikke ordene): "Lørdag kl. 13.00 inviterer Marianne til fire timers aurabalancering. Der er ro og nærvær og plads til bare at være."`;
 
 type WeekWords = { intro: string; events: Record<string, string> };
 
@@ -229,37 +273,152 @@ export async function weekEvents(db: D1Database, monday: string, fetcher?: typeo
   return [...byKey.values()].filter(e => e.startsMs >= from && e.startsMs < to).sort((a, b) => a.startsMs - b.startsMs);
 }
 
+/** Requested (Gitta, 3 Nov 2026, the chair: "Ja"): invite the teachers as "samarbejdspartner" - the Instagram names they gave in their PR material
+ * (with their consent), for the events' teachers in order, at most three (Instagram's limit). */
+export async function instagramNames(db: D1Database, hosts: Array<string | null>): Promise<string[]> {
+  const names = [...new Set(hosts.map(h => (h ?? "").trim().toLowerCase()).filter(Boolean))];
+  if (!names.length) return [];
+  const rows = await db.prepare(`SELECT lower(trim(n.name)) AS name, m.quotes_json FROM pr_material m
+      JOIN (SELECT clerk_user_id, teacher_name AS name FROM room_bookings UNION SELECT clerk_user_id, full_name FROM members
+        UNION SELECT clerk_user_id, json_extract(draft_json, '$.name') FROM public_profiles) n ON n.clerk_user_id = m.clerk_user_id
+      WHERE m.consent_at_ms IS NOT NULL AND m.withdrawn_at_ms IS NULL AND lower(trim(n.name)) IN (SELECT value FROM json_each(?))`).bind(JSON.stringify(names))
+    .all<{ name: string; quotes_json: string }>().then(r => r.results ?? []).catch(() => []);
+  const byName = new Map<string, string>();
+  for (const r of rows) { const ig = instagramName(parse<{ instagram?: string }>(r.quotes_json, {}).instagram); if (ig && !byName.has(r.name)) byName.set(r.name, ig); }
+  return [...new Set(names.map(n => byName.get(n)).filter((n): n is string => Boolean(n)))].slice(0, 3);
+}
+
 /** The board's PR wishes for events (Admin → Events): an event someone wished for is shown first. */
 async function wishedKeys(db: D1Database): Promise<Set<string>> {
   const rows = await db.prepare("SELECT DISTINCT event_id FROM event_pr_wishes WHERE done_at_ms IS NULL").all<{ event_id: string }>().then(r => r.results ?? []).catch(() => []);
   return new Set(rows.flatMap(r => [`mw:${r.event_id}`, `hr:${r.event_id}`]));
 }
 
-/** Plans the week that starts on `monday`: "Ugens events" (Facebook and, with pictures, Instagram) on Monday morning, and 7-10 events with
- * their own little post on Facebook. Only what is not planned yet is added, so planning again keeps the chair's changes. Returns how many were made. */
-export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, monday: string): Promise<{ made: number; events: number }> {
+/** Plans the week that starts on `monday`: "Ugens events" (Facebook and, with pictures, Instagram) on Monday afternoon, and every event of the week with
+ * its own little post on Facebook ("alle events deles mindst én gang"). Only what is not planned yet is added - so planning again keeps the chair's
+ * changes and skips, and Saga only writes words for the new events. With onlyNew, a week that has not been planned is left alone.
+ * Returns how many posts were made, how many events the week has, and how many of them were new. */
+export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, monday: string,
+  options: { onlyNew?: boolean; eventsOnly?: boolean; titles?: Set<string> } = {}): Promise<{ made: number; events: number; fresh: number }> {
   const now = deps.now(), week = weekKey(monday);
+  // With eventsOnly (Saga's proposals for every event as soon as it is in the calendar), "Ugens events" is left for Thursday's plan.
+  const planned = options.eventsOnly || Boolean(await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null));
+  if (options.onlyNew && !planned) return { made: 0, events: 0, fresh: 0 };
   const events = await weekEvents(db, monday, deps.fetcher);
-  if (!events.length) return { made: 0, events: 0 };
-  const chosen = pickWeekEvents(events, await wishedKeys(db));
-  const words = await weekWords(env, deps, chosen);
+  if (!events.length) return { made: 0, events: 0, fresh: 0 };
+  const chosen = pickWeekEvents(events, await wishedKeys(db), EVERY_EVENT);
+  const existing = await db.prepare("SELECT source_key, publish_at_ms FROM social_posts WHERE week = ? AND kind = 'event'").bind(week)
+    .all<{ source_key: string; publish_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
+  const known = new Set(existing.map(r => r.source_key));
+  // An event that begins within two hours is not given a post it could not get in time.
+  const fresh = chosen.filter(e => !known.has(`event:${week}:${e.key}`) && e.startsMs > now + 2 * 3_600_000);
+  // A title already told about in an earlier week (a class that comes back) is told about again in the week before, not at once.
+  const titles = options.titles ?? new Set<string>();
+  const earliest = fresh.map(e => titles.has(titleKey(e)) ? e.startsMs - REPEAT_LEAD_MS : 0);
+  for (const e of chosen) titles.add(titleKey(e));
+  if (planned && !fresh.length) return { made: 0, events: chosen.length, fresh: 0 };
+  const words = await weekWords(env, deps, fresh);
   const account = await socialAccount(db);
   const notBefore = now + 30 * MINUTE;
   let made = 0;
-  // "Ugens events": every event of the week in the list; on Instagram a carousel of up to ten of the chosen events' pictures.
-  const listed = pickWeekEvents(events, new Set(), 30);
-  const pictures = [...new Set(chosen.map(e => e.imageUrl).filter((u): u is string => Boolean(u)))].slice(0, 10);
-  const instagram = Boolean(account?.ig_user_id) && pictures.length > 0;
   const eventSource = (e: NewsletterEvent): EventSource => ({ key: e.key, title: e.title, startsMs: e.startsMs, host: e.host });
-  if (await insertPost(db, { kind: "week", sourceKey: `week:${week}`, week, channels: instagram ? ["facebook", "instagram"] : ["facebook"],
-    text: weekText(week, words.intro, listed, "facebook"), link: `${SITE}/events`, images: pictures,
-    source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource) }, publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
-  const times = eventPostTimes(chosen, notBefore);
-  for (const [i, e] of chosen.entries()) {
-    if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: ["facebook"], text: words.events[`E${i + 1}`] ?? plainEventText(e),
-      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: eventSource(e), publishAtMs: times[i]! }, now)) made++;
+  if (!planned) {
+    // "Ugens events": every event of the week in the list; on Instagram a carousel of up to ten of the week's pictures, the most worth telling first.
+    const listed = pickWeekEvents(events, new Set(), 30);
+    const pictures = [...new Set(pickWeekEvents(events, await wishedKeys(db)).map(e => e.imageUrl).filter((u): u is string => Boolean(u)))].slice(0, 10);
+    const instagram = Boolean(account?.ig_user_id) && pictures.length > 0;
+    if (await insertPost(db, { kind: "week", sourceKey: `week:${week}`, week, channels: instagram ? ["facebook", "instagram"] : ["facebook"],
+      text: weekText(week, words.intro, listed, "facebook"), link: `${SITE}/events`, images: pictures,
+      source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.host)) },
+      publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   }
-  return { made, events: chosen.length };
+  const times = eventPostTimes(fresh, notBefore, await takenSlots(db, now), earliest);
+  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now));
+  for (const [i, e] of fresh.entries()) {
+    // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
+    const text = words.events[`E${i + 1}`] ?? plainEventText(e);
+    const both = Boolean(account?.ig_user_id && e.imageUrl);
+    if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text,
+      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
+      publishAtMs: times[i]! }, now)) made++;
+  }
+  return { made, events: chosen.length, fresh: fresh.length };
+}
+
+const titleKey = (e: Pick<NewsletterEvent, "title">) => listTitle(e.title).toLocaleLowerCase("da-DK");
+
+/** The times already taken by an event's post (any week - a post now goes out as soon as may be, not in its event's week). */
+async function takenSlots(db: D1Database, nowMs: number): Promise<number[]> {
+  return db.prepare("SELECT publish_at_ms FROM social_posts WHERE kind = 'event' AND publish_at_ms >= ? AND status IN ('draft', 'approved', 'publishing', 'published')").bind(nowMs - 86_400_000)
+    .all<{ publish_at_ms: number }>().then(r => (r.results ?? []).map(x => x.publish_at_ms)).catch(() => []);
+}
+
+/** The times already taken on Instagram by an event's post. */
+async function instagramSlots(db: D1Database, nowMs: number): Promise<number[]> {
+  return db.prepare(`SELECT coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms) AS at FROM social_posts WHERE kind = 'event' AND channels LIKE '%instagram%'
+      AND coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms) >= ? AND status IN ('draft', 'approved', 'publishing', 'published')`).bind(nowMs - 86_400_000)
+    .all<{ at: number }>().then(r => (r.results ?? []).map(x => x.at)).catch(() => []);
+}
+
+/** How far ahead Saga proposes posts for the calendar's events (the same six weeks as PR og SoMe → Events). */
+export const PROPOSE_WEEKS = 6;
+
+/** Requested (the chair, 3 Nov 2026): "Saga kommer med forslag til samtlige events, der bliver skeduleret" and "hurtigst muligt". Every hour: every
+ * event of the next six weeks that has no post yet gets Saga's proposal, to go out in the first free slot (a class that comes back: in the week before),
+ * and the chair is told. The first time, the drafts nobody has touched are moved from the day before to as soon as may be. */
+export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const now = deps.now();
+  if (!(await socialAccount(db))) return 0;
+  if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
+  if (await claimJob(db, "social_balance_retime", 0, now)) { await retimeUntouched(db, now); await addInstagram(db, now); }
+  if (await claimJob(db, "social_instagram_times", 0, now)) await instagramOwnTimes(db, now);
+  let fresh = 0;
+  const titles = new Set<string>();
+  for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
+    fresh += (await planWeek(env, deps, db, monday, { eventsOnly: true, titles })).fresh;
+  if (fresh) await tellChair(env, deps, `Saga har lavet ${fresh === 1 ? "et forslag til et opslag om et nyt event" : `forslag til opslag om ${fresh} nye events`}. Se ${fresh === 1 ? "det" : "dem"} i PR-kalenderen, og godkend: ${cockpitUrl(env)}/pr/kalender`);
+  return fresh;
+}
+
+/** Once: the event drafts with a picture made before Instagram was connected go on Instagram too (asked: "hvorfor bliver Instagram stort set ikke
+ * inkluderet?"). Only drafts nobody has changed. */
+async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
+  if (!(await socialAccount(db))?.ig_user_id) return;
+  const drafts = await socialPosts(db, "kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND images <> '[]' AND channels = '[\"facebook\"]' AND publish_at_ms > ?", [nowMs], "publish_at_ms, id", 500);
+  for (const p of drafts) {
+    const source = { ...p.source, instagramText: p.source.instagramText || instagramEventText(p.text), collaborators: p.source.collaborators ?? await instagramNames(db, [p.source.host ?? null]) };
+    await db.prepare("UPDATE social_posts SET channels = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify(["facebook", "instagram"]), JSON.stringify(source), p.id).run();
+  }
+}
+
+/** Once: the event drafts on Instagram nobody has changed get Instagram's own time. */
+async function instagramOwnTimes(db: D1Database, nowMs: number): Promise<void> {
+  const drafts = (await socialPosts(db, "kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND channels LIKE '%instagram%' AND publish_at_ms > ? AND json_extract(source, '$.instagramAtMs') IS NULL", [nowMs], "publish_at_ms, id", 500))
+    .filter(p => p.source.startsMs);
+  if (!drafts.length) return;
+  const events = drafts.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
+  const times = instagramPostTimes(events, drafts.map(p => p.publish_at_ms!), nowMs + 30 * MINUTE, await instagramSlots(db, nowMs).then(all => {
+    const own = new Set(drafts.map(p => p.publish_at_ms!)); return all.filter(t => !own.has(t)); }));
+  for (const [i, p] of drafts.entries()) if (times[i] !== p.publish_at_ms)
+    await db.prepare("UPDATE social_posts SET source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(JSON.stringify({ ...p.source, instagramAtMs: times[i] }), p.id).run();
+}
+
+/** Once: the event drafts nobody has changed are given their time again by the rule of now (soon, and evenly over the days). */
+async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
+  const rows = await db.prepare(`SELECT id, publish_at_ms, json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts
+      WHERE kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms AND publish_at_ms > ? ORDER BY starts`).bind(nowMs)
+    .all<{ id: number; publish_at_ms: number; title: string | null; starts: number | null }>().then(r => r.results ?? []).catch(() => []);
+  const movable = rows.filter(r => r.starts);
+  if (!movable.length) return;
+  const ids = new Set(movable.map(r => r.id));
+  const taken = (await db.prepare("SELECT id, publish_at_ms FROM social_posts WHERE kind = 'event' AND publish_at_ms >= ? AND status IN ('draft', 'approved', 'publishing', 'published')").bind(nowMs - 86_400_000)
+    .all<{ id: number; publish_at_ms: number }>().then(r => r.results ?? []).catch(() => [])).filter(r => !ids.has(r.id)).map(r => r.publish_at_ms);
+  const titles = new Set<string>();
+  const events = movable.map(r => ({ title: r.title ?? "", startsMs: r.starts! }) as NewsletterEvent);
+  const earliest = events.map(e => { const k = titleKey(e), seen = titles.has(k); titles.add(k); return seen ? e.startsMs - REPEAT_LEAD_MS : 0; });
+  const times = eventPostTimes(events, nowMs + 30 * MINUTE, taken, earliest);
+  for (const [i, r] of movable.entries()) if (times[i]! !== r.publish_at_ms)
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(times[i], r.id).run();
 }
 
 /** Thursday from 10.00: next week is planned (once), and the chair is told. */
@@ -272,11 +431,14 @@ export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Da
   // Tried at most once an hour - a week with nothing in the calendar yet is tried again later.
   if (!(await claimJob(db, `social_week_plan:${week}`, Math.floor(now / 3_600_000) * 3_600_000, now))) return false;
   const { made, events } = await planWeek(env, deps, db, monday);
-  if (made) await tellChair(env, deps, `Ugens opslag for uge ${Number(week.slice(6))} er klar: "Ugens events" og ${events} events med hvert sit lille opslag på Facebook. Læs dem, ret dem og godkend ugen her: ${cockpitUrl(env)}/pr`);
+  if (made) await tellChair(env, deps, `"Ugens events" for uge ${Number(week.slice(6))} er klar (ugens ${events} events har hvert sit opslag). Læs det, ret det og godkend her: ${cockpitUrl(env)}/pr/uge`);
   return made > 0;
 }
 
 // ---- Publishing ----
+
+/** Instagram is still working on a reel's video: the post waits for the next round. */
+export class ReelPending extends Error { constructor() { super("reel_pending"); } }
 
 /** One approved post goes out: on each of its channels that it has not gone out on yet. */
 export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<void> {
@@ -286,14 +448,32 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
   const done = { ...post.published };
   try {
     for (const channel of post.channels) {
-      if (done[channel]) continue;
-      if (channel === "facebook") done.facebook = await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
+      if (done[channel] || dueAt(post, channel) > deps.now()) continue;
+      if (channel === "facebook") done.facebook = post.source.design && post.images[0]
+        ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: post.link ? `${post.text}\n\n${post.link}` : post.text })
+        : await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
+        if (post.source.format === "reel") {
+          // "Ugens events" as a reel: Instagram processes the video between Saga's rounds.
+          if (!post.source.video) throw new Error("Reelen har ingen video");
+          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption: post.text, collaborators: post.source.collaborators ?? [] });
+          await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
+          const status = await reelStatus(deps.fetcher, instagram.token, done.instagram_container);
+          if (status === "ERROR" || status === "EXPIRED") { delete done.instagram_container; throw new Error(`Instagram kunne ikke behandle videoen (${status})`); }
+          if (status !== "FINISHED") throw new ReelPending();
+          done.instagram = await finishReel(deps.fetcher, instagram, done.instagram_container);
+          await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
+          continue;
+        }
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
           ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
-        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || post.text, images });
+        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || (post.kind === "event" ? instagramEventText(post.text) : post.text), images,
+          collaborators: post.source.collaborators ?? [] }).catch(error => {
+          // Instagram takes only jpg pictures.
+          throw /format|image.*(type|jpeg)|2207/i.test(error instanceof Error ? error.message : String(error)) ? new Error("Instagram kunne ikke bruge billedet (Instagram tager kun jpg). Facebook-delen er sendt; fjern Instagram og godkend igen, eller lav et design.") : error;
+        });
       }
       // Kept at once: a retry never posts the same thing twice on a channel it already reached.
       await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
@@ -302,32 +482,72 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
     await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run().catch(() => undefined);
     throw error;
   }
-  await db.prepare("UPDATE social_posts SET status = 'published', published_at_ms = ?, error = NULL, updated_at_ms = ? WHERE id = ?").bind(deps.now(), deps.now(), post.id).run();
+  // Everything out: published. Instagram (or Facebook) still to come at its own time: approved, with what is out kept.
+  const all = post.channels.every(c => done[c]);
+  await db.prepare(`UPDATE social_posts SET status = ?, ${all ? "published_at_ms = ?," : ""} error = NULL, updated_at_ms = ? WHERE id = ?`).bind(...[all ? "published" : "approved", ...(all ? [deps.now()] : []), deps.now(), post.id]).run();
+}
+
+/** When a post goes out on a medium: Instagram at its own time, when it has one. */
+export const dueAt = (post: Pick<SocialPost, "publish_at_ms" | "source">, channel: Channel): number =>
+  (channel === "instagram" ? post.source.instagramAtMs ?? post.publish_at_ms : post.publish_at_ms) ?? Infinity;
+/** The first time anything of the post is due (on a medium it has not reached). */
+export const firstDue = (post: Pick<SocialPost, "publish_at_ms" | "source" | "channels" | "published">): number =>
+  Math.min(...post.channels.filter(c => !post.published[c]).map(c => dueAt(post, c)), Infinity);
+
+/** Whether an event is still in the calendar: a cancelled or removed one never gets its post. */
+async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
+  const [source, id] = [key.slice(0, 3), key.slice(3)];
+  // The calendar's events: only one that is known and removed is off (some are only in the membership system's list, never stored).
+  if (source === "mw:") return !(await db.prepare("SELECT 1 AS yes FROM house_events WHERE id = ? AND removed_at_ms IS NOT NULL").bind(id).first().catch(() => null));
+  if (source === "hr:") return Boolean(await db.prepare("SELECT 1 AS yes FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(Number(id)).first().catch(() => ({ yes: 1 })));
+  return true;
 }
 
 /** Every round: the approved posts whose time has come go out, each once. An event's post whose event has begun is not sent late. */
 export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
-  const now = deps.now();
-  const due = await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [now], "publish_at_ms, id", 5);
+  const due = await socialPosts(db, "status = 'approved' AND (publish_at_ms <= ? OR json_extract(source, '$.instagramAtMs') <= ?)", [deps.now(), deps.now()], "publish_at_ms, id", 5);
   let sent = 0;
-  for (const post of due) {
-    if (post.kind === "event" && post.source.startsMs && post.source.startsMs <= now) {
-      await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet var begyndt, før opslaget skulle ud", now, post.id).run();
-      continue;
-    }
-    // Claimed first, so two rounds never send the same post.
-    const claimed = await db.prepare("UPDATE social_posts SET status = 'publishing', updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, post.id).run();
-    if (Number(claimed.meta?.changes ?? 0) !== 1) continue;
-    try {
-      await publishPost(env, deps, db, post);
-      sent++;
-    } catch (error) {
-      const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
-      await db.prepare("UPDATE social_posts SET status = 'failed', error = ?, updated_at_ms = ? WHERE id = ?").bind(message, deps.now(), post.id).run();
-      await tellChair(env, deps, `Et opslag kunne ikke komme ud (${post.kind === "share" ? "deling" : post.kind === "week" ? "Ugens events" : "event"}): ${message.slice(0, 200)}. Se ${cockpitUrl(env)}/pr`);
-    }
-  }
+  for (const post of due) if (await publishOne(env, deps, db, post)) sent++;
   return sent;
+}
+
+/** One approved post out now, once: skipped when its event is cancelled or has begun; a failure is kept with its reason, and the chair is told.
+ * Asked (the chair, 3 Nov 2026): "Hvorfor skal der gå så lang tid?" - a post approved for "nu" goes out at once from the cockpit, not in Saga's next
+ * round (every ten minutes). Returns whether it went out. */
+export async function publishOne(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<boolean> {
+  const now = deps.now();
+  if (post.status !== "approved" || firstDue(post) > now) return false;
+  if (post.kind === "event" && post.source.key && !(await eventStillOn(db, post.source.key))) {
+    await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ?").bind("Eventet er aflyst eller fjernet fra kalenderen", now, post.id).run();
+    return false;
+  }
+  if (post.kind === "event" && post.source.startsMs && post.source.startsMs <= now) {
+    // Out on one medium already: kept as published, with why the other did not follow.
+    const some = Object.keys(post.published).some(k => k === "facebook" || k === "instagram");
+    await db.prepare(`UPDATE social_posts SET status = ?, error = ?, ${some ? "published_at_ms = coalesce(published_at_ms, ?)," : ""} updated_at_ms = ? WHERE id = ?`)
+      .bind(...[some ? "published" : "skipped", some ? "Eventet var begyndt, før det skulle ud på det andet medie" : "Eventet var begyndt, før opslaget skulle ud", ...(some ? [now] : []), now, post.id]).run();
+    return false;
+  }
+  // Claimed first, so two rounds (or a round and the cockpit) never send the same post.
+  const claimed = await db.prepare("UPDATE social_posts SET status = 'publishing', updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, post.id).run();
+  if (Number(claimed.meta?.changes ?? 0) !== 1) return false;
+  try {
+    await publishPost(env, deps, db, post);
+    return true;
+  } catch (error) {
+    if (error instanceof ReelPending) {
+      // Tried again in the next round, at most for six hours.
+      if (deps.now() - (post.publish_at_ms ?? deps.now()) < 6 * 3_600_000) {
+        await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE id = ?").bind(deps.now(), post.id).run();
+        return false;
+      }
+      error = new Error("Instagram blev ikke færdig med videoen inden for seks timer");
+    }
+    const message = (error instanceof Error ? error.message : String(error)).slice(0, 500);
+    await db.prepare("UPDATE social_posts SET status = 'failed', error = ?, updated_at_ms = ? WHERE id = ?").bind(message, deps.now(), post.id).run();
+    await tellChair(env, deps, `Et opslag kunne ikke komme ud (${post.kind === "share" ? "deling" : post.kind === "week" ? "Ugens events" : "event"}): ${message.slice(0, 200)}. Se ${cockpitUrl(env)}/pr`);
+    return false;
+  }
 }
 
 /** A post stuck in "publishing" (the run stopped halfway) is tried again: what reached a channel is kept, so nothing goes out twice. */
@@ -345,6 +565,21 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
     await scanTags(env, deps, db).catch(error => console.warn("social_tags_failed", error instanceof Error ? error.message : error));
   await scheduledWeekPlan(env, deps, db).catch(error => console.warn("social_week_plan_failed", error instanceof Error ? error.message : error));
+  await topUpWeeks(env, deps, db).catch(error => console.warn("social_top_up_failed", error instanceof Error ? error.message : error));
+  await countFollowers(env, deps, db).catch(error => console.warn("social_stats_failed", error instanceof Error ? error.message : error));
+}
+
+/** Once a day: Hjerterum's followers on Facebook and Instagram, for the month's insight on PR og SoMe (cockpit/prInsight.ts). */
+export async function countFollowers(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<boolean> {
+  const now = deps.now(), day = dateOf(now);
+  const account = await socialAccount(db);
+  if (!account || !(await claimJob(db, `social_stats:${day}`, 0, now))) return false;
+  const { page, instagram } = await access(env, account);
+  const counts = await followerCounts(deps.fetcher, page, instagram);
+  await db.prepare(`INSERT INTO social_stats (day, fb_followers, ig_followers, ig_media, at_ms) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(day) DO UPDATE SET fb_followers = excluded.fb_followers, ig_followers = excluded.ig_followers, ig_media = excluded.ig_media, at_ms = excluded.at_ms`)
+    .bind(day, counts.fb, counts.ig, counts.igMedia, now).run();
+  return true;
 }
 
 const cockpitUrl = (env: SagaEnv) => (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
@@ -356,3 +591,19 @@ async function tellChair(env: SagaEnv, deps: SagaDeps, text: string): Promise<vo
 }
 
 export { mondayOf, nextMonday, weekKey };
+
+/** Requested (the chair, 3 Nov 2026): "I forhold til designskabelonerne skal vi kun bruge dem til sociale medier, og derfor er hele tanken, at jeg kan generere et
+ * design til et social media-post." The open post of an event (draft, approved or failed - not one that has gone out), for Plakater og opslag. */
+export async function eventPost(db: D1Database, key: string): Promise<SocialPost | null> {
+  const [post] = await socialPosts(db, "kind = 'event' AND json_extract(source, '$.key') = ? AND status IN ('draft', 'approved', 'failed')", [key], "publish_at_ms DESC, id DESC", 1);
+  return post ?? null;
+}
+
+/** The design becomes the post's picture (on Facebook and Instagram); a changed post is a draft again, for the chair to approve. */
+export async function setPostDesign(db: D1Database, postId: number, url: string, nowMs: number): Promise<boolean> {
+  const post = await socialPost(db, postId);
+  if (!post || !["draft", "approved", "failed"].includes(post.status)) return false;
+  await db.prepare("UPDATE social_posts SET images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
+    .bind(JSON.stringify([url]), JSON.stringify({ ...post.source, design: true }), nowMs, postId).run();
+  return true;
+}

@@ -1,3 +1,4 @@
+import { plainLine } from "../site/event-links.js";
 import type { D1Database } from "./db.js";
 import { designUrl } from "./event-designs.js";
 import { eventDetail } from "./event-detail.js";
@@ -35,7 +36,7 @@ export async function eventMeta(db: D1Database | undefined, id: string, fetcher:
   const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
   if (!detail) return null;
   return { title: detail.title, url: `${SITE}/events/${id}`, image: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : `${SITE}/media/hjerterum-deling.jpg`,
-    description: short(`${when(detail.startsAt)} i Hjerterum, Aarhus${detail.host ? ` · med ${detail.host}` : ""}. ${detail.paragraphs.join(" ")}`, 300) };
+    description: short(`${when(detail.startsAt)} i Hjerterum, Aarhus${detail.host ? ` · med ${detail.host}` : ""}. ${detail.paragraphs.map(plainLine).join(" ")}`, 300) };
 }
 
 const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

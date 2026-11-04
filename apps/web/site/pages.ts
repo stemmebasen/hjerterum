@@ -48,7 +48,7 @@ export const NAV: Array<{ section: Section; label: string; href: string; sub?: b
 /** Requested: "English skal stå på en anden måde så det ikke fylder i menuen" - a small language switch beside the menu. */
 /** Then (Douglas' notes, 2 November 2026): "Translate button, but not English pages" - "Browserens oversættelse". No English pages of our own any more:
  * the button has Google translate the page the reader is on. */
-export const ENGLISH = { label: "EN", title: "Read this page in English (Google Translate)" };
+export const ENGLISH = { label: "EN", title: "Read this page in English (Google Translate)", back: "DA", backTitle: "Vis siden på dansk" };
 export const translateUrl = (pageUrl: string) => `https://translate.google.com/translate?sl=da&tl=en&u=${encodeURIComponent(pageUrl)}`;
 /** Requested: "relevante links i footeren": Handelsbetingelser, Privatlivspolitik, Cookies, © Hjerterum F.M.B.A. and the version. */
 export const LEGAL_LINKS = [
@@ -189,7 +189,7 @@ const pages: SitePage[] = [
     body: `{{events}}
 
 ## Tilmelding
-De fleste events tilmelder du dig direkte her på siden. Kan du ikke tilmelde dig et event, er der enten ikke flere pladser, eller også sker tilmeldingen et andet sted – fx pr. mail eller via et link til arrangørens egen side.
+De fleste events kan du tilmelde dig fra denne side. Kan du ikke tilmelde dig et event, er der enten ikke flere pladser, eller også sker tilmeldingen et andet sted – fx pr. mail eller via et link til arrangørens egen side.
 
 Som medlem deltager du til rabatpris og ofte helt gratis. [Læs om medlemskab](/medlemskab).
 
@@ -422,7 +422,7 @@ Fast pris efter bookingens varighed.
 > **Kun for medlemmer:** B) Reduceret pris – med medlemsrabat og C) Gratis leje kræver, at du selv er betalende medlem af Hjerterum. I de tilfælde opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
 
 ### B) Reduceret pris – med medlemsrabat
-Til events, hvor medlemmer betaler mindre end ikke-medlemmer.
+Til events, hvor medlemmer betaler mindre end ikke-medlemmer for at deltage.
 
 | | B-tid: hverdage før kl. 18.30 | A-tid: hverdage efter kl. 18.30 og weekend |
 |---|---|---|

@@ -1,3 +1,4 @@
+import { linkParts, plainLine } from "../site/event-links";
 import { useEffect, useState, type ReactNode } from "react";
 import { teacherFor, type SiteProfile } from "./public-profiles";
 import { journeyUrl, mapUrl } from "./event-way";
@@ -80,9 +81,9 @@ export const eventPagePath = (id: string): string | null => { const m = /^SF([0-
 function Line({ text }: { text: string }) {
   if (/^[-–—_*\s]{3,}$/.test(text)) return <hr className="event-rule" />;
   if (text.length <= 48 && /:$/.test(text)) return <h3 className="event-subhead">{text.slice(0, -1)}</h3>;
-  const parts = text.split(/(https?:\/\/[^\s<>"]+)/g);
+  // Links from the old system keep their address (site/event-links.ts); bare addresses become links as before.
   return <p className={text.startsWith("• ") ? "event-bullet" : undefined}>
-    {parts.map((part, i) => /^https?:\/\//.test(part) ? <a key={i} href={part} target="_blank" rel="noreferrer nofollow">{part.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</a> : part)}
+    {linkParts(text).map((part, i) => part.href ? <a key={i} href={part.href} {...(part.href.startsWith("mailto:") ? {} : { target: "_blank", rel: "noreferrer nofollow" })}>{part.text}</a> : part.text)}
   </p>;
 }
 
@@ -103,7 +104,7 @@ function Share({ title }: { title: string }) {
     <button type="button" onClick={() => void share()}>{copied ? "Linket er kopieret" : "Kopiér link"}</button>
     <a href={FACEBOOK} target="_blank" rel="noreferrer">Følg Hjerterum på Facebook</a>
     {/* Reported: "Man kan i øvrigt lave et opslag til instagram med forskellige layouts. Det er en fejl - disse layout muligheder er jo ikke til den
-        almindelige bruger". The posters (/plakat/<id>) are for the organiser, from their own event in the member area - not on the public page. */}
+        almindelige bruger". The posters are made by the chair in admin (Plakater og opslag) - not on the public page. */}
   </div>;
 }
 
@@ -147,7 +148,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
     if (!event) return;
     document.title = `${event.title} · Hjerterum`;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    if (meta) meta.content = (event.paragraphs.join(" ").slice(0, 160)) || event.title;
+    if (meta) meta.content = (event.paragraphs.map(plainLine).join(" ").slice(0, 160)) || event.title;
   }, [event]);
   // The host's own page, when they have a published visit card.
   const [profiles, setProfiles] = useState<SiteProfile[]>([]);

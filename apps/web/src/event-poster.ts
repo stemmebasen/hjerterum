@@ -2,7 +2,7 @@ import { TEMPLATES } from "./poster-templates";
 import type { PosterDesign } from "../site/poster-rules";
 /** Requested: "Kan du lave 2-3 forslag til event designs" and then "Vi skal have fem varianter systemet kan vælge mellem".
  * An event's poster for social media in five designs, drawn on a canvas in the house's colours and type (Hjerterum Lys).
- * The system picks the one that suits the event (chooseVariant); the others are a click away on /plakat/<id> (poster-page.tsx). */
+ * The system picks the one that suits the event (chooseVariant); the chair draws them all in admin, Plakater og opslag (poster-studio.tsx). */
 
 export type PosterEvent = {
   id: string;

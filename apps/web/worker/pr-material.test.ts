@@ -29,10 +29,10 @@ beforeEach(async () => {
 
 describe("a teacher's PR material", () => {
   it("keeps photos, quotes and consent - and stops showing the photos when consent is withdrawn", async () => {
-    expect(await (await material()).json()).toEqual({ photos: [], quotes: { facilitator: "", offering: "", participant: "", participantName: "" }, consentAt: null, withdrawnAt: null });
+    expect(await (await material()).json()).toEqual({ photos: [], quotes: { facilitator: "", offering: "", participant: "", participantName: "", instagram: "" }, consentAt: null, withdrawnAt: null });
     expect((await upload(png(800, 1200))).status).toBe(422);
     for (let i = 0; i < 3; i++) expect((await upload(png(1080, 1350))).status).toBe(201);
-    const quotes = { facilitator: "Anna holder rummet med stor ro.", offering: "Du går hjem med mere ro i kroppen.", participant: "Det bedste, jeg har gjort for mig selv i år.", participantName: "Mette" };
+    const quotes = { facilitator: "Anna holder rummet med stor ro.", offering: "Du går hjem med mere ro i kroppen.", participant: "Det bedste, jeg har gjort for mig selv i år.", participantName: "Mette", instagram: "" };
     let m = await (await material({ quotes, consent: true })).json() as { photos: Array<{ id: string; url: string }>; quotes: unknown; consentAt: number | null };
     expect(m.quotes).toEqual(quotes);
     expect(m.photos).toHaveLength(3);
@@ -83,5 +83,17 @@ describe("a teacher's PR material", () => {
     expect((await list())[0]).toMatchObject({ name: "Anna Andersen", pr: { photos: [expect.stringMatching(/^\/api\/pr-photos\/[0-9a-f-]{36}$/)], quotes: { offering: "Mere ro i kroppen." } } });
     await material({ consent: false });
     expect((await list())[0]).not.toHaveProperty("pr");
+  });
+});
+
+describe("the consent's words", () => {
+  it("are the chair's new, shorter ones from 4 November 2026, and each consent is shown with the words it was given to", async () => {
+    const { consentTextAt, PR_CONSENT_TEXT, PR_CONSENT_TEXT_V1 } = await import("../pr-material.js");
+    expect(PR_CONSENT_TEXT).toContain("nu og fremover");
+    expect(PR_CONSENT_TEXT).toContain("fælles opslag med andre events");
+    expect(PR_CONSENT_TEXT).toContain("trække samtykket tilbage");
+    expect(consentTextAt(Date.parse("2026-10-20T10:00:00Z"))).toBe(PR_CONSENT_TEXT_V1);
+    expect(consentTextAt(Date.parse("2026-11-04T10:00:00Z"))).toBe(PR_CONSENT_TEXT);
+    expect(consentTextAt(null)).toBe(PR_CONSENT_TEXT);
   });
 });

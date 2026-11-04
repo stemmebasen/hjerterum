@@ -45,12 +45,20 @@ import { boardPage, boardPosts, closePost, createPost, markSeen, reply, toMeetin
 import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, writeIssue } from "../newsletter.js";
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
-import { approveWeek, connectSocial, decidePost, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
+import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
+import { approveWeek, connectSocial, decidePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
+import { instagramName } from "../../pr-material.js";
+import { prPlanData } from "./prPlan.js";
+import { insightData } from "./prInsight.js";
+import { prEventsData } from "./prEvents.js";
+import { setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
+import { releaseForMeeting } from "../cirkler-reservations.js";
 import { isPrOwner, markPrDone, openPrWishes, prWishes, setPrWishes } from "./prWishes.js";
 import { prMaterialCard, prMaterialForTeacher, prReadyNames } from "./prMaterial.js";
 import { deleteText, renameText, savedText, savedTextPage, savedTexts, savedTextsCard } from "./savedTexts.js";
@@ -235,6 +243,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // (signed into the login, MEMBER_COOKIE). The plain name cookie only preselects the choice; it never decides who you are.
   const bound = personal || !shared ? null : await readSessionMember(env.COCKPIT_PASSWORD, jar.get(SESSION_COOKIE), jar.get(MEMBER_COOKIE));
   const who = personal ?? deputyName ?? (bound && (!members.names.length || members.names.includes(bound)) ? bound : null);
+  // Reported (3 Nov 2026): "Der er kun Posthus derinde, ikke PR og Some" - the menu is made on every page, also on those answered before the chair's
+  // powers further down (Overblik, Møder, Status): what the person may open is known as soon as we know who they are.
+  state.may = power => can(actorOf(who, personal, members.chair), power);
   // A deputy reads only: nothing is changed, created or voted on for them (deputies.ts).
   if (deputyName && request.method !== "GET" && request.method !== "HEAD" && !DEPUTY_POSTS.has(path)) {
     if (path.startsWith("/api/") || (request.headers.get("accept") ?? "").includes("application/json")) return answer({ error: "Som suppleant har du læseadgang." }, 403);
@@ -941,25 +952,33 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who) return redirect(`${base}/hvem`);
     if (!may("social.manage")) return denied("social.manage");
     const social = env as SocialEnv;
-    const back = (query = "", week?: string) => redirect(`${base}/pr${[week ? `uge=${week}` : "", query].filter(Boolean).join("&") ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
+    // Back to the tab the action belongs to (prPage.ts PR_TABS): a week's posts to Ugens opslag, a tagged post to Tagget i, the rest to Overblik.
+    const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
-    if (path === "/pr" && request.method === "GET") {
+    const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
+    if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
       const asked = url.searchParams.get("uge") ?? "";
-      const monday = [thisMonday, coming].includes(asked) ? asked : coming;
+      // Any of the calendar's weeks (an event's post is now proposed weeks ahead), else next week.
+      const ahead: string[] = []; for (let i = 0, m = thisMonday; i < CALENDAR_WEEKS; i++, m = nextMonday(Date.parse(`${m}T12:00:00Z`))) ahead.push(m);
+      const monday = ahead.includes(asked) ? asked : coming;
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
-        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags." };
+        "intet-nyt": "Ingen nye events at tilføje.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres." };
-      const page = prPage(base, who, { ready: metaReady(social), account: await socialAccount(db), shares: await waitingShares(db),
-        weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` }],
+      const account = await socialAccount(db);
+      const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
+        events: tab === "events" ? await prEventsData(db, now) : [],
+        ...(tab === "kalender" ? { calendar: await prCalendarData(db, now, url.searchParams.get("start")) } : {}),
+        weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
+          ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
-        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" });
+        notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
-      return html(page, 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:") });
+      return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
     }
     // Facebook Login: a state kept in a short cookie, so only the login this browser began can come back.
     if (path === "/pr/forbind" && request.method === "GET") {
@@ -991,7 +1010,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     }
     if (path === "/pr/tags") {
       await scanTags(social, deps, db).catch(() => 0);
-      return back("besked=tags");
+      return back("besked=tags", undefined, "/tagget");
     }
     const weekOf = (value: string) => [mondayOf(now), nextMonday(now)].includes(value) ? value : null;
     if (path === "/pr/uge/planlaeg") {
@@ -999,6 +1018,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!monday) return back();
       const { made, events } = await planWeek(social, deps, db, monday);
       return back(made ? "besked=planlagt" : events ? "besked=intet-nyt" : "fejl=tom", monday);
+    }
+    // From the Events tab (prEvents.ts): "Lav opslag" plans that event's week - or adds what is missing in it - within the six weeks shown.
+    if (path === "/pr/events/opslag") {
+      const monday = field("uge");
+      const first = mondayOf(now), last = mondayOf(now + 42 * 86_400_000);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(monday) || monday < first || monday > last || mondayOf(Date.parse(`${monday}T12:00:00Z`)) !== monday) return back("", undefined, "/events");
+      const { made, events } = await planWeek(social, deps, db, monday);
+      return back(made ? "besked=planlagt" : events ? "besked=intet-nyt" : "fejl=tom", undefined, "/events");
     }
     if (path === "/pr/uge/godkend") {
       const monday = weekOf(field("uge"));
@@ -1012,7 +1039,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const post = await socialPost(db, Number(postMatch[1]));
       if (!post) return back();
       const week = post.week ? weekOf(mondayOf(post.publish_at_ms ?? now)) ?? undefined : undefined;
-      const backHere = (query: string) => post.kind === "share" ? back(query) : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
+      const backHere = (query: string) => field("tilbage") === "events" ? back(query, undefined, "/events") : post.kind === "share" ? back(query, undefined, "/tagget") : back(query, [mondayOf(now), nextMonday(now)].find(m => weekKey(m) === post.week) ?? week);
       if (post.status === "published" || post.status === "publishing") return backHere("fejl=sendt");
       const action = field("do");
       if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }
@@ -1023,15 +1050,95 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         const atMs = form.has("at") ? fromLocalInput(field("at")) : undefined;
         await editPost(db, post.id, { text: field("text").replace(/\r\n?/g, "\n").trim().slice(0, 5000) || post.text,
           ...(form.has("instagram_text") ? { instagramText: field("instagram_text").replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
-          ...(post.kind === "event" ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}) }, now);
+          ...(form.has("collaborators") ? { collaborators: [...new Set(field("collaborators").split(/[,\s]+/).map(instagramName).filter((n): n is string => Boolean(n)))] } : {}),
+          ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}),
+          ...(form.has("instagram_at") ? { instagramAtMs: field("instagram_at") ? fromLocalInput(field("instagram_at")) : null } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);
         if (!decided) return backHere("fejl=kanaler");
         if (post.kind === "share") await audit(db, actor, "social.manage", `Delte ${post.source.author ?? "et"} opslag fra ${post.source.network === "instagram" ? "Instagram" : "Facebook"} videre`, now);
+        // A post whose time has come (a share, or one set to now) goes out at once.
+        if (firstDue(decided) <= now) await publishOne(social, deps, db, decided);
         return backHere(post.kind === "share" ? "besked=delt" : "besked=godkendt");
       }
       return backHere("besked=gemt");
+    }
+    return html(notFound(base, who), 404);
+  }
+  // Requested: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet" and "alt det materiale, der er lagt op i forbindelse
+  // med eventet, og også ... alt fra den pågældende underviser" (3 Nov 2026) - Events → Plakater og opslag (posterStudio.ts, src/poster-studio.tsx).
+  if (path === "/plakater" || path.startsWith("/plakater/")) {
+    if (!who) return redirect(`${base}/hvem`);
+    if (!may("posters.design")) return denied("posters.design");
+    const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
+    if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
+    const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
+    if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer)?$/.exec(path);
+    if (!studio) return html(notFound(base, who), 404);
+    const [, id, part] = studio;
+    if (!part && request.method === "GET") {
+      // The studio is the website's own app (the templates are drawn there), served here behind the chair's login.
+      const assets = (env as { ASSETS?: { fetch(request: Request): Promise<Response> } }).ASSETS;
+      const shell = assets ? await assets.fetch(new Request(`${url.origin}/`)).then(r => r.ok ? r.text() : null).catch(() => null) : null;
+      if (!shell) return html(problem(base, who, "Værktøjet kunne ikke åbnes lige nu. Prøv igen om lidt."), 503);
+      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" } });
+    }
+    if (part === "/data" && request.method === "GET") {
+      const data = await studioData(db, id!, now, deps.fetcher);
+      return data ? answer({ ...data, who, back: `${base}/plakater` }) : answer({ error: "not_found" }, 404);
+    }
+    // "Brug i opslaget": the design becomes the picture of the event's open post in PR og SoMe, which is a draft again for the chair to approve.
+    if (part === "/opslag" && request.method === "POST") {
+      if (!media) return answer({ error: "not_possible" }, 400);
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const stored = await storeSocialDesign(media, await request.arrayBuffer());
+      if (!stored.ok) return answer(stored, 422);
+      await setPostDesign(db, data.post.id, stored.url, now);
+      await audit(db, actor, "posters.design", `Lagde et design i opslaget om "${data.event.title}"`, now);
+      return answer({ ok: true, url: stored.url, monday: data.post.monday });
+    }
+    // Requested: "så jeg får præsenteret et forslag. Jeg klikker på næste, og så kan jeg se det færdige opslag med billede og tekst, som jeg så kan
+    // publicere." The words as the chair left them, and the post approved: Saga sends it at its time, or at once ("nu").
+    if (part === "/publicer" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const body = await request.json().catch(() => null) as { text?: unknown; instagramText?: unknown; channels?: unknown; now?: unknown; at?: unknown; instagramAt?: unknown } | null;
+      if (!body || typeof body.text !== "string" || !Array.isArray(body.channels)) return answer({ error: "bad_request" }, 400);
+      // "Og så savner jeg også en mulighed for at planlægge udsendingen": a time of the chair's own - from now until an hour before the event begins.
+      const chosenAt = typeof body.at === "number" && Number.isFinite(body.at) ? Math.round(body.at) : null;
+      const chosenIg = typeof body.instagramAt === "number" && Number.isFinite(body.instagramAt) ? Math.round(body.instagramAt) : null;
+      const late = (t: number | null) => t !== null && (t < now - 60_000 || t > Date.parse(data.event.startsAt) - 3_600_000);
+      if (late(chosenAt) || late(chosenIg)) return answer({ error: "time" }, 422);
+      const current = await socialPost(db, data.post.id);
+      if (!current) return answer({ error: "no_post" }, 404);
+      const channels = [...new Set(body.channels.filter((c): c is Channel => c === "facebook" || (c === "instagram" && data.post!.instagram && current.images.length > 0)))];
+      await editPost(db, current.id, { text: body.text.replace(/\r\n?/g, "\n").trim().slice(0, 5000) || current.text, channels,
+        ...(typeof body.instagramText === "string" ? { instagramText: body.instagramText.replace(/\r\n?/g, "\n").trim().slice(0, 2200) } : {}),
+        ...(chosenAt !== null ? { publishAtMs: Math.max(now, chosenAt) } : body.now === true ? { publishAtMs: now } : {}),
+        // Instagram's own time ("forskellige tidspunkter på de to medier"); "Nu" is now on both.
+        ...(body.now === true && chosenAt === null ? { instagramAtMs: null } : chosenIg !== null ? { instagramAtMs: Math.max(now, chosenIg) } : chosenAt !== null ? { instagramAtMs: null } : {}) }, now);
+      const decided = await decidePost(db, current.id, "approve", who, now);
+      if (!decided) return answer({ error: "no_channels" }, 422);
+      await audit(db, actor, "social.manage", `Godkendte opslaget om "${data.event.title}"`, now);
+      // "Nu" is now: out at once, not in Saga's next round.
+      const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
+      const after = await socialPost(db, decided.id);
+      return answer({ ok: true, publishAtMs: decided.publish_at_ms, instagramAtMs: decided.source.instagramAtMs ?? null, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
+    }
+    if (part === "/design" && request.method === "POST") {
+      const booking = /^h(\d+)$/.exec(id!);
+      if (!booking || !media) return answer({ error: "not_possible" }, 400);
+      const exists = await db.prepare("SELECT title FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(Number(booking[1])).first<{ title: string }>().catch(() => null);
+      if (!exists) return answer({ error: "not_found" }, 404);
+      const remove = url.searchParams.get("fjern") === "1";
+      const result = await setStudioDesign(db, media, Number(booking[1]), remove ? null : await request.arrayBuffer(), now);
+      if (!result.ok) return answer(result, 422);
+      await audit(db, actor, "posters.design", `${remove ? "Fjernede designet fra" : "Satte et design på"} "${exists.title}" på hjemmesiden`, now);
+      return answer({ ok: true });
     }
     return html(notFound(base, who), 404);
   }
@@ -1212,7 +1319,15 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!who) return redirect(`${base}/hvem`);
     const id = Number(systemPath[1]);
     const found = await systemEvent(db, id);
-    if (!found || found.cirkler_meeting_id) return html(notFound(base, who), 404);
+    if (!found) return html(notFound(base, who), 404);
+    // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" - only deleted, never changed here, and the chair's alone (cirkler.delete).
+    if (found.cirkler_meeting_id) {
+      if (!systemPath[2] || request.method !== "POST") return html(notFound(base, who), 404);
+      if (!may("cirkler.delete")) return denied("cirkler.delete");
+      await releaseForMeeting(db, found.cirkler_meeting_id, now);
+      await audit(db, actor, "cirkler.delete", `Slettede CIRKLER-mødet ${new Date(found.starts_at_ms).toISOString().slice(0, 16).replace("T", " ")} UTC (frigav salen)`, now);
+      return redirect(`${base}/arrangementer?system=cirkler-slettet#system-events`);
+    }
     if (systemPath[2] && request.method === "POST") {
       await cancelRoomBookingAsAdmin(db, id).catch(() => undefined);
       return redirect(`${base}/arrangementer?system=slettet#system-events`);
@@ -1243,10 +1358,25 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const reviewFiles = await filesByBooking(db, review.map(item => item.id)).catch(() => new Map());
     const desk = deskSection(base, { files: reviewFiles, review, drafts, teachers, notice: NOTICES[url.searchParams.get("besked") ?? ""] ?? "", aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL) });
     const wishes = await prWishes(db, coming.map(e => e.id));
-    const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig." };
+    const SYSTEM_NOTICES: Record<string, string> = { rettet: "Eventet er rettet.", slettet: "Eventet er slettet: det er fjernet fra hjemmesiden og kalenderen, og salen er ledig.",
+      "cirkler-slettet": "CIRKLER-mødet er slettet, og salen er ledig. CIRKLER har ikke fået besked - giv cirklen besked." };
     // The board changes and deletes members' events; the newsletter is the chair's own (authority.ts).
-    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "");
+    const system = systemEventsSection(base, await comingSystemEvents(db, now), SYSTEM_NOTICES[url.searchParams.get("system") ?? ""] ?? "", { deleteCirkler: may("cirkler.delete") });
     return html(eventsPage(base, { stats, coming, recent, results, query, year, thisYear: Number(today.slice(0, 4)), syncing: !backfill?.ok, who, desk: `${system}${desk}`, pr: { wishes }, newsletter: may("newsletter.manage"), listMail: may("listmail.send") }));
+  }
+  // Requested (the chair, 3 Nov 2026): every event on Hjerterum's Facebook page, made by hand - "Lisbeth opretter dem" - and open to "Hele bestyrelsen" (fbEvents.ts).
+  if (path === "/arrangementer/facebook") {
+    if (!who) return redirect(`${base}/hvem`);
+    if (request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const key = String(form?.get("event") ?? "").slice(0, 120), done = String(form?.get("done") ?? "") === "1";
+      await markFacebookEvent(db, key, done, who, String(form?.get("link") ?? ""), now);
+      // From PR og SoMe's Events tab, back there.
+      if (String(form?.get("tilbage") ?? "") === "pr-events") return redirect(`${base}/pr/events?besked=fb`);
+      return redirect(`${base}/arrangementer/facebook?besked=${done ? "oprettet" : "fortrudt"}`);
+    }
+    const notices: Record<string, string> = { oprettet: "Markeret som oprettet på Facebook.", fortrudt: "Markeringen er fortrudt." };
+    return html(facebookEventsPage(base, who, await facebookEvents(db, now), now, notices[url.searchParams.get("besked") ?? ""] ?? ""));
   }
   // Gitta's PR wishes on the coming events (prWishes.ts).
   if (path === "/arrangementer/pr" && request.method === "POST") {
