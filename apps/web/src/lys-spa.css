@@ -524,7 +524,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .nl-empty { text-align: center; color: var(--lys-muted); }
 .nl-featured { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 34px; }
 .nl-feat a { display: block; text-decoration: none; color: inherit; }
-.nl-feat img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; margin-bottom: 18px; background: var(--nl-panel); }
+.nl-feat img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; margin-bottom: 18px; background: var(--nl-panel); border-radius: 16px; }
+/* Douglas (3 Nov): "maybe have rounded corners for the images in the Om Lidt section on the home page". */
+.nl-series { border-radius: 18px; overflow: hidden; }
 .nl-when { margin: 0; font: 900 12.5px/1.4 var(--lys-sans); letter-spacing: .06em; }
 .nl-feat h3 { margin: 6px 0 8px; font: italic 400 25px/1.2 var(--lys-serif); }
 /* Requested: "Kan der ikke være tre linjer ved hver?" - three lines of each event's text, the cards' links on one line. */

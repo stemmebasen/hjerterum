@@ -144,6 +144,9 @@ export function BookingChoice() {
       <p className="lys-kicker">B) Reduceret pris · C) Gratis leje</p>
       <h3>Er du medlem? Book med medlemsrabat</h3>
       <p>Du opretter selv dit event på medlemssiden – Saga hjælper dig.</p>
+      {/* Douglas (3 Nov): "So it is not confusing, this box must say something like: 'Must give members a discount when attending your event. -
+          Teachers choosing this option must be a member.'" */}
+      <p className="booking-choice-terms">Medlemmer skal have rabat, når de deltager i dit event. Vælger du denne mulighed, skal du selv være medlem.</p>
       <a className="lys-btn" href="https://medlem.hjerterum.info/member-portal/events">Log ind og opret dit event</a>
       <a className="lys-link" href="/medlemskab">Ikke medlem endnu? Bliv medlem →</a>
     </article>
@@ -278,6 +281,7 @@ const CATEGORIES = [
   { key: "foredrag", label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
   { key: "koncerter", label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
   { key: "cafe", label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
+  { key: "spisning", label: "Fællesspisning", href: "/events?vis=spisning", icon: "M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 1-3 3.5-3 6.5V13h3v8" },
   { key: "film", label: "Filmaftener", href: "/events?vis=film", icon: "M4 6h16v12H4zM4 10h16M8 6l2 4M13 6l2 4" },
   // Douglas' notes: "? Courses button".
   { key: "kurser", label: "Kurser", href: "/events?vis=kurser", icon: "M3 8l9-4 9 4-9 4-9-4zM7 10v5c0 1.7 2.2 3 5 3s5-1.3 5-3v-5M21 8v6" }
