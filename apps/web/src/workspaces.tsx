@@ -535,6 +535,7 @@ function MemberEvents({
         code === "invalid_duration_too_short" || code === "invalid_duration_too_long" ? "Salen lejes mindst 2 og højst 10 timer med klargøring og oprydning." :
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
+        code.startsWith("invalid_non_member_minimum_") ? `Med ${plan.type === "free" ? "gratis leje" : "reduceret leje"} skal ikke-medlemmer betale mindst ${code.slice("invalid_non_member_minimum_".length)} kr. Sæt prisen for ikke-medlemmer op, eller vælg standardleje.` :
         "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til team@hjerterum.info, hvis det bliver ved."
       );
     } finally {
@@ -602,7 +603,7 @@ function MemberEvents({
                   </label>
                   <label>Pris for ikke-medlemmer (kr.)
                     <input name="nonMemberPriceKr" type="number" min="0" step="1" placeholder={priceHint} defaultValue={editing?.nonMemberPriceKr ?? prefill?.draft.non_member_price_kr ?? ""} />
-                    <small>Tomt felt: samme pris. Medlemmerne ser, hvad de sparer.</small>
+                    <small>{nonMemberRule(plan)}</small>
                   </label>
                 </div>
               </fieldset>
@@ -665,6 +666,18 @@ function MemberEvents({
       </div>
     </section>
   );
+}
+
+/** The rule for the non-member price, shown at the field (the chair, 4 Nov 2026: the form refuses a price that breaks the rent rules "med en klar
+ * forklaring"; decision 0006: free rent at least 75 kr. a person; reduced: the member price plus 100 kr. in the evening and at weekends, 50 kr. by day). */
+function nonMemberRule(plan: Plan): string {
+  if (plan.type === "free") return "Ved gratis leje: mindst 75 kr. for ikke-medlemmer. Medlemmer deltager gratis.";
+  if (plan.type === "reduced") {
+    const evening = plan.date && plan.start ? (new Date(`${plan.date}T12:00:00`).getDay() % 6 === 0 || plan.start >= "18:30") : null;
+    return evening === null ? "Ved reduceret leje: mindst medlemsprisen + 100 kr. aften og weekend, + 50 kr. om dagen."
+      : `Ved reduceret leje: mindst medlemsprisen + ${evening ? "100" : "50"} kr. for ikke-medlemmer.`;
+  }
+  return "Tomt felt: samme pris. Medlemmerne ser, hvad de sparer.";
 }
 
 export function MemberCalendar({

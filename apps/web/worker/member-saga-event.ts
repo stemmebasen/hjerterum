@@ -86,7 +86,9 @@ export async function memberSagaEvent(request: Request, env: EventEnv, deps: Sag
     created = await createRoomBooking(db, userId, { ...input, preApproved });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";
-    return answer(PROBLEMS[code] ?? "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt, eller brug formularen på Mine events.", { error: code || "booking_failed" }, code === "booking_conflict" ? 409 : 400);
+    const minimum = /^invalid_non_member_minimum_(\d+(?:\.\d+)?)$/.exec(code)?.[1];
+    return answer((minimum ? `Med den valgte leje skal ikke-medlemmer betale mindst ${minimum} kr. Skal vi sætte prisen for ikke-medlemmer op, eller vælge standardleje?` : PROBLEMS[code])
+      ?? "Eventet kunne ikke oprettes lige nu. Prøv igen om lidt, eller brug formularen på Mine events.", { error: code || "booking_failed" }, code === "booking_conflict" ? 409 : 400);
   }
 
   if (draft.contact_share) await setContactShare(db, created.id, draft.contact_share).catch(() => undefined);

@@ -19,3 +19,7 @@ Formanden: "Som underviser kan man booke et gratis event om ugen". Højst ét ev
 
 `FREE_RENT_MIN_NON_MEMBER_KR` i `packages/core/src/legacy-room-pricing.ts`. Prisberegneren, eventformularen, Sagas regler og
 eventtjekket (`worker/cockpit/eventDesk.ts`) læser den derfra. Teksterne på hjemmesiden og i beregneren er rettet med.
+
+## Tilføjet 4. november 2026
+
+Eventformularen på medlemssiden læste ikke reglen før nu. Den tjekkes nu på serveren (`nonMemberMinimumKr` i `apps/web/worker/room-bookings.ts`) og forklares ved feltet. Se 0008.

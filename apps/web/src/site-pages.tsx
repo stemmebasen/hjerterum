@@ -331,7 +331,7 @@ export function SiteHome({ header, month, plans, coming }: { header: ReactNode; 
     {/* "Oktober i Hjerterum" - the month as in the newsletter (month-hero.tsx); "Se hele kalenderen" under the events. */}
     {month}
     <section className="site-home-section" id="medlemskab">
-      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p><p className="site-price-line">{ABOUT_WORDS.membership(membershipPlans.standard.month / 100)}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
+      <div className="site-section-head"><div><p className="lys-kicker">Medlemskab</p><h2>Bliv en del af Hjerterum</h2><p>{BENEFITS.front}</p><p className="site-price-line">{ABOUT_WORDS.membership(membershipPlans.reduceret.month / 100)}</p></div><a className="lys-link" href="/medlemskab">Fordele og vilkår →</a></div>
       {plans}
     </section>
     <section className="site-home-section site-use">

@@ -1103,3 +1103,24 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Udkastet holder sig til, hvad Hjerterum faktisk gør med PR: opslag til hvert event, deling, når man tagger Hjerterum eller @hjerterum_aarhus, billeder kun med PR-samtykke og samarbejdspartner på Instagram. Det lover ingen tider eller aftaler og har samme sprogregler som opslagene.
   - Formanden retter og trykker Send. Mailen går fra team@, lægges i Sendt, markeres som besvaret, og formanden kommer tilbage til PR og SoMe → Mails.
   - Saga sender aldrig selv.
+
+## Én rød tråd i bookingen: beslutninger og første del (2026-11-04)
+
+- **Baggrund:** Underviseren Douglas' feedback, og formandens ord: "there is a silver line and a context all the way through the bookings in both admin and on the front page". Beslutningerne står i docs/decisions/0008-booking-red-thread.md.
+  - én vej for alle (ikke-medlemmer reserverer også direkte);
+  - "fra 111 kr./md.";
+  - formularen afviser priser, der bryder lejereglerne;
+  - automatisk mail ved godkendelse og afvisning;
+  - Stripe kobles på nu;
+  - Facebook-begivenheden kan oprettes af begge;
+  - den nye side taler som hovedsiden, og holistisk.org bliver.
+- **Bygget nu:**
+  - "Medlemskab fra 111 kr./md." i prisberegnerens medlemsboks og "Bliv medlem fra kun 111 kr./måned" på forsiden. Priserne er uændrede.
+  - Prisen for ikke-medlemmer tjekkes på serveren ved oprettelse og ændring (`nonMemberMinimumKr`): mindst 75 kr. ved gratis leje, og medlemsprisen plus tillægget ved reduceret leje.
+  - Et tomt felt er medlemmernes pris. Bestyrelsens egne events er ikke omfattet.
+  - Ved feltet står reglen for den valgte leje. En afvisning siger, hvor meget der mindst skal stå, både i formularen og i Sagas chat.
+- **Næste trin:**
+  - Ikke-medlemmers booking som rigtig reservation, med en tydelig bookingknap ved "Det sender du med".
+  - Mail ved godkendelse og afvisning.
+  - Stripe.
+  - Teksterne i oprydningen (PR #416) efter beslutningerne.
