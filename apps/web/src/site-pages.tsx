@@ -23,7 +23,11 @@ function sectionTree(href: string): { root: SitePage; groups: Array<{ page: Site
 const menuTitle = (page: SitePage) => page.menu ?? page.card.title;
 
 export function SiteNav({ current, open = false }: { current?: Section | undefined; open?: boolean }) {
+  // Douglas (3 Nov): "In the top menu, there is no way of getting back to the index.html page (home page)" - the logo leads there, but
+  // that is not plain to see; Forside is the menu's first item.
+  const home = typeof window !== "undefined" && window.location.pathname === "/";
   return <nav id="site-menu" className={"lys-nav site-nav" + (open ? " is-open" : "")} aria-label="Hovednavigation">
+    <a href="/" aria-current={home ? "page" : undefined}>Forside</a>
     {NAV.map(item => {
       const link = <a key={item.href} href={item.href} aria-current={current === item.section ? "page" : undefined}>{item.label}</a>;
       const tree = item.sub ? sectionTree(item.href) : null;
@@ -169,7 +173,7 @@ export function SiteFooter() {
     {/* Requested: "Når man klikker på et menupunkt i footeren skal man tages til toppen af den side man har klikket på". The page one is on: up to
         the top at once (a browser may keep the place when the address does not change); another page opens at the top (main.tsx). */}
     <nav aria-label="Sidefod" onClick={toTopOnSamePage}>
-      {NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
+      <a href="/">Forside</a>{NAV.map(item => <a key={item.href} href={item.href}>{item.label}</a>)}
       <a href="/om-os/foreningen">Foreningen</a>
       <a href="/sign-in">Log ind</a>
     </nav>

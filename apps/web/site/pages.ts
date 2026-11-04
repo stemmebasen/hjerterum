@@ -422,7 +422,7 @@ Fast pris efter bookingens længde.
 > **Kun for medlemmer:** B) Reduceret pris – med medlemsrabat og C) Gratis leje kræver, at du selv er betalende medlem af Hjerterum. I de tilfælde opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
 
 ### B) Reduceret pris – med medlemsrabat
-Til events, hvor medlemmer betaler mindre end ikke-medlemmer.
+Til events, hvor medlemmer betaler mindre end ikke-medlemmer for at deltage.
 
 | | B-tid: hverdage før kl. 18.30 | A-tid: hverdage efter kl. 18.30 og weekend |
 |---|---|---|
