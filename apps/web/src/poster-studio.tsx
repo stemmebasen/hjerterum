@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LOGO_FILE, chooseVariant, drawPoster, markShaped, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, chooseVariant, drawPoster, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -20,6 +20,7 @@ type Data = {
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
     video: string | null; noVideo: boolean } | null;
   back: string;
+  siteLive?: boolean;
 };
 
 const image = (src: string) => new Promise<HTMLImageElement | null>(resolve => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = src; });
@@ -62,14 +63,18 @@ function Thumbs({ pictures, picked, onPick }: { pictures: Picture[]; picked: str
  * Then (5 Nov 2026): "Jeg savner flere muligheder for at bruge et event billede kreativt - f.eks. at croppe i cirkelformat eller kvadratisk. Lige nu kan
  * jeg kun croppe i event cover dimensioner." The frame has a shape: the picture's own, a square or a circle. A square or round picture is put whole
  * into the design (event-poster.ts cover), on the design's own background. */
-export type CropShape = "original" | "square" | "circle";
+export type CropShape = "original" | "square" | "circle" | "portrait" | "wide" | "arch";
 export type Crop = { zoom: number; x: number; y: number; shape?: CropShape };
 export const NO_CROP: Crop = { zoom: 1, x: 0.5, y: 0.5, shape: "original" };
-const SHAPES: Array<[CropShape, string]> = [["original", "Hele formatet"], ["square", "Kvadrat"], ["circle", "Cirkel"]];
-/** The frame's width and height as parts of the picture's (ratio: the picture's width / height). */
+/** Then: "Så giv mig flere muligheder" - also standing (4:5, Instagram's own), wide (16:9) and an arch. */
+const SHAPES: Array<[CropShape, string]> = [["original", "Hele formatet"], ["square", "Kvadrat"], ["circle", "Cirkel"], ["portrait", "Stående 4:5"], ["wide", "Bred 16:9"], ["arch", "Bue"]];
+const ASPECT: Record<Exclude<CropShape, "original">, number> = { square: 1, circle: 1, portrait: 0.8, wide: 16 / 9, arch: 0.8 };
+/** The frame's width and height as parts of the picture's (ratio: the picture's width / height): the largest frame of the shape's own proportions. */
 export function frameOf(crop: Crop, ratio: number): { w: number; h: number } {
-  if ((crop.shape ?? "original") === "original") return { w: 1 / crop.zoom, h: 1 / crop.zoom };
-  return ratio >= 1 ? { w: 1 / (ratio * crop.zoom), h: 1 / crop.zoom } : { w: 1 / crop.zoom, h: ratio / crop.zoom };
+  const shape = crop.shape ?? "original";
+  if (shape === "original") return { w: 1 / crop.zoom, h: 1 / crop.zoom };
+  const aspect = ASPECT[shape];
+  return aspect <= ratio ? { w: aspect / ratio / crop.zoom, h: 1 / crop.zoom } : { w: 1 / crop.zoom, h: ratio / aspect / crop.zoom };
 }
 export const clampCrop = (c: Crop, ratio = 1): Crop => {
   const zoom = Math.min(3, Math.max(1, c.zoom)), f = frameOf({ ...c, zoom }, ratio);
@@ -95,7 +100,7 @@ export function CropTool({ src, ratio, crop, onChange }: { src: string; ratio: n
     <div ref={box} className="studio-crop-picture" style={{ width: `min(100%, 460px, ${Math.round(480 * ratio)}px)` }} onPointerDown={e => { drag.current = { x: e.clientX, y: e.clientY, crop }; e.currentTarget.setPointerCapture(e.pointerId); }}
       onPointerMove={move} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
       <img src={src} alt="Det valgte billede" draggable={false} />
-      <span className={"studio-crop-frame" + (shape === "circle" ? " is-circle" : "")} style={{ left: `${(crop.x - f.w / 2) * 100}%`, top: `${(crop.y - f.h / 2) * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }} />
+      <span className={"studio-crop-frame" + (shape === "circle" ? " is-circle" : shape === "arch" ? " is-arch" : "")} style={{ left: `${(crop.x - f.w / 2) * 100}%`, top: `${(crop.y - f.h / 2) * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }} />
     </div>
     <label className="studio-crop-zoom"><span>Zoom</span>
       <input type="range" min="1" max="3" step="0.05" value={crop.zoom} onChange={e => onChange(clampCrop({ ...crop, zoom: Number(e.target.value) }, ratio))} /></label>
@@ -112,9 +117,10 @@ export function cropped(img: HTMLImageElement, crop: Crop): Promise<HTMLImageEle
   const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext("2d")!;
   if (shape === "circle") { ctx.beginPath(); ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip(); }
+  if (shape === "arch") { ctx.beginPath(); ctx.moveTo(0, h); ctx.lineTo(0, w / 2); ctx.arc(w / 2, w / 2, w / 2, Math.PI, 0); ctx.lineTo(w, h); ctx.closePath(); ctx.clip(); }
   ctx.drawImage(img, Math.round(crop.x * img.naturalWidth - w / 2), Math.round(crop.y * img.naturalHeight - h / 2), w, h, 0, 0, w, h);
   return new Promise(resolve => canvas.toBlob(blob => blob ? void image(URL.createObjectURL(blob)).then(made => { if (made && shape !== "original") markShaped(made); resolve(made); }) : resolve(null),
-    shape === "circle" ? "image/png" : "image/jpeg", 0.95));
+    shape === "circle" || shape === "arch" ? "image/png" : "image/jpeg", 0.95));
 }
 
 const FORMAT_HELP: Record<Format, string> = {
@@ -176,6 +182,7 @@ export function PosterStudio({ id }: { id: string }) {
     let active = true;
     void fetch(`/plakater/${id}/data`, { headers: { accept: "application/json" } }).then(r => r.ok ? r.json() as Promise<Data> : null).catch(() => null).then(found => {
       if (!active) return;
+      if (found) setPosterSite(Boolean(found.siteLive));
       setData(found);
       if (!found) return;
       document.title = `Opslag: ${found.event.title} · Hjerterum admin`;

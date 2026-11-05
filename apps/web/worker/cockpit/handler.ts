@@ -1105,7 +1105,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     }
     if (part === "/data" && request.method === "GET") {
       const data = await studioData(db, id!, now, deps.fetcher);
-      return data ? answer({ ...data, who, back: `${base}/plakater` }) : answer({ error: "not_found" }, 404);
+      // The posters print the website's address: the old one until the new one is in use (public-site.ts).
+      return data ? answer({ ...data, who, back: `${base}/plakater`, siteLive: await siteLive(db) }) : answer({ error: "not_found" }, 404);
     }
     // "Brug i opslaget": the design becomes the picture of the event's open post in PR og SoMe, which is a draft again for the chair to approve.
     if (part === "/opslag" && request.method === "POST") {

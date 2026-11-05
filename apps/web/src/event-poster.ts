@@ -39,7 +39,13 @@ export const VARIANTS: Array<{ key: VariantKey; label: string; about: string }> 
   { key: "mosaik", label: "Mosaik", about: "Fotoet i tre udsnit, datoen og titlen i hver sin flise." },
   { key: "nat", label: "Nat", about: "Mørk bund med fotoet i en gylden cirkel." },
   // Shared from Hjerterum's Instagram: "Mere inspiration til Instagram design".
-  { key: "underviser", label: "Mød underviseren", about: "Underviserens navn stort i en lys spalte ved siden af et portræt i fuld højde." }
+  { key: "underviser", label: "Mød underviseren", about: "Underviserens navn stort i en lys spalte ved siden af et portræt i fuld højde." },
+  // Requested (5 Nov 2026): "Så giv mig flere muligheder og også gerne designs så jeg kan (gen) bruge event fotoet på kreative måder".
+  { key: "kvadrat", label: "Kvadrat", about: "Fotoet som et stort kvadrat i en tynd ramme, teksten roligt under." },
+  { key: "duotone", label: "Duotone", about: "Fotoet over det hele i husets to toner, cocoa og creme, med titlen stort." },
+  { key: "filmstrimmel", label: "Filmstrimmel", about: "Tre udsnit af det samme foto som billeder på en filmstrimmel." },
+  { key: "detalje", label: "Detalje", about: "Et nært udsnit af fotoet som baggrund med hele fotoet indsat som et lille billede." },
+  { key: "bue", label: "Bue", about: "Fotoet i en blød bue på sandfarvet bund, som en dør ind til aftenen." }
 ];
 /** The five with their own hand-made post and story layouts below; the others are drawn by poster-templates.ts in every format. */
 const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", "split"]);
@@ -47,6 +53,11 @@ const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", 
 /** Said: "Sommetider kommer underviserne selv med eventfotos" - often a finished flyer with its own text. That picture is kept
  * whole, on a soft background made of itself, with only Hjerterum's name and address under it; nothing is written over it. */
 export const OWN_PICTURE = { key: "eget" as const, label: "Underviserens eget billede", about: "Billedet, som underviseren sendte det - helt, uden tekst ovenpå. Til en færdig plakat." };
+
+/** Requested: "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside." The address the posters print: holistisk.org until the chair
+ * says the new website is in use (worker/public-site.ts), then hjerterum.info. Plakater og opslag sets it from the server (setPosterSite). */
+export let SITE_LABEL = "holistisk.org";
+export const setPosterSite = (live: boolean) => { SITE_LABEL = live ? SITE_LABEL : "holistisk.org"; };
 
 export const SIZES: Record<Format, { width: number; height: number; label: string }> = {
   opslag: { width: 1080, height: 1350, label: "Opslag (4:5)" },
@@ -375,7 +386,7 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
     if (by) text(ctx, by, M, t.bottom + 82, `italic 400 36px ${SERIF}`, C.ink);
     text(ctx, `${words.day} · ${words.time}`, M, H - 160, `600 27px ${SANS}`, C.ink);
     text(ctx, `Hjerterum · ${ADDRESS}`, M, H - 120, `400 25px ${SANS}`, C.muted);
-    text(ctx, "hjerterum.info", M, H - 82, `400 25px ${SANS}`, C.muted);
+    text(ctx, SITE_LABEL, M, H - 82, `400 25px ${SANS}`, C.muted);
     ctx.fillStyle = C.terra; ctx.beginPath(); ctx.arc(W - M - 100, H - 184, 100, 0, Math.PI * 2); ctx.fill();
     spaced(ctx, words.month.slice(0, 3), W - M - 100, H - 214, `600 19px ${SANS}`, C.cream, 4, "center");
     text(ctx, words.number, W - M - 100, H - 128, `400 84px ${SERIF}`, C.cream, "center");
@@ -406,7 +417,7 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
     text(ctx, words.time, 110, boxY + 56, `600 30px ${SANS}`, "#fbfaf8");
     text(ctx, ADDRESS, 110, boxY + 94, `400 23px ${SANS}`, "#e8dfd4");
     ctx.fillStyle = C.blush; ctx.beginPath(); ctx.roundRect(W - 72 - 36 - 220, boxY + 32, 220, 64, 32); ctx.fill();
-    text(ctx, "hjerterum.info", W - 72 - 36 - 110, boxY + 73, `600 23px ${SANS}`, C.ink, "center");
+    text(ctx, SITE_LABEL, W - 72 - 36 - 110, boxY + 73, `600 23px ${SANS}`, C.ink, "center");
     return;
   }
 
@@ -461,7 +472,7 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
     spaced(ctx, words.month, M + nw + 28, H - 150, `600 22px ${SANS}`, C.blush, 5);
     text(ctx, words.day.split(" ")[0]!, M + nw + 28, H - 110, `500 26px ${SANS}`, C.cream);
     text(ctx, words.time, W - M, H - 150, `600 30px ${SANS}`, C.cream, "right");
-    text(ctx, "Hjerterum · hjerterum.info", W - M, H - 110, `400 24px ${SANS}`, C.blush, "right");
+    text(ctx, `Hjerterum · ${SITE_LABEL}`, W - M, H - 110, `400 24px ${SANS}`, C.blush, "right");
     return;
   }
 
@@ -479,7 +490,7 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
     }
     logo(ctx, assets.logo, 72, H - 136, 52, C.ink);
     text(ctx, ADDRESS, W - 72, H - 112, `500 24px ${SANS}`, C.ink, "right");
-    text(ctx, "hjerterum.info", W - 72, H - 78, `400 22px ${SANS}`, C.muted, "right");
+    text(ctx, SITE_LABEL, W - 72, H - 78, `400 22px ${SANS}`, C.muted, "right");
     return;
   }
 
@@ -504,5 +515,5 @@ export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words
   ctx.fillStyle = C.sand; ctx.beginPath(); ctx.roundRect(M - 24, rowY - 62, W - 2 * M + 48, 96, 48); ctx.fill();
   text(ctx, `${words.day}`, M + 10, rowY, `600 26px ${SANS}`, C.ink);
   text(ctx, words.time, W / 2 + 60, rowY, `600 26px ${SANS}`, C.terra, "center");
-  text(ctx, "hjerterum.info", W - M - 10, rowY, `500 24px ${SANS}`, C.muted, "right");
+  text(ctx, SITE_LABEL, W - M - 10, rowY, `500 24px ${SANS}`, C.muted, "right");
 }
