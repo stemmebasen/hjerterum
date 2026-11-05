@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { claimJob, saveBoardMessage } from "../saga/store.js";
-import { facebookEvents, scheduledFacebookReminder } from "./fbEvents.js";
+import { saveBoardMessage } from "../saga/store.js";
+import { facebookEvents } from "./fbEvents.js";
 import { prPlanData } from "./prPlan.js";
 
 // Requested (the chair, 3 Nov 2026): the website promises every event on Hjerterum's Facebook page; Meta does not let the system make them - "Lisbeth opretter
@@ -53,26 +53,10 @@ describe("Facebook-begivenheder", () => {
     expect(await db.prepare("SELECT COUNT(*) AS n FROM facebook_events").first<{ n: number }>()).toEqual({ n: 1 });
   });
 
-  it("reminds Lisbeth and Frederik on Monday and Thursday from 9, once a day, of what is missing in the next three weeks - and is in the chair's plan", async () => {
-    const { db, env, services } = await setup();
-    const remind = (now: number) => scheduledFacebookReminder(env, deps(services.fetcher, now), db, (key, slot) => claimJob(db, key, slot, now));
-    expect(await remind(MONDAY - 2 * 3_600_000)).toBe(false); // 7.30
-    expect(await remind(MONDAY)).toBe(true);
-    expect(await remind(MONDAY + 3_600_000)).toBe(false);
-    expect(await remind(MONDAY + 86_400_000)).toBe(false); // Tuesday
-    // "Lisbeth og Frederik står for at oprette events" - both are told.
-    const sent = services.telegram("sendMessage");
-    expect(sent.map(c => (c.body as { chat_id: string }).chat_id).sort()).toEqual(["201", "203"]);
-    expect(String((sent.find(c => (c.body as { chat_id: string }).chat_id === "203")!.body as { text: string }).text)).toContain("Hej Frederik.");
-    const text = String((sent[0]!.body as { text: string }).text);
-    expect(text).toContain("Hej Lisbeth. 3 events de næste tre uger mangler en begivenhed");
-    expect(text).toContain("Lydhealing");
-    expect(text).not.toContain("Retreat");
-    expect(text).toContain("/arrangementer/facebook");
+  it("reminds no one - \"Lisbeth og Frederik skal ikke have [beskeder] vedr events overhovedet\" - and the chair's plan still lists what is missing", async () => {
+    const { db } = await setup();
     const plan = await prPlanData(db, { ready: true, account: null, nowMs: MONDAY });
-    expect(plan.todo.map(t => t.text)).toContain("3 events de næste to uger mangler en begivenhed på Facebook. Lisbeth og Frederik opretter dem; Saga minder dem om det.");
-    // All made: Thursday is quiet.
-    for (const key of ["mw:SFa", "mw:SFb", "hr:1"]) await db.prepare("INSERT INTO facebook_events (event_key, title, starts_at_ms, done_by, done_at_ms) VALUES (?, 'x', 0, 'Lisbeth', 0)").bind(key).run();
-    expect(await remind(MONDAY + 3 * 86_400_000)).toBe(false);
+    expect(plan.todo.map(t => t.text)).toContain("3 events de næste to uger mangler en begivenhed på Facebook.");
+    expect(JSON.stringify(plan)).not.toMatch(/Lisbeth og Frederik|Saga minder/);
   });
 });
