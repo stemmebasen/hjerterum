@@ -30,6 +30,8 @@ export interface SagaEnv {
   AI_CHEAP_MODEL?: string;
   /** Optional middle model (good, but not the dearest) for tasks that need judgement but not the best; the main model takes over when it fails. */
   AI_MID_MODEL?: string;
+  /** Optional: the writer's model for Saga's proposals of a post's words (social/writer.ts); "vertex/claude-opus-5-5@eu" when not set. */
+  AI_WRITER_MODEL?: string;
   ELEVENLABS_API_KEY?: string;
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_DRIVE_RECORDINGS_FOLDER_ID?: string;

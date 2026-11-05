@@ -178,6 +178,9 @@ export function PosterStudio({ id }: { id: string }) {
   // Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon" - the video made again in another template.
   const [template, setTemplate] = useState(0);
   const [videoNote, setVideoNote] = useState("");
+  // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" - Saga's writer fills the fields.
+  const [wish, setWish] = useState("");
+  const [writing, setWriting] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
@@ -263,6 +266,14 @@ export function PosterStudio({ id }: { id: string }) {
       setMessage(!stored?.ok ? "Billedet kunne ikke gemmes. Prøv igen." : error === "time" ? "Vælg et tidspunkt fra nu og til senest en time, før eventet begynder." : error ? "Vælg mindst ét sted, opslaget skal ud." : "Opslaget kunne ikke publiceres. Prøv igen.");
     }
   };
+  const proposeWords = async () => {
+    setWriting("Saga skriver …");
+    const response = await fetch(`/plakater/${id}/tekst`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wish }) }).catch(() => null);
+    const words = response?.ok ? await response.json().catch(() => null) as { text?: string; instagramText?: string } | null : null;
+    if (!words?.text) { setWriting("Saga kunne ikke skrive et forslag lige nu. Prøv igen."); return; }
+    setText(words.text); if (words.instagramText) setInstagramText(words.instagramText);
+    setWriting("Forslaget står i felterne. Ret det, hvis du vil.");
+  };
   const remakeVideo = async () => {
     if (!post || !template) return;
     setVideoNote("Sender …");
@@ -310,6 +321,11 @@ export function PosterStudio({ id }: { id: string }) {
       <div className="studio-box">
         <h2>Det færdige opslag</h2>
         <p className="studio-muted">Sådan kommer opslaget til at se ud. Ret teksten, hvis du vil, vælg hvornår, og godkend.</p>
+        <div className="studio-writer">
+          <input value={wish} maxLength={300} onChange={e => setWish(e.target.value)} placeholder="Ønske til teksten, fx mere legende (valgfrit)" aria-label="Ønske til teksten" />
+          <button type="button" className="lys-btn ghost" disabled={writing === "Saga skriver …"} onClick={() => void proposeWords()}>✨ Nyt forslag fra Saga</button>
+          {writing && <p className="studio-muted" role="status">{writing}</p>}
+        </div>
         <label className="studio-field"><span>Teksten på Facebook</span><textarea rows={5} value={text} onChange={e => setText(e.target.value)} /></label>
         {post.instagram && channels.includes("instagram") && <label className="studio-field"><span>Teksten på Instagram (link virker ikke dér, så den peger på bio)</span>
           <textarea rows={5} value={instagramText} onChange={e => setInstagramText(e.target.value)} /></label>}

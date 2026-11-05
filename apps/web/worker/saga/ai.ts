@@ -14,11 +14,13 @@ export const SAGA_MODEL = "vertex/claude-sonnet-5-5@eu";
 export const isClaude = (model: string) => /(?:^|\/)claude-/i.test(model);
 export type CompleteOptions = { purpose?: string; /** `true`: a simple task (sorting, translation) - the cheap model does it when one is set. `"mid"`: a task that needs a good model but not the best - the middle model. The main model answers when the other fails or is not set. */ cheap?: boolean | "mid";
   /** The longest answer the task needs (tokens). Requested: "nedbringe forbruget til cirka en dollar om dagen" - an answer may no longer run to 16 000 tokens by default. */
-  maxTokens?: number };
+  maxTokens?: number;
+  /** A model of its own for the task (the writer's, social/writer.ts) - tried first, with the usual model behind it when it fails. Not past the day's budget. */
+  model?: string };
 
 /** Requested: "find en plan for, hvordan vi kan nedbringe forbruget til cirka en dollar om dagen". Dollars per million tokens
  * (input, output) by model family - an estimate from ai_usage, close enough to steer by. */
-const PRICES: Array<[RegExp, number, number]> = [[/sonnet/i, 3, 15], [/opus/i, 15, 75], [/haiku/i, 1, 5], [/deepseek/i, 0.3, 1.2]];
+const PRICES: Array<[RegExp, number, number]> = [[/sonnet/i, 3, 15], [/opus-5-5/i, 4, 20], [/opus/i, 15, 75], [/haiku/i, 1, 5], [/deepseek/i, 0.3, 1.2]];
 export const DEFAULT_MAX_TOKENS = 4000;
 /** The most a retry may ask for (Sonnet and Haiku 5.5 write up to 64 000). */
 export const MAX_TOKENS_CEILING = 64_000;
@@ -84,7 +86,7 @@ export async function complete(env: SagaEnv, deps: SagaDeps, messages: ChatMessa
   // Past the day's budget, what would go to the main model goes to the middle one - the main model stays the last resort.
   const overBudget = !options.cheap && env.DB && env.AI_MID_MODEL ? await spentToday(env.DB, deps.now()) >= DAILY_BUDGET_USD : false;
   const tier = overBudget ? "mid" : options.cheap;
-  const lighter = tier === "mid" ? env.AI_MID_MODEL : tier ? env.AI_CHEAP_MODEL : undefined;
+  const lighter = !overBudget && options.model ? options.model : tier === "mid" ? env.AI_MID_MODEL : tier ? env.AI_CHEAP_MODEL : undefined;
   // An answer cut off at the limit is asked for once more with twice the room; cut off again, it is an error - never a half answer kept as a whole one.
   const whole = async (model: string, fallback: boolean): Promise<string> => {
     const limit = options.maxTokens ?? DEFAULT_MAX_TOKENS;
