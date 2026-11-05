@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import type { WebFolder, WebmailOpener } from "./webmail.js";
-import { filePrMails, OLD_PR_FOLDER, PR_FOLDER, prMailData, prMailSection, renamePrFolder, takeOverFolder } from "./prMail.js";
+import { filePrMails, PR_FOLDER, prMailData, prMailSection, takeOverFolder } from "./prMail.js";
 import { matchEvent, mentionedDays, upcomingEvents } from "./mailMaterial.js";
 import { studioData } from "./posterStudio.js";
 import { connectTeamMail, type ImapOpener } from "../saga/teamMail.js";
@@ -10,7 +10,7 @@ import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase
 
 // Requested (the chair, 5 Nov 2026): "Det ville være rigtig fint, at der allerede er lavet en kobling til det pågældende event og at materialet, der er sendt
 // allerede ligger klar i den pågældende mappe under det pågældende event klar til brug. Kan vi indsætte en knap, som tager mig direkte til redigeringen af
-// opslaget med det pågældende materiale?" - and "Flyt til PR og promo", "Skjul", and the folder renamed "PR og promo".
+// opslaget med det pågældende materiale?" - and "Flyt til PR", "Skjul", and Gitta's PR mails taken over.
 const NOW = Date.parse("2026-11-05T12:00:00Z");
 const ORIGIN = "https://admin.hjerterum.example";
 const HEX = "6ae8cff06e0ca88f0503bf74";
@@ -39,11 +39,11 @@ async function setup(folders: WebFolder[] = [{ path: "INBOX", name: "Indbakke", 
   await db.prepare("UPDATE board_mail SET folder = ?, uid_validity = '500', uid = 3, label = 'PR', message_id = '<pr-pia@example.dk>' WHERE id = ?").bind(PR_FOLDER, mail).run();
   const done: string[] = [];
   const opener: WebmailOpener = async () => ({
-    async folders() { return folders; }, async list(path) { return path === OLD_PR_FOLDER ? { total: 1, items: [{ uid: 7 } as never] } : { total: 0, items: [] }; },
+    async folders() { return folders; }, async list() { return { total: 0, items: [] }; },
     async source(path, uid) { return path === PR_FOLDER && uid === 3 ? { source: new TextEncoder().encode(RAW), seen: true, flagged: false } : null; },
     async setFlag() { /* nothing */ }, async move() { return { uidValidity: "77" }; }, async remove() { return { uidValidity: "77" }; }, async append() { /* nothing */ },
     async uidValidity(path) { return path === PR_FOLDER ? "500" : "77"; }, async present() { return []; },
-    async create(path) { done.push(`create ${path}`); }, async rename(from, to) { done.push(`rename ${from} -> ${to}`); },
+    async create(path) { done.push(`create ${path}`); },
     async moveMapped(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { sourceValidity: "77", destValidity: "500", map: uids.map(u => [u, u + 100] as [number, number]) }; },
     async close() { /* nothing */ },
   });
@@ -87,7 +87,7 @@ describe("a PR mail's material, kept with its event", () => {
     expect((await db.prepare("SELECT COUNT(*) AS n FROM event_material").first<{ n: number }>())!.n).toBe(3);
   });
 
-  it("is linked by the chair when Saga cannot tell; moved to PR og promo and hidden by a press", async () => {
+  it("is linked by the chair when Saga cannot tell; moved to PR and hidden by a press", async () => {
     const { db, env, mail, done, allDeps } = await setup();
     await db.prepare("UPDATE board_mail SET sender = 'Ukendt <x@example.dk>', pr_material_at_ms = 1 WHERE id = ?").bind(mail).run();
     const cookie = await personalCookie("Jacob Hauge", NOW);
@@ -108,15 +108,6 @@ describe("a PR mail's material, kept with its event", () => {
     const reply = (await insertMail(db, { ref: "imap:77:90", sender: "Rie <rie@example.dk>", subject: "Re: Billeder", receivedAtMs: NOW, preview: "Her er flere", nowMs: NOW }))!;
     await db.prepare("UPDATE board_mail SET folder = 'INBOX', label = 'PR' WHERE id = ?").bind(reply).run();
     expect((await prMailData(db)).map(m => m.id)).toContain(reply);
-  });
-
-  it("renames the chair's folder to PR og promo, once, and Posthus follows", async () => {
-    const { db, env, done, allDeps } = await setup([{ path: OLD_PR_FOLDER, name: "PR", special: null, depth: 1, unseen: 0, total: 1, selectable: true }]);
-    const old = (await insertMail(db, { ref: `imap:${OLD_PR_FOLDER}:500:2`, sender: "A <a@example.dk>", subject: "Gammel", receivedAtMs: NOW - 86_400_000, preview: "x", nowMs: NOW }))!;
-    await db.prepare("UPDATE board_mail SET folder = ?, uid_validity = '500', uid = 2 WHERE id = ?").bind(OLD_PR_FOLDER, old).run();
-    expect(await renamePrFolder(env, allDeps, db)).toBe(true);
-    expect(done).toContain(`rename ${OLD_PR_FOLDER} -> ${PR_FOLDER}`);
-    expect(await db.prepare("SELECT folder, message_ref FROM board_mail WHERE id = ?").bind(old).first()).toEqual({ folder: PR_FOLDER, message_ref: `imap:${PR_FOLDER}:500:2` });
   });
 
   it("takes over the mails in Gitta's PR folder, once asked to", async () => {

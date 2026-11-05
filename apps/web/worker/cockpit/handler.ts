@@ -978,7 +978,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
         "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
-        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR og promo.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
+        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt." };
@@ -1022,7 +1022,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (request.method !== "POST") return html(notFound(base, who), 404);
     const form = await request.formData().catch(() => null);
     const field = (name: string) => String(form?.get(name) ?? "");
-    // PR og SoMe → Mails (the chair, 5 Nov 2026): "Flyt til PR og promo", "Skjul", and "Kobl til event" with the mail's material (prMail.ts, mailMaterial.ts).
+    // PR og SoMe → Mails (the chair, 5 Nov 2026): "Flyt til PR", "Skjul", and "Kobl til event" with the mail's material (prMail.ts, mailMaterial.ts).
     if (path === "/pr/mails/flyt" || path === "/pr/mails/skjul" || path === "/pr/mails/kobl") {
       const id = Number(field("id"));
       const toMails = (query: string) => redirect(`${base}/pr/mails?${query}`);
@@ -1030,7 +1030,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (path === "/pr/mails/skjul") { await hideMail(db, id, now); return toMails("besked=skjult"); }
       if (path === "/pr/mails/flyt") {
         if (!(await moveToPr(env as SagaEnv, deps, db, id).catch(() => false))) return toMails("fejl=mail");
-        await audit(db, actor, "social.manage", "Flyttede en mail til 5 - JACOB › PR og promo", now);
+        await audit(db, actor, "social.manage", "Flyttede en mail til 5 - JACOB › PR", now);
         return toMails("besked=flyttet_mail");
       }
       if (!(await linkMail(env as SagaEnv, deps, db, id, field("event")).catch(() => false))) return toMails("fejl=mail");

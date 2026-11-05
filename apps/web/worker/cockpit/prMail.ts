@@ -21,10 +21,9 @@ import { parseMail, type WebmailSession } from "./webmail.js";
  * sends a mail herself. */
 
 export const PR_PARENT = "INBOX.5 - JACOB";
-/** Renamed (the chair, 5 Nov 2026): "ja, jeg synes, vi skal omdøbe mappen til »PR og promo«" - once, on the mail server (renamePrFolder). */
-export const PR_FOLDER = "INBOX.5 - JACOB.PR og promo";
-export const OLD_PR_FOLDER = "INBOX.5 - JACOB.PR";
-export const PR_FOLDER_LABEL = "5 - JACOB › PR og promo";
+/** The chair (5 Nov 2026), after first asking for "PR og promo": "Nej, bare behold »PR«". */
+export const PR_FOLDER = "INBOX.5 - JACOB.PR";
+export const PR_FOLDER_LABEL = "5 - JACOB › PR";
 const MAX_PER_ROUND = 25;
 
 const cockpitUrl = (env: SagaEnv) => (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
@@ -82,7 +81,6 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     await labelPrBacklog(env, deps, db).catch(error => console.warn("pr_mail_backlog_failed", error instanceof Error ? error.message : error));
     await db.prepare("UPDATE board_mail SET pr_filed_at_ms = NULL WHERE label = 'PR' AND folder = 'INBOX'").run();
   }
-  if (await claimJob(db, "pr_folder_rename", 0, now).catch(() => false)) await renamePrFolder(env, deps, db).catch(error => console.warn("pr_folder_rename_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "pr_gitta_transfer", 0, now).catch(() => false)) await takeOverFolder(env, deps, db, /^INBOX\.3\s*-\s*GITTA\.PR$/i).catch(error => console.warn("pr_gitta_transfer_failed", error instanceof Error ? error.message : error));
   await collectMaterial(env, deps, db).catch(error => console.warn("pr_material_failed", error instanceof Error ? error.message : error));
   const found = await db.prepare(`SELECT id, sender, subject, uid, uid_validity, received_at_ms, assigned_to, answered_at_ms, answered_by, handled_at_ms, handled_by FROM board_mail
@@ -142,36 +140,6 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, text).catch(error => console.warn("pr_mail_notice_failed", error instanceof Error ? error.message : error));
   }
   return moved;
-}
-
-/** "PR og promo": the chair's folder renamed on the mail server - or, where the server will not rename, made anew and the mails moved there - and Posthus
- * follows the mails. */
-export async function renamePrFolder(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database): Promise<boolean> {
-  const opened = await openWebmail(env, db, deps);
-  if ("error" in opened) return false;
-  const { s } = opened;
-  try {
-    const folders = await s.folders();
-    if (!folders.some(f => f.path === OLD_PR_FOLDER) || folders.some(f => f.path === PR_FOLDER)) return false;
-    let renamed = false;
-    if (s.rename) renamed = await s.rename(OLD_PR_FOLDER, PR_FOLDER).then(() => true, () => false);
-    if (renamed) {
-      const validity = await s.uidValidity(PR_FOLDER);
-      await db.prepare("UPDATE OR IGNORE board_mail SET folder = ?, uid_validity = ?, message_ref = 'imap:' || ? || ':' || ? || ':' || uid WHERE folder = ? AND uid IS NOT NULL")
-        .bind(PR_FOLDER, validity, PR_FOLDER, validity, OLD_PR_FOLDER).run();
-      return true;
-    }
-    await s.create?.(PR_FOLDER);
-    const { items } = await s.list(OLD_PR_FOLDER, 0, 500, "");
-    if (items.length && s.moveMapped) {
-      const { destValidity, map } = await s.moveMapped(OLD_PR_FOLDER, items.map(i => i.uid), PR_FOLDER);
-      for (const [from, to] of map) await db.prepare("UPDATE OR IGNORE board_mail SET folder = ?, uid_validity = ?, uid = ?, message_ref = ? WHERE folder = ? AND uid = ?")
-        .bind(PR_FOLDER, destValidity, to, refOf(PR_FOLDER, destValidity, to), OLD_PR_FOLDER, from).run();
-    }
-    return true;
-  } finally {
-    await s.close().catch(() => undefined);
-  }
 }
 
 /** Requested (the chair, 5 Nov 2026): "du må meget gerne overføre mailsene fra Gittas PR-mappe også" - the mails in Gitta's PR folder (not its sub-folders)
@@ -257,7 +225,7 @@ export async function linkMail(env: SagaEnv, deps: SagaDeps & { webmail?: Webmai
   }
 }
 
-/** "Flyt til PR og promo": the mail moved to the chair's folder by hand - also from a board member's folder, as the chair chooses. */
+/** "Flyt til PR" (asked for as "Flyt til PR og promo"; the folder kept its name): the mail moved to the chair's folder by hand - also from a board member's folder, as the chair chooses. */
 export async function moveToPr(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database, id: number): Promise<boolean> {
   const row = await db.prepare("SELECT folder, uid FROM board_mail WHERE id = ?").bind(id).first<{ folder: string | null; uid: number | null }>().catch(() => null);
   if (!row?.uid || row.folder === PR_FOLDER) return false;
@@ -359,7 +327,7 @@ ${m.pr_left_why ? `<p class="small muted">Bliver i indbakken: ${esc(m.pr_left_wh
 <p class="pr-mail-text">${esc(m.preview.slice(0, 420))}${m.preview.length > 420 ? " …" : ""}</p>
 ${event}
 <div class="pr-acts">${m.uid ? `<a class="button" href="${base}/pr/mails/svar?id=${m.id}">Svar med Sagas udkast</a>` : ""}${link ? `<a class="button ghost" href="${link}">Åbn i Posthus</a>` : ""}
-${m.uid && m.folder !== PR_FOLDER ? action("flyt", m.id, "Flyt til PR og promo") : ""}${action("skjul", m.id, "Skjul")}</div></article>`;
+${m.uid && m.folder !== PR_FOLDER ? action("flyt", m.id, "Flyt til PR") : ""}${action("skjul", m.id, "Skjul")}</div></article>`;
   };
   return `<section class="panel" id="mails"><header><h2>Mails om PR${waiting ? ` (${waiting} venter)` : ""}</h2>
 <p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen ${PR_FOLDER_LABEL}. Saga kobler mailen til sit event og lægger billeder, filer og tekst klar under eventet - "Lav opslaget med materialet" åbner opslaget med dem. "Skjul" fjerner en mail herfra; et nyt svar i samme tråd vises igen. En mail, som en anden i bestyrelsen har - eller har samtalen om - bliver liggende og vises her med hvorfor. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>

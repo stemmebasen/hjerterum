@@ -125,13 +125,28 @@ ${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 
-function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string, ai = false): string {
+/** Asked (the chair, 5 Nov 2026): "Dette opslag, der vises, er det her programsat eller skeduleret til et bestemt tidspunkt? Hvis det er det, kan det så ikke også
+ * vises her?" - when the post goes out on each medium, whether it is planned (approved) or Saga's proposal, and a word when the time has passed. */
+function timeLine(p: SocialPost, nowMs: number): string {
+  if (!open(p) || !p.channels.length) return "";
+  const fb = p.channels.includes("facebook") ? p.publish_at_ms : null;
+  const ig = p.channels.includes("instagram") ? p.source.instagramAtMs ?? p.publish_at_ms : null;
+  const parts = [fb ? `Facebook ${when(fb)}` : "", ig ? `Instagram ${when(ig)}` : ""].filter(Boolean);
+  if (!parts.length) return "";
+  const passed = [fb, ig].some(t => t && t < nowMs);
+  const lead = p.status === "approved" ? "Planlagt" : "Saga foreslår";
+  return `<p class="pr-when${passed ? " is-late" : ""}"><b>${lead}:</b> ${esc(fb && ig && fb === ig ? `Facebook og Instagram ${when(fb)}` : parts.join(" · "))}${passed
+    ? `<span> Tidspunktet er passeret. ${p.status === "approved" ? "Saga sender det i næste runde." : "Godkender du, sendes det med det samme - eller vælg et nyt tidspunkt nedenfor."}</span>` : p.status === "approved" ? "" : "<span> Sendes først, når du har godkendt.</span>"}</p>`;
+}
+
+function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string, ai = false, nowMs = Date.now()): string {
   if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
-  const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
+  const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} ${Number(dateOf(p.source.startsMs).slice(8))}/${Number(dateOf(p.source.startsMs).slice(5, 7))} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
   const allowed: Channel[] = account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
   return `<article class="pr-post" id="opslag-${p.id}">
 <header>${status(p)}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
+${timeLine(p, nowMs)}
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 ${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
   return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.design ? "Dit design" : "Eventets billede"}</span>
@@ -185,7 +200,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
     ? `<div class="pr-acts">${drafts ? `<form method="post" action="${base}/pr/uge/godkend"><input type="hidden" name="uge" value="${d.week.monday}"><button>Godkend hele ugen (${drafts})</button></form>` : ""}
 <form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button class="ghost">Tilføj nye events fra kalenderen</button></form></div>
 <p class="small muted">"Ugens events" og ${eventCount} events med hvert sit opslag på Facebook. Et godkendt opslag går ud på sit tidspunkt; et event, der er begyndt, får ikke sit opslag bagefter.</p>
-${d.week.posts.map(p => weekCard(base, p, a, d.week.monday, d.aiReady)).join("")}`
+${d.week.posts.map(p => weekCard(base, p, a, d.week.monday, d.aiReady, d.nowMs)).join("")}`
     : `<p class="empty">Ugen er ikke planlagt endnu. Saga planlægger næste uge torsdag fra kl. 10.</p>
 ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button>Lad Saga planlægge uge ${weekNumber(d.week.key)} nu</button></form>` : ""}`;
 
@@ -219,6 +234,7 @@ const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:
 /* "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." */.pr-post{background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 14px;scroll-margin-top:90px}.pr-post:nth-of-type(even){background:var(--card)}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
 .pr-design{display:flex;align-items:center;gap:12px;margin:0 0 12px}.pr-video{display:flex;align-items:flex-end;gap:12px;margin:0 0 12px}.pr-video video{width:160px;aspect-ratio:9/16;border-radius:12px;background:#000}.pr-design img{width:72px;height:90px;object-fit:cover;border-radius:10px}.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
+.pr-when{margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--tint);font-size:14.5px}.pr-when span{color:var(--muted)}.pr-when.is-late{background:var(--warn-soft)}.pr-when.is-late span{color:var(--warn)}
 .pr-writer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}.pr-writer input{flex:1 1 220px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.pr-writer [role=status]{flex-basis:100%}
 /* Requested (the chair, 5 Nov 2026): "Her bør det aktuelle felt highlightes alt efter, hvilket social medie der er valgt. Hvis det kun er Instagram, skal der være en
  guldmarkering omkring tekstfeltet og vice versa." The text that goes out has a gold frame; the one for a medium that is not chosen fades. */
