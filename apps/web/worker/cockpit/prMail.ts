@@ -39,8 +39,12 @@ const notChair = (name: string | null, chair: string | null) => Boolean(name && 
 
 /** Why the mail is another board member's - or null when the chair may have it. It is theirs when it is given to them, answered or handled by them, or when
  * an earlier mail of the same conversation (same subject, last 90 days) is given to them, answered by them or lies in one of their folders. */
-export async function someoneElses(db: D1Database, m: Candidate, chair: string | null, nowMs: number): Promise<string | null> {
+export async function someoneElses(db: D1Database, m: Candidate, chair: string | null, nowMs: number, board: string[] = []): Promise<string | null> {
   if (notChair(m.assigned_to, chair)) return `Tildelt ${firstOf(m.assigned_to)}`;
+  // The teachers' PR guide (5 Nov 2026): "Skriv »PR-Gitta« i emnefeltet" - a mail that names another board member in its subject is theirs.
+  const own = firstOf(chair).toLowerCase();
+  const named = board.map(firstOf).filter(f => f.toLowerCase() !== own).find(f => f.length >= 3 && new RegExp(`(^|[^a-zæøå])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-zæøå])`, "i").test(m.subject));
+  if (named) return `Til ${named} (nævnt i emnet)`;
   if (m.answered_at_ms && notChair(m.answered_by, chair)) return m.answered_by && m.answered_by !== "Hjerterum" ? `Besvaret af ${firstOf(m.answered_by)}` : "Allerede besvaret fra team@";
   if (m.handled_at_ms && notChair(m.handled_by, chair)) return `Klaret af ${firstOf(m.handled_by)}`;
   const topic = sameSubject(m.subject);
@@ -72,10 +76,13 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
   if (!found.length) return 0;
   // Asked (the chair, 5 Nov 2026): "Hvordan sikrer vi os, at der ikke bliver flyttet mails til min mappe, som Lisbeth eller Frederik er i gang med?" A mail
   // another board member has - or whose conversation they have - stays in the inbox, and PR og SoMe → Mails says why.
-  const chair = (await boardMembers(env, db)).chair;
+  const { chair, names } = await boardMembers(env, db);
+  // The board, and whoever has a folder of their own in team@ ("3 - GITTA").
+  const folders = await db.prepare("SELECT DISTINCT folder FROM board_mail WHERE folder LIKE 'INBOX.%'").all<{ folder: string }>().then(r => (r.results ?? []).map(f => f.folder)).catch(() => [] as string[]);
+  const board = [...new Set([...names, ...folders.filter(f => /^INBOX\.\s*\d/.test(f)).map(folderOwner)])];
   const rows: Candidate[] = [];
   for (const r of found) {
-    const why = await someoneElses(db, r, chair, now);
+    const why = await someoneElses(db, r, chair, now, board);
     if (why) await db.prepare("UPDATE board_mail SET pr_filed_at_ms = ?, pr_left_why = ? WHERE id = ?").bind(now, why, r.id).run();
     else rows.push(r);
   }

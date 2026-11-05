@@ -1150,6 +1150,7 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - samme samtale er tildelt en anden;
   - en anden skriver allerede med afsenderen.
   - Mails i de andres mapper flyttes aldrig. Det gjaldt også før (formandens "Nej").
+  - Nævner emnet et andet bestyrelsesmedlem ved navn, fx "PR-Gitta" fra undervisernes PR-guide, bliver mailen til dem ("Til Gitta (nævnt i emnet)"). Navnene er bestyrelsens og ejerne af de personlige mapper (1 - LISBETH, 2 - FREDERIK, 3 - GITTA …). Formandens eget navn tæller ikke.
 - **Begrundelsen gemmes** (`board_mail.pr_left_why`, migration 0097). PR og SoMe → Mails viser den: "Bliver i indbakken: Samtalen ligger i Lisbeths mappe."
 - **Formandens ønske:** "Det kunne også være fint, hvis jeg kan se, hvornår en skabelon sidste gang er brugt, og til hvilket event". Valget af skabelon viser det både på plakatsiden og på Sagas link, fx "3. Plakat · sidst 4. nov.: Lydhealing" eller "ikke brugt endnu" (`templateUses` i `social/videoTemplates.ts`).
 
