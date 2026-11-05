@@ -1126,6 +1126,10 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **"Flyt til PR"** (formandens ønske) flytter mailen til formandens mappe, også fra et andet bestyrelsesmedlems mappe, når formanden selv vælger det.
 - **"Skjul"** (formandens ønske): "så jeg ikke længere ser den pågældende mail ... Kun hvis der kommer en ny mail i samme tråd skal jeg se den". Mailen og dens kopier forsvinder fra listen (`pr_hidden_at_ms`); et nyt svar i tråden er en ny mail og vises.
 - **Mappen hedder fortsat "5 - JACOB › PR"** (formanden: "Nej, bare behold »PR«"), og knappen hedder "Flyt til PR".
+- **Aflyste og overståede events** (formanden: "Jeg får stadig vist et event som dette, selvom det er aflyst. Det er en fejl."):
+  - Et opslag til et event, der i kalenderen står med "- Aflyst -" (`isCancelledEvent`, som nyhedsbrevet bruger), lægges til side.
+  - Det samme sker med et forslag til et event, der er afholdt, uden at opslaget blev godkendt.
+  - Begge dele sker i hver runde (`retireCancelled`).
 - **Signaturen** i svarudkast fra PR og SoMe er "Venlig hilsen, / Team Hjerterum" (formanden: "der bare skal stå i signaturen").
 - **Tidspunktet på hvert opslag** under Ugens opslag står øverst på kortet (formanden: "er det her programsat eller skeduleret til et bestemt tidspunkt? Hvis det er det, kan det så ikke også vises her?"):
   - "Planlagt:" for et godkendt opslag og "Saga foreslår: … Sendes først, når du har godkendt." for et forslag, for Facebook og Instagram hver for sig.

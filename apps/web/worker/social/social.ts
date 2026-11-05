@@ -1,6 +1,7 @@
 import { siteLive, toPublicSite } from "../public-site.js";
 import type { D1Database } from "../db.js";
 import { listTitle, monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
+import { isCancelledEvent } from "../external-events.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { claimJob } from "../saga/store.js";
@@ -543,7 +544,11 @@ export const firstDue = (post: Pick<SocialPost, "publish_at_ms" | "source" | "ch
 async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
   const [source, id] = [key.slice(0, 3), key.slice(3)];
   // The calendar's events: only one that is known and removed is off (some are only in the membership system's list, never stored).
-  if (source === "mw:") return !(await db.prepare("SELECT 1 AS yes FROM house_events WHERE id = ? AND removed_at_ms IS NOT NULL").bind(id).first().catch(() => null));
+  if (source === "mw:") {
+    const row = await db.prepare("SELECT title, description, removed_at_ms FROM house_events WHERE id = ?").bind(id).first<{ title: string; description: string | null; removed_at_ms: number | null }>().catch(() => null);
+    // Reported (the chair, 5 Nov 2026): "Jeg får stadig vist et event som dette, selvom det er aflyst" - cancelled in the calendar by "- Aflyst -" in its title.
+    return !row || (!row.removed_at_ms && !isCancelledEvent({ title: row.title, description: row.description }));
+  }
   if (source === "hr:") return Boolean(await db.prepare("SELECT 1 AS yes FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(Number(id)).first().catch(() => ({ yes: 1 })));
   return true;
 }
@@ -555,6 +560,12 @@ export async function retireCancelled(db: D1Database, nowMs: number): Promise<nu
   let retired = 0;
   for (const post of waiting) {
     const key = post.source.key;
+    // A proposal for an event that has taken place without its post going out is set aside too (an approved one is publishOne's to settle).
+    if (post.status === "draft" && post.source.startsMs && post.source.startsMs <= nowMs) {
+      const done = await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Eventet er afholdt, før opslaget blev godkendt', updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(nowMs, post.id).run();
+      retired += done.meta?.changes ?? 0;
+      continue;
+    }
     if (!key || await eventStillOn(db, key)) continue;
     const done = await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Eventet er aflyst eller fjernet fra kalenderen', updated_at_ms = ? WHERE id = ? AND status IN ('draft', 'approved')").bind(nowMs, post.id).run();
     retired += done.meta?.changes ?? 0;
