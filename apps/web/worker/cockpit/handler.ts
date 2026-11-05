@@ -53,7 +53,7 @@ import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { prMailData, prReplyPage } from "./prMail.js";
-import { approveWeek, chooseVideoTemplate, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -1188,7 +1188,20 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!may("social.manage")) return denied("social.manage");
       const data = await studioData(db, id!, now, deps.fetcher);
       if (!data?.post) return answer({ error: "no_post" }, 404);
-      const body = await request.json().catch(() => null) as { template?: unknown } | null;
+      const body = await request.json().catch(() => null) as { template?: unknown; more?: unknown; pick?: unknown } | null;
+      // "flere ... video designs på kommando": more videos to choose among, or the chair's pick of one.
+      if (body?.more === true) {
+        const asked = await askVideos(db, data.post.id, now);
+        if (asked !== "ok") return answer({ error: asked }, 422);
+        await audit(db, actor, "social.manage", `Bad om flere videoer til "${data.event.title}"`, now);
+        return answer({ ok: true });
+      }
+      if (typeof body?.pick === "number") {
+        const picked = await pickVideo(db, data.post.id, body.pick, now);
+        if (!picked) return answer({ error: "not_found" }, 422);
+        await audit(db, actor, "social.manage", `Valgte en anden video til "${data.event.title}"`, now);
+        return answer({ ok: true, video: picked.source.video, videoTemplate: picked.source.videoTemplate });
+      }
       const result = await chooseVideoTemplate(db, data.post.id, Number(body?.template), now);
       if (result !== "ok") return answer({ error: result }, 422);
       await audit(db, actor, "social.manage", `Bad om videoen til "${data.event.title}" i skabelon ${Number(body?.template)}`, now);
@@ -1716,6 +1729,18 @@ async function quickApproval(request: Request, env: SagaEnv, deps: SagaDeps, db:
       if (!(await decidePost(db, post.id, handling === "spring" ? "skip" : "undo", chair, now))) return back("fejl", "fejl");
       await audit(db, actor, "social.manage", `${handling === "spring" ? "Sprang over" : "Fortrød godkendelsen af"} opslaget "${quickTitle(post)}" via Sagas link`, now);
       return back("besked", handling === "spring" ? "sprunget" : "fortrudt");
+    }
+    // "flere ... video designs på kommando": more videos in other templates, and the chair's pick among them.
+    if (handling === "flere") {
+      const result = await askVideos(db, post.id, now);
+      if (result !== "ok") return back("fejl", result === "late" ? "tid" : result === "none" ? "ingen" : result === "busy" ? "igang" : "fejl");
+      await audit(db, actor, "social.manage", `Bad om flere videoer til "${quickTitle(post)}" via Sagas link`, now);
+      return back("besked", "flere");
+    }
+    if (handling === "vaelg") {
+      if (!(await pickVideo(db, post.id, Number(form?.get("valg")), now))) return back("fejl", "fejl");
+      await audit(db, actor, "social.manage", `Valgte en anden video til "${quickTitle(post)}" via Sagas link`, now);
+      return back("besked", "valgt");
     }
     if (handling === "skabelon") {
       const result = await chooseVideoTemplate(db, post.id, Number(form?.get("skabelon")), now);

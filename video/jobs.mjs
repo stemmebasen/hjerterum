@@ -1,6 +1,7 @@
 // Builds the render jobs from Saga's proposals (run by .github/workflows/video-events.yml and ugens-reel.yml):
 //
-//   node video/jobs.mjs events <posts.json> <out-dir> <now-ms>          - a video for each event proposal on Instagram that has none yet
+//   node video/jobs.mjs events <posts.json> <out-dir> <now-ms> [asks.json] - a video for each event proposal on Instagram that has none yet,
+//                                                                         and the chair's asked-for choices
 //   node video/jobs.mjs week <week.json> <events.json> <out-dir> <now-ms> - "Ugens events" as a reel, once a week
 //
 // The json files are `wrangler d1 execute --json` answers. Writes <out-dir>/jobs.json ({ composition, props, out, name, sql }[]) - each job's sql
@@ -75,24 +76,43 @@ export function chooseTemplate(post, hasPicture, startsMs) {
   return [1, 3, 4, 5][Number(post.id) % 4];
 }
 
-async function eventJobs(postsPath, out, now) {
+/** The props of an event's video in a template (null when the template needs a picture the event does not have). */
+async function eventVideo(r, now, forced = null) {
+  const source = json(r.source, {}), images = json(r.images, []);
+  if (!source.startsMs) return null;
+  const pic = await picture(images[0]);
+  const portrait = source.portrait ? await picture(source.portrait) : null;
+  const post = { id: r.id, source };
+  const p = parts(source.startsMs);
+  const template = forced ?? chooseTemplate({ ...post, source: { ...source, portrait: portrait ? source.portrait : null } }, Boolean(pic), source.startsMs);
+  if (forced && forced !== 2 && !pic) return null;
+  const props = { template, title: cleanTitle(source.title), host: source.host ?? null, picture: pic, portrait, quote: source.quote ?? null,
+    kicker: kickerOf(`${source.title} ${r.text}`), dayName: cap(p.weekday), dayNo: String(Number(p.day)), month: p.month, time: clock(source.startsMs), timeRange: clock(source.startsMs),
+    line: lineOf(r.text) };
+  const name = `event-${r.id}-${randomBytes(6).toString("hex")}`;
+  return { template, props, name, video: `${SITE}/api/social-reels/${name}.mp4` };
+}
+
+async function eventJobs(postsPath, out, now, asksPath = null) {
   const jobs = [];
   for (const r of rows(postsPath)) {
-    const source = json(r.source, {}), images = json(r.images, []);
-    if (!source.startsMs) continue;
-    const pic = await picture(images[0]);
-    const portrait = source.portrait ? await picture(source.portrait) : null;
-    const post = { id: r.id, source };
-    const p = parts(source.startsMs);
-    const template = chooseTemplate({ ...post, source: { ...source, portrait: portrait ? source.portrait : null } }, Boolean(pic), source.startsMs);
-    const props = { template, title: cleanTitle(source.title), host: source.host ?? null, picture: pic, portrait, quote: source.quote ?? null,
-      kicker: kickerOf(`${source.title} ${r.text}`), dayName: cap(p.weekday), dayNo: String(Number(p.day)), month: p.month, time: clock(source.startsMs), timeRange: clock(source.startsMs),
-      line: lineOf(r.text) };
-    const name = `event-${r.id}-${randomBytes(6).toString("hex")}`;
-    const video = `${SITE}/api/social-reels/${name}.mp4`;
-    jobs.push({ composition: "Event", props, out: `${name}.mp4`, name,
+    const v = await eventVideo(r, now);
+    if (!v) continue;
+    jobs.push({ composition: "Event", props: v.props, out: `${v.name}.mp4`, name: v.name,
       // Only on a proposal still waiting for the chair, that has no video yet - an approved post goes out as it was approved.
-      sql: `UPDATE social_posts SET source = json_set(source, '$.video', ${sql(video)}, '$.videoTemplate', ${template}, '$.videoAtMs', ${now}) WHERE id = ${Number(r.id)} AND status = 'draft' AND json_extract(source, '$.video') IS NULL;` });
+      sql: `UPDATE social_posts SET source = json_set(source, '$.video', ${sql(v.video)}, '$.videoTemplate', ${v.template}, '$.videoAtMs', ${now}) WHERE id = ${Number(r.id)} AND status = 'draft' AND json_extract(source, '$.video') IS NULL;` });
+  }
+  // Requested (the chair, 5 Nov 2026): "flere ... video designs på kommando" - the templates the chair asked for (source.videoAsk), each a choice beside the
+  // post's video (source.videoChoices); the chair picks one in admin. The post's own video is never changed here.
+  for (const r of asksPath ? rows(asksPath) : []) {
+    const ask = json(r.source, {}).videoAsk;
+    for (const template of (ask?.templates ?? []).slice(0, 3)) {
+      const v = await eventVideo(r, now, Number(template));
+      if (!v) continue;
+      const choice = JSON.stringify({ template: v.template, video: v.video, atMs: now });
+      jobs.push({ composition: "Event", props: v.props, out: `${v.name}.mp4`, name: v.name,
+        sql: `UPDATE social_posts SET source = json_remove(json_set(source, '$.videoChoices', json(json_insert(coalesce(json_extract(source, '$.videoChoices'), '[]'), '$[#]', json(${sql(choice)})))), '$.videoAsk') WHERE id = ${Number(r.id)} AND status IN ('draft', 'approved', 'failed');` });
+    }
   }
   writeFileSync(join(out, "jobs.json"), JSON.stringify(jobs, null, 2));
   console.log(`${jobs.length} video${jobs.length === 1 ? "" : "er"} at lave`);
@@ -138,7 +158,7 @@ async function weekJob(weekPath, eventsPath, out, now) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [mode, ...rest] = process.argv.slice(2);
-  if (mode === "events") { const [posts, out, now] = rest; mkdirSync(out, { recursive: true }); await eventJobs(posts, out, Number(now)); }
+  if (mode === "events") { const [posts, out, now, asks] = rest; mkdirSync(out, { recursive: true }); await eventJobs(posts, out, Number(now), asks ?? null); }
   else if (mode === "week") { const [week, events, out, now] = rest; mkdirSync(out, { recursive: true }); await weekJob(week, events, out, Number(now)); }
   else { console.error("brug: jobs.mjs events <posts.json> <out> <now> | week <week.json> <events.json> <out> <now>"); process.exit(2); }
 }

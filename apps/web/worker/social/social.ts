@@ -44,6 +44,9 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
     /** When Saga sent the chair the link to the finished video (notifyVideos). */
     videoNotifiedAtMs?: number;
+    /** "flere ... video designs på kommando": the templates the chair asked for (video-events.yml makes them), the videos made to choose among, and how many
+     * of them Saga has told the chair about. */
+    videoAsk?: { atMs: number; templates: number[] }; videoChoices?: Array<{ template: number; video: string; atMs: number }>; videoChoicesTold?: number;
     /** For the templates "Citat" and "Mød underviseren": the teacher's own sentence and photo, given with consent. */
     quote?: string; portrait?: string }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
@@ -667,7 +670,8 @@ export async function notifyVideos(env: SagaEnv, deps: SagaDeps, db: D1Database)
   const now = deps.now();
   const fresh = await socialPosts(db, `status = 'draft' AND kind IN ('event', 'week') AND json_extract(source, '$.video') IS NOT NULL AND json_extract(source, '$.videoNotifiedAtMs') IS NULL
     AND coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms, ?) > ?`, [now + 1, now], "coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms), id", 10);
-  if (!fresh.length) return 0;
+  const choices = await notifyChoices(env, deps, db);
+  if (!fresh.length) return choices;
   // Marked first, without touching updated_at_ms (Saga's re-timing leaves only untouched proposals): a message is never sent twice.
   const marked: SocialPost[] = [];
   for (const p of fresh) {
@@ -685,7 +689,52 @@ export async function notifyVideos(env: SagaEnv, deps: SagaDeps, db: D1Database)
   const head = marked.length === 1 ? "Saga har lavet en video til Instagram. Tryk for at se den og godkende:" : `Saga har lavet ${marked.length} videoer til Instagram. Tryk på hver for at se den og godkende:`;
   await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${head}\n\n${lines.join("\n")}`, { html: true })
     .catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
-  return marked.length;
+  return marked.length + choices;
+}
+
+/** The videos made on the chair's "Lav flere videoer": one message, a link per post, once per batch. */
+async function notifyChoices(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const now = deps.now();
+  const ready = await socialPosts(db, `kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '$.videoAsk') IS NULL
+    AND json_array_length(json_extract(source, '$.videoChoices')) > coalesce(json_extract(source, '$.videoChoicesTold'), 0)`, [], "id", 10);
+  const told: SocialPost[] = [];
+  for (const p of ready) {
+    const n = p.source.videoChoices?.length ?? 0;
+    const done = await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoChoicesTold', ?) WHERE id = ? AND coalesce(json_extract(source, '$.videoChoicesTold'), 0) < ?").bind(n, p.id, n).run();
+    if (Number(done.meta?.changes ?? 0) === 1) told.push(p);
+  }
+  if (!told.length) return 0;
+  const { quickLink } = await import("./quickLink.js");
+  const lines = await Promise.all(told.map(async p => `▶ <a href="${htmlText(await quickLink(env, p.id, now) ?? `${cockpitUrl(env)}/pr/kalender`)}">${htmlText(p.source.title ?? "Event")}</a>`));
+  await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID!, `De nye videoer er klar. Tryk, se dem side om side, og vælg den, du vil bruge:\n\n${lines.join("\n")}`, { html: true })
+    .catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
+  return told.length;
+}
+
+/** "Lav flere videoer": up to three templates the post has not had, the least used first (social/videoTemplates.ts); made within a quarter of an hour. */
+export async function askVideos(db: D1Database, id: number, nowMs: number): Promise<"ok" | "not_found" | "late" | "none" | "busy"> {
+  const post = await socialPost(db, id);
+  if (!post || post.kind !== "event" || !["draft", "approved", "failed"].includes(post.status)) return "not_found";
+  if (post.source.videoAsk) return "busy";
+  if (!post.source.startsMs || post.source.startsMs < nowMs + 3 * 3_600_000) return "late";
+  const { templatesFor, templateUses } = await import("./videoTemplates.js");
+  const had = new Set([post.source.video ? post.source.videoTemplate : undefined, ...(post.source.videoChoices ?? []).map(c => c.template)].filter((n): n is number => typeof n === "number"));
+  const uses = await templateUses(db);
+  const fresh = templatesFor(post).filter(n => !had.has(n)).sort((a, b) => (uses.get(a)?.atMs ?? 0) - (uses.get(b)?.atMs ?? 0)).slice(0, 3);
+  if (!fresh.length) return "none";
+  await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoAsk', json(?)) WHERE id = ?").bind(JSON.stringify({ atMs: nowMs, templates: fresh }), id).run();
+  return "ok";
+}
+
+/** The chair picks one of the videos: it becomes the post's video (on Instagram as a reel), and the post waits for the chair's approval again. */
+export async function pickVideo(db: D1Database, id: number, index: number, nowMs: number): Promise<SocialPost | null> {
+  const post = await socialPost(db, id);
+  const choice = post?.source.videoChoices?.[index];
+  if (!post || !choice || !["draft", "approved", "failed"].includes(post.status)) return null;
+  const { noVideo: _off, ...rest } = post.source;
+  await db.prepare("UPDATE social_posts SET source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
+    .bind(JSON.stringify({ ...rest, video: choice.video, videoTemplate: choice.template, videoAtMs: choice.atMs, videoNotifiedAtMs: nowMs }), nowMs, id).run();
+  return socialPost(db, id);
 }
 
 const htmlText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

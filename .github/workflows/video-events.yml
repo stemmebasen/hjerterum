@@ -7,7 +7,8 @@ name: Eventvideoer
 
 on:
   schedule:
-    - cron: "13,43 * * * *"
+    # Every ten minutes: the chair's "Lav flere videoer" is answered within a quarter of an hour (5 Nov 2026: "flere ... video designs på kommando").
+    - cron: "3,13,23,33,43,53 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -42,15 +43,17 @@ jobs:
           NOW="CAST(strftime('%s', 'now') AS INTEGER) * 1000"
           pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
             "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status = 'draft' AND channels LIKE '%instagram%' AND json_extract(source, '\$.video') IS NULL AND json_extract(source, '\$.noVideo') IS NULL AND json_extract(source, '\$.startsMs') > $NOW + 10800000 AND coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) > $NOW + 3600000 ORDER BY coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) LIMIT 6" > /tmp/posts.json
+          pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
+            "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '\$.videoAsk') IS NOT NULL AND json_extract(source, '\$.startsMs') > $NOW + 3600000 ORDER BY json_extract(source, '\$.videoAsk.atMs') LIMIT 3" > /tmp/asks.json
       - name: Make the videos
         shell: bash
         run: |
           set -euo pipefail
-          if ! node -e 'const d = JSON.parse(require("fs").readFileSync("/tmp/posts.json", "utf8")); process.exit(((d[0] ?? {}).results ?? []).length ? 0 : 1)'; then
+          if ! node -e 'const n = f => ((JSON.parse(require("fs").readFileSync(f, "utf8"))[0] ?? {}).results ?? []).length; process.exit(n("/tmp/posts.json") + n("/tmp/asks.json") ? 0 : 1)'; then
             echo "Ingen forslag uden video."; mkdir -p /tmp/videos && echo "[]" > /tmp/videos/done.json && : > /tmp/videos/update.sql; exit 0
           fi
           npm ci --prefix video --no-audit --no-fund
-          node video/jobs.mjs events /tmp/posts.json /tmp/videos "$(date +%s000)"
+          node video/jobs.mjs events /tmp/posts.json /tmp/videos "$(date +%s000)" /tmp/asks.json
           node video/render.mjs /tmp/videos
       - name: Put them in R2 and on the proposals
         shell: bash

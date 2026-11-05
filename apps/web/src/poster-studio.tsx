@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LOGO_FILE, chooseVariant, drawPoster, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, PALETTES, chooseVariant, drawPoster, type PaletteKey, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -19,7 +19,8 @@ type Data = {
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
     video: string | null; noVideo: boolean;
-    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean } | null;
+    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean;
+    videoChoices: Array<{ template: number; video: string }>; videoAsked: number[] } | null;
   back: string;
   siteLive?: boolean;
 };
@@ -29,10 +30,10 @@ const FONTS = ["400 100px \"Playfair Display\"", "italic 400 100px \"Playfair Di
 const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "event";
 const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
-  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void }) {
+function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, palette = "varm" }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
+  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; palette?: PaletteKey }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, format); }, [variant, words, assets, format]);
+  useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, format, 1, palette); }, [variant, words, assets, format, palette]);
   const info = [...VARIANTS, OWN_PICTURE].find(v => v.key === variant)!;
   // Asked: "Når der står »hent billedet«, betyder det så, at du vil have mig til at downloade det og så poste det manuelt?" - no: Saga posts it.
   // Downloading is only for using a design somewhere else.
@@ -40,14 +41,14 @@ function Design({ variant, words, assets, format, chosen, title, big, soft, canv
     if (!blob) return;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `hjerterum-${slug(title)}-${variant}-${format}.png`;
+    link.download = `hjerterum-${slug(title)}-${variant}${palette === "varm" ? "" : `-${palette}`}-${format}.png`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(link.href), 4000);
   }, "image/png");
   return <figure className={"poster-card" + (chosen && !big ? " is-picked" : "") + (big ? " is-proposal" : "")}>
     <canvas ref={el => { ref.current = el; if (canvasRef) canvasRef.current = el; }} className={"poster-canvas is-" + format} aria-label={`${info.label}: ${title}`} />
     {!big && <figcaption>
-      <div><b>{info.label}</b>{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
+      <div><b>{info.label}{palette !== "varm" ? ` · ${PALETTES.find(p => p.key === palette)!.label}` : ""}</b>{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
         {soft && <p className="studio-soft">Beskæringen er forstørret her, så billedet bliver lidt blødt.</p>}</div>
       <p className="studio-actions">{onPick && <button type="button" className={"lys-btn" + (chosen ? "" : " ghost")} onClick={onPick} aria-pressed={chosen}>{chosen ? "Valgt" : "Vælg"}</button>}
         <button type="button" className="text-button" onClick={save}>Download</button></p>
@@ -162,6 +163,9 @@ export function PosterStudio({ id }: { id: string }) {
   const [logo, setLogo] = useState<HTMLImageElement | null>(null);
   const [format, setFormat] = useState<Format>("opslag");
   const [variant, setVariant] = useState<VariantKey | null>(null);
+  // "flere stills ... på kommando": the designs again in the house's other colour moods, one more for each press.
+  const [palette, setPalette] = useState<PaletteKey>("varm");
+  const [moods, setMoods] = useState(1);
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState<Step>("forslag");
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
@@ -284,6 +288,21 @@ export function PosterStudio({ id }: { id: string }) {
       setVideoNote(`Ny video på vej i "${post.videoTemplates.find(t => t.no === template)?.name ?? template}" (højst en halv time). Saga skriver til dig på Telegram med et link, når den er klar - godkend den dér. Godkender du her før, kommer opslaget ud med billedet.`);
     } else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave en ny video." : error === "template" ? "Den skabelon kan ikke bruges til dette event." : "Det lykkedes ikke. Prøv igen.");
   };
+  // "flere ... video designs på kommando": more videos in other templates, made within a quarter of an hour; and the chair's pick among them.
+  const moreVideos = async () => {
+    setVideoNote("Sender …");
+    const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ more: true }) }).catch(() => null);
+    const error = response && !response.ok ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+    if (response?.ok) { setData(d => d && d.post ? { ...d, post: { ...d.post, videoAsked: [1] } } : d); setVideoNote("Saga laver op til tre nye videoer i andre skabeloner (cirka et kvarter). Hun skriver til dig på Telegram med et link, når de er klar - eller kom tilbage hertil."); }
+    else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave flere videoer." : error === "none" ? "Opslaget har allerede fået alle de skabeloner, det kan bruge." : error === "busy" ? "Saga er allerede i gang med nye videoer." : "Det lykkedes ikke. Prøv igen.");
+  };
+  const pickVideo = async (index: number) => {
+    const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pick: index }) }).catch(() => null);
+    const body = response?.ok ? await response.json().catch(() => null) as { video?: string; videoTemplate?: number } | null : null;
+    if (!body?.video) { setVideoNote("Videoen kunne ikke vælges. Prøv igen."); return; }
+    setData(d => d && d.post ? { ...d, post: { ...d.post, video: body.video!, videoTemplate: body.videoTemplate ?? d.post.videoTemplate, noVideo: false, status: "draft" } } : d);
+    setUseVideo(true); setVideoNote("Videoen er valgt. Den står nu i opslaget til venstre.");
+  };
   const toggle = (c: string) => setChannels(list => list.includes(c) ? list.filter(x => x !== c) : [...list, c]);
 
   const head = <section className="lys-intro site-intro studio-head">
@@ -342,6 +361,12 @@ export function PosterStudio({ id }: { id: string }) {
               {post.videoTemplates.map(t => <option key={t.no} value={t.no}>{t.no}. {t.name} · {t.used}</option>)}</select></label>
             <button type="button" className="lys-btn ghost" disabled={!post.videoRemake || !template || (template === post.videoTemplate && Boolean(post.video))} onClick={() => void remakeVideo()}>Lav videoen</button>
           </div>
+          {post.videoChoices.some(c => c.video !== post.video) && <div className="studio-choices-grid">
+            {post.videoChoices.map((c, i) => c.video === post.video ? null : <figure key={c.video}><video src={c.video} controls muted playsInline loop preload="metadata" />
+              <figcaption>{c.template}. {post.videoTemplates.find(t => t.no === c.template)?.name ?? ""}<button type="button" className="lys-btn ghost" onClick={() => void pickVideo(i)}>Vælg denne</button></figcaption></figure>)}
+          </div>}
+          {post.videoAsked.length ? <p className="studio-muted">Saga er i gang med nye videoer.</p>
+            : post.videoRemake && <p className="studio-actions"><button type="button" className="lys-btn ghost" onClick={() => void moreVideos()}>✨ Lav flere videoer</button></p>}
           {videoNote && <p className="studio-muted" role="status">{videoNote}</p>}
         </fieldset>}
         <fieldset className="studio-choices"><legend>Hvornår</legend>
@@ -367,7 +392,7 @@ export function PosterStudio({ id }: { id: string }) {
   return <main className="page-shell site-page poster-page studio">{head}
     <section className="studio-proposal">
       {!logo ? <p className="poster-empty">Tegner forslaget …</p>
-        : <Design key={`${chosen}-${format}`} variant={chosen} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
+        : <Design key={`${chosen}-${format}-${palette}`} variant={chosen} palette={palette} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
       <div className="studio-box">
         <h2>Sagas forslag</h2>
         {post ? <>
@@ -419,14 +444,18 @@ export function PosterStudio({ id }: { id: string }) {
       <p className="studio-muted studio-format-help">{FORMAT_HELP[format]}</p>
 
       <h2 className="studio-step">Design</h2>
-      {!logo ? <p className="poster-empty">Tegner designene …</p> : <div className="poster-grid">
+      {!logo ? <p className="poster-empty">Tegner designene …</p> : <>{PALETTES.slice(0, moods).map(mood => <div key={mood.key}>
+        {mood.key !== "varm" && <h3 className="studio-mood">{mood.label}</h3>}
+        <div className="poster-grid">
         {all.map(key => {
           const fits = photoFits(key, format, size);
-          return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen} title={event.title} soft={Boolean(fits.soft)} onPick={() => { setVariant(key); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
-            : <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
-              <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure>;
+          return fits.ok ? <Design key={`${key}-${mood.key}`} variant={key} palette={mood.key} words={words} assets={assets} format={format} chosen={key === chosen && mood.key === palette} title={event.title} soft={Boolean(fits.soft)}
+            onPick={() => { setVariant(key); setPalette(mood.key); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+            : mood.key === "varm" ? <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
+              <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure> : null;
         })}
-      </div>}
+      </div></div>)}
+      {moods < PALETTES.length && <p className="studio-actions"><button type="button" className="lys-btn ghost" onClick={() => setMoods(moods + 1)}>Vis flere designs ({PALETTES[moods]!.label})</button></p>}</>}
     </section>}
   </main>;
 }

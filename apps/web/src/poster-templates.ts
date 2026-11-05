@@ -11,7 +11,7 @@ export type Shape = "rect" | "pebble" | "arch" | "circle" | "blob" | "wave-botto
 export type PhotoSpot = { x: number; y: number; w: number; h: number; shape: Shape; radius?: number; optional?: boolean };
 export type Template = { photo: (W: number, H: number) => PhotoSpot | null; draw: (ctx: Ctx, W: number, H: number, w: PosterWords, a: Assets) => void };
 
-const G = { cream: "#F4F1EB", caramel: "#CD9D76", cocoa: "#2E2621", grey: "#393939", creamB: "#F7F4EE", brownB: "#4A3B33", brownB2: "#5A4C44", accentB: "#8A7C70",
+export const G = { cream: "#F4F1EB", caramel: "#CD9D76", cocoa: "#2E2621", grey: "#393939", creamB: "#F7F4EE", brownB: "#4A3B33", brownB2: "#5A4C44", accentB: "#8A7C70",
   sageLine: "#C9D2C2", night: "#2a221d", box: "rgba(87,67,56,.78)", leaf: "#3b4634", leafSoft: "#dfe7d6", gold: "#d9b67a" };
 
 const land = (W: number, H: number) => W / H > 1.2;

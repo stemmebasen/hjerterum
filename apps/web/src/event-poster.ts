@@ -1,4 +1,4 @@
-import { TEMPLATES } from "./poster-templates";
+import { G, TEMPLATES } from "./poster-templates";
 import type { PosterDesign } from "../site/poster-rules";
 /** Requested: "Kan du lave 2-3 forslag til event designs" and then "Vi skal have fem varianter systemet kan vælge mellem".
  * An event's poster for social media in five designs, drawn on a canvas in the house's colours and type (Hjerterum Lys).
@@ -66,6 +66,17 @@ export const SIZES: Record<Format, { width: number; height: number; label: strin
 };
 
 export const C = { cream: "#f6f1e7", sand: "#efe4d6", ink: "#2a2622", muted: "#5b534b", terra: "#94503f", camel: "#c9976f", sage: "#e9efe1", blush: "#f3d9c9", dusk: "#2a1e18" };
+/** Requested (the chair, 5 Nov 2026): "Er det muligt at få flere stills og video designs på kommando" - "Begge dele". Every design again in another of
+ * the house's colour moods ("Vis flere designs"): the same layouts, the ink and the logo unchanged, the colours around them warm and soft. */
+export type PaletteKey = "varm" | "salvie" | "skumring" | "hav" | "okker";
+export const PALETTES: Array<{ key: PaletteKey; label: string; colors: Partial<typeof C> }> = [
+  { key: "varm", label: "Varm", colors: {} },
+  { key: "salvie", label: "Salvie", colors: { cream: "#f3f2ea", sand: "#e4e9da", terra: "#55704f", camel: "#a5b88b", sage: "#dce6cf", blush: "#e2ebd6", dusk: "#1d2a20" } },
+  { key: "skumring", label: "Skumring", colors: { cream: "#f7f1f1", sand: "#ecdfe3", terra: "#6e4565", camel: "#c39aae", sage: "#ece4ef", blush: "#f0dbe5", dusk: "#251a26" } },
+  { key: "hav", label: "Hav", colors: { cream: "#f1f4f3", sand: "#dfe8e8", terra: "#3b6470", camel: "#8fb2b5", sage: "#dcebe8", blush: "#d8e8eb", dusk: "#14242a" } },
+  { key: "okker", label: "Okker", colors: { cream: "#faf3e6", sand: "#f1e2c8", terra: "#9a5f21", camel: "#dba556", sage: "#f0ead2", blush: "#f6e0bd", dusk: "#2b1d0f" } },
+];
+
 export const SERIF = "\"Playfair Display\", Georgia, serif";
 export const SANS = "Inter, system-ui, sans-serif";
 const TZ = "Europe/Copenhagen";
@@ -370,7 +381,18 @@ export const byline = (w: PosterWords) => w.teacher ? `med ${w.teacher}` : w.res
 /** Draws one variant on the canvas, which must be the format's size. */
 /** `scale` draws a smaller copy (the event form's previews): the same design, a fraction of the pixels. Reported: "Jeg kan se, at de
  * langsomt bliver gjort aktive én for én" - six full-size posters on every key press made the form slow. */
-export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag", scale = 1) {
+export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag", scale = 1, palette: PaletteKey = "varm") {
+  // The colours are the module's own (C), read by every layout: lent for this drawing, and given back whatever happens.
+  const saved = { ...C }, savedG = { ...G };
+  const colors = PALETTES.find(p => p.key === palette)?.colors ?? {};
+  Object.assign(C, colors);
+  // Gitta's looks (poster-templates.ts) have colours of their own: they follow the mood too.
+  if (palette !== "varm") Object.assign(G, { caramel: colors.camel, gold: colors.camel, leaf: colors.terra, leafSoft: colors.sage, cocoa: colors.dusk, night: colors.dusk, sageLine: colors.sand,
+    brownB: colors.terra, brownB2: colors.terra, accentB: colors.camel, cream: colors.cream, creamB: colors.cream });
+  try { drawLayout(canvas, variant, words, assets, format, scale); } finally { Object.assign(C, saved); Object.assign(G, savedG); }
+}
+
+function drawLayout(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format, scale: number) {
   const { width: W, height: H } = SIZES[format];
   canvas.width = Math.round(W * scale); canvas.height = Math.round(H * scale);
   const ctx = canvas.getContext("2d")!;

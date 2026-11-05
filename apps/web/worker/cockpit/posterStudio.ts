@@ -34,7 +34,9 @@ export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; f
     /** The event's video for Instagram, and whether the chair took it off. */
     video: string | null; noVideo: boolean;
     /** The video's template, the templates it can be made in, and whether a new one can still be made before it goes out (social/videoTemplates.ts). */
-    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean } | null };
+    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean;
+    /** "flere ... video designs på kommando": the videos made to choose among, and the templates Saga is making now. */
+    videoChoices: Array<{ template: number; video: string }>; videoAsked: number[] } | null };
 
 /** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
 export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
@@ -125,7 +127,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram,
     instagramAtMs: full.source.instagramAtMs ?? null, video: full.source.video ?? null, noVideo: Boolean(full.source.noVideo),
     videoTemplate: full.source.videoTemplate ?? null, videoTemplates: VIDEO_TEMPLATES.filter(t => templatesFor(full).includes(t.no)).map(t => ({ no: t.no, name: t.name, used: usedLabel(uses.get(t.no)) })),
-    videoRemake: videoInTime(full, nowMs) } : null;
+    videoRemake: videoInTime(full, nowMs), videoChoices: (full.source.videoChoices ?? []).map(c => ({ template: c.template, video: c.video })), videoAsked: full.source.videoAsk?.templates ?? [] } : null;
   return { event, eventPictures, files, teacher, post };
 }
 
