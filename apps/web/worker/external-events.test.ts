@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { endFromText, getExternalEvents, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
+import { endFromText, getExternalEvents, isCancelledEvent, mergeExternalEvents, parseMembershipWorksList, parseMembershipWorksRss, withTexts } from "./external-events.js";
 
 describe("MembershipWorks RSS parser", () => {
   it("parses the documented event tags", () => {
@@ -117,5 +117,16 @@ describe("an end time that contradicts the event's own text", () => {
     expect(endFromText(start, Date.parse("2026-10-30T09:00:00Z"), "kl 10.00")).toBe(Date.parse("2026-10-30T09:00:00Z"));
     expect(endFromText(start, Date.parse("2026-10-30T21:00:00Z"), "Fredag")).toBe(Date.parse("2026-10-30T21:00:00Z"));
     expect(endFromText(start, Date.parse("2026-10-30T21:00:00Z"), "kl 08.00")).toBe(Date.parse("2026-10-30T21:00:00Z"));
+  });
+});
+
+// Requested (5 Nov 2026): "Når et event er aflyst bør det fjernes fra listen - ligesom Mediterende yoga".
+describe("a cancelled event", () => {
+  it("is known by 'Aflyst' or 'Cancelled' in the title or at the start of the text - not by a word further down", () => {
+    expect(isCancelledEvent({ title: "Mediterende Yoga | Onsdage 16-17.20 - Aflyst -", description: "Underviser: …" })).toBe(true);
+    expect(isCancelledEvent({ title: "Mediterende Yoga | Onsdage 16-17.20", description: "- AFLYST - CANCELLED -  Underviser: Meditating Yoga" })).toBe(true);
+    expect(isCancelledEvent({ title: "Kirtan (CANCELLED)" })).toBe(true);
+    expect(isCancelledEvent({ title: "Mediterende Yoga | Onsdage 16-17.20", description: "Underviser: Meditating Yoga. Holdet aflyses ved under 4 tilmeldte, og et aflyst hold refunderes." })).toBe(false);
+    expect(isCancelledEvent({ title: "Aflystning af stress – workshop" })).toBe(false);
   });
 });
