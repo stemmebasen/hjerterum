@@ -1,17 +1,11 @@
 import type { D1Database } from "../db.js";
-import type { SagaDeps, SagaEnv } from "../saga/env.js";
-import { telegramClient } from "../saga/telegram.js";
 import { esc, layout } from "./page.js";
 
 /** Requested (the chair, 3 Nov 2026). The website promises: "Når du booker Hjerterum, får dit event automatisk en god eksponering: det bliver offentliggjort både
  * på vores hjemmeside og på vores Facebook-side" - and "Så opretter vi eventet på vores hjemmeside og Facebook-side og sender dig et link". Meta does not let
- * an app create a Page's events, so the chair chose: "Lisbeth opretter dem", the cockpit reminds her - and "Hele bestyrelsen" may see and tick the list.
- * Events → Facebook-begivenheder (/arrangementer/facebook): the coming six weeks' events, each ticked off when it is on Facebook. On Monday and Thursday
- * at 9 Saga tells Lisbeth and Frederik privately on Telegram what is missing in the next three weeks. */
-
-/** Requested: "Lisbeth og Frederik står for at oprette events" - both are reminded. */
-export const FB_EVENTS_PEOPLE = ["Lisbeth", "Frederik"];
-export const FB_EVENTS_NAMES = "Lisbeth og Frederik";
+ * an app create a Page's events, so they are made by hand - and "Hele bestyrelsen" may see and tick the list.
+ * Events → Facebook-begivenheder (/arrangementer/facebook): the coming six weeks' events, each ticked off when it is on Facebook.
+ * Then (the chair, 5 Nov 2026): "Lisbeth og Frederik skal ikke have [beskeder] vedr events overhovedet" - Saga no longer reminds anyone. */
 const DAY = 86_400_000;
 export const LIST_DAYS = 42;
 export const REMIND_DAYS = 21;
@@ -52,28 +46,6 @@ export async function markFacebookEvent(db: D1Database, key: string, done: boole
 }
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: TZ });
-const parts = (ms: number) => Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: TZ, weekday: "short", hour: "2-digit", hour12: false, year: "numeric", month: "2-digit", day: "2-digit" })
-  .formatToParts(ms).map(p => [p.type, p.value])) as Record<string, string>;
-
-/** Monday and Thursday from 9 (Danish time), once each day: Saga tells Lisbeth privately what is missing in the next three weeks. Nothing when nothing is. */
-export async function scheduledFacebookReminder(env: SagaEnv, deps: SagaDeps, db: D1Database, claim: (key: string, slot: number) => Promise<boolean>): Promise<boolean> {
-  const now = deps.now(), p = parts(now);
-  if (!["Mon", "Thu"].includes(p.weekday ?? "") || Number(p.hour) < 9 || !env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_BOARD_CHAT_ID) return false;
-  const missing = missingSoon(await facebookEvents(db, now, REMIND_DAYS), now);
-  if (!missing.length) return false;
-  const people = (await Promise.all(FB_EVENTS_PEOPLE.map(first => db.prepare(`SELECT author_name, author_telegram_id FROM board_messages WHERE chat_id = ? AND from_assistant = 0
-      AND author_telegram_id IS NOT NULL AND lower(author_name) LIKE ? ORDER BY sent_at_ms DESC LIMIT 1`).bind(env.SAGA_BOARD_CHAT_ID, `${first.toLowerCase()}%`)
-    .first<{ author_name: string; author_telegram_id: string }>().catch(() => null)))).filter((p): p is { author_name: string; author_telegram_id: string } => Boolean(p));
-  if (!people.length || !(await claim("facebook_events_reminder", Date.parse(`${p.year}-${p.month}-${p.day}T00:00:00Z`)))) return false;
-  const url = (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
-  const lines = missing.slice(0, 12).map(e => `• ${WHEN.format(e.startsMs)}: ${e.title}`).join("\n");
-  const telegram = telegramClient(env, deps);
-  for (const person of people) {
-    const text = `Hej ${person.author_name.split(/\s+/)[0]}. ${missing.length === 1 ? "Ét event" : `${missing.length} events`} de næste tre uger mangler en begivenhed på Hjerterums Facebook-side:\n\n${lines}${missing.length > 12 ? "\n…" : ""}\n\nOpret dem på Facebook, og sæt flueben her, når de er oprettet: ${url}/arrangementer/facebook`;
-    await telegram.sendMessage(person.author_telegram_id, text).catch(error => console.warn("facebook_events_reminder_send_failed", error instanceof Error ? error.message : error));
-  }
-  return true;
-}
 
 export function facebookEventsPage(base: string, who: string | null, events: FbEvent[], nowMs: number, notice = ""): string {
   const missing = events.filter(e => !e.done), done = events.filter(e => e.done);
@@ -83,7 +55,7 @@ ${e.done ? `<small>Oprettet af ${esc(e.done.by)} ${esc(WHEN.format(e.done.at))}$
     ? `<input type="hidden" name="done" value="0"><button class="ghost">Fortryd</button>`
     : `<input type="hidden" name="done" value="1"><input name="link" placeholder="Link til begivenheden (valgfrit)" aria-label="Link til begivenheden"><button>Oprettet</button>`}</form></li>`;
   return layout(base, "Facebook-begivenheder", `<main class="fb-events"><div class="hero"><p class="small muted" style="margin:0 0 6px"><a href="${base}/arrangementer">← Events</a></p><h1>Facebook-begivenheder</h1>
-<p>Hjemmesiden lover, at hvert event kommer på Hjerterums Facebook-side. Meta lader ikke systemet oprette begivenheder, så de oprettes i hånden. Sæt flueben, når et event er oprettet. Saga minder ${esc(FB_EVENTS_NAMES)} om det mandag og torsdag.</p></div>
+<p>Hjemmesiden lover, at hvert event kommer på Hjerterums Facebook-side. Meta lader ikke systemet oprette begivenheder, så de oprettes i hånden. Sæt flueben, når et event er oprettet.</p></div>
 ${notice ? `<p class="notice good">${esc(notice)}</p>` : ""}
 <section class="panel"><header><h2>Mangler (${missing.length})</h2><p>De næste seks uger, de nærmeste først.</p></header>${missing.length ? `<ul>${missing.map(row).join("")}</ul>` : `<p class="good">Alle events de næste seks uger er på Facebook.</p>`}</section>
 ${done.length ? `<details class="panel"><summary><b>Oprettet (${done.length})</b></summary><ul>${done.map(row).join("")}</ul></details>` : ""}</main>`,

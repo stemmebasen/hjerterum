@@ -21,8 +21,6 @@ import { EVENT_PAGE, eventMeta, withEventMeta } from "./event-meta.js";
 import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
 import { runSocialJob, type SocialEnv } from "./social/social.js";
-import { scheduledFacebookReminder } from "./cockpit/fbEvents.js";
-import { claimJob } from "./saga/store.js";
 
 interface Env {
   CLERK_PUBLISHABLE_KEY?: string;
@@ -251,10 +249,6 @@ async function scheduledRun(controller: ScheduledControllerLike, env: Env): Prom
     await runMailchimpSync(env as NewsletterEnv, deps).catch(error => console.warn("mailchimp_sync_failed", error instanceof Error ? error.message : error));
     // Requested: "Vi skal lave et PR-cockpit i admin ... Så vi skal have kontakt til vores sociale medier" - what is approved goes out, new tags are found, next week is planned (social/social.ts).
     await runSocialJob(env as SocialEnv, deps).catch(error => console.warn("social_job_failed", error instanceof Error ? error.message : error));
-    // Requested: every event on Hjerterum's Facebook page, by hand - Saga reminds Lisbeth on Monday and Thursday (cockpit/fbEvents.ts).
-    const sagaDb = (env as SagaEnv).DB;
-    if (sagaDb) await scheduledFacebookReminder(env as SagaEnv, deps, sagaDb, (key, slot) => claimJob(sagaDb, key, slot, deps.now()))
-      .catch(error => console.warn("facebook_events_reminder_failed", error instanceof Error ? error.message : error));
     const db = (env as StatsEnv).DB;
     if (db) await pruneVisits(db, Date.now()).catch(error => console.warn("site_visits_prune_failed", error instanceof Error ? error.message : error));
 }

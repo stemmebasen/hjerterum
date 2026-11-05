@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import { getIssue, monthName, monthOf, nextMonth, sendTime, DRAFT_FROM_DAY } from "../newsletter.js";
 import { prReadyNames } from "./prMaterial.js";
-import { facebookEvents, FB_EVENTS_NAMES, missingSoon } from "./fbEvents.js";
+import { facebookEvents, missingSoon } from "./fbEvents.js";
 import { esc } from "./page.js";
 import { nextMonday, planDue, weekKey, at, mondayOf } from "../social/plan.js";
 import type { SocialAccount } from "../social/social.js";
@@ -25,7 +25,7 @@ export const ROADMAP: Array<{ title: string; status: PlanStatus; note: string }>
   { title: "Ugens events som reel", status: "klar", note: "Et job laver hver uge en kort video af ugens events, når Saga har planlagt ugen. Du godkender den med resten af ugen, og den går ud på Instagram mandag kl. 16.30." },
   { title: "Månedlig indsigt", status: "klar", note: "Følgere på Facebook og Instagram og det, der er sendt, måned for måned, nederst på siden. Rækkevidde pr. opslag kræver flere tilladelser fra Meta." },
   { title: "Alle events deles mindst én gang", status: "klar", note: "Hvert event får sit eget opslag på Facebook (et fast hold én gang om ugen), også events, der kommer til efter torsdagens planlægning. Et aflyst event får aldrig sit opslag." },
-  { title: "Facebook-begivenhed for hvert event", status: "klar", note: "Hjemmesidens løfte. Meta lader ikke systemet oprette begivenheder, så Lisbeth og Frederik opretter dem i hånden. Listen står under Events → Facebook-begivenheder, og Saga minder dem mandag og torsdag." },
+  { title: "Facebook-begivenhed for hvert event", status: "klar", note: "Hjemmesidens løfte. Meta lader ikke systemet oprette begivenheder, så de oprettes i hånden. Listen står under Events → Facebook-begivenheder." },
   { title: "Ny, kortere samtykketekst", status: "klar", note: "Underviserne krydser nu af: Hjerterum må bruge mine billeder og citater til at fortælle om mine events - nu og fremover - også i fælles opslag med andre events, på hjemmesiden, i nyhedsbrevet og på sociale medier." },
   { title: "Påmindelse til undervisere uden billeder", status: "venter-paa-dig", note: "Gittas forslag: en mail efter tre dage. Husets regel er, at Saga aldrig sender mail af sig selv - det kræver dit ja." },
   { title: "Delinger uden godkendelse", status: "venter-paa-dig", note: "Skal opslag fra undervisere med PR-samtykke kunne deles uden dit tryk? Lige nu kræver alt dit ja." }
@@ -47,7 +47,6 @@ export const RHYTHM: Array<[string, string]> = [
   ["Mandag kl. 15.30", "Ugens events på Facebook og som karrusel på Instagram."],
   ["Mandag kl. 16.30", "Ugens events som reel på Instagram."],
   ["Så snart et event er i kalenderen", "Saga laver et forslag til et opslag og sætter det til første ledige tid. Du godkender det eller vælger selv tiden. Et fast hold får et opslag i ugen før hver gang."],
-  ["Mandag og torsdag kl. 9", "Saga minder Lisbeth og Frederik om events, der mangler en begivenhed på Facebook."],
   ["Den 20.", "Saga skriver næste måneds nyhedsbrev. Du godkender det, og det går ud den 1. kl. 19."],
   ["Hver måned", "Kig på Indsigt nederst på siden, og justér hvert kvartal."]
 ];
@@ -104,7 +103,7 @@ export async function prPlanData(db: D1Database, input: { ready: boolean; accoun
   if (missing.length) todo.push({ text: `${missing.length === 1 ? "Én underviser" : `${missing.length} undervisere`} med events de næste to uger har ikke delt PR-materiale: ${missing.slice(0, 6).join(", ")}${missing.length > 6 ? " …" : ""}. Uden billeder kan vi kun dele deres coverfoto.`, href: "/arrangementer/undervisere" });
   // The website's promise of every event on the Facebook page, made by hand (fbEvents.ts): what is missing in the next two weeks.
   const noFacebook = missingSoon(await facebookEvents(db, nowMs, 14), nowMs, 14);
-  if (noFacebook.length) todo.push({ text: `${noFacebook.length === 1 ? "Ét event" : `${noFacebook.length} events`} de næste to uger mangler en begivenhed på Facebook. ${FB_EVENTS_NAMES} opretter dem; Saga minder dem om det.`, href: "/arrangementer/facebook" });
+  if (noFacebook.length) todo.push({ text: `${noFacebook.length === 1 ? "Ét event" : `${noFacebook.length} events`} de næste to uger mangler en begivenhed på Facebook.`, href: "/arrangementer/facebook" });
   for (const r of ROADMAP.filter(r => r.status === "venter-paa-dig")) todo.push({ text: `Beslut: ${r.title.toLowerCase()}. ${r.note}` });
 
   // What comes next: the next few posts that will go out, the next planning and the next newsletter.
@@ -142,7 +141,7 @@ export function prPlanSection(base: string, d: PlanData): string {
   return `<section class="panel plan-now" id="plan"><header><h2>Det kræver dig lige nu</h2></header>${todo}</section>
 <section class="panel"><header><h2>Det næste</h2></header>${next}</section>
 <details class="panel plan-plan"><summary><h2>Planen</h2><span class="small muted">Ugens rytme og årets fire kampagner</span></summary>
-<p>Maskinen klarer rytmen, menneskerne det, kun mennesker kan: dit ja i cockpittet, Lisbeths coverbilleder og events, Lisbeth og Frederik på beskederne. Underviserne er Hjerterums største medie, så deres billeder og deres deling betyder mest.</p>
+<p>Maskinen klarer rytmen, menneskerne det, kun mennesker kan: dit ja i cockpittet, Lisbeths coverbilleder og events. Underviserne er Hjerterums største medie, så deres billeder og deres deling betyder mest.</p>
 <div class="plan-grid"><div><h3>Ugens rytme</h3>${rhythm}</div><div><h3>Året</h3>${year}<p class="small muted">Generalforsamling og fundraising lægges ind, når datoerne kendes.</p></div></div></details>`;
 }
 
