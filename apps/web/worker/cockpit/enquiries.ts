@@ -15,7 +15,7 @@ import { replyTarget } from "../saga/teamMail.js";
 
 /** Requested: "I Posthus kan du lave forskellige mærkater, for eksempel medlem, event, generel og økonomi, og gøre det muligt at sortere under de forskellige mærkater.": every mail has one. */
 export const LABELS = ["Medlem", "Event", "PR", "Økonomi", "Generel", "Automatisk"] as const;
-export const LABEL_GUIDE = "Giv også HVER mail ét mærkat: Medlem (medlemskab, kontingent, medlemmer, opsigelse), Event (arrangementer, undervisere, kalenderen, leje af huset til events), PR (PR, deling og sociale medier: at dele, omtale eller markedsføre noget - fx en underviser, der beder os dele sit event eller sender billeder og tekst til et opslag, tags og beskeder fra Facebook og Instagram, presse, omtale, samarbejde om markedsføring; PR går foran Event, når mailen handler om at dele eller omtale), Økonomi (fakturaer, betalinger, regnskab, bank, moms, priser, kvitteringer), "
+export const LABEL_GUIDE = "Giv også HVER mail ét mærkat: Medlem (medlemskab, kontingent, medlemmer, opsigelse), Event (arrangementer, undervisere, kalenderen, leje af huset til events), PR (PR, markedsføring og sociale medier: marketing, markedsføring, reklame og annoncer - også tilbud om annoncer eller markedsføring fra en person eller virksomhed -, presse og omtale, at dele eller omtale noget - fx en underviser, der beder os dele sit event eller sender billeder og tekst til et opslag -, samarbejde om markedsføring, og beskeder om Hjerterums Facebook og Instagram; PR går foran Event, når mailen handler om at dele, omtale, markedsføre eller reklamere; en mail, der udgiver sig for at være fra Facebook eller Meta om annoncekonti, men kommer fra et andet domæne, er svindel og får Automatisk), Økonomi (fakturaer, betalinger, regnskab, bank, moms, priser, kvitteringer), "
   + "Generel (alt andet fra en person eller virksomhed) eller Automatisk (nyhedsbreve, notifikationer, reklame og automatiske beskeder fra systemer). ";
 /** Requested: "mærkaterne skal have forskellige farver, og der skal være et lille mærkat ved hver mail": one colour for each label, and the small tag on every mail that has one. */
 export const LABEL_CLASS: Record<(typeof LABELS)[number], string> = { Medlem: "lab-medlem", Event: "lab-event", PR: "lab-pr", Økonomi: "lab-oekonomi", Generel: "lab-generel", Automatisk: "lab-automatisk" };
@@ -51,6 +51,12 @@ export function isAutomatic(mail: { sender: string; preview: string; subject?: s
     || ACCOUNT_NOTICE.test(mail.subject ?? "")
     || /\b(?:unsubscribe|afmeld dig|afmeld nyhedsbrev|afmeldelse fra nyhedsbrev)\b/i.test(mail.preview);
 }
+/** Requested (the chair, 5 Nov 2026): the mails about "marketing, markedsføring, reklame, pr og sociale medier" - "så alt bliver fanget". Mail from
+ * Facebook and Instagram themselves (their own domains only - a "Meta" mail from any other domain is a fraud) is about Hjerterum's social media: PR. */
+const META = /@(?:[a-z0-9-]+\.)*(?:facebookmail\.com|facebook\.com|instagram\.com|meta\.com|metamail\.com)$/;
+export const isMeta = (sender: string) => META.test((/<([^>]+)>/.exec(sender)?.[1] ?? sender).toLowerCase().trim());
+/** A mail from a system: PR when it is Facebook's or Instagram's own, else Automatisk. */
+export const systemLabel = (mail: { sender: string }) => isMeta(mail.sender) ? "PR" : "Automatisk";
 const SERVICES = /@(?:[a-z0-9-]+\.)*(?:mailchimp\.com|mailchimpapp\.net|mcsv\.net|mcdlv\.net|rsgsv\.net|list-manage\.com|mandrillapp\.com|intuit\.com)$/;
 /** A service's own account notice - a code, a new login, a confirmation: the board's own doing, not a person writing. */
 const ACCOUNT_NOTICE = /\b(?:verification code|security code|login code|sign[- ]?in code|new (?:sign[- ]?in|login|device)|password reset|reset your password|two[- ]factor|confirm your (?:email|account)|bekræftelseskode|sikkerhedskode|engangskode|ny (?:enhed|login)|nulstil (?:din )?adgangskode)\b/i;
@@ -82,7 +88,7 @@ export async function labelUnlabelled(env: SagaEnv, deps: SagaDeps, db: D1Databa
       .bind(deps.now() - 90 * DAY, BATCH).all<Unscanned>()).results ?? [];
     if (!rows.length) break;
     const automatic = rows.filter(isAutomatic);
-    for (const row of automatic) await db.prepare("UPDATE board_mail SET label = 'Automatisk' WHERE id = ? AND label IS NULL").bind(row.id).run();
+    for (const row of automatic) await db.prepare("UPDATE board_mail SET label = ? WHERE id = ? AND label IS NULL").bind(systemLabel(row), row.id).run();
     done += automatic.length;
     const rest = rows.filter(r => !isAutomatic(r));
     if (!rest.length) continue;
@@ -152,7 +158,7 @@ async function scanBatch(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<
   if (!rows.length) return null;
   // The automatic mails are done without a call; only the rest is read by Saga.
   const automatic = rows.filter(isAutomatic);
-  for (const row of automatic) await db.prepare("UPDATE board_mail SET scanned_at_ms = ?, label = COALESCE(label, 'Automatisk') WHERE id = ?").bind(now, row.id).run();
+  for (const row of automatic) await db.prepare("UPDATE board_mail SET scanned_at_ms = ?, label = COALESCE(label, ?) WHERE id = ?").bind(now, systemLabel(row), row.id).run();
   const people = rows.filter(r => !isAutomatic(r));
   if (!people.length) return { scanned: automatic.length, found: 0 };
   const text = await completeAs("mail-scan", "mid")(env, deps, [{ role: "system", content: SYSTEM },

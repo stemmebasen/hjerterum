@@ -1155,3 +1155,15 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - **Facebook-begivenheden:** Alle events får én. Underviseren må gerne selv oprette den på sin side med Hjerterum som medarrangør, og ellers opretter Hjerterum den.
   - **Hovedsiden:** Siden taler som hovedsiden. "Indmeldelse sker indtil videre … på holistisk.org" er blevet til "Meld dig ind her", og "den tidligere kalender" er blevet til "vores medlemssystem på holistisk.org".
   - **111 kr.:** "Fra 111 kr./md." kom med fra main (#434).
+
+## PR-mails: alt bliver fanget (2026-11-05)
+
+- **Formandens spørgsmål:** "Finder saga de mails der vedrører marketing, markedsføring, reklame, pr og sociale medier og lægger i min mappe og registrerer dem, så alt bliver fanget?"
+- **Fejl fundet:** Den første runde (4. november) oprettede mappen og bad postkassen flytte 12 mails, men postkassen flyttede intet. Mailene blev alligevel markeret som behandlet og aldrig prøvet igen. Nu markeres en mail kun, når den faktisk er flyttet, og ellers prøver Saga igen i næste runde. De 12 flyttes nu.
+- **Bredere mærkat:** "PR" dækker nu marketing, markedsføring, reklame og annoncer (også tilbud om annoncer eller markedsføring), presse og omtale, deling, samarbejde om markedsføring og beskeder om Hjerterums Facebook og Instagram.
+  - Mails fra Facebooks og Instagrams egne domæner er PR og ikke Automatisk (`isMeta`).
+  - En "Meta"-mail fra et andet domæne er svindel og forbliver Automatisk.
+  - Masseudsendte nyhedsbreve og reklamer fra systemer (noreply, afmeld) forbliver Automatisk.
+- **Én gang:** De sidste 60 dage i alle mapper gennemgås igen. Mails med Event, Generel eller Facebooks og Instagrams egne mails, der handler om PR, får mærkatet PR og vises i PR og SoMe → Mails.
+  - Kun indbakkens mails flyttes til 5 - JACOB › PR. Mails i bestyrelsesmedlemmernes egne mapper bliver, hvor de er.
+  - Den samme mail i flere mapper vises én gang.

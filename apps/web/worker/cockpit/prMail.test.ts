@@ -59,6 +59,24 @@ describe("PR mails", () => {
     expect(await filePrMails(env, allDeps, db)).toBe(0);
   });
 
+  // Reported (5 Nov 2026): the first round's move did nothing, yet 12 mails were marked as filed and never tried again.
+  it("tries again when the mailbox moved nothing, and catches Facebook's and Instagram's own mails but not a false \"Meta\"", async () => {
+    const { db, env, done, pr, allDeps } = await setup();
+    let refuse = true;
+    const opener = allDeps.webmail;
+    const flaky: typeof opener = async login => { const s = await opener(login); return { ...s, async moveMapped(path, uids, dest) { if (refuse) return { sourceValidity: "77", destValidity: "", map: [] }; return s.moveMapped!(path, uids, dest); } }; };
+    expect(await filePrMails(env, { ...allDeps, webmail: flaky }, db)).toBe(0);
+    expect(await db.prepare("SELECT folder, pr_filed_at_ms FROM board_mail WHERE id = ?").bind(pr).first()).toEqual({ folder: "INBOX", pr_filed_at_ms: null });
+    refuse = false;
+    expect(await filePrMails(env, { ...allDeps, webmail: flaky }, db)).toBe(1);
+    expect(done.filter(d => d.startsWith("move"))).toHaveLength(1);
+    const { isMeta, systemLabel } = await import("./enquiries.js");
+    expect(systemLabel({ sender: "Instagram <security@mail.instagram.com>" })).toBe("PR");
+    expect(systemLabel({ sender: "Facebook <notification@facebookmail.com>" })).toBe("PR");
+    expect(isMeta("Business Manager <compliance@rockfordpsych.com>")).toBe(false);
+    expect(systemLabel({ sender: "Business Manager <compliance@rockfordpsych.com>" })).toBe("Automatisk");
+  });
+
   it("is shown in PR og SoMe → Mails and answered there with Saga's draft, sent from team@ by the chair", async () => {
     const { db, env, done, outgoing, pr, allDeps } = await setup();
     await filePrMails(env, allDeps, db);
