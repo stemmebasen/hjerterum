@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LOGO_FILE, chooseVariant, drawPoster, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, chooseVariant, drawPoster, markShaped, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -58,43 +58,63 @@ function Thumbs({ pictures, picked, onPick }: { pictures: Picture[]; picked: str
 }
 
 /** Requested: "får vi et problem med et billede som dette, hvor der er tekst over fotografiet. Er det muligt at croppe, forstørre og flytte rundt
- * på kernebilledet?" The frame is the part of the picture every design is drawn with: zoom in, and drag the frame (or the picture) to move it. */
-export type Crop = { zoom: number; x: number; y: number };
-export const NO_CROP: Crop = { zoom: 1, x: 0.5, y: 0.5 };
-export const clampCrop = (c: Crop): Crop => {
-  const zoom = Math.min(3, Math.max(1, c.zoom)), half = 0.5 / zoom;
-  return { zoom, x: Math.min(1 - half, Math.max(half, c.x)), y: Math.min(1 - half, Math.max(half, c.y)) };
+ * på kernebilledet?" The frame is the part of the picture every design is drawn with: zoom in, and drag the frame (or the picture) to move it.
+ * Then (5 Nov 2026): "Jeg savner flere muligheder for at bruge et event billede kreativt - f.eks. at croppe i cirkelformat eller kvadratisk. Lige nu kan
+ * jeg kun croppe i event cover dimensioner." The frame has a shape: the picture's own, a square or a circle. A square or round picture is put whole
+ * into the design (event-poster.ts cover), on the design's own background. */
+export type CropShape = "original" | "square" | "circle";
+export type Crop = { zoom: number; x: number; y: number; shape?: CropShape };
+export const NO_CROP: Crop = { zoom: 1, x: 0.5, y: 0.5, shape: "original" };
+const SHAPES: Array<[CropShape, string]> = [["original", "Hele formatet"], ["square", "Kvadrat"], ["circle", "Cirkel"]];
+/** The frame's width and height as parts of the picture's (ratio: the picture's width / height). */
+export function frameOf(crop: Crop, ratio: number): { w: number; h: number } {
+  if ((crop.shape ?? "original") === "original") return { w: 1 / crop.zoom, h: 1 / crop.zoom };
+  return ratio >= 1 ? { w: 1 / (ratio * crop.zoom), h: 1 / crop.zoom } : { w: 1 / crop.zoom, h: ratio / crop.zoom };
+}
+export const clampCrop = (c: Crop, ratio = 1): Crop => {
+  const zoom = Math.min(3, Math.max(1, c.zoom)), f = frameOf({ ...c, zoom }, ratio);
+  return { ...c, zoom, x: Math.min(1 - f.w / 2, Math.max(f.w / 2, c.x)), y: Math.min(1 - f.h / 2, Math.max(f.h / 2, c.y)) };
 };
+const whole = (c: Crop) => c.zoom === 1 && (c.shape ?? "original") === "original";
 
-function CropTool({ src, ratio, crop, onChange }: { src: string; ratio: number; crop: Crop; onChange: (crop: Crop) => void }) {
+export function CropTool({ src, ratio, crop, onChange }: { src: string; ratio: number; crop: Crop; onChange: (crop: Crop) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; crop: Crop } | null>(null);
-  const size = 100 / crop.zoom;
+  const f = frameOf(crop, ratio), shape = crop.shape ?? "original";
   const move = (e: ReactPointerEvent) => {
     const from = drag.current, el = box.current;
     if (!from || !el) return;
     const r = el.getBoundingClientRect();
-    onChange(clampCrop({ ...from.crop, x: from.crop.x + (e.clientX - from.x) / r.width, y: from.crop.y + (e.clientY - from.y) / r.height }));
+    onChange(clampCrop({ ...from.crop, x: from.crop.x + (e.clientX - from.x) / r.width, y: from.crop.y + (e.clientY - from.y) / r.height }, ratio));
   };
   return <div className="studio-crop">
+    <div className="studio-crop-shapes" role="group" aria-label="Beskæring">
+      {SHAPES.map(([key, label]) => <button key={key} type="button" className={"lys-btn" + (shape === key ? "" : " ghost")} aria-pressed={shape === key}
+        onClick={() => onChange(clampCrop({ ...crop, shape: key }, ratio))}><span className={"studio-shape-icon is-" + key} aria-hidden="true" />{label}</button>)}
+    </div>
     <div ref={box} className="studio-crop-picture" style={{ width: `min(100%, 460px, ${Math.round(480 * ratio)}px)` }} onPointerDown={e => { drag.current = { x: e.clientX, y: e.clientY, crop }; e.currentTarget.setPointerCapture(e.pointerId); }}
       onPointerMove={move} onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }}>
       <img src={src} alt="Det valgte billede" draggable={false} />
-      <span className="studio-crop-frame" style={{ left: `${(crop.x - 0.5 / crop.zoom) * 100}%`, top: `${(crop.y - 0.5 / crop.zoom) * 100}%`, width: `${size}%`, height: `${size}%` }} />
+      <span className={"studio-crop-frame" + (shape === "circle" ? " is-circle" : "")} style={{ left: `${(crop.x - f.w / 2) * 100}%`, top: `${(crop.y - f.h / 2) * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }} />
     </div>
     <label className="studio-crop-zoom"><span>Zoom</span>
-      <input type="range" min="1" max="3" step="0.05" value={crop.zoom} onChange={e => onChange(clampCrop({ ...crop, zoom: Number(e.target.value) }))} /></label>
-    <p className="studio-actions"><button type="button" className="text-button" onClick={() => onChange(NO_CROP)} disabled={crop.zoom === 1}>Hele billedet</button></p>
+      <input type="range" min="1" max="3" step="0.05" value={crop.zoom} onChange={e => onChange(clampCrop({ ...crop, zoom: Number(e.target.value) }, ratio))} /></label>
+    <p className="studio-actions"><button type="button" className="text-button" onClick={() => onChange(NO_CROP)} disabled={whole(crop)}>Hele billedet</button></p>
   </div>;
 }
 
-/** The part of the picture inside the frame, at the picture's own resolution (so "Passer ikke" still tells when it is too small). */
-function cropped(img: HTMLImageElement, crop: Crop): Promise<HTMLImageElement | null> {
-  if (crop.zoom === 1) return Promise.resolve(img);
-  const w = Math.round(img.naturalWidth / crop.zoom), h = Math.round(img.naturalHeight / crop.zoom);
+/** The part of the picture inside the frame, at the picture's own resolution (so "Passer ikke" still tells when it is too small). A round one is
+ * a PNG with clear corners; a square or round one is marked, so the designs put it in whole. */
+export function cropped(img: HTMLImageElement, crop: Crop): Promise<HTMLImageElement | null> {
+  if (whole(crop)) return Promise.resolve(img);
+  const f = frameOf(crop, img.naturalWidth / img.naturalHeight), shape = crop.shape ?? "original";
+  const w = Math.round(img.naturalWidth * f.w), h = Math.round(img.naturalHeight * f.h);
   const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
-  canvas.getContext("2d")!.drawImage(img, Math.round(crop.x * img.naturalWidth - w / 2), Math.round(crop.y * img.naturalHeight - h / 2), w, h, 0, 0, w, h);
-  return new Promise(resolve => canvas.toBlob(blob => blob ? void image(URL.createObjectURL(blob)).then(resolve) : resolve(null), "image/jpeg", 0.95));
+  const ctx = canvas.getContext("2d")!;
+  if (shape === "circle") { ctx.beginPath(); ctx.ellipse(w / 2, h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.clip(); }
+  ctx.drawImage(img, Math.round(crop.x * img.naturalWidth - w / 2), Math.round(crop.y * img.naturalHeight - h / 2), w, h, 0, 0, w, h);
+  return new Promise(resolve => canvas.toBlob(blob => blob ? void image(URL.createObjectURL(blob)).then(made => { if (made && shape !== "original") markShaped(made); resolve(made); }) : resolve(null),
+    shape === "circle" ? "image/png" : "image/jpeg", 0.95));
 }
 
 const FORMAT_HELP: Record<Format, string> = {
@@ -185,7 +205,7 @@ export function PosterStudio({ id }: { id: string }) {
     const timer = window.setTimeout(() => void cropped(source, crop).then(img => {
       if (img && img !== source) made = img.src;
       if (active) setPhoto(img); else if (made) URL.revokeObjectURL(made);
-    }), crop.zoom === 1 ? 0 : 250);
+    }), whole(crop) ? 0 : 250);
     return () => { active = false; window.clearTimeout(timer); if (made) window.setTimeout(() => URL.revokeObjectURL(made!), 1000); };
   }, [source, crop]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);

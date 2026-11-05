@@ -221,7 +221,19 @@ export function spaced(ctx: Ctx, text: string, x: number, y: number, font: strin
 }
 
 /** The photo drawn to cover the box, like CSS object-fit: cover. */
+/** A picture the chair cut to a square or a circle in Plakater og opslag (poster-studio.tsx): the designs put it in whole, not cut again. */
+const SHAPED = new WeakSet<HTMLImageElement>();
+export const markShaped = (img: HTMLImageElement) => { SHAPED.add(img); };
+
 export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
+  // Where the design's own place has about the picture's shape (a circle in "Nat"), it simply fills it.
+  if (SHAPED.has(img) && Math.abs((w / h) / (img.naturalWidth / img.naturalHeight) - 1) > 0.12) {
+    // Whole and centred in the picture's place, on the house's cream - a little air around it, so a circle is a circle.
+    const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight) * 0.92, dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+    ctx.save(); ctx.fillStyle = C.cream; ctx.fillRect(x, y, w, h); ctx.restore();
+    ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    return;
+  }
   const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
   const sw = w / scale, sh = h / scale;
   ctx.drawImage(img, (img.naturalWidth - sw) * focusX, (img.naturalHeight - sh) * focusY, sw, sh, x, y, w, h);
