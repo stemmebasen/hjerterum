@@ -35,7 +35,11 @@ export const folderOwner = (folder: string) => {
   return name ? name[0]!.toUpperCase() + name.slice(1).toLowerCase() : folder.replace(/^INBOX\./, "");
 };
 const firstOf = (name: string | null) => (name ?? "").replace(/\s*\|.*$/, "").trim().split(/\s+/)[0] ?? "";
-const notChair = (name: string | null, chair: string | null) => Boolean(name && (!chair || name.replace(/\s*\|.*$/, "").trim() !== chair));
+/** Whose PR the chair has taken over (the chair, 5 Nov 2026: "Jeg overtager jo hendes"): their PR mails go to the chair's folder too. Their own folders are never
+ * touched. */
+export const CHAIR_COVERS = ["Gitta"];
+const covered = (name: string | null) => CHAIR_COVERS.some(c => c.toLowerCase() === firstOf(name).toLowerCase());
+const notChair = (name: string | null, chair: string | null) => Boolean(name && (!chair || name.replace(/\s*\|.*$/, "").trim() !== chair) && !covered(name));
 
 /** Why the mail is another board member's - or null when the chair may have it. It is theirs when it is given to them, answered or handled by them, or when
  * an earlier mail of the same conversation (same subject, last 90 days) is given to them, answered by them or lies in one of their folders. */
@@ -43,7 +47,7 @@ export async function someoneElses(db: D1Database, m: Candidate, chair: string |
   if (notChair(m.assigned_to, chair)) return `Tildelt ${firstOf(m.assigned_to)}`;
   // The teachers' PR guide (5 Nov 2026): "Skriv »PR-Gitta« i emnefeltet" - a mail that names another board member in its subject is theirs.
   const own = firstOf(chair).toLowerCase();
-  const named = board.map(firstOf).filter(f => f.toLowerCase() !== own).find(f => f.length >= 3 && new RegExp(`(^|[^a-zæøå])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-zæøå])`, "i").test(m.subject));
+  const named = board.map(firstOf).filter(f => f.toLowerCase() !== own && !covered(f)).find(f => f.length >= 3 && new RegExp(`(^|[^a-zæøå])${f.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}($|[^a-zæøå])`, "i").test(m.subject));
   if (named) return `Til ${named} (nævnt i emnet)`;
   if (m.answered_at_ms && notChair(m.answered_by, chair)) return m.answered_by && m.answered_by !== "Hjerterum" ? `Besvaret af ${firstOf(m.answered_by)}` : "Allerede besvaret fra team@";
   if (m.handled_at_ms && notChair(m.handled_by, chair)) return `Klaret af ${firstOf(m.handled_by)}`;
@@ -54,7 +58,7 @@ export async function someoneElses(db: D1Database, m: Candidate, chair: string |
     .bind(m.id, nowMs - THREAD_DAYS * 86_400_000, `%${topic.slice(0, 60).replace(/[%_]/g, "")}%`).all<{ sender: string; subject: string; folder: string | null; assigned_to: string | null; answered_by: string | null; answered_at_ms: number | null }>()
     .then(r => r.results ?? []).catch(() => [])).filter(t => sameSubject(t.subject) === topic);
   for (const t of thread) {
-    if (t.folder && t.folder !== "INBOX" && !NO_ONES.test(t.folder)) return `Samtalen ligger i ${folderOwner(t.folder)}s mappe`;
+    if (t.folder && t.folder !== "INBOX" && !NO_ONES.test(t.folder) && !covered(folderOwner(t.folder))) return `Samtalen ligger i ${folderOwner(t.folder)}s mappe`;
     if (notChair(t.assigned_to, chair)) return `Samtalen er tildelt ${firstOf(t.assigned_to)}`;
     // A reply in the conversation from team@ that was not the chair's (and to the same person): someone is writing with them.
     if (t.answered_at_ms && notChair(t.answered_by, chair) && (t.sender.toLowerCase().includes(address))) return t.answered_by && t.answered_by !== "Hjerterum" ? `${firstOf(t.answered_by)} skriver allerede med afsenderen` : "Nogen skriver allerede med afsenderen fra team@";

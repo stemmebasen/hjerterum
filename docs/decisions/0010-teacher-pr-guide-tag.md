@@ -17,7 +17,12 @@ Den hidtidige guide (Gittas) beder underviserne om at lægge opslag i Facebook-b
 - Stories kan Saga ikke se. De deles fortsat i hånden.
 - Mails med et bestyrelsesmedlems navn i emnet (fx "PR-Gitta") flyttes ikke til formandens mappe (#452).
 
+## Afsender
+
+- Formanden har overtaget Gittas PR-opgaver ("Jeg overtager jo hendes"). Guiden sendes fra og underskrives af formanden.
+- Gittas PR-mails i indbakken (fx "PR-Gitta" i emnet, tildelt Gitta eller en samtale fra hendes mappe) går til formandens mappe "5 - JACOB › PR" (`CHAIR_COVERS` i `cockpit/prMail.ts`).
+- Mails, der allerede ligger i Gittas egne mapper, rører Saga ikke.
+
 ## Åbent
 
-- Hvem guiden sendes fra og underskrives af. Udkastet siger "Team Hjerterum".
 - Sætningen om, at et tag er et ja til deling, bør læses igennem af bestyrelsen.
