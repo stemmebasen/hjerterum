@@ -658,6 +658,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studio-thumb.is-picked { border-color: var(--lys-terra, #94503f); color: var(--lys-ink, #2a2622); }
 .studio-muted { color: var(--lys-muted); font-size: 14.5px; }
+.studio-soft { margin: 6px 0 0; color: var(--lys-muted); font-size: 13.5px; font-style: italic; }
 .studio-files { margin: 12px 0 0; padding-left: 18px; font-size: 14.5px; }
 .studio-files small { color: var(--lys-muted); margin-left: 6px; }
 .studio-site img { width: 100%; max-width: 420px; border-radius: 12px; display: block; margin: 0 0 8px; }

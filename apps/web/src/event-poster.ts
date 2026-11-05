@@ -155,21 +155,34 @@ export function photoBox(variant: VariantKey, format: Format): { width: number; 
   }
 }
 
-export type PhotoSize = { width: number; height: number };
+/** cropped: the chair's own crop (poster-studio cropped()); shaped: a square, round, standing, wide or arched crop, which the designs put in whole
+ * (cover below) where their photo place has another shape. */
+export type PhotoSize = { width: number; height: number; cropped?: boolean; shaped?: boolean };
 
-/** Whether the photo is sharp enough for the design, and if not, what to say. Typografi needs none. */
-export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize | null): { ok: true } | { ok: false; reason: string } {
+/** Requested (5 Nov 2026): "Meget hurtigt når jeg cropper et billede passer det ikke til de fleste designs - det er et problem". A crop is the chair's
+ * own choice, made with the picture in front of them: it may be enlarged further (a little softer) before a design refuses it. */
+export const MAX_UPSCALE_CROPPED = 2.2;
+/** Same test as cover(): a shaped picture in a place of another shape is put in whole at 92 %, not stretched to fill. */
+const putInWhole = (box: PhotoSize, photo: PhotoSize) => Boolean(photo.shaped) && Math.abs((box.width / box.height) / (photo.width / photo.height) - 1) > 0.12;
+
+/** Whether the photo is sharp enough for the design, and if not, what to say. Typografi needs none. soft: it fits only because it is the chair's
+ * crop, and will be a little soft. */
+export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize | null): { ok: true; soft?: true } | { ok: false; reason: string } {
   if (variant !== "eget" && !photoBox(variant, format)) return { ok: true };
   if (!photo || !photo.width || !photo.height) return { ok: false, reason: "Eventet har intet foto." };
+  const limit = photo.cropped ? MAX_UPSCALE_CROPPED : MAX_UPSCALE;
+  const judge = (scale: number, reason: string): { ok: true; soft?: true } | { ok: false; reason: string } =>
+    scale <= MAX_UPSCALE ? { ok: true } : scale <= limit ? { ok: true, soft: true } : { ok: false, reason };
+  const smaller = photo.cropped ? " Zoom lidt mindre ind, eller vælg en større beskæring." : "";
   if (variant === "eget") {
     const { width: W, height: H } = SIZES[format];
     const scale = Math.min((W - 120) / photo.width, (H - 260) / photo.height);
-    return scale <= MAX_UPSCALE ? { ok: true } : { ok: false, reason: `Billedet er for lille (${photo.width} × ${photo.height} px) - det skal være mindst ${Math.ceil((W - 120) / MAX_UPSCALE)} px bredt eller ${Math.ceil((H - 260) / MAX_UPSCALE)} px højt.` };
+    return judge(scale, `Billedet er for lille (${photo.width} × ${photo.height} px) - det skal være mindst ${Math.ceil((W - 120) / limit)} px bredt eller ${Math.ceil((H - 260) / limit)} px højt.${smaller}`);
   }
   const box = photoBox(variant, format)!;
-  const scale = Math.max(box.width / photo.width, box.height / photo.height);
-  if (scale <= MAX_UPSCALE) return { ok: true };
-  return { ok: false, reason: `Fotoet er for lille til dette design (${photo.width} × ${photo.height} px). Det skal dække ${box.width} × ${box.height} px - mindst ${Math.ceil(box.width / MAX_UPSCALE)} × ${Math.ceil(box.height / MAX_UPSCALE)} px.` };
+  const whole = putInWhole(box, photo);
+  const scale = whole ? Math.min(box.width / photo.width, box.height / photo.height) * 0.92 : Math.max(box.width / photo.width, box.height / photo.height);
+  return judge(scale, `Fotoet er for lille til dette design (${photo.width} × ${photo.height} px). Det skal dække ${box.width} × ${box.height} px - mindst ${Math.ceil(box.width / limit)} × ${Math.ceil(box.height / limit)} px.${smaller}`);
 }
 
 /** Requested: "fem varianter systemet kan vælge mellem". No photo, or one too small for every photo design → Typografi.
@@ -235,6 +248,7 @@ export function spaced(ctx: Ctx, text: string, x: number, y: number, font: strin
 /** A picture the chair cut to a square or a circle in Plakater og opslag (poster-studio.tsx): the designs put it in whole, not cut again. */
 const SHAPED = new WeakSet<HTMLImageElement>();
 export const markShaped = (img: HTMLImageElement) => { SHAPED.add(img); };
+export const isShaped = (img: HTMLImageElement) => SHAPED.has(img);
 
 export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
   // Where the design's own place has about the picture's shape (a circle in "Nat"), it simply fills it.

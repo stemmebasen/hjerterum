@@ -552,6 +552,25 @@ export async function retireCancelled(db: D1Database, nowMs: number): Promise<nu
   return retired;
 }
 
+/** Requested (the chair, 5 Nov 2026): "Og det skal være muligt at jeg selv kan flytte entries rundt i kalenderen." A post that has not gone out is moved
+ * to another time - on Facebook, on Instagram (when it has its own time there) or both - and keeps its status. Not in the past, and an event's post
+ * at the latest an hour before the event begins. */
+export type MoveChannel = "facebook" | "instagram" | "both";
+export async function movePost(db: D1Database, id: number, channel: MoveChannel, atMs: number, nowMs: number): Promise<"moved" | "not_found" | "sent" | "time"> {
+  const post = await socialPost(db, id);
+  if (!post) return "not_found";
+  if (!["draft", "approved", "failed"].includes(post.status)) return "sent";
+  if (!Number.isFinite(atMs) || atMs < nowMs - 60_000 || (post.kind === "event" && post.source.startsMs && atMs > post.source.startsMs - 3_600_000)) return "time";
+  const ownIg = typeof post.source.instagramAtMs === "number" && post.source.instagramAtMs !== post.publish_at_ms;
+  const source = { ...post.source };
+  let publishAt = post.publish_at_ms;
+  if (channel === "instagram" && ownIg) source.instagramAtMs = atMs;
+  else if (channel === "facebook" && ownIg) publishAt = atMs;
+  else { publishAt = atMs; if (typeof source.instagramAtMs === "number") source.instagramAtMs = atMs; }
+  await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ?, updated_at_ms = ? WHERE id = ?").bind(publishAt, JSON.stringify(source), nowMs, id).run();
+  return "moved";
+}
+
 /** The posts waiting to go out, written before the rule "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside"
  * (public-site.ts): their words and links with the old website's addresses, so the chair reads them as they will go out. Nothing while the new site is in use. */
 export async function oldSiteInWaiting(db: D1Database, nowMs: number): Promise<number> {

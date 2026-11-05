@@ -53,7 +53,7 @@ export function prCalendarSection(base: string, d: CalendarData): string {
   const entries = d.posts.flatMap((p): SocialPost[] => {
     const ig = p.source.instagramAtMs;
     if (!ig || ig === p.publish_at_ms || !p.channels.includes("instagram") || p.channels.length < 2) return [p];
-    const each = (c: "facebook" | "instagram", at: number | null): SocialPost => ({ ...p, channels: [c], publish_at_ms: at, status: p.published[c] ? "published" : p.status === "published" ? "approved" : p.status });
+    const each = (c: "facebook" | "instagram", at: number | null): SocialPost => ({ ...p, channels: [c], publish_at_ms: at, status: p.published[c] ? "published" : p.status === "published" ? "approved" : p.status, source: { ...p.source, moveChannel: c } as SocialPost["source"] });
     return [each("facebook", p.publish_at_ms), each("instagram", ig)];
   }).sort((a, b) => (a.publish_at_ms ?? 0) - (b.publish_at_ms ?? 0));
   for (const p of entries) { const day = dateOf(p.publish_at_ms!); byDay.set(day, [...(byDay.get(day) ?? []), p]); }
@@ -65,25 +65,47 @@ export function prCalendarSection(base: string, d: CalendarData): string {
   // Asked: "hvorfor bliver Instagram stort set ikke inkluderet?" - Instagram takes only posts with a picture; an event without one goes on Facebook
   // until a design is made for it (Plakater og opslag), which brings Instagram in.
   const noPicture = (p: SocialPost) => Boolean(d.instagram) && p.kind === "event" && !p.images.length && !p.channels.includes("instagram") && ["draft", "approved", "failed"].includes(p.status);
+  // Requested (5 Nov 2026): "På pr kalenderen må du gerne markere 'x dag til eventet'" and "det skal være muligt at jeg selv kan flytte entries rundt".
+  const until = (p: SocialPost) => {
+    if (p.kind !== "event" || !p.source.startsMs) return "";
+    const days = Math.round((Date.parse(`${dateOf(p.source.startsMs)}T12:00:00Z`) - Date.parse(`${dateOf(p.publish_at_ms!)}T12:00:00Z`)) / 86_400_000);
+    return days > 1 ? `<span class="cal-until">${days} dage til eventet</span>` : days === 1 ? `<span class="cal-until">1 dag til eventet</span>` : days === 0 ? `<span class="cal-until is-day">Samme dag som eventet</span>` : "";
+  };
+  const movable = (p: SocialPost) => ["draft", "approved", "failed"].includes(p.status) && !p.source.removed;
   const item = (p: SocialPost) => {
     const [tone, text] = toneOf(p);
-    return `<li><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${esc(label(p))}</b>
-<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small></a></li>`;
+    const channel = (p.source as { moveChannel?: string }).moveChannel ?? "both";
+    const move = movable(p) ? `<details class="cal-move"><summary>Flyt</summary><form method="post" action="${base}/pr/kalender/flyt"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="channel" value="${channel}">
+<input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="at" value=""><input type="datetime-local" required value="${localValue(p.publish_at_ms!)}" aria-label="Nyt tidspunkt"><button>Flyt</button></form></details>` : "";
+    return `<li${movable(p) ? ` draggable="true" data-id="${p.id}" data-channel="${channel}" data-time="${clock(p.publish_at_ms!)}"` : ""}><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${esc(label(p))}</b>
+<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${move}</li>`;
   };
   const weeks = d.mondays.map(monday => {
     const days = [0, 1, 2, 3, 4, 5, 6].map(i => {
       const day = addDays(monday, i), posts = byDay.get(day) ?? [];
-      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length ? "" : " is-empty"}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
+      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length ? "" : " is-empty"}" data-day="${day}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
 ${posts.length ? `<ul>${posts.map(item).join("")}</ul>` : ""}</div>`;
     }).join("");
     return `<section class="cal-week"><h3>Uge ${weekNumber(weekKey(monday))}</h3><div class="cal-grid">${days}</div></section>`;
   }).join("");
   return `<section class="panel" id="kalender"><header><h2>Kalender</h2>
-<p>Alt, der er planlagt, på den dag og det tidspunkt, det går ud. Saga laver et forslag til hvert event, så snart det er i kalenderen, og sætter det til første ledige tid. Tryk på et forslag for at se billedet og det færdige opslag, vælge tidspunkt og publicere.</p></header>
+<p>Alt, der er planlagt, på den dag og det tidspunkt, det går ud. Saga laver et forslag til hvert event, så snart det er i kalenderen, og sætter det til første ledige tid. Tryk på et forslag for at se billedet og det færdige opslag, vælge tidspunkt og publicere. Træk et opslag over på en anden dag for at flytte det (samme klokkeslæt), eller tryk "Flyt" og vælg dag og tid.</p></header>
 ${nav}
 <p class="cal-legend"><span class="cal-item is-draft">Forslag${waiting ? ` (${waiting})` : ""}: venter på dit ja</span><span class="cal-item is-approved">Godkendt</span><span class="cal-item is-sent">Publiceret</span><span class="cal-item is-removed">Slettet igen</span><span class="cal-item is-failed">Fejlet</span></p>
-${weeks}</section>`;
+${weeks}${MOVE_SCRIPT(base)}</section>`;
 }
+
+/** "2026-11-20T15:00" in Danish time, for the datetime-local field (the chair is in Denmark). */
+function localValue(ms: number): string { const day = dateOf(ms), [h, m] = clock(ms).split("."); return `${day}T${h}:${m}`; }
+
+/** Drag an entry to another day (it keeps its time), or "Flyt" with a day and a time. The field's Danish time is sent as an instant. */
+const MOVE_SCRIPT = (base: string) => `<script>(()=>{const url=${JSON.stringify(`${base}/pr/kalender/flyt`)};
+document.querySelectorAll(".cal-move form").forEach(f=>f.addEventListener("submit",()=>{const v=f.querySelector('input[type=datetime-local]').value;f.querySelector('input[name=at]').value=String(new Date(v).getTime())}));
+let dragged=null;document.querySelectorAll("li[draggable]").forEach(li=>{li.addEventListener("dragstart",e=>{dragged=li;li.classList.add("is-dragging");e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",li.dataset.id)});li.addEventListener("dragend",()=>{li.classList.remove("is-dragging");document.querySelectorAll(".cal-day.is-over").forEach(d=>d.classList.remove("is-over"))})});
+document.querySelectorAll(".cal-day[data-day]").forEach(day=>{day.addEventListener("dragover",e=>{if(!dragged)return;e.preventDefault();day.classList.add("is-over")});day.addEventListener("dragleave",()=>day.classList.remove("is-over"));
+day.addEventListener("drop",async e=>{e.preventDefault();day.classList.remove("is-over");if(!dragged)return;const li=dragged;dragged=null;const at=new Date(day.dataset.day+"T"+li.dataset.time.replace(".",":")).getTime();
+const body=new URLSearchParams({id:li.dataset.id,channel:li.dataset.channel,at:String(at)});const r=await fetch(url,{method:"POST",headers:{"accept":"application/json"},body}).catch(()=>null);const j=r?await r.json().catch(()=>null):null;
+if(j&&j.ok)location.reload();else alert(j&&j.error==="time"?"Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.":j&&j.error==="sent"?"Opslaget er allerede sendt.":"Opslaget kunne ikke flyttes.")})})})()</script>`;
 
 export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}.cal-legend .cal-item{display:inline-block;font-size:13px;padding:4px 10px}
 .cal-week h3{font-size:15px;margin:18px 0 8px}.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
@@ -93,4 +115,8 @@ export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8p
 .cal-item b{display:block;font-weight:600}.cal-item small{display:block;color:var(--muted);font-size:11.5px}.cal-time{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
 .cal-item.is-draft{border-left-color:#d9822b;background:rgba(217,130,43,.16)}.cal-item.is-approved{border-left-color:#4c6fff;background:rgba(76,111,255,.18)}.cal-item.is-sent{border-left-color:#2e9d5b;background:rgba(46,157,91,.2)}
 .cal-item.is-failed{border-left-color:#d93025;background:rgba(217,48,37,.18)}.cal-item.is-removed{border-left-color:var(--faint);background:transparent;color:var(--muted)}.cal-item.is-removed b{text-decoration:line-through}
+.cal-until{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:1px 7px}.cal-until.is-day{color:var(--warn);background:var(--warn-soft)}
+li[draggable]{cursor:grab}li.is-dragging{opacity:.45}.cal-day.is-over{outline:2px dashed var(--accent)}
+.cal-move{margin:3px 0 0 4px;font-size:11.5px}.cal-move summary{cursor:pointer;color:var(--muted);list-style:none}.cal-move summary::-webkit-details-marker{display:none}.cal-move summary::before{content:"↔ "}
+.cal-move form{display:grid;gap:6px;margin:6px 0 2px}.cal-move input{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:0}.cal-move button{padding:6px 12px;font-size:13px;min-height:0}
 @media (max-width:900px){.cal-grid{grid-template-columns:1fr}.cal-day{min-height:0}.cal-day.is-empty{display:none}}`;
