@@ -47,9 +47,11 @@ import { getIssue, monthEvents, monthOf, newsletterHtml, nextMonth, SEND_HOUR, w
 import type { NewsletterEnv } from "../newsletter-send.js";
 import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
-import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
+import { calendarHref, CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
+import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.js";
+import { quickPath, quickPost } from "../social/quickLink.js";
 import { prMailData, prReplyPage } from "./prMail.js";
-import { approveWeek, connectSocial, decidePost, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, chooseVideoTemplate, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -217,6 +219,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const member = await linkMember(db, token, now);
     return html(linkPage(base, member, token), member ? 200 : 410);
   }
+
+  // Requested (the chair, 5 Nov 2026): "Det skal fungere sådan at jeg kan klikke på sagas link i telegram og på et øjeblik godkende" - Saga's link to
+  // one post (social/quickLink.ts), sent to the chair only: it opens that post without a login, and acts only on a press, as the chair.
+  if (path.startsWith("/ok/")) return quickApproval(request, env, deps, db, base, path, url);
 
   const jar = readCookies(request);
   const person = await readPersonSession(env.SAGA_TELEGRAM_BOT_TOKEN, jar.get(PERSON_COOKIE), now);
@@ -1101,7 +1107,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
     const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1156,6 +1162,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
       const after = await socialPost(db, decided.id);
       return answer({ ok: true, publishAtMs: decided.publish_at_ms, instagramAtMs: decided.source.instagramAtMs ?? null, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
+    }
+    // Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon" - the video made again in the chosen template (video-events.yml, within half an hour).
+    if (part === "/video" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const body = await request.json().catch(() => null) as { template?: unknown } | null;
+      const result = await chooseVideoTemplate(db, data.post.id, Number(body?.template), now);
+      if (result !== "ok") return answer({ error: result }, 422);
+      await audit(db, actor, "social.manage", `Bad om videoen til "${data.event.title}" i skabelon ${Number(body?.template)}`, now);
+      return answer({ ok: true });
     }
     if (part === "/design" && request.method === "POST") {
       const booking = /^h(\d+)$/.exec(id!);
@@ -1652,4 +1669,45 @@ const notFound = (base: string, who: string | null) => problem(base, who, "Siden
 function problem(base: string, who: string | null, text: string): string {
   return `<!doctype html><html lang="da"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Hjerterum bestyrelse</title></head>
 <body style="font:15px/1.5 -apple-system,sans-serif;max-width:520px;margin:12vh auto;padding:0 16px"><p>${text.replace(/[<>&]/g, "")}</p><p><a href="${base}/">Til overblikket</a>${who ? "" : ""}</p></body></html>`;
+}
+
+/** Saga's link to one post (social/quickLink.ts): shown on GET, decided on a press - always as the chair, the only one Saga sends it to. */
+async function quickApproval(request: Request, env: SagaEnv, deps: SagaDeps, db: D1Database, base: string, path: string, url: URL): Promise<Response> {
+  const now = deps.now();
+  const id = await quickPost(env, path, now);
+  const post = id === null ? null : await socialPost(db, id);
+  const chair = (await boardMembers(env, db)).chair;
+  if (!post || !chair) return html(quickGonePage(base), 410, QUICK_HEADERS);
+  const here = `${base}${path}`;
+  if (request.method === "POST") {
+    const form = await request.formData().catch(() => null);
+    const handling = String(form?.get("handling") ?? "");
+    const actor = actorOf(chair, chair, chair);
+    const back = (key: "besked" | "fejl", value: string) => redirect(`${here}?${key}=${value}`);
+    if (post.status === "published" || post.status === "publishing") return back("fejl", "sent");
+    if (handling === "godkend") {
+      const decided = await decidePost(db, post.id, "approve", chair, now);
+      if (!decided) return back("fejl", "kanaler");
+      await audit(db, actor, "social.manage", `Godkendte opslaget "${quickTitle(post)}" via Sagas link`, now);
+      const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
+      return back("besked", out ? "publiceret" : "godkendt");
+    }
+    if (handling === "spring" || handling === "fortryd") {
+      if (!(await decidePost(db, post.id, handling === "spring" ? "skip" : "undo", chair, now))) return back("fejl", "fejl");
+      await audit(db, actor, "social.manage", `${handling === "spring" ? "Sprang over" : "Fortrød godkendelsen af"} opslaget "${quickTitle(post)}" via Sagas link`, now);
+      return back("besked", handling === "spring" ? "sprunget" : "fortrudt");
+    }
+    if (handling === "skabelon") {
+      const result = await chooseVideoTemplate(db, post.id, Number(form?.get("skabelon")), now);
+      if (result !== "ok") return back("fejl", result === "late" ? "tid" : result === "template" ? "skabelon" : "fejl");
+      await audit(db, actor, "social.manage", `Bad om videoen til "${quickTitle(post)}" i skabelon ${Number(form?.get("skabelon"))} via Sagas link`, now);
+      return back("besked", "skabelon");
+    }
+    return back("fejl", "fejl");
+  }
+  if (request.method !== "GET" && request.method !== "HEAD") return html(quickGonePage(base), 405, QUICK_HEADERS);
+  const next = await nextWaiting(db, post.id, now);
+  const nextPath = next ? await quickPath(env, next.id, now) : null;
+  const notice = url.searchParams.get("besked") ?? undefined, error = url.searchParams.get("fejl") ?? undefined;
+  return html(quickPage({ post, action: here, base, notice, error, next: nextPath ? `${base}${nextPath}` : null, adminHref: calendarHref(base, post), canRemake: videoInTime(post, now) }), 200, QUICK_HEADERS);
 }

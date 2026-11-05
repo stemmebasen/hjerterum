@@ -18,7 +18,8 @@ type Data = {
   teacher: { name: string; consent: "given" | "withdrawn" | "none"; quotes: Quotes; pictures: Picture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> } | null;
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
-    video: string | null; noVideo: boolean } | null;
+    video: string | null; noVideo: boolean;
+    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string }>; videoRemake: boolean } | null;
   back: string;
   siteLive?: boolean;
 };
@@ -174,6 +175,9 @@ export function PosterStudio({ id }: { id: string }) {
   const [chosenIg, setChosenIg] = useState("");
   // The event's video for Instagram (made by Saga in the chosen template); the chair may keep the picture instead.
   const [useVideo, setUseVideo] = useState(true);
+  // Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon" - the video made again in another template.
+  const [template, setTemplate] = useState(0);
+  const [videoNote, setVideoNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
@@ -192,6 +196,7 @@ export function PosterStudio({ id }: { id: string }) {
         setText(found.post.text); setInstagramText(found.post.instagramText);
         setChannels(found.post.instagram ? ["facebook", "instagram"] : ["facebook"]);
         setUseVideo(!found.post.noVideo);
+        setTemplate(found.post.videoTemplate ?? found.post.videoTemplates[0]?.no ?? 0);
       }
     });
     void Promise.all(FONTS.map(f => document.fonts.load(f).catch(() => []))).then(() => image(LOGO_FILE)).then(img => { if (active) setLogo(img); });
@@ -258,6 +263,16 @@ export function PosterStudio({ id }: { id: string }) {
       setMessage(!stored?.ok ? "Billedet kunne ikke gemmes. Prøv igen." : error === "time" ? "Vælg et tidspunkt fra nu og til senest en time, før eventet begynder." : error ? "Vælg mindst ét sted, opslaget skal ud." : "Opslaget kunne ikke publiceres. Prøv igen.");
     }
   };
+  const remakeVideo = async () => {
+    if (!post || !template) return;
+    setVideoNote("Sender …");
+    const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ template }) }).catch(() => null);
+    const error = response && !response.ok ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+    if (response?.ok) {
+      setData(d => d && d.post ? { ...d, post: { ...d.post, video: null, noVideo: false, videoTemplate: template, status: "draft" } } : d);
+      setVideoNote(`Ny video på vej i "${post.videoTemplates.find(t => t.no === template)?.name ?? template}" (højst en halv time). Saga skriver til dig på Telegram med et link, når den er klar - godkend den dér. Godkender du her før, kommer opslaget ud med billedet.`);
+    } else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave en ny video." : error === "template" ? "Den skabelon kan ikke bruges til dette event." : "Det lykkedes ikke. Prøv igen.");
+  };
   const toggle = (c: string) => setChannels(list => list.includes(c) ? list.filter(x => x !== c) : [...list, c]);
 
   const head = <section className="lys-intro site-intro studio-head">
@@ -304,6 +319,15 @@ export function PosterStudio({ id }: { id: string }) {
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
           {post.video && channels.includes("instagram") && <label><input type="checkbox" checked={useVideo} onChange={() => setUseVideo(!useVideo)} /> Videoen på Instagram (ellers billedet)</label>}
         </fieldset>
+        {post.instagram && channels.includes("instagram") && post.videoTemplates.length > 1 && (post.videoRemake || videoNote) && <fieldset className="studio-choices"><legend>Videoen på Instagram</legend>
+          <p className="studio-muted">{post.video ? `Saga har lavet videoen i skabelon ${post.videoTemplate ?? ""}: ${post.videoTemplates.find(t => t.no === post.videoTemplate)?.name ?? ""}. Vælg en anden, hvis du vil.` : "Vælg skabelonen til videoen."}</p>
+          <div className="studio-whens">
+            <label><span>Skabelon</span><select value={template} onChange={e => setTemplate(Number(e.target.value))}>
+              {post.videoTemplates.map(t => <option key={t.no} value={t.no}>{t.no}. {t.name}</option>)}</select></label>
+            <button type="button" className="lys-btn ghost" disabled={!post.videoRemake || !template || (template === post.videoTemplate && Boolean(post.video))} onClick={() => void remakeVideo()}>Lav videoen</button>
+          </div>
+          {videoNote && <p className="studio-muted" role="status">{videoNote}</p>}
+        </fieldset>}
         <fieldset className="studio-choices"><legend>Hvornår</legend>
           {planned ? <label><input type="radio" name="hvornaar" checked={when === "plan"} onChange={() => setWhen("plan")} /> Sagas forslag: {post.instagramAtMs && post.instagramAtMs !== planned && channels.includes("instagram") && channels.includes("facebook")
             ? `Facebook ${WHEN.format(new Date(planned))} · Instagram ${WHEN.format(new Date(post.instagramAtMs))}` : WHEN.format(new Date(planned))}</label> : null}

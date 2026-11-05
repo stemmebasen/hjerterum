@@ -1086,7 +1086,29 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Endnu ikke:**
   - musik: formanden sender cirka 10 numre, som lægges i R2, ikke i det offentlige repo;
   - citat og profilfoto fra PR-materialet til nr. 8 og 10;
-  - at formanden selv vælger skabelon på plakatsiden.
+  - ~~at formanden selv vælger skabelon på plakatsiden~~ (se nedenfor, 2026-11-05).
+
+## Godkend fra Sagas link i Telegram, og valg af videoskabelon (2026-11-05)
+
+- **Formandens ord:** "Glem musikken for nu. Men lav gerne delen med videoskabelon. Det skal fungere sådan at jeg kan klikke på sagas link i telegram og på et øjeblik godkende".
+- **Saga skriver, når en video er klar** (`notifyVideos` i `social/social.ts`, i hver runde):
+  - Det gælder eventvideoer og Ugens reel.
+  - Formanden får én privat besked med et link pr. opslag. Hver video nævnes kun én gang (`source.videoNotifiedAtMs`).
+- **Linket** (`social/quickLink.ts`, `/ok/<opslag>/<udløb>.<signatur>`):
+  - Det er signeret med Sagas nøgle, gælder kun det ene opslag og udløber efter tre dage. Det sendes kun til formanden.
+  - Det åbner uden login. At åbne det ændrer intet (heller ikke Telegrams forhåndsvisning). Først et tryk handler, altid som formanden, og det skrives i loggen ("via Sagas link").
+- **Siden** (`cockpit/prQuick.ts`), lavet til telefonen:
+  - Øverst står titel, tidspunkter og en stor "Godkend". Derunder kommer videoen (eller billedet) og teksterne på Facebook og Instagram.
+  - Formanden kan lave videoen om i en anden skabelon, springe opslaget over eller fortryde en godkendelse. "Ret tekst og tid i admin" fører til plakatsiden.
+  - "Næste forslag →" fører videre til næste forslag, der venter (videoer først).
+  - Er tidspunktet passeret, går opslaget ud med det samme.
+- **Valg af skabelon** (`social/videoTemplates.ts`):
+  - Mulighederne er 1 Organisk, 2 Organisk uden foto, 3 Plakat, 4 Stribe, 5 Polaroid, 7 Nat, 8 Citat og 10 Mød underviseren. Nr. 2 kan altid vælges. De andre kræver eventets billede, nr. 8 desuden underviserens citat og nr. 10 underviserens foto.
+  - Valget findes både på linket og i trin 2 på plakatsiden ("Videoen på Instagram" → "Lav videoen").
+  - Når formanden vælger, bliver opslaget et forslag igen uden video. `video-events.yml` laver videoen i den valgte skabelon inden for en halv time, og Saga skriver med et nyt link.
+  - Det kan kun lade sig gøre mere end tre timer før eventet og mere end en time før Instagrams tidspunkt.
+  - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
+- **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
 ## PR-mails i formandens mappe og i PR og SoMe, med Sagas svarudkast (2026-11-04)
 
