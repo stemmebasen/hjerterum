@@ -1,4 +1,4 @@
-import { ADDRESS, blob, stamp, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
+import { ADDRESS, SITE_LABEL, blob, stamp, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
 
 /** Requested: "Lav gerne flere skabeloner" - "Nej, 8 der vises. Og så kan man få 8 nye." - and "hvad med det aflange facebook cover
  * format?". Sixteen poster designs, each drawn for any shape: post (4:5), story (9:16) and Facebook's event cover (1.91:1). A design
@@ -52,7 +52,7 @@ type BlockStyle = { color: string; accent: string; muted: string; kicker?: strin
 function block(ctx: Ctx, r: { x: number; y: number; w: number; h: number }, w: PosterWords, st: BlockStyle, anchor: "top" | "center" | "bottom" = "top", u = 1) {
   const kick = st.kicker === undefined ? w.kicker : st.kicker;
   const by = byline(w);
-  const metaLines = st.meta === false ? [] : [`${w.day} · ${w.time}`, st.footer === undefined ? "hjerterum.info" : st.footer].filter((x): x is string => Boolean(x));
+  const metaLines = st.meta === false ? [] : [`${w.day} · ${w.time}`, st.footer === undefined ? SITE_LABEL : st.footer].filter((x): x is string => Boolean(x));
   const room = (size: number) => {
     const t = fit(ctx, w.title, s => `400 ${s}px ${SERIF}`, r.w, size, st.maxLines, Math.round(size * 0.45));
     const lines = st.italicAll ? t.lines.map(text => ({ text, italic: true })) : titleLines(t.lines);
@@ -115,6 +115,12 @@ function tiles(W: number, H: number) {
   }
   const cw = (W - 2 * m - g) / 2, ch = (H - 2 * m - 2 * g) / 3, x = (i: number) => m + i * (cw + g), y = (j: number) => m + j * (ch + g);
   return [{ x: x(0), y: y(0), w: cw * 2 + g, h: ch }, { x: x(0), y: y(2), w: cw, h: ch }, { x: x(1), y: y(2), w: cw, h: ch }, { x: x(1), y: y(1), w: cw, h: ch }, { x: x(0), y: y(1), w: cw, h: ch }];
+}
+/** filmstrimmel: three frames along the strip - side by side on a cover, under each other on a post or story. */
+function frames(W: number, H: number) {
+  const u = unit(W, H);
+  if (land(W, H)) { const g = 26 * u, fw = (W - 180 * u - 2 * g) / 3, fh = Math.min(H * 0.5, fw * 0.75), y = 110 * u; return [0, 1, 2].map(i => ({ x: 90 * u + i * (fw + g), y, w: fw, h: fh })); }
+  const g = 30 * u, fw = W * 0.5, fh = (H - 160 * u - 2 * g) / 3, x = 110 * u; return [0, 1, 2].map(i => ({ x, y: 80 * u + i * (fh + g), w: fw, h: fh }));
 }
 /** Like cover, but zoomed in around a point - the mosaic's details. */
 function crop(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, fx: number, fy: number, zoom: number) {
@@ -181,7 +187,7 @@ export const TEMPLATES: Record<string, Template> = {
       spaced(ctx, w.month, 84 * u + nw + 24 * u, H - 128 * u, `600 ${Math.round(20 * u)}px ${SANS}`, C.blush, 5 * u);
       text(ctx, weekday(w), 84 * u + nw + 24 * u, H - 92 * u, `500 ${Math.round(24 * u)}px ${SANS}`, C.cream);
       text(ctx, w.time, W - 84 * u, H - 128 * u, `600 ${Math.round(28 * u)}px ${SANS}`, C.cream, "right");
-      text(ctx, "Hjerterum · hjerterum.info", W - 84 * u, H - 92 * u, `400 ${Math.round(22 * u)}px ${SANS}`, C.blush, "right");
+      text(ctx, `Hjerterum · ${SITE_LABEL}`, W - 84 * u, H - 92 * u, `400 ${Math.round(22 * u)}px ${SANS}`, C.blush, "right");
     }
   },
   split: {
@@ -211,7 +217,7 @@ export const TEMPLATES: Record<string, Template> = {
       spaced(ctx, weekday(w), 330 * u, 250 * u, `700 ${Math.round(28 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 3 * u);
       text(ctx, `kl. ${w.time}`, 330 * u, 300 * u, `400 ${Math.round(28 * u)}px "Space Mono", ui-monospace, monospace`, G.grey);
       block(ctx, { x: 60 * u, y: 440 * u, w: right - 130 * u, h: (L ? H : spot.y) - 470 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: null, size: 100 * u, maxLines: 3, meta: false }, "top", u);
-      text(ctx, "Læs mere på hjerterum.info", 60 * u, (L ? H : spot.y) - 36 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.grey);
+      text(ctx, `Læs mere på ${SITE_LABEL}`, 60 * u, (L ? H : spot.y) - 36 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.grey);
     }
   },
   cirkel: {
@@ -229,7 +235,7 @@ export const TEMPLATES: Record<string, Template> = {
       // As on the shared slide: "Prøv dine evner af · med Rie Jespersen" - the subtitle and the teacher on one italic line.
       const both = w.rest && w.teacher ? { ...w, teacher: null, rest: `${w.rest} · med ${w.teacher}` } : w;
       block(ctx, { x: 62 * u, y: 520 * u, w: right - 130 * u, h: bottom - 640 * u }, both, { color: G.brownB, accent: G.accentB, muted: G.brownB2, kicker: null, size: 92 * u, maxLines: 3, meta: false }, "top", u);
-      text(ctx, "Læs mere på hjerterum.info", 66 * u, bottom - 50 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
+      text(ctx, `Læs mere på ${SITE_LABEL}`, 66 * u, bottom - 50 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.brownB);
       text(ctx, "Kom som du er", right - 66 * u, bottom - 50 * u, `italic 400 ${Math.round(34 * u)}px ${SERIF}`, G.accentB, "right");
     }
   },
@@ -260,7 +266,7 @@ export const TEMPLATES: Record<string, Template> = {
       const k = w.kicker;
       spaced(ctx, `Hjerterum · ${k}`, r.x, r.y + 20 * u + (L ? H * 0.12 : 0), `700 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, "#ffffff", 6 * u);
       ctx.fillStyle = G.caramel; ctx.fillRect(r.x, r.y + 50 * u + (L ? H * 0.12 : 0), 110 * u, 10 * u);
-      block(ctx, { x: r.x, y: r.y + 90 * u + (L ? H * 0.12 : 0), w: r.w, h: r.h - 90 * u - (L ? H * 0.12 : 0) }, w, { color: "#ffffff", accent: "#f3e3d4", muted: "#e8dfd4", kicker: null, size: 72 * u, maxLines: 3, footer: "Læs mere på hjerterum.info" }, L ? "top" : "bottom", u);
+      block(ctx, { x: r.x, y: r.y + 90 * u + (L ? H * 0.12 : 0), w: r.w, h: r.h - 90 * u - (L ? H * 0.12 : 0) }, w, { color: "#ffffff", accent: "#f3e3d4", muted: "#e8dfd4", kicker: null, size: 72 * u, maxLines: 3, footer: `Læs mere på ${SITE_LABEL}` }, L ? "top" : "bottom", u);
       ctx.restore();
     }
   },
@@ -277,7 +283,7 @@ export const TEMPLATES: Record<string, Template> = {
       text(ctx, `kl. ${w.time}`, 54 * u, (L ? 420 : 540) * u, `400 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa);
       spaced(ctx, "Hjerterum", sw + 80 * u, 110 * u, `700 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.grey, 8 * u);
       stamp(ctx, a.logo, W - 120 * u, 120 * u, 74 * u, G.cocoa);
-      block(ctx, { x: sw + 80 * u, y: 200 * u, w: W - sw - 160 * u, h: H - 300 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: w.kicker, size: 96 * u, maxLines: 4, footer: "Læs mere på hjerterum.info", mono: true }, "center", u);
+      block(ctx, { x: sw + 80 * u, y: 200 * u, w: W - sw - 160 * u, h: H - 300 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: w.kicker, size: 96 * u, maxLines: 4, footer: `Læs mere på ${SITE_LABEL}`, mono: true }, "center", u);
     }
   },
 
@@ -429,6 +435,90 @@ export const TEMPLATES: Record<string, Template> = {
       logo(ctx, a.logo, L ? 84 * u : W / 2 - 150 * u, L ? 72 * u : H - 110 * u, 52 * u, G.gold);
       const r = L ? { x: 84 * u, y: 170 * u, w: W * 0.5, h: H - 280 * u } : { x: 80 * u, y: 680 * u, w: W - 160 * u, h: H - 680 * u - 170 * u };
       block(ctx, r, w, { color: "#f3ead9", accent: G.gold, muted: "#cbbfa8", size: 98 * u, maxLines: 3, align: L ? "left" : "center" }, "center", u);
+    }
+  },
+  // ---- Requested (5 Nov 2026): "designs så jeg kan (gen) bruge event fotoet på kreative måder" ----
+  kvadrat: {
+    photo: (W, H) => { const u = unit(W, H); if (land(W, H)) { const sz = H - 160 * u; return { x: 80 * u, y: 80 * u, w: sz, h: sz, shape: "rect" }; } const sz = Math.min(W - 200 * u, H * 0.5); return { x: (W - sz) / 2, y: 120 * u, w: sz, h: sz, shape: "rect" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = G.creamB; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = G.caramel; ctx.lineWidth = 2 * u; ctx.strokeRect(spot.x - 22 * u, spot.y - 22 * u, spot.w + 44 * u, spot.h + 44 * u);
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: spot.x + spot.w + 90 * u, y: 120 * u, w: W - spot.x - spot.w - 180 * u, h: H - 300 * u } : { x: 100 * u, y: spot.y + spot.h + 80 * u, w: W - 200 * u, h: H - spot.y - spot.h - 220 * u };
+      block(ctx, r, w, { color: G.cocoa, accent: G.caramel, muted: G.grey, size: 92 * u, maxLines: 3, align: L ? "left" : "center" }, L ? "center" : "top", u);
+      stamp(ctx, a.logo, L ? W - 120 * u : W / 2, H - 80 * u, 40 * u, G.cocoa);
+    }
+  },
+  duotone: {
+    photo: (W, H) => ({ x: 0, y: 0, w: W, h: H, shape: "rect" }),
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H);
+      ctx.fillStyle = "#3a2a22"; ctx.fillRect(0, 0, W, H);
+      if (a.photo) {
+        // The photo in two tones: grey first, the light taken to the house's cream and the dark to its cocoa.
+        ctx.save(); ctx.filter = "grayscale(1) contrast(1.15) brightness(1.05)"; cover(ctx, a.photo, 0, 0, W, H, 0.5, 0.42); ctx.filter = "none";
+        ctx.globalCompositeOperation = "multiply"; ctx.fillStyle = "#f2dcc6"; ctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = "screen"; ctx.fillStyle = "#4a2a20"; ctx.fillRect(0, 0, W, H); ctx.restore();
+      }
+      const shade = ctx.createLinearGradient(0, L ? 0 : H * 0.35, L ? W * 0.6 : 0, L ? 0 : H);
+      shade.addColorStop(0, "rgba(40,26,20,0)"); shade.addColorStop(1, "rgba(40,26,20,.78)");
+      if (L) { const g = ctx.createLinearGradient(W * 0.65, 0, 0, 0); g.addColorStop(0, "rgba(40,26,20,0)"); g.addColorStop(1, "rgba(40,26,20,.8)"); ctx.fillStyle = g; } else ctx.fillStyle = shade;
+      ctx.fillRect(0, 0, W, H);
+      logo(ctx, a.logo, 70 * u, 70 * u, 54 * u, "#f6e7d6");
+      const r = L ? { x: 90 * u, y: 160 * u, w: W * 0.48, h: H - 260 * u } : { x: 80 * u, y: H * 0.5, w: W - 160 * u, h: H * 0.5 - 110 * u };
+      block(ctx, r, w, { color: "#fbf1e6", accent: "#f0c9a8", muted: "#ead6c4", size: 110 * u, maxLines: 3 }, "bottom", u);
+    }
+  },
+  filmstrimmel: {
+    photo: (W, H) => { const f = frames(W, H); return { ...f[0]!, shape: "rect" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), f = frames(W, H);
+      ctx.fillStyle = "#171310"; ctx.fillRect(0, 0, W, H);
+      // The strip with its holes, and three views of the same photo: the whole, and two closer.
+      const strip = L ? { x: 40 * u, y: f[0]!.y - 50 * u, w: f[2]!.x + f[2]!.w - 40 * u + 40 * u, h: f[0]!.h + 100 * u } : { x: f[0]!.x - 50 * u, y: 40 * u, w: f[0]!.w + 100 * u, h: f[2]!.y + f[2]!.h - 40 * u + 40 * u };
+      ctx.fillStyle = "#0e0b09"; ctx.fillRect(strip.x, strip.y, strip.w, strip.h);
+      ctx.fillStyle = "#3b322b";
+      const hole = 18 * u, gap = 40 * u;
+      if (L) for (let x = strip.x + 20 * u; x < strip.x + strip.w - hole; x += gap) { ctx.beginPath(); ctx.roundRect(x, strip.y + 14 * u, hole, hole * 0.8, 3 * u); ctx.roundRect(x, strip.y + strip.h - 14 * u - hole * 0.8, hole, hole * 0.8, 3 * u); ctx.fill(); }
+      else for (let y = strip.y + 20 * u; y < strip.y + strip.h - hole; y += gap) { ctx.beginPath(); ctx.roundRect(strip.x + 14 * u, y, hole * 0.8, hole, 3 * u); ctx.roundRect(strip.x + strip.w - 14 * u - hole * 0.8, y, hole * 0.8, hole, 3 * u); ctx.fill(); }
+      const views: Array<[number, number, number]> = [[0.5, 0.45, 1], [0.32, 0.5, 1.7], [0.68, 0.55, 2.1]];
+      f.forEach((r, i) => { ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip();
+        if (a.photo) { ctx.filter = "sepia(.18) contrast(1.05)"; const [fx, fy, z] = views[i]!; crop(ctx, a.photo, r.x, r.y, r.w, r.h, fx, fy, z); ctx.filter = "none"; } else { ctx.fillStyle = C.sand; ctx.fillRect(r.x, r.y, r.w, r.h); }
+        ctx.restore(); });
+      const tr = L ? { x: 80 * u, y: strip.y + strip.h + 40 * u, w: W - 160 * u, h: H - strip.y - strip.h - 80 * u } : { x: strip.x + strip.w + 60 * u, y: 120 * u, w: W - strip.x - strip.w - 120 * u, h: H - 240 * u };
+      block(ctx, tr, w, { color: "#f4ebe0", accent: G.gold, muted: "#cdbfae", size: L ? 64 * u : 78 * u, maxLines: L ? 2 : 4 }, L ? "top" : "center", u);
+      logo(ctx, a.logo, L ? W - 140 * u : tr.x, L ? 30 * u : H - 110 * u, 48 * u, G.gold);
+    }
+  },
+  detalje: {
+    photo: (W, H) => ({ x: 0, y: 0, w: W, h: H, shape: "rect" }),
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H);
+      ctx.fillStyle = G.night; ctx.fillRect(0, 0, W, H);
+      // A close detail of the photo fills the page, softly darkened; the whole photo sits in it as a small print.
+      if (a.photo) { ctx.save(); ctx.filter = "blur(2px) brightness(.62) saturate(.9)"; crop(ctx, a.photo, -10 * u, -10 * u, W + 20 * u, H + 20 * u, 0.5, 0.45, 2.4); ctx.restore(); }
+      const iw = L ? H * 0.5 : W * 0.46, ih = a.photo ? iw * Math.min(1.25, a.photo.naturalHeight / a.photo.naturalWidth) : iw * 0.75;
+      const ix = L ? W - iw - 120 * u : W - iw - 90 * u, iy = L ? (H - ih) / 2 : 110 * u;
+      ctx.save(); ctx.translate(ix + iw / 2, iy + ih / 2); ctx.rotate(-0.035);
+      ctx.shadowColor = "rgba(0,0,0,.45)"; ctx.shadowBlur = 30 * u; ctx.fillStyle = "#fbf6ee"; ctx.fillRect(-iw / 2 - 16 * u, -ih / 2 - 16 * u, iw + 32 * u, ih + 32 * u); ctx.shadowBlur = 0;
+      if (a.photo) cover(ctx, a.photo, -iw / 2, -ih / 2, iw, ih); ctx.restore();
+      logo(ctx, a.logo, 70 * u, 70 * u, 54 * u, "#f6e7d6");
+      const r = L ? { x: 90 * u, y: 170 * u, w: ix - 200 * u, h: H - 280 * u } : { x: 80 * u, y: iy + ih + 100 * u, w: W - 160 * u, h: H - iy - ih - 200 * u };
+      block(ctx, r, w, { color: "#fbf1e6", accent: G.gold, muted: "#e2d3c2", size: 96 * u, maxLines: 3 }, L ? "center" : "top", u);
+    }
+  },
+  bue: {
+    photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: W - 120 * u - H * 0.6, y: 80 * u, w: H * 0.6, h: H - 160 * u, shape: "arch" } : { x: W * 0.17, y: 100 * u, w: W * 0.66, h: H * 0.5, shape: "arch" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.sand; ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = G.caramel; ctx.lineWidth = 2 * u;
+      shapePath(ctx, { ...spot, x: spot.x - 18 * u, y: spot.y - 18 * u, w: spot.w + 36 * u, h: spot.h + 36 * u }); ctx.stroke();
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: 100 * u, y: 120 * u, w: spot.x - 200 * u, h: H - 240 * u } : { x: 90 * u, y: spot.y + spot.h + 80 * u, w: W - 180 * u, h: H - spot.y - spot.h - 200 * u };
+      block(ctx, r, w, { color: G.cocoa, accent: G.caramel, muted: G.grey, size: 90 * u, maxLines: 3, align: L ? "left" : "center" }, L ? "center" : "top", u);
+      stamp(ctx, a.logo, L ? 150 * u : W - 120 * u, L ? H - 110 * u : 110 * u, 46 * u, G.cocoa);
     }
   }
 };

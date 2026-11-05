@@ -692,6 +692,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-shape-icon.is-original { width: 18px; height: 11px; border-radius: 2px; }
 .studio-shape-icon.is-square { border-radius: 2px; }
 .studio-shape-icon.is-circle { border-radius: 50%; }
+.studio-shape-icon.is-portrait { width: 12px; height: 15px; border-radius: 2px; }
+.studio-shape-icon.is-wide { width: 19px; height: 11px; border-radius: 2px; }
+.studio-shape-icon.is-arch { width: 12px; height: 15px; border-radius: 6px 6px 1px 1px; }
+.studio-crop-frame.is-arch { border-radius: 50% 50% 4px 4px / 40% 40% 4px 4px; }
 .studio-crop-zoom { display: flex; align-items: center; gap: 12px; font-size: 14.5px; width: min(100%, 460px); }
 .studio-crop-zoom input { flex: 1; accent-color: var(--lys-terra, #94503f); }
 .studio-format-help { margin: 8px 0 14px; }
