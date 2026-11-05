@@ -22,6 +22,7 @@ import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes
 export type SocialEnv = SagaEnv & MetaEnv;
 export type Channel = "facebook" | "instagram";
 export type SocialKind = "share" | "event" | "week";
+export type StillEffect = "zoom" | "ryst" | "slor";
 export type SocialStatus = "draft" | "approved" | "publishing" | "published" | "failed" | "skipped";
 
 export type SocialAccount = { page_id: string; page_name: string; page_token_sealed: string; ig_user_id: string | null; ig_username: string | null;
@@ -46,7 +47,9 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     videoNotifiedAtMs?: number;
     /** "flere ... video designs på kommando": the templates the chair asked for (video-events.yml makes them), the videos made to choose among, and how many
      * of them Saga has told the chair about. */
-    videoAsk?: { atMs: number; templates: number[] }; videoChoices?: Array<{ template: number; video: string; atMs: number }>; videoChoicesTold?: number;
+    videoAsk?: { atMs: number; templates: number[] }; videoChoices?: Array<{ template: number; effect?: StillEffect; video: string; atMs: number }>; videoChoicesTold?: number;
+    /** "med lidt bevægelse ... ryste, zoom eller slør ind": the chair's design to be made a video (video/src/still.tsx); a choice with template 0. */
+    stillAsk?: { atMs: number; image: string; effect: StillEffect };
     /** For the templates "Citat" and "Mød underviseren": the teacher's own sentence and photo, given with consent. */
     quote?: string; portrait?: string }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
@@ -695,7 +698,7 @@ export async function notifyVideos(env: SagaEnv, deps: SagaDeps, db: D1Database)
 /** The videos made on the chair's "Lav flere videoer": one message, a link per post, once per batch. */
 async function notifyChoices(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const now = deps.now();
-  const ready = await socialPosts(db, `kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '$.videoAsk') IS NULL
+  const ready = await socialPosts(db, `kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '$.videoAsk') IS NULL AND json_extract(source, '$.stillAsk') IS NULL
     AND json_array_length(json_extract(source, '$.videoChoices')) > coalesce(json_extract(source, '$.videoChoicesTold'), 0)`, [], "id", 10);
   const told: SocialPost[] = [];
   for (const p of ready) {
@@ -725,6 +728,22 @@ export async function askVideos(db: D1Database, id: number, nowMs: number): Prom
   await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoAsk', json(?)) WHERE id = ?").bind(JSON.stringify({ atMs: nowMs, templates: fresh }), id).run();
   return "ok";
 }
+
+/** "Er det muligt at bruge disse skabeloner, med lidt bevægelse?": the chair's design (stored in R2 by the studio) made a video with a marked start, within a
+ * quarter of an hour; it lands among the videos to choose from. */
+export async function askStill(db: D1Database, id: number, image: string, effect: StillEffect, nowMs: number): Promise<"ok" | "not_found" | "late" | "busy"> {
+  const post = await socialPost(db, id);
+  if (!post || post.kind !== "event" || !["draft", "approved", "failed"].includes(post.status)) return "not_found";
+  if (post.source.stillAsk) return "busy";
+  if (!post.source.startsMs || post.source.startsMs < nowMs + 3 * 3_600_000) return "late";
+  await db.prepare("UPDATE social_posts SET source = json_set(source, '$.stillAsk', json(?)) WHERE id = ?").bind(JSON.stringify({ atMs: nowMs, image, effect }), id).run();
+  return "ok";
+}
+
+export const EFFECTS: Record<StillEffect, string> = { zoom: "Zoom ind", ryst: "Ryst", slor: "Slør ind" };
+/** A video choice's name: its template, or the chair's own design with its start. */
+export const choiceName = (c: { template: number; effect?: StillEffect | undefined }, templateName: (n: number) => string | null) =>
+  c.template === 0 ? `Dit design · ${EFFECTS[c.effect ?? "zoom"]}` : `${c.template}. ${templateName(c.template) ?? ""}`;
 
 /** The chair picks one of the videos: it becomes the post's video (on Instagram as a reel), and the post waits for the chair's approval again. */
 export async function pickVideo(db: D1Database, id: number, index: number, nowMs: number): Promise<SocialPost | null> {

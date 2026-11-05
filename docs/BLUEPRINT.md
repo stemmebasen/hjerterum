@@ -1110,6 +1110,20 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Dit design med bevægelse (2026-11-05)
+
+- **Formandens ord:** "Er det muligt at bruge disse skabeloner, med lidt bevægelse? Gerne i starten må de gerne have en synlig og markant effekt, så man ser dem, om det så er ryste, zoom eller slør ind".
+- **I trin 2 på plakatsiden** står "Dit billede med bevægelse":
+  - Formanden vælger Zoom ind, Ryst eller Slør ind. En lille forhåndsvisning afspiller effekten igen og igen.
+  - "✨ Lav video af billedet" gemmer det valgte design (som "Brug i opslaget") og bestiller videoen (`source.stillAsk`, `askStill`).
+- **Videoen** (`video/src/still.tsx`, kompositionen "Still", 8 sekunder, 9:16) er designet uændret på en blød, sløret kopi af sig selv:
+  - Zoom: designet kommer langt indefra, lander med et lille efterslag og et kort lys.
+  - Ryst: et tydeligt ryst, der falder til ro inden for et sekund.
+  - Slør ind: designet kommer ud af en kraftig sløring og bliver skarpt.
+  - Derefter følger en langsom zoom ind resten af videoen.
+- **`video-events.yml`** laver videoen inden for et kvarter og lægger den blandt opslagets videoer ("Dit design · Ryst").
+- **Saga skriver** med et link, og formanden vælger den på linket eller på plakatsiden.
+
 ## Flere billed- og videodesigns på kommando (2026-11-05)
 
 - **Formandens ord:** "Er det muligt at få flere stills og video designs på kommando på hjemmesiden?". Svaret på hvad der skulle bygges først var "Begge dele".

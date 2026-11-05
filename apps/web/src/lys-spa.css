@@ -720,6 +720,20 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-writer input { flex: 1 1 220px; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; }
 .studio-writer p { flex-basis: 100%; margin: 0; }
 .studio-mood { margin: 28px 0 12px; }
+/* "med lidt bevægelse ... ryste, zoom eller slør ind": the start of the video, played again and again as a preview. */
+.studio-motion { display: flex; gap: 16px; align-items: flex-start; flex-basis: 100%; margin: 8px 0; }
+.studio-motion p { margin: 0 0 6px; }
+.studio-fx { flex: none; width: 120px; aspect-ratio: 9 / 16; background: #1c1714; border-radius: 10px; overflow: hidden; display: grid; place-items: center; }
+.studio-fx img { width: 92%; border-radius: 4px; animation: 3s ease-out infinite; box-shadow: 0 8px 24px rgba(0, 0, 0, .4); }
+.studio-fx.is-zoom img { animation-name: fx-zoom; }
+.studio-fx.is-ryst img { animation-name: fx-ryst; animation-timing-function: linear; }
+.studio-fx.is-slor img { animation-name: fx-slor; }
+.studio-fx-choices { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+@keyframes fx-zoom { 0% { transform: scale(2.2); opacity: 0; } 4% { opacity: 1; } 16% { transform: scale(.95); } 24% { transform: scale(1.02); } 30%, 100% { transform: scale(1); } }
+@keyframes fx-ryst { 0% { transform: scale(1.08); } 3% { transform: translate(-12px, 7px) rotate(-2.5deg) scale(1.07); } 6% { transform: translate(10px, -8px) rotate(2deg) scale(1.06); }
+  9% { transform: translate(-8px, 5px) rotate(-1.5deg) scale(1.04); } 13% { transform: translate(6px, -4px) rotate(1deg) scale(1.03); } 18% { transform: translate(-3px, 2px) rotate(-.4deg) scale(1.01); } 24%, 100% { transform: none; } }
+@keyframes fx-slor { 0% { filter: blur(12px); opacity: 0; transform: scale(1.14); } 6% { opacity: 1; } 30%, 100% { filter: blur(0); transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .studio-fx img { animation: none; } }
 .studio-choices-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; flex-basis: 100%; }
 .studio-choices-grid figure { margin: 0; }
 .studio-choices-grid video { width: 100%; aspect-ratio: 9 / 16; border-radius: 10px; background: #000; display: block; }

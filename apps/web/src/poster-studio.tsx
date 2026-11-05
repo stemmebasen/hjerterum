@@ -20,7 +20,7 @@ type Data = {
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
     video: string | null; noVideo: boolean;
     videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean;
-    videoChoices: Array<{ template: number; video: string }>; videoAsked: number[] } | null;
+    videoChoices: Array<{ template: number; name: string; video: string }>; videoAsked: number[]; stillAsked: boolean } | null;
   back: string;
   siteLive?: boolean;
 };
@@ -184,6 +184,8 @@ export function PosterStudio({ id }: { id: string }) {
   const [videoNote, setVideoNote] = useState("");
   // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" - Saga's writer fills the fields.
   const [wish, setWish] = useState("");
+  // "med lidt bevægelse ... ryste, zoom eller slør ind": the picture as a video with a marked start.
+  const [effect, setEffect] = useState<"zoom" | "ryst" | "slor">("zoom");
   const [writing, setWriting] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -296,6 +298,14 @@ export function PosterStudio({ id }: { id: string }) {
     if (response?.ok) { setData(d => d && d.post ? { ...d, post: { ...d.post, videoAsked: [1] } } : d); setVideoNote("Saga laver op til tre nye videoer i andre skabeloner (cirka et kvarter). Hun skriver til dig på Telegram med et link, når de er klar - eller kom tilbage hertil."); }
     else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave flere videoer." : error === "none" ? "Opslaget har allerede fået alle de skabeloner, det kan bruge." : error === "busy" ? "Saga er allerede i gang med nye videoer." : "Det lykkedes ikke. Prøv igen.");
   };
+  const stillVideo = async () => {
+    if (!preview) return;
+    setVideoNote("Sender billedet …");
+    const response = await fetch(`/plakater/${id}/bevaegelse?effekt=${effect}`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
+    const error = response && !response.ok ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+    if (response?.ok) { setData(d => d && d.post ? { ...d, post: { ...d.post, stillAsked: true } } : d); setVideoNote("Saga laver dit billede som video (cirka et kvarter). Hun skriver til dig på Telegram, når den er klar, og så kan du vælge den her eller på linket."); }
+    else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave en video." : error === "busy" ? "Saga er allerede i gang med dit billede som video." : "Det lykkedes ikke. Prøv igen.");
+  };
   const pickVideo = async (index: number) => {
     const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pick: index }) }).catch(() => null);
     const body = response?.ok ? await response.json().catch(() => null) as { video?: string; videoTemplate?: number } | null : null;
@@ -363,7 +373,14 @@ export function PosterStudio({ id }: { id: string }) {
           </div>
           {post.videoChoices.some(c => c.video !== post.video) && <div className="studio-choices-grid">
             {post.videoChoices.map((c, i) => c.video === post.video ? null : <figure key={c.video}><video src={c.video} controls muted playsInline loop preload="metadata" />
-              <figcaption>{c.template}. {post.videoTemplates.find(t => t.no === c.template)?.name ?? ""}<button type="button" className="lys-btn ghost" onClick={() => void pickVideo(i)}>Vælg denne</button></figcaption></figure>)}
+              <figcaption>{c.name}<button type="button" className="lys-btn ghost" onClick={() => void pickVideo(i)}>Vælg denne</button></figcaption></figure>)}
+          </div>}
+          {preview && <div className="studio-motion">
+            <div key={effect} className={`studio-fx is-${effect}`} aria-hidden="true"><img src={preview.url} alt="" /></div>
+            <div><p><b>Dit billede med bevægelse</b></p><p className="studio-muted">En markant start, så man ser det, og så en rolig bevægelse.</p>
+              <div className="studio-fx-choices" role="group" aria-label="Effekt">{(["zoom", "ryst", "slor"] as const).map(k => <button key={k} type="button" className={"lys-btn" + (effect === k ? "" : " ghost")} aria-pressed={effect === k} onClick={() => setEffect(k)}>{{ zoom: "Zoom ind", ryst: "Ryst", slor: "Slør ind" }[k]}</button>)}</div>
+              {post.stillAsked ? <p className="studio-muted">Saga er i gang med dit billede som video.</p>
+                : post.videoRemake && <p className="studio-actions"><button type="button" className="lys-btn ghost" onClick={() => void stillVideo()}>✨ Lav video af billedet</button></p>}</div>
           </div>}
           {post.videoAsked.length ? <p className="studio-muted">Saga er i gang med nye videoer.</p>
             : post.videoRemake && <p className="studio-actions"><button type="button" className="lys-btn ghost" onClick={() => void moreVideos()}>✨ Lav flere videoer</button></p>}

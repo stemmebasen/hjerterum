@@ -53,7 +53,7 @@ import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { prMailData, prReplyPage } from "./prMail.js";
-import { approveWeek, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, askStill, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -1117,7 +1117,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
     const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1172,6 +1172,22 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
       const after = await socialPost(db, decided.id);
       return answer({ ok: true, publishAtMs: decided.publish_at_ms, instagramAtMs: decided.source.instagramAtMs ?? null, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
+    }
+    // Requested (the chair, 5 Nov 2026): "Er det muligt at bruge disse skabeloner, med lidt bevægelse? ... ryste, zoom eller slør ind" - the design drawn in
+    // the studio (a jpg), stored as the post's other pictures are, and made a video (video/src/still.tsx) to choose among the post's videos.
+    if (part === "/bevaegelse" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      if (!media) return answer({ error: "not_possible" }, 400);
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const effect = url.searchParams.get("effekt");
+      if (effect !== "zoom" && effect !== "ryst" && effect !== "slor") return answer({ error: "effect" }, 400);
+      const stored = await storeSocialDesign(media, await request.arrayBuffer());
+      if (!stored.ok) return answer(stored, 422);
+      const asked = await askStill(db, data.post.id, stored.url, effect, now);
+      if (asked !== "ok") return answer({ error: asked }, 422);
+      await audit(db, actor, "social.manage", `Bad om "${data.event.title}" som video med bevægelse (${effect})`, now);
+      return answer({ ok: true });
     }
     // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" (social/writer.ts).
     if (part === "/tekst" && request.method === "POST") {
