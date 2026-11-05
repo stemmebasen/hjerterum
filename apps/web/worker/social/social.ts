@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -615,7 +615,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         }
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
-          ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
+          ? await freshInstagramImages(deps.fetcher, instagram, post.source.id, post.images) : post.images;
         done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: await pub(post.source.instagramText || (post.kind === "event" ? instagramEventText(post.text) : post.text)), images,
           collaborators: post.source.collaborators ?? [] }).catch(error => {
           // Instagram takes only jpg pictures.
