@@ -1110,6 +1110,29 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Sagas forslag til opslagets tekst (2026-11-05)
+
+- **Formandens ord:** "Jeg vil gerne have en mulighed for, at AI kan komme med et forslag til delingsteksten. Det skal være en meget moderne sprogmodel, der skriver på en moderne måde, som passer til de forskellige medier, til hjerterums stil og gerne på nye spændende og kærlige måder - ikke kliche".
+- **Knappen "✨ Nyt forslag fra Saga"** findes:
+  - i trin 2 på plakatsiden;
+  - på hvert eventopslag under Ugens opslag;
+  - på hver deling under Tagget i.
+  - Der er et valgfrit felt til et ønske, fx "mere legende".
+  - Forslaget lander i felterne for Facebook og Instagram. Intet gemmes, før formanden gemmer eller godkender.
+- **Modellen** (`social/writer.ts`):
+  - Skribentmodellen er `vertex/claude-opus-5-5@eu` (Claude Opus 5.5 i EU), som kan ændres med `AI_WRITER_MODEL`. Svarer den ikke, skriver Sagas sædvanlige model.
+  - Over dagens AI-budget bruges den sædvanlige vej.
+  - Forbruget logges som `social-writer`.
+- **Stilen:**
+  - Hjerterums stemme er varm, nærværende, jordnær og let poetisk. Den taler til "du" og bygger op om én konkret, sanselig detalje eller et uventet, ømt perspektiv.
+  - Saga undgår en liste af klichéer ("rejse indad", "Oplev …", "Vi glæder os til at se dig" …), giver ingen helbredsløfter og finder ikke på fakta. Hun skriver godt dansk, som Ugens opslag.
+  - Hun får eventets egen beskrivelse og kategori og skriver noget nyt i forhold til det nuværende udkast.
+- **Hvert medie sin form:**
+  - Facebook: 2-4 korte sætninger, højst 60 ord, ingen hashtags og ingen link (linket sættes på).
+  - Instagram: en første linje, der stopper scrollet, luftige afsnit, højst to emojis og 2-4 præcise hashtags til sidst. "Læs mere og tilmeld dig på hjerterum.info/events (link i bio)." sættes over hashtaggene.
+  - Ved en deling: et kærligt, konkret skulderklap til personen. Personens navn og egne ord sættes på som før.
+- **Eventopslag under Ugens opslag** viser nu også Instagram-teksten, så den kan rettes dér.
+
 ## PR-mails i formandens mappe og i PR og SoMe, med Sagas svarudkast (2026-11-04)
 
 - **Formandens ord:** "Jeg har brug for, at Saga finder de mails fra mailboksen, der vedrører PR, deling og sociale medier, at de lander i min undermappe og at de bliver vist i min PR-sektion. Jeg har også brug for smart at kunne svare tilbage i PR-sektionen." Mappen blev "Ny mappe "5 - JACOB › PR"" (formandens valg), i samme stil som de andres.

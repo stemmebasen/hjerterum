@@ -716,6 +716,9 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-choices label { display: inline-flex; gap: 8px; align-items: center; }
 .studio-done h2 { margin-bottom: 8px; }
 .studio-whens { display: grid; gap: 10px; flex-basis: 100%; }
+.studio-writer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 12px; }
+.studio-writer input { flex: 1 1 220px; font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; }
+.studio-writer p { flex-basis: 100%; margin: 0; }
 .studio-whens label { display: grid; gap: 4px; font-size: 14px; }
 .studio-when { font: inherit; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--lys-line, rgba(127, 127, 127, .35)); background: var(--lys-bg, #fff); color: inherit; flex-basis: 100%; max-width: 260px; }
 /* An event's posters for social media (poster-studio.tsx): five designs, the system's choice first. */

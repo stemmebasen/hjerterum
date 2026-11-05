@@ -72,7 +72,21 @@ function actions(base: string, p: SocialPost, approveLabel: string): string {
   return `<p class="pr-acts">${buttons}</p>${p.error ? `<p class="small warn">${esc(p.error)}</p>` : ""}${p.approved_by && p.status === "approved" ? `<p class="small muted">Godkendt af ${esc(p.approved_by)}.</p>` : ""}`;
 }
 
-function shareCard(base: string, p: SocialPost, account: SocialAccount | null): string {
+/** Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten ... på nye spændende og kærlige måder - ikke
+ * kliche" - Saga's writer (social/writer.ts) fills the fields; nothing is saved until the chair saves or approves. */
+function writerRow(p: SocialPost, locked: boolean, ai: boolean): string {
+  if (locked || !ai) return "";
+  return `<div class="pr-writer"><input name="onske" maxlength="300" placeholder="Ønske til teksten, fx mere legende (valgfrit)" aria-label="Ønske til teksten"><button type="button" class="ghost" data-forslag="${p.id}">✨ Nyt forslag fra Saga</button><span class="small muted" role="status"></span></div>`;
+}
+
+const WRITER_SCRIPT = (base: string) => `<script>(()=>{const url=${JSON.stringify(`${base}/pr/opslag/`)};
+document.addEventListener("click",async e=>{const b=e.target.closest&&e.target.closest("[data-forslag]");if(!b)return;const f=b.form,s=b.parentNode.querySelector("[role=status]");
+b.disabled=true;s.textContent="Saga skriver …";const d=new FormData();d.append("onske",(f.elements.onske&&f.elements.onske.value)||"");
+const r=await fetch(url+b.dataset.forslag+"/forslag",{method:"POST",body:d,headers:{accept:"application/json"}}).catch(()=>null);const j=r&&r.ok?await r.json().catch(()=>null):null;b.disabled=false;
+if(!j){s.textContent="Saga kunne ikke skrive et forslag lige nu. Prøv igen.";return}
+if(f.elements.text)f.elements.text.value=j.text;if(f.elements.instagram_text)f.elements.instagram_text.value=j.instagramText;s.textContent="Forslaget står i felterne. Ret det, og gem eller godkend.";})})()</script>`;
+
+function shareCard(base: string, p: SocialPost, account: SocialAccount | null, ai = false): string {
   const s = p.source;
   const instagramOk = Boolean(account?.ig_user_id) && (s.media === "image" || s.media === "carousel") && p.images.length > 0;
   const allowed: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
@@ -88,6 +102,7 @@ ${instagramOk && !s.consent ? `<p class="small muted">Instagram har ingen "del"-
 <label class="pr-field"><span>Hjerterums ord over delingen${instagramOk ? " (Facebook)" : ""}</span><textarea name="text" rows="3"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 ${instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>
 <label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((s.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
+${writerRow(p, locked, ai)}
 ${channelBoxes(p, allowed, locked)}
 ${actions(base, p, "Del nu")}</form></article>`;
 }
@@ -105,7 +120,7 @@ ${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 
-function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string): string {
+function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string, ai = false): string {
   if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
   const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
@@ -119,6 +134,8 @@ ${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(stud
 ${p.kind === "event" && p.source.video ? `<div class="pr-video"><video src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video><span class="small muted">Videoen til Instagram (reel)</span></div>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>${p.kind === "week" ? "Teksten på Facebook" : "Opslaget på Facebook"}</span><textarea name="text" rows="${p.kind === "week" ? 10 : 4}"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
+${p.kind === "event" && allowed.includes("instagram") && p.channels.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>` : ""}
+${p.kind === "event" ? writerRow(p, locked, ai) : ""}
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
 <label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 <div class="pr-row"><label class="pr-field pr-time"><span>${p.kind === "event" && allowed.includes("instagram") ? "Facebook sendes" : "Sendes"}</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
@@ -154,7 +171,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
 <a class="button ghost" href="${base}/pr/forbind">Forbind igen</a>
 <form method="post" action="${base}/pr/afbryd" onsubmit="return confirm('Afbryd forbindelsen til Facebook og Instagram? Intet sendes, før du forbinder igen.')"><button class="ghost">Afbryd</button></form></div>`;
 
-  const shares = d.shares.length ? d.shares.map(p => shareCard(base, p, a)).join("") : `<p class="empty">Intet nyt. Saga kigger efter nye opslag, der tagger Hjerterum, hver halve time.</p>`;
+  const shares = d.shares.length ? d.shares.map(p => shareCard(base, p, a, d.aiReady)).join("") : `<p class="empty">Intet nyt. Saga kigger efter nye opslag, der tagger Hjerterum, hver halve time.</p>`;
 
   const tabs = d.weeks.map(w => `<a class="${w.monday === d.week.monday ? "on" : ""}" href="${base}/pr/uge?uge=${w.monday}">${esc(w.label)}</a>`).join("");
   const drafts = d.week.posts.filter(p => p.status === "draft" && p.channels.length && (p.publish_at_ms ?? Infinity) > d.nowMs).length;
@@ -163,7 +180,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
     ? `<div class="pr-acts">${drafts ? `<form method="post" action="${base}/pr/uge/godkend"><input type="hidden" name="uge" value="${d.week.monday}"><button>Godkend hele ugen (${drafts})</button></form>` : ""}
 <form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button class="ghost">Tilføj nye events fra kalenderen</button></form></div>
 <p class="small muted">"Ugens events" og ${eventCount} events med hvert sit opslag på Facebook. Et godkendt opslag går ud på sit tidspunkt; et event, der er begyndt, får ikke sit opslag bagefter.</p>
-${d.week.posts.map(p => weekCard(base, p, a, d.week.monday)).join("")}`
+${d.week.posts.map(p => weekCard(base, p, a, d.week.monday, d.aiReady)).join("")}`
     : `<p class="empty">Ugen er ikke planlagt endnu. Saga planlægger næste uge torsdag fra kl. 10.</p>
 ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button>Lad Saga planlægge uge ${weekNumber(d.week.key)} nu</button></form>` : ""}`;
 
@@ -189,7 +206,7 @@ ${insightSection(d.insight)}`
 ${tab === "overblik" ? `<p>Saga gør alle opslag klar - delinger af det, Hjerterum er tagget i, et opslag for hvert event, Ugens events og ugens reel - og du godkender. Intet sendes uden dit ja. Kun for formanden indtil videre.</p>` : ""}</div>
 ${nav}
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
-${sections[tab]}</main>`;
+${sections[tab]}</main>${tab === "uge" || tab === "tagget" ? WRITER_SCRIPT(base) : ""}`;
   return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE + PR_MAIL_STYLE });
 }
 
@@ -197,6 +214,7 @@ const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:
 /* "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." */.pr-post{background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 14px;scroll-margin-top:90px}.pr-post:nth-of-type(even){background:var(--card)}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
 .pr-design{display:flex;align-items:center;gap:12px;margin:0 0 12px}.pr-video{display:flex;align-items:flex-end;gap:12px;margin:0 0 12px}.pr-video video{width:160px;aspect-ratio:9/16;border-radius:12px;background:#000}.pr-design img{width:72px;height:90px;object-fit:cover;border-radius:10px}.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
+.pr-writer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}.pr-writer input{flex:1 1 220px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.pr-writer [role=status]{flex-basis:100%}
 .pr-field{display:block;margin:0 0 10px}.pr-field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.pr-field textarea,.pr-field input{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .pr-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}.pr-time{max-width:260px}.pr-channels{display:flex;gap:18px;margin:0 0 10px}.pr-channels label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer}.pr-channels input{width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent);flex:none}
 .pr-acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.pr-acts form{margin:0}

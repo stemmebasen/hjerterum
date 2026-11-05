@@ -50,6 +50,7 @@ import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvent
 import { calendarHref, CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
 import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.js";
 import { quickPath, quickPost } from "../social/quickLink.js";
+import { proposeWords } from "../social/writer.js";
 import { prMailData, prReplyPage } from "./prMail.js";
 import { approveWeek, chooseVideoTemplate, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
@@ -1026,6 +1027,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const start = field("start");
       return redirect(`${base}/pr/kalender?${/^\d{4}-\d{2}-\d{2}$/.test(start) ? `start=${start}&` : ""}${result === "moved" ? "besked=flyttet" : `fejl=${result === "time" ? "tid" : "flyt"}`}`);
     }
+    // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" - the words land in the fields; nothing is saved.
+    const proposal = /^\/pr\/opslag\/(\d+)\/forslag$/.exec(path);
+    if (proposal) {
+      const post = await socialPost(db, Number(proposal[1]));
+      if (!post || post.status === "published" || post.status === "publishing") return answer({ error: "not_found" }, 404);
+      const words = await proposeWords(env as SagaEnv, deps, db, post, field("onske"));
+      return words ? answer(words) : answer({ error: "ai" }, 503);
+    }
     // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" (public-site.ts).
     if (path === "/pr/hjemmeside" && request.method === "POST") {
       const live = String((await request.formData().catch(() => null))?.get("live") ?? "") === "1";
@@ -1107,7 +1116,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
     const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1162,6 +1171,16 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const out = firstDue(decided) <= now ? await publishOne(env as SocialEnv, deps, db, decided) : false;
       const after = await socialPost(db, decided.id);
       return answer({ ok: true, publishAtMs: decided.publish_at_ms, instagramAtMs: decided.source.instagramAtMs ?? null, channels: decided.channels, published: out, status: after?.status ?? decided.status, error: after?.error ?? null });
+    }
+    // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" (social/writer.ts).
+    if (part === "/tekst" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      const data = await studioData(db, id!, now, deps.fetcher);
+      const post = data?.post ? await socialPost(db, data.post.id) : null;
+      if (!post) return answer({ error: "no_post" }, 404);
+      const body = await request.json().catch(() => null) as { wish?: unknown } | null;
+      const words = await proposeWords(env as SagaEnv, deps, db, post, typeof body?.wish === "string" ? body.wish : "");
+      return words ? answer(words) : answer({ error: "ai" }, 503);
     }
     // Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon" - the video made again in the chosen template (video-events.yml, within half an hour).
     if (part === "/video" && request.method === "POST") {
