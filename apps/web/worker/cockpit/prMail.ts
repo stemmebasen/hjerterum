@@ -41,7 +41,12 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     const folders = await s.folders();
     for (const path of [PR_PARENT, PR_FOLDER]) if (!folders.some(f => f.path === path)) await s.create?.(path);
     const validity = await s.uidValidity("INBOX");
-    const mine = rows.filter(r => r.uid_validity === validity);
+    const ours = rows.filter(r => r.uid_validity === validity);
+    // Found (5 Nov 2026): mails a board member had already moved to their own folder were asked for again and again - the mailbox moves nothing then.
+    // Only the mails still in the inbox are moved; one that has gone is handled elsewhere (and shown from its folder).
+    const here = s.present ? new Set(await s.present("INBOX", ours.map(r => r.uid))) : null;
+    for (const r of here ? ours.filter(r => !here.has(r.uid)) : []) await db.prepare("UPDATE board_mail SET pr_filed_at_ms = ? WHERE id = ?").bind(now, r.id).run();
+    const mine = here ? ours.filter(r => here.has(r.uid)) : ours;
     if (mine.length && s.moveMapped) {
       const { destValidity, map } = await s.moveMapped("INBOX", mine.map(r => r.uid), PR_FOLDER);
       const to = new Map(map);
@@ -98,17 +103,18 @@ export type PrMail = { id: number; sender: string; subject: string; preview: str
   answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null };
 
 export async function prMailData(db: D1Database): Promise<PrMail[]> {
-  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id FROM board_mail
-      WHERE label = 'PR' OR folder = ? ORDER BY received_at_ms DESC LIMIT 150`).bind(PR_FOLDER).all<PrMail & { message_id: string | null }>().then(r => r.results ?? []).catch(() => []);
+  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id, pr_filed_at_ms FROM board_mail
+      WHERE label = 'PR' OR folder = ? ORDER BY received_at_ms DESC LIMIT 150`).bind(PR_FOLDER).all<PrMail & { message_id: string | null; pr_filed_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
   // The same mail in several folders (a copy in a board member's folder) once: in the chair's folder first, then the inbox.
-  const rank = (m: PrMail) => m.folder === PR_FOLDER ? 0 : m.folder === "INBOX" ? 1 : 2;
-  const best = new Map<string, PrMail & { message_id: string | null }>();
+  // An inbox row Saga found gone (moved by a board member) is stale: the copy in its folder is shown instead.
+  const rank = (m: PrMail & { pr_filed_at_ms: number | null }) => m.folder === PR_FOLDER ? 0 : m.folder === "INBOX" ? (m.pr_filed_at_ms ? 3 : 1) : 2;
+  const best = new Map<string, PrMail & { message_id: string | null; pr_filed_at_ms: number | null }>();
   for (const m of rows) {
     const key = m.message_id || `${m.sender}|${m.subject}|${m.received_at_ms}`;
     const had = best.get(key);
     if (!had || rank(m) < rank(had)) best.set(key, { ...m, answered_at_ms: m.answered_at_ms ?? had?.answered_at_ms ?? null, answered_by: m.answered_by ?? had?.answered_by ?? null, handled_at_ms: m.handled_at_ms ?? had?.handled_at_ms ?? null });
   }
-  return [...best.values()].sort((a, b) => b.received_at_ms - a.received_at_ms).slice(0, 60).map(({ message_id: _, ...m }) => m);
+  return [...best.values()].sort((a, b) => b.received_at_ms - a.received_at_ms).slice(0, 60).map(({ message_id: _, pr_filed_at_ms: __, ...m }) => m);
 }
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });

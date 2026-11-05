@@ -1167,3 +1167,5 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Én gang:** De sidste 60 dage i alle mapper gennemgås igen. Mails med Event, Generel eller Facebooks og Instagrams egne mails, der handler om PR, får mærkatet PR og vises i PR og SoMe → Mails.
   - Kun indbakkens mails flyttes til 5 - JACOB › PR. Mails i bestyrelsesmedlemmernes egne mapper bliver, hvor de er.
   - Den samme mail i flere mapper vises én gang.
+- **Rettet samme dag:** De 17 PR-mails i indbakken blev stadig ikke flyttet. De lå der ikke længere, fordi Lisbeth og Gitta allerede havde flyttet dem til deres egne mapper, mens Saga kun så indbakkens gamle række og bad postkassen flytte noget, der ikke var der.
+  - Nu spørger Saga først postkassen, hvilke mails der stadig ligger i indbakken (`present`). Kun dem flyttes. Resten markeres som håndteret andetsteds og vises i PR-sektionen fra den mappe, de ligger i.
