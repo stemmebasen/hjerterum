@@ -1,6 +1,6 @@
 import { esc, layout } from "./page.js";
 import { clock, dateOf, dayName } from "../social/plan.js";
-import type { SocialPost } from "../social/social.js";
+import { choiceName, EFFECTS, type SocialPost } from "../social/social.js";
 import { templateName, templatesFor, usedLabel, VIDEO_TEMPLATES, type TemplateUse } from "../social/videoTemplates.js";
 
 /** Requested (the chair, 5 Nov 2026): "Det skal fungere sådan at jeg kan klikke på sagas link i telegram og på et øjeblik godkende" - the page behind
@@ -77,10 +77,11 @@ function choices(v: QuickView): string {
   if (p.kind !== "event" || !p.channels.includes("instagram") || p.status === "published" || p.status === "publishing") return "";
   const list = p.source.videoChoices ?? [];
   const cards = list.map((c, i) => c.video === p.source.video ? "" : `<figure class="q-choice"><video src="${esc(c.video)}" controls muted playsinline loop preload="metadata"></video>
-<figcaption>${c.template}. ${esc(templateName(c.template) ?? "")}<form method="post" action="${esc(v.action)}"><input type="hidden" name="handling" value="vaelg"><input type="hidden" name="valg" value="${i}"><button class="ghost">Vælg denne</button></form></figcaption></figure>`).join("");
+<figcaption>${esc(choiceName(c, n => templateName(n)))}<form method="post" action="${esc(v.action)}"><input type="hidden" name="handling" value="vaelg"><input type="hidden" name="valg" value="${i}"><button class="ghost">Vælg denne</button></form></figcaption></figure>`).join("");
+  const still = p.source.stillAsk ? `<p class="small muted">Saga laver dit design som video (${esc(EFFECTS[p.source.stillAsk.effect])}). Hun skriver, når den er klar.</p>` : "";
   const more = p.source.videoAsk ? `<p class="small muted">Saga laver ${p.source.videoAsk.templates.length} nye videoer (${p.source.videoAsk.templates.map(n => esc(templateName(n) ?? String(n))).join(", ")}). Hun skriver, når de er klar.</p>`
     : v.canRemake ? `<form method="post" action="${esc(v.action)}"><input type="hidden" name="handling" value="flere"><button class="ghost">✨ Lav flere videoer</button></form>` : "";
-  return cards || more ? `<section class="q-choices">${cards ? `<h2>Andre videoer at vælge imellem</h2><div class="q-grid">${cards}</div>` : ""}${more}</section>` : "";
+  return cards || more || still ? `<section class="q-choices">${cards ? `<h2>Andre videoer at vælge imellem</h2><div class="q-grid">${cards}</div>` : ""}${still}${more}</section>` : "";
 }
 
 export function quickGonePage(base: string): string {

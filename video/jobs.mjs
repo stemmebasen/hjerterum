@@ -105,6 +105,18 @@ async function eventJobs(postsPath, out, now, asksPath = null) {
   // Requested (the chair, 5 Nov 2026): "flere ... video designs på kommando" - the templates the chair asked for (source.videoAsk), each a choice beside the
   // post's video (source.videoChoices); the chair picks one in admin. The post's own video is never changed here.
   for (const r of asksPath ? rows(asksPath) : []) {
+    // "med lidt bevægelse ... ryste, zoom eller slør ind" (still.tsx): the chair's own design from the studio, in motion.
+    const still = json(r.source, {}).stillAsk;
+    if (still?.image) {
+      const pic = await picture(still.image);
+      const effect = ["zoom", "ryst", "slor"].includes(still.effect) ? still.effect : "zoom";
+      if (pic) {
+        const name = `design-${r.id}-${randomBytes(6).toString("hex")}`;
+        const choice = JSON.stringify({ template: 0, effect, video: `${SITE}/api/social-reels/${name}.mp4`, atMs: now });
+        jobs.push({ composition: "Still", props: { picture: pic, effect }, out: `${name}.mp4`, name,
+          sql: `UPDATE social_posts SET source = json_remove(json_set(source, '$.videoChoices', json(json_insert(coalesce(json_extract(source, '$.videoChoices'), '[]'), '$[#]', json(${sql(choice)})))), '$.stillAsk') WHERE id = ${Number(r.id)} AND status IN ('draft', 'approved', 'failed');` });
+      }
+    }
     const ask = json(r.source, {}).videoAsk;
     for (const template of (ask?.templates ?? []).slice(0, 3)) {
       const v = await eventVideo(r, now, Number(template));

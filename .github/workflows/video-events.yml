@@ -44,7 +44,7 @@ jobs:
           pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
             "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status = 'draft' AND channels LIKE '%instagram%' AND json_extract(source, '\$.video') IS NULL AND json_extract(source, '\$.noVideo') IS NULL AND json_extract(source, '\$.startsMs') > $NOW + 10800000 AND coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) > $NOW + 3600000 ORDER BY coalesce(json_extract(source, '\$.instagramAtMs'), publish_at_ms) LIMIT 6" > /tmp/posts.json
           pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
-            "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '\$.videoAsk') IS NOT NULL AND json_extract(source, '\$.startsMs') > $NOW + 3600000 ORDER BY json_extract(source, '\$.videoAsk.atMs') LIMIT 3" > /tmp/asks.json
+            "SELECT id, text, images, source FROM social_posts WHERE kind = 'event' AND status IN ('draft', 'approved', 'failed') AND (json_extract(source, '\$.videoAsk') IS NOT NULL OR json_extract(source, '\$.stillAsk') IS NOT NULL) AND json_extract(source, '\$.startsMs') > $NOW + 3600000 ORDER BY coalesce(json_extract(source, '\$.videoAsk.atMs'), json_extract(source, '\$.stillAsk.atMs')) LIMIT 3" > /tmp/asks.json
       - name: Make the videos
         shell: bash
         run: |

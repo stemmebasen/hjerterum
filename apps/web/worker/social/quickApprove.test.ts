@@ -144,6 +144,31 @@ describe("Saga's link to approve a post", () => {
     expect((await socialPost(db, dans))!.source.videoAsk!.templates).toEqual([1, 5, 7]);
   });
 
+  // Requested (the chair, 5 Nov 2026): "Er det muligt at bruge disse skabeloner, med lidt bevægelse? Gerne i starten ... ryste, zoom eller slør ind".
+  it("makes the chair's design a video with a marked start, to choose among the post's videos", async () => {
+    const { db, env, dans, call } = await setup();
+    await db.prepare(`INSERT INTO house_events (id, title, starts_at_ms, host, image_url, content_hash, updated_at_ms) VALUES (?, 'Dans', ?, 'Kasper', 'https://d1tif55lvfk8gc.cloudfront.net/a.jpg', 'x', 0)`)
+      .bind(`SF${HEX}`, NOW + 3 * 86_400_000).run();
+    const stored: string[] = [];
+    const media = { put: async (k: string) => { stored.push(k); return {}; }, get: async () => null, delete: async () => undefined };
+    const studioEnv = { ...env, EVENT_MEDIA: media } as never;
+    const cookie = await personalCookie("Jacob Hauge", NOW);
+    const post = (path: string, body: BodyInit) => handleCockpitRequest(new Request(ORIGIN + path, { method: "POST", body, headers: { cookie, origin: ORIGIN, "content-type": "image/jpeg" } }), studioEnv, deps(fetch, NOW));
+    const jpg = new Uint8Array(4000); jpg.set([0xff, 0xd8, 0xff, 0xe0]);
+    expect((await post(`/plakater/${HEX}/bevaegelse?effekt=dans`, jpg)).status).toBe(400);
+    expect((await post(`/plakater/${HEX}/bevaegelse?effekt=ryst`, jpg)).status).toBe(200);
+    expect(stored).toHaveLength(1);
+    const asked = (await socialPost(db, dans))!.source.stillAsk!;
+    expect(asked).toMatchObject({ atMs: NOW, effect: "ryst", image: expect.stringMatching(/^https:\/\/www\.hjerterum\.info\/api\/social-designs\/[0-9a-f]{32}\.jpg$/) });
+    expect((await post(`/plakater/${HEX}/bevaegelse?effekt=zoom`, jpg)).status).toBe(422);
+    const path = (await quickPath(env, dans, NOW))!;
+    expect(await (await call(path)).text()).toContain("Saga laver dit design som video (Ryst)");
+    // The video job lays it among the choices (video/jobs.mjs, composition "Still").
+    await db.prepare(`UPDATE social_posts SET source = json_remove(json_set(source, '$.videoChoices', json(json_insert(coalesce(json_extract(source, '$.videoChoices'), '[]'), '$[#]', json(?)))), '$.stillAsk') WHERE id = ?`)
+      .bind(JSON.stringify({ template: 0, effect: "ryst", video: "https://www.hjerterum.info/api/social-reels/design-1.mp4", atMs: NOW }), dans).run();
+    expect(await (await call(path)).text()).toContain("Dit design · Ryst");
+  });
+
   it("is chosen in the studio too", async () => {
     const { db, env, dans, call } = await setup();
     await db.prepare(`INSERT INTO house_events (id, title, starts_at_ms, host, image_url, content_hash, updated_at_ms) VALUES (?, 'Dans', ?, 'Kasper', 'https://d1tif55lvfk8gc.cloudfront.net/a.jpg', 'x', 0)`)

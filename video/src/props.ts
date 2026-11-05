@@ -34,3 +34,7 @@ export type WeekProps = { weekNo: number; range: string; events: WeekEvent[] };
 
 export const EVENT_FRAMES = 270;
 export const FAREWELL_AT = 186;
+
+/** The chair's own design in motion (still.tsx): "ryste, zoom eller slør ind". */
+export type StillEffect = "zoom" | "ryst" | "slor";
+export type StillProps = { picture: Picture; effect: StillEffect };
