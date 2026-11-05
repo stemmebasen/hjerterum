@@ -104,7 +104,7 @@ async function visitorKey(request: Request): Promise<string> {
 
 /** Requested: "De sider hun linker til bør være aktive links og understreget på en tydelig måde". She writes a page as a markdown link; the
  * widget turns it into a link (saga-widget.tsx) - only to Hjerterum's own pages, holistisk.org and cirkler.net. */
-export const LINK_RULE = `LINKS: Når du nævner en side, så skriv den som et link i formatet [sidens navn](adresse) - fx [Markedsføring af dit event](https://www.hjerterum.info/brug-hjerterum/markedsfoering) eller [lejepriserne](https://www.hjerterum.info/brug-hjerterum/lejepriser). Brug KUN adresser, der står i materialet nedenfor (hjerterum.info, holistisk.org, cirkler.net), aldrig nogen, du selv finder på. Skriv aldrig "under X" uden et link, når siden findes.`;
+export const LINK_RULE = `LINKS: Når du nævner en side, så skriv den som et link i formatet [sidens navn](adresse) - fx [PR for dit event](https://www.hjerterum.info/brug-hjerterum/pr) eller [lejepriserne](https://www.hjerterum.info/brug-hjerterum/lejepriser). Brug KUN adresser, der står i materialet nedenfor (hjerterum.info, holistisk.org, cirkler.net), aldrig nogen, du selv finder på. Skriv aldrig "under X" uden et link, når siden findes.`;
 
 /** What Saga may tell someone who is not logged in - or who is logged in, but without a membership with benefits (`loggedIn`). */
 export const PUBLIC_SYSTEM = (today: string, loggedIn: boolean) => `Du er Saga, Hjerterums assistent. Hjerterum er en forening og et hus i Guldsmedgade 26B i Aarhus for meditation, yoga, personlig udvikling og fællesskab. `

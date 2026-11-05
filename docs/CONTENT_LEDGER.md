@@ -30,8 +30,8 @@ Vision / om os · Kontakt. The content pages live in `apps/web/site/pages.ts`.
 | [benefits-of-membership](https://holistisk.org/benefits-of-membership/) | Benefits of membership | 2026-08-16 | [/medlemskab/fordele](/medlemskab/fordele) |  |
 | [betingelser-for-leje-af-sal](https://holistisk.org/betingelser-for-leje-af-sal/) | Vilkår for leje af sal | 2026-06-05 | [/brug-hjerterum/vilkaar](/brug-hjerterum/vilkaar) |  |
 | [bliv-medlem](https://holistisk.org/bliv-medlem/) | Bliv medlem af Hjerterum | 2026-09-29 | [/medlemskab](/medlemskab) | Indmeldelse sker fortsat på holistisk.org (som fra hjerterum.info), indtil betaling kører på platformen. |
-| [book-dit-event](https://holistisk.org/book-dit-event/) | Book dit event | 2026-04-24 | [/brug-hjerterum/lejepriser#booking](/brug-hjerterum/lejepriser#booking) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
-| [book-your-event](https://holistisk.org/book-your-event/) | Book your Event | 2026-03-25 | [/brug-hjerterum/lejepriser#booking](/brug-hjerterum/lejepriser#booking) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
+| [book-dit-event](https://holistisk.org/book-dit-event/) | Book dit event | 2026-04-24 | [/brug-hjerterum/booking#book](/brug-hjerterum/booking#book) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
+| [book-your-event](https://holistisk.org/book-your-event/) | Book your Event | 2026-03-25 | [/brug-hjerterum/booking#book](/brug-hjerterum/booking#book) | Formularerne gjaldt kun til 30. april 2026; booking sker nu via prisberegneren. |
 | [brug-centret](https://holistisk.org/brug-centret/) | Om Vores Sal | 2026-08-28 | [/brug-hjerterum](/brug-hjerterum) |  |
 | [conditions-for-renting-the-room](https://holistisk.org/conditions-for-renting-the-room/) | Conditions for renting the room | 2026-06-05 | [/brug-hjerterum/vilkaar](/brug-hjerterum/vilkaar) |  |
 | [conditions-of-membership](https://holistisk.org/conditions-of-membership/) | Terms and Conditions of Membership | 2026-07-25 | [/medlemskab/vilkaar](/medlemskab/vilkaar) |  |
@@ -60,8 +60,8 @@ Vision / om os · Kontakt. The content pages live in `apps/web/site/pages.ts`.
 | [lejepriser](https://holistisk.org/lejepriser/) | Lej Sal | 2026-08-28 | [/brug-hjerterum/lejepriser#priser](/brug-hjerterum/lejepriser#priser) |  |
 | [log-ud](https://holistisk.org/log-ud/) | Log out | 2024-10-03 | – (/) | WordPress' log-ud-side uden indhold; log ud sker nu i medlemsområdet. |
 | [managing-your-event](https://holistisk.org/managing-your-event/) | Managing Your Event | 2026-08-24 | [/brug-hjerterum/aendr-event](/brug-hjerterum/aendr-event) |  |
-| [markedsforing](https://holistisk.org/markedsforing/) | Markedsføring af dit event | 2026-05-17 | [/brug-hjerterum/markedsfoering](/brug-hjerterum/markedsfoering) |  |
-| [marketing-of-your-event](https://holistisk.org/marketing-of-your-event/) | Marketing of your Event | 2026-05-17 | [/brug-hjerterum/markedsfoering](/brug-hjerterum/markedsfoering) |  |
+| [markedsforing](https://holistisk.org/markedsforing/) | Markedsføring af dit event | 2026-05-17 | [/brug-hjerterum/pr](/brug-hjerterum/pr) |  |
+| [marketing-of-your-event](https://holistisk.org/marketing-of-your-event/) | Marketing of your Event | 2026-05-17 | [/brug-hjerterum/pr](/brug-hjerterum/pr) |  |
 | [medlems-login](https://holistisk.org/medlems-login/) | Members-login | 2026-05-17 | – (/sign-in) | WordPress' login-side uden indhold; login er nu /sign-in. |
 | [medlemskabs-betingelser](https://holistisk.org/medlemskabs-betingelser/) | Vilkår for medlemskab | 2026-07-25 | [/medlemskab/vilkaar](/medlemskab/vilkaar) |  |
 | [nye-community-events-hjerterum-events](https://holistisk.org/nye-community-events-hjerterum-events/) | Hjerterum Open Events | 2026-08-13 | [/events#hjerterum-open](/events#hjerterum-open) |  |
