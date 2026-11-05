@@ -273,6 +273,24 @@ export function PosterStudio({ id }: { id: string }) {
       setMessage(!stored?.ok ? "Billedet kunne ikke gemmes. Prøv igen." : error === "time" ? "Vælg et tidspunkt fra nu og til senest en time, før eventet begynder." : error ? "Vælg mindst ét sted, opslaget skal ud." : "Opslaget kunne ikke publiceres. Prøv igen.");
     }
   };
+  // "Hvorfor kan det ikke bruges?": an event without a post gets one here (Saga's words and times, as for any event).
+  const makePost = async () => {
+    setBusy(true); setMessage("Saga laver opslaget …");
+    const response = await fetch(`/plakater/${id}/nyt-opslag`, { method: "POST" }).catch(() => null);
+    if (response?.ok) { window.location.reload(); return; }
+    const error = response ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+    setBusy(false); setMessage(error === "past" ? "Eventet er overstået eller begynder om lidt." : error === "not_found" ? "Eventet findes ikke længere i kalenderen (måske aflyst)." : "Det lykkedes ikke. Prøv igen.");
+  };
+  // "Her bør det også gøres muligt at uploade et billede selv, der kan bruges."
+  const uploadPicture = async (file: File | undefined) => {
+    if (!file) return;
+    setMessage("Lægger billedet op …");
+    const response = await fetch(`/plakater/${id}/billede-upload?navn=${encodeURIComponent(file.name)}`, { method: "POST", headers: { "content-type": file.type || "application/octet-stream" }, body: file }).catch(() => null);
+    const body = response?.ok ? await response.json().catch(() => null) as { url?: string } | null : null;
+    if (!body?.url) { setMessage("Billedet kunne ikke bruges. Brug jpg, png eller webp under 10 MB."); return; }
+    setData(d => d ? { ...d, eventPictures: [{ url: body.url!, label: `Dit billede: ${file.name}` }, ...d.eventPictures] } : d);
+    setPicked(body.url); setMessage("");
+  };
   const proposeWords = async () => {
     setWriting("Saga skriver …");
     const response = await fetch(`/plakater/${id}/tekst`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ wish }) }).catch(() => null);
@@ -421,7 +439,9 @@ export function PosterStudio({ id }: { id: string }) {
             <button type="button" className="lys-btn ghost" aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Luk" : "Ret forslaget"}</button></p>
           {!postable && <p className="studio-muted">En story kan Saga ikke poste. Vælg formatet Opslag for at gå videre.</p>}
         </> : <>
-          <p>Eventet har intet opslag i PR og SoMe endnu, så billedet kan ikke bruges i et opslag herfra. Lav opslaget under <a href="/pr/events">PR og SoMe → Events</a>, og kom tilbage hertil.</p>
+          {Date.parse(event.startsAt) < Date.now() ? <p>Eventet er overstået, så der laves ikke noget opslag til det. Du kan stadig hente designet.</p>
+            : <><p>Eventet har ikke et opslag endnu. Det kan fx være et fast hold, som kun deles hver 4. uge, eller et opslag, der er sprunget over.</p>
+              <p className="studio-actions"><button type="button" className="lys-btn" disabled={busy} onClick={() => void makePost()}>Lav et opslag til eventet</button></p></>}
           <p className="studio-actions"><button type="button" className="lys-btn ghost" aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Luk" : "Ret forslaget"}</button></p>
         </>}
       </div>
@@ -434,6 +454,7 @@ export function PosterStudio({ id }: { id: string }) {
           <h3>Fra eventet</h3>
           {data.eventPictures.length ? <Thumbs pictures={data.eventPictures} picked={picked} onPick={setPicked} /> : <p className="studio-muted">Der er ikke lagt billeder op med eventet.</p>}
           {(data.mailTexts ?? []).map((m, i) => <details key={i} className="studio-mailtext" open={i === 0}><summary>Fra mailen: {m.subject}</summary><p>{m.text}</p></details>)}
+          <p className="studio-actions"><label className="lys-btn ghost studio-upload">Upload dit eget billede<input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => void uploadPicture(e.target.files?.[0])} /></label></p>
           {data.files.length > 0 && <ul className="studio-files">{data.files.map(f => <li key={f.url}><a href={f.url}>{f.label}</a></li>)}</ul>}
           <p className="studio-actions"><button type="button" className={"lys-btn" + (picked ? " ghost" : "")} onClick={() => setPicked(null)}>Uden billede</button></p>
         </div>

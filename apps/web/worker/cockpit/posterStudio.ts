@@ -95,7 +95,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
 
   // What a PR mail brought (mailMaterial.ts, the chair: "materialet, der er sendt allerede ligger klar ... under det pågældende event"): its pictures first.
   const material = await materialOf(db, eventKeyOf(id));
-  eventPictures.unshift(...material.filter(m => m.kind === "image").map(m => ({ url: `${base}/materiale/${m.id}`, label: `Fra mailen: ${m.filename ?? "billede"}` })));
+  eventPictures.unshift(...material.filter(m => m.kind === "image").map(m => ({ url: `${base}/materiale/${m.id}`, label: m.mail_id ? `Fra mailen: ${m.filename ?? "billede"}` : `Dit billede: ${m.filename ?? ""}` })));
   files.unshift(...material.filter(m => m.kind === "file").map(m => ({ url: `/plakater/materiale/${m.id}`, label: `Fra mailen: ${m.filename ?? "fil"}` })));
   const mailTexts = material.filter(m => m.kind === "text" && m.text).map(m => ({ subject: m.filename ?? "", text: m.text! })).slice(0, 3);
 

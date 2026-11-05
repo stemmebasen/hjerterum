@@ -299,6 +299,37 @@ async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[]
     events: Object.fromEntries(Object.entries(plain.events).map(([ref, text]) => [ref, clean(data.events?.[ref], 600) || text])) };
 }
 
+/** Asked (the chair, 5 Nov 2026) about an event without a post in Plakater og opslag: "Hvorfor kan det ikke bruges? Det forstår jeg ikke." The chair makes one
+ * there - also for a weekly class in its quiet weeks, or one set aside before: Saga's words and times as for any event, and its reminder when there is time. */
+export async function proposeEventPost(env: SocialEnv, deps: SagaDeps, db: D1Database, key: string): Promise<"ok" | "past" | "not_found"> {
+  const now = deps.now();
+  const start = key.startsWith("mw:")
+    ? (await db.prepare("SELECT starts_at_ms AS s FROM house_events WHERE id = ?").bind(key.slice(3)).first<{ s: number }>().catch(() => null))?.s
+    : (await db.prepare("SELECT starts_at_ms AS s FROM room_bookings WHERE id = ?").bind(Number(key.slice(3))).first<{ s: number }>().catch(() => null))?.s;
+  if (!start) return "not_found";
+  if (start <= now + 2 * 3_600_000) return "past";
+  const monday = mondayOf(start), week = weekKey(monday);
+  const event = (await weekEvents(db, monday, deps.fetcher)).find(e => e.key === key);
+  if (!event) return "not_found";
+  const account = await socialAccount(db);
+  const windows = shoutWindows(event.startsMs, now);
+  const notBefore = now + 30 * MINUTE;
+  const [time] = eventPostTimes([event], notBefore, await takenSlots(db, now), [windows[0]!.earliest], [windows[0]!.latest]);
+  const both = Boolean(account?.ig_user_id && event.imageUrl);
+  const [igTime] = both ? instagramPostTimes([event], [time!], notBefore, await instagramSlots(db, now), [windows[0]!.latest]) : [time];
+  const text = (await weekWords(env, deps, [event])).events.E1 ?? plainEventText(event);
+  const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, shout: 1, shouts: windows.length,
+    ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [event.host]), ...(igTime !== time ? { instagramAtMs: igTime } : {}) } : {}) };
+  const sourceKey = `event:${week}:${event.key}`;
+  const had = await db.prepare("SELECT id FROM social_posts WHERE source_key = ?").bind(sourceKey).first<{ id: number }>().catch(() => null);
+  if (had) await db.prepare(`UPDATE social_posts SET status = 'draft', text = ?, channels = ?, images = ?, link = ?, source = ?, publish_at_ms = ?, approved_by = NULL, approved_at_ms = NULL,
+      error = NULL, updated_at_ms = ? WHERE id = ? AND status NOT IN ('published', 'publishing')`)
+    .bind(text, JSON.stringify(both ? ["facebook", "instagram"] : ["facebook"]), JSON.stringify(event.imageUrl ? [event.imageUrl] : []), event.link, JSON.stringify(source), time, now, had.id).run();
+  else await insertPost(db, { kind: "event", sourceKey, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text, link: event.link, images: event.imageUrl ? [event.imageUrl] : [], source, publishAtMs: time! }, now);
+  await planShouts(env, deps, db);
+  return "ok";
+}
+
 /** The events of the week that starts on `monday`: the house's own (not the partner houses'), from the calendar and the members' approved ones. */
 export async function weekEvents(db: D1Database, monday: string, fetcher?: typeof fetch): Promise<NewsletterEvent[]> {
   const from = weekStart(monday), to = weekStart(nextMonday(from));

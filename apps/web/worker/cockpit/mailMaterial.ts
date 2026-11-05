@@ -69,6 +69,8 @@ export async function storeMaterial(db: D1Database, bucket: EventMediaBucket, ma
     if (a.inline && a.size < 40_000) continue;
     const check = checkUpload("file", a.filename, a.size, a.content.subarray(0, 2048));
     if (!check.ok) continue;
+    // The same file again (a mail sent twice, or an answer with it again): kept once.
+    if (await db.prepare("SELECT 1 AS yes FROM event_material WHERE event_key = ? AND filename = ? AND size_bytes = ?").bind(eventKey, check.filename, a.size).first().catch(() => null)) continue;
     const kind = check.contentType.startsWith("image/") ? "image" : "file";
     const key = `material/${eventKey.replace(/[^A-Za-z0-9]/g, "_")}/${crypto.randomUUID()}.${check.extension}`;
     await bucket.put(key, a.content.slice().buffer, { httpMetadata: { contentType: check.contentType } });
@@ -78,12 +80,24 @@ export async function storeMaterial(db: D1Database, bucket: EventMediaBucket, ma
   }
   // The mail's own words, without the quoted mails below them.
   const text = message.text.split(/\n(?:>|-{2,}\s*(?:Original|Oprindelig)|(?:On|Den) .{4,80}(?:wrote|skrev):)/)[0]!.trim();
-  if (text) {
+  if (text && !(await db.prepare("SELECT 1 AS yes FROM event_material WHERE event_key = ? AND kind = 'text' AND text = ?").bind(eventKey, text.slice(0, 6000)).first().catch(() => null))) {
     await db.prepare("INSERT INTO event_material (event_key, mail_id, kind, filename, text, created_at_ms) VALUES (?, ?, 'text', ?, ?, ?)")
       .bind(eventKey, mailId, message.subject, text.slice(0, 6000), nowMs).run();
     kept++;
   }
   return kept;
+}
+
+/** Requested (the chair, 5 Nov 2026): "Her bør det også gøres muligt at uploade et billede selv, der kan bruges." A picture the chair puts with the event in the
+ * studio, kept as the mails' are. */
+export async function storeUpload(db: D1Database, bucket: EventMediaBucket, eventKey: string, name: string, bytes: ArrayBuffer, nowMs: number): Promise<number | null> {
+  const check = checkUpload("file", name, bytes.byteLength, new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 2048)));
+  if (!check.ok || !check.contentType.startsWith("image/")) return null;
+  const key = `material/${eventKey.replace(/[^A-Za-z0-9]/g, "_")}/${crypto.randomUUID()}.${check.extension}`;
+  await bucket.put(key, bytes, { httpMetadata: { contentType: check.contentType } });
+  const row = await db.prepare("INSERT INTO event_material (event_key, mail_id, kind, filename, content_type, r2_key, size_bytes, created_at_ms) VALUES (?, NULL, 'image', ?, ?, ?, ?, ?)")
+    .bind(eventKey, check.filename, check.contentType, key, bytes.byteLength, nowMs).run();
+  return Number(row.meta?.last_row_id ?? 0) || null;
 }
 
 export type Material = { id: number; kind: "image" | "file" | "text"; filename: string | null; content_type: string | null; text: string | null; mail_id: number | null };

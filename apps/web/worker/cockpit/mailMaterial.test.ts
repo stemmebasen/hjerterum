@@ -87,6 +87,29 @@ describe("a PR mail's material, kept with its event", () => {
     expect((await db.prepare("SELECT COUNT(*) AS n FROM event_material").first<{ n: number }>())!.n).toBe(3);
   });
 
+  // Requested (the chair, 5 Nov 2026): "Her bør det også gøres muligt at uploade et billede selv, der kan bruges." - and "Hvorfor kan det ikke bruges?"
+  it("takes the chair's own picture in the studio, and makes a post for an event that has none", async () => {
+    const { db, env, mail, allDeps } = await setup();
+    await filePrMails(env, allDeps, db);
+    // The same mail again (sent twice): its material is kept once.
+    const twice = (await insertMail(db, { ref: `imap:${PR_FOLDER}:500:4`, sender: "Pia Lundgaard Brændstrup <pia@piabraendstrup.dk>", subject: "PR- Hjerterum", receivedAtMs: NOW - 3_500_000, preview: "Kære Hjerterum", nowMs: NOW }))!;
+    await db.prepare("UPDATE board_mail SET folder = ?, uid_validity = '500', uid = 3, label = 'PR' WHERE id = ?").bind(PR_FOLDER, twice).run();
+    await filePrMails(env, allDeps, db);
+    expect((await db.prepare("SELECT COUNT(*) AS n FROM event_material").first<{ n: number }>())!.n).toBe(3);
+    void mail;
+    const cookie = await personalCookie("Jacob Hauge", NOW);
+    const post = (path: string, body: BodyInit | null, type = "image/jpeg") => handleCockpitRequest(new Request(ORIGIN + path, { method: "POST", body, headers: { cookie, origin: ORIGIN, "content-type": type } }), env, allDeps);
+    const up = await (await post(`/plakater/${HEX}/billede-upload?navn=mit.jpg`, JPEG)).json() as { url: string };
+    expect(up.url).toMatch(/^\/plakater\/billede\/materiale\/\d+$/);
+    expect((await post(`/plakater/${HEX}/billede-upload?navn=x.exe`, new Uint8Array(4000))).status).toBe(422);
+    expect((await studioData(db, HEX, NOW))!.eventPictures[0]).toMatchObject({ url: up.url, label: "Dit billede: mit.jpg" });
+    // The event has no post yet: one is made here.
+    await (await import("../social/social.js")).connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: null, igUsername: null }, "Jacob Hauge", NOW);
+    expect((await studioData(db, HEX, NOW))!.post).toBeNull();
+    expect((await post(`/plakater/${HEX}/nyt-opslag`, null, "application/json")).status).toBe(200);
+    expect((await studioData(db, HEX, NOW))!.post).toMatchObject({ status: "draft" });
+  });
+
   it("is linked by the chair when Saga cannot tell; moved to PR and hidden by a press", async () => {
     const { db, env, mail, done, allDeps } = await setup();
     await db.prepare("UPDATE board_mail SET sender = 'Ukendt <x@example.dk>', pr_material_at_ms = 1 WHERE id = ?").bind(mail).run();
