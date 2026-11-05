@@ -10,7 +10,7 @@ Formandens valg (5. nov. 2026): underviserne tagger Hjerterum, og Saga finder op
 
 Kære alle undervisere i Hjerterum (både faste og lejlighedsvise)
 
-Vi deler meget gerne dine opslag om dine events. Det eneste, du skal gøre, er at tagge Hjerterum. Så finder vi opslaget selv og deler det videre. Du behøver ikke sende en mail eller en besked.
+Jeg (Jacob) står for Hjerterums sociale medier. Vi deler meget gerne dine opslag om dine events. Det eneste, du skal gøre, er at tagge Hjerterum. Så finder vi opslaget selv og deler det videre. Du behøver ikke sende en mail eller en besked.
 
 1. **På Facebook:** Skriv @Hjerterum i dit opslag, så Hjerterums side bliver tagget. Opslaget skal være offentligt, ellers kan vi ikke se det.
 2. **På Instagram:** Tag @hjerterum_aarhus *på selve billedet* ("Tag personer", når du lægger opslaget op). Det er ikke nok at skrive @hjerterum_aarhus i teksten.
@@ -24,7 +24,8 @@ Gem gerne denne mail, så du har guiden ved hånden.
 Tusind tak for samarbejdet og for jeres skønne events.
 
 Kærlig hilsen
-Team Hjerterum
+Jacob Hauge
+Formand, Hjerterum
 
 ---
 
@@ -34,7 +35,7 @@ Team Hjerterum
 
 Dear all Hjerterum teachers (both regular and occasional)
 
-We are happy to share your posts about your events. All you need to do is tag Hjerterum. We then find the post ourselves and share it. You don't need to send an email or a message.
+I (Jacob) look after Hjerterum's social media. We are happy to share your posts about your events. All you need to do is tag Hjerterum. We then find the post ourselves and share it. You don't need to send an email or a message.
 
 1. **On Facebook:** Write @Hjerterum in your post so that Hjerterum's page is tagged. The post must be public, otherwise we can't see it.
 2. **On Instagram:** Tag @hjerterum_aarhus *on the picture itself* ("Tag people" when you publish). Writing @hjerterum_aarhus in the caption is not enough.
@@ -48,4 +49,5 @@ Please save this email so you have the guide at hand.
 Thank you so much for the cooperation and for your lovely events.
 
 Warm regards
-Team Hjerterum
+Jacob Hauge
+Chair, Hjerterum
