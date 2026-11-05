@@ -95,7 +95,7 @@ export const lastPostMs = (startsMs: number) => Math.min(at(addDays(dateOf(start
  * muligt." When each event's post goes out: the first free slot (POST_HOURS) from `earliest[i]` (else `notBeforeMs`) on,
  * the events nearest in time first - never after it has begun (two hours before at the latest), never before `notBeforeMs`, and never two posts in one
  * slot. Returned in the order given. */
-export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = [], earliest: number[] = [], latest: number[] = []): number[] {
+export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = [], earliest: number[] = [], latest: number[] = [], strict: boolean[] = []): number[] {
   const taken = new Set<number>(alreadyTaken);
   const out: number[] = new Array(events.length);
   // The post that must go out first is placed first (a narrow window - "to shouts" - before a wide one), then by the event's time.
@@ -118,6 +118,8 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
     // A time nobody has first (a narrow window - "to shouts" - can be full), else the first that is in time.
     const anyTime = (() => { let first: number | null = null; for (let day = dateOf(from); at(day, 0) <= last; day = addDays(day, 1))
       for (const [h, m] of POST_HOURS) { const t = at(day, h, m); if (t >= from && t <= last) { if (!taken.has(t)) return t; first ??= t; } } return first; })();
+    // Strict (a first post that may give way to the reminder): no time inside the day's three, no time at all (NaN) - never an extra.
+    if (strict[i] && slot === null) { out[i] = Number.NaN; continue; }
     out[i] = slot ?? anyTime ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
     taken.add(out[i]!);
   }
@@ -135,17 +137,31 @@ export function instagramPostTimes(events: NewsletterEvent[], facebookTimes: num
 /** Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på
  * facebook)". For an event put in the calendar later (asked, "Hurtigst muligt + 7 dage"): the first as soon as may be - at the latest ten days before, so the
  * two do not come together - and the second 7-9 days before; under that, one post as soon as may be. The windows an event's posts go out in, as seen now. */
-export type ShoutWindow = { earliest: number; latest: number };
+export type ShoutWindow = { earliest: number; latest: number; late?: true };
 export function shoutWindows(startsMs: number, nowMs: number): ShoutWindow[] {
   const day = dateOf(startsMs), from = nowMs + 30 * 60_000;
   const window = (first: number, last: number): ShoutWindow | null => { const latest = at(addDays(day, -last), 23, 59); return latest >= from ? { earliest: Math.max(from, at(addDays(day, -first), 0)), latest } : null; };
   // Widened by a day (the chair: "Det er også fint, hvis du udvider intervallerne med en dag"): 14-16 and 7-9 days before.
   const second = window(9, 7);
-  const first = window(16, 14) ?? (second ? (() => { const latest = at(addDays(day, -10), 23, 59); return latest >= from ? { earliest: from, latest } : null; })() : null);
+  const first = window(16, 14) ?? (second ? (() => { const latest = at(addDays(day, -10), 23, 59); return latest >= from ? { earliest: from, latest, late: true as const } : null; })() : null);
   if (first && second) return [first, second];
   if (second) return [second];
   return [{ earliest: from, latest: lastPostMs(startsMs) }];
 }
+/** Asked (the chair, 5 Nov 2026): "Hvorfor har du lagt så mange ind? Er det, fordi vi er i sidste øjeblik?" - the first post of an event that came late is only
+ * made when there is room in the day's three; else the event has one post, a week before. The first posts' times (Facebook), and which events then
+ * have only the one (their time in the reminder's window). */
+export function placeFirsts(events: NewsletterEvent[], windows: ShoutWindow[][], notBeforeMs: number, taken: number[]): { times: number[]; single: boolean[]; latest: number[] } {
+  const first = eventPostTimes(events, notBeforeMs, taken, windows.map(w => w[0]!.earliest), windows.map(w => w[0]!.latest), windows.map(w => w.length === 2 && Boolean(w[0]!.late)));
+  const single = first.map(t => Number.isNaN(t));
+  if (!single.some(Boolean)) return { times: first, single, latest: windows.map(w => w[0]!.latest) };
+  const idx = events.map((_, i) => i).filter(i => single[i]);
+  const again = eventPostTimes(idx.map(i => events[i]!), notBeforeMs, [...taken, ...first.filter(t => !Number.isNaN(t))], idx.map(i => windows[i]![1]!.earliest), idx.map(i => windows[i]![1]!.latest));
+  const times = [...first];
+  idx.forEach((i, k) => { times[i] = again[k]!; });
+  return { times, single, latest: windows.map((w, i) => single[i] ? w[1]!.latest : w[0]!.latest) };
+}
+
 /** "Faste hold" (asked how a weekly class should be told about: "Hver 4. uge"): a title told about in the three weeks around is only in "Ugens events". */
 export const SERIES_GAP_MS = 21 * DAY;
 

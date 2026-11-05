@@ -263,8 +263,9 @@ export const TEMPLATES: Record<string, Template> = {
       const r = L ? { x: 70 * u, y: 120 * u, w: W * 0.46, h: H - 210 * u } : { x: 70 * u, y: H * 0.42, w: W - 140 * u, h: H * 0.58 - 90 * u };
       ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 14 * u;
       stamp(ctx, a.logo, 70 * u + 76 * u, 66 * u + 76 * u, 76 * u, "#ffffff");
+      // Reported (the chair, 5 Nov 2026): "Det er en fejl, at der står »hjerterum« i »hjerterum«" - the kicker "I Hjerterum" stands alone.
       const k = w.kicker;
-      spaced(ctx, `Hjerterum · ${k}`, r.x, r.y + 20 * u + (L ? H * 0.12 : 0), `700 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, "#ffffff", 6 * u);
+      spaced(ctx, /hjerterum/i.test(k) ? "Hjerterum" : `Hjerterum · ${k}`, r.x, r.y + 20 * u + (L ? H * 0.12 : 0), `700 ${Math.round(24 * u)}px "Space Mono", ui-monospace, monospace`, "#ffffff", 6 * u);
       ctx.fillStyle = G.caramel; ctx.fillRect(r.x, r.y + 50 * u + (L ? H * 0.12 : 0), 110 * u, 10 * u);
       block(ctx, { x: r.x, y: r.y + 90 * u + (L ? H * 0.12 : 0), w: r.w, h: r.h - 90 * u - (L ? H * 0.12 : 0) }, w, { color: "#ffffff", accent: "#f3e3d4", muted: "#e8dfd4", kicker: null, size: 72 * u, maxLines: 3, footer: `Læs mere på ${SITE_LABEL}` }, L ? "top" : "bottom", u);
       ctx.restore();

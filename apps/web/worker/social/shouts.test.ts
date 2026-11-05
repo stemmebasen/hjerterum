@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { connectSocial, decidePost, socialPosts, topUpWeeks } from "./social.js";
-import { dateOf, shoutWindows } from "./plan.js";
+import { connectSocial, decidePost, planWeek, proposeEventPost, socialPosts, topUpWeeks } from "./social.js";
+import { dateOf, placeFirsts, shoutWindows } from "./plan.js";
+import type { NewsletterEvent } from "../newsletter.js";
 
 // Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på
 // facebook). Dette skal planlægges. Hvis et event ikke er blevet delt ifølge planen (fordi jeg ikke har godkendt det) skal Saga replanlægge kommende events."
@@ -56,5 +57,25 @@ describe("two posts on each medium for every event", () => {
     await topUpWeeks(env as never, deps(services.fetcher, gone), db);
     expect((await socialPosts(db, "id = ?", [first!.id]))[0]).toMatchObject({ status: "skipped", error: expect.stringContaining("2. opslag står tilbage") });
     expect((await socialPosts(db, "id = ?", [second!.id]))[0]!.status).toBe("draft");
+  });
+
+  // Asked: "Hvorfor har du lagt så mange ind? Er det, fordi vi er i sidste øjeblik?" - never more than three a day.
+  it("gives an event that came late one post a week before when the day's three are full, and never proposes one on the day", async () => {
+    const late = Array.from({ length: 8 }, (_, i) => ({ key: `mw:${i}`, title: `E${i}`, startsMs: NOW + 11 * DAY + i * 3_600_000 }) as NewsletterEvent);
+    const { times, single } = placeFirsts(late, late.map(e => shoutWindows(e.startsMs, NOW)), NOW + 30 * 60_000, []);
+    const perDay = new Map<string, number>(); for (const t of times) perDay.set(dateOf(t), (perDay.get(dateOf(t)) ?? 0) + 1);
+    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(3);
+    expect(single.filter(Boolean).length).toBeGreaterThan(0);
+    // "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag."
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "{}" });
+    const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
+    await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: null, igUsername: null }, "Jacob Hauge", 0);
+    await db.prepare("INSERT INTO house_events (id, title, starts_at_ms, host, content_hash, updated_at_ms) VALUES ('SFtoday', 'Medlemscafé', ?, 'Mira', 'x', 0)").bind(NOW + 6 * 3_600_000).run();
+    expect((await planWeek(env as never, deps(services.fetcher, NOW), db, "2026-11-02", { eventsOnly: true })).fresh).toBe(0);
+    expect(await proposeEventPost(env as never, deps(services.fetcher, NOW), db, "mw:SFtoday")).toBe("today");
+    expect(await proposeEventPost(env as never, deps(services.fetcher, NOW), db, "mw:SFtoday", true)).toBe("ok");
+    expect(await socialPosts(db, "kind = 'event'")).toHaveLength(1);
   });
 });
