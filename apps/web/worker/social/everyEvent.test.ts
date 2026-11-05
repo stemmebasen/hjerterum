@@ -48,14 +48,16 @@ describe("every event shared at least once", () => {
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 60_000), db)).toBe(0);
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 3_600_000), db)).toBe(0);
     // Requested: "Saga kommer med forslag til samtlige events, der bliver skeduleret" - an event weeks ahead gets its proposal at once (its week's
-    // "Ugens events" waits for Thursday), and a class that comes back is told about in the week before.
+    // "Ugens events" waits for Thursday), and a class that comes back gets its own posts every fourth week.
     await add("SFfar", "Retreat", "2026-11-28T09:00:00Z");
     await add("SFy3", "Yoga", "2026-11-26T07:00:00Z");
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 2 * 3_600_000), db)).toBe(2);
     const far = (await socialPosts(db, "kind = 'event' AND week = '2026-W48'"));
     // Weeks ahead, not the day before (the proposals whose time passed without a yes have the first days again).
-    expect(far.find(p => p.source.key === "mw:SFfar")!.publish_at_ms!).toBeLessThan(Date.parse("2026-11-20T00:00:00Z"));
-    expect(far.find(p => p.source.key === "mw:SFy3")!.publish_at_ms!).toBeGreaterThanOrEqual(Date.parse("2026-11-19T07:00:00Z"));
+    expect(far.find(p => p.source.key === "mw:SFfar" && p.source.shout === 1)!.publish_at_ms!).toBeLessThan(Date.parse("2026-11-15T00:00:00Z"));
+    // "to shouts": the retreat has its reminder a week before; the weekly Yoga, told about two weeks ago, is only in "Ugens events" this time ("Hver 4. uge").
+    expect(far.filter(p => p.source.key === "mw:SFfar").map(p => p.source.shout)).toEqual([1, 2]);
+    expect(far.find(p => p.source.key === "mw:SFy3")).toBeUndefined();
     expect(await socialPosts(db, "kind = 'week' AND week = '2026-W48'")).toHaveLength(0);
   });
 

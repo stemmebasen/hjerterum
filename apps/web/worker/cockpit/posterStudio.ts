@@ -126,7 +126,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     teacher = { name: event.host ?? "Underviseren", consent, quotes, pictures, events: others.map(o => ({ title: o.title, startsAt: iso(o.starts_at_ms)!, picture: o.cover ? `${base}/fil/${o.cover}` : null })) };
   }
   const open = await db.prepare(`SELECT id, status, week, images, publish_at_ms, json_extract(source, '$.design') AS design FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.key') = ?
-      AND status IN ('draft', 'approved', 'failed') ORDER BY publish_at_ms DESC, id DESC LIMIT 1`).bind(eventKeyOf(id))
+      AND status IN ('draft', 'approved', 'failed') ORDER BY coalesce(json_extract(source, '$.shout'), 1), publish_at_ms, id LIMIT 1`).bind(eventKeyOf(id))
     .first<{ id: number; status: string; week: string | null; images: string; publish_at_ms: number | null; design: number | null }>().catch(() => null);
   const full = open ? await socialPost(db, open.id) : null;
   const instagram = Boolean((await socialAccount(db).catch(() => null))?.ig_user_id);

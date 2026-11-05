@@ -68,7 +68,8 @@ describe("the week's plan", () => {
     const times = eventPostTimes(chosen, NOW);
     // Requested (5 Nov): "Medlemscafeen promoveres ikke på selve dagen men senest dagen før. Det gælder for alle events." D (today 16.00) was put in the
     // calendar too late for the day before, so it goes as soon as may be; A-C one a day at 15.00, from today - the day before at the latest.
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-05T14:00:00.000Z", "2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-05T09:00:00.000Z"]);
+    // (D's post today counts in today's tally, so A-C spread from tomorrow.)
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T09:00:00.000Z"]);
     // The members' café tomorrow at 16.00: today, never tomorrow - also when today's times are taken.
     const cafe = event("k", "Medlemscafé", "2026-11-06T15:00:00Z");
     expect(new Date(eventPostTimes([cafe], NOW)[0]!).toISOString().slice(0, 10)).toBe("2026-11-05");
@@ -210,7 +211,10 @@ describe("the PR cockpit", () => {
     const week = await socialPosts(db, "week = '2026-W46'", [], "CASE kind WHEN 'week' THEN 0 ELSE 1 END, publish_at_ms");
     expect(week.filter(p => p.kind === "week")).toHaveLength(1);
     // Every event of the week gets its post - "alle events deles mindst én gang".
-    expect(week.filter(p => p.kind === "event")).toHaveLength(11);
+    expect(week.filter(p => p.kind === "event" && p.source.shout !== 2)).toHaveLength(11);
+    // "to shouts på hvert medie": the event ten days ahead also has its reminder a week before (planShouts); those nearer have one post.
+    const seconds = week.filter(p => p.source.shout === 2);
+    expect(seconds.map(p => p.source.key)).toEqual(["mw:e6"]);
     expect(week.every(p => p.status === "draft")).toBe(true);
     const weekly = week[0]!;
     expect(weekly.channels).toEqual(["facebook", "instagram"]);
@@ -223,13 +227,13 @@ describe("the PR cockpit", () => {
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
     // Planned once: Saga's next round does not plan it again.
     await run(NOW + 125 * 60_000);
-    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(12);
+    expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(13);
 
     // The chair moves one, approves the week, and the posts go out at their times - each once.
     const first = week.find(p => p.text.startsWith("Kasper guider"))!;
     await call(`/pr/opslag/${first.id}`, { method: "POST", cookie, body: form({ do: "gem", text: "Rettet af formanden.", at: "2026-11-08T12:15" }) });
     expect((await call("/pr/uge/godkend", { method: "POST", cookie, body: form({ uge: "2026-11-09" }) })).headers.get("location")).toBe("/pr/uge?uge=2026-11-09&besked=uge-godkendt");
-    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(12);
+    expect((await socialPosts(db, "week = '2026-W46' AND status = 'approved'"))).toHaveLength(13);
     const before = graph.filter(c => c.path === "/755/feed").length;
     for (const due of (await socialPosts(db, "status = 'approved' AND publish_at_ms <= ?", [Date.parse("2026-11-08T11:20:00Z")])).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-08T11:20:00Z"));
@@ -249,8 +253,8 @@ describe("the PR cockpit", () => {
     for (const due of (await socialPosts(db, "week = '2026-W46' AND status = 'approved'")).map(p => p.publish_at_ms!)) await run(due + 60_000);
     await run(Date.parse("2026-11-16T09:00:00Z"));
     const final = await socialPosts(db, "week = '2026-W46'");
-    expect(final.filter(p => p.status === "published")).toHaveLength(12);
-    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 12);
+    expect(final.filter(p => p.status === "published")).toHaveLength(13);
+    expect(graph.filter(c => c.path === "/755/feed").length).toBe(1 + 13);
   });
 
   it("does not post an event late, and uses a Facebook Login for Business configuration when there is one", async () => {

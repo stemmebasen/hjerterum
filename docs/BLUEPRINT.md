@@ -1110,6 +1110,18 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## To opslag pr. event på hvert medie (2026-11-05)
+
+- **Formandens ord:** "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før …". Intervallerne er udvidet med en dag til 14–16 og 7–9 dage før. Se `docs/decisions/0011-two-shouts-per-event.md`.
+- **Planen:**
+  - Saga lægger 1. opslag i sit vindue (planWeek) og påmindelsen 7–9 dage før (planShouts, hver time), hver med sin egen tekst.
+  - Faste hold får egne opslag hver 4. uge.
+  - Sene events får 1. opslag hurtigst muligt og senest 10 dage før.
+  - Under en uge før eventet: ét opslag.
+- **Godkendelse:** én godkendelse gælder begge eventets opslag (decidePost).
+- **Ikke godkendt i tide:** opslaget får en ny tid i sit vindue (retimeOverdue). Er vinduet væk, lægges det til side.
+- **På kortene og i kalenderen** står "1. opslag · to uger før", "2. opslag · ugen før" og "· påmindelse".
+
 ## PR-mails: koblet til eventet med materialet, "Flyt til PR", "Skjul" (2026-11-05)
 
 - **Formandens ord:** "Det ville være rigtig fint, at der allerede er lavet en kobling til det pågældende event og at materialet, der er sendt allerede ligger klar i den pågældende mappe under det pågældende event klar til brug. Kan vi indsætte en knap, som tager mig direkte til redigeringen af opslaget med det pågældende materiale?"

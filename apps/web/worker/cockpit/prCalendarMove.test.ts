@@ -43,7 +43,7 @@ describe("moving posts in the PR calendar", () => {
     const form = (fields: Record<string, string>) => new URLSearchParams(fields);
     const moved = await call("/pr/kalender/flyt", { method: "POST", json: true, body: form({ id: String(post!.id), channel: "both", at: String(at) }) });
     expect(await moved.json()).toEqual({ ok: true });
-    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ publish_at_ms: at, status: post!.status });
+    expect((await socialPosts(db, "id = ?", [post!.id]))[0]).toMatchObject({ publish_at_ms: at, status: post!.status });
     expect(await (await call("/pr/kalender")).text()).toContain("1 dag til eventet");
 
     // Not after the event (nor within its last hour), not in the past.

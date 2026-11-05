@@ -136,7 +136,7 @@ function timeLine(p: SocialPost, nowMs: number): string {
   const passed = [fb, ig].some(t => t && t < nowMs);
   const lead = p.status === "approved" ? "Planlagt" : "Saga foreslår";
   return `<p class="pr-when${passed ? " is-late" : ""}"><b>${lead}:</b> ${esc(fb && ig && fb === ig ? `Facebook og Instagram ${when(fb)}` : parts.join(" · "))}${passed
-    ? `<span> Tidspunktet er passeret. ${p.status === "approved" ? "Saga sender det i næste runde." : "Godkender du, sendes det med det samme - eller vælg et nyt tidspunkt nedenfor."}</span>` : p.status === "approved" ? "" : "<span> Sendes først, når du har godkendt.</span>"}</p>`;
+    ? `<span> Tidspunktet er passeret. ${p.status === "approved" ? "Saga sender det i næste runde." : "Godkender du, sendes det med det samme - eller vælg et nyt tidspunkt nedenfor."}</span>` : p.status === "approved" ? "" : `<span> Sendes først, når du har godkendt.${p.kind === "event" && p.source.shouts === 2 ? " Du godkender begge eventets opslag på én gang." : ""}</span>`}</p>`;
 }
 
 function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string, ai = false, nowMs = Date.now()): string {
@@ -145,7 +145,7 @@ function weekCard(base: string, p: SocialPost, account: SocialAccount | null, mo
   const head = p.kind === "week" ? `<b>Ugens events</b>` : `<b>${esc(p.source.title ?? "")}</b> <span class="small muted">${esc(p.source.startsMs ? `${dayName(p.source.startsMs)} ${Number(dateOf(p.source.startsMs).slice(8))}/${Number(dateOf(p.source.startsMs).slice(5, 7))} kl. ${clock(p.source.startsMs)}` : "")}${p.source.host ? ` · ${esc(p.source.host)}` : ""}</span>`;
   const allowed: Channel[] = account?.ig_user_id && p.images.length ? ["facebook", "instagram"] : ["facebook"];
   return `<article class="pr-post" id="opslag-${p.id}">
-<header>${status(p)}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
+<header>${status(p)}${p.source.shout === 2 ? `<span class="chip">2. opslag · ugen før</span>` : p.kind === "event" && p.source.shouts === 2 ? `<span class="chip">1. opslag · to uger før</span>` : ""}${head}${p.link ? ` · <a href="${esc(p.link)}" target="_blank" rel="noopener">Link</a>` : ""}</header>
 ${timeLine(p, nowMs)}
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 ${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
