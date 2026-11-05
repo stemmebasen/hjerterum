@@ -684,6 +684,14 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-crop-picture:active { cursor: grabbing; }
 .studio-crop-picture img { width: 100%; height: auto; display: block; pointer-events: none; }
 .studio-crop-frame { position: absolute; border: 2px solid #fff; border-radius: 4px; box-shadow: 0 0 0 9999px rgba(20, 16, 12, .6); pointer-events: none; }
+/* The frame's shape (5 Nov 2026): "at croppe i cirkelformat eller kvadratisk". */
+.studio-crop-frame.is-circle { border-radius: 50%; }
+.studio-crop-shapes { display: flex; flex-wrap: wrap; gap: 8px; }
+.studio-crop-shapes .lys-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; font-size: 14px; }
+.studio-shape-icon { width: 14px; height: 14px; border: 1.8px solid currentColor; display: inline-block; }
+.studio-shape-icon.is-original { width: 18px; height: 11px; border-radius: 2px; }
+.studio-shape-icon.is-square { border-radius: 2px; }
+.studio-shape-icon.is-circle { border-radius: 50%; }
 .studio-crop-zoom { display: flex; align-items: center; gap: 12px; font-size: 14.5px; width: min(100%, 460px); }
 .studio-crop-zoom input { flex: 1; accent-color: var(--lys-terra, #94503f); }
 .studio-format-help { margin: 8px 0 14px; }
