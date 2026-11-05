@@ -1124,3 +1124,12 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Mail ved godkendelse og afvisning.
   - Stripe.
   - Teksterne i oprydningen (PR #416) efter beslutningerne.
+
+## Betaling for events, trin 1 (2026-11-05)
+
+- Beslutningerne står i docs/decisions/0009-event-payment-step-1.md:
+  - Ikke Connect først. Udbetaling direkte til underviserne kommer senere.
+  - Underviseren vælger pr. event: online-betaling til Hjerterums egen Stripe-konto (samme konto og regnskab som kontingentet), eller direkte til underviseren som i dag (MobilePay, kontant, ved døren eller forud).
+  - Online: kortet gemmes ved tilmelding (medlemmer bruger deres kontingentkort), beløbet trækkes 48 timer før, og man kan melde fra uden betaling indtil da.
+  - Hjerterum beholder 5 % og Stripes gebyr, lejen modregnes, og underviseren får resten senest 30 dage efter eventet.
+- Fire spørgsmål er sendt til teamet: fejlet træk, hvem overfører, refusion ved aflysning og afmelding under 48 timer. Handelsbetingelserne skal skrives om og godkendes af formanden, før online-betaling går i luften.
