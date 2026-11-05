@@ -1110,6 +1110,22 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Flere billed- og videodesigns på kommando (2026-11-05)
+
+- **Formandens ord:** "Er det muligt at få flere stills og video designs på kommando på hjemmesiden?". Svaret på hvad der skulle bygges først var "Begge dele".
+- **Billeder** (`PALETTES` i `src/event-poster.ts`):
+  - Under plakatværktøjets "Ret forslaget" → Design viser "Vis flere designs" alle designs igen i husets andre farvestemninger: Salvie, Skumring, Hav og Okker. Hvert tryk viser én stemning mere.
+  - Layout, skrift og logo er de samme. Kun farverne omkring dem skifter, også i Gittas designs.
+  - "Vælg" bruger designet i den stemning, og "Download" giver filen.
+  - Det tegnes med det samme i browseren.
+- **Videoer** (`askVideos` og `pickVideo` i `social/social.ts`):
+  - "✨ Lav flere videoer" findes på Sagas link og i trin 2 på plakatsiden.
+  - Saga laver op til tre videoer i skabeloner, opslaget ikke har haft. De mindst brugte kommer først (`templateUses`).
+  - `video-events.yml` kører nu hvert tiende minut og laver dem (`source.videoAsk` → `source.videoChoices`). Opslagets egen video ændres aldrig af jobbet.
+  - Saga skriver én gang, når de er klar ("De nye videoer er klar"), med et link.
+  - Formanden ser videoerne side om side og trykker "Vælg denne". Den valgte bliver opslagets video, og opslaget venter på formandens godkendelse igen.
+  - Det kan kun lade sig gøre mere end tre timer før eventet.
+
 ## PR-mails: kun dem, ingen andre har; og hvornår en skabelon sidst blev brugt (2026-11-05)
 
 - **Formandens spørgsmål:** "Hvordan sikrer vi os, at der ikke bliver flyttet mails til min mappe, som Lisbeth eller Frederik er i gang med? Der kan jo sagtens indgå de samme keywords."

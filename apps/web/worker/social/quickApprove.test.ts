@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "../cockpit/handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { saveBoardMessage } from "../saga/store.js";
-import { chooseVideoTemplate, connectSocial, notifyVideos, socialPost } from "./social.js";
+import { askVideos, chooseVideoTemplate, connectSocial, notifyVideos, socialPost } from "./social.js";
 import { quickLink, quickPath, quickPost } from "./quickLink.js";
 import { templatesFor } from "./videoTemplates.js";
 
@@ -110,6 +110,38 @@ describe("Saga's link to approve a post", () => {
     const yogaPath = (await quickPath(env, yoga, NOW))!;
     await call(yogaPath, { method: "POST", body: form({ handling: "spring" }) });
     expect((await socialPost(db, yoga))!.status).toBe("skipped");
+  });
+
+  // Requested (the chair, 5 Nov 2026): "Er det muligt at få flere stills og video designs på kommando" - "Begge dele".
+  it("makes more videos on command, in the templates least used, and lets the chair pick one", async () => {
+    const { db, env, services, dans, call } = await setup();
+    // Template 3 was used lately for another event: it comes last.
+    await db.prepare("UPDATE social_posts SET source = json_set(source, '$.video', 'v', '$.videoTemplate', 3, '$.videoAtMs', ?) WHERE id <> ?").bind(NOW - 3_600_000, dans).run();
+    const path = (await quickPath(env, dans, NOW))!;
+    expect((await call(path, { method: "POST", body: form({ handling: "flere" }) })).headers.get("location")).toBe(`${path}?besked=flere`);
+    expect((await socialPost(db, dans))!.source.videoAsk).toEqual({ atMs: NOW, templates: [2, 4, 5] });
+    expect(await askVideos(db, dans, NOW)).toBe("busy");
+    expect(await (await call(path)).text()).toContain("Saga laver 3 nye videoer (Organisk uden foto, Stribe, Polaroid)");
+    // The video job lays them beside the post's own (video/jobs.mjs) ...
+    for (const [t, v] of [[2, "https://www.hjerterum.info/api/social-reels/b.mp4"], [4, "https://www.hjerterum.info/api/social-reels/c.mp4"]] as const)
+      await db.prepare(`UPDATE social_posts SET source = json_remove(json_set(source, '$.videoChoices', json(json_insert(coalesce(json_extract(source, '$.videoChoices'), '[]'), '$[#]', json(?)))), '$.videoAsk') WHERE id = ?`)
+        .bind(JSON.stringify({ template: t, video: v, atMs: NOW + 600_000 }), dans).run();
+    // ... and Saga tells the chair once.
+    await notifyVideos(env, deps(services.fetcher, NOW + 600_000), db);
+    const told = services.telegram("sendMessage").map(c => (c.body as { text: string }).text).filter(t => t.startsWith("De nye videoer er klar"));
+    expect(told).toHaveLength(1);
+    expect(told[0]).toContain(">Dans</a>");
+    await notifyVideos(env, deps(services.fetcher, NOW + 1_200_000), db);
+    expect(services.telegram("sendMessage").map(c => (c.body as { text: string }).text).filter(t => t.startsWith("De nye videoer er klar"))).toHaveLength(1);
+    const page = await (await call(path)).text();
+    expect(page).toContain("Andre videoer at vælge imellem");
+    expect(page).toContain('<video src="https://www.hjerterum.info/api/social-reels/c.mp4"');
+    await call(path, { method: "POST", body: form({ handling: "godkend" }) });
+    expect((await call(path, { method: "POST", body: form({ handling: "vaelg", valg: "1" }) })).headers.get("location")).toBe(`${path}?besked=valgt`);
+    expect(await socialPost(db, dans)).toMatchObject({ status: "draft", source: { video: "https://www.hjerterum.info/api/social-reels/c.mp4", videoTemplate: 4 } });
+    // Not the same templates again.
+    expect(await askVideos(db, dans, NOW)).toBe("ok");
+    expect((await socialPost(db, dans))!.source.videoAsk!.templates).toEqual([1, 5, 7]);
   });
 
   it("is chosen in the studio too", async () => {

@@ -23,11 +23,13 @@ export const quickTitle = (p: SocialPost) => p.kind === "week" ? `Ugens events${
 const NOTICES: Record<string, string> = {
   godkendt: "Godkendt ✓", publiceret: "Godkendt ✓ og publiceret nu.", sprunget: "Sprunget over. Opslaget sendes ikke.", fortrudt: "Godkendelsen er fortrudt. Opslaget er et forslag igen.",
   skabelon: "Videoen laves om i den nye skabelon. Saga skriver til dig, når den er klar (højst en halv time).",
+  flere: "Saga laver nye videoer i andre skabeloner. Hun skriver til dig, når de er klar (cirka et kvarter).", valgt: "Videoen er valgt. Godkend opslaget, når du er klar.",
 };
 const ERRORS: Record<string, string> = {
   sent: "Opslaget er allerede ude og kan ikke ændres.", kanaler: "Opslaget har ingen kanal. Åbn det i admin, og vælg Facebook eller Instagram.",
   tid: "Der er for kort tid til eventet til at lave videoen om. Godkend den, der er, eller vælg billedet i admin.", skabelon: "Den skabelon kan ikke bruges til dette opslag.",
-  fejl: "Det lykkedes ikke. Prøv igen, eller åbn opslaget i admin.",
+  fejl: "Det lykkedes ikke. Prøv igen, eller åbn opslaget i admin.", ingen: "Opslaget har allerede fået alle de skabeloner, det kan bruge.",
+  igang: "Saga er allerede i gang med nye videoer til opslaget.",
 };
 
 export type QuickView = { post: SocialPost; action: string; notice?: string | undefined; error?: string | undefined; next: string | null; adminHref: string; base: string; canRemake: boolean; uses?: Map<number, TemplateUse> };
@@ -60,12 +62,25 @@ ${open ? `<div class="q-go">${button("godkend", p.status === "failed" ? "Godkend
 ${video ? `<video class="q-media" src="${esc(video)}" controls muted playsinline autoplay loop preload="auto"${picture ? ` poster="${esc(picture)}"` : ""}></video>
 ${p.source.videoTemplate ? `<p class="small muted">Skabelon ${p.source.videoTemplate}: ${esc(templateName(p.source.videoTemplate) ?? "")}</p>` : ""}`
     : picture ? `<img class="q-media pic" src="${esc(picture)}" alt="">` : p.kind === "event" && ig ? `<p class="small muted">Videoen er ikke lavet endnu.</p>` : ""}
+${choices(v)}
 ${texts}
 ${remake}
 <div class="q-more">${p.status === "draft" ? button("spring", "Spring over", "ghost") : ""}<a class="button ghost" href="${esc(v.adminHref)}">Ret tekst og tid i admin</a></div>
 ${v.next ? `<p class="q-next"><a class="button" href="${esc(v.next)}">Næste forslag →</a></p>` : `<p class="small muted q-next">Der er ikke flere forslag, der venter.</p>`}
 </main>`;
   return layout(v.base, `Godkend: ${quickTitle(p)}`, body, { style: QUICK_STYLE });
+}
+
+/** "flere ... video designs på kommando": the videos made to choose among, side by side, and a button for more. */
+function choices(v: QuickView): string {
+  const p = v.post;
+  if (p.kind !== "event" || !p.channels.includes("instagram") || p.status === "published" || p.status === "publishing") return "";
+  const list = p.source.videoChoices ?? [];
+  const cards = list.map((c, i) => c.video === p.source.video ? "" : `<figure class="q-choice"><video src="${esc(c.video)}" controls muted playsinline loop preload="metadata"></video>
+<figcaption>${c.template}. ${esc(templateName(c.template) ?? "")}<form method="post" action="${esc(v.action)}"><input type="hidden" name="handling" value="vaelg"><input type="hidden" name="valg" value="${i}"><button class="ghost">Vælg denne</button></form></figcaption></figure>`).join("");
+  const more = p.source.videoAsk ? `<p class="small muted">Saga laver ${p.source.videoAsk.templates.length} nye videoer (${p.source.videoAsk.templates.map(n => esc(templateName(n) ?? String(n))).join(", ")}). Hun skriver, når de er klar.</p>`
+    : v.canRemake ? `<form method="post" action="${esc(v.action)}"><input type="hidden" name="handling" value="flere"><button class="ghost">✨ Lav flere videoer</button></form>` : "";
+  return cards || more ? `<section class="q-choices">${cards ? `<h2>Andre videoer at vælge imellem</h2><div class="q-grid">${cards}</div>` : ""}${more}</section>` : "";
 }
 
 export function quickGonePage(base: string): string {
@@ -78,4 +93,5 @@ const QUICK_STYLE = `.q{max-width:520px;margin:0 auto;padding:16px 16px 40px}.q-
 .q-media.pic{height:auto;max-height:50vh;aspect-ratio:auto;background:none}.q-times{font-weight:600;margin:8px 0}.q-state{margin:6px 0;font-weight:600}.q-state.ok{color:var(--ok,#2f7d4f)}.q-state.bad{color:var(--warn,#a33)}
 .q-go button{width:100%;font-size:20px;padding:16px;border-radius:14px;margin:10px 0}.q details{margin:10px 0}.q summary{cursor:pointer;font-weight:600}.q-text{white-space:pre-wrap;margin:8px 0}
 .q-remake{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin:14px 0}.q-remake label{flex:1 1 220px}.q-more{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0}
-.q-more form{margin:0}.q-next{margin:20px 0 0;text-align:center}.q-next .button{padding:12px 22px}`;
+.q-more form{margin:0}.q-choices{margin:16px 0}.q-choices h2{font-size:18px;margin:0 0 8px}.q-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:0 0 10px}
+.q-choice{margin:0}.q-choice video{width:100%;aspect-ratio:9/16;border-radius:12px;background:#000}.q-choice figcaption{font-size:13px;display:grid;gap:6px;margin-top:4px}.q-choice button{width:100%;padding:8px}.q-next{margin:20px 0 0;text-align:center}.q-next .button{padding:12px 22px}`;
