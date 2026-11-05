@@ -1110,6 +1110,16 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Plakatsiden: eget billede og opslag til et event uden (2026-11-05)
+
+- **Eget billede.** Formanden: "Her bør det også gøres muligt at uploade et billede selv, der kan bruges. Og selvfølgelig skal indsendte billeder også være tilgængelige her under et pågældende event."
+  - "Upload dit eget billede" under "Fra eventet" gemmer billedet ved eventet (`storeUpload`, `event_material`), og billedet vælges.
+  - Billeder fra PR-mails står der i forvejen.
+  - Samme fil fra en mail, der er sendt to gange, gemmes kun én gang.
+- **Opslag til et event uden.** Formanden: "Hvorfor kan det ikke bruges? Det forstår jeg ikke."
+  - Et event uden opslag (fx et fast hold i en stille uge eller et opslag, der er sprunget over) får knappen "Lav et opslag til eventet" (`proposeEventPost`), med Sagas ord og tider som andre events.
+  - Et overstået event siger det.
+
 ## To opslag pr. event på hvert medie (2026-11-05)
 
 - **Formandens ord:** "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før …". Intervallerne er udvidet med en dag til 14–16 og 7–9 dage før. Se `docs/decisions/0011-two-shouts-per-event.md`.

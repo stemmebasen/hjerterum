@@ -53,15 +53,15 @@ import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
-import { materialFile, upcomingEvents } from "./mailMaterial.js";
-import { approveWeek, askStill, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { materialFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
+import { approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
 import { prEventsData } from "./prEvents.js";
-import { setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
+import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -1138,7 +1138,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const download = /^\/plakater\/materiale\/(\d+)$/.exec(path);
     if (download && request.method === "GET") return materialFile(db, media, Number(download[1]), true);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1209,6 +1209,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (asked !== "ok") return answer({ error: asked }, 422);
       await audit(db, actor, "social.manage", `Bad om "${data.event.title}" som video med bevægelse (${effect})`, now);
       return answer({ ok: true });
+    }
+    // Asked (the chair, 5 Nov 2026): "Hvorfor kan det ikke bruges? Det forstår jeg ikke." - an event without a post gets one here.
+    if (part === "/nyt-opslag" && request.method === "POST") {
+      if (!may("social.manage")) return denied("social.manage");
+      const result = await proposeEventPost(env as SocialEnv, deps, db, eventKeyOf(id!));
+      if (result !== "ok") return answer({ error: result }, 422);
+      await audit(db, actor, "social.manage", `Bad Saga om et opslag til ${eventKeyOf(id!)}`, now);
+      return answer({ ok: true });
+    }
+    // "Her bør det også gøres muligt at uploade et billede selv, der kan bruges." (mailMaterial.ts storeUpload)
+    if (part === "/billede-upload" && request.method === "POST") {
+      if (!media) return answer({ error: "not_possible" }, 400);
+      const name = (url.searchParams.get("navn") ?? "billede.jpg").slice(0, 120);
+      const stored = await storeUpload(db, media, eventKeyOf(id!), name, await request.arrayBuffer(), now);
+      if (!stored) return answer({ error: "file_type" }, 422);
+      await audit(db, actor, "posters.design", `Lagde et billede ved ${eventKeyOf(id!)}`, now);
+      return answer({ ok: true, url: `/plakater/billede/materiale/${stored}` });
     }
     // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" (social/writer.ts).
     if (part === "/tekst" && request.method === "POST") {
