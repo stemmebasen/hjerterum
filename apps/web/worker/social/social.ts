@@ -552,6 +552,22 @@ export async function retireCancelled(db: D1Database, nowMs: number): Promise<nu
   return retired;
 }
 
+/** The posts waiting to go out, written before the rule "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside"
+ * (public-site.ts): their words and links with the old website's addresses, so the chair reads them as they will go out. Nothing while the new site is in use. */
+export async function oldSiteInWaiting(db: D1Database, nowMs: number): Promise<number> {
+  const live = await siteLive(db);
+  if (live) return 0;
+  const waiting = await socialPosts(db, "status IN ('draft', 'approved', 'failed') AND (text LIKE '%hjerterum.info/events%' OR link LIKE '%hjerterum.info/events%' OR json_extract(source, '$.instagramText') LIKE '%hjerterum.info/events%')", [], "publish_at_ms, id", 500);
+  let changed = 0;
+  for (const post of waiting) {
+    const text = await toPublicSite(db, post.text, live), link = post.link ? await toPublicSite(db, post.link, live) : post.link;
+    const source = typeof post.source.instagramText === "string" ? { ...post.source, instagramText: await toPublicSite(db, post.source.instagramText, live) } : post.source;
+    await db.prepare("UPDATE social_posts SET text = ?, link = ?, source = ?, updated_at_ms = ? WHERE id = ?").bind(text, link, JSON.stringify(source), nowMs, post.id).run();
+    changed++;
+  }
+  return changed;
+}
+
 /** Every round: the approved posts whose time has come go out, each once. An event's post whose event has begun is not sent late. */
 export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const due = await socialPosts(db, "status = 'approved' AND (publish_at_ms <= ? OR json_extract(source, '$.instagramAtMs') <= ?)", [deps.now(), deps.now()], "publish_at_ms, id", 5);
@@ -611,6 +627,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   const now = deps.now();
   await releaseStuck(db, now);
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
+  await oldSiteInWaiting(db, now).catch(error => console.warn("social_old_site_failed", error instanceof Error ? error.message : error));
   await publishDue(env, deps, db).catch(error => console.warn("social_publish_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
     await scanTags(env, deps, db).catch(error => console.warn("social_tags_failed", error instanceof Error ? error.message : error));
