@@ -22,3 +22,19 @@ export function templatesFor(post: Pick<SocialPost, "images" | "source">): numbe
   return VIDEO_TEMPLATES.filter(t => t.needs === "nothing" || (picture && (t.needs === "picture" || (t.needs === "quote" && Boolean(post.source.quote))
     || (t.needs === "portrait" && Boolean(post.source.portrait))))).map(t => t.no);
 }
+
+export type TemplateUse = { atMs: number; title: string };
+
+/** Asked (the chair, 5 Nov 2026): "Det kunne også være fint, hvis jeg kan se, hvornår en skabelon sidste gang er brugt, og til hvilket event". The newest
+ * video made in each template, and the event it was for (a video made again in another template no longer counts for the first). */
+export async function templateUses(db: import("../db.js").D1Database): Promise<Map<number, TemplateUse>> {
+  // SQLite gives the other columns of the row that holds the max.
+  const rows = await db.prepare(`SELECT json_extract(source, '$.videoTemplate') AS no, MAX(json_extract(source, '$.videoAtMs')) AS at, json_extract(source, '$.title') AS title
+      FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.video') IS NOT NULL AND json_extract(source, '$.videoAtMs') IS NOT NULL GROUP BY no`)
+    .all<{ no: number | null; at: number | null; title: string | null }>().then(r => r.results ?? []).catch(() => []);
+  return new Map(rows.filter(r => r.no && r.at).map(r => [Number(r.no), { atMs: Number(r.at), title: r.title ?? "et event" }]));
+}
+
+const USED_DAY = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", timeZone: "Europe/Copenhagen" });
+/** "sidst 4. nov.: Lydhealing" / "ikke brugt endnu". */
+export const usedLabel = (use: TemplateUse | undefined) => use ? `sidst ${USED_DAY.format(use.atMs)}: ${use.title.length > 32 ? `${use.title.slice(0, 31)}…` : use.title}` : "ikke brugt endnu";

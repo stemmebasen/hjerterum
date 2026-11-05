@@ -19,7 +19,7 @@ type Data = {
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
     video: string | null; noVideo: boolean;
-    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string }>; videoRemake: boolean } | null;
+    videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean } | null;
   back: string;
   siteLive?: boolean;
 };
@@ -339,7 +339,7 @@ export function PosterStudio({ id }: { id: string }) {
           <p className="studio-muted">{post.video ? `Saga har lavet videoen i skabelon ${post.videoTemplate ?? ""}: ${post.videoTemplates.find(t => t.no === post.videoTemplate)?.name ?? ""}. Vælg en anden, hvis du vil.` : "Vælg skabelonen til videoen."}</p>
           <div className="studio-whens">
             <label><span>Skabelon</span><select value={template} onChange={e => setTemplate(Number(e.target.value))}>
-              {post.videoTemplates.map(t => <option key={t.no} value={t.no}>{t.no}. {t.name}</option>)}</select></label>
+              {post.videoTemplates.map(t => <option key={t.no} value={t.no}>{t.no}. {t.name} · {t.used}</option>)}</select></label>
             <button type="button" className="lys-btn ghost" disabled={!post.videoRemake || !template || (template === post.videoTemplate && Boolean(post.video))} onClick={() => void remakeVideo()}>Lav videoen</button>
           </div>
           {videoNote && <p className="studio-muted" role="status">{videoNote}</p>}

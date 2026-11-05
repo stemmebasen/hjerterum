@@ -26,7 +26,7 @@ async function setup() {
       .bind(`event:2026-W46:${key}`, `Kom til ${title.toLowerCase()}.`, JSON.stringify({ key, title, startsMs: at + 2 * 86_400_000, host: "Kasper", instagramText: `Kom til ${title.toLowerCase()}.\n\nlink i bio`, ...source }), at).run();
     return Number((await db.prepare("SELECT max(id) AS id FROM social_posts").first<{ id: number }>())!.id);
   };
-  const dans = await add(`mw:SF${HEX}`, "Dans", NOW + 86_400_000, { video: VIDEO, videoTemplate: 1 });
+  const dans = await add(`mw:SF${HEX}`, "Dans", NOW + 86_400_000, { video: VIDEO, videoTemplate: 1, videoAtMs: NOW - 86_400_000 });
   const yoga = await add("mw:SFb", "Yoga", NOW + 2 * 86_400_000, {});
   const at = (ms: number) => (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: init.method === "POST" ? { origin: ORIGIN } : {} }), env, deps(services.fetcher, ms));
   return { db, env, services, dans, yoga, call: at(NOW), at };
@@ -69,7 +69,9 @@ describe("Saga's link to approve a post", () => {
     expect(page).toContain(`<video class="q-media" src="${VIDEO}"`);
     expect(page).toContain("Skabelon 1: Organisk");
     expect(page).toContain('value="godkend"');
-    expect(page).toContain('<option value="3">3. Plakat</option>');
+    // "hvornår en skabelon sidste gang er brugt, og til hvilket event"
+    expect(page).toContain('<option value="3">3. Plakat · ikke brugt endnu</option>');
+    expect(page).toMatch(/<option value="1" selected>1\. Organisk · sidst \d+\. \w+\.?: Dans<\/option>/);
     expect(page).toMatch(new RegExp(`href="/ok/${yoga}/\\d{13}\\.[A-Za-z0-9_-]{43}">Næste forslag`));
     // Opening it (or Telegram's preview) changes nothing.
     expect((await socialPost(db, dans))!.status).toBe("draft");
@@ -116,9 +118,11 @@ describe("Saga's link to approve a post", () => {
       .bind(`SF${HEX}`, NOW + 3 * 86_400_000).run();
     const cookie = await personalCookie("Jacob Hauge", NOW);
     const studio = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN, "content-type": "application/json" } : {}) } }), env, deps(fetch, NOW));
-    const data = await (await studio(`/plakater/${HEX}/data`)).json() as { post: { videoTemplate: number; videoTemplates: Array<{ no: number; name: string }>; videoRemake: boolean } };
+    const data = await (await studio(`/plakater/${HEX}/data`)).json() as { post: { videoTemplate: number; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean } };
     expect(data.post).toMatchObject({ videoTemplate: 1, videoRemake: true });
     expect(data.post.videoTemplates.map(t => t.no)).toEqual([1, 2, 3, 4, 5, 7]);
+    expect(data.post.videoTemplates[0]).toMatchObject({ used: expect.stringMatching(/^sidst 4\. nov\.: Dans$/) });
+    expect(data.post.videoTemplates[1]).toMatchObject({ used: "ikke brugt endnu" });
     expect((await studio(`/plakater/${HEX}/video`, { method: "POST", body: JSON.stringify({ template: 5 }) })).status).toBe(200);
     expect((await socialPost(db, dans))!.source).toMatchObject({ videoTemplate: 5 });
     expect((await studio(`/plakater/${HEX}/video`, { method: "POST", body: JSON.stringify({ template: 9 }) })).status).toBe(422);
