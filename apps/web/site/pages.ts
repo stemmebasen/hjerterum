@@ -255,7 +255,7 @@ Vil du selv undervise i Hjerterum? [Læs om at bruge Hjerterum](/brug-hjerterum)
 {{membership-plans}}
 
 ## Sådan melder du dig ind {#tilmelding}
-Indmeldelse sker indtil videre i vores medlemssystem på holistisk.org: [Meld dig ind her](${SIGNUP_URL}). Er du allerede medlem, kan du [logge ind](/sign-in) og se dit medlemskab, dine tilmeldinger og dine events.
+[Meld dig ind her](${SIGNUP_URL}). Er du allerede medlem, kan du [logge ind](/sign-in) og se dit medlemskab, dine tilmeldinger og dine events.
 
 Læs [vilkårene for medlemskab](/medlemskab/vilkaar), før du melder dig ind.
 
@@ -400,18 +400,21 @@ Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før. I [prisberegneren
 
 {{booking-choice}}
 
-### Det sender du med en bookingforespørgsel {#materiale}
+### Sådan sender du en bookingforespørgsel {#materiale}
+Vælg dato, starttid og varighed i [prisberegneren](/brug-hjerterum/lejepriser#beregner), og tryk **Book** under standardprisen. Så åbner formularen. Skriv dette i den:
 - **Titel og eventtekst** – formål, program og lidt om dig
-- **Pris og betaling** – pris for medlemmer og ikke-medlemmer, og hvordan der betales
+- **Pris og betaling** – hvad medlemmer og ikke-medlemmer betaler, og hvordan (fx MobilePay eller kontant, ved døren eller på forhånd)
 - **Tilmelding** – via Hjerterums hjemmeside eller direkte hos dig
 - **Datoforslag og tidspunkt** – eventets tid og bookingens tid med forberedelse og oprydning
 - **Coverbillede** – se [coverbilledet](/brug-hjerterum/pr#coverbillede)
+
+[Gå til prisberegneren og book →](/brug-hjerterum/lejepriser#beregner)
 
 ## 3. Del billeder til PR {#billeder}
 Del mindst tre billeder og dit samtykke, når du opretter eventet – eller under Min profil → Mit PR-materiale. Uden billeder kan vi kun dele dit coverbillede. Se [PR for dit event](/brug-hjerterum/pr).
 
 ## 4. Vi godkender og deler {#deler}
-Vi lægger dit event på hjemmesiden og Hjerterums Facebook-side, og det kommer med i Ugens events og i nyhedsbrevet Månedens events.
+Vi lægger dit event på hjemmesiden og Hjerterums Facebook-side, opretter en Facebook-begivenhed, hvis du ikke selv har gjort det, og det kommer med i Ugens events og i nyhedsbrevet Månedens events.
 
 ## 5. Nå længere ud {#ud}
 Markedsføring ud over det er dit eget ansvar. Invitér dit netværk, og del dit event i [relevante Facebook-grupper](/brug-hjerterum/pr#grupper). Tag Hjerterum, når du deler – så deler vi det videre.
@@ -714,7 +717,7 @@ ${DISCLAIMER}`,
     card: { title: "PR for dit event", text: "Det gør vi, det gør du – og coverbilledet." },
     menu: "PR for dit event",
     body: `## Det gør vi {#vi}
-- Dit event kommer på **hjemmesiden** og på **Hjerterums Facebook-side**, der har over 6.000 følgere.
+- Dit event kommer på **hjemmesiden** og på **Hjerterums Facebook-side**, der har over 6.000 følgere. Har du ikke selv oprettet en [Facebook-begivenhed](#facebook), opretter vi den.
 - Det kommer med i **Ugens events** på Facebook og Instagram og i nyhedsbrevet **Månedens events**.
 - Opslag, hvor du **tagger Hjerterum** på Facebook eller Instagram, deler vi videre.
 
@@ -731,8 +734,8 @@ ${DISCLAIMER}`,
 
 Opretter du dit event som medlem, uploader du billedet på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga tjekker format, opløsning og kvalitet. Billeder fra selve eventet er gode til at dele bagefter – men husk [reglerne for foto og video](/brug-hjerterum/husregler).
 
-## Din egen Facebook-begivenhed {#facebook}
-Har du en Facebook-side, så opret gerne eventet dér også. Giv det samme titel, tid og tekst og samme coverbillede som i Hjerterum, skriv stedet (Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C), og skriv, hvor man tilmelder sig. Invitér Hjerterum som medarrangør, eller tag os, så ser vi det.
+## Facebook-begivenheden {#facebook}
+Alle events får en Facebook-begivenhed. Vil du selv oprette den på din egen Facebook-side, er du velkommen: giv den samme titel, tid og tekst og samme coverbillede som i Hjerterum, skriv stedet (Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C), og skriv, hvor man tilmelder sig. Invitér Hjerterum som medarrangør, så opretter vi ikke en til. Ellers opretter vi begivenheden på Hjerterums side.
 
 ## Facebook-grupper {#grupper}
 ${FACEBOOK_GROUPS}`,
@@ -758,8 +761,8 @@ Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afh�
 
 **Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
 
-## Events i den tidligere kalender {#tidligere}
-Events, der er oprettet i den tidligere kalender på holistisk.org, administrerer du stadig dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
+## Events i medlemssystemet {#tidligere}
+Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
     sources: ["administrer-dine-events", "managing-your-event"]
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)

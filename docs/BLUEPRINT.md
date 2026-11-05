@@ -1150,3 +1150,8 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - opslag, hvor Hjerterum er tagget, deles videre.
   - Markedsføring ud over det er stadig underviserens eget ansvar. Messenger-siden er nu kun til akutte henvendelser. Til PR skal man tagge Hjerterum.
 - Priser, lejeregler og vilkår er ikke ændret.
+- **Rettet efter beslutning 0008 (2026-11-05), før oprydningen går ud:**
+  - **Bookingforespørgslen:** "Sådan sender du en bookingforespørgsel" fortæller, at man vælger tid i prisberegneren og trykker Book, og listen slutter med "Gå til prisberegneren og book →". "Pris og betaling" nævner, hvordan der betales (fx MobilePay eller kontant, ved døren eller forud).
+  - **Facebook-begivenheden:** Alle events får én. Underviseren må gerne selv oprette den på sin side med Hjerterum som medarrangør, og ellers opretter Hjerterum den.
+  - **Hovedsiden:** Siden taler som hovedsiden. "Indmeldelse sker indtil videre … på holistisk.org" er blevet til "Meld dig ind her", og "den tidligere kalender" er blevet til "vores medlemssystem på holistisk.org".
+  - **111 kr.:** "Fra 111 kr./md." kom med fra main (#434).
