@@ -1,5 +1,5 @@
 import type { D1Database } from "../db.js";
-import { parseMembershipWorksRss, type ExternalEvent } from "../external-events.js";
+import { isCancelledEvent, parseMembershipWorksRss, type ExternalEvent } from "../external-events.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { claimJob, serviceStatus, setServiceStatus } from "../saga/store.js";
 
@@ -51,7 +51,10 @@ export async function syncHouseEvents(db: D1Database, deps: SagaDeps, full: bool
   const response = await deps.fetcher(full ? `${EVENTS_FEED}&sdp=1` : EVENTS_FEED, { headers: { accept: "application/rss+xml, application/xml" }, signal: AbortSignal.timeout(full ? 60_000 : 15_000) });
   if (!response.ok) throw new Error(`events_feed_failed: ${response.status}`);
   const now = deps.now();
-  const events = parseMembershipWorksRss(await response.text()).filter(e => Number.isFinite(Date.parse(e.startsAt)));
+  const read = parseMembershipWorksRss(await response.text()).filter(e => Number.isFinite(Date.parse(e.startsAt)));
+  // A cancelled event (external-events.ts isCancelledEvent) is kept as removed: off the lists in admin, PR and Saga's answers.
+  const events = read.filter(e => !isCancelledEvent(e));
+  const cancelled = read.filter(e => isCancelledEvent(e)).map(e => e.id.slice(0, 200));
   const known = new Map(((await db.prepare("SELECT id, content_hash, removed_at_ms FROM house_events").all<{ id: string; content_hash: string; removed_at_ms: number | null }>()).results ?? [])
     .map(r => [r.id, r]));
   const rows = events.map(e => row(e, now)).filter(r => { const was = known.get(r[0] as string); return !was || was.content_hash !== r[10] || was.removed_at_ms !== null; });
@@ -62,6 +65,10 @@ export async function syncHouseEvents(db: D1Database, deps: SagaDeps, full: bool
       ON CONFLICT(id) DO UPDATE SET title = excluded.title, starts_at_ms = excluded.starts_at_ms, ends_at_ms = excluded.ends_at_ms, location = excluded.location, host = excluded.host,
       category = excluded.category, link = excluded.link, image_url = excluded.image_url, description = excluded.description, content_hash = excluded.content_hash,
       removed_at_ms = NULL, updated_at_ms = excluded.updated_at_ms`).bind(...chunk.flat()).run();
+  }
+  for (let i = 0; i < cancelled.length; i += 90) {
+    const chunk = cancelled.slice(i, i + 90);
+    await db.prepare(`UPDATE house_events SET removed_at_ms = ? WHERE removed_at_ms IS NULL AND id IN (${chunk.map(() => "?").join(", ")})`).bind(now, ...chunk).run();
   }
   // A coming event that is no longer in the calendar was most likely cancelled.
   if (!full && events.length) {

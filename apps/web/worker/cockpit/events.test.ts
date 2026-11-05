@@ -39,6 +39,18 @@ describe("Hjerterum's events in the cockpit", () => {
     expect(await db.prepare("SELECT id FROM house_events WHERE removed_at_ms IS NOT NULL").all()).toMatchObject({ results: [{ id: "a4" }] });
   });
 
+  // Requested (5 Nov 2026): "Når et event er aflyst bør det fjernes fra listen - ligesom Mediterende yoga".
+  it("takes an event marked Aflyst off the lists, though it is still in the calendar", async () => {
+    const db = testDatabase();
+    const coming = [history[2]!, history[3]!];
+    const { fetcher } = feed(rss(...history), rss(...coming));
+    await syncHouseEvents(db, deps(fetcher, NOW), false);
+    expect(await db.prepare("SELECT id FROM house_events WHERE removed_at_ms IS NULL ORDER BY id").all()).toMatchObject({ results: [{ id: "a3" }, { id: "a4" }] });
+    const cancelled = item("a4", "Kakaoceremoni - Aflyst -", "2026-10-20T19:00:00+02:00", "<p>- AFLYST - CANCELLED -</p>");
+    await syncHouseEvents(db, deps(feed(rss(history[0]!, history[1]!, history[2]!, cancelled), rss(history[2]!, cancelled)).fetcher, NOW + 3_600_000), false);
+    expect(await db.prepare("SELECT id FROM house_events WHERE removed_at_ms IS NULL ORDER BY id").all()).toMatchObject({ results: [{ id: "a3" }] });
+  });
+
   it("reads the whole history every quarter until it is in, then once a day, and the coming events hourly", async () => {
     const db = testDatabase();
     const env = sagaEnv(db);

@@ -208,6 +208,15 @@ export function mergeExternalEvents(feed: ExternalEvent[], list: ExternalEvent[]
     .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 }
 
+/** Requested (5 Nov 2026): "Når et event er aflyst bør det fjernes fra listen - ligesom Mediterende yoga". MembershipWorks keeps a cancelled
+ * event in its calendar and only writes it on it: "Onsdage 16-17.20 - Aflyst -" in the title, "- AFLYST - CANCELLED -" at the start of the text.
+ * Such an event is left out everywhere (the calendars, the front page, PR, Saga) and does not hold the hall. A text that only mentions
+ * cancelling further down ("aflyses ved for få tilmeldte") is not a cancelled event. */
+export function isCancelledEvent(event: { title: string; description?: string | null }): boolean {
+  const said = /(^|[^\p{L}])(aflyst|cancell?ed)([^\p{L}]|$)/iu;
+  return said.test(event.title) || said.test((event.description ?? "").replace(/<[^>]+>/g, " ").trim().slice(0, 60));
+}
+
 export async function getExternalEvents(force = false, fetcher: typeof fetch = fetch): Promise<ExternalEvent[]> {
   const now = Date.now();
   if (!force && cachedEvents && now < cacheExpiresAt) return cachedEvents;
@@ -224,7 +233,7 @@ export async function getExternalEvents(force = false, fetcher: typeof fetch = f
       .then(async (response) => response.ok ? parseMembershipWorksList(await response.json() as MembershipWorksList) : [])
       .catch(() => [] as ExternalEvent[])
   ]);
-  const events = await withTexts(mergeExternalEvents(feed, list), fetcher, now);
+  const events = (await withTexts(mergeExternalEvents(feed, list), fetcher, now)).filter((event) => !isCancelledEvent(event));
 
   cachedEvents = events;
   cacheExpiresAt = now + CACHE_MS;
