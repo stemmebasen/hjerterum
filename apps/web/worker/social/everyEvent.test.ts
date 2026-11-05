@@ -69,4 +69,15 @@ describe("every event shared at least once", () => {
     await runSocialJob(env as never, deps(services.fetcher, post!.publish_at_ms! + 60_000));
     expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "skipped", error: "Eventet er aflyst eller fjernet fra kalenderen" });
   });
+
+  // Requested (5 Nov 2026): "Altså i PR - også i pr kalenderen": Saga's proposal for an event that is then cancelled leaves the PR calendar at once.
+  it("sets aside a waiting proposal as soon as its event is cancelled, long before its time", async () => {
+    const { db, env, services, add } = await setup();
+    await add("SFa", "Dans", "2026-11-10T18:00:00Z");
+    await planWeek(env as never, deps(services.fetcher, THURSDAY), db, "2026-11-09");
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "draft" });
+    await db.prepare("UPDATE house_events SET removed_at_ms = 1 WHERE id = 'SFa'").run();
+    await runSocialJob(env as never, deps(services.fetcher, THURSDAY + 600_000));
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "skipped" });
+  });
 });
