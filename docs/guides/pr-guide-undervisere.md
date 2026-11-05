@@ -16,7 +16,7 @@ Vi deler meget gerne dine opslag om dine events. Det eneste, du skal gøre, er a
 2. **På Instagram:** Tag @hjerterum_aarhus *på selve billedet* ("Tag personer", når du lægger opslaget op). Det er ikke nok at skrive @hjerterum_aarhus i teksten.
 3. **Facebook-begivenhed:** Har dit event en Facebook-begivenhed, hvor Hjerterum er medarrangør, så læg også gerne billeder, videoer og nye tekster ind i begivenheden. Jo mere liv der er i den, jo flere ser den.
 4. **Stories:** Tag @hjerterum_aarhus i dine stories på Instagram og Facebook. Dem deler vi videre, når vi ser dem.
-5. **Hvad vi gør:** Vi kigger efter nye opslag, der tagger Hjerterum, flere gange i timen og deler dem på Hjerterums Facebook-side og Instagram med dit navn på. Når du tagger os, siger du ja til, at vi må dele opslaget på den måde.
+5. **Hvad vi gør:** Vi kigger efter nye opslag, der tagger Hjerterum, hver halve time og deler dem på Hjerterums Facebook-side og Instagram med dit navn på. Når du tagger os, siger du ja til, at vi må dele opslaget på den måde.
 6. **Spørgsmål:** Skriv til team@holistisk.org.
 
 Gem gerne denne mail, så du har guiden ved hånden.
@@ -40,7 +40,7 @@ We are happy to share your posts about your events. All you need to do is tag Hj
 2. **On Instagram:** Tag @hjerterum_aarhus *on the picture itself* ("Tag people" when you publish). Writing @hjerterum_aarhus in the caption is not enough.
 3. **Facebook event:** If your event has a Facebook event with Hjerterum as co-host, please also add photos, videos and new texts inside the event. The more life there is in it, the more people see it.
 4. **Stories:** Tag @hjerterum_aarhus in your stories on Instagram and Facebook. We share them when we see them.
-5. **What we do:** We look for new posts that tag Hjerterum several times an hour and share them on Hjerterum's Facebook page and Instagram, with your name. By tagging us, you agree that we may share the post this way.
+5. **What we do:** We look for new posts that tag Hjerterum every half hour and share them on Hjerterum's Facebook page and Instagram, with your name. By tagging us, you agree that we may share the post this way.
 6. **Questions:** Write to team@holistisk.org.
 
 Please save this email so you have the guide at hand.
