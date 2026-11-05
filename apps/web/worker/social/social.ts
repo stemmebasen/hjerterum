@@ -42,6 +42,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     instagramAtMs?: number | null;
     /** The event's video (video/, made on GitHub by .github/workflows/video-events.yml): on Instagram as a reel, unless the chair took it off. */
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
+    /** When Saga sent the chair the link to the finished video (notifyVideos). */
+    videoNotifiedAtMs?: number;
     /** For the templates "Citat" and "Mød underviseren": the teacher's own sentence and photo, given with consent. */
     quote?: string; portrait?: string }; publish_at_ms: number | null; status: SocialStatus;
   approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
@@ -653,6 +655,66 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   await scheduledWeekPlan(env, deps, db).catch(error => console.warn("social_week_plan_failed", error instanceof Error ? error.message : error));
   await topUpWeeks(env, deps, db).catch(error => console.warn("social_top_up_failed", error instanceof Error ? error.message : error));
   await countFollowers(env, deps, db).catch(error => console.warn("social_stats_failed", error instanceof Error ? error.message : error));
+  await notifyVideos(env, deps, db).catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
+}
+
+// ---- The videos, approved from Saga's link ----
+
+/** Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon. Det skal fungere sådan at jeg kan klikke på sagas link i telegram og på et
+ * øjeblik godkende". When a video is made (video-events.yml, ugens-reel.yml), Saga writes to the chair - once per video - with a link per post. */
+export async function notifyVideos(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  if (!env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return 0;
+  const now = deps.now();
+  const fresh = await socialPosts(db, `status = 'draft' AND kind IN ('event', 'week') AND json_extract(source, '$.video') IS NOT NULL AND json_extract(source, '$.videoNotifiedAtMs') IS NULL
+    AND coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms, ?) > ?`, [now + 1, now], "coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms), id", 10);
+  if (!fresh.length) return 0;
+  // Marked first, without touching updated_at_ms (Saga's re-timing leaves only untouched proposals): a message is never sent twice.
+  const marked: SocialPost[] = [];
+  for (const p of fresh) {
+    const done = await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoNotifiedAtMs', ?) WHERE id = ? AND json_extract(source, '$.videoNotifiedAtMs') IS NULL").bind(now, p.id).run();
+    if (Number(done.meta?.changes ?? 0) === 1) marked.push(p);
+  }
+  if (!marked.length) return 0;
+  const { quickLink } = await import("./quickLink.js");
+  const lines = await Promise.all(marked.map(async p => {
+    const link = await quickLink(env, p.id, now);
+    const title = p.kind === "week" ? `Ugens events${p.week ? `, uge ${Number(p.week.slice(6))}` : ""}` : p.source.title ?? "Event";
+    const when = p.kind === "event" && p.source.startsMs ? ` (${dayName(p.source.startsMs)} ${clock(p.source.startsMs)})` : "";
+    return `▶ <a href="${htmlText(link ?? `${cockpitUrl(env)}/pr/kalender`)}">${htmlText(title)}</a>${htmlText(when)}`;
+  }));
+  const head = marked.length === 1 ? "Saga har lavet en video til Instagram. Tryk for at se den og godkende:" : `Saga har lavet ${marked.length} videoer til Instagram. Tryk på hver for at se den og godkende:`;
+  await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, `${head}\n\n${lines.join("\n")}`, { html: true })
+    .catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
+  return marked.length;
+}
+
+const htmlText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Whether a new video can still be made for the post before it goes out (video-events.yml takes proposals at least 3 hours before the event, and an
+ * hour before Instagram's time). */
+export function videoInTime(post: Pick<SocialPost, "kind" | "channels" | "publish_at_ms" | "source">, nowMs: number): boolean {
+  if (post.kind !== "event" || !post.channels.includes("instagram") || !post.source.startsMs) return false;
+  return post.source.startsMs > nowMs + 3 * 3_600_000 && (post.source.instagramAtMs ?? post.publish_at_ms ?? 0) > nowMs + 3_600_000;
+}
+
+/** "En anden skabelon": the video is made again, in the chosen template, within half an hour (video-events.yml); the post waits as a proposal. */
+export async function chooseVideoTemplate(db: D1Database, id: number, template: number, nowMs: number): Promise<"ok" | "not_found" | "template" | "late"> {
+  const post = await socialPost(db, id);
+  if (!post || post.kind !== "event" || !["draft", "approved", "failed"].includes(post.status)) return "not_found";
+  const { templatesFor } = await import("./videoTemplates.js");
+  if (!templatesFor(post).includes(template)) return "template";
+  if (!videoInTime(post, nowMs)) return "late";
+  const { video: _video, videoAtMs: _at, videoNotifiedAtMs: _told, noVideo: _off, ...rest } = post.source;
+  await db.prepare("UPDATE social_posts SET source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
+    .bind(JSON.stringify({ ...rest, videoTemplate: template }), nowMs, id).run();
+  return "ok";
+}
+
+/** The next proposal waiting for the chair (its time not passed), after the one just decided: videos first, then by time. */
+export async function nextWaiting(db: D1Database, afterId: number, nowMs: number): Promise<SocialPost | null> {
+  const [post] = await socialPosts(db, "status = 'draft' AND kind IN ('event', 'week') AND id <> ? AND channels <> '[]' AND coalesce(publish_at_ms, ?) > ?",
+    [afterId, nowMs + 1, nowMs], "CASE WHEN json_extract(source, '$.video') IS NULL THEN 1 ELSE 0 END, publish_at_ms, id", 1);
+  return post ?? null;
 }
 
 /** Once a day: Hjerterum's followers on Facebook and Instagram, for the month's insight on PR og SoMe (cockpit/prInsight.ts). */
