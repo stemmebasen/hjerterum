@@ -281,11 +281,11 @@ export async function askSagaMarkdown(env: SagaEnv, deps: SagaDeps, db: D1Databa
   // Requested: "kun det relevante med for det pågældende spørgsmål" - "en vurdering af det, der kommer tilbage ... et nyt kald, hvis vi mangler mere info, helt automatisk": the first call has only what the question seems to need;
   // if Saga says something is missing (`[[MANGLER: ...]]`), the same question is asked again with those parts - or the whole pack when she names none. Once: the second answer is the answer.
   const length = LONG_VIEW.test(topic) ? 4000 : 2000;
-  let raw = await completeAs("spoergsmaal", false, length)(env, deps, await build(sectionsFor(topic)));
+  let raw = await completeAs("spoergsmaal", true, length)(env, deps, await build(sectionsFor(topic)));
   const missing = MISSING.exec(raw);
   if (missing) {
     const named = (missing[1] ?? "").toLowerCase().split(/[\s,;]+/).filter((k): k is HeavySection => (HEAVY_SECTIONS as readonly string[]).includes(k));
-    raw = await completeAs("spoergsmaal-udvidet", false, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
+    raw = await completeAs("spoergsmaal-udvidet", true, length)(env, deps, await build(named.length ? new Set([...sectionsFor(topic), ...named]) : null));
   }
   // Requested: "Suppleanter har i øvrigt kun læseadgang" - for a deputy, Saga only answers: any action line she writes anyway is dropped, never carried out.
   const answer = options.readOnly ? raw.replace(MISSING, "").replace(/\[\[[^\]]*\]\]/g, "").trim() : await applyTextChanges(db, await applySaveText(env, deps, db, await applyDirectMessages(env, deps, db, await applyGroupMessage(env, deps, db, await applyMemory(db, await applyPersonal(db, await applyAgenda(db, await applyMeeting(db, raw.replace(MISSING, "").trim(), who, now, base, board.names), who, now, base), who, items, now, base), who, now), who), who), who, input.question, base), who, isChair, base);

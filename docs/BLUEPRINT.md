@@ -1110,6 +1110,19 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Den billigste model til Telegram og lette opgaver (2026-11-06)
+
+- **Formandens ord:** "Sørg for at vi bruger den absolut billigste model til telegram og det ting der ikke kræver dyre modeller".
+- **Den billige model** (`AI_CHEAP_MODEL`) er nu Claude Haiku 5.5 (0,10/0,50 $ pr. million tokens) i stedet for DeepSeek, som både var dyrere og ofte fejlede. Den mellemste var allerede Haiku 5.5. Fejler Haiku, svarer Sonnet som før.
+- **På Haiku nu:**
+  - Sagas svar på Telegram: i gruppen, privat og spørgsmål i admin.
+  - Ugeresuméet, "ret tekst", oprydning, eventudkast, tjek af opslag og aflæsning af medlemstal.
+  - Overblikket og alt, der i forvejen kørte på den mellemste model.
+- **Stadig på Sonnet:** referater og rettelser i referater, nyhedsbrevet og mail til medlemslisten. Det er tekster, der gemmes eller går til mange.
+- **Stadig på Opus 5.5:** Sagas tekstforslag til opslag (formandens ønske om "en meget moderne sprogmodel").
+- **Overblikket prøves én gang pr. tidspunkt** (07, 12, 17) i stedet for hver time. Ugen før fejlede 136 af 157 forsøg, og hvert blev gentaget på to modeller.
+- **Prisoverslaget** for Haiku 5.5 er rettet, så dagsbudgettet regnes rigtigt.
+
 ## Højst 3 opslag om dagen, intet opslag samme dag, flueben i kalenderen (2026-11-05)
 
 - **Højst 3 om dagen.** Formanden spurgte: "Hvorfor har du lagt så mange ind? Er det, fordi vi er i sidste øjeblik?"

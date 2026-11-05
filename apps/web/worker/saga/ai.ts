@@ -20,7 +20,7 @@ export type CompleteOptions = { purpose?: string; /** `true`: a simple task (sor
 
 /** Requested: "find en plan for, hvordan vi kan nedbringe forbruget til cirka en dollar om dagen". Dollars per million tokens
  * (input, output) by model family - an estimate from ai_usage, close enough to steer by. */
-const PRICES: Array<[RegExp, number, number]> = [[/sonnet/i, 3, 15], [/opus-5-5/i, 4, 20], [/opus/i, 15, 75], [/haiku/i, 1, 5], [/deepseek/i, 0.3, 1.2]];
+const PRICES: Array<[RegExp, number, number]> = [[/sonnet/i, 3, 15], [/opus-5-5/i, 4, 20], [/opus/i, 15, 75], [/haiku-5-5/i, 0.1, 0.5], [/haiku/i, 1, 5], [/deepseek/i, 0.3, 1.2]];
 export const DEFAULT_MAX_TOKENS = 4000;
 /** The most a retry may ask for (Sonnet and Haiku 5.5 write up to 64 000). */
 export const MAX_TOKENS_CEILING = 64_000;

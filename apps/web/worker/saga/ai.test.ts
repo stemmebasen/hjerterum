@@ -92,7 +92,7 @@ describe("keeping Saga to about a dollar a day", () => {
     const db = testDatabase();
     const NOW = Date.parse("2026-10-12T10:00:00Z");
     expect(costUsd("vertex/claude-sonnet-5-5@eu", 100_000, 10_000)).toBeCloseTo(0.45);
-    expect(costUsd("anthropic/claude-haiku-5-5", 100_000, 10_000)).toBeCloseTo(0.15);
+    expect(costUsd("anthropic/claude-haiku-5-5", 100_000, 10_000)).toBeCloseTo(0.015);
     const models: string[] = [];
     const fetcher: typeof fetch = async (_input, init) => { models.push(String(JSON.parse(String(init?.body)).model)); return reply(); };
     const env = { DB: db, AI_API_KEY: "key", AI_MODEL: SAGA_MODEL, AI_MID_MODEL: "anthropic/claude-haiku-5-5" } as never;

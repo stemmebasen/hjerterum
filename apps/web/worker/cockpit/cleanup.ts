@@ -76,7 +76,7 @@ export async function runCleanup(env: SagaEnv, deps: SagaDeps, db: D1Database): 
   const chat = env.SAGA_BOARD_CHAT_ID ? await recentBoardMessages(db, env.SAGA_BOARD_CHAT_ID, now - 14 * DAY, 200).catch(() => []) : [];
   const sent = (await db.prepare("SELECT subject, recipients, sent_at_ms FROM team_mail_sent WHERE sent_at_ms >= ? ORDER BY sent_at_ms DESC LIMIT 60").bind(now - 14 * DAY)
     .all<{ subject: string; recipients: string; sent_at_ms: number }>().catch(() => ({ results: [] }))).results ?? [];
-  const text = await completeAs("oprydning", false, 3000)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: [
+  const text = await completeAs("oprydning", true, 3000)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: [
     `I DAG: ${today}`, `ÅBNE PUNKTER:\n${items.map(i => i.line).join("\n")}`,
     chat.length ? `TELEGRAM-GRUPPEN, 14 DAGE:\n${chat.map(m => `[${SHORT.format(m.sent_at_ms)}] ${m.author_name}: ${m.text.replace(/\s+/g, " ").slice(0, 300)}`).join("\n")}` : "",
     sent.length ? `SVAR SENDT FRA TEAM@, 14 DAGE:\n${sent.map(s => `[${SHORT.format(s.sent_at_ms)}] til ${s.recipients}: ${s.subject}`).join("\n")}` : ""
