@@ -26,3 +26,5 @@ Bagefter: "Det er også fint, hvis du udvider intervallerne med en dag, både de
 - **Ikke godkendt i tide:** opslaget får næste ledige tid inden for sit vindue. Er vinduet passeret, lægges det til side, og påmindelsen står tilbage.
 - **Én gang** er de ventende forslag planlagt om efter de nye regler (`replanForShouts`). Godkendte opslag er urørte.
 - **Godkendte opslag:** fik et event sit 1. opslag godkendt før denne ordning, laves påmindelsen som et udkast, som formanden selv godkender.
+- **Højst 3 om dagen (tilføjet samme aften):** et sent 1. opslag laves kun, når der er plads inden for dagens tre. Ellers får eventet ét opslag 7–9 dage før.
+- **Samme dag (tilføjet samme aften):** "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag." Saga foreslår det aldrig selv.
