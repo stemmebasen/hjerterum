@@ -1110,6 +1110,12 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Deling fra Instagram: billederne hentes gennem Hjerterums tags (2026-11-05)
+
+- **Fejl rapporteret af formanden:** "Fejlede Deling fra kunet_menneske - meta_400: Unsupported get request. Object with ID '…' does not exist, cannot be loaded due to missing permissions".
+  - Et andet Instagram-opslag kan ikke læses direkte ud fra dets id.
+- **Nu:** Saga henter billedernes friske adresser gennem Hjerterums egen liste af tags (`freshInstagramImages` i `social/meta.ts`). Lykkes det ikke, bruger hun dem, hun gemte, da hun fandt opslaget.
+
 ## To opslag pr. event på hvert medie (2026-11-05)
 
 - **Formandens ord:** "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før …". Intervallerne er udvidet med en dag til 14–16 og 7–9 dage før. Se `docs/decisions/0011-two-shouts-per-event.md`.
