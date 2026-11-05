@@ -247,6 +247,8 @@ describe("writing a mail", () => {
     expect(parseRecipients("")).toEqual([]);
     const draft = startDraft("ny", "Douglas Crawford", "team@holistisk.org", null);
     expect(draft.text).toBe("\n\nVenlig hilsen\nDouglas\nHjerterum");
+    // A PR reply (prMail.ts): "der skal hverken nævnes Saga eller mit navn. Bare Team Hjerterum".
+    expect(startDraft("ny", "Jacob Hauge", "team@holistisk.org", null, "Team Hjerterum").text).toBe("\n\nVenlig hilsen\nTeam Hjerterum");
     const built = await nodemailerSender({ host: "imap.one.com", user: "team@holistisk.org", password: "x" }, { from: '"Gitta | Hjerterum" <team@holistisk.org>', to: ["Pia <pia@example.dk>"], cc: [], bcc: ["skjult@example.dk"],
       subject: "Re: Leje af salen", text: "Ja, den er ledig. Æble.", inReplyTo: "<leje-1@example.dk>", references: "<leje-1@example.dk>",
       attachments: [{ filename: "program.pdf", contentType: "application/pdf", content: new TextEncoder().encode("%PDF-1.4") }] }, { draft: true, fetcher: fetch });

@@ -88,8 +88,9 @@ export function plainText(message: Pick<WebMessage, "text" | "html">): string {
     .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export function startDraft(kind: ComposeKind, who: string, own: string, original: (WebMessage & { folder: string; uid: number }) | null): Draft {
-  const sign = `\n\n${signature(who)}`;
+export function startDraft(kind: ComposeKind, who: string, own: string, original: (WebMessage & { folder: string; uid: number }) | null, signer?: string): Draft {
+  // A reply from PR og SoMe is signed by the team, not a person (prMail.ts).
+  const sign = `\n\n${signer ? `Venlig hilsen\n${signer}` : signature(who)}`;
   if (!original || kind === "ny") return { kind: "ny", to: "", cc: "", bcc: "", subject: "", text: sign, folder: original?.folder ?? "INBOX", uid: 0, files: [] };
   const base = { folder: original.folder, uid: original.uid, bcc: "" };
   const text = plainText(original);

@@ -49,7 +49,7 @@ import { newsletterPage } from "./newsletterPage.js";
 import { facebookEvents, facebookEventsPage, markFacebookEvent } from "./fbEvents.js";
 import { CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
 import { prMailData, prReplyPage } from "./prMail.js";
-import { approveWeek, connectSocial, decidePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { approveWeek, connectSocial, decidePost, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -968,10 +968,10 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
-        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org." };
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
-        sendt: "Opslaget er allerede sendt og kan ikke ændres." };
+        sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes." };
       const account = await socialAccount(db);
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         events: tab === "events" ? await prEventsData(db, now) : [],
@@ -1012,6 +1012,14 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (request.method !== "POST") return html(notFound(base, who), 404);
     const form = await request.formData().catch(() => null);
     const field = (name: string) => String(form?.get(name) ?? "");
+    // "det skal være muligt at jeg selv kan flytte entries rundt i kalenderen" (social.ts movePost): from the calendar's drag (JSON) or its "Flyt" form.
+    if (path === "/pr/kalender/flyt") {
+      const channel = field("channel");
+      const result = await movePost(db, Number(field("id")), channel === "facebook" || channel === "instagram" ? channel : "both", Number(field("at")), now);
+      if ((request.headers.get("accept") ?? "").includes("application/json")) return answer(result === "moved" ? { ok: true } : { ok: false, error: result }, result === "moved" ? 200 : 422);
+      const start = field("start");
+      return redirect(`${base}/pr/kalender?${/^\d{4}-\d{2}-\d{2}$/.test(start) ? `start=${start}&` : ""}${result === "moved" ? "besked=flyttet" : `fejl=${result === "time" ? "tid" : "flyt"}`}`);
+    }
     // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" (public-site.ts).
     if (path === "/pr/hjemmeside" && request.method === "POST") {
       const live = String((await request.formData().catch(() => null))?.get("live") ?? "") === "1";

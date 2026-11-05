@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LOGO_FILE, chooseVariant, drawPoster, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { LOGO_FILE, chooseVariant, drawPoster, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -28,8 +28,8 @@ const FONTS = ["400 100px \"Playfair Display\"", "italic 400 100px \"Playfair Di
 const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "event";
 const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-function Design({ variant, words, assets, format, chosen, title, big, canvasRef, onPick }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
-  chosen: boolean; title: string; big?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void }) {
+function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
+  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, format); }, [variant, words, assets, format]);
   const info = [...VARIANTS, OWN_PICTURE].find(v => v.key === variant)!;
@@ -46,7 +46,8 @@ function Design({ variant, words, assets, format, chosen, title, big, canvasRef,
   return <figure className={"poster-card" + (chosen && !big ? " is-picked" : "") + (big ? " is-proposal" : "")}>
     <canvas ref={el => { ref.current = el; if (canvasRef) canvasRef.current = el; }} className={"poster-canvas is-" + format} aria-label={`${info.label}: ${title}`} />
     {!big && <figcaption>
-      <div><b>{info.label}</b>{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p></div>
+      <div><b>{info.label}</b>{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
+        {soft && <p className="studio-soft">Beskæringen er forstørret her, så billedet bliver lidt blødt.</p>}</div>
       <p className="studio-actions">{onPick && <button type="button" className={"lys-btn" + (chosen ? "" : " ghost")} onClick={onPick} aria-pressed={chosen}>{chosen ? "Valgt" : "Vælg"}</button>}
         <button type="button" className="text-button" onClick={save}>Download</button></p>
     </figcaption>}
@@ -224,7 +225,7 @@ export function PosterStudio({ id }: { id: string }) {
   if (data === undefined) return <main className="page-shell site-page poster-page"><p className="poster-empty">Henter eventet …</p></main>;
   if (data === null || !event || !words) return <main className="page-shell site-page poster-page"><p className="poster-empty">Eventet findes ikke, eller du har ikke adgang. <a href="/plakater">Tilbage</a></p></main>;
 
-  const size = photo ? { width: photo.naturalWidth, height: photo.naturalHeight } : null;
+  const size = photo ? { width: photo.naturalWidth, height: photo.naturalHeight, cropped: Boolean(source) && photo !== source, shaped: isShaped(photo) } : null;
   const systems = chooseVariant({ ...event, imageUrl: photo ? "photo" : null }, size, format);
   const all: VariantKey[] = [...VARIANTS.map(v => v.key), ...(photo ? [OWN_PICTURE.key] : [])];
   // The chair's own choice of design while it still fits the picture and the format, else the system's.
@@ -381,7 +382,7 @@ export function PosterStudio({ id }: { id: string }) {
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <div className="poster-grid">
         {all.map(key => {
           const fits = photoFits(key, format, size);
-          return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen} title={event.title} onPick={() => { setVariant(key); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+          return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen} title={event.title} soft={Boolean(fits.soft)} onPick={() => { setVariant(key); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
             : <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
               <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure>;
         })}

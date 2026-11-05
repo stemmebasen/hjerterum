@@ -47,6 +47,18 @@ describe("the system's choice of design, and the photo's size", () => {
     expect(photoFits("eget", "opslag", small).ok).toBe(false);
     expect(photoFits("eget", "opslag", { width: 800, height: 1000 }).ok).toBe(true);
   });
+  it("lets the chair's own crop into a design a little softer, and puts a shaped crop in whole", () => {
+    // A square cut from a Facebook event cover (1200 × 628): too small as a plain photo, fine (a little soft) as the chair's square crop.
+    const square = { width: 628, height: 628 };
+    expect(photoFits("foto", "opslag", square).ok).toBe(false);
+    expect(photoFits("foto", "opslag", { ...square, cropped: true, shaped: true })).toEqual({ ok: true, soft: true });
+    // A crop far too small is still refused, and says what to do.
+    const tiny = photoFits("foto", "opslag", { width: 300, height: 300, cropped: true, shaped: true });
+    expect(tiny.ok).toBe(false);
+    expect((tiny as { reason: string }).reason).toContain("Zoom lidt mindre ind");
+    // A big crop is simply fine.
+    expect(photoFits("foto", "opslag", { width: 1600, height: 1600, cropped: true, shaped: true })).toEqual({ ok: true });
+  });
   it("gives a concert the full photo only when it is big enough", () => {
     expect(chooseVariant(event("Kirtan koncert"), big)).toBe("foto");
     expect(chooseVariant(event("Kirtan koncert"), cover)).not.toBe("foto");
