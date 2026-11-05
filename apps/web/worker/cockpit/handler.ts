@@ -1213,7 +1213,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     // Asked (the chair, 5 Nov 2026): "Hvorfor kan det ikke bruges? Det forstår jeg ikke." - an event without a post gets one here.
     if (part === "/nyt-opslag" && request.method === "POST") {
       if (!may("social.manage")) return denied("social.manage");
-      const result = await proposeEventPost(env as SocialEnv, deps, db, eventKeyOf(id!));
+      const result = await proposeEventPost(env as SocialEnv, deps, db, eventKeyOf(id!), url.searchParams.get("nod") === "1");
       if (result !== "ok") return answer({ error: result }, 422);
       await audit(db, actor, "social.manage", `Bad Saga om et opslag til ${eventKeyOf(id!)}`, now);
       return answer({ ok: true });

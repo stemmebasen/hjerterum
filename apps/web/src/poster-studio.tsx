@@ -274,11 +274,13 @@ export function PosterStudio({ id }: { id: string }) {
     }
   };
   // "Hvorfor kan det ikke bruges?": an event without a post gets one here (Saga's words and times, as for any event).
-  const makePost = async () => {
+  const makePost = async (emergency = false) => {
     setBusy(true); setMessage("Saga laver opslaget …");
-    const response = await fetch(`/plakater/${id}/nyt-opslag`, { method: "POST" }).catch(() => null);
+    const response = await fetch(`/plakater/${id}/nyt-opslag${emergency ? "?nod=1" : ""}`, { method: "POST" }).catch(() => null);
     if (response?.ok) { window.location.reload(); return; }
     const error = response ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
+    // "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag."
+    if (error === "today" && window.confirm("Eventet er i dag. Opslag samme dag er kun til nødstilfælde. Vil du alligevel lave et?")) { void makePost(true); return; }
     setBusy(false); setMessage(error === "past" ? "Eventet er overstået eller begynder om lidt." : error === "not_found" ? "Eventet findes ikke længere i kalenderen (måske aflyst)." : "Det lykkedes ikke. Prøv igen.");
   };
   // "Her bør det også gøres muligt at uploade et billede selv, der kan bruges."
