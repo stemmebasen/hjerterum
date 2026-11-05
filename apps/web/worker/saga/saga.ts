@@ -119,7 +119,7 @@ export async function revisePost(env: SagaEnv, deps: SagaDeps, id: number, instr
   const db = requireDb(env);
   const draft = await getPostDraft(db, id);
   if (!draft || draft.status !== "pending") return;
-  const text = await completeAs("ret-tekst", false, 3000)(env, deps, [{ role: "system", content: REVISE_SYSTEM }, { role: "user", content: `TEKST:\n${draft.text}\n\nRETTELSE:\n${instruction}` }]);
+  const text = await completeAs("ret-tekst", true, 3000)(env, deps, [{ role: "system", content: REVISE_SYSTEM }, { role: "user", content: `TEKST:\n${draft.text}\n\nRETTELSE:\n${instruction}` }]);
   await updatePostDraft(db, id, { text });
   const telegram = telegramClient(env, deps);
   if (draft.approval_message_id) await telegram.editMessageReplyMarkup(owner(env), draft.approval_message_id).catch(() => undefined);
@@ -129,7 +129,7 @@ export async function revisePost(env: SagaEnv, deps: SagaDeps, id: number, instr
 
 /** Someone in the board chat asked Saga something: the answer is drafted for Jacob's approval. */
 export async function draftBoardReply(env: SagaEnv, deps: SagaDeps, question: string, author: string, replyTo: number): Promise<void> {
-  const answer = await completeAs("svar-gruppe", false, 2000)(env, deps, [{ role: "system", content: REPLY_SYSTEM },
+  const answer = await completeAs("svar-gruppe", true, 2000)(env, deps, [{ role: "system", content: REPLY_SYSTEM },
     { role: "user", content: `${await context(env, deps)}\n\nSPØRGSMÅL FRA ${author}:\n${question}` }]);
   await proposePost(env, deps, "reply", answer, replyTo);
 }
@@ -138,7 +138,7 @@ export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, questio
   // The same knowledge as in the board cockpit (statutes, decisions, meetings, events, all the minutes,
   // the group and team@'s mail).
   const db = requireDb(env);
-  const answer = await completeAs("privat-svar", false, 2000)(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
+  const answer = await completeAs("privat-svar", true, 2000)(env, deps, [{ role: "system", content: PRIVATE_SYSTEM },
     { role: "user", content: `${await boardKnowledge(env, deps, db, question)}\n\nJACOB SPØRGER:\n${question}` }]);
   await telegramClient(env, deps).sendMessage(owner(env), answer);
 }
@@ -146,7 +146,7 @@ export async function answerOwnerPrivately(env: SagaEnv, deps: SagaDeps, questio
 export async function draftWeeklySummary(env: SagaEnv, deps: SagaDeps): Promise<boolean> {
   const messages = await recentBoardMessages(requireDb(env), board(env), deps.now() - 7 * DAY);
   if (!messages.some(m => !m.from_assistant) && !(await recentMail(requireDb(env), deps.now() - 7 * DAY, 1)).length) return false;
-  const summary = await completeAs("ugeresume", false, 3000)(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
+  const summary = await completeAs("ugeresume", true, 3000)(env, deps, [{ role: "system", content: WEEKLY_SYSTEM }, { role: "user", content: await context(env, deps, 7) }]);
   if (postsToBoard(env)) { await proposePost(env, deps, "weekly_summary", summary); return true; }
   // Listening only: the summary is the chair's own, straight to him (and to Matrix).
   const db = requireDb(env);
@@ -551,7 +551,9 @@ export async function runSagaJobs(env: SagaEnv, deps: SagaDeps, options: { mail?
   // when something is new; while nothing is, she looks again each hour (no AI call).
   const overviewSince = sagaTimeSince(deps.now(), true);
   if (env.SAGA_BOARD_CHAT_ID && env.AI_API_KEY && overviewSince !== null && ((await latestOverview(env.DB))?.created_at_ms ?? 0) < overviewSince
-    && await claimJob(env.DB, "saga_overview", Math.floor(deps.now() / HOUR) * HOUR, deps.now())) {
+    // Requested (the chair, 6 Nov 2026): "Sørg for at vi bruger den absolut billigste model til telegram og det ting der ikke kræver dyre modeller" - one try
+    // per time of the day: a try that failed (the week before: 136 of 157) was made again every hour, on two models.
+    && await claimJob(env.DB, "saga_overview", overviewSince, deps.now())) {
     const { stale, doc } = await overviewStale(env, deps, env.DB);
     if (stale) await draftOverview(env, deps, doc).catch(error => console.warn("saga_overview_failed", error instanceof Error ? error.message : error));
   }

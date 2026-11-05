@@ -58,7 +58,7 @@ export async function sagaChecksPoster(env: SagaEnv, deps: SagaDeps, bytes: Arra
     { type: "image_url", image_url: { url: `data:${contentType};base64,${base64(bytes)}` } }
   ];
   // The main model: reading small type on a poster needs the best eyes.
-  const answer = await completeAs("opslag-tjek", false, 400)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: parts }]);
+  const answer = await completeAs("opslag-tjek", true, 400)(env, deps, [{ role: "system", content: SYSTEM }, { role: "user", content: parts }]);
   const verdict = parseVerdict(answer);
   if (!verdict) throw new Error("poster_check_unreadable");
   return verdict;

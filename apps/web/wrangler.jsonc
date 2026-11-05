@@ -23,7 +23,7 @@
         "SAGA_OWNER_TELEGRAM_ID": "8490500029",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
-        "AI_CHEAP_MODEL": "deepseek-v4-flash",
+        "AI_CHEAP_MODEL": "anthropic/claude-haiku-5-5",
         "AI_MID_MODEL": "anthropic/claude-haiku-5-5",
         "COCKPIT_URL": "https://admin.hjerterum.info",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>",
@@ -68,7 +68,7 @@
         "ENVIRONMENT": "production",
         "AI_BASE_URL": "https://router.eu.requesty.ai/v1",
         "AI_MODEL": "vertex/claude-sonnet-5-5@eu",
-        "AI_CHEAP_MODEL": "deepseek-v4-flash",
+        "AI_CHEAP_MODEL": "anthropic/claude-haiku-5-5",
         "AI_MID_MODEL": "anthropic/claude-haiku-5-5"
       },
       "triggers": {
