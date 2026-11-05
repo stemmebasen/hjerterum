@@ -1,3 +1,4 @@
+import { setSiteLive } from "../public-site.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { connectSocial, planWeek, publishDue, scanTags, socialPosts } from "./social.js";
@@ -12,6 +13,8 @@ describe("both Facebook and Instagram, whenever possible", () => {
   it("puts an event with a picture and a tagged Facebook post with a picture on both, and publishes them on both", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
+    // These posts are written for the day the new website is in use (public-site.ts).
+    await setSiteLive(db, true, "test", 0);
     const services = fakeServices({ ai: () => "Tak, Kasper." });
     const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", THURSDAY);

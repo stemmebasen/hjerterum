@@ -1,3 +1,4 @@
+import { siteLive, toPublicSite } from "../public-site.js";
 import type { D1Database } from "../db.js";
 import { listTitle, monthEvents, monthOf, type NewsletterEvent } from "../newsletter.js";
 import { completeAs } from "../saga/ai.js";
@@ -122,6 +123,11 @@ export async function waitingCount(db: D1Database): Promise<number> {
 
 async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: string; week?: string | null; channels: Channel[]; text: string; link?: string | null; images?: string[];
   source: unknown; publishAtMs: number | null }, nowMs: number): Promise<boolean> {
+  // The old website's addresses while the new one is not in use (public-site.ts) - so the chair reads the post as it will go out.
+  const live = await siteLive(db);
+  post = { ...post, text: await toPublicSite(db, post.text, live), link: post.link ? await toPublicSite(db, post.link, live) : post.link ?? null };
+  const src = post.source as { instagramText?: unknown } | null;
+  if (src && typeof src === "object" && typeof src.instagramText === "string") post.source = { ...src, instagramText: await toPublicSite(db, src.instagramText, live) };
   const result = await db.prepare(`INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'draft', ?, ?)`).bind(post.kind, post.sourceKey, post.week ?? null, JSON.stringify(post.channels), post.text, post.link ?? null,
     JSON.stringify(post.images ?? []), JSON.stringify(post.source), post.publishAtMs, nowMs, nowMs).run();
@@ -471,19 +477,21 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
   if (!account) throw new Error("Facebook og Instagram er ikke forbundet");
   const { page, instagram } = await access(env, account);
   const done = { ...post.published };
+  // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" - also for posts made before that rule (public-site.ts).
+  const live = await siteLive(db), pub = (text: string) => toPublicSite(db, text, live);
   try {
     for (const channel of post.channels) {
       if (done[channel] || dueAt(post, channel) > deps.now()) continue;
       if (channel === "facebook") done.facebook = post.source.design && post.images[0]
-        ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: post.link ? `${post.text}\n\n${post.link}` : post.text })
-        : await postToPage(deps.fetcher, page, { message: post.text, link: post.link });
+        ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
+        : await postToPage(deps.fetcher, page, { message: await pub(post.text), link: post.link ? await pub(post.link) : post.link });
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
         // "Ugens events" as a reel, and an event's post with its video (requested: the video templates, "Lad os få dem op"): Instagram processes the
         // video between Saga's rounds. Facebook keeps the picture (a video there needs the permission publish_video).
         if (post.source.format === "reel" || (post.kind === "event" && post.source.video && !post.source.noVideo)) {
           if (!post.source.video) throw new Error("Reelen har ingen video");
-          const caption = post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text;
+          const caption = await pub(post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text);
           done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption, collaborators: post.source.collaborators ?? [] });
           await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
           const status = await reelStatus(deps.fetcher, instagram.token, done.instagram_container);
@@ -496,7 +504,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         // A tagged Instagram post's picture addresses expire: read again now.
         const images = post.kind === "share" && post.source.network === "instagram" && post.source.id
           ? (await instagramMedia(deps.fetcher, instagram.token, post.source.id)).images : post.images;
-        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: post.source.instagramText || (post.kind === "event" ? instagramEventText(post.text) : post.text), images,
+        done.instagram = await publishToInstagram(deps.fetcher, instagram, { caption: await pub(post.source.instagramText || (post.kind === "event" ? instagramEventText(post.text) : post.text)), images,
           collaborators: post.source.collaborators ?? [] }).catch(error => {
           // Instagram takes only jpg pictures.
           throw /format|image.*(type|jpeg)|2207/i.test(error instanceof Error ? error.message : String(error)) ? new Error("Instagram kunne ikke bruge billedet (Instagram tager kun jpg). Facebook-delen er sendt; fjern Instagram og godkend igen, eller lav et design.") : error;

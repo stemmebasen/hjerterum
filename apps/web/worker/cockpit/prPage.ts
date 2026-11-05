@@ -28,6 +28,8 @@ export type PrPageData = {
   /** The Mails tab (prMail.ts) - loaded only for that tab. */
   mails?: PrMail[];
   nowMs: number;
+  /** Whether the posts and the newsletter link to the new website yet (public-site.ts). */
+  siteLive?: boolean;
   notice: string;
   error: string;
 };
@@ -130,6 +132,15 @@ ${actions(base, p, "Godkend")}</form></article>`;
 export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "mails" | "uge" | "sendt";
 export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["mails", "/pr/mails", "Mails"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
 
+/** Requested: "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside." Which website the posts and the newsletter link to. */
+function siteCard(base: string, live: boolean): string {
+  return `<section class="panel"><header><h2>Hjemmesiden i opslagene</h2></header>${live
+    ? `<p>Opslag og nyhedsbrev linker til den nye hjemmeside, <b>hjerterum.info</b>.</p>
+<form method="post" action="${base}/pr/hjemmeside"><input type="hidden" name="live" value="0"><button class="ghost">Link til den gamle side igen</button></form>`
+    : `<p>Opslag og nyhedsbrev linker til den gamle hjemmeside, <b>holistisk.org</b>, indtil I er begyndt at bruge den nye.</p>
+<form method="post" action="${base}/pr/hjemmeside" onsubmit="return confirm('Er den nye hjemmeside i brug? Fra nu af linker opslag og nyhedsbrev til hjerterum.info.')"><input type="hidden" name="live" value="1"><button>Den nye hjemmeside er i brug</button></form>`}</section>`;
+}
+
 export function prPage(base: string, who: string | null, d: PrPageData, tab: PrTab = "overblik"): string {
   const a = d.account;
   const connection = !d.ready
@@ -164,7 +175,8 @@ ${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.
   const nav = `<nav class="pr-nav" aria-label="PR og SoMe">${PR_TABS.map(([key, path, label]) => `<a href="${base}${path}"${key === tab ? ' class="on" aria-current="page"' : ""}>${label}${key === "tagget" ? count(waiting) : key === "uge" ? count(drafts) : key === "kalender" && d.calendar ? count(d.calendar.posts.filter(p => p.status === "draft").length) : key === "mails" && d.mails ? count(d.mails.filter(m => !m.answered_at_ms && !m.handled_at_ms).length) : ""}</a>`).join("")}</nav>`;
   const sections: Record<PrTab, string> = {
     overblik: `${prPlanSection(base, d.plan)}
-<section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>`,
+<section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
+${siteCard(base, Boolean(d.siteLive))}`,
     kalender: d.calendar ? prCalendarSection(base, d.calendar) : "",
     mails: prMailSection(base, d.mails ?? []),
     events: prEventsSection(base, d.events ?? [], d.nowMs),

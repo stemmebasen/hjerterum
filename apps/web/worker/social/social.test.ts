@@ -1,3 +1,4 @@
+import { setSiteLive } from "../public-site.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "../cockpit/handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase, memberCookie } from "../saga/test-support.js";
@@ -90,6 +91,8 @@ describe("the PR cockpit", () => {
   async function setup(extra: Record<string, string> = {}) {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
+    // These posts are written for the day the new website is in use (public-site.ts).
+    await setSiteLive(db, true, "test", 0);
     const services = fakeServices({ ai: system => system.includes("Ugens events")
       ? JSON.stringify({ uge: "En uge med dans, stilhed og healing.", events: { E1: "Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00." } })
       : "Tak til Kasper for at dele sin workshop." });
