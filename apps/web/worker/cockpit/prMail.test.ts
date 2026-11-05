@@ -105,8 +105,19 @@ describe("PR mails", () => {
     const thread = await add("imap:77:52", 52, "Anne <anne@example.dk>", "Re: Reklame for retreat");
     // The chair's own answer is no reason to leave it.
     const chairs = await add("imap:77:53", 53, "Bo <bo@example.dk>", "Pressemeddelelse", ", answered_at_ms = 1, answered_by = 'Jacob Hauge'");
+    // The teachers' PR guide: "Skriv »PR-Gitta« i emnefeltet".
+    const named = await add("imap:77:54", 54, "Mia <mia@example.dk>", "PR-Gitta: link til min begivenhed");
+    await saveBoardMessage(db, { chatId: BOARD, messageId: 2, author: "Gitta Holm", authorId: "222", text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
     expect(await filePrMails(env, allDeps, db)).toBe(2);
     expect(done.find(d => d.startsWith("move"))).toBe(`move INBOX 53,41 -> ${PR_FOLDER}`);
+    expect(await db.prepare("SELECT folder, pr_left_why FROM board_mail WHERE id = ?").bind(named).first()).toEqual({ folder: "INBOX", pr_left_why: "Til Gitta (nævnt i emnet)" });
+    // The chair's own name is no reason to leave it ("PR-Jacob"); a folder of one's own counts as being on the board (Frederik has no message here).
+    const mine = await add("imap:77:55", 55, "Ida <ida@example.dk>", "PR-Jacob: deling");
+    await add("imap:FRE:1:1", 1, "X <x@example.dk>", "Noget andet", "", "INBOX.2 - FREDERIK", "Generel");
+    const fred = await add("imap:77:56", 56, "Per <per@example.dk>", "Til Frederik - PR for kurset");
+    await filePrMails(env, allDeps, db);
+    expect(await db.prepare("SELECT folder FROM board_mail WHERE id = ?").bind(mine).first()).toEqual({ folder: PR_FOLDER });
+    expect(await db.prepare("SELECT pr_left_why FROM board_mail WHERE id = ?").bind(fred).first()).toEqual({ pr_left_why: "Til Frederik (nævnt i emnet)" });
     const why = async (id: number) => db.prepare("SELECT folder, pr_left_why FROM board_mail WHERE id = ?").bind(id).first();
     expect(await why(given)).toEqual({ folder: "INBOX", pr_left_why: "Tildelt Lisbeth" });
     expect(await why(answered)).toEqual({ folder: "INBOX", pr_left_why: "Besvaret af Frederik" });
