@@ -1110,6 +1110,19 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## PR-mails: kun dem, ingen andre har; og hvornår en skabelon sidst blev brugt (2026-11-05)
+
+- **Formandens spørgsmål:** "Hvordan sikrer vi os, at der ikke bliver flyttet mails til min mappe, som Lisbeth eller Frederik er i gang med? Der kan jo sagtens indgå de samme keywords."
+- **Saga lader en PR-mail blive i indbakken** (`someoneElses` i `cockpit/prMail.ts`), når mailen er en andens:
+  - mailen er tildelt et andet bestyrelsesmedlem;
+  - den er besvaret eller klaret af en anden end formanden (et svar fra team@, som ikke kom fra formandens Posthus, tæller som en andens);
+  - samme samtale (samme emne uden Re:/Sv:, de sidste 90 dage) har en mail i en andens mappe (fx "1 - LISBETH");
+  - samme samtale er tildelt en anden;
+  - en anden skriver allerede med afsenderen.
+  - Mails i de andres mapper flyttes aldrig. Det gjaldt også før (formandens "Nej").
+- **Begrundelsen gemmes** (`board_mail.pr_left_why`, migration 0097). PR og SoMe → Mails viser den: "Bliver i indbakken: Samtalen ligger i Lisbeths mappe."
+- **Formandens ønske:** "Det kunne også være fint, hvis jeg kan se, hvornår en skabelon sidste gang er brugt, og til hvilket event". Valget af skabelon viser det både på plakatsiden og på Sagas link, fx "3. Plakat · sidst 4. nov.: Lydhealing" eller "ikke brugt endnu" (`templateUses` i `social/videoTemplates.ts`).
+
 ## Sagas forslag til opslagets tekst (2026-11-05)
 
 - **Formandens ord:** "Jeg vil gerne have en mulighed for, at AI kan komme med et forslag til delingsteksten. Det skal være en meget moderne sprogmodel, der skriver på en moderne måde, som passer til de forskellige medier, til hjerterums stil og gerne på nye spændende og kærlige måder - ikke kliche".

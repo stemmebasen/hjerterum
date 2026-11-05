@@ -51,6 +51,7 @@ import { calendarHref, CALENDAR_WEEKS, prCalendarData } from "./prCalendar.js";
 import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.js";
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
+import { templateUses } from "../social/videoTemplates.js";
 import { prMailData, prReplyPage } from "./prMail.js";
 import { approveWeek, chooseVideoTemplate, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
@@ -1728,5 +1729,5 @@ async function quickApproval(request: Request, env: SagaEnv, deps: SagaDeps, db:
   const next = await nextWaiting(db, post.id, now);
   const nextPath = next ? await quickPath(env, next.id, now) : null;
   const notice = url.searchParams.get("besked") ?? undefined, error = url.searchParams.get("fejl") ?? undefined;
-  return html(quickPage({ post, action: here, base, notice, error, next: nextPath ? `${base}${nextPath}` : null, adminHref: calendarHref(base, post), canRemake: videoInTime(post, now) }), 200, QUICK_HEADERS);
+  return html(quickPage({ post, action: here, base, notice, error, next: nextPath ? `${base}${nextPath}` : null, adminHref: calendarHref(base, post), canRemake: videoInTime(post, now), uses: await templateUses(db) }), 200, QUICK_HEADERS);
 }

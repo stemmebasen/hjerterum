@@ -1,7 +1,7 @@
 import { esc, layout } from "./page.js";
 import { clock, dateOf, dayName } from "../social/plan.js";
 import type { SocialPost } from "../social/social.js";
-import { templateName, templatesFor, VIDEO_TEMPLATES } from "../social/videoTemplates.js";
+import { templateName, templatesFor, usedLabel, VIDEO_TEMPLATES, type TemplateUse } from "../social/videoTemplates.js";
 
 /** Requested (the chair, 5 Nov 2026): "Det skal fungere sådan at jeg kan klikke på sagas link i telegram og på et øjeblik godkende" - the page behind
  * Saga's link (social/quickLink.ts): the post as it goes out, one big button, another template for the video, and on to the next proposal. */
@@ -30,7 +30,7 @@ const ERRORS: Record<string, string> = {
   fejl: "Det lykkedes ikke. Prøv igen, eller åbn opslaget i admin.",
 };
 
-export type QuickView = { post: SocialPost; action: string; notice?: string | undefined; error?: string | undefined; next: string | null; adminHref: string; base: string; canRemake: boolean };
+export type QuickView = { post: SocialPost; action: string; notice?: string | undefined; error?: string | undefined; next: string | null; adminHref: string; base: string; canRemake: boolean; uses?: Map<number, TemplateUse> };
 
 export function quickPage(v: QuickView): string {
   const { post: p } = v;
@@ -47,7 +47,7 @@ export function quickPage(v: QuickView): string {
   const offered = p.kind === "event" ? templatesFor(p) : [];
   const remake = v.canRemake && offered.length > 1 && p.status !== "published" && p.status !== "publishing"
     ? `<form method="post" action="${esc(v.action)}" class="q-remake"><input type="hidden" name="handling" value="skabelon"><label>Lav videoen i en anden skabelon
-<select name="skabelon">${VIDEO_TEMPLATES.filter(t => offered.includes(t.no)).map(t => `<option value="${t.no}"${t.no === p.source.videoTemplate ? " selected" : ""}>${t.no}. ${esc(t.name)}</option>`).join("")}</select></label><button class="ghost">Lav om</button></form>` : "";
+<select name="skabelon">${VIDEO_TEMPLATES.filter(t => offered.includes(t.no)).map(t => `<option value="${t.no}"${t.no === p.source.videoTemplate ? " selected" : ""}>${t.no}. ${esc(t.name)} · ${esc(usedLabel(v.uses?.get(t.no)))}</option>`).join("")}</select></label><button class="ghost">Lav om</button></form>` : "";
   const texts = `${fb || !ig ? `<details${video ? "" : " open"}><summary>Teksten på Facebook</summary><p class="q-text">${esc(p.text)}</p></details>` : ""}
 ${ig ? `<details${video ? " open" : ""}><summary>Teksten på Instagram</summary><p class="q-text">${esc(p.source.instagramText || p.text)}</p></details>` : ""}`;
   const body = `<main class="q"><div class="q-head"><img src="${v.base}/logo.png" alt="Hjerterum" width="40" height="40"><span>Saga · godkend opslag</span></div>

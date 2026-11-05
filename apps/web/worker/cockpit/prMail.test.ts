@@ -39,7 +39,7 @@ async function setup() {
     async uidValidity(path) { return path === PR_FOLDER ? "500" : "77"; },
     async present(path, uids) { return path === "INBOX" ? uids.filter(u => u !== 43) : []; },
     async create(path) { done.push(`create ${path}`); folders.push({ path, name: path, special: null, depth: 1, unseen: 0, total: 0, selectable: true }); },
-    async moveMapped(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { sourceValidity: "77", destValidity: "500", map: uids.map(u => [u, 9] as [number, number]) }; },
+    async moveMapped(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { sourceValidity: "77", destValidity: "500", map: uids.map(u => [u, u === 41 ? 9 : u + 100] as [number, number]) }; },
     async close() { /* nothing */ },
   });
   const outgoing: Outgoing[] = [];
@@ -88,6 +88,33 @@ describe("PR mails", () => {
     expect(await db.prepare("SELECT folder, pr_filed_at_ms IS NOT NULL AS filed FROM board_mail WHERE id = ?").bind(gone).first()).toEqual({ folder: "INBOX", filed: 1 });
     expect(await filePrMails(env, allDeps, db)).toBe(0);
     expect(done.filter(d => d.startsWith("move"))).toHaveLength(1);
+  });
+
+  // Asked (the chair, 5 Nov 2026): "Hvordan sikrer vi os, at der ikke bliver flyttet mails til min mappe, som Lisbeth eller Frederik er i gang med?"
+  it("leaves a mail another board member has - or has the conversation about - in the inbox, and says why", async () => {
+    const { db, env, done, pr, allDeps } = await setup();
+    const add = async (ref: string, uid: number, sender: string, subject: string, extra = "", folder = "INBOX", label = "PR") => {
+      const id = (await insertMail(db, { ref, sender, subject, receivedAtMs: NOW - 600_000, preview: "PR", nowMs: NOW }))!;
+      await db.prepare(`UPDATE board_mail SET folder = ?, uid_validity = '77', uid = ?, label = ?${extra} WHERE id = ?`).bind(folder, uid, label, id).run();
+      return id;
+    };
+    const given = await add("imap:77:50", 50, "Rie <rie@example.dk>", "Billeder til opslag", ", assigned_to = 'Lisbeth Mortensen'");
+    const answered = await add("imap:77:51", 51, "Ole <ole@example.dk>", "Deling af workshop", ", answered_at_ms = 1, answered_by = 'Frederik Lund'");
+    // An earlier mail of the same conversation lies in Lisbeth's folder.
+    await add("imap:LISBETH:9:3", 3, "Anne <anne@example.dk>", "Reklame for retreat", "", "INBOX.1 - LISBETH", "Event");
+    const thread = await add("imap:77:52", 52, "Anne <anne@example.dk>", "Re: Reklame for retreat");
+    // The chair's own answer is no reason to leave it.
+    const chairs = await add("imap:77:53", 53, "Bo <bo@example.dk>", "Pressemeddelelse", ", answered_at_ms = 1, answered_by = 'Jacob Hauge'");
+    expect(await filePrMails(env, allDeps, db)).toBe(2);
+    expect(done.find(d => d.startsWith("move"))).toBe(`move INBOX 53,41 -> ${PR_FOLDER}`);
+    const why = async (id: number) => db.prepare("SELECT folder, pr_left_why FROM board_mail WHERE id = ?").bind(id).first();
+    expect(await why(given)).toEqual({ folder: "INBOX", pr_left_why: "Tildelt Lisbeth" });
+    expect(await why(answered)).toEqual({ folder: "INBOX", pr_left_why: "Besvaret af Frederik" });
+    expect(await why(thread)).toEqual({ folder: "INBOX", pr_left_why: "Samtalen ligger i Lisbeths mappe" });
+    expect(await why(chairs)).toMatchObject({ folder: PR_FOLDER, pr_left_why: null });
+    expect(await why(pr)).toMatchObject({ folder: PR_FOLDER });
+    const { prMailData, prMailSection } = await import("./prMail.js");
+    expect(prMailSection("", await prMailData(db))).toContain("Bliver i indbakken: Samtalen ligger i Lisbeths mappe.");
   });
 
   it("is shown in PR og SoMe → Mails and answered there with Saga's draft, sent from team@ by the chair", async () => {

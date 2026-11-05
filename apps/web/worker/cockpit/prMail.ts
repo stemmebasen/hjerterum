@@ -7,6 +7,8 @@ import { esc } from "./page.js";
 import { mailboxLink, openWebmail, type WebmailOpener } from "./webmail.js";
 import { isMeta } from "./enquiries.js";
 import { composePage, original, startDraft } from "./webmailCompose.js";
+import { boardMembers } from "./data.js";
+import { sameSubject } from "../saga/teamMail.js";
 
 /** Requested (the chair, 4 Nov 2026): "Jeg har brug for, at Saga finder de mails fra mailboksen, der vedrører PR, deling og sociale medier, at de lander i
  * min undermappe og at de bliver vist i min PR-sektion. Jeg har også brug for smart at kunne svare tilbage i PR-sektionen." - the folder: "Ny mappe
@@ -21,6 +23,41 @@ const MAX_PER_ROUND = 25;
 const cockpitUrl = (env: SagaEnv) => (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
 const refOf = (folder: string, validity: string, uid: number) => folder.toUpperCase() === "INBOX" ? `imap:${validity}:${uid}` : `imap:${folder}:${validity}:${uid}`;
 
+type Candidate = { id: number; sender: string; subject: string; uid: number; uid_validity: string | null; received_at_ms: number; assigned_to: string | null;
+  answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null; handled_by: string | null };
+
+const THREAD_DAYS = 90;
+/** Folders that are no one's work: the chair's own, sent, deleted, drafts and spam. */
+const NO_ONES = /^INBOX\.5 - JACOB|sent|sendt|trash|papirkurv|slettet|junk|spam|kladde|draft/i;
+/** "INBOX.1 - LISBETH.Besvarede" → "Lisbeth". */
+export const folderOwner = (folder: string) => {
+  const name = /^INBOX\.\s*\d*\s*-?\s*([A-Za-zÆØÅæøå]+)/.exec(folder)?.[1];
+  return name ? name[0]!.toUpperCase() + name.slice(1).toLowerCase() : folder.replace(/^INBOX\./, "");
+};
+const firstOf = (name: string | null) => (name ?? "").replace(/\s*\|.*$/, "").trim().split(/\s+/)[0] ?? "";
+const notChair = (name: string | null, chair: string | null) => Boolean(name && (!chair || name.replace(/\s*\|.*$/, "").trim() !== chair));
+
+/** Why the mail is another board member's - or null when the chair may have it. It is theirs when it is given to them, answered or handled by them, or when
+ * an earlier mail of the same conversation (same subject, last 90 days) is given to them, answered by them or lies in one of their folders. */
+export async function someoneElses(db: D1Database, m: Candidate, chair: string | null, nowMs: number): Promise<string | null> {
+  if (notChair(m.assigned_to, chair)) return `Tildelt ${firstOf(m.assigned_to)}`;
+  if (m.answered_at_ms && notChair(m.answered_by, chair)) return m.answered_by && m.answered_by !== "Hjerterum" ? `Besvaret af ${firstOf(m.answered_by)}` : "Allerede besvaret fra team@";
+  if (m.handled_at_ms && notChair(m.handled_by, chair)) return `Klaret af ${firstOf(m.handled_by)}`;
+  const topic = sameSubject(m.subject);
+  if (topic.length < 4) return null;
+  const address = (/<([^>]+)>/.exec(m.sender)?.[1] ?? m.sender).toLowerCase();
+  const thread = (await db.prepare(`SELECT sender, subject, folder, assigned_to, answered_by, answered_at_ms FROM board_mail WHERE id <> ? AND received_at_ms >= ? AND subject LIKE ? LIMIT 50`)
+    .bind(m.id, nowMs - THREAD_DAYS * 86_400_000, `%${topic.slice(0, 60).replace(/[%_]/g, "")}%`).all<{ sender: string; subject: string; folder: string | null; assigned_to: string | null; answered_by: string | null; answered_at_ms: number | null }>()
+    .then(r => r.results ?? []).catch(() => [])).filter(t => sameSubject(t.subject) === topic);
+  for (const t of thread) {
+    if (t.folder && t.folder !== "INBOX" && !NO_ONES.test(t.folder)) return `Samtalen ligger i ${folderOwner(t.folder)}s mappe`;
+    if (notChair(t.assigned_to, chair)) return `Samtalen er tildelt ${firstOf(t.assigned_to)}`;
+    // A reply in the conversation from team@ that was not the chair's (and to the same person): someone is writing with them.
+    if (t.answered_at_ms && notChair(t.answered_by, chair) && (t.sender.toLowerCase().includes(address))) return t.answered_by && t.answered_by !== "Hjerterum" ? `${firstOf(t.answered_by)} skriver allerede med afsenderen` : "Nogen skriver allerede med afsenderen fra team@";
+  }
+  return null;
+}
+
 /** In team@'s round (saga.ts): the PR mails in the inbox go to the chair's folder - each tried once - and Posthus follows them there. */
 export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database): Promise<number> {
   const now = deps.now();
@@ -30,8 +67,18 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     await labelPrBacklog(env, deps, db).catch(error => console.warn("pr_mail_backlog_failed", error instanceof Error ? error.message : error));
     await db.prepare("UPDATE board_mail SET pr_filed_at_ms = NULL WHERE label = 'PR' AND folder = 'INBOX'").run();
   }
-  const rows = await db.prepare(`SELECT id, sender, subject, uid, uid_validity FROM board_mail WHERE label = 'PR' AND folder = 'INBOX' AND uid IS NOT NULL AND pr_filed_at_ms IS NULL
-      ORDER BY received_at_ms DESC LIMIT ?`).bind(MAX_PER_ROUND).all<{ id: number; sender: string; subject: string; uid: number; uid_validity: string | null }>().then(r => r.results ?? []).catch(() => []);
+  const found = await db.prepare(`SELECT id, sender, subject, uid, uid_validity, received_at_ms, assigned_to, answered_at_ms, answered_by, handled_at_ms, handled_by FROM board_mail
+      WHERE label = 'PR' AND folder = 'INBOX' AND uid IS NOT NULL AND pr_filed_at_ms IS NULL ORDER BY received_at_ms DESC LIMIT ?`).bind(MAX_PER_ROUND).all<Candidate>().then(r => r.results ?? []).catch(() => []);
+  if (!found.length) return 0;
+  // Asked (the chair, 5 Nov 2026): "Hvordan sikrer vi os, at der ikke bliver flyttet mails til min mappe, som Lisbeth eller Frederik er i gang med?" A mail
+  // another board member has - or whose conversation they have - stays in the inbox, and PR og SoMe → Mails says why.
+  const chair = (await boardMembers(env, db)).chair;
+  const rows: Candidate[] = [];
+  for (const r of found) {
+    const why = await someoneElses(db, r, chair, now);
+    if (why) await db.prepare("UPDATE board_mail SET pr_filed_at_ms = ?, pr_left_why = ? WHERE id = ?").bind(now, why, r.id).run();
+    else rows.push(r);
+  }
   if (!rows.length) return 0;
   const opened = await openWebmail(env, db, deps);
   if ("error" in opened) return 0;
@@ -100,10 +147,10 @@ async function labelPrBacklog(env: SagaEnv, deps: SagaDeps, db: D1Database): Pro
 // ---- PR og SoMe → Mails ----
 
 export type PrMail = { id: number; sender: string; subject: string; preview: string; received_at_ms: number; folder: string | null; uid: number | null; message_ref: string;
-  answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null };
+  answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null; pr_left_why: string | null };
 
 export async function prMailData(db: D1Database): Promise<PrMail[]> {
-  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id, pr_filed_at_ms FROM board_mail
+  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id, pr_filed_at_ms, pr_left_why FROM board_mail
       WHERE label = 'PR' OR folder = ? ORDER BY received_at_ms DESC LIMIT 150`).bind(PR_FOLDER).all<PrMail & { message_id: string | null; pr_filed_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
   // The same mail in several folders (a copy in a board member's folder) once: in the chair's folder first, then the inbox.
   // An inbox row Saga found gone (moved by a board member) is stale: the copy in its folder is shown instead.
@@ -126,11 +173,12 @@ export function prMailSection(base: string, mails: PrMail[]): string {
     const link = mailboxLink(base, m.message_ref);
     const status = m.answered_at_ms ? `<span class="chip good">Besvaret${m.answered_by ? ` af ${esc(m.answered_by.replace(/\s*\|.*$/, ""))}` : ""}</span>` : m.handled_at_ms ? `<span class="chip good">Klaret</span>` : `<span class="chip wait">Venter på svar</span>`;
     return `<article class="pr-post pr-mail${open(m) ? " is-open" : ""}"><header>${status}<b>${esc(m.subject || "(intet emne)")}</b><span class="small muted">${esc(m.sender.replace(/\s*<[^>]+>/, ""))} · ${esc(WHEN.format(m.received_at_ms))}</span></header>
+${m.pr_left_why ? `<p class="small muted">Bliver i indbakken: ${esc(m.pr_left_why)}.</p>` : m.folder && m.folder !== PR_FOLDER && m.folder !== "INBOX" ? `<p class="small muted">Ligger i ${esc(folderOwner(m.folder))}s mappe.</p>` : ""}
 <p class="pr-mail-text">${esc(m.preview.slice(0, 420))}${m.preview.length > 420 ? " …" : ""}</p>
 <div class="pr-acts">${m.uid ? `<a class="button" href="${base}/pr/mails/svar?id=${m.id}">Svar med Sagas udkast</a>` : ""}${link ? `<a class="button ghost" href="${link}">Åbn i Posthus</a>` : ""}</div></article>`;
   };
   return `<section class="panel" id="mails"><header><h2>Mails om PR${waiting ? ` (${waiting} venter)` : ""}</h2>
-<p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen 5 - JACOB › PR. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>
+<p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen 5 - JACOB › PR. En mail, som en anden i bestyrelsen har - eller har samtalen om - bliver liggende og vises her med hvorfor. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>
 ${mails.length ? mails.map(card).join("") : `<p class="empty">Ingen PR-mails endnu. Saga kigger efter nye hver gang, hun læser team@.</p>`}</section>`;
 }
 
