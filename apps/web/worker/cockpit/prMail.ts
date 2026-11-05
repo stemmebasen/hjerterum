@@ -9,6 +9,10 @@ import { isMeta } from "./enquiries.js";
 import { composePage, original, startDraft } from "./webmailCompose.js";
 import { boardMembers } from "./data.js";
 import { sameSubject } from "../saga/teamMail.js";
+import type { EventMediaBucket } from "../event-files.js";
+import { matchEvent, storeMaterial, upcomingEvents, type UpcomingEvent } from "./mailMaterial.js";
+import { studioIdOf } from "./posterStudio.js";
+import { parseMail, type WebmailSession } from "./webmail.js";
 
 /** Requested (the chair, 4 Nov 2026): "Jeg har brug for, at Saga finder de mails fra mailboksen, der vedrører PR, deling og sociale medier, at de lander i
  * min undermappe og at de bliver vist i min PR-sektion. Jeg har også brug for smart at kunne svare tilbage i PR-sektionen." - the folder: "Ny mappe
@@ -17,7 +21,9 @@ import { sameSubject } from "../saga/teamMail.js";
  * sends a mail herself. */
 
 export const PR_PARENT = "INBOX.5 - JACOB";
+/** The chair (5 Nov 2026), after first asking for "PR og promo": "Nej, bare behold »PR«". */
 export const PR_FOLDER = "INBOX.5 - JACOB.PR";
+export const PR_FOLDER_LABEL = "5 - JACOB › PR";
 const MAX_PER_ROUND = 25;
 
 const cockpitUrl = (env: SagaEnv) => (env.COCKPIT_URL ?? "https://admin.hjerterum.info").replace(/\/+$/, "");
@@ -75,6 +81,8 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     await labelPrBacklog(env, deps, db).catch(error => console.warn("pr_mail_backlog_failed", error instanceof Error ? error.message : error));
     await db.prepare("UPDATE board_mail SET pr_filed_at_ms = NULL WHERE label = 'PR' AND folder = 'INBOX'").run();
   }
+  if (await claimJob(db, "pr_gitta_transfer", 0, now).catch(() => false)) await takeOverFolder(env, deps, db, /^INBOX\.3\s*-\s*GITTA\.PR$/i).catch(error => console.warn("pr_gitta_transfer_failed", error instanceof Error ? error.message : error));
+  await collectMaterial(env, deps, db).catch(error => console.warn("pr_material_failed", error instanceof Error ? error.message : error));
   const found = await db.prepare(`SELECT id, sender, subject, uid, uid_validity, received_at_ms, assigned_to, answered_at_ms, answered_by, handled_at_ms, handled_by FROM board_mail
       WHERE label = 'PR' AND folder = 'INBOX' AND uid IS NOT NULL AND pr_filed_at_ms IS NULL ORDER BY received_at_ms DESC LIMIT ?`).bind(MAX_PER_ROUND).all<Candidate>().then(r => r.results ?? []).catch(() => []);
   if (!found.length) return 0;
@@ -127,11 +135,120 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
   }
   if (moved && env.SAGA_TELEGRAM_BOT_TOKEN && env.SAGA_OWNER_TELEGRAM_ID) {
     const first = rows[0]!;
-    const text = moved === 1 ? `Ny PR-mail fra ${first.sender.replace(/\s*<[^>]+>/, "")}: "${first.subject}". Den ligger i 5 - JACOB › PR og i PR og SoMe: ${cockpitUrl(env)}/pr/mails`
-      : `${moved} PR-mails er lagt i 5 - JACOB › PR og ligger i PR og SoMe: ${cockpitUrl(env)}/pr/mails`;
+    const text = moved === 1 ? `Ny PR-mail fra ${first.sender.replace(/\s*<[^>]+>/, "")}: "${first.subject}". Den ligger i ${PR_FOLDER_LABEL} og i PR og SoMe: ${cockpitUrl(env)}/pr/mails`
+      : `${moved} PR-mails er lagt i ${PR_FOLDER_LABEL} og ligger i PR og SoMe: ${cockpitUrl(env)}/pr/mails`;
     await telegramClient(env, deps).sendMessage(env.SAGA_OWNER_TELEGRAM_ID, text).catch(error => console.warn("pr_mail_notice_failed", error instanceof Error ? error.message : error));
   }
   return moved;
+}
+
+/** Requested (the chair, 5 Nov 2026): "du må meget gerne overføre mailsene fra Gittas PR-mappe også" - the mails in Gitta's PR folder (not its sub-folders)
+ * moved to the chair's, once, and Posthus follows them. */
+export async function takeOverFolder(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database, which: RegExp): Promise<number> {
+  const opened = await openWebmail(env, db, deps);
+  if ("error" in opened || !opened.s.moveMapped) return 0;
+  const { s } = opened;
+  try {
+    const folders = await s.folders();
+    const from = folders.find(f => which.test(f.path))?.path;
+    if (!from) return 0;
+    for (const path of [PR_PARENT, PR_FOLDER]) if (!folders.some(f => f.path === path)) await s.create?.(path);
+    const { items } = await s.list(from, 0, 500, "");
+    if (!items.length) return 0;
+    const { destValidity, map } = await s.moveMapped!(from, items.map(i => i.uid), PR_FOLDER);
+    for (const [was, now] of map) await db.prepare("UPDATE OR IGNORE board_mail SET folder = ?, uid_validity = ?, uid = ?, message_ref = ?, label = coalesce(label, 'PR') WHERE folder = ? AND uid = ?")
+      .bind(PR_FOLDER, destValidity, now, refOf(PR_FOLDER, destValidity, now), from, was).run();
+    return map.length;
+  } finally {
+    await s.close().catch(() => undefined);
+  }
+}
+
+// ---- The material a PR mail brings, kept with its event (mailMaterial.ts) ----
+
+const mediaOf = (env: SagaEnv) => (env as { EVENT_MEDIA?: EventMediaBucket }).EVENT_MEDIA;
+
+/** Reads the mail, links it to its event (Saga's guess - or the chair's choice) and keeps its material there. Returns the event's key, or null. */
+async function takeMaterial(s: WebmailSession, db: D1Database, bucket: EventMediaBucket, row: { id: number; folder: string; uid: number; sender: string; subject: string; received_at_ms: number; message_id: string | null },
+  events: UpcomingEvent[], chosen: string | null, nowMs: number): Promise<string | null> {
+  const raw = await s.source(row.folder, row.uid);
+  if (!raw) return null;
+  const message = await parseMail(raw.source);
+  const key = chosen ?? matchEvent(events, { sender: row.sender, subject: row.subject, text: message.text, receivedMs: row.received_at_ms })?.key ?? null;
+  // The same mail in another folder too (a copy): looked at once.
+  const sameMail = row.message_id ? "(id = ? OR message_id = ?)" : "id = ?";
+  const ids = row.message_id ? [row.id, row.message_id] : [row.id];
+  await db.prepare(`UPDATE board_mail SET pr_material_at_ms = ?, pr_event_key = coalesce(?, pr_event_key) WHERE ${sameMail}`).bind(nowMs, key, ...ids).run();
+  if (key) {
+    await db.prepare("DELETE FROM event_material WHERE mail_id = ?").bind(row.id).run();
+    await storeMaterial(db, bucket, row.id, key, message, nowMs);
+  }
+  return key;
+}
+
+/** In team@'s round: the PR mails of the last month not looked at yet - a few a round. */
+async function collectMaterial(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database): Promise<number> {
+  const bucket = mediaOf(env);
+  if (!bucket) return 0;
+  const now = deps.now();
+  const rows = await db.prepare(`SELECT id, folder, uid, sender, subject, received_at_ms, message_id FROM board_mail WHERE label = 'PR' AND uid IS NOT NULL AND folder IS NOT NULL
+      AND pr_material_at_ms IS NULL AND received_at_ms > ? AND NOT (folder = 'INBOX' AND pr_filed_at_ms IS NOT NULL) AND folder NOT LIKE 'INBOX.Sent%'
+      ORDER BY received_at_ms DESC LIMIT 4`).bind(now - 30 * 86_400_000)
+    .all<{ id: number; folder: string; uid: number; sender: string; subject: string; received_at_ms: number; message_id: string | null }>().then(r => r.results ?? []).catch(() => []);
+  if (!rows.length) return 0;
+  const opened = await openWebmail(env, db, deps);
+  if ("error" in opened) return 0;
+  const { s } = opened;
+  const events = await upcomingEvents(db, now);
+  let linked = 0;
+  try {
+    for (const r of rows) if (await takeMaterial(s, db, bucket, r, events, null, now).catch(() => null)) linked++;
+  } finally {
+    await s.close().catch(() => undefined);
+  }
+  return linked;
+}
+
+/** "Kobl til event": the chair's own choice, and the mail's material kept there. */
+export async function linkMail(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database, id: number, eventKey: string): Promise<boolean> {
+  const bucket = mediaOf(env);
+  const row = await db.prepare("SELECT id, folder, uid, sender, subject, received_at_ms, message_id FROM board_mail WHERE id = ?").bind(id)
+    .first<{ id: number; folder: string | null; uid: number | null; sender: string; subject: string; received_at_ms: number; message_id: string | null }>().catch(() => null);
+  if (!row?.uid || !bucket || !/^(?:mw:SF[0-9a-f]{24}|hr:\d+)$/.test(eventKey)) return false;
+  const opened = await openWebmail(env, db, deps);
+  if ("error" in opened) return false;
+  const { s } = opened;
+  try {
+    return Boolean(await takeMaterial(s, db, bucket, { ...row, folder: row.folder || "INBOX", uid: row.uid }, [], eventKey, deps.now()));
+  } finally {
+    await s.close().catch(() => undefined);
+  }
+}
+
+/** "Flyt til PR" (asked for as "Flyt til PR og promo"; the folder kept its name): the mail moved to the chair's folder by hand - also from a board member's folder, as the chair chooses. */
+export async function moveToPr(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database, id: number): Promise<boolean> {
+  const row = await db.prepare("SELECT folder, uid FROM board_mail WHERE id = ?").bind(id).first<{ folder: string | null; uid: number | null }>().catch(() => null);
+  if (!row?.uid || row.folder === PR_FOLDER) return false;
+  const opened = await openWebmail(env, db, deps);
+  if ("error" in opened || !opened.s.moveMapped) return false;
+  const { s } = opened;
+  try {
+    const folders = await s.folders();
+    for (const path of [PR_PARENT, PR_FOLDER]) if (!folders.some(f => f.path === path)) await s.create?.(path);
+    const { destValidity, map } = await s.moveMapped!(row.folder || "INBOX", [row.uid], PR_FOLDER);
+    const uid = new Map(map).get(row.uid);
+    if (!uid || !destValidity) return false;
+    await db.prepare("UPDATE OR IGNORE board_mail SET folder = ?, uid_validity = ?, uid = ?, message_ref = ?, pr_filed_at_ms = ?, pr_left_why = NULL, label = 'PR' WHERE id = ?")
+      .bind(PR_FOLDER, destValidity, uid, refOf(PR_FOLDER, destValidity, uid), deps.now(), id).run();
+    return true;
+  } finally {
+    await s.close().catch(() => undefined);
+  }
+}
+
+/** "Skjul": the mail (and its copies) leaves PR og SoMe → Mails; a new mail in the same conversation is a mail of its own and shows. */
+export async function hideMail(db: D1Database, id: number, nowMs: number): Promise<void> {
+  await db.prepare("UPDATE board_mail SET pr_hidden_at_ms = ? WHERE id = ? OR (message_id IS NOT NULL AND message_id = (SELECT message_id FROM board_mail WHERE id = ?))").bind(nowMs, id, id).run();
 }
 
 /** Once: the mails of the last 60 days, in every folder, that were labelled before "PR" took in marketing, markedsføring, reklame and the like -
@@ -158,11 +275,13 @@ async function labelPrBacklog(env: SagaEnv, deps: SagaDeps, db: D1Database): Pro
 // ---- PR og SoMe → Mails ----
 
 export type PrMail = { id: number; sender: string; subject: string; preview: string; received_at_ms: number; folder: string | null; uid: number | null; message_ref: string;
-  answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null; pr_left_why: string | null };
+  answered_at_ms: number | null; answered_by: string | null; handled_at_ms: number | null; pr_left_why: string | null; pr_event_key: string | null; pr_material_at_ms: number | null;
+  /** The event the mail is linked to, and how much of its material is kept there. */
+  event?: { key: string; title: string; startsMs: number; studio: string | null; files: number } | null };
 
 export async function prMailData(db: D1Database): Promise<PrMail[]> {
-  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id, pr_filed_at_ms, pr_left_why FROM board_mail
-      WHERE label = 'PR' OR folder = ? ORDER BY received_at_ms DESC LIMIT 150`).bind(PR_FOLDER).all<PrMail & { message_id: string | null; pr_filed_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
+  const rows = await db.prepare(`SELECT id, sender, subject, preview, received_at_ms, folder, uid, message_ref, answered_at_ms, answered_by, handled_at_ms, message_id, pr_filed_at_ms, pr_left_why,
+      pr_event_key, pr_material_at_ms FROM board_mail WHERE (label = 'PR' OR folder = ?) AND pr_hidden_at_ms IS NULL ORDER BY received_at_ms DESC LIMIT 150`).bind(PR_FOLDER).all<PrMail & { message_id: string | null; pr_filed_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
   // The same mail in several folders (a copy in a board member's folder) once: in the chair's folder first, then the inbox.
   // An inbox row Saga found gone (moved by a board member) is stale: the copy in its folder is shown instead.
   const rank = (m: PrMail & { pr_filed_at_ms: number | null }) => m.folder === PR_FOLDER ? 0 : m.folder === "INBOX" ? (m.pr_filed_at_ms ? 3 : 1) : 2;
@@ -170,30 +289,55 @@ export async function prMailData(db: D1Database): Promise<PrMail[]> {
   for (const m of rows) {
     const key = m.message_id || `${m.sender}|${m.subject}|${m.received_at_ms}`;
     const had = best.get(key);
-    if (!had || rank(m) < rank(had)) best.set(key, { ...m, answered_at_ms: m.answered_at_ms ?? had?.answered_at_ms ?? null, answered_by: m.answered_by ?? had?.answered_by ?? null, handled_at_ms: m.handled_at_ms ?? had?.handled_at_ms ?? null });
+    if (!had || rank(m) < rank(had)) best.set(key, { ...m, answered_at_ms: m.answered_at_ms ?? had?.answered_at_ms ?? null, answered_by: m.answered_by ?? had?.answered_by ?? null, handled_at_ms: m.handled_at_ms ?? had?.handled_at_ms ?? null,
+      pr_event_key: m.pr_event_key ?? had?.pr_event_key ?? null, pr_material_at_ms: m.pr_material_at_ms ?? had?.pr_material_at_ms ?? null });
   }
-  return [...best.values()].sort((a, b) => b.received_at_ms - a.received_at_ms).slice(0, 60).map(({ message_id: _, pr_filed_at_ms: __, ...m }) => m);
+  const mails = [...best.values()].sort((a, b) => b.received_at_ms - a.received_at_ms).slice(0, 60).map(({ message_id: _, pr_filed_at_ms: __, ...m }) => m);
+  // The linked events: title, time, the studio's address and the files kept there.
+  const keys = [...new Set(mails.map(m => m.pr_event_key).filter((k): k is string => Boolean(k)))];
+  const events = new Map<string, NonNullable<PrMail["event"]>>();
+  for (const key of keys) {
+    const e = key.startsWith("mw:") ? await db.prepare("SELECT title, starts_at_ms FROM house_events WHERE id = ?").bind(key.slice(3)).first<{ title: string; starts_at_ms: number }>().catch(() => null)
+      : await db.prepare("SELECT title, starts_at_ms FROM room_bookings WHERE id = ?").bind(Number(key.slice(3))).first<{ title: string; starts_at_ms: number }>().catch(() => null);
+    const files = await db.prepare("SELECT COUNT(*) AS n FROM event_material WHERE event_key = ? AND kind <> 'text'").bind(key).first<{ n: number }>().catch(() => null);
+    if (e) events.set(key, { key, title: e.title, startsMs: e.starts_at_ms, studio: studioIdOf(key), files: files?.n ?? 0 });
+  }
+  return mails.map(m => ({ ...m, event: m.pr_event_key ? events.get(m.pr_event_key) ?? null : null }));
 }
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 const open = (m: PrMail) => !m.answered_at_ms && !m.handled_at_ms;
 
-export function prMailSection(base: string, mails: PrMail[]): string {
+const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
+
+export function prMailSection(base: string, mails: PrMail[], events: UpcomingEvent[] = [], nowMs = Date.now()): string {
   const waiting = mails.filter(open).length;
+  const action = (path: string, id: number, label: string, cls = "ghost", extra = "") => `<form method="post" action="${base}/pr/mails/${path}"><input type="hidden" name="id" value="${id}">${extra}<button class="${cls}">${label}</button></form>`;
+  // "Kobl til event": the coming events, the soonest first.
+  const options = events.filter(e => e.startsMs > nowMs).slice(0, 150).map(e => `<option value="${esc(e.key)}">${esc(DAY.format(e.startsMs))} · ${esc(e.title.slice(0, 60))}${e.host ? ` · ${esc(e.host)}` : ""}</option>`).join("");
   const card = (m: PrMail) => {
     const link = mailboxLink(base, m.message_ref);
+    // "en kobling til det pågældende event ... en knap, som tager mig direkte til redigeringen af opslaget med det pågældende materiale"
+    const event = m.event ? `<div class="pr-mail-event"><span>Event: <b>${esc(m.event.title)}</b> · ${esc(DAY.format(m.event.startsMs))}${m.event.files ? ` · ${m.event.files} ${m.event.files === 1 ? "fil" : "filer"} fra mailen ligger klar` : ""}</span>
+${m.event.studio ? `<a class="button" href="${base}/plakater/${esc(m.event.studio)}?fra=${encodeURIComponent("/pr/mails")}">Lav opslaget med materialet →</a>` : ""}</div>`
+      : m.uid && options ? `<div class="pr-mail-event">${action("kobl", m.id, "Kobl til event", "ghost", `<select name="event" aria-label="Event"><option value="">Vælg eventet, mailen handler om</option>${options}</select>`)}</div>` : "";
     const status = m.answered_at_ms ? `<span class="chip good">Besvaret${m.answered_by ? ` af ${esc(m.answered_by.replace(/\s*\|.*$/, ""))}` : ""}</span>` : m.handled_at_ms ? `<span class="chip good">Klaret</span>` : `<span class="chip wait">Venter på svar</span>`;
     return `<article class="pr-post pr-mail${open(m) ? " is-open" : ""}"><header>${status}<b>${esc(m.subject || "(intet emne)")}</b><span class="small muted">${esc(m.sender.replace(/\s*<[^>]+>/, ""))} · ${esc(WHEN.format(m.received_at_ms))}</span></header>
 ${m.pr_left_why ? `<p class="small muted">Bliver i indbakken: ${esc(m.pr_left_why)}.</p>` : m.folder && m.folder !== PR_FOLDER && m.folder !== "INBOX" ? `<p class="small muted">Ligger i ${esc(folderOwner(m.folder))}s mappe.</p>` : ""}
 <p class="pr-mail-text">${esc(m.preview.slice(0, 420))}${m.preview.length > 420 ? " …" : ""}</p>
-<div class="pr-acts">${m.uid ? `<a class="button" href="${base}/pr/mails/svar?id=${m.id}">Svar med Sagas udkast</a>` : ""}${link ? `<a class="button ghost" href="${link}">Åbn i Posthus</a>` : ""}</div></article>`;
+${event}
+<div class="pr-acts">${m.uid ? `<a class="button" href="${base}/pr/mails/svar?id=${m.id}">Svar med Sagas udkast</a>` : ""}${link ? `<a class="button ghost" href="${link}">Åbn i Posthus</a>` : ""}
+${m.uid && m.folder !== PR_FOLDER ? action("flyt", m.id, "Flyt til PR") : ""}${action("skjul", m.id, "Skjul")}</div></article>`;
   };
   return `<section class="panel" id="mails"><header><h2>Mails om PR${waiting ? ` (${waiting} venter)` : ""}</h2>
-<p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen 5 - JACOB › PR. En mail, som en anden i bestyrelsen har - eller har samtalen om - bliver liggende og vises her med hvorfor. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>
+<p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen ${PR_FOLDER_LABEL}. Saga kobler mailen til sit event og lægger billeder, filer og tekst klar under eventet - "Lav opslaget med materialet" åbner opslaget med dem. "Skjul" fjerner en mail herfra; et nyt svar i samme tråd vises igen. En mail, som en anden i bestyrelsen har - eller har samtalen om - bliver liggende og vises her med hvorfor. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>
 ${mails.length ? mails.map(card).join("") : `<p class="empty">Ingen PR-mails endnu. Saga kigger efter nye hver gang, hun læser team@.</p>`}</section>`;
 }
 
-export const PR_MAIL_STYLE = `.pr-mail .pr-mail-text{white-space:pre-line;font-size:14.5px;margin:0 0 10px;color:var(--ink)}.pr-mail.is-open{border-color:var(--warn)}`;
+const PR_MAIL_EVENT_STYLE = `.pr-mail-event{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:var(--soft);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14.5px}
+.pr-mail-event form{display:flex;gap:8px;flex-wrap:wrap;width:100%}.pr-mail-event select{flex:1 1 260px;font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}.pr-mail .pr-acts form{margin:0}`;
+const PR_MAIL_STYLE_BASE = `.pr-mail .pr-mail-text{white-space:pre-line;font-size:14.5px;margin:0 0 10px;color:var(--ink)}.pr-mail.is-open{border-color:var(--warn)}`;
+export const PR_MAIL_STYLE = PR_MAIL_EVENT_STYLE + PR_MAIL_STYLE_BASE;
 
 // ---- "Svar med Sagas udkast" ----
 

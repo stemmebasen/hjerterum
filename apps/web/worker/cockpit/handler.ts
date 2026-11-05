@@ -52,7 +52,8 @@ import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.j
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
-import { prMailData, prReplyPage } from "./prMail.js";
+import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
+import { materialFile, upcomingEvents } from "./mailMaterial.js";
 import { approveWeek, askStill, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
@@ -976,15 +977,16 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
-        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org." };
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
+        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
-        sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes." };
+        sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt." };
       const account = await socialAccount(db);
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         events: tab === "events" ? await prEventsData(db, now) : [],
         ...(tab === "kalender" ? { calendar: await prCalendarData(db, now, url.searchParams.get("start")) } : {}),
-        ...(tab === "mails" ? { mails: await prMailData(db) } : {}),
+        ...(tab === "mails" ? { mails: await prMailData(db), mailEvents: await upcomingEvents(db, now) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now, siteLive: await siteLive(db),
@@ -1020,6 +1022,21 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (request.method !== "POST") return html(notFound(base, who), 404);
     const form = await request.formData().catch(() => null);
     const field = (name: string) => String(form?.get(name) ?? "");
+    // PR og SoMe → Mails (the chair, 5 Nov 2026): "Flyt til PR", "Skjul", and "Kobl til event" with the mail's material (prMail.ts, mailMaterial.ts).
+    if (path === "/pr/mails/flyt" || path === "/pr/mails/skjul" || path === "/pr/mails/kobl") {
+      const id = Number(field("id"));
+      const toMails = (query: string) => redirect(`${base}/pr/mails?${query}`);
+      if (!Number.isSafeInteger(id) || id <= 0) return toMails("fejl=mail");
+      if (path === "/pr/mails/skjul") { await hideMail(db, id, now); return toMails("besked=skjult"); }
+      if (path === "/pr/mails/flyt") {
+        if (!(await moveToPr(env as SagaEnv, deps, db, id).catch(() => false))) return toMails("fejl=mail");
+        await audit(db, actor, "social.manage", "Flyttede en mail til 5 - JACOB › PR", now);
+        return toMails("besked=flyttet_mail");
+      }
+      if (!(await linkMail(env as SagaEnv, deps, db, id, field("event")).catch(() => false))) return toMails("fejl=mail");
+      await audit(db, actor, "social.manage", "Koblede en PR-mail til et event", now);
+      return toMails("besked=koblet");
+    }
     // "det skal være muligt at jeg selv kan flytte entries rundt i kalenderen" (social.ts movePost): from the calendar's drag (JSON) or its "Flyt" form.
     if (path === "/pr/kalender/flyt") {
       const channel = field("channel");
@@ -1115,7 +1132,11 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (!may("posters.design")) return denied("posters.design");
     const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
     if (path === "/plakater" && request.method === "GET") return html(studioListPage(base, who, await studioEvents(db, now)));
-    const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
+    const picture = /^\/plakater\/billede\/(fil|plakat|design|pr|profil|ekstern|materiale)(?:\/([0-9a-f-]{1,36}))?$/.exec(path);
+    // The material a PR mail brought (mailMaterial.ts): its pictures in the studio, its documents to download.
+    if (picture?.[1] === "materiale" && request.method === "GET") return materialFile(db, media, Number(picture[2]), false);
+    const download = /^\/plakater\/materiale\/(\d+)$/.exec(path);
+    if (download && request.method === "GET") return materialFile(db, media, Number(download[1]), true);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
     const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);

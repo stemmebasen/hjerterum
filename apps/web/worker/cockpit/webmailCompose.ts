@@ -90,7 +90,8 @@ export function plainText(message: Pick<WebMessage, "text" | "html">): string {
 
 export function startDraft(kind: ComposeKind, who: string, own: string, original: (WebMessage & { folder: string; uid: number }) | null, signer?: string): Draft {
   // A reply from PR og SoMe is signed by the team, not a person (prMail.ts).
-  const sign = `\n\n${signer ? `Venlig hilsen\n${signer}` : signature(who)}`;
+  // The chair (5 Nov 2026): "der bare skal stå i signaturen: Venlig hilsen, Team Hjerterum".
+  const sign = `\n\n${signer ? `Venlig hilsen,\n${signer}` : signature(who)}`;
   if (!original || kind === "ny") return { kind: "ny", to: "", cc: "", bcc: "", subject: "", text: sign, folder: original?.folder ?? "INBOX", uid: 0, files: [] };
   const base = { folder: original.folder, uid: original.uid, bcc: "" };
   const text = plainText(original);

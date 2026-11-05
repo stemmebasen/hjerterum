@@ -23,6 +23,7 @@ type Data = {
     videoChoices: Array<{ template: number; name: string; video: string }>; videoAsked: number[]; stillAsked: boolean } | null;
   back: string;
   siteLive?: boolean;
+  mailTexts?: Array<{ subject: string; text: string }>;
 };
 
 const image = (src: string) => new Promise<HTMLImageElement | null>(resolve => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = src; });
@@ -432,6 +433,7 @@ export function PosterStudio({ id }: { id: string }) {
         <div className="studio-box">
           <h3>Fra eventet</h3>
           {data.eventPictures.length ? <Thumbs pictures={data.eventPictures} picked={picked} onPick={setPicked} /> : <p className="studio-muted">Der er ikke lagt billeder op med eventet.</p>}
+          {(data.mailTexts ?? []).map((m, i) => <details key={i} className="studio-mailtext" open={i === 0}><summary>Fra mailen: {m.subject}</summary><p>{m.text}</p></details>)}
           {data.files.length > 0 && <ul className="studio-files">{data.files.map(f => <li key={f.url}><a href={f.url}>{f.label}</a></li>)}</ul>}
           <p className="studio-actions"><button type="button" className={"lys-btn" + (picked ? " ghost" : "")} onClick={() => setPicked(null)}>Uden billede</button></p>
         </div>

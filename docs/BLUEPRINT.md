@@ -1110,6 +1110,32 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## PR-mails: koblet til eventet med materialet, "Flyt til PR", "Skjul" (2026-11-05)
+
+- **Formandens ord:** "Det ville være rigtig fint, at der allerede er lavet en kobling til det pågældende event og at materialet, der er sendt allerede ligger klar i den pågældende mappe under det pågældende event klar til brug. Kan vi indsætte en knap, som tager mig direkte til redigeringen af opslaget med det pågældende materiale?"
+- **Kobling** (`cockpit/mailMaterial.ts`):
+  - I team@-runden læser Saga hver ny PR-mail fra den seneste måned (fire pr. runde) og kobler den til sit event, både kalenderens og husets egne.
+  - Hun kobler ud fra underviserens navn (afsenderen) og den dag, mailen nævner ("24 november", "24/11"); titlens ord tæller lidt. Står intet event klart frem, kobler hun ikke.
+- **Materialet:**
+  - Billeder, dokumenter (samme typer som et events filer) og mailens egen tekst gemmes under eventet (`event_material`, migration 0098, R2 `material/…`).
+  - Små billeder inde i selve mailen (signaturer, logoer) springes over.
+- **PR og SoMe → Mails:**
+  - "Event: … · N filer fra mailen ligger klar" og knappen "Lav opslaget med materialet →". Den åbner plakatsiden, hvor mailens billede står først og er valgt, filerne kan hentes, og mailens tekst står under "Fra eventet".
+  - Kan Saga ikke se eventet, vælger formanden det i "Kobl til event".
+  - Sagas tekstforslag bruger også underviserens egen tekst fra mailen.
+- **"Flyt til PR"** (formandens ønske) flytter mailen til formandens mappe, også fra et andet bestyrelsesmedlems mappe, når formanden selv vælger det.
+- **"Skjul"** (formandens ønske): "så jeg ikke længere ser den pågældende mail ... Kun hvis der kommer en ny mail i samme tråd skal jeg se den". Mailen og dens kopier forsvinder fra listen (`pr_hidden_at_ms`); et nyt svar i tråden er en ny mail og vises.
+- **Mappen hedder fortsat "5 - JACOB › PR"** (formanden: "Nej, bare behold »PR«"), og knappen hedder "Flyt til PR".
+- **Aflyste og overståede events** (formanden: "Jeg får stadig vist et event som dette, selvom det er aflyst. Det er en fejl."):
+  - Et opslag til et event, der i kalenderen står med "- Aflyst -" (`isCancelledEvent`, som nyhedsbrevet bruger), lægges til side.
+  - Det samme sker med et forslag til et event, der er afholdt, uden at opslaget blev godkendt.
+  - Begge dele sker i hver runde (`retireCancelled`).
+- **Signaturen** i svarudkast fra PR og SoMe er "Venlig hilsen, / Team Hjerterum" (formanden: "der bare skal stå i signaturen").
+- **Tidspunktet på hvert opslag** under Ugens opslag står øverst på kortet (formanden: "er det her programsat eller skeduleret til et bestemt tidspunkt? Hvis det er det, kan det så ikke også vises her?"):
+  - "Planlagt:" for et godkendt opslag og "Saga foreslår: … Sendes først, når du har godkendt." for et forslag, for Facebook og Instagram hver for sig.
+  - Er tidspunktet passeret, står det med orange.
+- **Gittas PR-mappe** ("du må meget gerne overføre mailsene fra Gittas PR-mappe også"): mailene i "3 - GITTA › PR" er flyttet én gang til formandens mappe (`takeOverFolder`). Undermappen "Afsluttet" er ikke flyttet.
+
 ## PR og SoMe: tydeligere felter og delinger med Hjerterums egne ord (2026-11-05)
 
 - **Formandens ønske:** "Her bør det aktuelle felt highlightes alt efter, hvilket social medie der er valgt. Hvis det kun er Instagram, skal der være en guldmarkering omkring tekstfeltet og vice versa."
