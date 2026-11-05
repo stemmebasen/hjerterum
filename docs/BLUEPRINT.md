@@ -1119,6 +1119,11 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Opslag til et event uden.** Formanden: "Hvorfor kan det ikke bruges? Det forstår jeg ikke."
   - Et event uden opslag (fx et fast hold i en stille uge eller et opslag, der er sprunget over) får knappen "Lav et opslag til eventet" (`proposeEventPost`), med Sagas ord og tider som andre events.
   - Et overstået event siger det.
+## Deling fra Instagram: billederne hentes gennem Hjerterums tags (2026-11-05)
+
+- **Fejl rapporteret af formanden:** "Fejlede Deling fra kunet_menneske - meta_400: Unsupported get request. Object with ID '…' does not exist, cannot be loaded due to missing permissions".
+  - Et andet Instagram-opslag kan ikke læses direkte ud fra dets id.
+- **Nu:** Saga henter billedernes friske adresser gennem Hjerterums egen liste af tags (`freshInstagramImages` i `social/meta.ts`). Lykkes det ikke, bruger hun dem, hun gemte, da hun fandt opslaget.
 
 ## To opslag pr. event på hvert medie (2026-11-05)
 

@@ -107,6 +107,16 @@ export async function instagramMedia(fetcher: Fetcher, token: string, id: string
   return igPost(await graph<IgMedia>(fetcher, "GET", `/${id}`, { fields: IG_FIELDS, access_token: token }));
 }
 
+/** Reported (the chair, 5 Nov 2026): "Fejlede Deling fra kunet_menneske - meta_400: Unsupported get request. Object with ID '…' does not exist, cannot be
+ * loaded due to missing permissions" - another account's post cannot be read by its id; it can through Hjerterum's own list of tags. The pictures' fresh
+ * addresses: by the id, else from the tags, else those Saga kept when she found it. */
+export async function freshInstagramImages(fetcher: Fetcher, account: { igUserId: string; token: string }, id: string, kept: string[]): Promise<string[]> {
+  const byId = await instagramMedia(fetcher, account.token, id).then(p => p.images, () => [] as string[]);
+  if (byId.length) return byId;
+  const tagged = await taggedOnInstagram(fetcher, account, 50).then(list => list.find(p => p.id === id)?.images ?? [], () => [] as string[]);
+  return tagged.length ? tagged : kept;
+}
+
 // ---- Posting ----
 
 /** A post on the page: words and, when given, a link (Facebook shows the linked page or post as a card). */
