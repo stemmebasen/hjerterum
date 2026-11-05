@@ -10,7 +10,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, instagramMedia, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, REPEAT_LEAD_MS, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -44,6 +44,9 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     instagramAtMs?: number | null;
     /** The event's video (video/, made on GitHub by .github/workflows/video-events.yml): on Instagram as a reel, unless the chair took it off. */
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
+    /** "to shouts på hvert medie" (plan.ts shoutWindows): which of the event's posts this is - the first (none said: the first) or the reminder a week
+     * before - and how many the event has. */
+    shout?: 1 | 2; shouts?: 1 | 2;
     /** When Saga sent the chair the link to the finished video (notifyVideos). */
     videoNotifiedAtMs?: number;
     /** "flere ... video designs på kommando": the templates the chair asked for (video-events.yml makes them), the videos made to choose among, and how many
@@ -164,6 +167,14 @@ export async function decidePost(db: D1Database, id: number, decision: "approve"
   const publishAt = decision === "approve" && post.kind === "share" ? nowMs : post.publish_at_ms;
   await db.prepare("UPDATE social_posts SET status = ?, approved_by = ?, approved_at_ms = ?, publish_at_ms = ?, error = NULL, updated_at_ms = ? WHERE id = ?")
     .bind(status, decision === "approve" ? who : null, decision === "approve" ? nowMs : null, publishAt, nowMs, id).run();
+  // Asked (the chair, 5 Nov 2026): "Alle fire på én gang" - an event's posts (the first and the reminder a week before) are approved, skipped or taken back
+  // together. What has gone out, or has no channel, is left as it is.
+  if (post.kind === "event" && post.source.key) {
+    const from = decision === "approve" ? "('draft', 'failed')" : decision === "skip" ? "('draft', 'approved', 'failed')" : "('approved')";
+    await db.prepare(`UPDATE social_posts SET status = ?, approved_by = ?, approved_at_ms = ?, error = NULL, updated_at_ms = ? WHERE kind = 'event' AND id <> ?
+        AND json_extract(source, '$.key') = ? AND status IN ${from} AND channels <> '[]' AND coalesce(publish_at_ms, ?) >= ?`)
+      .bind(status, decision === "approve" ? who : null, decision === "approve" ? nowMs : null, nowMs, id, post.source.key, nowMs, decision === "approve" ? nowMs - 60_000 : 0).run();
+  }
   return socialPost(db, id);
 }
 
@@ -273,10 +284,13 @@ Et eksempel på tonen (efterlign ikke ordene): "Lørdag kl. 13.00 inviterer Mari
 
 type WeekWords = { intro: string; events: Record<string, string> };
 
-async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[]): Promise<WeekWords> {
-  const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, plainEventText(e)])) };
+/** The second post about each event, a week before (shoutWindows): told differently from the first. */
+const REMINDER_RULE = `\nDette er det ANDET opslag om hvert event: en påmindelse cirka en uge før. Skriv det anderledes end et første opslag, fx med "om en uge" eller "på onsdag", kort og med lyst til at komme. Gentag ikke en lang introduktion.`;
+
+async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[], reminder = false): Promise<WeekWords> {
+  const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, reminder ? `Om en uge: ${plainEventText(e)}` : plainEventText(e)])) };
   if (!env.AI_API_KEY || !env.AI_MODEL || !events.length) return plain;
-  const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
+  const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: reminder ? WEEK_SYSTEM + REMINDER_RULE : WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
     ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: `${dayName(e.startsMs)} kl. ${clock(e.startsMs)}`, beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   const data = json ? parse<{ uge?: unknown; events?: Record<string, unknown> }>(json, {}) : {};
@@ -320,7 +334,7 @@ async function wishedKeys(db: D1Database): Promise<Set<string>> {
  * changes and skips, and Saga only writes words for the new events. With onlyNew, a week that has not been planned is left alone.
  * Returns how many posts were made, how many events the week has, and how many of them were new. */
 export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, monday: string,
-  options: { onlyNew?: boolean; eventsOnly?: boolean; titles?: Set<string> } = {}): Promise<{ made: number; events: number; fresh: number }> {
+  options: { onlyNew?: boolean; eventsOnly?: boolean; series?: Map<string, number[]> } = {}): Promise<{ made: number; events: number; fresh: number }> {
   const now = deps.now(), week = weekKey(monday);
   // With eventsOnly (Saga's proposals for every event as soon as it is in the calendar), "Ugens events" is left for Thursday's plan.
   const planned = options.eventsOnly || Boolean(await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null));
@@ -331,12 +345,16 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   const existing = await db.prepare("SELECT source_key, publish_at_ms FROM social_posts WHERE week = ? AND kind = 'event'").bind(week)
     .all<{ source_key: string; publish_at_ms: number | null }>().then(r => r.results ?? []).catch(() => []);
   const known = new Set(existing.map(r => r.source_key));
-  // An event that begins within two hours is not given a post it could not get in time.
-  const fresh = chosen.filter(e => !known.has(`event:${week}:${e.key}`) && e.startsMs > now + 2 * 3_600_000);
-  // A title already told about in an earlier week (a class that comes back) is told about again in the week before, not at once.
-  const titles = options.titles ?? new Set<string>();
-  const earliest = fresh.map(e => titles.has(titleKey(e)) ? e.startsMs - REPEAT_LEAD_MS : 0);
-  for (const e of chosen) titles.add(titleKey(e));
+  // An event that begins within two hours is not given a post it could not get in time - nor a weekly class told about in the three weeks around
+  // ("Faste hold": "Hver 4. uge"; it is in "Ugens events" all the same).
+  const series = options.series ?? await seriesMap(db, now);
+  const fresh = chosen.filter(e => {
+    if (known.has(`event:${week}:${e.key}`) || e.startsMs <= now + 2 * 3_600_000) return false;
+    const told = series.get(titleKey(e)) ?? [];
+    if (told.some(t => t !== e.startsMs && Math.abs(t - e.startsMs) < SERIES_GAP_MS)) return false;
+    series.set(titleKey(e), [...told, e.startsMs]);
+    return true;
+  });
   if (planned && !fresh.length) return { made: 0, events: chosen.length, fresh: 0 };
   const words = await weekWords(env, deps, fresh);
   const account = await socialAccount(db);
@@ -353,20 +371,59 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
       source: { instagramText: weekText(week, words.intro, listed, "instagram"), events: listed.map(eventSource), collaborators: await instagramNames(db, chosen.map(e => e.host)) },
       publishAtMs: weekPostTime(monday, notBefore) }, now)) made++;
   }
-  const times = eventPostTimes(fresh, notBefore, await takenSlots(db, now), earliest);
-  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now));
+  // "to shouts på hvert medie": the first post in its window now; the reminder a week before is made by planShouts.
+  const windows = fresh.map(e => shoutWindows(e.startsMs, now));
+  const times = eventPostTimes(fresh, notBefore, await takenSlots(db, now), windows.map(w => w[0]!.earliest), windows.map(w => w[0]!.latest));
+  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now), windows.map(w => w[0]!.latest));
   for (const [i, e] of fresh.entries()) {
     // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
     const text = words.events[`E${i + 1}`] ?? plainEventText(e);
     const both = Boolean(account?.ig_user_id && e.imageUrl);
     if (await insertPost(db, { kind: "event", sourceKey: `event:${week}:${e.key}`, week, channels: both ? ["facebook", "instagram"] : ["facebook"], text,
-      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
+      link: e.link, images: e.imageUrl ? [e.imageUrl] : [], source: { ...eventSource(e), shout: 1, shouts: windows[i]!.length as 1 | 2, ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [e.host]), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) },
       publishAtMs: times[i]! }, now)) made++;
   }
   return { made, events: chosen.length, fresh: fresh.length };
 }
 
 const titleKey = (e: Pick<NewsletterEvent, "title">) => listTitle(e.title).toLocaleLowerCase("da-DK");
+
+/** The events told about lately and ahead, by title: a weekly class gets its own posts every fourth week (SERIES_GAP_MS). */
+async function seriesMap(db: D1Database, nowMs: number): Promise<Map<string, number[]>> {
+  const rows = await db.prepare(`SELECT DISTINCT json_extract(source, '$.title') AS title, json_extract(source, '$.startsMs') AS starts FROM social_posts WHERE kind = 'event'
+      AND status IN ('draft', 'approved', 'publishing', 'published') AND json_extract(source, '$.startsMs') > ?`).bind(nowMs - 28 * 86_400_000)
+    .all<{ title: string | null; starts: number | null }>().then(r => r.results ?? []).catch(() => []);
+  const map = new Map<string, number[]>();
+  for (const r of rows) if (r.title && r.starts) map.set(titleKey({ title: r.title }), [...(map.get(titleKey({ title: r.title })) ?? []), r.starts]);
+  return map;
+}
+
+/** "to shouts på hvert medie": every event whose first post is planned (or out) and that still has a week before it gets its second - the reminder, with
+ * words of its own - in its window 7-9 days before. Approving one of an event's posts approves both (decidePost). Returns how many were made. */
+export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const now = deps.now();
+  const firsts = (await socialPosts(db, `kind = 'event' AND coalesce(json_extract(source, '$.shout'), 1) = 1 AND status IN ('draft', 'approved', 'publishing', 'published')
+      AND json_extract(source, '$.startsMs') > ? AND NOT EXISTS (SELECT 1 FROM social_posts t WHERE t.source_key = social_posts.source_key || ':2')`, [now], "json_extract(source, '$.startsMs'), id", 60))
+    .filter(p => p.source.startsMs && p.source.key && shoutWindows(p.source.startsMs, now).length === 2);
+  if (!firsts.length) return 0;
+  const events = firsts.map(p => ({ key: p.source.key!, title: p.source.title ?? "", startsMs: p.source.startsMs!, host: p.source.host ?? null, description: "", link: p.link ?? "",
+    imageUrl: p.images[0] ?? null, endsMs: null, category: null, mornings: false }) as NewsletterEvent);
+  const words = await weekWords(env, deps, events, true);
+  const second = events.map(e => shoutWindows(e.startsMs, now)[1]!);
+  const notBefore = now + 30 * MINUTE;
+  const times = eventPostTimes(events, notBefore, await takenSlots(db, now), second.map(w => w.earliest), second.map(w => w.latest));
+  const igTimes = instagramPostTimes(events, times, notBefore, await instagramSlots(db, now), second.map(w => w.latest));
+  let made = 0;
+  for (const [i, p] of firsts.entries()) {
+    const text = words.events[`E${i + 1}`] ?? `Om en uge: ${p.text}`;
+    const ig = p.channels.includes("instagram");
+    const { video: _v, videoTemplate: _t, videoAtMs: _a, videoNotifiedAtMs: _n, videoAsk: _q, videoChoices: _c, videoChoicesTold: _ct, stillAsk: _s, noVideo: _o, instagramAtMs: _i, ...rest } = p.source;
+    if (await insertPost(db, { kind: "event", sourceKey: `${p.source_key}:2`, week: p.week, channels: p.channels, text, link: p.link, images: p.images,
+      source: { ...rest, shout: 2, shouts: 2, ...(ig ? { instagramText: instagramEventText(text), ...(igTimes[i] !== times[i] ? { instagramAtMs: igTimes[i] } : {}) } : {}) }, publishAtMs: times[i]! }, now)) made++;
+    if (p.source.shouts !== 2) await db.prepare("UPDATE social_posts SET source = json_set(source, '$.shouts', 2) WHERE id = ?").bind(p.id).run();
+  }
+  return made;
+}
 
 /** The times already taken by an event's post (any week - a post now goes out as soon as may be, not in its event's week). */
 async function takenSlots(db: D1Database, nowMs: number): Promise<number[]> {
@@ -393,11 +450,14 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (!(await claimJob(db, "social_top_up", Math.floor(now / 3_600_000) * 3_600_000, now))) return 0;
   if (await claimJob(db, "social_balance_retime", 0, now)) { await retimeUntouched(db, now); await addInstagram(db, now); }
   if (await claimJob(db, "social_instagram_times", 0, now)) await instagramOwnTimes(db, now);
+  // The new plan (the chair, 5 Nov 2026: "Så vi skal have lavet en ny planlægning"): once, the proposals are planned again by it.
+  if (await claimJob(db, "social_shouts_v1", 0, now)) await replanForShouts(db, now);
   await retimeOverdue(db, now);
   let fresh = 0;
-  const titles = new Set<string>();
+  const series = await seriesMap(db, now);
   for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
-    fresh += (await planWeek(env, deps, db, monday, { eventsOnly: true, titles })).fresh;
+    fresh += (await planWeek(env, deps, db, monday, { eventsOnly: true, series })).fresh;
+  fresh += await planShouts(env, deps, db);
   if (fresh) await tellChair(env, deps, `Saga har lavet ${fresh === 1 ? "et forslag til et opslag om et nyt event" : `forslag til opslag om ${fresh} nye events`}. Se ${fresh === 1 ? "det" : "dem"} i PR-kalenderen, og godkend: ${cockpitUrl(env)}/pr/kalender`);
   return fresh;
 }
@@ -413,23 +473,65 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
   }
 }
 
-/** Asked (the chair, 4 Nov 2026): "Er det rigtigt forstået, at opslaget bliver sendt ud på begge medier på samme tid?" - some proposals stood at a time
- * that had passed before they were approved (and so kept one time for both). Every hour: a proposal nobody has changed whose time has come without the
- * chair's yes, for an event that has not begun, gets the next free time again - Facebook's and Instagram's own. */
+/** Asked (the chair, 4 Nov 2026): "Er det rigtigt forstået, at opslaget bliver sendt ud på begge medier på samme tid?" - and (5 Nov 2026): "Hvis et event
+ * ikke er blevet delt ifølge planen (fordi jeg ikke har godkendt det) skal Saga replanlægge kommende events." Every hour: a proposal whose time has come
+ * without the chair's yes gets the next free time inside its window - the first post at the latest ten days before when the event has a second, the
+ * second (or only) one the day before at the latest - and is set aside when its window has passed. */
 async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
-  const late = (await socialPosts(db, `kind = 'event' AND status = 'draft' AND updated_at_ms = created_at_ms
+  const late = (await socialPosts(db, `kind = 'event' AND status = 'draft'
       AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
     .filter(p => p.source.startsMs);
   if (!late.length) return;
   const ids = new Set(late.map(p => p.id));
   const others = await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ?", [nowMs - 86_400_000], "publish_at_ms, id", 1000);
   const rest = others.filter(p => !ids.has(p.id));
+  // The first post keeps to ten days before only when its reminder is really there; else it is the event's only post, up to the day before.
+  const withReminder = new Set((await db.prepare("SELECT source_key FROM social_posts WHERE source_key LIKE '%:2' AND status IN ('draft', 'approved', 'publishing', 'published')").all<{ source_key: string }>()
+    .then(r => r.results ?? []).catch(() => [])).map(r => r.source_key.slice(0, -2)));
+  const latestOf = (p: SocialPost) => p.source.shout !== 2 && withReminder.has(p.source_key) ? at(dateOf(p.source.startsMs! - 10 * 86_400_000), 23, 59) : lastPostMs(p.source.startsMs!);
+  const latest = late.map(latestOf);
   const events = late.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
-  const fb = eventPostTimes(events, nowMs + 30 * MINUTE, rest.map(p => p.publish_at_ms!));
-  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!));
+  const fb = eventPostTimes(events, nowMs + 30 * MINUTE, rest.map(p => p.publish_at_ms!), [], latest);
+  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest);
   for (const [i, p] of late.entries()) {
+    if (fb[i]! > latest[i]! || fb[i]! < nowMs) {
+      await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'")
+        .bind(p.source.shout === 2 ? "Tiden for påmindelsen gik, uden at den blev godkendt" : "Tiden for 1. opslag gik, uden at det blev godkendt - 2. opslag står tilbage", nowMs, p.id).run();
+      continue;
+    }
     const source = { ...p.source, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
-    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(fb[i], JSON.stringify(source), p.id).run();
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(fb[i], JSON.stringify(source), p.id).run();
+  }
+}
+
+/** Once (the new plan): the waiting proposals for the events ahead. A weekly class told about in the three weeks around is set aside ("Hver 4. uge"), and
+ * the rest get their first post's time in its window (shoutWindows); planShouts then adds the second. Approved posts stay as they are. */
+async function replanForShouts(db: D1Database, nowMs: number): Promise<void> {
+  const drafts = (await socialPosts(db, "kind = 'event' AND status = 'draft' AND json_extract(source, '$.startsMs') > ?", [nowMs + 3 * 3_600_000], "json_extract(source, '$.startsMs'), id", 500))
+    .filter(p => p.source.startsMs && p.source.shout !== 2);
+  const kept = await socialPosts(db, "kind = 'event' AND status IN ('approved', 'publishing', 'published') AND json_extract(source, '$.startsMs') > ?", [nowMs - 28 * 86_400_000], "id", 1000);
+  const series = new Map<string, number[]>();
+  for (const p of kept) if (p.source.title && p.source.startsMs) series.set(titleKey({ title: p.source.title }), [...(series.get(titleKey({ title: p.source.title })) ?? []), p.source.startsMs]);
+  const keep: SocialPost[] = [];
+  for (const p of drafts) {
+    const k = titleKey({ title: p.source.title ?? "" }), told = series.get(k) ?? [];
+    if (told.some(t => t !== p.source.startsMs && Math.abs(t - p.source.startsMs!) < SERIES_GAP_MS)) {
+      await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Fast hold: deles hver 4. uge - denne gang kun i Ugens events', updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(nowMs, p.id).run();
+      continue;
+    }
+    series.set(k, [...told, p.source.startsMs!]);
+    keep.push(p);
+  }
+  if (!keep.length) return;
+  const ids = new Set(keep.map(p => p.id));
+  const others = (await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ?", [nowMs - 86_400_000], "publish_at_ms, id", 1000)).filter(p => !ids.has(p.id));
+  const windows = keep.map(p => shoutWindows(p.source.startsMs!, nowMs)[0]!);
+  const events = keep.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
+  const fb = eventPostTimes(events, nowMs + 30 * MINUTE, others.map(p => p.publish_at_ms!), windows.map(w => w.earliest), windows.map(w => w.latest));
+  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, others.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), windows.map(w => w.latest));
+  for (const [i, p] of keep.entries()) {
+    const source = { ...p.source, shout: 1, shouts: shoutWindows(p.source.startsMs!, nowMs).length, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(fb[i], JSON.stringify(source), p.id).run();
   }
 }
 
@@ -455,10 +557,9 @@ async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
   const ids = new Set(movable.map(r => r.id));
   const taken = (await db.prepare("SELECT id, publish_at_ms FROM social_posts WHERE kind = 'event' AND publish_at_ms >= ? AND status IN ('draft', 'approved', 'publishing', 'published')").bind(nowMs - 86_400_000)
     .all<{ id: number; publish_at_ms: number }>().then(r => r.results ?? []).catch(() => [])).filter(r => !ids.has(r.id)).map(r => r.publish_at_ms);
-  const titles = new Set<string>();
   const events = movable.map(r => ({ title: r.title ?? "", startsMs: r.starts! }) as NewsletterEvent);
-  const earliest = events.map(e => { const k = titleKey(e), seen = titles.has(k); titles.add(k); return seen ? e.startsMs - REPEAT_LEAD_MS : 0; });
-  const times = eventPostTimes(events, nowMs + 30 * MINUTE, taken, earliest);
+  const windows = events.map(e => shoutWindows(e.startsMs, nowMs)[0]!);
+  const times = eventPostTimes(events, nowMs + 30 * MINUTE, taken, windows.map(w => w.earliest), windows.map(w => w.latest));
   for (const [i, r] of movable.entries()) if (times[i]! !== r.publish_at_ms)
     await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(times[i], r.id).run();
 }
@@ -833,7 +934,8 @@ export { mondayOf, nextMonday, weekKey };
 /** Requested (the chair, 3 Nov 2026): "I forhold til designskabelonerne skal vi kun bruge dem til sociale medier, og derfor er hele tanken, at jeg kan generere et
  * design til et social media-post." The open post of an event (draft, approved or failed - not one that has gone out), for Plakater og opslag. */
 export async function eventPost(db: D1Database, key: string): Promise<SocialPost | null> {
-  const [post] = await socialPosts(db, "kind = 'event' AND json_extract(source, '$.key') = ? AND status IN ('draft', 'approved', 'failed')", [key], "publish_at_ms DESC, id DESC", 1);
+  // The event's first post still waiting ("to shouts": the reminder after it).
+  const [post] = await socialPosts(db, "kind = 'event' AND json_extract(source, '$.key') = ? AND status IN ('draft', 'approved', 'failed')", [key], "coalesce(json_extract(source, '$.shout'), 1), publish_at_ms, id", 1);
   return post ?? null;
 }
 

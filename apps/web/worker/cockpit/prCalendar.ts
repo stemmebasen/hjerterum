@@ -43,7 +43,8 @@ export function calendarHref(base: string, p: SocialPost): string {
   return `${base}/pr/uge?uge=${monday}#opslag-${p.id}`;
 }
 
-const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}` : p.source.title ?? "Event";
+const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}`
+  : `${p.source.title ?? "Event"}${p.source.shout === 2 ? " · påmindelse" : ""}`;
 const where = (p: SocialPost) => p.channels.map(c => c === "instagram" ? (p.kind === "event" && p.source.video && !p.source.noVideo ? "IG ▶" : "IG") : "FB").join(" + ");
 
 export function prCalendarSection(base: string, d: CalendarData): string {
