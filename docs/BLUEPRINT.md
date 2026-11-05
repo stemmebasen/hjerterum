@@ -1110,6 +1110,23 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Højst 3 opslag om dagen, intet opslag samme dag, flueben i kalenderen (2026-11-05)
+
+- **Højst 3 om dagen.** Formanden spurgte: "Hvorfor har du lagt så mange ind? Er det, fordi vi er i sidste øjeblik?"
+  - Den nye plan lagde 8 opslag på én dag, fordi alle de næste to ugers events var "sene".
+  - Nu får et sent events 1. opslag kun en tid, når der er plads inden for dagens tre (`placeFirsts` i `plan.ts`). Ellers får eventet ét samlet opslag 7–9 dage før.
+  - De ventende forslag er planlagt om én gang efter det (`social_shouts_v2`). Påmindelser, der stod som udkast, er lavet på ny i deres vinduer.
+- **Intet opslag samme dag uden formandens ja.** Formanden: "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag."
+  - Saga foreslår aldrig selv et opslag på eventets dag.
+  - På plakatsiden kan formanden lave et efter en advarsel ("nødstilfælde").
+- **Aldrig om natten, mere luft:**
+  - Formanden: "Der er tre forskellige events, der bliver publiceret på samme tidspunkt ... 0:30". De tre var events på selve dagen; deres forslag er lagt til side.
+  - En nødtid er altid et af dagens faste klokkeslæt, aldrig om natten.
+  - Formanden: "Det er muligt at skabe meget mere luft imellem tidspunkterne". Der er nu mindst 3 timer mellem opslag på samme medie (9, 12, 15 eller 12, 15, 19.30).
+  - Instagram bruger aldrig samme klokkeslæt som et andet opslag på Facebook.
+- **Flueben.** Formanden: "Marker med et flueben, når et event i kalenderen har godkendt PR, og ligger klar til afsendelse." Kalenderen viser ✓ ved godkendte opslag.
+- **Dobbelt "Hjerterum".** Formanden: "Det er en fejl, at der står »hjerterum« i »hjerterum«." Designet "Aften" skriver kun "HJERTERUM", når ordet over titlen er "I Hjerterum".
+
 ## Plakatsiden: eget billede og opslag til et event uden (2026-11-05)
 
 - **Eget billede.** Formanden: "Her bør det også gøres muligt at uploade et billede selv, der kan bruges. Og selvfølgelig skal indsendte billeder også være tilgængelige her under et pågældende event."

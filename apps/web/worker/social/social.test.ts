@@ -69,7 +69,7 @@ describe("the week's plan", () => {
     // Requested (5 Nov): "Medlemscafeen promoveres ikke på selve dagen men senest dagen før. Det gælder for alle events." D (today 16.00) was put in the
     // calendar too late for the day before, so it goes as soon as may be; A-C one a day at 15.00, from today - the day before at the latest.
     // (D's post today counts in today's tally, so A-C spread from tomorrow.)
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T09:00:00.000Z"]);
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
     // The members' café tomorrow at 16.00: today, never tomorrow - also when today's times are taken.
     const cafe = event("k", "Medlemscafé", "2026-11-06T15:00:00Z");
     expect(new Date(eventPostTimes([cafe], NOW)[0]!).toISOString().slice(0, 10)).toBe("2026-11-05");

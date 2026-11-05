@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { connectSocial, decidePost, planWeek, proposeEventPost, socialPosts, topUpWeeks } from "./social.js";
-import { dateOf, placeFirsts, shoutWindows } from "./plan.js";
+import { dateOf, eventPostTimes, instagramPostTimes, placeFirsts, shoutWindows } from "./plan.js";
 import type { NewsletterEvent } from "../newsletter.js";
 
 // Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på
@@ -77,5 +77,19 @@ describe("two posts on each medium for every event", () => {
     expect(await proposeEventPost(env as never, deps(services.fetcher, NOW), db, "mw:SFtoday")).toBe("today");
     expect(await proposeEventPost(env as never, deps(services.fetcher, NOW), db, "mw:SFtoday", true)).toBe("ok");
     expect(await socialPosts(db, "kind = 'event'")).toHaveLength(1);
+  });
+
+  // Reported: "Der er tre forskellige events, der bliver publiceret på samme tidspunkt ... 0:30" and "Det er muligt at skabe meget mere luft imellem tidspunkterne".
+  it("never gives a time in the night, keeps three hours between a medium's posts, and Instagram off Facebook's minutes", () => {
+    const midnight = Date.parse("2026-11-05T23:20:00Z"); // 00.20 Danish time
+    const today = [0, 1, 2].map(i => ({ key: `mw:t${i}`, title: `T${i}`, startsMs: Date.parse("2026-11-06T17:30:00Z") + i * 3_600_000 }) as NewsletterEvent);
+    const times = eventPostTimes(today, midnight + 30 * 60_000);
+    for (const t of times) expect(Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", hour: "2-digit", hourCycle: "h23" }).format(t))).toBeGreaterThanOrEqual(9);
+    const week = Array.from({ length: 6 }, (_, i) => ({ key: `mw:w${i}`, title: `W${i}`, startsMs: NOW + 20 * DAY + i * 3_600_000 }) as NewsletterEvent);
+    const fb = eventPostTimes(week, NOW);
+    const byDay = new Map<string, number[]>(); for (const t of fb) byDay.set(dateOf(t), [...(byDay.get(dateOf(t)) ?? []), t]);
+    for (const day of byDay.values()) { day.sort((a, b) => a - b); for (let i = 1; i < day.length; i++) expect(day[i]! - day[i - 1]!).toBeGreaterThanOrEqual(3 * 3_600_000); }
+    const ig = instagramPostTimes(week, fb, NOW);
+    expect(ig.some(t => fb.includes(t) && fb.indexOf(t) !== ig.indexOf(t))).toBe(false);
   });
 });

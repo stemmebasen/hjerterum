@@ -316,10 +316,11 @@ export async function proposeEventPost(env: SocialEnv, deps: SagaDeps, db: D1Dat
   const account = await socialAccount(db);
   const windows = shoutWindows(event.startsMs, now);
   const notBefore = now + 30 * MINUTE;
-  const placed = placeFirsts([event], [windows], notBefore, await takenSlots(db, now));
+  const fbTaken = await takenSlots(db, now);
+  const placed = placeFirsts([event], [windows], notBefore, fbTaken);
   const time = placed.times[0]!;
   const both = Boolean(account?.ig_user_id && event.imageUrl);
-  const [igTime] = both ? instagramPostTimes([event], [time], notBefore, await instagramSlots(db, now), placed.latest) : [time];
+  const [igTime] = both ? instagramPostTimes([event], [time], notBefore, await instagramSlots(db, now), placed.latest, fbTaken) : [time];
   const text = (await weekWords(env, deps, [event])).events.E1 ?? plainEventText(event);
   const source = { key: event.key, title: event.title, startsMs: event.startsMs, host: event.host, shout: 1, shouts: placed.single[0] ? 1 : windows.length,
     ...(both ? { instagramText: instagramEventText(text), collaborators: await instagramNames(db, [event.host]), ...(igTime !== time ? { instagramAtMs: igTime } : {}) } : {}) };
@@ -408,8 +409,9 @@ export async function planWeek(env: SocialEnv, deps: SagaDeps, db: D1Database, m
   }
   // "to shouts på hvert medie": the first post in its window now; the reminder a week before is made by planShouts.
   const windows = fresh.map(e => shoutWindows(e.startsMs, now));
-  const { times, single, latest } = placeFirsts(fresh, windows, notBefore, await takenSlots(db, now));
-  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now), latest);
+  const fbTaken = await takenSlots(db, now);
+  const { times, single, latest } = placeFirsts(fresh, windows, notBefore, fbTaken);
+  const igTimes = instagramPostTimes(fresh, times, notBefore, await instagramSlots(db, now), latest, fbTaken);
   for (const [i, e] of fresh.entries()) {
     // On Instagram too, when it is connected and the event has a picture ("på begge medier, når som helst det er muligt").
     const text = words.events[`E${i + 1}`] ?? plainEventText(e);
@@ -446,8 +448,9 @@ export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database)
   const words = await weekWords(env, deps, events, true);
   const second = events.map(e => shoutWindows(e.startsMs, now)[1]!);
   const notBefore = now + 30 * MINUTE;
-  const times = eventPostTimes(events, notBefore, await takenSlots(db, now), second.map(w => w.earliest), second.map(w => w.latest));
-  const igTimes = instagramPostTimes(events, times, notBefore, await instagramSlots(db, now), second.map(w => w.latest));
+  const fbTaken = await takenSlots(db, now);
+  const times = eventPostTimes(events, notBefore, fbTaken, second.map(w => w.earliest), second.map(w => w.latest));
+  const igTimes = instagramPostTimes(events, times, notBefore, await instagramSlots(db, now), second.map(w => w.latest), fbTaken);
   let made = 0;
   for (const [i, p] of firsts.entries()) {
     const text = words.events[`E${i + 1}`] ?? `Om en uge: ${p.text}`;
@@ -530,7 +533,7 @@ async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
   const events = late.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
   // A first post with its reminder there gives way when the day's three are full (the reminder tells about the event).
   const fb = eventPostTimes(events, nowMs + 30 * MINUTE, rest.map(p => p.publish_at_ms!), [], latest, late.map(p => p.source.shout !== 2 && withReminder.has(p.source_key)));
-  const ig = instagramPostTimes(events, fb.map((t, i) => Number.isNaN(t) ? latest[i]! : t), nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest);
+  const ig = instagramPostTimes(events, fb.map((t, i) => Number.isNaN(t) ? latest[i]! : t), nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest, rest.map(p => p.publish_at_ms!));
   for (const [i, p] of late.entries()) {
     if (Number.isNaN(fb[i]!) || fb[i]! > latest[i]! || fb[i]! < nowMs) {
       await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'")
@@ -552,6 +555,11 @@ async function replanForShouts(db: D1Database, nowMs: number): Promise<void> {
   for (const p of kept) if (p.source.title && p.source.startsMs) series.set(titleKey({ title: p.source.title }), [...(series.get(titleKey({ title: p.source.title })) ?? []), p.source.startsMs]);
   const keep: SocialPost[] = [];
   for (const p of drafts) {
+    // On the day itself only when the chair says so ("et nødstilfælde").
+    if (lastPostMs(p.source.startsMs!) < nowMs + 30 * MINUTE) {
+      await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Eventet er i dag - opslag samme dag kun i nødstilfælde (lav det på plakatsiden)', updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(nowMs, p.id).run();
+      continue;
+    }
     const k = titleKey({ title: p.source.title ?? "" }), told = series.get(k) ?? [];
     if (told.some(t => t !== p.source.startsMs && Math.abs(t - p.source.startsMs!) < SERIES_GAP_MS)) {
       await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Fast hold: deles hver 4. uge - denne gang kun i Ugens events', updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(nowMs, p.id).run();
@@ -569,7 +577,7 @@ async function replanForShouts(db: D1Database, nowMs: number): Promise<void> {
   const reminders = new Set(keep.map(p => `${p.source_key}:2`));
   const free = others.filter(p => !(p.status === "draft" && reminders.has(p.source_key)));
   const { times: fb, single, latest } = placeFirsts(events, windows, nowMs + 30 * MINUTE, free.map(p => p.publish_at_ms!));
-  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, free.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest);
+  const ig = instagramPostTimes(events, fb, nowMs + 30 * MINUTE, free.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest, free.map(p => p.publish_at_ms!));
   for (const [i, p] of keep.entries()) {
     const source = { ...p.source, shout: 1, shouts: single[i] ? 1 : windows[i]!.length, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
     await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(fb[i], JSON.stringify(source), p.id).run();
