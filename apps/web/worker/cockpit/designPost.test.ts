@@ -1,3 +1,4 @@
+import { setSiteLive } from "../public-site.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -19,6 +20,8 @@ describe("a design from Plakater og opslag in an event's post", () => {
   it("becomes the post's picture on Facebook and Instagram, and the post waits for the chair again", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
+    // These posts are written for the day the new website is in use (public-site.ts).
+    await setSiteLive(db, true, "test", 0);
     const services = fakeServices({ ai: () => "{}" });
     const objects = new Map<string, Uint8Array>();
     const media = { put: async (k: string, v: ArrayBuffer) => { objects.set(k, new Uint8Array(v)); return {}; }, get: async (k: string) => objects.has(k) ? { body: new Blob([objects.get(k)!.slice()]).stream() } : null, delete: async () => undefined } as unknown as EventMediaBucket;
@@ -69,6 +72,8 @@ describe("a design from Plakater og opslag in an event's post", () => {
   it("publishes the finished post from the studio: the picture, the words as the chair left them, and at once when asked", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
+    // These posts are written for the day the new website is in use (public-site.ts).
+    await setSiteLive(db, true, "test", 0);
     const services = fakeServices({ ai: () => "{}" });
     const objects = new Map<string, Uint8Array>();
     const media = { put: async (k: string, v: ArrayBuffer) => { objects.set(k, new Uint8Array(v)); return {}; }, get: async () => null, delete: async () => undefined } as unknown as EventMediaBucket;

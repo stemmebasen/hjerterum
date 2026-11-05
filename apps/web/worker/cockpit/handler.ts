@@ -1,3 +1,4 @@
+import { setSiteLive, siteLive, toPublicSite } from "../public-site.js";
 import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
 import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, makeFolder, MAX_UPLOAD_BYTES, uploadFile, type ArchiveObject } from "../archive.js";
 import { copiesPage, fileArchivePage } from "./filearchivePage.js";
@@ -966,7 +967,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const monday = ahead.includes(asked) ? asked : coming;
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
-        "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet." };
+        "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres." };
@@ -977,7 +979,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         ...(tab === "mails" ? { mails: await prMailData(db) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
-        week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now,
+        week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now, siteLive: await siteLive(db),
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
       return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
@@ -1010,6 +1012,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (request.method !== "POST") return html(notFound(base, who), 404);
     const form = await request.formData().catch(() => null);
     const field = (name: string) => String(form?.get(name) ?? "");
+    // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" (public-site.ts).
+    if (path === "/pr/hjemmeside" && request.method === "POST") {
+      const live = String((await request.formData().catch(() => null))?.get("live") ?? "") === "1";
+      await setSiteLive(db, live, who, now);
+      await audit(db, actor, "social.manage", live ? "Opslag og nyhedsbrev linker nu til den nye hjemmeside" : "Opslag og nyhedsbrev linker igen til den gamle hjemmeside", now);
+      return back(`besked=${live ? "ny-side" : "gammel-side"}`);
+    }
     if (path === "/pr/afbryd") {
       await disconnectSocial(db);
       await audit(db, actor, "social.manage", "Afbrød forbindelsen til Facebook og Instagram", now);
@@ -1173,7 +1182,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if ((path === "/arrangementer/nyhedsbrev/vis" || path === "/arrangementer/nyhedsbrev/html") && request.method === "GET") {
       const issue = await getIssue(db, month);
       if (!issue) return back();
-      const mail = newsletterHtml(issue, await monthEvents(db, month, deps.fetcher));
+      const mail = await toPublicSite(db, newsletterHtml(issue, await monthEvents(db, month, deps.fetcher)));
       // The mail as it will arrive: its own pictures and fonts, shown inside the page above (same origin only).
       return new Response(mail, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-robots-tag": "noindex, nofollow", "referrer-policy": "same-origin",
         "x-frame-options": "SAMEORIGIN", "content-security-policy": "default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'self'; form-action 'none'; base-uri 'none'",

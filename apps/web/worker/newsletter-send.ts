@@ -1,3 +1,4 @@
+import { toPublicSite } from "./public-site.js";
 import type { D1Database } from "./db.js";
 import { DRAFT_FROM_DAY, getIssue, monthEvents, monthOf, monthName, newsletterHtml, nextMonth, sendTime, writeIssue, type Issue } from "./newsletter.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
@@ -73,7 +74,8 @@ export function mailchimp(apiKey: string, fetcher: SagaDeps["fetcher"]) {
 export async function sendIssue(env: NewsletterEnv, deps: SagaDeps, db: D1Database, issue: Issue): Promise<void> {
   if (!env.MAILCHIMP_API_KEY) throw new Error("mailchimp_not_configured");
   const mc = mailchimp(env.MAILCHIMP_API_KEY, deps.fetcher);
-  const html = newsletterHtml(issue, await monthEvents(db, issue.month, deps.fetcher));
+  // The old website's addresses while the new one is not in use (public-site.ts).
+  const html = await toPublicSite(db, newsletterHtml(issue, await monthEvents(db, issue.month, deps.fetcher)));
   let id = issue.campaign_id;
   if (!id) {
     const [group, from] = await Promise.all([mc.monthlyInterest(MAILCHIMP_LIST_ID), mc.defaults(MAILCHIMP_LIST_ID)]);
