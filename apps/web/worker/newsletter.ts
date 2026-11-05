@@ -1,6 +1,6 @@
 import type { D1Database } from "./db.js";
 import { isPartnerEvent } from "../partner-events.js";
-import { membershipWorksListUrl, parseMembershipWorksList, type MembershipWorksList } from "./external-events.js";
+import { isCancelledEvent, membershipWorksListUrl, parseMembershipWorksList, type MembershipWorksList } from "./external-events.js";
 import { completeAs } from "./saga/ai.js";
 import type { SagaDeps, SagaEnv } from "./saga/env.js";
 import { designUrl } from "./event-designs.js";
@@ -95,7 +95,8 @@ export async function monthEvents(db: D1Database, month: string, fetcher?: typeo
     r.description = await fetcher(`https://api.membershipworks.com/v2/event?eid=${r.id.slice(2)}&org=22308`, { headers: { accept: "application/json" } })
       .then(async res => res.ok ? ((await res.json()) as { dtl?: string }).dtl ?? null : null).catch(() => null);
   }));
-  const house = calendar.filter(e => !isPartnerEvent(e));
+  // A cancelled event ("- Aflyst -" in its title or at the start of its text) is neither in the newsletter nor in PR (external-events.ts).
+  const house = calendar.filter(e => !isPartnerEvent(e) && !isCancelledEvent({ title: e.title, description: e.description }));
   const own = await db.prepare(`SELECT b.id, b.title, b.teacher_name, b.description, b.starts_at_ms, b.ends_at_ms,
       (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id,
       (SELECT d.created_at_ms FROM room_booking_designs d WHERE d.room_booking_id = b.id) AS design_at

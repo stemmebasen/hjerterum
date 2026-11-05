@@ -530,6 +530,20 @@ async function eventStillOn(db: D1Database, key: string): Promise<boolean> {
   return true;
 }
 
+/** Requested (5 Nov 2026): "Når et event er aflyst bør det fjernes fra listen" - "Altså i PR - også i pr kalenderen". A post Saga proposed (or the chair
+ * approved) for an event that has since been cancelled or taken off the calendar is set aside, so it leaves the PR calendar and never goes out. */
+export async function retireCancelled(db: D1Database, nowMs: number): Promise<number> {
+  const waiting = await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved')", [], "publish_at_ms, id", 500);
+  let retired = 0;
+  for (const post of waiting) {
+    const key = post.source.key;
+    if (!key || await eventStillOn(db, key)) continue;
+    const done = await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Eventet er aflyst eller fjernet fra kalenderen', updated_at_ms = ? WHERE id = ? AND status IN ('draft', 'approved')").bind(nowMs, post.id).run();
+    retired += done.meta?.changes ?? 0;
+  }
+  return retired;
+}
+
 /** Every round: the approved posts whose time has come go out, each once. An event's post whose event has begun is not sent late. */
 export async function publishDue(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const due = await socialPosts(db, "status = 'approved' AND (publish_at_ms <= ? OR json_extract(source, '$.instagramAtMs') <= ?)", [deps.now(), deps.now()], "publish_at_ms, id", 5);
@@ -588,6 +602,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (!db || !(await socialAccount(db))) return;
   const now = deps.now();
   await releaseStuck(db, now);
+  await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
   await publishDue(env, deps, db).catch(error => console.warn("social_publish_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
     await scanTags(env, deps, db).catch(error => console.warn("social_tags_failed", error instanceof Error ? error.message : error));

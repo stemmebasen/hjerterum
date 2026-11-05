@@ -87,6 +87,10 @@ export function pickWeekEvents(events: NewsletterEvent[], wished: Set<string>, m
 
 // ---- When ----
 
+/** Requested (the chair, 5 Nov 2026): "Medlemscafeen promoveres ikke på selve dagen men senest dagen før. Det gælder for alle events." The last
+ * moment an event's post may go out: the end of the day before (Danish time). */
+export const lastPostMs = (startsMs: number) => Math.min(at(addDays(dateOf(startsMs), -1), 23, 59), startsMs - 2 * 3_600_000);
+
 /** Requested (the chair, 3 Nov 2026): "Det er også helt forkert, at der først skal fortælles om eventet dagen før. Det bør optimalt set være hurtigst
  * muligt." When each event's post goes out: the first free slot (POST_HOURS) from `earliest[i]` (else `notBeforeMs`) on,
  * the events nearest in time first - never after it has begun (two hours before at the latest), never before `notBeforeMs`, and never two posts in one
@@ -96,7 +100,7 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
   const out: number[] = new Array(events.length);
   const order = events.map((e, i) => i).sort((a, b) => events[a]!.startsMs - events[b]!.startsMs);
   for (const i of order) {
-    const e = events[i]!, from = Math.max(notBeforeMs, earliest[i] ?? 0), last = e.startsMs - 2 * 3_600_000;
+    const e = events[i]!, from = Math.max(notBeforeMs, earliest[i] ?? 0), last = lastPostMs(e.startsMs);
     // Asked: "Det virker heller ikke så balanceret, at der bliver udsendt fem på én dag, tre den næste og så kun én dagene efter." The first few days
     // the post could go out on, and of those the day with the fewest posts (the earliest of equals) - soon, and evenly.
     const candidates: Array<{ slot: number; count: number }> = [];
@@ -107,10 +111,10 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
       if (free !== undefined) candidates.push({ slot: free, count: same.length });
     }
     const slot = candidates.length ? candidates.reduce((best, c) => c.count < best.count ? c : best).slot : null;
-    // No free slot before it begins: the first of the day's times that is still before it (even a fourth that day) - never a time in the night -
-    // and only when there is none, as soon as may be.
-    const anyTime = (() => { for (let day = dateOf(from); at(day, 0) <= e.startsMs; day = addDays(day, 1))
-      for (const [h, m] of POST_HOURS) { const t = at(day, h, m); if (t >= from && t <= e.startsMs - 3_600_000) return t; } return null; })();
+    // No free slot by the day before: the first of the day's times that is still in time (even a fourth that day) - never a time in the night -
+    // and only when there is none (an event put in the calendar on its own day), as soon as may be.
+    const anyTime = (() => { for (let day = dateOf(from); at(day, 0) <= last; day = addDays(day, 1))
+      for (const [h, m] of POST_HOURS) { const t = at(day, h, m); if (t >= from && t <= last) return t; } return null; })();
     out[i] = slot ?? anyTime ?? Math.max(notBeforeMs, Math.min(e.startsMs - 3_600_000, from));
     if (slot !== null) taken.add(slot);
   }
@@ -122,7 +126,7 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
 export function instagramPostTimes(events: NewsletterEvent[], facebookTimes: number[], notBeforeMs: number, alreadyTaken: number[] = []): number[] {
   const earliest = facebookTimes.map(t => t + POST_GAP_MS);
   return eventPostTimes(events, notBeforeMs, alreadyTaken, earliest).map((t, i) =>
-    t >= earliest[i]! && t <= events[i]!.startsMs - 2 * 3_600_000 && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
+    t >= earliest[i]! && t <= lastPostMs(events[i]!.startsMs) && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
 }
 
 /** A class that comes back (the same title in an earlier week) is told about in the week before each time, not all at once. */

@@ -65,8 +65,14 @@ describe("the week's plan", () => {
     // Thursday 5 November, 10.00 Danish time. Requested: "hurtigst muligt".
     const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-05T15:00:00Z")];
     const times = eventPostTimes(chosen, NOW);
-    // The nearest first: D (today 16.00) at 12.00 (15.00 is too close); then one a day at 15.00 - the emptiest of the first days.
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // Requested (5 Nov): "Medlemscafeen promoveres ikke på selve dagen men senest dagen før. Det gælder for alle events." D (today 16.00) was put in the
+    // calendar too late for the day before, so it goes as soon as may be; A-C one a day at 15.00, from today - the day before at the latest.
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-05T14:00:00.000Z", "2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-05T09:00:00.000Z"]);
+    // The members' café tomorrow at 16.00: today, never tomorrow - also when today's times are taken.
+    const cafe = event("k", "Medlemscafé", "2026-11-06T15:00:00Z");
+    expect(new Date(eventPostTimes([cafe], NOW)[0]!).toISOString().slice(0, 10)).toBe("2026-11-05");
+    const busy = eventPostTimes([cafe], NOW, [Date.parse("2026-11-05T11:00:00Z"), Date.parse("2026-11-05T14:00:00Z"), Date.parse("2026-11-05T18:30:00Z")]);
+    expect(new Date(busy[0]!).toISOString().slice(0, 10)).toBe("2026-11-05");
     // Many at once: soon and evenly - never more than three a day, and no day of the first ones left empty while another has three.
     const many = Array.from({ length: 9 }, (_, i) => event(`m${i}`, `M${i}`, "2026-11-20T18:00:00Z"));
     const perDay = new Map<string, number>(); for (const t of eventPostTimes(many, NOW)) { const d = new Date(t + 3_600_000).toISOString().slice(0, 10); perDay.set(d, (perDay.get(d) ?? 0) + 1); }
