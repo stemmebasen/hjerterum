@@ -172,7 +172,7 @@ describe("the PR cockpit", () => {
     expect(shares.find(p => p.source.id === "fb-1")).toMatchObject({ status: "draft", channels: ["facebook"], text: "Tak til Kasper for at dele sin workshop.", link: "https://www.facebook.com/kasper/posts/1" });
     // "simultant på begge medier, når som helst det er muligt": a photo goes to both from the start.
     expect(shares.find(p => p.source.id === "ig-1")).toMatchObject({ channels: ["facebook", "instagram"] });
-    expect(shares.find(p => p.source.id === "ig-1")!.source.instagramText).toContain("Foto og tekst: @gitta.dans");
+    expect(shares.find(p => p.source.id === "ig-1")!.source.instagramText).toContain("Foto: @gitta.dans");
     // A video cannot go up again on Instagram: it is offered as a link on Facebook.
     expect(shares.find(p => p.source.id === "ig-2")).toMatchObject({ channels: ["facebook"] });
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("tagget Hjerterum"))).toHaveLength(1);

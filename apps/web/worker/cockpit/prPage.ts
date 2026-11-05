@@ -97,15 +97,18 @@ function shareCard(base: string, p: SocialPost, account: SocialAccount | null, a
 <div class="pr-orig">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<p>${esc((s.text ?? "").slice(0, 500))}${(s.text ?? "").length > 500 ? " …" : ""}</p></div>
 ${s.sharedAt ? `<p class="small muted">Hjerterum har allerede delt det d. ${esc(SHARED_DAY.format(s.sharedAt))}. Du kan springe det over.</p>` : ""}
 ${s.network === "instagram" && s.media === "video" ? `<p class="small muted">Videoer kan ikke lægges op igen på Instagram herfra. Del den på Facebook som link, eller del den selv i appen.</p>` : ""}
-${instagramOk && !s.consent ? `<p class="small muted">Instagram har ingen "del"-knap for os: opslaget lægges op igen på Hjerterums profil med afsenderen nævnt. Gør det kun, når afsenderen har sagt ja.</p>` : ""}
+${instagramOk ? `<p class="small muted">Du skal ikke selv gøre noget i Instagram. Trykker du "Del nu" med Instagram valgt, lægger Saga billedet op på Hjerterums Instagram med teksten nedenfor og "Foto: @${esc((s.author ?? "").replace(/^@/, ""))}".${s.consent ? "" : " Gør det kun, når afsenderen er med på det."}</p>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>Hjerterums ord over delingen${instagramOk ? " (Facebook)" : ""}</span><textarea name="text" rows="3"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 ${instagramOk ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(s.instagramText ?? "")}</textarea></label>
-<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((s.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
+<label class="pr-field"><span>Vis også opslaget på deres Instagram (samarbejde)</span>${COLLAB_HELP}<input name="collaborators" value="${esc((s.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 ${writerRow(p, locked, ai)}
 ${channelBoxes(p, allowed, locked)}
 ${actions(base, p, "Del nu")}</form></article>`;
 }
+
+/** Asked (the chair, 5 Nov 2026): "Jeg forstår heller ikke, hvad der sker, når jeg inviterer ... Hvad er det, jeg inviterer til?" - Instagram's "collab". */
+const COLLAB_HELP = `<small class="pr-help">Instagram sender en invitation til dem, du skriver her. Siger de ja, står opslaget på både Hjerterums og deres profil med begge navne, så både vores og deres følgere ser det. Siger de nej eller svarer ikke, står det kun hos Hjerterum. Højst 3, adskilt med komma.</small>`;
 
 /** "Ugens events" as a reel, made by the weekly job (.github/workflows/ugens-reel.yml): the video, its words and its time; Instagram only. */
 function reelCard(base: string, p: SocialPost): string {
@@ -115,7 +118,7 @@ function reelCard(base: string, p: SocialPost): string {
 ${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
 <label class="pr-field"><span>Teksten på Instagram</span><textarea name="text" rows="8"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
-<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>
+<label class="pr-field"><span>Vis også opslaget på deres Instagram (samarbejde)</span>${COLLAB_HELP}<input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>
 <div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label></div>
 ${actions(base, p, "Godkend")}</form></article>`;
 }
@@ -137,7 +140,7 @@ ${p.kind === "event" && p.source.video ? `<div class="pr-video"><video src="${es
 ${p.kind === "event" && allowed.includes("instagram") && p.channels.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram</span><textarea name="instagram_text" rows="6"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>` : ""}
 ${p.kind === "event" ? writerRow(p, locked, ai) : ""}
 ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field"><span>Teksten på Instagram (billederne som karrusel)</span><textarea name="instagram_text" rows="10"${locked ? " disabled" : ""}>${esc(p.source.instagramText ?? "")}</textarea></label>
-<label class="pr-field"><span>Inviter som samarbejdspartner på Instagram (højst 3, adskilt med komma)</span><input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
+<label class="pr-field"><span>Vis også opslaget på deres Instagram (samarbejde)</span>${COLLAB_HELP}<input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>` : ""}
 <div class="pr-row"><label class="pr-field pr-time"><span>${p.kind === "event" && allowed.includes("instagram") ? "Facebook sendes" : "Sendes"}</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
 ${p.kind === "event" && allowed.includes("instagram") ? `<label class="pr-field pr-time"><span>Instagram sendes (tomt: samtidig)</span><input type="datetime-local" name="instagram_at" value="${p.source.instagramAtMs ? localInput(p.source.instagramAtMs) : ""}"${locked ? " disabled" : ""}></label>` : ""}
 ${channelBoxes(p, allowed, locked)}</div>
@@ -215,7 +218,12 @@ const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
 .pr-design{display:flex;align-items:center;gap:12px;margin:0 0 12px}.pr-video{display:flex;align-items:flex-end;gap:12px;margin:0 0 12px}.pr-video video{width:160px;aspect-ratio:9/16;border-radius:12px;background:#000}.pr-design img{width:72px;height:90px;object-fit:cover;border-radius:10px}.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
 .pr-writer{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px}.pr-writer input{flex:1 1 220px;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.pr-writer [role=status]{flex-basis:100%}
-.pr-field{display:block;margin:0 0 10px}.pr-field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.pr-field textarea,.pr-field input{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+/* Requested (the chair, 5 Nov 2026): "Her bør det aktuelle felt highlightes alt efter, hvilket social medie der er valgt. Hvis det kun er Instagram, skal der være en
+ guldmarkering omkring tekstfeltet og vice versa." The text that goes out has a gold frame; the one for a medium that is not chosen fades. */
+.pr-post form:has(input[name=channel][value=facebook]:checked) textarea[name=text],.pr-post form:has(input[name=channel][value=instagram]:checked) textarea[name=instagram_text]{border:2px solid #c9a14a;box-shadow:0 0 0 3px rgba(201,161,74,.18)}
+.pr-post form:has(textarea[name=instagram_text]):not(:has(input[name=channel][value=facebook]:checked)) .pr-field:has(textarea[name=text]),.pr-post form:not(:has(input[name=channel][value=instagram]:checked)) .pr-field:has(textarea[name=instagram_text]){opacity:.5}
+.pr-post form:has(textarea[name=instagram_text]):not(:has(input[name=channel][value=facebook]:checked)) .pr-field:has(textarea[name=text])>span::after,.pr-post form:not(:has(input[name=channel][value=instagram]:checked)) .pr-field:has(textarea[name=instagram_text])>span::after{content:" · sendes ikke"}
+.pr-field{display:block;margin:0 0 10px}.pr-help{display:block;font-size:12.5px;color:var(--muted);margin:0 0 6px}.pr-field span{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}.pr-field textarea,.pr-field input{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .pr-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end}.pr-time{max-width:260px}.pr-channels{display:flex;gap:18px;margin:0 0 10px}.pr-channels label{display:inline-flex;align-items:center;gap:7px;font-size:14px;cursor:pointer}.pr-channels input{width:18px;height:18px;min-height:0;margin:0;padding:0;accent-color:var(--accent);flex:none}
 .pr-acts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}.pr-acts form{margin:0}
 .pr-log{list-style:none;margin:0;padding:0}.pr-log li{display:grid;grid-template-columns:150px 1fr;gap:12px;padding:9px 0;border-top:1px solid var(--line);font-size:14px}.pr-log li:first-child{border-top:0}.pr-log .at{color:var(--muted);font-size:13px}.pr-log small{display:block}

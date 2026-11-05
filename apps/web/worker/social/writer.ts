@@ -31,7 +31,7 @@ Svar KUN med JSON: {"facebook": "...", "instagram": "..."}`;
 
 const SHARE_RULES = `Det her er en deling: en underviser eller en anden har lavet opslaget og tagget Hjerterum. Hjerterums ord sættes over delingen.
 - "facebook": 1-2 korte sætninger, højst 30 ord: et kærligt, konkret skulderklap til personen (fornavn) og hvad opslaget handler om.
-- "instagram": det samme i Instagrams form, højst 40 ord, gerne en første linje, der fanger. Ingen hashtags her: personens egne ord og navn sættes på af systemet.`;
+- "instagram": det samme i Instagrams form, højst 40 ord, gerne en første linje, der fanger. Ingen hashtags her: "Foto: @navn" sættes på af systemet.`;
 
 const longDay = (ms: number) => { const [, m, d] = dateOf(ms).split("-"); return `${dayName(ms)} d. ${Number(d)}. ${["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"][Number(m) - 1]} kl. ${clock(ms)}`; };
 
@@ -78,6 +78,6 @@ export async function proposeWords(env: SagaEnv, deps: SagaDeps, db: D1Database,
   // Instagram's ending is the house's own (where to sign up; whose post it is) - as when Saga first wrote the post.
   const live = await siteLive(db);
   const instagramText = post.kind === "event" ? await toPublicSite(db, withSignUp(instagram || facebook), live)
-    : instagramShareText(instagram || facebook, s.author ?? null, s.text ?? "", s.network === "facebook" ? "facebook" : "instagram");
+    : instagramShareText(instagram || facebook, s.author ?? null, "", s.network === "facebook" ? "facebook" : "instagram");
   return { text: facebook, instagramText };
 }
