@@ -34,6 +34,8 @@ export type WebmailSession = {
   remove(path: string, uids: number[]): Promise<{ uidValidity: string }>;
   /** Makes a folder (with the ones above it); nothing happens when it is there. */
   create?(path: string): Promise<void>;
+  /** Which of these mails are in the folder now (one a board member has moved away is not). */
+  present?(path: string, uids: number[]): Promise<number[]>;
   /** Moves mails and says where each one went (its new UID in `dest`, and `dest`'s UIDVALIDITY), so Posthus can follow it. */
   moveMapped?(path: string, uids: number[], dest: string): Promise<{ sourceValidity: string; destValidity: string; map: Array<[number, number]> }>;
   close(): Promise<void>;
@@ -140,6 +142,12 @@ export const imapflowWebmail: WebmailOpener = async login => {
       const box = await client.mailboxOpen(path, { readOnly: false });
       if (uids.length) await client.messageDelete(uids.join(","), { uid: true });
       return { uidValidity: String(box.uidValidity) };
+    },
+    async present(path, uids) {
+      if (!uids.length) return [];
+      await client.mailboxOpen(path, { readOnly: true });
+      const found = await client.search({ uid: uids.join(",") }, { uid: true });
+      return Array.isArray(found) ? found : [];
     },
     async create(path) {
       await client.mailboxCreate(path).catch((error: unknown) => { if (!/exist/i.test(String((error as { responseText?: string })?.responseText ?? error))) throw error; });

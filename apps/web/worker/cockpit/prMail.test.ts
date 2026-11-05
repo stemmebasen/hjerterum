@@ -37,6 +37,7 @@ async function setup() {
     async remove() { return { uidValidity: "77" }; },
     async append(path) { done.push(`append ${path}`); },
     async uidValidity(path) { return path === PR_FOLDER ? "500" : "77"; },
+    async present(path, uids) { return path === "INBOX" ? uids.filter(u => u !== 43) : []; },
     async create(path) { done.push(`create ${path}`); folders.push({ path, name: path, special: null, depth: 1, unseen: 0, total: 0, selectable: true }); },
     async moveMapped(path, uids, dest) { done.push(`move ${path} ${uids.join(",")} -> ${dest}`); return { sourceValidity: "77", destValidity: "500", map: uids.map(u => [u, 9] as [number, number]) }; },
     async close() { /* nothing */ },
@@ -75,6 +76,18 @@ describe("PR mails", () => {
     expect(systemLabel({ sender: "Facebook <notification@facebookmail.com>" })).toBe("PR");
     expect(isMeta("Business Manager <compliance@rockfordpsych.com>")).toBe(false);
     expect(systemLabel({ sender: "Business Manager <compliance@rockfordpsych.com>" })).toBe("Automatisk");
+  });
+
+  it("leaves a mail a board member has already moved away, and does not ask for it again", async () => {
+    const { db, env, done, allDeps } = await setup();
+    // A PR mail Lisbeth has moved to her own folder: the inbox's row is stale.
+    const gone = (await insertMail(db, { ref: "imap:77:43", sender: "Rie <rie@example.dk>", subject: "PR Gitta", receivedAtMs: NOW - 7_200_000, preview: "Billeder til PR", nowMs: NOW }))!;
+    await db.prepare("UPDATE board_mail SET folder = 'INBOX', uid_validity = '77', uid = 43, label = 'PR' WHERE id = ?").bind(gone).run();
+    expect(await filePrMails(env, allDeps, db)).toBe(1);
+    expect(done.find(d => d.startsWith("move"))).toBe(`move INBOX 41 -> ${PR_FOLDER}`);
+    expect(await db.prepare("SELECT folder, pr_filed_at_ms IS NOT NULL AS filed FROM board_mail WHERE id = ?").bind(gone).first()).toEqual({ folder: "INBOX", filed: 1 });
+    expect(await filePrMails(env, allDeps, db)).toBe(0);
+    expect(done.filter(d => d.startsWith("move"))).toHaveLength(1);
   });
 
   it("is shown in PR og SoMe → Mails and answered there with Saga's draft, sent from team@ by the chair", async () => {
