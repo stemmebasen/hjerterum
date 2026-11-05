@@ -7,6 +7,7 @@ import { parsePrQuotes, EMPTY_QUOTES, type PrQuotes } from "../../pr-material.js
 import { esc, layout } from "./page.js";
 import { mondayOf as mondayOfMs } from "../social/plan.js";
 import { choiceName, instagramEventText, socialAccount, socialPost, videoInTime, type Channel } from "../social/social.js";
+import { materialOf } from "./mailMaterial.js";
 import { templateName, templatesFor, templateUses, usedLabel, VIDEO_TEMPLATES } from "../social/videoTemplates.js";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det
@@ -25,6 +26,8 @@ export type StudioEvent = { id: string; title: string; startsAt: string; endsAt:
 export type StudioPicture = { url: string; label: string; width?: number | null; height?: number | null };
 export type StudioTeacher = { name: string; consent: "given" | "withdrawn" | "none"; quotes: PrQuotes; pictures: StudioPicture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> };
 export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; files: Array<{ url: string; label: string }>; teacher: StudioTeacher | null;
+  /** The words of the PR mails linked to the event (mailMaterial.ts). */
+  mailTexts: Array<{ subject: string; text: string }>;
   /** The event's open post in PR og SoMe, which a design can be used in ("Brug i opslaget"). */
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     /** The finished post as it goes out (requested: "så kan jeg se det færdige opslag med billede og tekst, som jeg så kan publicere"). */
@@ -90,6 +93,12 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     if (posterImageAllowed(image)) eventPictures.push({ url: `${base}/ekstern?src=${encodeURIComponent(image)}`, label: "Eventets foto" });
   } else return null;
 
+  // What a PR mail brought (mailMaterial.ts, the chair: "materialet, der er sendt allerede ligger klar ... under det pågældende event"): its pictures first.
+  const material = await materialOf(db, eventKeyOf(id));
+  eventPictures.unshift(...material.filter(m => m.kind === "image").map(m => ({ url: `${base}/materiale/${m.id}`, label: `Fra mailen: ${m.filename ?? "billede"}` })));
+  files.unshift(...material.filter(m => m.kind === "file").map(m => ({ url: `/plakater/materiale/${m.id}`, label: `Fra mailen: ${m.filename ?? "fil"}` })));
+  const mailTexts = material.filter(m => m.kind === "text" && m.text).map(m => ({ subject: m.filename ?? "", text: m.text! })).slice(0, 3);
+
   // The teacher: by their login when the event is their own, else by name.
   if (!owners.length && event.host) owners = await idsByName(db, event.host);
   let teacher: StudioTeacher | null = null;
@@ -129,7 +138,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
     videoTemplate: full.source.videoTemplate ?? null, videoTemplates: VIDEO_TEMPLATES.filter(t => templatesFor(full).includes(t.no)).map(t => ({ no: t.no, name: t.name, used: usedLabel(uses.get(t.no)) })),
     videoRemake: videoInTime(full, nowMs), videoChoices: (full.source.videoChoices ?? []).map(c => ({ template: c.template, name: choiceName(c, templateName), video: c.video })), videoAsked: full.source.videoAsk?.templates ?? [],
     stillAsked: Boolean(full.source.stillAsk) } : null;
-  return { event, eventPictures, files, teacher, post };
+  return { event, eventPictures, files, teacher, post, mailTexts };
 }
 
 const IMAGE_HEADERS = { "cache-control": "private, max-age=600", "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox" };

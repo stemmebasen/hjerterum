@@ -19,6 +19,8 @@ export type PrPageData = {
   week: { monday: string; key: string; posts: SocialPost[] };
   recent: SocialPost[];
   aiReady: boolean;
+  /** The coming events, for "Kobl til event" on PR og SoMe → Mails. */
+  mailEvents?: import("./mailMaterial.js").UpcomingEvent[];
   plan: PlanData;
   insight: MonthInsight[];
   /** The Events tab's rows (prEvents.ts) - loaded only for that tab. */
@@ -198,7 +200,7 @@ ${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
 ${siteCard(base, Boolean(d.siteLive))}`,
     kalender: d.calendar ? prCalendarSection(base, d.calendar) : "",
-    mails: prMailSection(base, d.mails ?? []),
+    mails: prMailSection(base, d.mails ?? [], d.mailEvents ?? [], d.nowMs),
     events: prEventsSection(base, d.events ?? [], d.nowMs),
     tagget: `<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>`,
     uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,

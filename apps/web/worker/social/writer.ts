@@ -42,7 +42,9 @@ async function description(db: D1Database, key: string | undefined): Promise<str
     ? await db.prepare("SELECT description, category FROM house_events WHERE id = ?").bind(key.slice(3)).first<{ description: string | null; category: string | null }>().catch(() => null)
     : key.startsWith("hr:") ? await db.prepare("SELECT description, NULL AS category FROM room_bookings WHERE id = ?").bind(Number(key.slice(3))).first<{ description: string | null; category: string | null }>().catch(() => null) : null;
   const text = (row?.description ?? "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
-  return [row?.category ? `Kategori: ${row.category}.` : "", text.slice(0, 1500)].filter(Boolean).join(" ");
+  // The teacher's own words from a PR mail linked to the event (cockpit/mailMaterial.ts).
+  const own = await db.prepare("SELECT text FROM event_material WHERE event_key = ? AND kind = 'text' ORDER BY id DESC LIMIT 1").bind(key).first<{ text: string }>().catch(() => null);
+  return [row?.category ? `Kategori: ${row.category}.` : "", text.slice(0, 1500), own?.text ? `Underviserens egen tekst (fra deres mail): ${own.text.replace(/\s+/g, " ").slice(0, 1200)}` : ""].filter(Boolean).join(" ");
 }
 
 /** Where to sign up goes above the hashtags, which end the post. */
