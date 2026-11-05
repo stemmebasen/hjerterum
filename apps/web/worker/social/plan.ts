@@ -137,9 +137,16 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
  * whether Saga should propose different times as a rule, "Ja"): each event's Instagram post at its own time, at least POST_GAP_MS after Facebook's,
  * spread over Instagram's own days the same way (alreadyTaken: Instagram's times). Where there is no such time before the event, the same as Facebook. */
 export function instagramPostTimes(events: NewsletterEvent[], facebookTimes: number[], notBeforeMs: number, alreadyTaken: number[] = [], latest: number[] = [], facebookTaken: number[] = []): number[] {
-  const earliest = facebookTimes.map(t => t + POST_GAP_MS);
-  return eventPostTimes(events, notBeforeMs, alreadyTaken, earliest, latest, [], [...facebookTimes, ...facebookTaken]).map((t, i) =>
-    t >= earliest[i]! && t <= Math.min(lastPostMs(events[i]!.startsMs), latest[i] ?? Number.POSITIVE_INFINITY) && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
+  const avoid = [...facebookTimes, ...facebookTaken];
+  // The chair (5 Nov 2026): "Et event må gerne komme på de forskellige platforme på forskellige dage, så det ikke alt sammen sker på nøjagtig samme dag" -
+  // Instagram's from the day after Facebook's, when its window has room; else the same day, three hours after.
+  const nextDay = facebookTimes.map(t => at(addDays(dateOf(t), 1), 0));
+  const first = eventPostTimes(events, notBeforeMs, alreadyTaken, nextDay, latest, events.map(() => true), avoid);
+  const sameDay = facebookTimes.map(t => t + POST_GAP_MS);
+  const idx = events.map((_, i) => i).filter(i => Number.isNaN(first[i]!));
+  const again = idx.length ? eventPostTimes(idx.map(i => events[i]!), notBeforeMs, [...alreadyTaken, ...first.filter(t => !Number.isNaN(t))], idx.map(i => sameDay[i]!), idx.map(i => latest[i] ?? Number.POSITIVE_INFINITY), [], avoid) : [];
+  const times = [...first]; idx.forEach((i, k) => { times[i] = again[k]!; });
+  return times.map((t, i) => t >= sameDay[i]! && t <= Math.min(lastPostMs(events[i]!.startsMs), latest[i] ?? Number.POSITIVE_INFINITY) && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
 }
 
 /** Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på

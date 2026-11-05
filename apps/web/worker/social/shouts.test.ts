@@ -91,5 +91,7 @@ describe("two posts on each medium for every event", () => {
     for (const day of byDay.values()) { day.sort((a, b) => a - b); for (let i = 1; i < day.length; i++) expect(day[i]! - day[i - 1]!).toBeGreaterThanOrEqual(3 * 3_600_000); }
     const ig = instagramPostTimes(week, fb, NOW);
     expect(ig.some(t => fb.includes(t) && fb.indexOf(t) !== ig.indexOf(t))).toBe(false);
+    // "Et event må gerne komme på de forskellige platforme på forskellige dage".
+    expect(ig.every((t, i) => dateOf(t) !== dateOf(fb[i]!))).toBe(true);
   });
 });

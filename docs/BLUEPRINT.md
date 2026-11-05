@@ -1124,6 +1124,7 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - En nødtid er altid et af dagens faste klokkeslæt, aldrig om natten.
   - Formanden: "Det er muligt at skabe meget mere luft imellem tidspunkterne". Der er nu mindst 3 timer mellem opslag på samme medie (9, 12, 15 eller 12, 15, 19.30).
   - Instagram bruger aldrig samme klokkeslæt som et andet opslag på Facebook.
+  - Formanden: "Et event må gerne komme på de forskellige platforme på forskellige dage". Instagram-opslaget lægges fra dagen efter Facebooks, når vinduet har plads; ellers samme dag, 3 timer efter.
 - **Flueben.** Formanden: "Marker med et flueben, når et event i kalenderen har godkendt PR, og ligger klar til afsendelse." Kalenderen viser ✓ ved godkendte opslag.
 - **Dobbelt "Hjerterum".** Formanden: "Det er en fejl, at der står »hjerterum« i »hjerterum«." Designet "Aften" skriver kun "HJERTERUM", når ordet over titlen er "I Hjerterum".
 
