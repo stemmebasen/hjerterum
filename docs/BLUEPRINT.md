@@ -1110,6 +1110,18 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## PR og SoMe: tydeligere felter og delinger med Hjerterums egne ord (2026-11-05)
+
+- **Formandens ønske:** "Her bør det aktuelle felt highlightes alt efter, hvilket social medie der er valgt. Hvis det kun er Instagram, skal der være en guldmarkering omkring tekstfeltet og vice versa."
+  - Teksten til et valgt medie får en guldkant.
+  - Teksten til et fravalgt medie toner ned og får "· sendes ikke" i overskriften.
+  - Det sker med det samme, når fluebenene ændres (ren CSS, `prPage.ts`).
+- **Formandens spørgsmål:** "Hvad er det, jeg inviterer til?" Feltet hedder nu "Vis også opslaget på deres Instagram (samarbejde)" og forklarer, at Instagram sender en invitation. Siger de ja, står opslaget på begge profiler. Siger de nej, står det kun hos Hjerterum.
+- **Formandens svar:** "Kun Hjerterums ord" om en deling på Instagram.
+  - Teksten er Hjerterums egne ord og "Foto: @navn". Underviserens egen opslagstekst kopieres ikke længere med; den kunne indeholde "linket i min profil" og rester fra et AI-værktøj.
+  - Delinger, der venter, er rettet én gang (`ownWordsOnShares`).
+- **Kortet forklarer nu:** "Du skal ikke selv gøre noget i Instagram". Trykker formanden "Del nu", lægger Saga opslaget op.
+
 ## Dit design med bevægelse (2026-11-05)
 
 - **Formandens ord:** "Er det muligt at bruge disse skabeloner, med lidt bevægelse? Gerne i starten må de gerne have en synlig og markant effekt, så man ser dem, om det så er ryste, zoom eller slør ind".

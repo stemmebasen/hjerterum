@@ -183,8 +183,10 @@ const SHARE_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus f
 export const firstName = (name: string | null) => (name ?? "").replace(/^@/, "").split(/\s+/)[0] ?? "";
 export const plainShareText = (author: string | null) => `Tak til ${firstName(author) || "jer"} for at dele. Vi glæder os til at se jer i Hjerterum.`;
 /** On Instagram the post is published again by Hjerterum, so the maker is named, and their own words follow. */
-export const instagramShareText = (intro: string, author: string | null, original: string, network: Channel = "instagram") =>
-  `${intro.trim()}\n\nFoto og tekst: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}${original.trim() ? `\n\n${original.trim().slice(0, 1800)}` : ""}`;
+/** A share on Instagram is published again by Hjerterum: Hjerterum's own words and who made the photo. Asked (the chair, 5 Nov 2026) what Instagram's text should
+ * hold - "Kun Hjerterums ord": the maker's own caption is not copied (it speaks as "jeg", points to their profile, and may hold what an AI tool told them). */
+export const instagramShareText = (intro: string, author: string | null, _original = "", network: Channel = "instagram") =>
+  `${intro.trim()}\n\nFoto: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}`;
 /** An event's post on Instagram: its words, and where to read more (Instagram has no links in the text). */
 export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).`;
 
@@ -647,12 +649,21 @@ async function releaseStuck(db: D1Database, nowMs: number): Promise<void> {
   await db.prepare("UPDATE social_posts SET status = 'approved', updated_at_ms = ? WHERE status = 'publishing' AND updated_at_ms < ?").bind(nowMs, nowMs - RETRY_AFTER_MS).run().catch(() => undefined);
 }
 
+/** Once (5 Nov 2026, "Kun Hjerterums ord"): the waiting shares' Instagram text without the maker's own caption. */
+async function ownWordsOnShares(db: D1Database): Promise<number> {
+  const waiting = await socialPosts(db, "kind = 'share' AND status IN ('draft', 'failed') AND json_extract(source, '$.instagramText') IS NOT NULL", [], "id", 200);
+  for (const p of waiting) await db.prepare("UPDATE social_posts SET source = json_set(source, '$.instagramText', ?) WHERE id = ?")
+    .bind(instagramShareText(p.text, p.source.author ?? null, "", p.source.network === "facebook" ? "facebook" : "instagram"), p.id).run();
+  return waiting.length;
+}
+
 /** In every round (config-entry.ts): publish what is due, look for new tags every half hour, and plan next week on Thursday. */
 export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void> {
   const db = env.DB;
   if (!db || !(await socialAccount(db))) return;
   const now = deps.now();
   await releaseStuck(db, now);
+  if (await claimJob(db, "social_share_own_words", 0, now).catch(() => false)) await ownWordsOnShares(db).catch(error => console.warn("social_share_words_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
   await oldSiteInWaiting(db, now).catch(error => console.warn("social_old_site_failed", error instanceof Error ? error.message : error));
   await publishDue(env, deps, db).catch(error => console.warn("social_publish_failed", error instanceof Error ? error.message : error));
