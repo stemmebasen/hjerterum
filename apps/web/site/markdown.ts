@@ -1,3 +1,5 @@
+import { withMail } from "./mail.js";
+
 /** The site's own small Markdown (site/pages.ts): headings, paragraphs, lists, quotes, images, tables, a fold-out
  * ("+++ Title" … "+++") and inline bold, italic and links. Everything is escaped first, so no HTML can come through. */
 
@@ -38,7 +40,7 @@ export function headings(markdown: string): Heading[] {
 }
 
 export function renderMarkdown(markdown: string): string {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const lines = withMail(markdown).replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let para: string[] = [];
   let list: { tag: "ul" | "ol"; items: string[] } | null = null;
