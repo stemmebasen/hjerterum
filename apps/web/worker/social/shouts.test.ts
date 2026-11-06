@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { connectSocial, decidePost, planWeek, proposeEventPost, socialPosts, topUpWeeks } from "./social.js";
-import { dateOf, eventPostTimes, instagramPostTimes, placeFirsts, shoutWindows } from "./plan.js";
+import { connectSocial, decidePost, planWeek, proposeEventPost, pullEarlier, socialPosts, topUpWeeks } from "./social.js";
+import { clock, dateOf, earlySlot, eventPostTimes, instagramPostTimes, placeFirsts, shoutWindows } from "./plan.js";
 import type { NewsletterEvent } from "../newsletter.js";
 
 // Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på
@@ -123,5 +123,46 @@ describe("two posts on each medium for every event", () => {
     expect(ig.some(t => fb.includes(t) && fb.indexOf(t) !== ig.indexOf(t))).toBe(false);
     // "Et event må gerne komme på de forskellige platforme på forskellige dage".
     expect(ig.every((t, i) => dateOf(t) !== dateOf(fb[i]!))).toBe(true);
+  });
+});
+
+describe("up to five a day", () => {
+  // Asked (the chair, 6 Nov 2026): "Der er stadig en del steder med kun 1 dag til eventet, selvom der vil være god tid til at dele dem noget før" - "Op til 5 om dagen".
+  it("gives an event that would go out the day before an extra time days earlier, and only then", () => {
+    const now = Date.parse("2026-11-06T13:00:00Z");
+    // 6-11 Nov have their three on Facebook (12, 15, 19.30).
+    const full: number[] = [];
+    for (const d of ["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11"]) for (const t of ["11:00", "14:00", "18:30"]) full.push(Date.parse(`${d}T${t}:00Z`));
+    const near = { key: "mw:near", title: "Healingseftermiddag", startsMs: Date.parse("2026-11-10T15:45:00Z") } as NewsletterEvent;
+    const [t] = eventPostTimes([near], now + 30 * 60_000, full.filter(x => x > now));
+    // Not the day before (9 Nov): the first extra time, 17.30 on 6 Nov.
+    expect(new Date(t!).toISOString()).toBe("2026-11-06T16:30:00.000Z");
+    // An event far ahead keeps to the day's three.
+    const far = { key: "mw:far", title: "Retreat", startsMs: Date.parse("2026-11-25T10:00:00Z") } as NewsletterEvent;
+    const [f] = eventPostTimes([far], now + 30 * 60_000, full.filter(x => x > now));
+    expect(dateOf(f!) >= "2026-11-12").toBe(true);
+    expect(earlySlot(now, Date.parse("2026-11-06T22:59:00Z"), [...full, Date.parse("2026-11-06T16:30:00Z")])).toBeNull();
+  });
+});
+
+describe("Saga's proposals moved forward", () => {
+  // "Der er stadig en del steder med kun 1 dag til eventet, selvom der vil være god tid til at dele dem noget før, nemlig her i weekenden?" - "Op til 5 om dagen".
+  it("moves a proposal that would go out the day before to a time three days before, and leaves one the chair timed", async () => {
+    const db = testDatabase();
+    const now = Date.parse("2026-11-06T13:00:00Z");
+    const insert = (key: string, status: string, at: number, startsMs: number, extra: Record<string, unknown> = {}) => db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
+      VALUES ('event', ?, '2026-W45', '["facebook"]', 'x', '[]', ?, ?, ?, 0, 0)`).bind(key, JSON.stringify({ key, title: key, startsMs, ...extra }), at, status).run();
+    // 6-11 Nov have their three, approved.
+    let n = 0;
+    for (const d of ["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10", "2026-11-11"]) for (const t of ["11:00", "14:00", "18:30"])
+      await insert(`full${n++}`, "approved", Date.parse(`${d}T${t}:00Z`), Date.parse("2026-11-20T10:00:00Z"));
+    const event = Date.parse("2026-11-10T15:45:00Z");
+    await insert("near", "draft", Date.parse("2026-11-09T11:30:00Z"), event);
+    await insert("timed", "draft", Date.parse("2026-11-09T12:30:00Z"), event, { chairTime: true });
+    expect(await pullEarlier(db, now)).toBe(1);
+    const [near] = await socialPosts(db, "source_key = 'near'");
+    expect(dateOf(near!.publish_at_ms!) <= "2026-11-07").toBe(true);
+    expect(["09.30", "17.30"]).toContain(clock(near!.publish_at_ms!));
+    expect((await socialPosts(db, "source_key = 'timed'"))[0]!.publish_at_ms).toBe(Date.parse("2026-11-09T12:30:00Z"));
   });
 });

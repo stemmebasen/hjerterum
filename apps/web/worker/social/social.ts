@@ -10,7 +10,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
+import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -48,6 +48,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
     /** "Videoen på Facebook" taken off: Facebook gets the picture (or the link) instead of the event's video. */
     noFacebookVideo?: boolean;
+    /** The chair chose the time (moved it in the calendar, or saved it): Saga does not move it (pullEarlier). */
+    chairTime?: boolean;
     /** "to shouts på hvert medie" (plan.ts shoutWindows): which of the event's posts this is - the first (none said: the first) or the reminder a week
      * before - and how many the event has. */
     shout?: 1 | 2; shouts?: 1 | 2;
@@ -157,7 +159,8 @@ export async function editPost(db: D1Database, id: number, change: { text?: stri
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
   const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}),
     ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}), ...(change.noVideo !== undefined ? { noVideo: change.noVideo || undefined } : {}),
-    ...(change.noFacebookVideo !== undefined ? { noFacebookVideo: change.noFacebookVideo || undefined } : {}) };
+    ...(change.noFacebookVideo !== undefined ? { noFacebookVideo: change.noFacebookVideo || undefined } : {}),
+    ...((change.publishAtMs !== undefined && change.publishAtMs !== post.publish_at_ms) || (change.instagramAtMs !== undefined && change.instagramAtMs !== post.source.instagramAtMs) ? { chairTime: true } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -511,6 +514,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
   if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
   await retimeOverdue(db, now);
+  await pullEarlier(db, now).catch(error => console.warn("social_pull_earlier_failed", error instanceof Error ? error.message : error));
   let fresh = 0;
   const series = await seriesMap(db, now);
   for (let i = 0, monday = mondayOf(now); i < PROPOSE_WEEKS; i++, monday = nextMonday(weekStart(monday)))
@@ -572,6 +576,45 @@ async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
     const source = { ...p.source, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
     await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(fb[i], JSON.stringify(source), p.id).run();
   }
+}
+
+/** Asked (the chair, 6 Nov 2026): "Der er stadig en del steder med kun 1 dag til eventet, selvom der vil være god tid til at dele dem noget før" - "Op til 5 om
+ * dagen". Every hour Saga's proposals that would go out less than three days before their event are moved to the first time they can have before that (the
+ * day's three, else 9.30 or 17.30), on each medium for itself - only earlier, and never a time the chair chose. */
+export async function pullEarlier(db: D1Database, nowMs: number): Promise<number> {
+  const drafts = (await socialPosts(db, "kind = 'event' AND status = 'draft' AND json_extract(source, '$.startsMs') > ? AND json_extract(source, '$.chairTime') IS NULL",
+    [nowMs + 3 * 3_600_000], "json_extract(source, '$.startsMs'), id", 300)).filter(p => p.source.startsMs && p.publish_at_ms);
+  const igOf = (p: SocialPost) => p.source.instagramAtMs ?? p.publish_at_ms!;
+  const late = drafts.filter(p => (p.channels.includes("facebook") && p.publish_at_ms! > earlyBy(p.source.startsMs!)) || (p.channels.includes("instagram") && igOf(p) > earlyBy(p.source.startsMs!)));
+  if (!late.length) return 0;
+  const all = await socialPosts(db, "kind IN ('event', 'week') AND status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ?", [nowMs - 86_400_000], "publish_at_ms, id", 1000);
+  const fb = new Map(all.filter(p => p.channels.includes("facebook")).map(p => [p.id, p.publish_at_ms!]));
+  const ig = new Map(all.filter(p => p.channels.includes("instagram")).map(p => [p.id, igOf(p)]));
+  const from = nowMs + 30 * MINUTE;
+  let moved = 0;
+  for (const p of late) {
+    // Three days before; where that is full, two days before is still better than the day before.
+    const limits = [earlyBy(p.source.startsMs!), at(addDays(dateOf(p.source.startsMs!), -2), 23, 59)];
+    const earlier = (now: number, taken: Map<number, number>) => {
+      for (const limit of limits) {
+        if (now <= limit) return now;
+        const t = earlySlot(from, limit, [...taken].filter(([id]) => id !== p.id).map(([, x]) => x));
+        if (t !== null && t < now) return t;
+      }
+      return now;
+    };
+    const fbAt = p.channels.includes("facebook") ? earlier(p.publish_at_ms!, fb) : p.publish_at_ms!;
+    const igAt = p.channels.includes("instagram") ? earlier(igOf(p), ig) : igOf(p);
+    if (fbAt === p.publish_at_ms && igAt === igOf(p)) continue;
+    const both = p.channels.includes("facebook") && p.channels.includes("instagram");
+    const publishAt = p.channels.includes("facebook") ? fbAt : igAt;
+    const source = { ...p.source, instagramAtMs: p.channels.includes("instagram") && (!both || igAt !== fbAt) ? igAt : null };
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(publishAt, JSON.stringify(source), p.id).run();
+    if (p.channels.includes("facebook")) fb.set(p.id, fbAt);
+    if (p.channels.includes("instagram")) ig.set(p.id, igAt);
+    moved++;
+  }
+  return moved;
 }
 
 /** Once (the new plan): the waiting proposals for the events ahead. A weekly class told about in the three weeks around is set aside ("Hver 4. uge"), and
@@ -778,6 +821,8 @@ export async function movePost(db: D1Database, id: number, channel: MoveChannel,
   const ownIg = typeof post.source.instagramAtMs === "number" && post.source.instagramAtMs !== post.publish_at_ms;
   const source = { ...post.source };
   let publishAt = post.publish_at_ms;
+  // A time the chair chose stays (pullEarlier leaves it).
+  source.chairTime = true;
   if (channel === "instagram" && ownIg) source.instagramAtMs = atMs;
   else if (channel === "facebook" && ownIg) publishAt = atMs;
   else { publishAt = atMs; if (typeof source.instagramAtMs === "number") source.instagramAtMs = atMs; }
