@@ -1398,3 +1398,4 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Bestyrelsen:** ser, lægger op, opretter mapper og henter filer under Bestyrelse → Filarkiv.
 - **Formanden alene (`archive.manage`):** sletter filer og mapper og henter de natlige kopier af databasen, som indeholder alle medlemmers persondata.
 - **Suppleanter:** kan kun se og hente.
+- **6. nov. 2026, senere:** formanden har givet appen brugsscenariet Messenger hos Meta. `META_MESSENGER=1` er sat for staging i `wrangler.jsonc`, så login'et nu beder om `pages_messaging`.
