@@ -1129,6 +1129,7 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Den nye plan lagde 8 opslag på én dag, fordi alle de næste to ugers events var "sene".
   - Nu får et sent events 1. opslag kun en tid, når der er plads inden for dagens tre (`placeFirsts` i `plan.ts`). Ellers får eventet ét samlet opslag 7–9 dage før.
   - De ventende forslag er planlagt om én gang efter det (`social_shouts_v2`). Påmindelser, der stod som udkast, er lavet på ny i deres vinduer.
+  - Rettet 6. nov.: overgangen pressede også normale 1. opslag ind på de første dage (5 på én dag). Nu holder alle 1. opslag med en påmindelse efter sig dagens tre, og det gør påmindelserne også. Er der ikke plads, får eventet ét opslag. Planlagt om igen (`social_shouts_v3`).
 - **Intet opslag samme dag uden formandens ja.** Formanden: "Det skal være et nødstilfælde, hvis et event skal promoveres, når det foregår på samme dag."
   - Saga foreslår aldrig selv et opslag på eventets dag.
   - På plakatsiden kan formanden lave et efter en advarsel ("nødstilfælde").
