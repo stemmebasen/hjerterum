@@ -34,6 +34,7 @@ jobs:
       META_APP_ID: ${{ secrets.META_APP_ID }}
       META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
       META_LOGIN_CONFIG_ID: ${{ secrets.META_LOGIN_CONFIG_ID }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -128,6 +129,7 @@ jobs:
           put_if_set META_APP_ID "${META_APP_ID:-}"
           put_if_set META_APP_SECRET "${META_APP_SECRET:-}"
           put_if_set META_LOGIN_CONFIG_ID "${META_LOGIN_CONFIG_ID:-}"
+          put_if_set PEXELS_API_KEY "${PEXELS_API_KEY:-}"
           printf '%s' "$STAGING_URL" | pnpm --dir apps/web exec wrangler secret put APP_BASE_URL --env staging >/dev/null
 
       - name: Smoke test deployed staging API, D1, MembershipWorks and frontend

@@ -160,6 +160,48 @@ function Quote({ label, text }: { label: string; text: string }) {
     <button type="button" className="text-button" onClick={() => void navigator.clipboard?.writeText(text).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 1500); })}>{copied ? "Kopieret" : "Kopiér"}</button></li>;
 }
 
+/** Asked (the chair, 6 Nov 2026): "lad os koble pexels api på" and "Kunst og botanik (CC0)". Search Pexels' photos or the free art of the Art Institute
+ * of Chicago and The Met - Saga proposes what to search for - and use one: the server fetches it and keeps it with the event's pictures. */
+type StockPicture = { source: "pexels" | "aic" | "met"; id: string; thumb: string; label: string; credit: string; link: string };
+function PictureFinder({ id, onChosen }: { id: string; onChosen: (url: string, label: string) => void }) {
+  const [kind, setKind] = useState<"pexels" | "kunst">("pexels");
+  const [query, setQuery] = useState("");
+  const [ideas, setIdeas] = useState<string[]>([]);
+  const [results, setResults] = useState<StockPicture[] | null>(null);
+  const [state, setState] = useState("");
+  const [ready, setReady] = useState(true);
+  const search = async (k = kind, q = "") => {
+    setState("Søger …"); setResults(null);
+    const response = await fetch(`/plakater/${id}/billedsoeg?kilde=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`).catch(() => null);
+    const body = response?.ok ? await response.json().catch(() => null) as { ready: boolean; query: string; ideas: string[]; results: StockPicture[] } | null : null;
+    if (!body) { setState("Søgningen lykkedes ikke. Prøv igen."); return; }
+    setReady(body.ready); setQuery(body.query); if (body.ideas.length) setIdeas(body.ideas); setResults(body.results);
+    setState(body.ready && !body.results.length ? "Ingen billeder fundet. Prøv et andet ord (på engelsk)." : "");
+  };
+  const choose = async (p: StockPicture) => {
+    setState("Henter billedet …");
+    const response = await fetch(`/plakater/${id}/billede-hent`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ source: p.source, id: p.id }) }).catch(() => null);
+    const body = response?.ok ? await response.json().catch(() => null) as { url?: string; label?: string } | null : null;
+    if (!body?.url) { setState("Billedet kunne ikke hentes. Vælg et andet."); return; }
+    setState(""); onChosen(body.url, p.credit);
+  };
+  return <div className="studio-box studio-finder">
+    <h3>Find et billede</h3>
+    <div className="studio-finder-tabs" role="tablist">{([["pexels", "Fotos (Pexels)"], ["kunst", "Kunst og botanik"]] as const).map(([k, label]) =>
+      <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? "is-on" : ""} onClick={() => { setKind(k); setIdeas([]); void search(k); }}>{label}</button>)}</div>
+    {results === null && !state && <p className="studio-muted">{kind === "pexels" ? "Gratis fotos fra Pexels." : "Gamle kunstværker og botaniske tegninger, frie at bruge (CC0)."} Saga foreslår, hvad der passer til eventet.
+      <br /><button type="button" className="lys-btn ghost" onClick={() => void search()}>Vis Sagas forslag</button></p>}
+    {(results !== null || ideas.length > 0) && <form className="studio-finder-search" onSubmit={e => { e.preventDefault(); void search(kind, query); }}>
+      <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Søg på engelsk, fx forest light" aria-label="Søg efter billeder" /><button className="lys-btn ghost">Søg</button></form>}
+    {ideas.length > 0 && <p className="studio-finder-ideas">{ideas.map(i => <button key={i} type="button" className="text-button" onClick={() => { setQuery(i); void search(kind, i); }}>{i}</button>)}</p>}
+    {!ready && <p className="studio-muted">Pexels er ikke koblet på endnu: nøglen PEXELS_API_KEY mangler.</p>}
+    {state && <p className="studio-muted" role="status">{state}</p>}
+    {results && results.length > 0 && <div className="studio-thumbs">{results.map(p => <button key={p.source + p.id} type="button" className="studio-thumb" title={p.credit} onClick={() => void choose(p)}>
+      <img src={p.thumb} alt={p.label} loading="lazy" referrerPolicy="no-referrer" /><span>{p.credit}</span></button>)}</div>}
+    {results && kind === "pexels" && <p className="studio-soft"><a href="https://www.pexels.com" target="_blank" rel="noopener">Fotos fra Pexels</a>. Vælg natur, lys og ting frem for ansigter, så ingen fremmede ligner deltagere.</p>}
+  </div>;
+}
+
 type Step = "forslag" | "opslag" | "sendt";
 /** "2026-11-20T19:00" in the browser's own time, for a datetime-local field. */
 const localInput = (ms: number) => { const d = new Date(ms - new Date(ms).getTimezoneOffset() * 60_000); return d.toISOString().slice(0, 16); };
@@ -482,6 +524,7 @@ export function PosterStudio({ id }: { id: string }) {
           {data.files.length > 0 && <ul className="studio-files">{data.files.map(f => <li key={f.url}><a href={f.url}>{f.label}</a></li>)}</ul>}
           <p className="studio-actions"><button type="button" className={"lys-btn" + (picked ? " ghost" : "")} onClick={() => setPicked(null)}>Uden billede</button></p>
         </div>
+        <PictureFinder id={id} onChosen={(url, label) => { setData(d => d ? { ...d, eventPictures: [{ url, label }, ...d.eventPictures] } : d); setPicked(url); }} />
         {t && <div className="studio-box">
           <h3>Fra underviseren{t.name ? `: ${t.name}` : ""}</h3>
           <p className={"studio-consent is-" + t.consent}>{t.consent === "given" ? "Har givet samtykke til, at Hjerterum bruger billederne og citaterne i PR."
