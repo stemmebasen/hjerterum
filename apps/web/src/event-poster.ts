@@ -137,6 +137,14 @@ export function splitTitle(title: string): { title: string; rest: string | null;
   const [first, ...more] = title.split(/\s*[|·]\s*/);
   let main = (first ?? title).replace(/\s+/g, " ").trim() || title.trim();
   const rest: string[] = more.map(part => part.trim()).filter(Boolean);
+  // "LÆR AT LYTTE TIL DIN INTUITIONKursus i Sjælstegning": the calendar ran a title in capitals and its subtitle together. The capitals become the
+  // title (in ordinary letters, as on the teacher's own picture), the rest goes under it.
+  const glued = /^([^a-zæøå]*[A-ZÆØÅ]{3})([A-ZÆØÅ][a-zæøå].{2,})$/u.exec(main);
+  if (glued && glued[1]!.trim().split(/\s+/).length >= 2) {
+    const caps = glued[1]!.trim().toLowerCase();
+    main = caps.charAt(0).toUpperCase() + caps.slice(1);
+    rest.unshift(glued[2]!.trim());
+  }
   // "Source Breathwork (Rebirthing) with Douglas Crawford": the teacher goes under the title, the brackets beside it.
   let teacher: string | null = null;
   const by = /^(.{3,}?)\s+(?:with|med|ved|by)\s+([A-ZÆØÅ][\p{L}'.-]+(?:\s+[A-ZÆØÅ][\p{L}'.-]+){0,3})$/u.exec(main);
@@ -223,7 +231,16 @@ export type PhotoSize = { width: number; height: number; cropped?: boolean; shap
  * own choice, made with the picture in front of them: it may be enlarged further (a little softer) before a design refuses it. */
 export const MAX_UPSCALE_CROPPED = 2.2;
 /** Same test as cover(): a shaped picture in a place of another shape is put in whole at 92 %, not stretched to fill. */
-const putInWhole = (box: PhotoSize, photo: PhotoSize) => Boolean(photo.shaped) && Math.abs((box.width / box.height) / (photo.width / photo.height) - 1) > 0.12;
+const putInWhole = (box: PhotoSize, photo: PhotoSize) => wholeIn(box.width, box.height, photo.width, photo.height, Boolean(photo.shaped));
+
+/** Reported (the chair, 6 Nov 2026): "I flere af forslagene bliver det samlede billede ikke rummet, og derfor mangler der tekst." A teacher's picture is
+ * often a little poster of its own, with words to its edges: where filling the design's place would cut away more than WHOLE_CUT of it, it is put in
+ * whole on a blurred fill of itself. A crop the chair shaped is put in whole as soon as the place has another shape. */
+export const WHOLE_CUT = 0.1;
+export function wholeIn(w: number, h: number, pw: number, ph: number, shaped = false): boolean {
+  const a = w / h, b = pw / ph, kept = Math.min(a / b, b / a);
+  return shaped ? Math.abs(a / b - 1) > 0.12 : kept < 1 - WHOLE_CUT;
+}
 
 /** Whether the photo is sharp enough for the design, and if not, what to say. Typografi needs none. soft: it fits only because it is the chair's
  * crop, and will be a little soft. */
@@ -251,13 +268,18 @@ export function photoFits(variant: VariantKey, format: Format, photo: PhotoSize 
 export function chooseVariant(event: Pick<PosterEvent, "id" | "title" | "category" | "imageUrl">, photo: PhotoSize | null = null, format: Format = "opslag"): VariantKey {
   if (!event.imageUrl || !photo) return hash(event.id) % 2 ? "plakat" : "typografi";
   const fits = (v: VariantKey) => photoFits(v, format, photo).ok;
+  // A design whose place the photo fills without cutting it comes first; one that must put it in whole on a blur after.
+  const fills = (v: VariantKey) => { const box = photoBox(v, format); return fits(v) && (!box || !putInWhole(box, photo)); };
   const text = `${event.title} ${event.category ?? ""}`.toLowerCase();
   const wish: VariantKey[] = /koncert|concert|kirtan|musik|music|\bfilm|movie/.test(text) ? ["foto", "split"]
     : /café|cafe|fællesspisning/.test(text) ? ["organisk"]
     : /foredrag|\btalk\b|oplæg|lecture/.test(text) ? ["rolig"] : [];
-  const wished = wish.find(fits);
+  // The full photo is that only when the photo fills the page; the other wishes may put it in whole.
+  const wished = wish.find(fills) ?? wish.find(v => v !== "foto" && fits(v));
   if (wished) return wished;
-  const pool = VARIANTS.map(v => v.key).filter(k => k !== "typografi" && k !== "plakat" && fits(k));
+  const photoDesigns = VARIANTS.map(v => v.key).filter(k => k !== "typografi" && k !== "plakat");
+  const filled = photoDesigns.filter(fills);
+  const pool = filled.length ? filled : photoDesigns.filter(fits);
   return pool.length ? pool[hash(event.id) % pool.length]! : hash(event.id) % 2 ? "plakat" : "typografi";
 }
 
@@ -311,8 +333,10 @@ export const markShaped = (img: HTMLImageElement) => { SHAPED.add(img); };
 export const isShaped = (img: HTMLImageElement) => SHAPED.has(img);
 
 export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
-  // Where the design's own place has about the picture's shape (a circle in "Nat"), it simply fills it.
-  if (SHAPED.has(img) && Math.abs((w / h) / (img.naturalWidth / img.naturalHeight) - 1) > 0.12) {
+  // Where the design's own place has about the picture's shape (a circle in "Nat"), it simply fills it. A blurred backdrop is always filled.
+  const backdrop = /blur/.test(String(ctx.filter));
+  const layoutFilter = String(ctx.filter);
+  if (!backdrop && wholeIn(w, h, img.naturalWidth, img.naturalHeight, SHAPED.has(img))) {
     // Whole and centred in the picture's place. Asked (the chair, 6 Nov 2026): "Kan brugerbilledet ikke fylde det hele? Og måske med en eller anden flot
     // effekt på" - the place is filled with the same picture, softly blurred and a little darker, and the whole picture lies sharp on it with a soft shadow.
     const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight) * 0.92, dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
@@ -322,7 +346,7 @@ export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: 
     ctx.drawImage(img, x + (w - fw) / 2, y + (h - fh) / 2, fw, fh);
     ctx.filter = "none";
     ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = Math.max(w, h) / 30; ctx.shadowOffsetY = Math.max(w, h) / 120;
-    const own = PHOTO_FILTER; if (own) ctx.filter = own;
+    const own = layoutFilter && layoutFilter !== "none" ? layoutFilter : PHOTO_FILTER; if (own) ctx.filter = own;
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
     ctx.restore();
     return;

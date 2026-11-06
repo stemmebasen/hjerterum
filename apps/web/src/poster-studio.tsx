@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { splitTitle, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+
+/** The event's title as the posters read it, where the calendar ran a title in capitals and its subtitle together
+ * ("LÆR AT LYTTE TIL DIN INTUITIONKursus i …" → "Lær at lytte til din intuition · Kursus i …"). */
+const headingOf = (title: string) => { const t = splitTitle(title); return t.rest && title.replace(/\s+/g, " ").includes(`${t.title.toUpperCase()}${t.rest}`) ? `${t.title} · ${t.rest}` : title; };
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -352,7 +356,7 @@ export function PosterStudio({ id }: { id: string }) {
   const toggle = (c: string) => setChannels(list => list.includes(c) ? list.filter(x => x !== c) : [...list, c]);
 
   const head = <section className="lys-intro site-intro studio-head">
-    <div><p className="lys-kicker"><a href={back}>← Tilbage</a> · <a href={data.back}>Plakater og opslag</a></p><h1 className="lys-title">{event.title}</h1>
+    <div><p className="lys-kicker"><a href={back}>← Tilbage</a> · <a href={data.back}>Plakater og opslag</a></p><h1 className="lys-title">{headingOf(event.title)}</h1>
       <p>{DAY.format(new Date(event.startsAt))}{event.host ? ` · ${event.host}` : ""}</p></div>
     <ol className="studio-stepper" aria-label="Trin">
       <li className={step === "forslag" ? "is-on" : "is-done"}>1. Billedet</li>
