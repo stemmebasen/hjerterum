@@ -26,7 +26,7 @@ async function setup(ai: (system: string, user: string) => string = () => JSON.s
     .bind(`SF${HEX}`, NOW + 2 * 86_400_000).run();
   await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
     VALUES ('event', 'event:2026-W45:mw:SF${HEX}', '2026-W45', '["facebook","instagram"]', 'Lydhealing med Kasper - lørdag kl. 13.00.', 'https://www.hjerterum.info/events/a', '["https://d1tif55lvfk8gc.cloudfront.net/a.jpg"]', ?, ?, 'draft', 0, 0)`)
-    .bind(JSON.stringify({ key: `mw:SF${HEX}`, title: "Lydhealing", startsMs: NOW + 2 * 86_400_000, host: "Kasper Holm", instagramText: "Lydhealing med Kasper.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio)." }), NOW + 86_400_000).run();
+    .bind(JSON.stringify({ key: `mw:SF${HEX}`, title: "Lydhealing", startsMs: NOW + 2 * 86_400_000, host: "Kasper Holm", instagramText: "Lydhealing med Kasper.\n\nLæs mere og tilmeld dig via linket i bio." }), NOW + 86_400_000).run();
   const cookie = await personalCookie("Jacob Hauge", NOW);
   const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.headers as Record<string, string> ?? {}) } }), env, deps(services.fetcher, NOW));
   const models = () => services.calls.filter(c => c.url.endsWith("/chat/completions")).map(c => (c.body as { model: string }).model);
@@ -50,7 +50,7 @@ describe("Saga's proposal for a post's words", () => {
     expect(seen.user).toContain("Formandens ønske til denne version: mere legende");
     expect(seen.user).toContain("Lydhealing med Kasper - lørdag kl. 13.00.");
     expect(words).toEqual({ text: WORDS.facebook,
-      instagramText: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag d. 7. november kl. 13.00.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).\n\n#aarhus #lydhealing" });
+      instagramText: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag d. 7. november kl. 13.00.\n\nLæs mere og tilmeld dig via linket i bio.\n\n#aarhus #lydhealing" });
     expect((await socialPost(db, 1))!.text).toBe(post.text);
   });
 
@@ -73,12 +73,12 @@ describe("Saga's proposal for a post's words", () => {
     const fromPr = await call("/pr/opslag/1/forslag", { method: "POST", body: form, headers: { accept: "application/json" } });
     expect(await fromPr.json()).toMatchObject({ text: WORDS.facebook });
     const fromStudio = await call(`/plakater/${HEX}/tekst`, { method: "POST", body: JSON.stringify({ wish: "" }), headers: { "content-type": "application/json" } });
-    expect(await fromStudio.json()).toMatchObject({ text: WORDS.facebook, instagramText: expect.stringContaining("(link i bio)") });
+    expect(await fromStudio.json()).toMatchObject({ text: WORDS.facebook, instagramText: expect.stringContaining("via linket i bio.") });
   });
 
   it("puts where to sign up above the hashtags", () => {
-    expect(withSignUp("Kom.\n\n#aarhus #yoga")).toBe("Kom.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).\n\n#aarhus #yoga");
-    expect(withSignUp("Kom.")).toBe("Kom.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).");
+    expect(withSignUp("Kom.\n\n#aarhus #yoga")).toBe("Kom.\n\nLæs mere og tilmeld dig via linket i bio.\n\n#aarhus #yoga");
+    expect(withSignUp("Kom.")).toBe("Kom.\n\nLæs mere og tilmeld dig via linket i bio.");
   });
 });
 

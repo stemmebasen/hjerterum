@@ -14,6 +14,10 @@ export const ease = Easing.bezier(0.33, 0, 0.2, 1);
 export const rise = (f: number, delay: number, len = 30) => interpolate(f - delay, [0, len], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: ease });
 
 /** Centred: text and the rising words ("Alt centreret"). */
+/** Reported (the chair, 6 Nov 2026): "Overskriften bliver næsten klippet. Hvorfor er der ikke mere luft?" Instagram shows a reel cut to 4:5 in the feed (y 285-1635 of
+ * 1920) and lays its own name, words and buttons over the top and bottom of the full reel. Everything that must be read stays between SAFE_TOP and SAFE_BOTTOM. */
+export const SAFE_TOP = 320, SAFE_BOTTOM = 1580;
+
 export const CENTER = { textAlign: "center", alignItems: "center", "--rise-justify": "center" } as React.CSSProperties;
 
 /** A size for words in Playfair that fits `width` in at most `lines` lines. */
@@ -44,8 +48,8 @@ export const Stamp: React.FC<{ size: number; color: string; delay?: number; styl
 
 /** The top of every page: a small word on the left, the stamp large in the top right ("Logoet i højre top skal være større på alle"). */
 export const Head: React.FC<{ kicker: string; color: string; stamp: string }> = ({ kicker, color, stamp }) =>
-  <div style={{ position: "absolute", top: 70, left: 90, right: 70, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-    <Kicker text={kicker} color={color} /><Stamp size={300} color={stamp} /></div>;
+  <div style={{ position: "absolute", top: SAFE_TOP, left: 90, right: 80, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <Kicker text={kicker} color={color} /><Stamp size={200} color={stamp} /></div>;
 
 /** Words rising into place one after another. */
 export const Rise: React.FC<{ text: string; delay?: number; step?: number; style?: React.CSSProperties }> = ({ text, delay = 0, step = 3, style }) => {
@@ -123,11 +127,11 @@ export const Farewell: React.FC<{ title: string; date: string; time: string; bg:
     {backdrop}
     <AbsoluteFill style={{ background: `radial-gradient(circle at ${lx}% ${ly}%, rgba(255,250,240,.22) 0%, rgba(255,250,240,0) 55%)` }} />
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", textAlign: "center", padding: "0 90px", transform: `scale(${zoom})` }}>
-      <Stamp size={360} color={ink} />
+      <Stamp size={280} color={ink} />
       {top && <div style={{ fontFamily: serif, fontSize: fit(top, 900, 130, 1, 80), color: ink, lineHeight: 1.08, marginTop: 80, whiteSpace: "nowrap", ...up(12) }}>{top}</div>}
       {title && <div style={{ fontFamily: serif, fontSize: fit(title, 900, 120, 3, 72), color: ink, lineHeight: 1.08, marginTop: 80, ...up(12) }}>{title}</div>}
       {date && <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 66, color: accent, marginTop: 44, lineHeight: 1.3, ...up(22) }}><div>{date}</div><div>{time}</div></div>}
-      <div style={{ marginTop: 130, ...up(36) }}>
+      <div style={{ marginTop: 90, ...up(36) }}>
         <div style={{ fontFamily: serif, fontStyle: "italic", fontSize: 76, color: ink }}>Vi ses i Hjerterum</div>
         <div style={{ fontFamily: sans, fontSize: 46, color: ink, marginTop: 14, opacity: 0.85 }}>Guldsmedgade 26 i Aarhus</div>
       </div>

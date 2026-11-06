@@ -64,6 +64,6 @@ describe("the PR calendar", () => {
     await db.prepare("DELETE FROM job_claims WHERE job_key = 'social_balance_retime'").run();
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", NOW);
     await topUpWeeks(env as never, deps(services.fetcher, NOW + 3_600_000), db);
-    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ channels: ["facebook", "instagram"], source: { instagramText: expect.stringContaining("link i bio") } });
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ channels: ["facebook", "instagram"], source: { instagramText: expect.stringContaining("linket i bio") } });
   });
 });
