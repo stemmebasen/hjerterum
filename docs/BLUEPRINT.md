@@ -1419,3 +1419,13 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - **Kunst og botanik:** Art Institute of Chicago, The Met og Openverse, kun CC0 og public domain.
 - **Nøgler:** `PEXELS_API_KEY`, `UNSPLASH_ACCESS_KEY` og `PIXABAY_API_KEY` ligger i GitHub-hemmelighederne. En kilde uden nøgle udelades og nævnes på siden.
 - **Unsplash:** får besked, når et af dets fotos bruges, som Unsplash beder om.
+
+## Filarkiv → Undervisere: underviser → dato · event (2026-11-06)
+
+- **Spurgt (formanden):** "Der er slet ikke noget i vores filarkiv endnu? Hvad med event materialet som aftalt?", "vi har jo allerede aftalt strukturen? Underviser -> Dato/Event. Generelt materiale lægger i selve underviser-mappen" og "Det er også disse mapper Saga skal søge i ved PR".
+- **Filarkiv → Undervisere** (`cockpit/eventArchive.ts`): en mappe for hver underviser (eventets vært; bestyrelsens egne events under "Hjerterum") og i den en mappe for hvert event, "ÅÅÅÅ-MM-DD · titel".
+  - **Eventmappen:** eventets materiale (`event_material`), dvs. hvad PR-mails bragte, billeder lagt ved eventet på Plakater og opslag og filer, bestyrelsen lægger der.
+  - **Underviserens egen mappe (generelt materiale):** PR-billeder og profilfoto fra underviserens PR-materiale (med samtykkestatus), underviserens egne ord og filer, bestyrelsen lægger der (`event_material` med nøglen `t:<navn>`).
+- **Ikke en kopi:** mapperne viser selve materialet, så Filarkivet og Plakater og opslag altid viser det samme.
+- **Saga søger i mapperne:** på Plakater og opslag tilbydes billeder og filer fra underviserens mappe ("Fra underviserens mappe: …"). En PR-mail, der ikke kan kobles til ét event, men er fra en kendt underviser, lægges i underviserens egen mappe.
+- **Adgang:** bestyrelsen ser, henter og lægger op. Kun formanden sletter (`archive.manage`). Suppleanter kan kun læse.

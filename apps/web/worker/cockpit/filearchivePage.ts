@@ -1,5 +1,6 @@
 import { esc, layout } from "./page.js";
 import { MAX_UPLOAD_BYTES, type Copy, type FolderView } from "../archive.js";
+import { EVENT_ARCHIVE_STYLE, TEACHERS_FOLDER } from "./eventArchive.js";
 
 /** Filarkiv (archive.ts): the board's files in folders, and the nightly copies of the database. The chair's alone for now (archive.manage). */
 
@@ -39,11 +40,13 @@ export function fileArchivePage(base: string, who: string | null, view: FolderVi
   const manage = data.canManage ?? true;
   const parts = view.folder ? view.folder.split("/") : [];
   const crumbs = [`<a href="${base}/filarkiv">Filarkiv</a>`, ...parts.map((p, i) => i === parts.length - 1 ? `<b>${esc(p)}</b>` : `<a href="${base}/filarkiv${q(parts.slice(0, i + 1).join("/"))}">${esc(p)}</a>`)].join(" / ");
-  const folders = view.folders.map(f => `<li class="fa-folder"><a href="${base}/filarkiv${q(view.folder ? `${view.folder}/${f}` : f)}"><span class="fa-icon" aria-hidden="true">📁</span>${esc(f)}</a></li>`).join("");
+  // "Underviser -> Dato/Event" - the teachers and their events' material, first at the top (eventArchive.ts).
+  const eventsFolder = view.folder ? "" : `<li class="fa-folder"><a href="${base}/filarkiv?mappe=${TEACHERS_FOLDER}"><span class="fa-icon" aria-hidden="true">📁</span>${TEACHERS_FOLDER}</a><span class="small muted">Underviser → dato · event</span></li>`;
+  const folders = eventsFolder + view.folders.filter(f => f !== TEACHERS_FOLDER).map(f => `<li class="fa-folder"><a href="${base}/filarkiv${q(view.folder ? `${view.folder}/${f}` : f)}"><span class="fa-icon" aria-hidden="true">📁</span>${esc(f)}</a></li>`).join("");
   const files = view.files.map(f => `<li class="fa-file"><a href="${base}/filarkiv/fil?k=${encodeURIComponent(f.key)}"><span class="fa-icon" aria-hidden="true">📄</span>${esc(f.name)}</a>
 <span class="small muted">${size(f.size)} · ${esc(WHEN.format(f.uploaded))}${f.by ? ` · ${esc(f.by)}` : ""}</span>
 ${manage ? `<form method="post" action="${base}/filarkiv/slet" onsubmit="return confirm(${esc(JSON.stringify(`Slet "${f.name}"? Den kan ikke hentes tilbage.`))})"><input type="hidden" name="k" value="${esc(f.key)}"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost danger small">Slet</button></form>` : ""}</li>`).join("");
-  const empty = !view.folders.length && !view.files.length;
+  const empty = Boolean(view.folder) && !view.folders.length && !view.files.length;
   const body = `<main class="fa"><h1>Filarkiv</h1>
 <p class="muted">Bestyrelsens filer, samlet ét sted i Hjerterums eget lager hos Cloudflare (R2): vedtægter, regnskaber, aftaler, billeder og andet, der skal gemmes.</p>
 ${tabs(base, "filer", manage)}
@@ -62,6 +65,15 @@ ${data.ready ? `<div class="fa-actions">
 ${manage ? `<p class="small muted fa-backup">${BACKUP_LINE} <a href="${base}/filarkiv?vis=kopier">Se kopierne</a></p>` : ""}
 </main>`;
   return layout(base, "Filarkiv", body, { section: "/filarkiv", who, style: STYLE });
+}
+
+/** Filarkiv → Undervisere (eventArchive.ts), in the archive's own page. */
+export function eventMaterialPage(base: string, who: string | null, inner: string, data: { notice: string; error: string; canManage: boolean }): string {
+  const body = `<main class="fa"><h1>Filarkiv</h1>
+${tabs(base, "filer", data.canManage)}
+${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.error ? `<p class="notice bad">${esc(data.error)}</p>` : ""}
+${inner}</main>`;
+  return layout(base, "Filarkiv", body, { section: "/filarkiv", who, style: STYLE + EVENT_ARCHIVE_STYLE });
 }
 
 export function copiesPage(base: string, who: string | null, list: Copy[], data: { ready: boolean }): string {
