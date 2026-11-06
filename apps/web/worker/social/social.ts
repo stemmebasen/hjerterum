@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -46,6 +46,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     instagramAtMs?: number | null;
     /** The event's video (video/, made on GitHub by .github/workflows/video-events.yml): on Instagram as a reel, unless the chair took it off. */
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
+    /** "Videoen på Facebook" taken off: Facebook gets the picture (or the link) instead of the event's video. */
+    noFacebookVideo?: boolean;
     /** "to shouts på hvert medie" (plan.ts shoutWindows): which of the event's posts this is - the first (none said: the first) or the reminder a week
      * before - and how many the event has. */
     shout?: 1 | 2; shouts?: 1 | 2;
@@ -150,11 +152,12 @@ async function insertPost(db: D1Database, post: { kind: SocialKind; sourceKey: s
 
 /** The chair changes a post that has not gone out: its words, where it goes and (for the week's posts) when. A changed post is a draft again. */
 export async function editPost(db: D1Database, id: number, change: { text?: string; instagramText?: string; collaborators?: string[]; channels?: Channel[]; publishAtMs?: number | null;
-  instagramAtMs?: number | null; noVideo?: boolean }, nowMs: number): Promise<boolean> {
+  instagramAtMs?: number | null; noVideo?: boolean; noFacebookVideo?: boolean }, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, id);
   if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return false;
   const source = { ...post.source, ...(change.instagramText !== undefined ? { instagramText: change.instagramText } : {}), ...(change.collaborators !== undefined ? { collaborators: change.collaborators.slice(0, 3) } : {}),
-    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}), ...(change.noVideo !== undefined ? { noVideo: change.noVideo || undefined } : {}) };
+    ...(change.instagramAtMs !== undefined ? { instagramAtMs: change.instagramAtMs } : {}), ...(change.noVideo !== undefined ? { noVideo: change.noVideo || undefined } : {}),
+    ...(change.noFacebookVideo !== undefined ? { noFacebookVideo: change.noFacebookVideo || undefined } : {}) };
   await db.prepare(`UPDATE social_posts SET text = ?, channels = ?, source = ?, publish_at_ms = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
     .bind(change.text ?? post.text, JSON.stringify(change.channels ?? post.channels), JSON.stringify(source), change.publishAtMs !== undefined ? change.publishAtMs : post.publish_at_ms, nowMs, id).run();
   return true;
@@ -667,13 +670,20 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
   try {
     for (const channel of post.channels) {
       if (done[channel] || dueAt(post, channel) > deps.now()) continue;
-      if (channel === "facebook") done.facebook = post.source.design && post.images[0]
+      // Asked (the chair, 6 Nov 2026): "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge": an event's video goes on Facebook too,
+      // with the words and the link in them. Without the permission (publish_video, until the page is connected again) the picture goes out as before.
+      const facebookVideo = channel === "facebook" && post.kind === "event" && post.source.video && !post.source.noFacebookVideo
+        ? await postVideoToPage(deps.fetcher, page, { url: post.source.video, description: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) }).catch(error => {
+          if (/permission|\(#10\)|\(#200\)|publish_video|meta_403/i.test(error instanceof Error ? error.message : String(error))) return null;
+          throw error;
+        }) : null;
+      if (channel === "facebook") done.facebook = facebookVideo ?? (post.source.design && post.images[0]
         ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
-        : await postToPage(deps.fetcher, page, { message: await pub(post.text), link: post.link ? await pub(post.link) : post.link });
+        : await postToPage(deps.fetcher, page, { message: await pub(post.text), link: post.link ? await pub(post.link) : post.link }));
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
         // "Ugens events" as a reel, and an event's post with its video (requested: the video templates, "Lad os få dem op"): Instagram processes the
-        // video between Saga's rounds. Facebook keeps the picture (a video there needs the permission publish_video).
+        // video between Saga's rounds. Facebook has the video too (above), with the permission publish_video.
         if (post.source.format === "reel" || (post.kind === "event" && post.source.video && !post.source.noVideo)) {
           if (!post.source.video) throw new Error("Reelen har ingen video");
           const caption = await pub(post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text);
@@ -961,7 +971,7 @@ export async function pickVideo(db: D1Database, id: number, index: number, nowMs
   const post = await socialPost(db, id);
   const choice = post?.source.videoChoices?.[index];
   if (!post || !choice || !["draft", "approved", "failed"].includes(post.status)) return null;
-  const { noVideo: _off, ...rest } = post.source;
+  const { noVideo: _off, noFacebookVideo: _offFb, ...rest } = post.source;
   await db.prepare("UPDATE social_posts SET source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
     .bind(JSON.stringify({ ...rest, video: choice.video, videoTemplate: choice.template, videoAtMs: choice.atMs, videoNotifiedAtMs: nowMs }), nowMs, id).run();
   return socialPost(db, id);
@@ -983,7 +993,7 @@ export async function chooseVideoTemplate(db: D1Database, id: number, template: 
   const { templatesFor } = await import("./videoTemplates.js");
   if (!templatesFor(post).includes(template)) return "template";
   if (!videoInTime(post, nowMs)) return "late";
-  const { video: _video, videoAtMs: _at, videoNotifiedAtMs: _told, noVideo: _off, ...rest } = post.source;
+  const { video: _video, videoAtMs: _at, videoNotifiedAtMs: _told, noVideo: _off, noFacebookVideo: _offFb, ...rest } = post.source;
   await db.prepare("UPDATE social_posts SET source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
     .bind(JSON.stringify({ ...rest, videoTemplate: template }), nowMs, id).run();
   return "ok";

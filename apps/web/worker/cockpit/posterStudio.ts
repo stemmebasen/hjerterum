@@ -35,7 +35,7 @@ export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; f
     /** Instagram's own time (else Facebook's). */
     instagramAtMs: number | null;
     /** The event's video for Instagram, and whether the chair took it off. */
-    video: string | null; noVideo: boolean;
+    video: string | null; noVideo: boolean; noFacebookVideo: boolean;
     /** The video's template, the templates it can be made in, and whether a new one can still be made before it goes out (social/videoTemplates.ts). */
     videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean;
     /** "flere ... video designs på kommando": the videos made to choose among, and the templates Saga is making now. */
@@ -134,7 +134,7 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
   const post = open && full ? { id: open.id, status: open.status, week: open.week, monday: open.publish_at_ms ? mondayOfMs(Date.parse(event.startsAt)) : null,
     image: (() => { try { return (JSON.parse(open.images) as string[])[0] ?? null; } catch { return null; } })(), design: Boolean(open.design),
     text: full.text, instagramText: full.source.instagramText || instagramEventText(full.text), channels: full.channels, publishAtMs: full.publish_at_ms, link: full.link, instagram,
-    instagramAtMs: full.source.instagramAtMs ?? null, video: full.source.video ?? null, noVideo: Boolean(full.source.noVideo),
+    instagramAtMs: full.source.instagramAtMs ?? null, video: full.source.video ?? null, noVideo: Boolean(full.source.noVideo), noFacebookVideo: Boolean(full.source.noFacebookVideo),
     videoTemplate: full.source.videoTemplate ?? null, videoTemplates: VIDEO_TEMPLATES.filter(t => templatesFor(full).includes(t.no)).map(t => ({ no: t.no, name: t.name, used: usedLabel(uses.get(t.no)) })),
     videoRemake: videoInTime(full, nowMs), videoChoices: (full.source.videoChoices ?? []).map(c => ({ template: c.template, name: choiceName(c, templateName), video: c.video })), videoAsked: full.source.videoAsk?.templates ?? [],
     stillAsked: Boolean(full.source.stillAsk) } : null;

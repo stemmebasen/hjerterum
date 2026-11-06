@@ -40,19 +40,43 @@ describe("an event's post with its video", () => {
     return { db, env, graph, fetcher, call };
   }
 
-  it("is shown to the chair and goes on Instagram as a reel, while Facebook keeps the picture", async () => {
+  it("is shown to the chair and goes on Instagram as a reel, and on Facebook as a video (\"Videoen på begge\")", async () => {
     const { db, env, graph, fetcher, call } = await setup();
     const page = await (await call("/pr/uge?uge=2026-11-09")).text();
     expect(page).toContain(`<video src="${VIDEO}"`);
     expect(page).toContain("Video på Instagram");
-    expect(await (await call("/pr/kalender")).text()).toContain("IG ▶");
+    expect(page).toContain("Video på Facebook");
+    const calendar = await (await call("/pr/kalender")).text();
+    expect(calendar).toContain("IG ▶");
+    expect(calendar).toContain("FB ▶");
     await db.prepare("UPDATE social_posts SET status = 'approved'").run();
     await publishDue(env as never, deps(fetcher, AT + 60_000), db);
     await publishDue(env as never, deps(fetcher, AT + 6 * 60_000), db);
     const reel = graph.find(c => c.path === "/17841/media")!;
     expect(reel.params).toMatchObject({ media_type: "REELS", video_url: VIDEO, caption: "Kom til dans med Kasper.\n\nlink i bio" });
-    expect(graph.some(c => c.path === "/755/feed")).toBe(true);
+    // "Hvorfor er det, at vi ikke deler film på Facebook også?" - the video, with the words and the link.
+    expect(graph.find(c => c.path === "/755/videos")!.params).toMatchObject({ file_url: VIDEO, description: "Kom til dans med Kasper.\n\nhttps://www.hjerterum.info/events/a" });
+    expect(graph.some(c => c.path === "/755/feed" || c.path === "/755/photos")).toBe(false);
     expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "published", published: { facebook: "755_1", instagram: "ig1" } });
+  });
+
+  it("keeps the picture on Facebook when the chair takes the video off there, or the page may not post videos yet", async () => {
+    const { db, env, graph, fetcher, call } = await setup();
+    const [post] = await socialPosts(db, "kind = 'event'");
+    const form = new FormData(); form.append("do", "godkend"); form.append("text", post!.text); form.append("kanaler", "1"); form.append("channel", "facebook"); form.append("video_box", "1"); form.append("video", "1");
+    await call(`/pr/opslag/${post!.id}`, { method: "POST", body: form });
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "approved", source: { noFacebookVideo: true } });
+    await publishDue(env as never, deps(fetcher, AT + 60_000), db);
+    expect(graph.some(c => c.path === "/755/videos")).toBe(false);
+    expect(graph.some(c => c.path === "/755/feed")).toBe(true);
+    // Without publish_video: the picture, not a failed post.
+    const refusing: typeof fetch = async (input, init) => String(input).includes("/755/videos")
+      ? new Response(JSON.stringify({ error: { message: "(#200) Requires publish_video permission", code: 200 } }), { status: 403 }) : fetcher(input, init);
+    await db.prepare("UPDATE social_posts SET status = 'approved', published = '{}', source = json_remove(source, '$.noFacebookVideo')").run();
+    graph.length = 0;
+    await publishDue(env as never, deps(refusing, AT + 120_000), db);
+    expect(graph.some(c => c.path === "/755/feed")).toBe(true);
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "published", published: { facebook: "755_1" } });
   });
 
   it("keeps the picture on Instagram when the chair takes the video off", async () => {
