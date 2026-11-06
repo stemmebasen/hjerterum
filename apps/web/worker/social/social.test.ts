@@ -62,14 +62,15 @@ describe("the week's plan", () => {
     expect(pickWeekEvents(events.slice(0, 4), new Set())).toHaveLength(4);
   });
 
-  it("posts each event as soon as may be, spread over the day, three a day at most, never after it begins", () => {
+  it("posts each event as soon as may be, spread over the day, never after it begins - and at least three days before when it can", () => {
     // Thursday 5 November, 10.00 Danish time. Requested: "hurtigst muligt".
     const chosen = [event("a", "A", "2026-11-10T18:00:00Z"), event("b", "B", "2026-11-10T19:00:00Z"), event("c", "C", "2026-11-10T20:00:00Z"), event("d", "D", "2026-11-05T15:00:00Z")];
     const times = eventPostTimes(chosen, NOW);
     // Requested (5 Nov): "Medlemscafeen promoveres ikke på selve dagen men senest dagen før. Det gælder for alle events." D (today 16.00) was put in the
     // calendar too late for the day before, so it goes as soon as may be; A-C one a day at 15.00, from today - the day before at the latest.
-    // (D's post today counts in today's tally, so A-C spread from tomorrow.)
-    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-08T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
+    // (D's post today counts in today's tally, so A-C spread from tomorrow.) "Op til 5 om dagen" (6 Nov): C would go out two days before, so it takes
+    // today's free 15.00 instead - three days before at the least.
+    expect(times.map(t => new Date(t).toISOString())).toEqual(["2026-11-06T14:00:00.000Z", "2026-11-07T14:00:00.000Z", "2026-11-05T14:00:00.000Z", "2026-11-05T11:00:00.000Z"]);
     // The members' café tomorrow at 16.00: today, never tomorrow - also when today's times are taken.
     const cafe = event("k", "Medlemscafé", "2026-11-06T15:00:00Z");
     expect(new Date(eventPostTimes([cafe], NOW)[0]!).toISOString().slice(0, 10)).toBe("2026-11-05");

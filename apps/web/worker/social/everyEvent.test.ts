@@ -42,7 +42,8 @@ describe("every event shared at least once", () => {
     const live = after.filter(p => p.status !== "skipped");
     expect(new Set(live.map(p => p.publish_at_ms)).size).toBe(15);
     const perDay = new Map<string, number>(); for (const p of live) { const d = new Date(p.publish_at_ms! + 3_600_000).toISOString().slice(0, 10); perDay.set(d, (perDay.get(d) ?? 0) + 1); }
-    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(3);
+    // "Op til 5 om dagen" (6 Nov 2026): more than three only to get an event out in good time.
+    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(5);
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("et forslag til et opslag om et nyt event"))).toHaveLength(1);
     // Once an hour; nothing new, nothing more.
     expect(await topUpWeeks(env as never, deps(services.fetcher, saturday + 60_000), db)).toBe(0);

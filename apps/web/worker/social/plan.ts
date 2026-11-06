@@ -17,6 +17,15 @@ export const SITE = "https://www.hjerterum.info";
  * the evening - at most three a day, two and a half hours apart, spread evenly over the days (eventPostTimes). The insight page shows what works. */
 export const POST_HOURS: Array<[number, number]> = [[9, 0], [12, 0], [15, 0], [17, 0], [19, 30]];
 export const POSTS_PER_DAY = 3;
+/** Asked (the chair, 6 Nov 2026): "Der er stadig en del steder med kun 1 dag til eventet, selvom der vil være god tid til at dele dem noget før ... Husk også at
+ * delinger på de sociale medier sagtens kan krydse hinanden i kalenderen" - "Op til 5 om dagen": two more times, 9.30 and 17.30, used only when an event would
+ * otherwise go out less than EARLY_DAYS before; then two hours apart is enough. Facebook and Instagram may share a time. */
+export const EXTRA_HOURS: Array<[number, number]> = [[9, 30], [17, 30]];
+export const MAX_PER_DAY = 5;
+export const EXTRA_GAP_MS = 2 * 3_600_000;
+export const EARLY_DAYS = 3;
+/** The last moment a post goes out "in good time": EARLY_DAYS before the event's day. */
+export const earlyBy = (startsMs: number) => at(addDays(dateOf(startsMs), -EARLY_DAYS), 23, 59);
 /** Within a day: Gitta's afternoon first, then lunch, then the evening (2.5 hours apart, so three a day fill 12, 15 and 19.30). */
 const DAY_ORDER: Array<[number, number]> = [[15, 0], [12, 0], [19, 30], [9, 0], [17, 0]];
 /** How many of the first possible days a post is spread over. */
@@ -50,7 +59,7 @@ export function at(date: string, hour: number, minute = 0): number {
   }
   return Date.parse(`${date}T${hh}:${mm}:00Z`);
 }
-const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * DAY).toISOString().slice(0, 10);
+export const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * DAY).toISOString().slice(0, 10);
 
 /** The Monday (Danish date) of the week a moment lies in. */
 export const mondayOf = (ms: number) => addDays(dateOf(ms), 1 - weekdayOf(ms));
@@ -99,7 +108,8 @@ export const lastPostMs = (startsMs: number) => Math.min(at(addDays(dateOf(start
  * slot. Returned in the order given. */
 export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, alreadyTaken: number[] = [], earliest: number[] = [], latest: number[] = [], strict: boolean[] = [], avoid: number[] = []): number[] {
   const taken = new Set<number>(alreadyTaken);
-  // Times the other medium has (Instagram's post never at the same minute as another event's on Facebook).
+  // Times the other medium has (Instagram's post never at the same minute as another event's on Facebook) - only within the day's three: "delinger på de
+  // sociale medier [kan] sagtens krydse hinanden".
   const busy = new Set<number>(avoid);
   const out: number[] = new Array(events.length);
   // The post that must go out first is placed first (a narrow window - "to shouts" - before a wide one), then by the event's time.
@@ -116,7 +126,12 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
       const free = DAY_ORDER.map(([h, m]) => at(day, h, m)).find(t => t >= from && t <= last && !busy.has(t) && same.every(o => Math.abs(o - t) >= POST_GAP_MS));
       if (free !== undefined) candidates.push({ slot: free, count: same.length });
     }
-    const slot = candidates.length ? candidates.reduce((best, c) => c.count < best.count ? c : best).slot : null;
+    let slot = candidates.length ? candidates.reduce((best, c) => c.count < best.count ? c : best).slot : null;
+    // "Op til 5 om dagen": an event that would go out less than three days before gets the first time it can have before that - an extra one if need be.
+    if (!strict[i] && (slot === null || slot > earlyBy(e.startsMs))) {
+      const early = earlySlot(from, Math.min(last, earlyBy(e.startsMs)), [...taken]);
+      if (early !== null && (slot === null || early < slot)) slot = early;
+    }
     // No free slot by the day before: the first of the day's times that is still in time (even a fourth that day) - never a time in the night -
     // and only when there is none (an event put in the calendar on its own day), as soon as may be.
     // A time nobody has first (a narrow window - "to shouts" - can be full), else the first that is in time.
@@ -133,6 +148,21 @@ export function eventPostTimes(events: NewsletterEvent[], notBeforeMs: number, a
   }
   return out;
 }
+/** The first time from `from` to `limit` a post can have: the day's three (three hours apart), else - "Op til 5 om dagen" - one of five, two hours apart.
+ * The earliest day wins. Null when there is none. */
+export function earlySlot(from: number, limit: number, taken: number[]): number | null {
+  for (let day = dateOf(from); at(day, 0) <= limit; day = addDays(day, 1)) {
+    const same = taken.filter(t => dateOf(t) === day);
+    const fits = (t: number, gap: number) => t >= from && t <= limit && !same.includes(t) && same.every(o => Math.abs(o - t) >= gap);
+    if (same.length < POSTS_PER_DAY) { const t = DAY_ORDER.map(([h, m]) => at(day, h, m)).find(t => fits(t, POST_GAP_MS)); if (t !== undefined) return t; }
+    if (same.length < MAX_PER_DAY) {
+      const t = EXTRA_HOURS.map(([h, m]) => at(day, h, m)).find(t => fits(t, EXTRA_GAP_MS));
+      if (t !== undefined) return t;
+    }
+  }
+  return null;
+}
+
 /** Requested (the chair, 4 Nov 2026: "Og så kan man jo argumentere for, at et event publiceres på forskellige tidspunkter på de to medier." - asked
  * whether Saga should propose different times as a rule, "Ja"): each event's Instagram post at its own time, at least POST_GAP_MS after Facebook's,
  * spread over Instagram's own days the same way (alreadyTaken: Instagram's times). Where there is no such time before the event, the same as Facebook. */
@@ -146,7 +176,7 @@ export function instagramPostTimes(events: NewsletterEvent[], facebookTimes: num
   const idx = events.map((_, i) => i).filter(i => Number.isNaN(first[i]!));
   const again = idx.length ? eventPostTimes(idx.map(i => events[i]!), notBeforeMs, [...alreadyTaken, ...first.filter(t => !Number.isNaN(t))], idx.map(i => sameDay[i]!), idx.map(i => latest[i] ?? Number.POSITIVE_INFINITY), [], avoid) : [];
   const times = [...first]; idx.forEach((i, k) => { times[i] = again[k]!; });
-  return times.map((t, i) => t >= sameDay[i]! && t <= Math.min(lastPostMs(events[i]!.startsMs), latest[i] ?? Number.POSITIVE_INFINITY) && POST_HOURS.some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
+  return times.map((t, i) => t >= sameDay[i]! && t <= Math.min(lastPostMs(events[i]!.startsMs), latest[i] ?? Number.POSITIVE_INFINITY) && [...POST_HOURS, ...EXTRA_HOURS].some(([h, m]) => at(dateOf(t), h, m) === t) ? t : facebookTimes[i]!);
 }
 
 /** Requested (the chair, 5 Nov 2026): "Hvert event får to shouts på hvert medie - 14-15 dage før og 7-8 dage før - altså i alt fire shouts (2 på insta og 2 på
