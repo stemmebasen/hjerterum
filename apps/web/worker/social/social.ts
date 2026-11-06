@@ -48,6 +48,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     videoTemplate?: number; videoAtMs?: number; noVideo?: boolean;
     /** "Videoen på Facebook" taken off: Facebook gets the picture (or the link) instead of the event's video. */
     noFacebookVideo?: boolean;
+    /** Shared as the event's own Facebook event (shareEventInstead). */
+    fbEventShare?: boolean;
     /** The chair chose the time (moved it in the calendar, or saved it): Saga does not move it (pullEarlier). */
     chairTime?: boolean;
     /** "to shouts på hvert medie" (plan.ts shoutWindows): which of the event's posts this is - the first (none said: the first) or the reminder a week
@@ -513,7 +515,8 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   // Asked: "Hvorfor har du lagt så mange ind?" - once more, now with no day over three (placeFirsts).
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
   if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
-  await retimeOverdue(db, now);
+  const sharedEvents = await retimeOverdue(db, now);
+  for (const e of sharedEvents) await tellChair(env, deps, `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga deler Facebook-begivenheden på Facebook ${longWhen(e.at)}, som du har valgt. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
   await pullEarlier(db, now).catch(error => console.warn("social_pull_earlier_failed", error instanceof Error ? error.message : error));
   let fresh = 0;
   const series = await seriesMap(db, now);
@@ -539,11 +542,52 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
  * ikke er blevet delt ifølge planen (fordi jeg ikke har godkendt det) skal Saga replanlægge kommende events." Every hour: a proposal whose time has come
  * without the chair's yes gets the next free time inside its window - the first post at the latest ten days before when the event has a second, the
  * second (or only) one the day before at the latest - and is set aside when its window has passed. */
-async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
+/** Asked (the chair, 6 Nov 2026): "Er det muligt at dele selve eventet (altså videresende kan man sige) som et post via systemet?" - "Når der ikke er godkendt
+ * et opslag, så deles selve eventet bare". A setting the chair turns on in PR og SoMe → Overblik (an approval in admin, once): when an event's last post
+ * passes unapproved and none of its posts is approved, its Facebook event (Events → Facebook-begivenheder, with its link) is shared on the page instead -
+ * the event's own card, with its title and time. Only on Facebook (Instagram has no events), once per event. */
+const SHARE_EVENT_KEY = "social_share_facebook_event";
+export async function shareFacebookEventOn(db: D1Database): Promise<boolean> {
+  return (await db.prepare("SELECT setting_value AS v FROM platform_settings WHERE setting_key = ?").bind(SHARE_EVENT_KEY).first<{ v: string }>().catch(() => null))?.v === "1";
+}
+export async function setShareFacebookEvent(db: D1Database, on: boolean, by: string, nowMs: number): Promise<void> {
+  await db.prepare(`INSERT INTO platform_settings (setting_key, setting_value, updated_by_email, updated_at_ms) VALUES (?, ?, ?, ?)
+    ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_by_email = excluded.updated_by_email, updated_at_ms = excluded.updated_at_ms`)
+    .bind(SHARE_EVENT_KEY, on ? "1" : "0", by, nowMs).run();
+}
+
+/** The event's own Facebook event shared instead of its unapproved last post, at that post's time: the time it goes out, or null when it cannot (no link,
+ * the setting off, or one of its posts approved). */
+async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number): Promise<number | null> {
+  if (!p.source.key || !p.source.startsMs || !(await shareFacebookEventOn(db))) return null;
+  const link = (await db.prepare("SELECT link FROM facebook_events WHERE event_key = ?").bind(p.source.key).first<{ link: string | null }>().catch(() => null))?.link;
+  if (!link) return null;
+  const approved = await db.prepare("SELECT 1 AS yes FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.key') = ? AND status IN ('approved', 'publishing', 'published')").bind(p.source.key).first().catch(() => null);
+  if (approved || p.source.startsMs < nowMs + 3 * 3_600_000) return null;
+  // At the post's own time - it has just come, unapproved.
+  const at = Math.max(nowMs, p.publish_at_ms ?? nowMs);
+  const { design: _d, video: _v, instagramAtMs: _i, ...rest } = p.source;
+  const source = { ...rest, fbEventShare: true, noFacebookVideo: true, instagramAtMs: null };
+  await db.prepare(`UPDATE social_posts SET status = 'approved', channels = '["facebook"]', text = ?, link = ?, source = ?, publish_at_ms = ?, approved_by = 'Saga (Facebook-begivenheden, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
+    WHERE id = ? AND status = 'draft'`).bind(`${p.source.title ?? ""} - ${longWhen(p.source.startsMs)}`, link, JSON.stringify(source), at, nowMs, nowMs, p.id).run();
+  return at;
+}
+
+async function retimeOverdue(db: D1Database, nowMs: number): Promise<Array<{ title: string; at: number }>> {
+  const shared: Array<{ title: string; at: number }> = [];
   const late = (await socialPosts(db, `kind = 'event' AND status = 'draft'
       AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
     .filter(p => p.source.startsMs);
-  if (!late.length) return;
+  if (!late.length) return shared;
+  const lastChance = new Set((await db.prepare("SELECT source_key FROM social_posts WHERE source_key LIKE '%:2' AND status IN ('draft', 'approved', 'publishing', 'published')").all<{ source_key: string }>()
+    .then(r => r.results ?? []).catch(() => [])).map(r => r.source_key.slice(0, -2)));
+  // "Når der ikke er godkendt et opslag, så deles selve eventet bare": the event's last post, come unapproved - its Facebook event instead (when the chair said so).
+  for (const p of [...late]) {
+    if (p.source.shout !== 2 && lastChance.has(p.source_key)) continue;
+    const at = await shareEventInstead(db, p, nowMs);
+    if (at !== null) { shared.push({ title: p.source.title ?? "", at }); late.splice(late.indexOf(p), 1); }
+  }
+  if (!late.length) return shared;
   const ids = new Set(late.map(p => p.id));
   const others = await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ?", [nowMs - 86_400_000], "publish_at_ms, id", 1000);
   const rest = others.filter(p => !ids.has(p.id));
@@ -576,6 +620,7 @@ async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
     const source = { ...p.source, instagramAtMs: p.channels.includes("instagram") && ig[i] !== fb[i] ? ig[i] : null };
     await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(fb[i], JSON.stringify(source), p.id).run();
   }
+  return shared;
 }
 
 /** Asked (the chair, 6 Nov 2026): "Der er stadig en del steder med kun 1 dag til eventet, selvom der vil være god tid til at dele dem noget før" - "Op til 5 om
