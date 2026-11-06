@@ -1121,6 +1121,11 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - korn og ramme.
 - **Et beskåret billede fylder nu hele pladsen.** Formanden: "Kan brugerbilledet ikke fylde det hele? Og måske med en eller anden flot effekt på". Står billedet i en form, der ikke passer til pladsen (fx kvadrat i "Boks"), fylder en blødt sløret og lidt mørkere udgave af det samme billede pladsen, og billedet ligger skarpt ovenpå med en blød skygge. Før var der en lys kant.
 - **Logoet i "Ringe"** står nu oppe i hjørnet. Formanden: "logoet går ind over teksten".
+- **Mindstestørrelse for logoet.** Formanden: "Logoet er også meget, meget lille ... Der må være en minimumsstørrelse" og "sikre dig, at logoet med sin minimumsstørrelse altid ser flot ud og ikke karambolerer med andre elementer".
+  - Logoet er mindst 13 % af opslagets korte side i diameter og holdes inden for siden (`stamp`).
+  - Alle 30 layouts er gennemset. I Bånd, Mosaik, Kvadrat, Glaskort, Boks og Magasin er logoet eller teksten flyttet, så de ikke rører hinanden.
+- **Videoerne: billedet fylder sin plads.** Formanden: "Er det altid kun denne video, der bliver produceret? Den fungerer heller ikke så godt, fordi eventbilledet bliver så lille."
+  - Skabelon 3 (Plakat) og 4 (Stribe) viser nu billedet i hele sin plads (`PanPic` i `video/src/parts.tsx`), så det langsomt glider hen over sig selv. Et bredt banner ses dermed i fuld højde og helt.
 - **Brug på plakatsiden:** "✨ Vis flere forslag" viser ni nye kombinationer hver gang, uden ende (`styleBatch`, de samme for samme event). "Vælg" tager kombinationen med i opslaget. Logoet er altid husets eget.
 
 ## Den billigste model til Telegram og lette opgaver (2026-11-06)

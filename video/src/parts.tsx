@@ -65,6 +65,19 @@ export const Kicker: React.FC<{ text: string; color: string; delay?: number }> =
 
 /** The teacher's picture, always whole (their own words on it are never cut): as wide as `width`, and no taller than `maxHeight` - a taller picture
  * stands whole on a blurred copy of itself. */
+/** Asked (the chair, 6 Nov 2026): "Den fungerer heller ikke så godt, fordi eventbilledet bliver så lille." A picture that fills its whole box, and glides
+ * slowly across itself, so a wide banner is seen at full height - all of it, over the video's first seconds. */
+export const PanPic: React.FC<{ p: Picture; width: number; height: number; radius?: number | string; frames?: number }> = ({ p, width, height, radius = 0, frames = 200 }) => {
+  const f = useCurrentFrame();
+  const wide = p.ratio > width / height;
+  const iw = wide ? height * p.ratio : width, ih = wide ? height : width / p.ratio;
+  const t = interpolate(f, [0, frames], [0, 1], { extrapolateRight: "clamp", easing: (x: number) => x * x * (3 - 2 * x) });
+  const x = wide ? -(iw - width) * t : 0, y = wide ? 0 : -(ih - height) * t * 0.6;
+  return <div style={{ width, height, borderRadius: radius, overflow: "hidden", position: "relative", background: C.dusk }}>
+    <Img src={staticFile(p.file)} style={{ position: "absolute", left: x, top: y, width: iw, height: ih }} />
+  </div>;
+};
+
 export const Pic: React.FC<{ p: Picture; width: number; maxHeight: number; radius?: number | string; border?: string; style?: React.CSSProperties }> = ({ p, width, maxHeight, radius = 26, border, style }) => {
   const natural = width / p.ratio, height = Math.min(natural, maxHeight);
   const src = staticFile(p.file);

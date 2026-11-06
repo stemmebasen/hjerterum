@@ -1,6 +1,6 @@
 import React from "react";
 import { AbsoluteFill, Img, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { Blobs, C, Camera, CENTER, DateBadge, Farewell, fit, Head, lines, Pic, Rise, rise, SacredGeometry, sans, serif, SoftLines, Stamp, Stars } from "./parts";
+import { Blobs, C, Camera, CENTER, DateBadge, Farewell, fit, Head, lines, PanPic, Pic, Rise, rise, SacredGeometry, sans, serif, SoftLines, Stamp, Stars } from "./parts";
 import { FAREWELL_AT, type EventProps } from "./props";
 
 /** The event videos, one per template the chair kept (4 Nov 2026). Each is 9 seconds: the event, then the farewell page. The picture is always the
@@ -60,8 +60,8 @@ const Plakat: React.FC<{ p: EventProps }> = ({ p }) => {
   return <AbsoluteFill style={{ background: C.dusk }}>
     <Head kicker={p.kicker} color={C.camel} stamp={C.cream} />
     <div style={{ position: "absolute", left: 90, top: 990 }}><SacredGeometry size={900} color={C.camel} opacity={0.3} /></div>
-    {p.picture && <div style={{ position: "absolute", top: 420, left: 0, opacity: rise(f, 0, 24), transform: `scale(${1 + f * 0.0004})`, transformOrigin: "center top" }}>
-      <Pic p={p.picture} width={1080} maxHeight={620} radius={0} /></div>}
+    {p.picture && <div style={{ position: "absolute", top: 400, left: 0, opacity: rise(f, 0, 24) }}>
+      <PanPic p={p.picture} width={1080} height={680} /></div>}
     <div style={{ ...CENTER, position: "absolute", left: 80, right: 80, top: 1100, opacity: 1 - away(f) }}>
       <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 34, letterSpacing: "0.32em", color: C.camel, opacity: rise(f, 18) }}>{`${p.dayName} ${p.dayNo}/${monthNo(p.month)} · kl. ${p.time}`.toUpperCase()}</div>
       <Rise text={p.title} delay={26} step={4} style={{ fontFamily: serif, fontSize: fit(p.title, 920, 140, 3), color: C.cream, lineHeight: 1.02, marginTop: 30 }} />
@@ -92,7 +92,7 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
       {p.host && <Rise text={`med ${p.host}`} delay={46} step={3} style={{ fontFamily: serif, fontStyle: "italic", fontSize: 44, color: C.muted, marginTop: 22 }} />}
     </div>
     {p.picture && <div style={{ position: "absolute", left: 150, top: 1130, opacity: rise(f, 40), transform: `translateX(${(1 - rise(f, 40, 40)) * 300}px)`, boxShadow: "0 30px 70px rgba(60,35,20,.35)", borderRadius: "30px 0 0 30px" }}>
-      <Pic p={p.picture} width={930} maxHeight={620} radius="30px 0 0 30px" /></div>}
+      <PanPic p={p.picture} width={930} height={640} radius="30px 0 0 30px" /></div>}
     <End p={p} bg={C.camel} ink={C.ink} accent={C.ink} />
   </AbsoluteFill>;
 };

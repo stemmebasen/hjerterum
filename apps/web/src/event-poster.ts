@@ -371,6 +371,12 @@ export function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, w
 export const LOGO_FILE = "/brand/hjerterum-stempel.png";
 export function stamp(ctx: Ctx, img: HTMLImageElement | null, cx: number, cy: number, r: number, color: string) {
   if (!img) return;
+  // The chair (6 Nov 2026): "Logoet er også meget, meget lille ... Der må være en minimumsstørrelse for logoet, så man kan se det ordentligt på opslagene."
+  // At least 13% of the poster's short side across, and kept inside the page.
+  const W = ctx.canvas.width / (ctx.getTransform().a || 1), H = ctx.canvas.height / (ctx.getTransform().d || 1), short = Math.min(W, H);
+  r = Math.max(r, short * 0.065);
+  const edge = short * 0.03;
+  cx = Math.min(Math.max(cx, r + edge), W - r - edge); cy = Math.min(Math.max(cy, r + edge), H - r - edge);
   const tint = document.createElement("canvas");
   tint.width = img.naturalWidth; tint.height = img.naturalHeight;
   const t = tint.getContext("2d")!;

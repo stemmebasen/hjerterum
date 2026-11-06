@@ -248,7 +248,7 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = G.box; ctx.fillRect(bx, by, bw, bh);
       logo(ctx, a.logo, W / 2 - 30 * u, by + 46 * u, 60 * u, "#ffffff");
       ctx.font = "0px serif";
-      block(ctx, { x: bx + 50 * u, y: by + 140 * u, w: bw - 100 * u, h: bh - 190 * u }, w, { color: "#ffffff", accent: "#f3e3d4", muted: "#f1e6dc", size: 84 * u, maxLines: 3, align: "center" }, "center", u);
+      block(ctx, { x: bx + 50 * u, y: by + 250 * u, w: bw - 100 * u, h: bh - 290 * u }, w, { color: "#ffffff", accent: "#f3e3d4", muted: "#f1e6dc", size: 84 * u, maxLines: 3, align: "center" }, "center", u);
     }
   },
   aften: {
@@ -369,7 +369,8 @@ export const TEMPLATES: Record<string, Template> = {
       const bh = L ? H * 0.46 : H * 0.38, by = L ? (H - bh) / 2 : H * 0.5;
       ctx.fillStyle = "rgba(223,231,214,.94)"; ctx.fillRect(0, by, W, bh);
       ctx.fillStyle = G.leaf; ctx.fillRect(0, by, W, 6 * u); ctx.fillRect(0, by + bh - 6 * u, W, 6 * u);
-      logo(ctx, a.logo, W / 2 - 150 * u, by + 34 * u, 46 * u, G.leaf);
+      // The logo up in the photo's corner, clear of the band's words (min. size, the chair 6 Nov 2026).
+      stamp(ctx, a.logo, 140 * u, 140 * u, 70 * u, "#ffffff");
       block(ctx, { x: L ? W * 0.18 : 80 * u, y: by + 100 * u, w: L ? W * 0.64 : W - 160 * u, h: bh - 130 * u }, w, { color: G.leaf, accent: "#6f7d52", muted: "#4f5a46", kicker: null, size: 96 * u, maxLines: 2, align: "center" }, "center", u);
     }
   },
@@ -387,7 +388,7 @@ export const TEMPLATES: Record<string, Template> = {
       spaced(ctx, `${w.month.slice(0, 3)} · ${w.time}`, d.x + d.w / 2, d.y + d.h * 0.8, `600 ${Math.round(20 * u)}px ${SANS}`, C.blush, 4 * u, "center");
       ctx.fillStyle = C.sand; ctx.beginPath(); ctx.roundRect(words.x, words.y, words.w, words.h, 18 * u); ctx.fill();
       logo(ctx, a.logo, words.x + 40 * u, words.y + 36 * u, 44 * u, C.ink);
-      block(ctx, { x: words.x + 40 * u, y: words.y + 110 * u, w: words.w - 80 * u, h: words.h - 150 * u }, w, { color: C.ink, accent: C.terra, muted: C.muted, kicker: null, size: 80 * u, maxLines: 3, footer: null }, "center", u);
+      block(ctx, { x: words.x + 40 * u, y: words.y + 190 * u, w: words.w - 80 * u, h: words.h - 220 * u }, w, { color: C.ink, accent: C.terra, muted: C.muted, kicker: null, size: 80 * u, maxLines: 3, footer: null }, "center", u);
     }
   },
   // ---- Shared by the chair from Hjerterum's Instagram (1 Nov 2026): "Mere inspiration til Instagram design" - Gitta's carousel
@@ -448,7 +449,7 @@ export const TEMPLATES: Record<string, Template> = {
       photoIn(ctx, a.photo, spot);
       const r = L ? { x: spot.x + spot.w + 90 * u, y: 120 * u, w: W - spot.x - spot.w - 180 * u, h: H - 300 * u } : { x: 100 * u, y: spot.y + spot.h + 80 * u, w: W - 200 * u, h: H - spot.y - spot.h - 220 * u };
       block(ctx, r, w, { color: G.cocoa, accent: G.caramel, muted: G.grey, size: 92 * u, maxLines: 3, align: L ? "left" : "center" }, L ? "center" : "top", u);
-      stamp(ctx, a.logo, L ? W - 120 * u : W / 2, H - 80 * u, 40 * u, G.cocoa);
+      stamp(ctx, a.logo, W - 100 * u, L ? H - 120 * u : 100 * u, 70 * u, G.cocoa);
     }
   },
   duotone: {
@@ -560,7 +561,7 @@ export const TEMPLATES: Record<string, Template> = {
       const r = L ? { x: 90 * u, y: H * 0.45, w: W * 0.7, h: H * 0.55 - 80 * u } : { x: 80 * u, y: spot.h - 60 * u, w: W - 160 * u, h: H - spot.h - 40 * u };
       if (!L) { ctx.fillStyle = C.cream; ctx.beginPath(); ctx.roundRect(50 * u, spot.h - 90 * u, W - 100 * u, H - spot.h + 40 * u, 28 * u); ctx.fill(); }
       block(ctx, r, w, L ? { color: "#fbf6ee", accent: C.blush, muted: "#efe4d6", size: 100 * u, maxLines: 3 } : { color: C.ink, accent: C.terra, muted: C.muted, size: 104 * u, maxLines: 3 }, L ? "bottom" : "center", u);
-      stamp(ctx, a.logo, W - 110 * u, L ? H - 110 * u : spot.h - 160 * u, 44 * u, "#ffffff");
+      stamp(ctx, a.logo, W - 120 * u, L ? H - 120 * u : 230 * u, 70 * u, "#ffffff");
     }
   },
   minimal: {
@@ -576,7 +577,7 @@ export const TEMPLATES: Record<string, Template> = {
     }
   },
   glas: {
-    photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: 110 * u, y: 110 * u, w: H - 220 * u, h: H - 220 * u, shape: "rect", radius: 26 * u } : { x: 120 * u, y: 120 * u, w: W - 240 * u, h: H * 0.48, shape: "rect", radius: 30 * u }; },
+    photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: 110 * u, y: 110 * u, w: H - 220 * u, h: H - 220 * u, shape: "rect", radius: 26 * u } : { x: 120 * u, y: 260 * u, w: W - 240 * u, h: H * 0.44, shape: "rect", radius: 30 * u }; },
     draw(ctx, W, H, w, a) {
       const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
       ctx.fillStyle = C.dusk; ctx.fillRect(0, 0, W, H);
@@ -588,7 +589,7 @@ export const TEMPLATES: Record<string, Template> = {
       photoIn(ctx, a.photo, spot);
       const r = L ? { x: spot.x + spot.w + 70 * u, y: 140 * u, w: W - spot.x - spot.w - 210 * u, h: H - 280 * u } : { x: 130 * u, y: spot.y + spot.h + 60 * u, w: W - 260 * u, h: H - spot.y - spot.h - 200 * u };
       block(ctx, r, w, { color: "#ffffff", accent: C.blush, muted: "#efe4d6", size: 84 * u, maxLines: 3, align: L ? "left" : "center" }, "center", u);
-      stamp(ctx, a.logo, W - 150 * u, H - 140 * u, 40 * u, "#ffffff");
+      stamp(ctx, a.logo, L ? W - 160 * u : W / 2, L ? 160 * u : 170 * u, 70 * u, "#ffffff");
     }
   },
   diagonal: {
