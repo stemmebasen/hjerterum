@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { LOGO_FILE, PALETTES, chooseVariant, drawPoster, type PaletteKey, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** Requested (the chair, 3 Nov 2026): "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige
  * mig til at begynde med - kan bruge dem" and "Det er vigtigt, at jeg i cockpittet kan bruge alt det materiale, der er lagt op i forbindelse med eventet,
@@ -31,10 +31,20 @@ const FONTS = ["400 100px \"Playfair Display\"", "italic 400 100px \"Playfair Di
 const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "event";
 const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, palette = "varm" }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
-  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; palette?: PaletteKey }) {
+function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, style = PLAIN_STYLE }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
+  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; style?: Style }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
-  useEffect(() => { if (ref.current) drawPoster(ref.current, variant, words, assets, format, 1, palette); }, [variant, words, assets, format, palette]);
+  // A style's type is loaded first, so the canvas draws with it (the studio's page has the families - EXTRA_FONTS_URL).
+  const [ready, setReady] = useState(style.fonts === "klassisk");
+  useEffect(() => {
+    if (style.fonts === "klassisk") { setReady(true); return; }
+    const pair = FONT_PAIRS.find(f => f.key === style.fonts)!;
+    let live = true;
+    void Promise.all([`400 100px ${pair.serif}`, `italic 400 100px ${pair.serif}`, `500 30px ${pair.sans}`, `600 30px ${pair.sans}`].map(f => document.fonts.load(f).catch(() => []))).then(() => { if (live) setReady(true); });
+    return () => { live = false; };
+  }, [style.fonts]);
+  const key = JSON.stringify(style);
+  useEffect(() => { if (ref.current && ready) drawPoster(ref.current, variant, words, assets, format, 1, style); }, [variant, words, assets, format, key, ready]);
   const info = [...VARIANTS, OWN_PICTURE].find(v => v.key === variant)!;
   // Asked: "Når der står »hent billedet«, betyder det så, at du vil have mig til at downloade det og så poste det manuelt?" - no: Saga posts it.
   // Downloading is only for using a design somewhere else.
@@ -42,14 +52,14 @@ function Design({ variant, words, assets, format, chosen, title, big, soft, canv
     if (!blob) return;
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `hjerterum-${slug(title)}-${variant}${palette === "varm" ? "" : `-${palette}`}-${format}.png`;
+    link.download = `hjerterum-${slug(title)}-${variant}${style.palette === "varm" ? "" : `-${style.palette}`}-${format}.png`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(link.href), 4000);
   }, "image/png");
   return <figure className={"poster-card" + (chosen && !big ? " is-picked" : "") + (big ? " is-proposal" : "")}>
     <canvas ref={el => { ref.current = el; if (canvasRef) canvasRef.current = el; }} className={"poster-canvas is-" + format} aria-label={`${info.label}: ${title}`} />
     {!big && <figcaption>
-      <div><b>{info.label}{palette !== "varm" ? ` · ${PALETTES.find(p => p.key === palette)!.label}` : ""}</b>{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
+      <div><b>{info.label}</b>{styleLabel(style) && <p className="studio-style">{styleLabel(style)}</p>}{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
         {soft && <p className="studio-soft">Beskæringen er forstørret her, så billedet bliver lidt blødt.</p>}</div>
       <p className="studio-actions">{onPick && <button type="button" className={"lys-btn" + (chosen ? "" : " ghost")} onClick={onPick} aria-pressed={chosen}>{chosen ? "Valgt" : "Vælg"}</button>}
         <button type="button" className="text-button" onClick={save}>Download</button></p>
@@ -164,9 +174,14 @@ export function PosterStudio({ id }: { id: string }) {
   const [logo, setLogo] = useState<HTMLImageElement | null>(null);
   const [format, setFormat] = useState<Format>("opslag");
   const [variant, setVariant] = useState<VariantKey | null>(null);
-  // "flere stills ... på kommando": the designs again in the house's other colour moods, one more for each press.
-  const [palette, setPalette] = useState<PaletteKey>("varm");
-  const [moods, setMoods] = useState(1);
+  // "mange flere kreative forslag til opslagene - ligesom Canva har": the chosen design's style (colours, type, photo, grain, frame), and how many batches
+  // of new combinations are shown.
+  const [style, setStyle] = useState<Style>(PLAIN_STYLE);
+  const [batches, setBatches] = useState(0);
+  useEffect(() => {
+    if (document.querySelector(`link[href="${EXTRA_FONTS_URL}"]`)) return;
+    const link = document.createElement("link"); link.rel = "stylesheet"; link.href = EXTRA_FONTS_URL; document.head.appendChild(link);
+  }, []);
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState<Step>("forslag");
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
@@ -430,7 +445,7 @@ export function PosterStudio({ id }: { id: string }) {
   return <main className="page-shell site-page poster-page studio">{head}
     <section className="studio-proposal">
       {!logo ? <p className="poster-empty">Tegner forslaget …</p>
-        : <Design key={`${chosen}-${format}-${palette}`} variant={chosen} palette={palette} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
+        : <Design key={`${chosen}-${format}-${JSON.stringify(style)}`} variant={chosen} style={style} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
       <div className="studio-box">
         <h2>Sagas forslag</h2>
         {post ? <>
@@ -486,18 +501,29 @@ export function PosterStudio({ id }: { id: string }) {
       <p className="studio-muted studio-format-help">{FORMAT_HELP[format]}</p>
 
       <h2 className="studio-step">Design</h2>
-      {!logo ? <p className="poster-empty">Tegner designene …</p> : <>{PALETTES.slice(0, moods).map(mood => <div key={mood.key}>
-        {mood.key !== "varm" && <h3 className="studio-mood">{mood.label}</h3>}
+      {!logo ? <p className="poster-empty">Tegner designene …</p> : <>
         <div className="poster-grid">
         {all.map(key => {
           const fits = photoFits(key, format, size);
-          return fits.ok ? <Design key={`${key}-${mood.key}`} variant={key} palette={mood.key} words={words} assets={assets} format={format} chosen={key === chosen && mood.key === palette} title={event.title} soft={Boolean(fits.soft)}
-            onPick={() => { setVariant(key); setPalette(mood.key); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
-            : mood.key === "varm" ? <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
-              <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure> : null;
+          return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen && JSON.stringify(style) === JSON.stringify(PLAIN_STYLE)} title={event.title} soft={Boolean(fits.soft)}
+            onPick={() => { setVariant(key); setStyle(PLAIN_STYLE); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+            : <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
+              <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure>;
         })}
-      </div></div>)}
-      {moods < PALETTES.length && <p className="studio-actions"><button type="button" className="lys-btn ghost" onClick={() => setMoods(moods + 1)}>Vis flere designs ({PALETTES[moods]!.label})</button></p>}</>}
+        </div>
+        {/* New combinations, nine a press: a layout that fits the picture, in a style of its own. */}
+        {Array.from({ length: batches }, (_, b) => {
+          const fitting = all.filter(k => k !== OWN_PICTURE.key && photoFits(k, format, size).ok);
+          const seed = [...event.id].reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0, 2166136261) + b * 7919;
+          return <div key={b}><h3 className="studio-mood">Flere forslag {b + 1}</h3><div className="poster-grid">
+            {styleBatch(seed, fitting, 9).map((c, i) => <Design key={`${b}-${i}`} variant={c.variant} style={c.style} words={words} assets={assets} format={format}
+              chosen={c.variant === chosen && JSON.stringify(c.style) === JSON.stringify(style)} title={event.title}
+              onPick={() => { setVariant(c.variant); setStyle(c.style); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
+          </div></div>;
+        })}
+        <p className="studio-actions"><button type="button" className="lys-btn" onClick={() => setBatches(batches + 1)}>✨ Vis flere forslag</button>
+          <span className="studio-muted"> Nye kombinationer af layout, farver, skrift og fotobehandling - der kommer ni nye hver gang.</span></p>
+      </>}
     </section>}
   </main>;
 }

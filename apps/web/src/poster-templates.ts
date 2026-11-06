@@ -509,6 +509,119 @@ export const TEMPLATES: Record<string, Template> = {
       block(ctx, r, w, { color: "#fbf1e6", accent: G.gold, muted: "#e2d3c2", size: 96 * u, maxLines: 3 }, L ? "center" : "top", u);
     }
   },
+  // Asked (the chair, 6 Nov 2026): "Er der slet ikke mulighed for at få mange flere kreative forslag til opslagene - ligesom Canva har" - eight more layouts.
+  ramme: {
+    photo: (W, H) => { const u = unit(W, H), m = 70 * u; return land(W, H) ? { x: m, y: m, w: W * 0.58, h: H - 2 * m, shape: "rect" } : { x: m, y: m, w: W - 2 * m, h: H * 0.52, shape: "rect" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.cream; ctx.fillRect(0, 0, W, H);
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.18)"; ctx.shadowBlur = 24 * u; ctx.fillStyle = C.sand; ctx.fillRect(spot.x, spot.y, spot.w, spot.h); ctx.restore();
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: spot.x + spot.w + 70 * u, y: 110 * u, w: W - spot.x - spot.w - 140 * u, h: H - 220 * u } : { x: 90 * u, y: spot.y + spot.h + 60 * u, w: W - 180 * u, h: H - spot.y - spot.h - 150 * u };
+      block(ctx, r, w, { color: C.ink, accent: C.terra, muted: C.muted, size: 88 * u, maxLines: 3, align: L ? "left" : "center" }, "center", u);
+      stamp(ctx, a.logo, W - 110 * u, H - 100 * u, 40 * u, C.ink);
+    }
+  },
+  spalte: {
+    photo: (W, H) => land(W, H) ? { x: 0, y: 0, w: W * 0.55, h: H, shape: "rect" } : { x: 0, y: 0, w: W * 0.5, h: H, shape: "rect" },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.terra; ctx.fillRect(0, 0, W, H);
+      photoIn(ctx, a.photo, spot);
+      const r = { x: spot.w + 60 * u, y: 200 * u, w: W - spot.w - 120 * u, h: H - 330 * u };
+      block(ctx, r, w, { color: C.cream, accent: C.blush, muted: C.blush, size: 76 * u, maxLines: 5 }, "center", u);
+      logo(ctx, a.logo, spot.w + 60 * u, 70 * u, 52 * u, C.cream);
+    }
+  },
+  stordato: {
+    photo: (W, H) => { const u = unit(W, H), d = (land(W, H) ? H * 0.5 : W * 0.38); return { x: W - d - 90 * u, y: land(W, H) ? 90 * u : 110 * u, w: d, h: d, shape: "circle" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.sand; ctx.fillRect(0, 0, W, H);
+      // The day's number as big as the page allows, a quiet tone on the ground.
+      ctx.save(); ctx.fillStyle = C.camel; ctx.globalAlpha = 0.35; ctx.font = `italic 400 ${Math.round((L ? H : W) * 0.95)}px ${SERIF}`; ctx.textBaseline = "alphabetic";
+      ctx.fillText(w.number, -30 * u, L ? H * 0.88 : H * 0.62); ctx.restore();
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: 90 * u, y: 120 * u, w: W * 0.5, h: H - 240 * u } : { x: 90 * u, y: H * 0.56, w: W - 180 * u, h: H * 0.44 - 130 * u };
+      block(ctx, r, w, { color: C.ink, accent: C.terra, muted: C.muted, size: 96 * u, maxLines: 3 }, "bottom", u);
+      logo(ctx, a.logo, 80 * u, 70 * u, 52 * u, C.ink);
+    }
+  },
+  magasin: {
+    photo: (W, H) => land(W, H) ? { x: 0, y: 0, w: W, h: H, shape: "rect" } : { x: 0, y: 0, w: W, h: H * 0.62, shape: "rect" },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.cream; ctx.fillRect(0, 0, W, H);
+      photoIn(ctx, a.photo, spot);
+      if (L) { const g = ctx.createLinearGradient(0, H * 0.35, 0, H); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(20,14,10,.8)"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); }
+      // The masthead: the house's name in wide letters over the photo, as on a magazine's cover.
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 12 * u;
+      spaced(ctx, "HJERTERUM", W / 2, 120 * u, `600 ${Math.round(46 * u)}px ${SANS}`, "#ffffff", 18 * u, "center"); ctx.restore();
+      const r = L ? { x: 90 * u, y: H * 0.45, w: W * 0.7, h: H * 0.55 - 80 * u } : { x: 80 * u, y: spot.h - 60 * u, w: W - 160 * u, h: H - spot.h - 40 * u };
+      if (!L) { ctx.fillStyle = C.cream; ctx.beginPath(); ctx.roundRect(50 * u, spot.h - 90 * u, W - 100 * u, H - spot.h + 40 * u, 28 * u); ctx.fill(); }
+      block(ctx, r, w, L ? { color: "#fbf6ee", accent: C.blush, muted: "#efe4d6", size: 100 * u, maxLines: 3 } : { color: C.ink, accent: C.terra, muted: C.muted, size: 104 * u, maxLines: 3 }, L ? "bottom" : "center", u);
+      stamp(ctx, a.logo, W - 110 * u, L ? H - 110 * u : spot.h - 160 * u, 44 * u, "#ffffff");
+    }
+  },
+  minimal: {
+    photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: W - H * 0.55 - 100 * u, y: 100 * u, w: H * 0.55, h: H * 0.55, shape: "rect" } : { x: W - W * 0.42 - 90 * u, y: 110 * u, w: W * 0.42, h: W * 0.52, shape: "rect" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.cream; ctx.fillRect(0, 0, W, H);
+      photoIn(ctx, a.photo, spot);
+      ctx.fillStyle = C.ink; ctx.fillRect(90 * u, H * 0.58, 160 * u, 2 * u);
+      const r = { x: 90 * u, y: H * 0.6, w: W * 0.72, h: H * 0.4 - 110 * u };
+      block(ctx, r, w, { color: C.ink, accent: C.ink, muted: C.muted, size: 80 * u, maxLines: 3, italicAll: true }, "top", u);
+      logo(ctx, a.logo, 90 * u, 100 * u, 50 * u, C.ink);
+    }
+  },
+  glas: {
+    photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: 110 * u, y: 110 * u, w: H - 220 * u, h: H - 220 * u, shape: "rect", radius: 26 * u } : { x: 120 * u, y: 120 * u, w: W - 240 * u, h: H * 0.48, shape: "rect", radius: 30 * u }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.dusk; ctx.fillRect(0, 0, W, H);
+      if (a.photo) { ctx.save(); ctx.filter = "blur(28px) brightness(.7) saturate(1.1)"; cover(ctx, a.photo, -60 * u, -60 * u, W + 120 * u, H + 120 * u); ctx.restore(); }
+      // A pane of frosted glass with the photo sharp in it.
+      const pane = L ? { x: 70 * u, y: 70 * u, w: W - 140 * u, h: H - 140 * u } : { x: 80 * u, y: 80 * u, w: W - 160 * u, h: H - 160 * u };
+      ctx.save(); ctx.fillStyle = "rgba(255,255,255,.14)"; ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 2 * u; ctx.beginPath(); ctx.roundRect(pane.x, pane.y, pane.w, pane.h, 36 * u); ctx.fill(); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 30 * u; ctx.fillStyle = C.sand; ctx.beginPath(); ctx.roundRect(spot.x, spot.y, spot.w, spot.h, spot.radius ?? 0); ctx.fill(); ctx.restore();
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: spot.x + spot.w + 70 * u, y: 140 * u, w: W - spot.x - spot.w - 210 * u, h: H - 280 * u } : { x: 130 * u, y: spot.y + spot.h + 60 * u, w: W - 260 * u, h: H - spot.y - spot.h - 200 * u };
+      block(ctx, r, w, { color: "#ffffff", accent: C.blush, muted: "#efe4d6", size: 84 * u, maxLines: 3, align: L ? "left" : "center" }, "center", u);
+      stamp(ctx, a.logo, W - 150 * u, H - 140 * u, 40 * u, "#ffffff");
+    }
+  },
+  diagonal: {
+    photo: (W, H) => ({ x: 0, y: 0, w: W, h: H, shape: "rect" }),
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H);
+      ctx.fillStyle = C.sand; ctx.fillRect(0, 0, W, H);
+      photoIn(ctx, a.photo, { x: 0, y: 0, w: W, h: H, shape: "rect" });
+      // A coloured field cut at a slant over the photo, with the words in it.
+      ctx.fillStyle = C.terra; ctx.beginPath();
+      if (L) { ctx.moveTo(0, 0); ctx.lineTo(W * 0.58, 0); ctx.lineTo(W * 0.42, H); ctx.lineTo(0, H); }
+      else { ctx.moveTo(0, H * 0.5); ctx.lineTo(W, H * 0.38); ctx.lineTo(W, H); ctx.lineTo(0, H); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = C.blush; ctx.lineWidth = 6 * u; ctx.beginPath(); if (L) { ctx.moveTo(W * 0.58 + 22 * u, 0); ctx.lineTo(W * 0.42 + 22 * u, H); } else { ctx.moveTo(0, H * 0.5 - 22 * u); ctx.lineTo(W, H * 0.38 - 22 * u); } ctx.stroke();
+      const r = L ? { x: 80 * u, y: 130 * u, w: W * 0.38, h: H - 240 * u } : { x: 80 * u, y: H * 0.56, w: W - 160 * u, h: H * 0.44 - 100 * u };
+      block(ctx, r, w, { color: C.cream, accent: C.blush, muted: C.blush, size: 92 * u, maxLines: 3 }, "center", u);
+      logo(ctx, a.logo, L ? 80 * u : W - 140 * u, L ? H - 110 * u : 70 * u, 52 * u, L ? C.cream : "#ffffff");
+    }
+  },
+  ringe: {
+    photo: (W, H) => { const L = land(W, H), d = L ? H * 0.62 : W * 0.58; return { x: L ? W * 0.68 - d / 2 : (W - d) / 2, y: L ? (H - d) / 2 : H * 0.12, w: d, h: d, shape: "circle" }; },
+    draw(ctx, W, H, w, a) {
+      const u = unit(W, H), L = land(W, H), spot = this.photo(W, H)!;
+      ctx.fillStyle = C.dusk; ctx.fillRect(0, 0, W, H);
+      const cx = spot.x + spot.w / 2, cy = spot.y + spot.h / 2;
+      ctx.strokeStyle = C.camel; for (let i = 1; i <= 5; i++) { ctx.globalAlpha = 0.5 - i * 0.08; ctx.lineWidth = 1.5 * u; ctx.beginPath(); ctx.arc(cx, cy, spot.w / 2 + i * 34 * u, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+      photoIn(ctx, a.photo, spot);
+      const r = L ? { x: 90 * u, y: 130 * u, w: W * 0.4, h: H - 260 * u } : { x: 90 * u, y: spot.y + spot.h + 110 * u, w: W - 180 * u, h: H - spot.y - spot.h - 220 * u };
+      block(ctx, r, w, { color: C.cream, accent: C.camel, muted: "#d9cbb8", size: 88 * u, maxLines: 3, align: L ? "left" : "center" }, L ? "center" : "top", u);
+      stamp(ctx, a.logo, L ? 140 * u : W / 2, L ? H - 110 * u : H - 90 * u, 40 * u, C.camel);
+    }
+  },
   bue: {
     photo: (W, H) => { const u = unit(W, H); return land(W, H) ? { x: W - 120 * u - H * 0.6, y: 80 * u, w: H * 0.6, h: H - 160 * u, shape: "arch" } : { x: W * 0.17, y: 100 * u, w: W * 0.66, h: H * 0.5, shape: "arch" }; },
     draw(ctx, W, H, w, a) {
