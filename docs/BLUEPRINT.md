@@ -1378,11 +1378,11 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 
 - **Spurgt (formanden):** "Hvorfor dukker disse to ikke op i admin? Altså, hvorfor finder Saga dem ikke?" En underviser sendte sin reel og en anden en Facebook-video som besked til siden. Svar: "Saga læser Messenger".
 - **Nu:** hver halve time læser Saga også sidens nyeste Messenger-samtaler (`sentInMessenger` i `social/meta.ts`). Hvert link til et opslag på Instagram eller Facebook, som en anden har sendt, bliver en deling under Tagget i, mærket "Sendt i Messenger". Delingen får afsenderens navn, beskedens ord og linket, og hvert link deles kun én gang. En video deles som link på Facebook.
-- **Tilladelse:** kræver `pages_messaging`. Formanden forbinder Facebook og Instagram igen og siger ja til beskeder. Bruges en Facebook Login for Business-konfiguration (`META_LOGIN_CONFIG_ID`), skal tilladelsen også tilføjes i den. Indtil da står der under Tagget i: "Messenger kan ikke læses endnu".
+- **Tilladelse:** kræver `pages_messaging`. Facebook afviser hele login'et ("Invalid Scopes"), hvis appen beder om en tilladelse, som appens brugsscenarier hos Meta ikke har. Derfor beder login'et kun om den, når `META_MESSENGER=1`. Det sættes, når appen har fået brugsscenariet Messenger i Metas dashboard, og bagefter forbinder formanden siden igen. Indtil da står der under Tagget i: "Messenger kan ikke læses endnu".
 - **Ikke med:** beskeder på Instagram (Direct). Saga svarer ikke på beskeder.
 
 ## Eventets video også på Facebook (2026-11-06)
 
 - **Spurgt (formanden):** "Hvorfor er det, at vi ikke deler film på Facebook også?" Formandens valg: "Videoen på begge".
 - **Nu:** et eventopslag med video går på Facebook som video (`postVideoToPage`, `/{page}/videos`) med teksten og linket. Fluebenet "Video på Facebook (ellers billedet)" slår det fra pr. opslag, både under Ugens opslag og på plakatsiden. Kalenderen viser "FB ▶".
-- **Tilladelse:** kræver `publish_video`. Indtil siden er forbundet igen med den, går billedet ud som før, og opslaget fejler ikke.
+- **Tilladelse:** en video på siden kræver kun `pages_manage_posts`, som siden har i forvejen. `publish_video` gjorde login'et ugyldigt ("Invalid Scopes") og er fjernet igen. Afviser Facebook alligevel videoen, går billedet ud som før, og opslaget fejler ikke.

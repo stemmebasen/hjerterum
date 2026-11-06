@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
 import { connectSocial, scanTags, socialAccount, socialPosts } from "./social.js";
-import { META_SCOPES } from "./meta.js";
+import { META_SCOPES, scopesFor } from "./meta.js";
 
 // Requested (the chair, 6 Nov 2026): "Hvorfor dukker disse to ikke op i admin? Altså, hvorfor finder Saga dem ikke?" - a teacher's reel and another's
 // Facebook video, sent to the page in Messenger. Answer: "Saga læser Messenger".
@@ -17,7 +17,10 @@ describe("posts sent to Hjerterum in Messenger", () => {
     const services = fakeServices({ ai: () => "Tak, Mari-Anne 🍂" });
     const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", NOW - 86_400_000);
-    expect(META_SCOPES).toContain("pages_messaging");
+    // Asked for only when the app has Messenger (else Facebook refuses the whole login: "Invalid Scopes").
+    expect(META_SCOPES).not.toContain("pages_messaging");
+    expect(META_SCOPES).not.toContain("publish_video");
+    expect(scopesFor({ META_MESSENGER: "1" })).toContain("pages_messaging");
     let allowed = false;
     const fetcher: typeof fetch = async (input, init) => {
       const url = String(input);

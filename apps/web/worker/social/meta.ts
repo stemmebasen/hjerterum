@@ -9,13 +9,14 @@ const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 /** What the page's token must be able to do: read the page and what it is tagged in, post on it, and read and publish on its Instagram. */
 export const META_SCOPES = ["pages_show_list", "pages_read_engagement", "pages_read_user_content", "pages_manage_posts",
-  "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management",
-  // Asked (the chair, 6 Nov 2026), about posts teachers send in Messenger: "Saga læser Messenger".
-  "pages_messaging",
-  // Asked (the chair, 6 Nov 2026): "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge".
-  "publish_video"];
+  "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management"];
+/** Reported (the chair, 6 Nov 2026): "Invalid Scopes: pages_messaging, publish_video" - Facebook's dialog refuses the whole login when the app asks for a
+ * permission its use cases in Meta's dashboard do not have. pages_messaging is asked for only once the app has the Messenger use case
+ * (META_MESSENGER=1); a video on the page needs only pages_manage_posts. */
+export const MESSENGER_SCOPES = ["pages_messaging"];
+export const scopesFor = (env: MetaEnv) => env.META_MESSENGER === "1" ? [...META_SCOPES, ...MESSENGER_SCOPES] : META_SCOPES;
 
-export type MetaEnv = { META_APP_ID?: string; META_APP_SECRET?: string; META_LOGIN_CONFIG_ID?: string };
+export type MetaEnv = { META_APP_ID?: string; META_APP_SECRET?: string; META_LOGIN_CONFIG_ID?: string; META_MESSENGER?: string };
 export const metaReady = (env: MetaEnv) => Boolean(env.META_APP_ID && env.META_APP_SECRET);
 
 export class MetaError extends Error {
@@ -40,7 +41,7 @@ async function graph<T>(fetcher: Fetcher, method: "GET" | "POST", path: string, 
 export function loginUrl(env: MetaEnv, redirect: string, state: string): string {
   const params = new URLSearchParams({ client_id: env.META_APP_ID ?? "", redirect_uri: redirect, state, response_type: "code" });
   if (env.META_LOGIN_CONFIG_ID) params.set("config_id", env.META_LOGIN_CONFIG_ID);
-  else params.set("scope", META_SCOPES.join(","));
+  else params.set("scope", scopesFor(env).join(","));
   return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?${params}`;
 }
 

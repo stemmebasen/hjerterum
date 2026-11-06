@@ -232,7 +232,7 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
     }));
     // "Saga læser Messenger": what teachers send the page there. Needs pages_messaging - until the page is connected again with it, a plain word.
     found.push(...await sentInMessenger(deps.fetcher, page).catch(error => {
-      problems.push(/permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Messenger kan ikke læses endnu: forbind Facebook og Instagram igen og sig ja til beskeder" : `Messenger: ${error instanceof Error ? error.message : error}`);
+      problems.push(/permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Messenger kan ikke læses endnu: appen hos Meta mangler brugsscenariet Messenger (tilladelsen pages_messaging)" : `Messenger: ${error instanceof Error ? error.message : error}`);
       return [];
     }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }
@@ -671,7 +671,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
     for (const channel of post.channels) {
       if (done[channel] || dueAt(post, channel) > deps.now()) continue;
       // Asked (the chair, 6 Nov 2026): "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge": an event's video goes on Facebook too,
-      // with the words and the link in them. Without the permission (publish_video, until the page is connected again) the picture goes out as before.
+      // with the words and the link in them (pages_manage_posts). Should Facebook refuse it for want of a permission, the picture goes out as before.
       const facebookVideo = channel === "facebook" && post.kind === "event" && post.source.video && !post.source.noFacebookVideo
         ? await postVideoToPage(deps.fetcher, page, { url: post.source.video, description: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) }).catch(error => {
           if (/permission|\(#10\)|\(#200\)|publish_video|meta_403/i.test(error instanceof Error ? error.message : String(error))) return null;
@@ -683,7 +683,7 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
       else {
         if (!instagram) throw new Error("Instagram er ikke koblet til Facebook-siden");
         // "Ugens events" as a reel, and an event's post with its video (requested: the video templates, "Lad os få dem op"): Instagram processes the
-        // video between Saga's rounds. Facebook has the video too (above), with the permission publish_video.
+        // video between Saga's rounds. Facebook has the video too (above).
         if (post.source.format === "reel" || (post.kind === "event" && post.source.video && !post.source.noVideo)) {
           if (!post.source.video) throw new Error("Reelen har ingen video");
           const caption = await pub(post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text);
