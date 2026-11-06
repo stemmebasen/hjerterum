@@ -25,7 +25,9 @@ describe("the menu's items for the chair", () => {
       for (const item of ["/pr", "/arrangementer/nyhedsbrev", "/arrangementer/mail", "/filarkiv", "/medlemskab"]) expect(mine, `${path} ${item}`).toContain(`href="${item}"`);
       expect(mine).not.toContain("data-power=");
       const hers = await page(path, lisbeth);
-      for (const item of ["/pr", "/arrangementer/nyhedsbrev", "/filarkiv"]) expect(hers, `${path} ${item}`).not.toContain(`href="${item}"`);
+      for (const item of ["/pr", "/arrangementer/nyhedsbrev"]) expect(hers, `${path} ${item}`).not.toContain(`href="${item}"`);
+      // The file archive is the board's (the chair, 6 Nov 2026: "Åbn filerne for bestyrelsen").
+      expect(hers, `${path} /filarkiv`).toContain('href="/filarkiv"');
     }
   });
 });

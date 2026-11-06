@@ -1334,10 +1334,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return back("&besked=godkendt");
     }
   }
-  // Requested: "Og så skal der i admin være et form for filarkiv" (archive.ts). The chair's alone for now (archive.manage).
+  // Requested: "Og så skal der i admin være et form for filarkiv" (archive.ts). Opened to the board (the chair, 6 Nov 2026: "Åbn filerne for bestyrelsen"):
+  // seeing, adding and fetching files; deleting and the nightly copies of the database stay the chair's (archive.manage). A deputy reads only.
   if (path === "/filarkiv" || path.startsWith("/filarkiv/")) {
     if (!who) return redirect(`${base}/hvem`);
-    if (!may("archive.manage")) return denied("archive.manage");
+    const chairOnly = url.searchParams.get("vis") === "kopier" || path === "/filarkiv/kopi" || path === "/filarkiv/slet" || path === "/filarkiv/slet-mappe";
+    if (chairOnly && !may("archive.manage")) return denied("archive.manage");
     const bucket = env.ARCHIVE;
     const download = (object: ArchiveObject & { body: ReadableStream }, name: string) => new Response(object.body, { headers: { "content-type": object.httpMetadata?.contentType || "application/octet-stream",
       "content-length": String(object.size), "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff",
@@ -1347,7 +1349,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { oppe: "Filerne er lagt op.", mappe: "Mappen er oprettet.", slettet: "Filen er slettet.", "mappe-slettet": "Mappen er slettet." };
       const errors: Record<string, string> = { stor: "Filerne fylder for meget på én gang. Læg dem op i mindre portioner.", tom: "Vælg mindst én fil.", navn: "Skriv et navn til mappen.", "ikke-tom": "Mappen er ikke tom." };
       const view = bucket ? await listFolder(bucket, url.searchParams.get("mappe") ?? "") : { folder: "", folders: [], files: [] };
-      return html(fileArchivePage(base, who, view, { ready: Boolean(bucket), notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" }));
+      return html(fileArchivePage(base, who, view, { ready: Boolean(bucket), canManage: may("archive.manage"), notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" }));
     }
     if (!bucket) return redirect(`${base}/filarkiv`);
     if (request.method === "GET" && (path === "/filarkiv/fil" || path === "/filarkiv/kopi")) {

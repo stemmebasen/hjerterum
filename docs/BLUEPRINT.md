@@ -1391,3 +1391,10 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 
 - **"Overskriften bliver næsten klippet. Hvorfor er der ikke mere luft?"** Instagram viser en reel beskåret til 4:5 i feedet (y 285–1635 af 1920) og lægger sit eget navn, tekst og knapper hen over toppen og bunden i reels. Alt, der skal læses, ligger nu mellem `SAFE_TOP` (320) og `SAFE_BOTTOM` (1580) (`video/src/parts.tsx`). Det gælder alle eventskabeloner, Ugens events og "Dit design med bevægelse". Stemplet øverst er 200 px.
 - **"Læs mere og tilmeld dig på holistisk.org/events (link i bio)." "Det virker lidt underligt, … når der jo også bare i bio står samme url":** Instagram-teksten slutter nu med "Læs mere og tilmeld dig via linket i bio." Ugens events slutter med "Se alle events og tilmeld dig via linket i bio." De ventende opslag er rettet én gang (`social_bio_line`).
+
+## Filarkivet åbnet for bestyrelsen (2026-11-06)
+
+- **Baggrund:** Gitta kunne ikke finde Filarkivet. Formanden valgte "Åbn filerne for bestyrelsen" (beslutning 0007: en ny funktion åbnes, når formanden siger det).
+- **Bestyrelsen:** ser, lægger op, opretter mapper og henter filer under Bestyrelse → Filarkiv.
+- **Formanden alene (`archive.manage`):** sletter filer og mapper og henter de natlige kopier af databasen, som indeholder alle medlemmers persondata.
+- **Suppleanter:** kan kun se og hente.

@@ -187,7 +187,7 @@ export const MENU: MenuGroup[] = [
   { path: "/", label: "Overblik", items: [{ path: "/", label: "Overblik" }, { path: "/status", label: "Sagas fulde overblik" }] },
   // Requested: "Put i øvrigt gerne \"Opgaver\" som det første i Bestyrelse".
   { path: "/opgaver", label: "Bestyrelse", items: [{ path: "/opgaver", label: "Opgaver" }, { path: "/moder", label: "Møder" }, { path: "/beslutninger", label: "Beslutninger og afstemninger" }, { path: "/opslag", label: "Opslagstavle" },
-    { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv", power: "archive.manage" }] },
+    { path: "/arkiv", label: "Ældre referater" }, { path: "/filarkiv", label: "Filarkiv" }] },
   { path: "/arrangementer", label: "Events", items: [{ path: "/arrangementer", label: "Alle events" }, { path: "/arrangementer#new-event", label: "Nyt event" },
     { path: "/arrangementer/undervisere", label: "Undervisere" }, { path: "/arrangementer/facebook", label: "Facebook-begivenheder" }, { path: "/plakater", label: "Plakater og opslag", power: "posters.design" }] },
   { path: "/posthus", label: "Kommunikation", items: [{ path: "/posthus", label: "Posthus" }, { path: "/arrangementer/nyhedsbrev", label: "Nyhedsbrev", power: "newsletter.manage" },

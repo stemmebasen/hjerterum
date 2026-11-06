@@ -30,7 +30,9 @@ export const POWERS = {
   // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja" (2 Nov 2026) - new, so the chair's first.
   "listmail.send": { label: "Skrive og sende en mail til nyhedsbrevslisten i Mailchimp", needs: "personal" },
   // Requested: "Og så skal der i admin være et form for filarkiv" (3 Nov 2026) - new, so the chair's first.
-  "archive.manage": { label: "Filarkivet: se, lægge op, hente og slette filer, og hente de natlige kopier af databasen", needs: "personal" },
+  // Asked (the chair, 6 Nov 2026), when Gitta could not find it: "Åbn filerne for bestyrelsen" - seeing, adding and fetching files is the board's;
+  // deleting, and the nightly copies of the database (every member's data), stay the chair's.
+  "archive.manage": { label: "Filarkivet: slette filer og mapper, og hente de natlige kopier af databasen", needs: "personal" },
   // Requested: "Vi skal lave et PR-cockpit i admin, som kun formanden har adgang til i begyndelsen" (3 Nov 2026).
   "social.manage": { label: "PR og sociale medier: forbinde Facebook og Instagram, dele opslag Hjerterum er tagget i, og godkende ugens opslag", needs: "personal" },
   // Requested: "de designskabeloner, vi har lavet til eventoprettelse, skal kun bruges i cockpittet, så man - eller det vil sige mig til at begynde med - kan bruge dem" (3 Nov 2026).

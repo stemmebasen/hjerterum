@@ -12,8 +12,8 @@ export function size(bytes: number): string {
 }
 const q = (folder: string) => folder ? `?mappe=${encodeURIComponent(folder)}` : "";
 
-function tabs(base: string, on: "filer" | "kopier"): string {
-  return `<nav class="fa-tabs"><a href="${base}/filarkiv" ${on === "filer" ? 'class="on" aria-current="page"' : ""}>Filer</a><a href="${base}/filarkiv?vis=kopier" ${on === "kopier" ? 'class="on" aria-current="page"' : ""}>Sikkerhedskopier</a></nav>`;
+function tabs(base: string, on: "filer" | "kopier", copies = true): string {
+  return copies ? `<nav class="fa-tabs"><a href="${base}/filarkiv" ${on === "filer" ? 'class="on" aria-current="page"' : ""}>Filer</a><a href="${base}/filarkiv?vis=kopier" ${on === "kopier" ? 'class="on" aria-current="page"' : ""}>Sikkerhedskopier</a></nav>` : "";
 }
 
 /** Requested: "Du må også gerne diskret nævne vores backupfrekvens på samme side" - the nightly copy (.github/workflows/natlig-kopi.yml, 02:23 UTC). */
@@ -34,21 +34,23 @@ input.files=files;status.classList.remove("bad");status.textContent="Lægger "+(
 form.addEventListener("submit",()=>{const b=form.querySelector("button");if(b){b.disabled=true;b.textContent="Lægger op …"}});})()</script>`;
 }
 
-export function fileArchivePage(base: string, who: string | null, view: FolderView, data: { ready: boolean; notice: string; error: string }): string {
+/** canManage: the chair (archive.manage) - deleting, and the database's nightly copies. The board sees, adds and fetches files (the chair, 6 Nov 2026). */
+export function fileArchivePage(base: string, who: string | null, view: FolderView, data: { ready: boolean; notice: string; error: string; canManage?: boolean }): string {
+  const manage = data.canManage ?? true;
   const parts = view.folder ? view.folder.split("/") : [];
   const crumbs = [`<a href="${base}/filarkiv">Filarkiv</a>`, ...parts.map((p, i) => i === parts.length - 1 ? `<b>${esc(p)}</b>` : `<a href="${base}/filarkiv${q(parts.slice(0, i + 1).join("/"))}">${esc(p)}</a>`)].join(" / ");
   const folders = view.folders.map(f => `<li class="fa-folder"><a href="${base}/filarkiv${q(view.folder ? `${view.folder}/${f}` : f)}"><span class="fa-icon" aria-hidden="true">📁</span>${esc(f)}</a></li>`).join("");
   const files = view.files.map(f => `<li class="fa-file"><a href="${base}/filarkiv/fil?k=${encodeURIComponent(f.key)}"><span class="fa-icon" aria-hidden="true">📄</span>${esc(f.name)}</a>
 <span class="small muted">${size(f.size)} · ${esc(WHEN.format(f.uploaded))}${f.by ? ` · ${esc(f.by)}` : ""}</span>
-<form method="post" action="${base}/filarkiv/slet" onsubmit="return confirm(${esc(JSON.stringify(`Slet "${f.name}"? Den kan ikke hentes tilbage.`))})"><input type="hidden" name="k" value="${esc(f.key)}"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost danger small">Slet</button></form></li>`).join("");
+${manage ? `<form method="post" action="${base}/filarkiv/slet" onsubmit="return confirm(${esc(JSON.stringify(`Slet "${f.name}"? Den kan ikke hentes tilbage.`))})"><input type="hidden" name="k" value="${esc(f.key)}"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost danger small">Slet</button></form>` : ""}</li>`).join("");
   const empty = !view.folders.length && !view.files.length;
   const body = `<main class="fa"><h1>Filarkiv</h1>
 <p class="muted">Bestyrelsens filer, samlet ét sted i Hjerterums eget lager hos Cloudflare (R2): vedtægter, regnskaber, aftaler, billeder og andet, der skal gemmes.</p>
-${tabs(base, "filer")}
+${tabs(base, "filer", manage)}
 ${data.ready ? "" : `<p class="notice bad">Filarkivet er ikke koblet på endnu (lageret ARCHIVE mangler).</p>`}
 ${data.notice ? `<p class="notice">${esc(data.notice)}</p>` : ""}${data.error ? `<p class="notice bad">${esc(data.error)}</p>` : ""}
 <p class="fa-crumbs">${crumbs}</p>
-<section class="card fa-list">${empty ? `<p class="muted">Mappen er tom.</p>${view.folder ? `<form method="post" action="${base}/filarkiv/slet-mappe"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost small">Slet den tomme mappe</button></form>` : ""}` : `<ul class="plain">${folders}${files}</ul>`}</section>
+<section class="card fa-list">${empty ? `<p class="muted">Mappen er tom.</p>${view.folder && manage ? `<form method="post" action="${base}/filarkiv/slet-mappe"><input type="hidden" name="mappe" value="${esc(view.folder)}"><button class="ghost small">Slet den tomme mappe</button></form>` : ""}` : `<ul class="plain">${folders}${files}</ul>`}</section>
 ${data.ready ? `<div class="fa-actions">
 <form method="post" action="${base}/filarkiv/upload" enctype="multipart/form-data" class="card fa-drop" id="fa-upload"><input type="hidden" name="mappe" value="${esc(view.folder)}">
 <label for="fa-files"><b>Læg filer op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</b></label>
@@ -57,7 +59,7 @@ ${data.ready ? `<div class="fa-actions">
 <form method="post" action="${base}/filarkiv/mappe" class="card"><input type="hidden" name="mappe" value="${esc(view.folder)}">
 <label for="fa-new"><b>Ny mappe</b></label><input id="fa-new" name="navn" required maxlength="120" placeholder="Fx Regnskaber"><button class="ghost">Opret mappen</button></form></div>
 <div class="fa-over" id="fa-over" hidden><p>Slip filerne for at lægge dem op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</p></div>${dropScript()}` : ""}
-<p class="small muted fa-backup">${BACKUP_LINE} <a href="${base}/filarkiv?vis=kopier">Se kopierne</a></p>
+${manage ? `<p class="small muted fa-backup">${BACKUP_LINE} <a href="${base}/filarkiv?vis=kopier">Se kopierne</a></p>` : ""}
 </main>`;
   return layout(base, "Filarkiv", body, { section: "/filarkiv", who, style: STYLE });
 }

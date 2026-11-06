@@ -72,7 +72,7 @@ describe("Filarkiv in admin", () => {
   afterEach(() => vi.unstubAllGlobals());
   const ORIGIN = "https://admin.hjerterum.example", NOW = Date.parse("2026-11-03T10:00:00Z");
 
-  it("is the chair's: upload, folders, download, delete, and the copies to download", async () => {
+  it("is the board's to see, add to and fetch from; deleting and the copies to download are the chair's", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase(), bucket = memoryBucket();
     await bucket.put("kopier/hjerterum-2026-11-03.sql.gz", "CREATE TABLE ...");
@@ -83,7 +83,18 @@ describe("Filarkiv in admin", () => {
     const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
     for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth", "201"]] as const).entries())
       await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: tid, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
-    expect((await call("/filarkiv", { cookie: await memberCookie(session, "Lisbeth") })).status).toBe(403);
+    // "Åbn filerne for bestyrelsen" (the chair, 6 Nov 2026): Lisbeth sees the archive and adds to it, but neither deletes nor sees the copies.
+    const lisbeth = await memberCookie(session, "Lisbeth");
+    const hers = await call("/filarkiv", { cookie: lisbeth });
+    expect(hers.status).toBe(200);
+    const herPage = await hers.text();
+    expect(herPage).toContain('action="/filarkiv/upload"');
+    expect(herPage).not.toContain("Sikkerhedskopier");
+    expect((await call("/filarkiv/upload", { method: "POST", cookie: lisbeth, body: form({ mappe: "", filer: new File(["x"], "referat.pdf", { type: "application/pdf" }) }) })).headers.get("location")).toContain("besked=oppe");
+    expect(await (await call("/filarkiv", { cookie: lisbeth })).text()).not.toContain('action="/filarkiv/slet"');
+    for (const [path, init] of [["/filarkiv?vis=kopier", {}], [`/filarkiv/kopi?k=${encodeURIComponent("kopier/hjerterum-2026-11-03.sql.gz")}`, {}],
+      ["/filarkiv/slet", { method: "POST", body: form({ mappe: "", k: "filer/referat.pdf" }) }]] as const)
+      expect((await call(path, { ...init, cookie: lisbeth })).status, path).toBe(403);
     const cookie = await personalCookie("Jacob Hauge", NOW);
     expect(await (await call("/profil", { cookie })).text()).toContain('href="/filarkiv"');
     expect((await call("/filarkiv/mappe", { method: "POST", cookie, body: form({ mappe: "", navn: "Vedtægter" }) })).headers.get("location")).toBe("/filarkiv?mappe=Vedt%C3%A6gter&besked=mappe");
@@ -100,7 +111,7 @@ describe("Filarkiv in admin", () => {
     expect(await (await call(`/filarkiv/kopi?k=${encodeURIComponent("kopier/hjerterum-2026-11-03.sql.gz")}`, { cookie })).text()).toBe("CREATE TABLE ...");
     await call("/filarkiv/slet", { method: "POST", cookie, body: form({ mappe: "Vedtægter", k: "filer/Vedtægter/vedtaegter-2026.pdf" }) });
     await call("/filarkiv/slet-mappe", { method: "POST", cookie, body: form({ mappe: "Vedtægter" }) });
-    expect(bucket.keys()).toEqual(["kopier/hjerterum-2026-11-03.sql.gz"]);
+    expect(bucket.keys().sort()).toEqual(["filer/referat.pdf", "kopier/hjerterum-2026-11-03.sql.gz"]);
   });
 
   it("reminds the chair on the 1st to download the month's copy", async () => {
