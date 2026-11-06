@@ -81,7 +81,19 @@ export function prCalendarSection(base: string, d: CalendarData): string {
     const move = movable(p) ? `<details class="cal-move"><summary>Flyt</summary><form method="post" action="${base}/pr/kalender/flyt"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="channel" value="${channel}">
 <input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="at" value=""><input type="datetime-local" required value="${localValue(p.publish_at_ms!)}" aria-label="Nyt tidspunkt"><button>Flyt</button></form></details>` : "";
     return `<li${movable(p) ? ` draggable="true" data-id="${p.id}" data-channel="${channel}" data-time="${clock(p.publish_at_ms!)}"` : ""}><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${p.status === "approved" || p.status === "publishing" ? `<span class="cal-ok" title="Godkendt og klar til afsendelse">✓</span> ` : ""}${esc(label(p))}</b>
-<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${move}</li>`;
+<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${peek(p)}${move}</li>`;
+  };
+  // Asked (the chair, 6 Nov 2026): "Kan jeg holde mus over et event i kalenderen for at se opslaget/opslagene?" - the post as it goes out, and when the
+  // event's other posts go out.
+  const siblings = new Map<string, SocialPost[]>();
+  for (const e of entries) if (e.kind === "event" && e.source.key) siblings.set(e.source.key, [...siblings.get(e.source.key) ?? [], e]);
+  const peek = (p: SocialPost) => {
+    const instagram = p.channels.length === 1 && p.channels[0] === "instagram";
+    const words = (instagram ? p.source.instagramText || p.text : p.text).slice(0, 700);
+    const all = p.kind === "event" && p.source.key ? siblings.get(p.source.key) ?? [] : [];
+    const when = (e: SocialPost) => `${DAYS[(new Date(`${dateOf(e.publish_at_ms!)}T12:00:00Z`).getUTCDay() + 6) % 7]} ${dayLabel(dateOf(e.publish_at_ms!))} kl. ${clock(e.publish_at_ms!)} · ${where(e)}${e.status === "published" ? " · publiceret" : e.status === "approved" ? " ✓" : ""}`;
+    return `<div class="cal-peek" role="tooltip">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : ""}<p>${esc(words).replace(/\n/g, "<br>")}${words.length >= 700 ? " …" : ""}</p>
+${all.length > 1 ? `<p class="cal-peek-all"><b>Eventets opslag</b><br>${all.map(e => `${e === p ? "<b>" : ""}${esc(when(e))}${e === p ? "</b>" : ""}`).join("<br>")}</p>` : ""}</div>`;
   };
   // Asked (the chair, 6 Nov 2026): "Og et lille link til det publicerede opslag hvis muligt".
   const links = (p: SocialPost) => {
@@ -128,7 +140,10 @@ export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8p
 .cal-day.is-today{outline:2px solid var(--accent)}.cal-day:target{outline:3px solid var(--accent);scroll-margin-top:80px}.cal-day.is-past{opacity:.6}.cal-day ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
 .cal-item{display:block;border-radius:9px;padding:6px 8px;text-decoration:none;color:var(--ink);background:var(--card);border-left:4px solid var(--line);font-size:13px;line-height:1.3;overflow-wrap:anywhere}
 .cal-item b{display:block;font-weight:600}.cal-item small{display:block;color:var(--muted);font-size:11.5px}.cal-time{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
-.cal-ok{color:#2e9d5b;font-weight:800}.cal-links{margin:3px 0 0 4px;font-size:11.5px}.cal-links a{color:var(--muted)}
+.cal-ok{color:#2e9d5b;font-weight:800}.cal-day li{position:relative}.cal-peek{display:none}
+@media (hover:hover) and (min-width:901px){.cal-peek{display:block;visibility:hidden;opacity:0;position:absolute;z-index:30;left:calc(100% + 8px);top:0;width:300px;padding:10px;border-radius:12px;background:var(--card);color:var(--ink);box-shadow:0 18px 50px rgba(0,0,0,.35);font-size:12.5px;line-height:1.45;transition:opacity .12s;pointer-events:none}
+.cal-day li:hover>.cal-peek,.cal-day li:focus-within>.cal-peek{visibility:visible;opacity:1}.cal-grid>.cal-day:nth-child(n+6) .cal-peek{left:auto;right:calc(100% + 8px)}
+.cal-peek img{display:block;width:100%;max-height:220px;object-fit:contain;border-radius:8px;margin-bottom:8px;background:var(--soft)}.cal-peek p{margin:0}.cal-peek-all{margin-top:8px!important;padding-top:8px;border-top:1px solid var(--line);color:var(--muted)}}.cal-links{margin:3px 0 0 4px;font-size:11.5px}.cal-links a{color:var(--muted)}
 .cal-now{display:flex;align-items:center;gap:6px;color:#e4572e;font-size:11.5px;font-weight:700;margin:2px 0}.cal-now::before,.cal-now::after{content:"";height:2px;background:#e4572e;flex:1}.cal-now::before{flex:0 0 8px;height:8px;border-radius:50%}.cal-item.is-draft{border-left-color:#d9822b;background:rgba(217,130,43,.16)}.cal-item.is-approved{border-left-color:#4c6fff;background:rgba(76,111,255,.18)}.cal-item.is-sent{border-left-color:#2e9d5b;background:rgba(46,157,91,.2)}
 .cal-item.is-failed{border-left-color:#d93025;background:rgba(217,48,37,.18)}.cal-item.is-removed{border-left-color:var(--faint);background:transparent;color:var(--muted)}.cal-item.is-removed b{text-decoration:line-through}
 .cal-until{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:1px 7px}.cal-until.is-day{color:var(--warn);background:var(--warn-soft)}

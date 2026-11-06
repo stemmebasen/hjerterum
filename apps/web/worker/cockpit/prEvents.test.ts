@@ -45,6 +45,9 @@ describe("PR og SoMe → Events", () => {
     expect(page).toContain("Opslag godkendt");
     expect(page).toContain("Facebook-begivenhed ✓");
     expect(page).toContain("1 mangler noget.");
+    // "Måske en copy paste tekst, jeg hurtigt kan dele med underviseren": the approved times, signed by the team.
+    expect(page).toContain("Tekst til underviseren");
+    expect(page).toMatch(/Hej Kasper 😊[\s\S]*»Dans«[\s\S]*• Facebook: [a-zæøå]+dag d\. \d+\. [a-z]+ kl\. \d\d\.\d\d[\s\S]*Venlig hilsen,\nTeam Hjerterum/);
     // Reported: "under events står der opslag, der er planlagt, som jeg ikke kan se i kalenderen. Det må virkelig ikke ske." Every time the list shows
     // links to its day in the calendar - and the post stands there, at that time.
     const links = [...page.matchAll(/href="(\/pr\/kalender\?start=[\d-]+)#dag-([\d-]+)">(Facebook|Instagram) [^<]*?(\d{2}[.:]\d{2})/g)];
