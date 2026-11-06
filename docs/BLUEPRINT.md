@@ -1413,3 +1413,9 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Find et billede:** i trin 1 kan formanden søge i fotos fra Pexels eller i kunstværker og botaniske tegninger i det offentlige domæne (CC0) fra Art Institute of Chicago og The Met (`cockpit/stockPictures.ts`). Saga foreslår engelske søgeord ud fra eventet, med natur, lys, ting og hænder frem for ansigter.
 - **Det valgte billede** hentes af serveren ud fra sit id (aldrig en adresse fra browseren) og gemmes med eventets materiale (`storeUpload`). Derefter kan det bruges i alle designs. Filnavnet siger, hvor billedet kommer fra, og siden viser "Fotos fra Pexels", som Pexels beder om.
 - **Nøgle:** `PEXELS_API_KEY` er en hemmelighed i GitHub og sendes til Cloudflare ved deploy. Indtil nøglen er sat, står der, at Pexels ikke er koblet på. Kunsten kræver ingen nøgle.
+- **Flere kilder (samme dag):** "Men også de andre. Så mange tools vi kan få som gør variationen bedre." Søgningen har nu tre faner:
+  - **Fotos:** Pexels, Unsplash og Pixabay på skift.
+  - **Illustrationer:** Pixabays illustrationer og vektorgrafik.
+  - **Kunst og botanik:** Art Institute of Chicago, The Met og Openverse, kun CC0 og public domain.
+- **Nøgler:** `PEXELS_API_KEY`, `UNSPLASH_ACCESS_KEY` og `PIXABAY_API_KEY` ligger i GitHub-hemmelighederne. En kilde uden nøgle udelades og nævnes på siden.
+- **Unsplash:** får besked, når et af dets fotos bruges, som Unsplash beder om.

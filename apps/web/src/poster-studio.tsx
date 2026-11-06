@@ -162,20 +162,26 @@ function Quote({ label, text }: { label: string; text: string }) {
 
 /** Asked (the chair, 6 Nov 2026): "lad os koble pexels api på" and "Kunst og botanik (CC0)". Search Pexels' photos or the free art of the Art Institute
  * of Chicago and The Met - Saga proposes what to search for - and use one: the server fetches it and keeps it with the event's pictures. */
-type StockPicture = { source: "pexels" | "aic" | "met"; id: string; thumb: string; label: string; credit: string; link: string };
+type StockPicture = { source: string; id: string; thumb: string; label: string; credit: string; link: string };
+type StockKind = "foto" | "illustration" | "kunst";
+const STOCK_KINDS: Array<[StockKind, string, string]> = [
+  ["foto", "Fotos", "Fotos fra Pexels, Unsplash og Pixabay."],
+  ["illustration", "Illustrationer", "Akvareller, tegninger og vektorgrafik fra Pixabay."],
+  ["kunst", "Kunst og botanik", "Gamle kunstværker og botaniske tegninger fra The Met, Art Institute of Chicago og Openverse - frie at bruge (CC0)."]];
 function PictureFinder({ id, onChosen }: { id: string; onChosen: (url: string, label: string) => void }) {
-  const [kind, setKind] = useState<"pexels" | "kunst">("pexels");
+  const [kind, setKind] = useState<StockKind>("foto");
   const [query, setQuery] = useState("");
   const [ideas, setIdeas] = useState<string[]>([]);
   const [results, setResults] = useState<StockPicture[] | null>(null);
   const [state, setState] = useState("");
   const [ready, setReady] = useState(true);
+  const [missing, setMissing] = useState<string[]>([]);
   const search = async (k = kind, q = "") => {
     setState("Søger …"); setResults(null);
     const response = await fetch(`/plakater/${id}/billedsoeg?kilde=${k}${q ? `&q=${encodeURIComponent(q)}` : ""}`).catch(() => null);
-    const body = response?.ok ? await response.json().catch(() => null) as { ready: boolean; query: string; ideas: string[]; results: StockPicture[] } | null : null;
+    const body = response?.ok ? await response.json().catch(() => null) as { ready: boolean; missing?: string[]; query: string; ideas: string[]; results: StockPicture[] } | null : null;
     if (!body) { setState("Søgningen lykkedes ikke. Prøv igen."); return; }
-    setReady(body.ready); setQuery(body.query); if (body.ideas.length) setIdeas(body.ideas); setResults(body.results);
+    setReady(body.ready); setMissing(body.missing ?? []); setQuery(body.query); if (body.ideas.length) setIdeas(body.ideas); setResults(body.results);
     setState(body.ready && !body.results.length ? "Ingen billeder fundet. Prøv et andet ord (på engelsk)." : "");
   };
   const choose = async (p: StockPicture) => {
@@ -187,18 +193,18 @@ function PictureFinder({ id, onChosen }: { id: string; onChosen: (url: string, l
   };
   return <div className="studio-box studio-finder">
     <h3>Find et billede</h3>
-    <div className="studio-finder-tabs" role="tablist">{([["pexels", "Fotos (Pexels)"], ["kunst", "Kunst og botanik"]] as const).map(([k, label]) =>
+    <div className="studio-finder-tabs" role="tablist">{STOCK_KINDS.map(([k, label]) =>
       <button key={k} type="button" role="tab" aria-selected={kind === k} className={kind === k ? "is-on" : ""} onClick={() => { setKind(k); setIdeas([]); void search(k); }}>{label}</button>)}</div>
-    {results === null && !state && <p className="studio-muted">{kind === "pexels" ? "Gratis fotos fra Pexels." : "Gamle kunstværker og botaniske tegninger, frie at bruge (CC0)."} Saga foreslår, hvad der passer til eventet.
+    {results === null && !state && <p className="studio-muted">{STOCK_KINDS.find(([k]) => k === kind)![2]} Saga foreslår, hvad der passer til eventet.
       <br /><button type="button" className="lys-btn ghost" onClick={() => void search()}>Vis Sagas forslag</button></p>}
     {(results !== null || ideas.length > 0) && <form className="studio-finder-search" onSubmit={e => { e.preventDefault(); void search(kind, query); }}>
       <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Søg på engelsk, fx forest light" aria-label="Søg efter billeder" /><button className="lys-btn ghost">Søg</button></form>}
     {ideas.length > 0 && <p className="studio-finder-ideas">{ideas.map(i => <button key={i} type="button" className="text-button" onClick={() => { setQuery(i); void search(kind, i); }}>{i}</button>)}</p>}
-    {!ready && <p className="studio-muted">Pexels er ikke koblet på endnu: nøglen PEXELS_API_KEY mangler.</p>}
+    {missing.length > 0 && <p className="studio-muted">{ready ? "Ikke koblet på endnu" : "Ingen af kilderne er koblet på endnu"}: {missing.join(", ")} (nøglen mangler).</p>}
     {state && <p className="studio-muted" role="status">{state}</p>}
     {results && results.length > 0 && <div className="studio-thumbs">{results.map(p => <button key={p.source + p.id} type="button" className="studio-thumb" title={p.credit} onClick={() => void choose(p)}>
       <img src={p.thumb} alt={p.label} loading="lazy" referrerPolicy="no-referrer" /><span>{p.credit}</span></button>)}</div>}
-    {results && kind === "pexels" && <p className="studio-soft"><a href="https://www.pexels.com" target="_blank" rel="noopener">Fotos fra Pexels</a>. Vælg natur, lys og ting frem for ansigter, så ingen fremmede ligner deltagere.</p>}
+    {results && kind === "foto" && <p className="studio-soft">Fotos fra <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a>, <a href="https://unsplash.com" target="_blank" rel="noopener">Unsplash</a> og <a href="https://pixabay.com" target="_blank" rel="noopener">Pixabay</a>. Vælg natur, lys og ting frem for ansigter, så ingen fremmede ligner deltagere.</p>}
   </div>;
 }
 
