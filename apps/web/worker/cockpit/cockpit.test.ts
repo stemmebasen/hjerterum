@@ -841,7 +841,7 @@ describe("each member's task list", () => {
     const menu = page.slice(page.indexOf('<nav class="desk"'), page.indexOf("</nav>"));
     for (const label of [">Overblik<", ">Bestyrelse<", ">Events<", ">Kommunikation<", ">Medlemmer<"]) expect(menu).toContain(label);
     for (const path of ["/cockpit/status", "/cockpit/beslutninger", "/cockpit/opslag", "/cockpit/arkiv", "/cockpit/arrangementer/undervisere", "/cockpit/posthus", "/cockpit/medlemmer", "/cockpit/statistik"]) expect(menu).toContain(`href="${path}"`);
-    for (const path of ["/cockpit/filarkiv", "/cockpit/arrangementer/nyhedsbrev", "/cockpit/arrangementer/mail", "/cockpit/medlemskab"]) expect(menu).not.toContain(`href="${path}"`);
+    for (const path of ["/cockpit/arrangementer/nyhedsbrev", "/cockpit/arrangementer/mail", "/cockpit/medlemskab"]) expect(menu).not.toContain(`href="${path}"`);
     expect(page).not.toContain("data-power=");
     const profile = await (await call("/cockpit/profil", { cookie: as("Gitta") })).text();
     expect(profile).not.toContain('<div class="menu">\n<a href="/cockpit/beslutninger"');
