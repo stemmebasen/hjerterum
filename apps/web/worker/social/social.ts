@@ -190,7 +190,7 @@ export async function approveWeek(db: D1Database, week: string, who: string, now
 const SHARE_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus for meditation, yoga, personlig udvikling og fællesskab. "
   + "Hjerterum deler et opslag, som en underviser eller en anden har lavet og tagget Hjerterum i. Skriv 1-2 korte, varme sætninger (højst 30 ord) på dansk, "
   + "som Hjerterum sætter over delingen: tak gerne personen ved fornavn og sig kort, hvad opslaget handler om, ud fra teksten. Find ikke på detaljer, "
-  + "ingen helbredsløfter, ingen emojis, ingen hashtags, ingen links. Svar kun med teksten.";
+  + "ingen helbredsløfter, ingen hashtags, ingen links. Gerne én passende emoji fra naturen eller med begejstring og kærlighed (fx 🌿 🌸 🌙 🤍 ✨ 🙌). Svar kun med teksten.";
 
 export const firstName = (name: string | null) => (name ?? "").replace(/^@/, "").split(/\s+/)[0] ?? "";
 export const plainShareText = (author: string | null) => `Tak til ${firstName(author) || "jer"} for at dele. Vi glæder os til at se jer i Hjerterum.`;
@@ -273,7 +273,8 @@ const WEEK_SYSTEM = `Du skriver Hjerterums opslag på Facebook og Instagram (Hje
 Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: {"uge": "...", "events": {"E1": "..."}}
 - "uge": 1-2 korte, varme sætninger (højst 35 ord), der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
 - "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår (ugedag og "kl. TT.MM", som de står i feltet "hvornaar" - aldrig en dato). Linket til eventet sættes på af systemet, så skriv ingen adresse.
-Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn.
+Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen hashtags, ingen udråbstegn.
+Emojis (formanden: "gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): 1-2 i hver tekst, valgt så de passer til netop eventet - fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Ved en sætnings slutning, aldrig flere i træk.
 Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
 - Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
 - Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."

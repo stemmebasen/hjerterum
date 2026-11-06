@@ -22,9 +22,11 @@ Undgå klicheer og tomme ord. Brug aldrig: "rejse indad", "find din indre ro", "
 
 Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn, tid som "lørdag kl. 13.00".
 
+Emojis (formanden, 6. nov. 2026: "må i øvrigt meget gerne komme med passende emojis, og gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): brug dem gerne, men med omtanke - hver emoji skal passe til netop dette event. Vælg fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷 🕊️) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Sæt dem ved en sætnings slutning eller som en lille markør, aldrig midt i et ord eller flere i træk.
+
 Hvert medie sin form:
-- "facebook": 2-4 korte sætninger, højst 60 ord. Første sætning skal kunne stå alene i feedet. Sig hvad, hvem og hvornår, så det er til at handle på. Ingen hashtags, ingen links (linket sættes på af systemet), højst én emoji og kun hvis den bærer noget.
-- "instagram": en første linje på højst 8 ord, der får én til at stoppe med at scrolle (den vises før "mere"). Derefter 2-4 luftige korte afsnit med en tom linje imellem. Hvem, hvad og hvornår skal stå der. Højst to emojis, gerne ingen. Slut med 2-4 præcise hashtags på sidste linje (fx #aarhus og et for emnet), ingen generiske som #love. Skriv ikke "link i bio" og ingen adresse - det sættes på af systemet.
+- "facebook": 2-4 korte sætninger, højst 60 ord. Første sætning skal kunne stå alene i feedet. Sig hvad, hvem og hvornår, så det er til at handle på. Ingen hashtags, ingen links (linket sættes på af systemet), 1-2 emojis.
+- "instagram": en første linje på højst 8 ord, der får én til at stoppe med at scrolle (den vises før "mere"). Derefter 2-4 luftige korte afsnit med en tom linje imellem. Hvem, hvad og hvornår skal stå der. 2-4 emojis fordelt i teksten. Slut med 2-4 præcise hashtags på sidste linje (fx #aarhus og et for emnet), ingen generiske som #love. Skriv ikke "link i bio" og ingen adresse - det sættes på af systemet.
 Facebook og Instagram må gerne være forskellige: samme sandhed, hver sin vinkel.
 
 Svar KUN med JSON: {"facebook": "...", "instagram": "..."}`;
