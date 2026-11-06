@@ -81,13 +81,25 @@ export function prCalendarSection(base: string, d: CalendarData): string {
     const move = movable(p) ? `<details class="cal-move"><summary>Flyt</summary><form method="post" action="${base}/pr/kalender/flyt"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="channel" value="${channel}">
 <input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="at" value=""><input type="datetime-local" required value="${localValue(p.publish_at_ms!)}" aria-label="Nyt tidspunkt"><button>Flyt</button></form></details>` : "";
     return `<li${movable(p) ? ` draggable="true" data-id="${p.id}" data-channel="${channel}" data-time="${clock(p.publish_at_ms!)}"` : ""}><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${p.status === "approved" || p.status === "publishing" ? `<span class="cal-ok" title="Godkendt og klar til afsendelse">✓</span> ` : ""}${esc(label(p))}</b>
-<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${move}</li>`;
+<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${move}</li>`;
   };
+  // Asked (the chair, 6 Nov 2026): "Og et lille link til det publicerede opslag hvis muligt".
+  const links = (p: SocialPost) => {
+    const out = (["facebook", "instagram"] as const).filter(c => p.channels.includes(c)).map(c => {
+      const link = p.published[c === "facebook" ? "facebook_link" : "instagram_link"] ?? (c === "facebook" && p.published.facebook ? `https://www.facebook.com/${encodeURIComponent(p.published.facebook)}` : null);
+      return link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Se på ${c === "facebook" ? "Facebook" : "Instagram"} ↗</a>` : "";
+    }).filter(Boolean);
+    return out.length ? `<p class="cal-links">${out.join(" · ")}</p>` : "";
+  };
+  // Asked (the chair, 6 Nov 2026): "Kan der være en streg der markerede tidspunktet" - now, as a line between today's posts.
+  const nowLine = `<li class="cal-now" aria-label="Nu"><span>Nu ${clock(d.nowMs)}</span></li>`;
+  const withNow = (posts: SocialPost[]) => { const at = posts.findIndex(p => (p.publish_at_ms ?? 0) > d.nowMs); const html = posts.map(item);
+    html.splice(at < 0 ? html.length : at, 0, nowLine); return html.join(""); };
   const weeks = d.mondays.map(monday => {
     const days = [0, 1, 2, 3, 4, 5, 6].map(i => {
       const day = addDays(monday, i), posts = byDay.get(day) ?? [];
-      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length ? "" : " is-empty"}" data-day="${day}" id="dag-${day}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
-${posts.length ? `<ul>${posts.map(item).join("")}</ul>` : ""}</div>`;
+      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length || day === today ? "" : " is-empty"}" data-day="${day}" id="dag-${day}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
+${day === today ? `<ul>${withNow(posts)}</ul>` : posts.length ? `<ul>${posts.map(item).join("")}</ul>` : ""}</div>`;
     }).join("");
     return `<section class="cal-week"><h3>Uge ${weekNumber(weekKey(monday))}</h3><div class="cal-grid">${days}</div></section>`;
   }).join("");
@@ -116,7 +128,8 @@ export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8p
 .cal-day.is-today{outline:2px solid var(--accent)}.cal-day:target{outline:3px solid var(--accent);scroll-margin-top:80px}.cal-day.is-past{opacity:.6}.cal-day ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
 .cal-item{display:block;border-radius:9px;padding:6px 8px;text-decoration:none;color:var(--ink);background:var(--card);border-left:4px solid var(--line);font-size:13px;line-height:1.3;overflow-wrap:anywhere}
 .cal-item b{display:block;font-weight:600}.cal-item small{display:block;color:var(--muted);font-size:11.5px}.cal-time{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
-.cal-ok{color:#2e9d5b;font-weight:800}.cal-item.is-draft{border-left-color:#d9822b;background:rgba(217,130,43,.16)}.cal-item.is-approved{border-left-color:#4c6fff;background:rgba(76,111,255,.18)}.cal-item.is-sent{border-left-color:#2e9d5b;background:rgba(46,157,91,.2)}
+.cal-ok{color:#2e9d5b;font-weight:800}.cal-links{margin:3px 0 0 4px;font-size:11.5px}.cal-links a{color:var(--muted)}
+.cal-now{display:flex;align-items:center;gap:6px;color:#e4572e;font-size:11.5px;font-weight:700;margin:2px 0}.cal-now::before,.cal-now::after{content:"";height:2px;background:#e4572e;flex:1}.cal-now::before{flex:0 0 8px;height:8px;border-radius:50%}.cal-item.is-draft{border-left-color:#d9822b;background:rgba(217,130,43,.16)}.cal-item.is-approved{border-left-color:#4c6fff;background:rgba(76,111,255,.18)}.cal-item.is-sent{border-left-color:#2e9d5b;background:rgba(46,157,91,.2)}
 .cal-item.is-failed{border-left-color:#d93025;background:rgba(217,48,37,.18)}.cal-item.is-removed{border-left-color:var(--faint);background:transparent;color:var(--muted)}.cal-item.is-removed b{text-decoration:line-through}
 .cal-until{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:1px 7px}.cal-until.is-day{color:var(--warn);background:var(--warn-soft)}
 li[draggable]{cursor:grab}li.is-dragging{opacity:.45}.cal-day.is-over{outline:2px dashed var(--accent)}

@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -60,7 +60,7 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     stillAsk?: { atMs: number; image: string; effect: StillEffect };
     /** For the templates "Citat" and "Mød underviseren": the teacher's own sentence and photo, given with consent. */
     quote?: string; portrait?: string }; publish_at_ms: number | null; status: SocialStatus;
-  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container", string>>; published_at_ms: number | null; error: string | null;
+  approved_by: string | null; approved_at_ms: number | null; published: Partial<Record<Channel | "instagram_container" | "facebook_link" | "instagram_link", string>>; published_at_ms: number | null; error: string | null;
   created_at_ms: number; updated_at_ms: number };
 
 const MINUTE = 60_000;
@@ -697,6 +697,8 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
           if (status === "ERROR" || status === "EXPIRED") { delete done.instagram_container; throw new Error(`Instagram kunne ikke behandle videoen (${status})`); }
           if (status !== "FINISHED") throw new ReelPending();
           done.instagram = await finishReel(deps.fetcher, instagram, done.instagram_container);
+          const reelLink = await permalinkOf(deps.fetcher, instagram.token, "instagram", done.instagram);
+          if (reelLink) done.instagram_link = reelLink;
           await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
           continue;
         }
@@ -709,6 +711,9 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
           throw /format|image.*(type|jpeg)|2207/i.test(error instanceof Error ? error.message : String(error)) ? new Error("Instagram kunne ikke bruge billedet (Instagram tager kun jpg). Facebook-delen er sendt; fjern Instagram og godkend igen, eller lav et design.") : error;
         });
       }
+      // "Et lille link til det publicerede opslag" (prCalendar.ts): where it is now.
+      const id = done[channel], linkKey = channel === "facebook" ? "facebook_link" : "instagram_link";
+      if (id && !done[linkKey]) { const link = await permalinkOf(deps.fetcher, channel === "facebook" ? page.token : instagram!.token, channel, id); if (link) done[linkKey] = link; }
       // Kept at once: a retry never posts the same thing twice on a channel it already reached.
       await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
     }
@@ -856,6 +861,26 @@ async function ownWordsOnShares(db: D1Database): Promise<number> {
   return waiting.length;
 }
 
+/** Once: the links of the posts published before the calendar showed them ("Og et lille link til det publicerede opslag"). */
+async function linksForPublished(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const account = await socialAccount(db);
+  if (!account) return 0;
+  const { page } = await access(env, account);
+  const posts = await socialPosts(db, "status = 'published' AND published_at_ms > ?", [deps.now() - 90 * 86_400_000], "id", 300);
+  let changed = 0;
+  for (const p of posts) {
+    const done = { ...p.published };
+    for (const channel of ["facebook", "instagram"] as const) {
+      const key = channel === "facebook" ? "facebook_link" : "instagram_link";
+      if (done[channel] && !done[key]) { const link = await permalinkOf(deps.fetcher, page.token, channel, done[channel]!); if (link) done[key] = link; }
+    }
+    if (JSON.stringify(done) === JSON.stringify(p.published)) continue;
+    await db.prepare("UPDATE social_posts SET published = ? WHERE id = ?").bind(JSON.stringify(done), p.id).run();
+    changed++;
+  }
+  return changed;
+}
+
 /** Once: the waiting posts' Instagram words get the new line about the bio (bioLine). */
 async function bioLineInWaiting(db: D1Database): Promise<number> {
   const waiting = await socialPosts(db, "status IN ('draft', 'approved', 'failed') AND (text LIKE '%(link i bio)%' OR json_extract(source, '$.instagramText') LIKE '%(link i bio)%')", [], "id", 1000);
@@ -885,6 +910,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   const now = deps.now();
   await releaseStuck(db, now);
   if (await claimJob(db, "social_share_own_words", 0, now).catch(() => false)) await ownWordsOnShares(db).catch(error => console.warn("social_share_words_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_post_links", 0, now).catch(() => false)) await linksForPublished(env, deps, db).catch(error => console.warn("social_post_links_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_bio_line", 0, now).catch(() => false)) await bioLineInWaiting(db).catch(error => console.warn("social_bio_line_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_event_dates", 0, now).catch(() => false)) await datesInWaiting(db).catch(error => console.warn("social_event_dates_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
