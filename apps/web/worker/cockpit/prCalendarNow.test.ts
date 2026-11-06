@@ -23,6 +23,8 @@ describe("the PR calendar's now and its links", () => {
     expect(today).toContain('href="https://www.instagram.com/p/ABC/"');
     // An older post without its link: Facebook's address by the post's id.
     expect(html).toContain('href="https://www.facebook.com/755_3"');
+    // "Kan jeg holde mus over et event i kalenderen for at se opslaget/opslagene?"
+    expect(today).toContain('class="cal-peek"');
     // Only today has the line.
     expect(html.match(/class="cal-now"/g)).toHaveLength(1);
   });
