@@ -22,7 +22,7 @@ type Data = {
   teacher: { name: string; consent: "given" | "withdrawn" | "none"; quotes: Quotes; pictures: Picture[]; events: Array<{ title: string; startsAt: string; picture: string | null }> } | null;
   post: { id: number; status: string; week: string | null; monday: string | null; image: string | null; design: boolean;
     text: string; instagramText: string; channels: string[]; publishAtMs: number | null; link: string | null; instagram: boolean; instagramAtMs: number | null;
-    video: string | null; noVideo: boolean;
+    video: string | null; noVideo: boolean; noFacebookVideo: boolean;
     videoTemplate: number | null; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean;
     videoChoices: Array<{ template: number; name: string; video: string }>; videoAsked: number[]; stillAsked: boolean } | null;
   back: string;
@@ -199,6 +199,8 @@ export function PosterStudio({ id }: { id: string }) {
   const [chosenIg, setChosenIg] = useState("");
   // The event's video for Instagram (made by Saga in the chosen template); the chair may keep the picture instead.
   const [useVideo, setUseVideo] = useState(true);
+  // "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge", unless the chair takes it off.
+  const [facebookVideo, setFacebookVideo] = useState(true);
   // Requested (the chair, 5 Nov 2026): "lav gerne delen med videoskabelon" - the video made again in another template.
   const [template, setTemplate] = useState(0);
   const [videoNote, setVideoNote] = useState("");
@@ -224,7 +226,7 @@ export function PosterStudio({ id }: { id: string }) {
       if (found.post) {
         setText(found.post.text); setInstagramText(found.post.instagramText);
         setChannels(found.post.instagram ? ["facebook", "instagram"] : ["facebook"]);
-        setUseVideo(!found.post.noVideo);
+        setUseVideo(!found.post.noVideo); setFacebookVideo(!found.post.noFacebookVideo);
         setTemplate(found.post.videoTemplate ?? found.post.videoTemplates[0]?.no ?? 0);
       }
     });
@@ -283,7 +285,7 @@ export function PosterStudio({ id }: { id: string }) {
     setBusy(true); setMessage("Publicerer …");
     const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, instagramText, channels, ...(post.video ? { video: useVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
+      body: JSON.stringify({ text, instagramText, channels, ...(post.video ? { video: useVideo, facebookVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
     const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null : null;
     setBusy(false);
     if (body) { setSent(body); setMessage(""); setStep("sendt"); window.scrollTo(0, 0); }
@@ -326,7 +328,7 @@ export function PosterStudio({ id }: { id: string }) {
     const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ template }) }).catch(() => null);
     const error = response && !response.ok ? (await response.json().catch(() => null) as { error?: string } | null)?.error : null;
     if (response?.ok) {
-      setData(d => d && d.post ? { ...d, post: { ...d.post, video: null, noVideo: false, videoTemplate: template, status: "draft" } } : d);
+      setData(d => d && d.post ? { ...d, post: { ...d.post, video: null, noVideo: false, noFacebookVideo: false, videoTemplate: template, status: "draft" } } : d);
       setVideoNote(`Ny video på vej i "${post.videoTemplates.find(t => t.no === template)?.name ?? template}" (højst en halv time). Saga skriver til dig på Telegram med et link, når den er klar - godkend den dér. Godkender du her før, kommer opslaget ud med billedet.`);
     } else setVideoNote(error === "late" ? "Der er for kort tid til eventet til at lave en ny video." : error === "template" ? "Den skabelon kan ikke bruges til dette event." : "Det lykkedes ikke. Prøv igen.");
   };
@@ -350,8 +352,8 @@ export function PosterStudio({ id }: { id: string }) {
     const response = await fetch(`/plakater/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pick: index }) }).catch(() => null);
     const body = response?.ok ? await response.json().catch(() => null) as { video?: string; videoTemplate?: number } | null : null;
     if (!body?.video) { setVideoNote("Videoen kunne ikke vælges. Prøv igen."); return; }
-    setData(d => d && d.post ? { ...d, post: { ...d.post, video: body.video!, videoTemplate: body.videoTemplate ?? d.post.videoTemplate, noVideo: false, status: "draft" } } : d);
-    setUseVideo(true); setVideoNote("Videoen er valgt. Den står nu i opslaget til venstre.");
+    setData(d => d && d.post ? { ...d, post: { ...d.post, video: body.video!, videoTemplate: body.videoTemplate ?? d.post.videoTemplate, noVideo: false, noFacebookVideo: false, status: "draft" } } : d);
+    setUseVideo(true); setFacebookVideo(true); setVideoNote("Videoen er valgt. Den står nu i opslaget til venstre.");
   };
   const toggle = (c: string) => setChannels(list => list.includes(c) ? list.filter(x => x !== c) : [...list, c]);
 
@@ -381,7 +383,7 @@ export function PosterStudio({ id }: { id: string }) {
         <header><img src={LOGO_FILE} alt="" /><b>Hjerterum</b></header>
         <p className="studio-mock-text">{text}</p>
         {post.link && <p className="studio-mock-link">{post.link}</p>}
-        <img className="studio-mock-picture" src={preview.url} alt="Opslagets billede" />
+        {post.video && facebookVideo ? <video className="studio-mock-picture" src={post.video} controls muted playsInline loop /> : <img className="studio-mock-picture" src={preview.url} alt="Opslagets billede" />}
       </div>
       {post.video && channels.includes("instagram") && <div className="studio-mock studio-mock-video">
         <header><img src={LOGO_FILE} alt="" /><b>Instagram</b><span className="studio-muted">{useVideo ? "reel" : "billedet"}</span></header>
@@ -402,6 +404,7 @@ export function PosterStudio({ id }: { id: string }) {
           <label><input type="checkbox" checked={channels.includes("facebook")} onChange={() => toggle("facebook")} /> Facebook</label>
           {post.instagram ? <label><input type="checkbox" checked={channels.includes("instagram")} onChange={() => toggle("instagram")} /> Instagram</label>
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
+          {post.video && channels.includes("facebook") && <label><input type="checkbox" checked={facebookVideo} onChange={() => setFacebookVideo(!facebookVideo)} /> Videoen på Facebook (ellers billedet)</label>}
           {post.video && channels.includes("instagram") && <label><input type="checkbox" checked={useVideo} onChange={() => setUseVideo(!useVideo)} /> Videoen på Instagram (ellers billedet)</label>}
         </fieldset>
         {post.instagram && channels.includes("instagram") && post.videoTemplates.length > 1 && (post.videoRemake || videoNote) && <fieldset className="studio-choices"><legend>Videoen på Instagram</legend>

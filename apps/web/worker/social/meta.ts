@@ -11,7 +11,9 @@ const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 export const META_SCOPES = ["pages_show_list", "pages_read_engagement", "pages_read_user_content", "pages_manage_posts",
   "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management",
   // Asked (the chair, 6 Nov 2026), about posts teachers send in Messenger: "Saga læser Messenger".
-  "pages_messaging"];
+  "pages_messaging",
+  // Asked (the chair, 6 Nov 2026): "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge".
+  "publish_video"];
 
 export type MetaEnv = { META_APP_ID?: string; META_APP_SECRET?: string; META_LOGIN_CONFIG_ID?: string };
 export const metaReady = (env: MetaEnv) => Boolean(env.META_APP_ID && env.META_APP_SECRET);
@@ -158,6 +160,12 @@ export async function freshInstagramImages(fetcher: Fetcher, account: { igUserId
 export async function postToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { message: string; link?: string | null }): Promise<string> {
   const made = await graph<{ id: string }>(fetcher, "POST", `/${page.id}/feed`, { message: post.message, ...(post.link ? { link: post.link } : {}), access_token: page.token });
   return made.id;
+}
+
+/** A video post on the page - the event's video, as on Instagram - with the words (and the link in them). Facebook fetches the video from its address. */
+export async function postVideoToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { url: string; description: string }): Promise<string> {
+  const made = await graph<{ id: string; post_id?: string }>(fetcher, "POST", `/${page.id}/videos`, { file_url: post.url, description: post.description, published: "true", access_token: page.token });
+  return made.post_id ?? made.id;
 }
 
 /** A photo post on the page - the chair's design from Plakater og opslag - with the words (and the link in them). */
