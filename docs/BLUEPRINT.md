@@ -1380,6 +1380,7 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Nu:** hver halve time læser Saga også sidens nyeste Messenger-samtaler (`sentInMessenger` i `social/meta.ts`). Hvert link til et opslag på Instagram eller Facebook, som en anden har sendt, bliver en deling under Tagget i, mærket "Sendt i Messenger". Delingen får afsenderens navn, beskedens ord og linket, og hvert link deles kun én gang. En video deles som link på Facebook.
 - **Tilladelse:** kræver `pages_messaging`. Facebook afviser hele login'et ("Invalid Scopes"), hvis appen beder om en tilladelse, som appens brugsscenarier hos Meta ikke har. Derfor beder login'et kun om den, når `META_MESSENGER=1`. Det sættes, når appen har fået brugsscenariet Messenger i Metas dashboard, og bagefter forbinder formanden siden igen. Indtil da står der under Tagget i: "Messenger kan ikke læses endnu".
 - **Ikke med:** beskeder på Instagram (Direct). Saga svarer ikke på beskeder.
+- **6. nov. 2026, senere:** formanden har givet appen brugsscenariet Messenger hos Meta. `META_MESSENGER=1` er sat for staging i `wrangler.jsonc`, så login'et nu beder om `pages_messaging`.
 
 ## Eventets video også på Facebook (2026-11-06)
 

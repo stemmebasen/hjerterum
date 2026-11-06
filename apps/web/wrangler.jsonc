@@ -27,7 +27,8 @@
         "AI_MID_MODEL": "anthropic/claude-haiku-5-5",
         "COCKPIT_URL": "https://admin.hjerterum.info",
         "RESEND_FROM_EMAIL": "Hjerterum <login@hjerterum.info>",
-        "SAGA_MINUTES_PING": "off"
+        "SAGA_MINUTES_PING": "off",
+        "META_MESSENGER": "1"
       },
       "triggers": {
         "crons": ["*/5 * * * *"]
