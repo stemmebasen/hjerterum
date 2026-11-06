@@ -37,7 +37,7 @@ describe("both Facebook and Instagram, whenever possible", () => {
       ('SFb', 'Uden billede', ?, 'Kasper', NULL, 'x', 0)`).bind(Date.parse("2026-11-10T18:00:00Z"), Date.parse("2026-11-11T18:00:00Z")).run();
     await planWeek(env as never, deps(fetcher, THURSDAY), db, "2026-11-09");
     const events = await socialPosts(db, "kind = 'event'");
-    expect(events.find(p => p.source.key === "mw:SFa")).toMatchObject({ channels: ["facebook", "instagram"], source: { instagramText: expect.stringContaining("hjerterum.info/events (link i bio)") } });
+    expect(events.find(p => p.source.key === "mw:SFa")).toMatchObject({ channels: ["facebook", "instagram"], source: { instagramText: expect.stringContaining("via linket i bio") } });
     expect(events.find(p => p.source.key === "mw:SFb")).toMatchObject({ channels: ["facebook"] });
     await scanTags(env as never, deps(fetcher, THURSDAY), db);
     const [share] = await socialPosts(db, "kind = 'share'");

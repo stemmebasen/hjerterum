@@ -30,12 +30,13 @@ export const DesignInMotion: React.FC<StillProps> = ({ picture, effect }) => {
     opacity = interpolate(f, [0, 10], [0, 1], { extrapolateRight: "clamp" });
     scale = interpolate(f, [0, 26], [1.14, 1], { extrapolateRight: "clamp" });
   }
-  const width = 1000, height = width / picture.ratio;
+  // Within what Instagram shows of a reel in the feed (parts.tsx SAFE_TOP/SAFE_BOTTOM): a tall design is made smaller, not cut.
+  const height = Math.min(1000 / picture.ratio, 1300), width = height * picture.ratio;
   return <AbsoluteFill style={{ background: "#1c1714", overflow: "hidden" }}>
     <Img src={src} style={{ position: "absolute", inset: -80, width: "calc(100% + 160px)", height: "calc(100% + 160px)", objectFit: "cover", filter: "blur(48px) brightness(.72)",
       transform: `scale(${1.1 * drift})` }} />
     <AbsoluteFill style={{ alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width, height: Math.min(height, 1780), borderRadius: 28, overflow: "hidden", boxShadow: "0 40px 120px rgba(0,0,0,.45)", opacity,
+      <div style={{ width, height, borderRadius: 28, overflow: "hidden", boxShadow: "0 40px 120px rgba(0,0,0,.45)", opacity,
         transform: `translate(${x}px, ${y}px) rotate(${rotate}deg) scale(${scale * drift})`, filter: blur ? `blur(${blur}px)` : undefined }}>
         <Img src={src} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
       </div>

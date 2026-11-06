@@ -94,7 +94,7 @@ describe("a design from Plakater og opslag in an event's post", () => {
     };
     const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(fetcher, NOW));
     const data = await (await call(`/plakater/${HEX}/data`)).json() as { post: Record<string, unknown> };
-    expect(data.post).toMatchObject({ channels: ["facebook", "instagram"], instagram: true, text: expect.any(String), instagramText: expect.stringContaining("hjerterum.info/events (link i bio)") });
+    expect(data.post).toMatchObject({ channels: ["facebook", "instagram"], instagram: true, text: expect.any(String), instagramText: expect.stringContaining("via linket i bio") });
     const jpg = new Uint8Array(4000); jpg.set([0xff, 0xd8, 0xff, 0xe0]);
     expect((await call(`/plakater/${HEX}/opslag`, { method: "POST", body: jpg })).status).toBe(200);
     // No channel: refused, and nothing is approved.

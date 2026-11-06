@@ -205,7 +205,11 @@ export const plainShareText = (author: string | null) => `Tak til ${firstName(au
 export const instagramShareText = (intro: string, author: string | null, _original = "", network: Channel = "instagram") =>
   `${intro.trim()}\n\nFoto: ${author ? (network === "instagram" ? `@${author.replace(/^@/, "")}` : author) : "afsenderen"}`;
 /** An event's post on Instagram: its words, and where to read more (Instagram has no links in the text). */
-export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).`;
+/** Reported (the chair, 6 Nov 2026): "»Læs mere og tilmeld dig på holistisk.org/events (link i bio).« Det virker lidt underligt, at der står det, når der jo
+ * også bare i bio står samme url" - the link in the bio, without its address. */
+export const instagramEventText = (text: string) => `${text.trim()}\n\nLæs mere og tilmeld dig via linket i bio.`;
+const OLD_BIO_LINE = /(Læs mere og tilmeld dig|Se alle events og tilmeld dig) på (?:www\.)?(?:hjerterum\.info|holistisk\.org)\/events\/? \(link i bio\)\./g;
+export const bioLine = (text: string) => text.replace(OLD_BIO_LINE, "$1 via linket i bio.");
 
 async function shareIntro(env: SagaEnv, deps: SagaDeps, post: TaggedPost): Promise<string> {
   if (!env.AI_API_KEY || !env.AI_MODEL) return plainShareText(post.author);
@@ -852,6 +856,14 @@ async function ownWordsOnShares(db: D1Database): Promise<number> {
   return waiting.length;
 }
 
+/** Once: the waiting posts' Instagram words get the new line about the bio (bioLine). */
+async function bioLineInWaiting(db: D1Database): Promise<number> {
+  const waiting = await socialPosts(db, "status IN ('draft', 'approved', 'failed') AND (text LIKE '%(link i bio)%' OR json_extract(source, '$.instagramText') LIKE '%(link i bio)%')", [], "id", 1000);
+  for (const p of waiting) await db.prepare("UPDATE social_posts SET text = ?, source = ? WHERE id = ? AND status IN ('draft', 'approved', 'failed')")
+    .bind(bioLine(p.text), JSON.stringify(typeof p.source.instagramText === "string" ? { ...p.source, instagramText: bioLine(p.source.instagramText) } : p.source), p.id).run();
+  return waiting.length;
+}
+
 /** Once (the chair, 6 Nov 2026: "Det er en fejl, at der bare står lørdag klokken 10:30, da det først er lørdagen efter."): the waiting event posts' words
  * get the event's date beside its weekday. */
 async function datesInWaiting(db: D1Database): Promise<number> {
@@ -873,6 +885,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   const now = deps.now();
   await releaseStuck(db, now);
   if (await claimJob(db, "social_share_own_words", 0, now).catch(() => false)) await ownWordsOnShares(db).catch(error => console.warn("social_share_words_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_bio_line", 0, now).catch(() => false)) await bioLineInWaiting(db).catch(error => console.warn("social_bio_line_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_event_dates", 0, now).catch(() => false)) await datesInWaiting(db).catch(error => console.warn("social_event_dates_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
   await oldSiteInWaiting(db, now).catch(error => console.warn("social_old_site_failed", error instanceof Error ? error.message : error));

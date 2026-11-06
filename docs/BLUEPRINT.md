@@ -1386,3 +1386,8 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Spurgt (formanden):** "Hvorfor er det, at vi ikke deler film på Facebook også?" Formandens valg: "Videoen på begge".
 - **Nu:** et eventopslag med video går på Facebook som video (`postVideoToPage`, `/{page}/videos`) med teksten og linket. Fluebenet "Video på Facebook (ellers billedet)" slår det fra pr. opslag, både under Ugens opslag og på plakatsiden. Kalenderen viser "FB ▶".
 - **Tilladelse:** en video på siden kræver kun `pages_manage_posts`, som siden har i forvejen. `publish_video` gjorde login'et ugyldigt ("Invalid Scopes") og er fjernet igen. Afviser Facebook alligevel videoen, går billedet ud som før, og opslaget fejler ikke.
+
+## Videoernes sikre område og "link i bio" (2026-11-06)
+
+- **"Overskriften bliver næsten klippet. Hvorfor er der ikke mere luft?"** Instagram viser en reel beskåret til 4:5 i feedet (y 285–1635 af 1920) og lægger sit eget navn, tekst og knapper hen over toppen og bunden i reels. Alt, der skal læses, ligger nu mellem `SAFE_TOP` (320) og `SAFE_BOTTOM` (1580) (`video/src/parts.tsx`). Det gælder alle eventskabeloner, Ugens events og "Dit design med bevægelse". Stemplet øverst er 200 px.
+- **"Læs mere og tilmeld dig på holistisk.org/events (link i bio)." "Det virker lidt underligt, … når der jo også bare i bio står samme url":** Instagram-teksten slutter nu med "Læs mere og tilmeld dig via linket i bio." Ugens events slutter med "Se alle events og tilmeld dig via linket i bio." De ventende opslag er rettet én gang (`social_bio_line`).
