@@ -169,6 +169,13 @@ export async function postVideoToPage(fetcher: Fetcher, page: { id: string; toke
   return made.post_id ?? made.id;
 }
 
+/** Asked (the chair, 6 Nov 2026): "Og et lille link til det publicerede opslag hvis muligt" - the address of a post Hjerterum has published. */
+export async function permalinkOf(fetcher: Fetcher, token: string, network: "facebook" | "instagram", id: string): Promise<string | null> {
+  const data = await graph<{ permalink?: string; permalink_url?: string }>(fetcher, "GET", `/${id}`, { fields: network === "instagram" ? "permalink" : "permalink_url", access_token: token }).catch(() => null);
+  const link = data?.permalink ?? data?.permalink_url ?? null;
+  return link && /^https:\/\/(?:www\.)?(?:facebook|instagram)\.com\//.test(link) ? link : network === "facebook" ? `https://www.facebook.com/${encodeURIComponent(id)}` : null;
+}
+
 /** A photo post on the page - the chair's design from Plakater og opslag - with the words (and the link in them). */
 export async function postPhotoToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { url: string; caption: string }): Promise<string> {
   const made = await graph<{ id: string; post_id?: string }>(fetcher, "POST", `/${page.id}/photos`, { url: post.url, caption: post.caption, published: "true", access_token: page.token });
