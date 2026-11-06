@@ -9,7 +9,9 @@ const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 /** What the page's token must be able to do: read the page and what it is tagged in, post on it, and read and publish on its Instagram. */
 export const META_SCOPES = ["pages_show_list", "pages_read_engagement", "pages_read_user_content", "pages_manage_posts",
-  "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management"];
+  "instagram_basic", "instagram_content_publish", "instagram_manage_comments", "business_management",
+  // Asked (the chair, 6 Nov 2026), about posts teachers send in Messenger: "Saga læser Messenger".
+  "pages_messaging"];
 
 export type MetaEnv = { META_APP_ID?: string; META_APP_SECRET?: string; META_LOGIN_CONFIG_ID?: string };
 export const metaReady = (env: MetaEnv) => Boolean(env.META_APP_ID && env.META_APP_SECRET);
@@ -72,6 +74,8 @@ export type TaggedPost = {
   images: string[];
   /** "image", "carousel" or "video" - Instagram can only pass on photos. */
   media: "image" | "carousel" | "video" | "none";
+  /** Sent to the page in Messenger, not tagged. */
+  via?: "messenger";
 };
 
 /** Public posts on Facebook that tag the page (newest first). */
@@ -80,6 +84,37 @@ export async function taggedOnFacebook(fetcher: Fetcher, page: { id: string; tok
     fetcher, "GET", `/${page.id}/tagged`, { fields: "id,message,permalink_url,from{name},created_time,full_picture", limit: String(limit), access_token: page.token });
   return (data.data ?? []).map(p => ({ network: "facebook" as const, id: p.id, author: p.from?.name ?? null, permalink: p.permalink_url ?? null, text: p.message ?? "",
     createdMs: Date.parse(p.created_time ?? "") || 0, images: p.full_picture ? [p.full_picture] : [], media: p.full_picture ? "image" as const : "none" as const }));
+}
+
+/** Requested (the chair, 6 Nov 2026): "Hvorfor dukker disse to ikke op i admin? Altså, hvorfor finder Saga dem ikke?" - a teacher sent their reel, another a
+ * Facebook video, in a message to the page - and "Saga læser Messenger". Each link to a post on Instagram or Facebook that someone else sent the page lately,
+ * as a post to share: the sender, their words, and the link (a video goes out on Facebook as a link). */
+export async function sentInMessenger(fetcher: Fetcher, page: { id: string; token: string }, limit = 25): Promise<TaggedPost[]> {
+  type Message = { id: string; message?: string; created_time?: string; from?: { id?: string; name?: string };
+    shares?: { data?: Array<{ link?: string; name?: string; description?: string }> }; attachments?: { data?: Array<{ type?: string; url?: string; target?: { url?: string };
+      image_data?: { url?: string; preview_url?: string }; video_data?: { url?: string; preview_url?: string } }> } };
+  const data = await graph<{ data?: Array<{ messages?: { data?: Message[] } }> }>(fetcher, "GET", `/${page.id}/conversations`, { platform: "messenger", limit: String(limit),
+    fields: "updated_time,messages.limit(10){id,message,created_time,from,shares{link,name,description},attachments{type,url,target,image_data,video_data}}", access_token: page.token });
+  const out: TaggedPost[] = [];
+  for (const conversation of data.data ?? []) for (const m of conversation.messages?.data ?? []) {
+    if (!m.from?.id || m.from.id === page.id) continue;
+    const links = new Set<string>();
+    for (const found of (m.message ?? "").matchAll(/https?:\/\/(?:www\.|m\.|web\.)?(?:instagram\.com|facebook\.com|fb\.watch)\/[^\s<>"')]+/gi)) links.add(found[0]);
+    for (const share of m.shares?.data ?? []) if (share.link) links.add(share.link);
+    for (const a of m.attachments?.data ?? []) for (const url of [a.target?.url, a.url]) if (url && /instagram\.com|facebook\.com|fb\.watch/i.test(url)) links.add(url);
+    const picture = (m.attachments?.data ?? []).map(a => a.image_data?.url ?? a.image_data?.preview_url ?? a.video_data?.preview_url).find(Boolean);
+    const video = (m.attachments?.data ?? []).some(a => a.video_data || /video/i.test(a.type ?? ""));
+    for (const link of links) {
+      const clean = link.replace(/[?#].*$/, "").replace(/\/$/, "");
+      const instagram = /instagram\.com/i.test(clean);
+      const code = /instagram\.com\/(?:[^/]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i.exec(clean)?.[1];
+      out.push({ network: instagram ? "instagram" : "facebook", id: code ? `ig-${code}` : `link-${clean.replace(/^https?:\/\/(?:www\.|m\.|web\.)?/i, "").slice(0, 160)}`,
+        author: m.from.name ?? null, permalink: instagram ? `${clean}/` : clean, text: (m.message ?? "").replace(/https?:\/\/\S+/g, "").replace(/[ \t]+\n/g, "\n").trim(),
+        createdMs: Date.parse(m.created_time ?? "") || 0, images: picture ? [picture] : [],
+        media: instagram && /\/(?:reel|reels|tv)\//i.test(clean) || video ? "video" : "none", via: "messenger" });
+    }
+  }
+  return out;
 }
 
 type IgMedia = { id: string; caption?: string; media_type?: string; media_url?: string; permalink?: string; username?: string; timestamp?: string;
