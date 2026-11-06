@@ -619,7 +619,8 @@ export const TEMPLATES: Record<string, Template> = {
       photoIn(ctx, a.photo, spot);
       const r = L ? { x: 90 * u, y: 130 * u, w: W * 0.4, h: H - 260 * u } : { x: 90 * u, y: spot.y + spot.h + 110 * u, w: W - 180 * u, h: H - spot.y - spot.h - 220 * u };
       block(ctx, r, w, { color: C.cream, accent: C.camel, muted: "#d9cbb8", size: 88 * u, maxLines: 3, align: L ? "left" : "center" }, L ? "center" : "top", u);
-      stamp(ctx, a.logo, L ? 140 * u : W / 2, L ? H - 110 * u : H - 90 * u, 40 * u, C.camel);
+      // Reported (the chair, 6 Nov 2026): "logoet går ind over teksten" - up in the corner, clear of the words.
+      stamp(ctx, a.logo, L ? 140 * u : 130 * u, L ? H - 110 * u : 130 * u, 46 * u, C.camel);
     }
   },
   bue: {

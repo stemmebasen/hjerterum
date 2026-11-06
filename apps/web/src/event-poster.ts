@@ -313,10 +313,18 @@ export const isShaped = (img: HTMLImageElement) => SHAPED.has(img);
 export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: number, h: number, focusX = 0.5, focusY = 0.5) {
   // Where the design's own place has about the picture's shape (a circle in "Nat"), it simply fills it.
   if (SHAPED.has(img) && Math.abs((w / h) / (img.naturalWidth / img.naturalHeight) - 1) > 0.12) {
-    // Whole and centred in the picture's place, on the house's cream - a little air around it, so a circle is a circle.
+    // Whole and centred in the picture's place. Asked (the chair, 6 Nov 2026): "Kan brugerbilledet ikke fylde det hele? Og måske med en eller anden flot
+    // effekt på" - the place is filled with the same picture, softly blurred and a little darker, and the whole picture lies sharp on it with a soft shadow.
     const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight) * 0.92, dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
-    ctx.save(); ctx.fillStyle = C.cream; ctx.fillRect(x, y, w, h); ctx.restore();
+    const fill = Math.max(w / img.naturalWidth, h / img.naturalHeight) * 1.15, fw = img.naturalWidth * fill, fh = img.naturalHeight * fill;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.filter = `blur(${Math.round(Math.max(w, h) / 28)}px) brightness(.72) saturate(1.15)`;
+    ctx.drawImage(img, x + (w - fw) / 2, y + (h - fh) / 2, fw, fh);
+    ctx.filter = "none";
+    ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = Math.max(w, h) / 30; ctx.shadowOffsetY = Math.max(w, h) / 120;
+    const own = PHOTO_FILTER; if (own) ctx.filter = own;
     ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh);
+    ctx.restore();
     return;
   }
   const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
