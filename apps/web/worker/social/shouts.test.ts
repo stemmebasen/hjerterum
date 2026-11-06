@@ -59,6 +59,31 @@ describe("two posts on each medium for every event", () => {
     expect((await socialPosts(db, "id = ?", [second!.id]))[0]!.status).toBe("draft");
   });
 
+  // Reported (the chair, 6 Nov 2026): "et opslag om et kursus i mirakler, som skulle sendes i dag, to uger før, men som nu er helt forsvundet."
+  it("does not set a first post aside while its reminder is to come, when the days up to ten days before are full", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "{}" });
+    const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
+    await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: null, igUsername: null }, "Jacob Hauge", 0);
+    await db.prepare("INSERT INTO house_events (id, title, starts_at_ms, host, content_hash, updated_at_ms) VALUES ('SFmir', 'Et Kursus i Mirakler', ?, 'Mira', 'x', 0)").bind(Date.parse("2026-11-20T15:15:00Z")).run();
+    await topUpWeeks(env as never, deps(services.fetcher, NOW), db);
+    const [first, second] = await socialPosts(db, "json_extract(source, '$.key') = 'mw:SFmir'", [], "json_extract(source, '$.shout')");
+    expect(second!.source.shout).toBe(2);
+    // Today, its time passed unapproved, and every day up to ten days before has its three.
+    const today = Date.parse("2026-11-06T11:04:00Z");
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ?").bind(Date.parse("2026-11-06T11:00:00Z"), first!.id).run();
+    for (const d of ["2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09", "2026-11-10"]) for (const t of ["11:00", "14:00", "18:30"])
+      await db.prepare(`INSERT INTO social_posts (kind, status, week, source_key, text, channels, images, source, publish_at_ms, created_at_ms, updated_at_ms) VALUES ('event', 'approved', '2026-W46', ?, 'x', '["facebook"]', '[]', ?, ?, 0, 0)`)
+        .bind(`other:${d}:${t}`, JSON.stringify({ key: `mw:o${d}${t}`, title: "Andet", startsMs: Date.parse("2026-11-28T12:00:00Z") }), Date.parse(`${d}T${t}:00Z`)).run();
+    await db.prepare("DELETE FROM job_claims WHERE job_key LIKE 'social_top_up%'").run();
+    await topUpWeeks(env as never, deps(services.fetcher, today), db);
+    const kept = (await socialPosts(db, "id = ?", [first!.id]))[0]!;
+    expect(kept.status).toBe("draft");
+    expect(kept.publish_at_ms!).toBeGreaterThan(today);
+    expect(kept.publish_at_ms!).toBeLessThanOrEqual(second!.publish_at_ms! - 86_400_000);
+  });
+
   // Asked: "Hvorfor har du lagt så mange ind? Er det, fordi vi er i sidste øjeblik?" - never more than three a day.
   it("gives an event that came late one post a week before when the day's three are full, and never proposes one on the day", async () => {
     const late = Array.from({ length: 8 }, (_, i) => ({ key: `mw:${i}`, title: `E${i}`, startsMs: NOW + 11 * DAY + i * 3_600_000 }) as NewsletterEvent);

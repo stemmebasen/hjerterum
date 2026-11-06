@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { siteLive, toPublicSite } from "../public-site.js";
 import { complete } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
-import { clock, dateOf, dayName } from "./plan.js";
+import { longWhen, withEventDate } from "./plan.js";
 import { firstName, instagramEventText, instagramShareText, type SocialPost } from "./social.js";
 
 /** Requested (the chair, 5 Nov 2026): "Jeg vil gerne have en mulighed for, at AI kan komme med et forslag til delingsteksten. Det skal være en meget moderne
@@ -20,7 +20,7 @@ Skriv nyt hver gang. Find én konkret, sanselig detalje eller et uventet, ømt p
 
 Undgå klicheer og tomme ord. Brug aldrig: "rejse indad", "find din indre ro", "giv dig selv en gave", "unik mulighed", "lad dig forkæle", "magisk", "transformerende", "sjælen", "healende rejse", "Oplev ...", "Glæd dig til ...", "Kom og vær med", "Vi glæder os til at se dig", "noget helt særligt", "i trygge rammer", "tid til dig selv". Ingen helbredsløfter. Find aldrig på fakta, der ikke står i det, du får (ingen priser, materialer eller oplevelser, der ikke er nævnt).
 
-Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn, tid som "lørdag kl. 13.00".
+Dansk som en dansk tekstforfatter skriver det, aldrig oversat engelsk: sammensatte ord i ét ord (lydhealing, yogaforløb), hele sætninger med udsagnsord, dansk kommatering, kun underviserens fornavn, tid som "lørdag d. 21. november kl. 13.00" - altid med dato, for opslaget går ud en til to uger før.
 
 Emojis (formanden, 6. nov. 2026: "må i øvrigt meget gerne komme med passende emojis, og gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): brug dem gerne, men med omtanke - hver emoji skal passe til netop dette event. Vælg fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷 🕊️) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Sæt dem ved en sætnings slutning eller som en lille markør, aldrig midt i et ord eller flere i træk.
 
@@ -35,7 +35,6 @@ const SHARE_RULES = `Det her er en deling: en underviser eller en anden har lave
 - "facebook": 1-2 korte sætninger, højst 30 ord: et kærligt, konkret skulderklap til personen (fornavn) og hvad opslaget handler om.
 - "instagram": det samme i Instagrams form, højst 40 ord, gerne en første linje, der fanger. Ingen hashtags her: "Foto: @navn" sættes på af systemet.`;
 
-const longDay = (ms: number) => { const [, m, d] = dateOf(ms).split("-"); return `${dayName(ms)} d. ${Number(d)}. ${["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"][Number(m) - 1]} kl. ${clock(ms)}`; };
 
 /** The event's own description - from the calendar or the house's own booking. */
 async function description(db: D1Database, key: string | undefined): Promise<string> {
@@ -64,7 +63,7 @@ export async function proposeWords(env: SagaEnv, deps: SagaDeps, db: D1Database,
   if (!env.AI_API_KEY || !env.AI_MODEL || (post.kind !== "event" && post.kind !== "share")) return null;
   const s = post.source;
   const facts = post.kind === "event"
-    ? { event: s.title, underviser: s.host ? firstName(s.host) : null, hvornaar: s.startsMs ? longDay(s.startsMs) : null, beskrivelse: await description(db, s.key) || null }
+    ? { event: s.title, underviser: s.host ? firstName(s.host) : null, hvornaar: s.startsMs ? longWhen(s.startsMs) : null, beskrivelse: await description(db, s.key) || null }
     : { fra: s.author, netvaerk: s.network, deres_tekst: (s.text ?? "").slice(0, 1500) };
   const user = [
     JSON.stringify(facts),
@@ -77,7 +76,8 @@ export async function proposeWords(env: SagaEnv, deps: SagaDeps, db: D1Database,
   let data: { facebook?: unknown; instagram?: unknown } = {};
   try { data = json ? JSON.parse(json) as typeof data : {}; } catch { /* no proposal */ }
   const clean = (v: unknown, max: number) => typeof v === "string" ? v.replace(/\r\n?/g, "\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim().slice(0, max) : "";
-  const facebook = clean(data.facebook, 1200), instagram = clean(data.instagram, 1800);
+  const dated = (text: string) => post.kind === "event" && s.startsMs ? withEventDate(text, s.startsMs) : text;
+  const facebook = dated(clean(data.facebook, 1200)), instagram = dated(clean(data.instagram, 1800));
   if (!facebook) return null;
   // Instagram's ending is the house's own (where to sign up; whose post it is) - as when Saga first wrote the post.
   const live = await siteLive(db);

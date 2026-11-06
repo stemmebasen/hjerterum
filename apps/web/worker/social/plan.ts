@@ -194,9 +194,25 @@ export const clock = (ms: number) => { const p = parts(ms); return `${p.hour}.${
 export const dayName = (ms: number) => DAYS[weekdayOf(ms)]!;
 const dayMonth = (ms: number) => { const p = parts(ms); return `${Number(p.day)}/${Number(p.month)}`; };
 
-/** "Workshop: Indre barn med Steven - torsdag kl. 19.00. Læs mere og tilmeld dig via linket." */
+const MONTH_NAMES = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
+/** "lørdag d. 21. november" */
+export const dayDate = (ms: number) => { const p = parts(ms); return `${dayName(ms)} d. ${Number(p.day)}. ${MONTH_NAMES[Number(p.month) - 1]}`; };
+/** "lørdag d. 21. november kl. 10.30" */
+export const longWhen = (ms: number) => `${dayDate(ms)} kl. ${clock(ms)}`;
+
+/** Reported (the chair, 6 Nov 2026): "Det er en fejl, at der bare står lørdag klokken 10:30, da det først er lørdagen efter." An event's post goes out one
+ * or two weeks before, so the day is always told with its date: the event's weekday in the text ("Lørdag kl. 10.30", "på lørdag") gets it, where it has
+ * none already. */
+export function withEventDate(text: string, startsMs: number): string {
+  const day = dayName(startsMs), date = dayDate(startsMs).slice(day.length);
+  // Told already ("lørdag d. 21. november", "lørdag den 21.", "lørdag 21/11").
+  if (new RegExp(`${day}\\s*(?:d\\.|den)?\\s*\\d{1,2}\\s*[./]`, "iu").test(text)) return text;
+  return text.replace(new RegExp(`(?<!\\p{L})(${day})(?!\\p{L})`, "iu"), (word: string) => `${word}${date}`);
+}
+
+/** "Workshop: Indre barn med Steven - torsdag d. 12. november kl. 19.00. Læs mere og tilmeld dig via linket." */
 export function plainEventText(e: NewsletterEvent): string {
-  return `${listTitle(e.title)}${e.host ? ` med ${e.host}` : ""} - ${dayName(e.startsMs)} kl. ${clock(e.startsMs)}. Læs mere og tilmeld dig via linket.`;
+  return `${listTitle(e.title)}${e.host ? ` med ${e.host}` : ""} - ${longWhen(e.startsMs)}. Læs mere og tilmeld dig via linket.`;
 }
 export const PLAIN_WEEK_INTRO = "Her er ugens events i Hjerterum. Vi glæder os til at se dig.";
 
