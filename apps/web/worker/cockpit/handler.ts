@@ -54,7 +54,7 @@ import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
 import { materialFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
-import { approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { answerInMessenger, messengerInbox, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -967,7 +967,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
-    const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/mails": "mails", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
+    const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/mails": "mails", "/pr/beskeder": "beskeder", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
     if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
       const asked = url.searchParams.get("uge") ?? "";
@@ -978,21 +978,31 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
         "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
-        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
+        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
-        sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt." };
+        sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt.",
+        "messenger-sent": "Der er gået over 24 timer siden personens seneste besked, så Meta tillader ikke svaret herfra. Svar i Messenger på telefonen.", messenger: "Svaret kunne ikke sendes. Prøv igen om lidt." };
       const account = await socialAccount(db);
       const pageData: Parameters<typeof prPage>[2] = { ready: metaReady(social), account, shares: await waitingShares(db), plan: await prPlanData(db, { ready: metaReady(social), account, nowMs: now }), insight: await insightData(db, now),
         events: tab === "events" ? await prEventsData(db, now) : [],
         ...(tab === "kalender" ? { calendar: await prCalendarData(db, now, url.searchParams.get("start")) } : {}),
         ...(tab === "mails" ? { mails: await prMailData(db), mailEvents: await upcomingEvents(db, now) } : {}),
+        ...(tab === "beskeder" ? { messenger: await messengerInbox(social, deps, db) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
         week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now, siteLive: await siteLive(db),
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
       return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
+    }
+    // "Vil jeg kunne svare på Messenger beskeder i cockpittet?" (prMessenger.ts) - sent only here, when the chair presses Send.
+    if (path === "/pr/beskeder/svar" && request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const to = String(form?.get("til") ?? ""), text = String(form?.get("tekst") ?? "").replace(/\r\n?/g, "\n");
+      const result = await answerInMessenger(social, deps, db, to, text).catch(() => "error" as const);
+      if (result === "sent") await audit(db, actor, "social.manage", `Svarede ${String(form?.get("navn") ?? "").slice(0, 80) || "en person"} i Messenger`, now);
+      return redirect(`${base}/pr/beskeder?${result === "sent" ? "besked=besvaret" : result === "late" ? "fejl=messenger-sent" : "fejl=messenger"}`);
     }
     // "smart at kunne svare tilbage i PR-sektionen": Posthus' own reply with Saga's draft (prMail.ts); it is sent from Posthus' send, and back here.
     if (path === "/pr/mails/svar" && request.method === "GET") {

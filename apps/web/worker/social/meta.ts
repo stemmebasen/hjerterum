@@ -120,6 +120,32 @@ export async function sentInMessenger(fetcher: Fetcher, page: { id: string; toke
   return out;
 }
 
+/** Asked (the chair, 6 Nov 2026): "Vil jeg kunne svare på Messenger beskeder i cockpittet?" - "men hvor er beskederne så". The page's latest conversations
+ * in Messenger, each with its newest messages (oldest first), and the person the page writes to. */
+export type MessengerMessage = { id: string; fromPage: boolean; text: string; createdMs: number; links: string[]; pictures: string[] };
+export type MessengerThread = { id: string; person: { id: string; name: string } | null; updatedMs: number; messages: MessengerMessage[] };
+export async function messengerThreads(fetcher: Fetcher, page: { id: string; token: string }, limit = 20): Promise<MessengerThread[]> {
+  type Raw = { id: string; message?: string; created_time?: string; from?: { id?: string; name?: string }; shares?: { data?: Array<{ link?: string }> };
+    attachments?: { data?: Array<{ url?: string; target?: { url?: string }; image_data?: { url?: string; preview_url?: string }; video_data?: { url?: string; preview_url?: string } }> } };
+  const data = await graph<{ data?: Array<{ id: string; updated_time?: string; participants?: { data?: Array<{ id: string; name?: string }> }; messages?: { data?: Raw[] } }> }>(fetcher, "GET",
+    `/${page.id}/conversations`, { platform: "messenger", limit: String(limit), access_token: page.token,
+      fields: "updated_time,participants,messages.limit(12){id,message,created_time,from,shares{link},attachments{url,target,image_data,video_data}}" });
+  return (data.data ?? []).map(c => {
+    const person = (c.participants?.data ?? []).find(p => p.id !== page.id);
+    const messages = (c.messages?.data ?? []).map((m): MessengerMessage => ({ id: m.id, fromPage: m.from?.id === page.id, text: m.message ?? "", createdMs: Date.parse(m.created_time ?? "") || 0,
+      links: [...new Set([...(m.shares?.data ?? []).map(s => s.link), ...(m.attachments?.data ?? []).map(a => a.target?.url)].filter((l): l is string => Boolean(l) && /^https:\/\//.test(l!)))],
+      pictures: (m.attachments?.data ?? []).map(a => a.image_data?.url ?? a.image_data?.preview_url ?? a.video_data?.preview_url).filter((u): u is string => Boolean(u) && /^https:\/\//.test(u!)) })).reverse();
+    return { id: c.id, person: person ? { id: person.id, name: person.name ?? "" } : null, updatedMs: Date.parse(c.updated_time ?? "") || 0, messages };
+  });
+}
+
+/** An answer from the page in Messenger - only ever when the chair presses Send. Meta allows it within 24 hours of the person's last message. */
+export async function sendMessengerReply(fetcher: Fetcher, page: { id: string; token: string }, recipientId: string, text: string): Promise<string> {
+  const sent = await graph<{ message_id?: string }>(fetcher, "POST", `/${page.id}/messages`, { recipient: JSON.stringify({ id: recipientId }), messaging_type: "RESPONSE",
+    message: JSON.stringify({ text }), access_token: page.token });
+  return sent.message_id ?? "";
+}
+
 type IgMedia = { id: string; caption?: string; media_type?: string; media_url?: string; permalink?: string; username?: string; timestamp?: string;
   children?: { data?: Array<{ media_type?: string; media_url?: string }> } };
 const IG_FIELDS = "id,caption,media_type,media_url,permalink,username,timestamp,children{media_type,media_url}";
