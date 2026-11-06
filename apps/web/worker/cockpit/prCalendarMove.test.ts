@@ -65,4 +65,15 @@ describe("moving posts in the PR calendar", () => {
     expect(await movePost(db, post!.id, "instagram", at, NOW)).toBe("moved");
     expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ publish_at_ms: fb, source: { instagramAtMs: at } });
   });
+
+  it("shows a post only on Instagram at Instagram's own time, when it goes out", async () => {
+    const { db, call } = await setUp(true);
+    const [post] = await socialPosts(db, "kind = 'event'");
+    const ig = Date.parse("2026-11-12T18:30:00Z");
+    await db.prepare(`UPDATE social_posts SET channels = '["instagram"]', source = json_set(source, '$.instagramAtMs', ?) WHERE id = ?`).bind(ig, post!.id).run();
+    const page = await (await call("/pr/kalender")).text();
+    const cell = page.split('id="dag-2026-11-12"')[1]!.split('class="cal-day')[0]!;
+    expect(cell).toContain('<span class="cal-time">19.30</span>');
+    expect(cell).toContain(`data-id="${post!.id}" data-channel="instagram"`);
+  });
 });
