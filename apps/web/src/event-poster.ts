@@ -45,7 +45,16 @@ export const VARIANTS: Array<{ key: VariantKey; label: string; about: string }> 
   { key: "duotone", label: "Duotone", about: "Fotoet over det hele i husets to toner, cocoa og creme, med titlen stort." },
   { key: "filmstrimmel", label: "Filmstrimmel", about: "Tre udsnit af det samme foto som billeder på en filmstrimmel." },
   { key: "detalje", label: "Detalje", about: "Et nært udsnit af fotoet som baggrund med hele fotoet indsat som et lille billede." },
-  { key: "bue", label: "Bue", about: "Fotoet i en blød bue på sandfarvet bund, som en dør ind til aftenen." }
+  { key: "bue", label: "Bue", about: "Fotoet i en blød bue på sandfarvet bund, som en dør ind til aftenen." },
+  // "mange flere kreative forslag til opslagene - ligesom Canva har" (6 Nov 2026).
+  { key: "ramme", label: "Passepartout", about: "Fotoet i en bred lys ramme som et kunsttryk, teksten i rammens bund." },
+  { key: "spalte", label: "Spalte", about: "Fotoet i den ene halvdel, teksten i en farvet spalte ved siden af." },
+  { key: "stordato", label: "Stor dato", about: "Datoen kæmpestor som grafik bag titlen, fotoet i en lille cirkel." },
+  { key: "magasin", label: "Magasin", about: "Fotoet stort som en forside, titlen i store bogstaver hen over kanten." },
+  { key: "minimal", label: "Minimal", about: "Masser af luft: et lille foto, en tynd linje og titlen roligt i hjørnet." },
+  { key: "glas", label: "Glaskort", about: "Fotoet blødt sløret som baggrund og skarpt på et kort i midten." },
+  { key: "diagonal", label: "Diagonal", about: "Fotoet skåret på skrå af en farvet flade med teksten." },
+  { key: "ringe", label: "Ringe", about: "Fotoet i en cirkel med stille ringe omkring på mørk bund." }
 ];
 /** The five with their own hand-made post and story layouts below; the others are drawn by poster-templates.ts in every format. */
 const HANDMADE = new Set<VariantKey>(["rolig", "foto", "organisk", "typografi", "split"]);
@@ -77,8 +86,48 @@ export const PALETTES: Array<{ key: PaletteKey; label: string; colors: Partial<t
   { key: "okker", label: "Okker", colors: { cream: "#faf3e6", sand: "#f1e2c8", terra: "#9a5f21", camel: "#dba556", sage: "#f0ead2", blush: "#f6e0bd", dusk: "#2b1d0f" } },
 ];
 
-export const SERIF = "\"Playfair Display\", Georgia, serif";
-export const SANS = "Inter, system-ui, sans-serif";
+// The type the layouts read - lent for a drawing by its style (drawPoster), like the colours.
+export let SERIF = "\"Playfair Display\", Georgia, serif";
+export let SANS = "Inter, system-ui, sans-serif";
+
+/** Asked (the chair, 6 Nov 2026): "Er der slet ikke mulighed for at få mange flere kreative forslag til opslagene - ligesom Canva har" - "Variationsmotor +
+ * nye layouts". Every layout in any of the house's colour moods, with one of four pairs of type, a treatment of the photo, a little grain and a frame:
+ * hundreds of combinations, always with the house's own logo. */
+export type FontKey = "klassisk" | "elegant" | "moderne" | "varm";
+export const FONT_PAIRS: Array<{ key: FontKey; label: string; serif: string; sans: string }> = [
+  { key: "klassisk", label: "Klassisk skrift", serif: "\"Playfair Display\", Georgia, serif", sans: "Inter, system-ui, sans-serif" },
+  { key: "elegant", label: "Elegant skrift", serif: "\"Cormorant Garamond\", Georgia, serif", sans: "Jost, system-ui, sans-serif" },
+  { key: "moderne", label: "Moderne skrift", serif: "\"DM Serif Display\", Georgia, serif", sans: "\"DM Sans\", system-ui, sans-serif" },
+  { key: "varm", label: "Varm skrift", serif: "Fraunces, Georgia, serif", sans: "\"Work Sans\", system-ui, sans-serif" },
+];
+/** The extra families, for the studio's page (Google Fonts, as the first pair). */
+export const EXTRA_FONTS_URL = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@400;500;600&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@400;500;600&family=Fraunces:ital,wght@0,400;1,400&family=Work+Sans:wght@400;500;600&display=swap";
+export type LookKey = "naturlig" | "sh" | "film" | "blod" | "kontrast";
+export const LOOKS: Array<{ key: LookKey; label: string; filter: string }> = [
+  { key: "naturlig", label: "Naturligt foto", filter: "" },
+  { key: "sh", label: "Sort-hvid", filter: "grayscale(1) contrast(1.08)" },
+  { key: "film", label: "Varm film", filter: "sepia(.32) saturate(1.1) contrast(1.05)" },
+  { key: "blod", label: "Blødt lys", filter: "brightness(1.06) saturate(.82) contrast(.94)" },
+  { key: "kontrast", label: "Klar kontrast", filter: "contrast(1.22) saturate(1.12)" },
+];
+export type Style = { palette: PaletteKey; fonts: FontKey; look: LookKey; grain: boolean; frame: boolean };
+export const PLAIN_STYLE: Style = { palette: "varm", fonts: "klassisk", look: "naturlig", grain: false, frame: false };
+/** The photo's treatment, read by cover() while a styled drawing is made. */
+let PHOTO_FILTER = "";
+
+/** "Skumring · Moderne skrift · Sort-hvid · korn" - what is not the plain style. */
+export function styleLabel(style: Style): string {
+  return [style.palette !== "varm" ? PALETTES.find(p => p.key === style.palette)?.label : "", style.fonts !== "klassisk" ? FONT_PAIRS.find(f => f.key === style.fonts)?.label : "",
+    style.look !== "naturlig" ? LOOKS.find(l => l.key === style.look)?.label : "", style.grain ? "korn" : "", style.frame ? "ramme" : ""].filter(Boolean).join(" · ");
+}
+
+/** "Vis flere forslag": a batch of layouts in styles of their own - the same batch for the same seed, so the page does not change under the chair. */
+export function styleBatch(seed: number, layouts: VariantKey[], count: number): Array<{ variant: VariantKey; style: Style }> {
+  let t = seed >>> 0;
+  const rnd = () => { t = (t + 0x6d2b79f5) >>> 0; let r = Math.imul(t ^ (t >>> 15), 1 | t); r ^= r + Math.imul(r ^ (r >>> 7), 61 | r); return ((r ^ (r >>> 14)) >>> 0) / 4294967296; };
+  const pick = <T,>(list: readonly T[]) => list[Math.floor(rnd() * list.length)]!;
+  return Array.from({ length: count }, () => ({ variant: pick(layouts), style: { palette: pick(PALETTES).key, fonts: pick(FONT_PAIRS).key, look: pick(LOOKS).key, grain: rnd() < 0.3, frame: rnd() < 0.25 } }));
+}
 const TZ = "Europe/Copenhagen";
 
 // ---- The words on the poster ----
@@ -272,7 +321,11 @@ export function cover(ctx: Ctx, img: HTMLImageElement, x: number, y: number, w: 
   }
   const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight);
   const sw = w / scale, sh = h / scale;
+  // The style's treatment of the photo, unless the layout has its own (duotone, filmstrip).
+  const own = ctx.filter && ctx.filter !== "none";
+  if (PHOTO_FILTER && !own) ctx.filter = PHOTO_FILTER;
   ctx.drawImage(img, (img.naturalWidth - sw) * focusX, (img.naturalHeight - sh) * focusY, sw, sh, x, y, w, h);
+  if (PHOTO_FILTER && !own) ctx.filter = "none";
 }
 
 /** A rounded rectangle with each corner's own elliptic radius [rx, ry]: the soft "pebble" corners of the website. */
@@ -381,15 +434,36 @@ export const byline = (w: PosterWords) => w.teacher ? `med ${w.teacher}` : w.res
 /** Draws one variant on the canvas, which must be the format's size. */
 /** `scale` draws a smaller copy (the event form's previews): the same design, a fraction of the pixels. Reported: "Jeg kan se, at de
  * langsomt bliver gjort aktive én for én" - six full-size posters on every key press made the form slow. */
-export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag", scale = 1, palette: PaletteKey = "varm") {
-  // The colours are the module's own (C), read by every layout: lent for this drawing, and given back whatever happens.
-  const saved = { ...C }, savedG = { ...G };
+export function drawPoster(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format = "opslag", scale = 1, look: PaletteKey | Style = "varm") {
+  const style: Style = typeof look === "string" ? { ...PLAIN_STYLE, palette: look } : look;
+  const palette = style.palette;
+  // The colours are the module's own (C), read by every layout: lent for this drawing, and given back whatever happens - and so the type and the photo's look.
+  const saved = { ...C }, savedG = { ...G }, savedType = [SERIF, SANS] as const;
+  const pair = FONT_PAIRS.find(f => f.key === style.fonts) ?? FONT_PAIRS[0]!;
+  SERIF = pair.serif; SANS = pair.sans; PHOTO_FILTER = LOOKS.find(l => l.key === style.look)?.filter ?? "";
   const colors = PALETTES.find(p => p.key === palette)?.colors ?? {};
   Object.assign(C, colors);
   // Gitta's looks (poster-templates.ts) have colours of their own: they follow the mood too.
   if (palette !== "varm") Object.assign(G, { caramel: colors.camel, gold: colors.camel, leaf: colors.terra, leafSoft: colors.sage, cocoa: colors.dusk, night: colors.dusk, sageLine: colors.sand,
     brownB: colors.terra, brownB2: colors.terra, accentB: colors.camel, cream: colors.cream, creamB: colors.cream });
-  try { drawLayout(canvas, variant, words, assets, format, scale); } finally { Object.assign(C, saved); Object.assign(G, savedG); }
+  try {
+    drawLayout(canvas, variant, words, assets, format, scale);
+    const ctx = canvas.getContext("2d")!;
+    const { width: W, height: H } = SIZES[format];
+    if (style.grain) {
+      // A fine grain over the whole, like film.
+      const tile = document.createElement("canvas"); tile.width = tile.height = 160;
+      const g = tile.getContext("2d")!, img = g.createImageData(160, 160);
+      for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 22; }
+      g.putImageData(img, 0, 0);
+      ctx.save(); ctx.globalCompositeOperation = "overlay"; ctx.fillStyle = ctx.createPattern(tile, "repeat")!; ctx.fillRect(0, 0, W, H); ctx.restore();
+    }
+    if (style.frame) {
+      // A thin frame inside the edge, in the mood's light colour.
+      const m = Math.min(W, H) * 0.028;
+      ctx.save(); ctx.strokeStyle = C.cream; ctx.globalAlpha = 0.9; ctx.lineWidth = Math.min(W, H) * 0.004; ctx.strokeRect(m, m, W - 2 * m, H - 2 * m); ctx.restore();
+    }
+  } finally { Object.assign(C, saved); Object.assign(G, savedG); [SERIF, SANS] = savedType; PHOTO_FILTER = ""; }
 }
 
 function drawLayout(canvas: HTMLCanvasElement, variant: VariantKey, words: PosterWords, assets: Assets, format: Format, scale: number) {

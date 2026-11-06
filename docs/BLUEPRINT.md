@@ -1110,6 +1110,17 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Godkender formanden før den nye video er klar, går opslaget ud med billedet.
 - **Forudsætning:** videoerne kan først lægges i R2, når GitHub-nøglen til Cloudflare har fået tilladelsen "Workers R2 Storage · Edit".
 
+## Mange flere designforslag, ligesom Canva (2026-11-06)
+
+- **Formandens spørgsmål:** "Er der slet ikke mulighed for at få mange flere kreative forslag til opslagene - ligesom Canva har". Svaret var "Variationsmotor + nye layouts".
+- **8 nye layouts** (`poster-templates.ts`): Passepartout, Spalte, Stor dato, Magasin, Minimal, Glaskort, Diagonal og Ringe. Der er nu 30 i alt, og alle kan tegnes som opslag, story og Facebook-cover.
+- **Variationsmotoren** (`event-poster.ts`): hvert layout kan tegnes med
+  - en farvestemning (5);
+  - et skriftpar: Klassisk (Playfair/Inter), Elegant (Cormorant/Jost), Moderne (DM Serif/DM Sans) eller Varm (Fraunces/Work Sans);
+  - en fotobehandling: naturlig, sort-hvid, varm film, blødt lys eller klar kontrast;
+  - korn og ramme.
+- **Brug på plakatsiden:** "✨ Vis flere forslag" viser ni nye kombinationer hver gang, uden ende (`styleBatch`, de samme for samme event). "Vælg" tager kombinationen med i opslaget. Logoet er altid husets eget.
+
 ## Den billigste model til Telegram og lette opgaver (2026-11-06)
 
 - **Formandens ord:** "Sørg for at vi bruger den absolut billigste model til telegram og det ting der ikke kræver dyre modeller".
