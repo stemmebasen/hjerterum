@@ -100,6 +100,28 @@ export async function storeUpload(db: D1Database, bucket: EventMediaBucket, even
   return Number(row.meta?.last_row_id ?? 0) || null;
 }
 
+/** Asked (the chair, 6 Nov 2026): "Der er slet ikke noget i vores filarkiv endnu? Hvad med event materialet som aftalt?" - a file the board puts in an event's
+ * folder in Filarkiv → Eventmateriale (eventArchive.ts): a picture or a document, kept as the mails' are. */
+export async function storeFile(db: D1Database, bucket: EventMediaBucket, eventKey: string, name: string, bytes: ArrayBuffer, nowMs: number): Promise<number | null> {
+  const check = checkUpload("file", name, bytes.byteLength, new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 2048)));
+  if (!check.ok) return null;
+  const kind = check.contentType.startsWith("image/") ? "image" : "file";
+  const key = `material/${eventKey.replace(/[^A-Za-z0-9]/g, "_")}/${crypto.randomUUID()}.${check.extension}`;
+  await bucket.put(key, bytes, { httpMetadata: { contentType: check.contentType } });
+  const row = await db.prepare("INSERT INTO event_material (event_key, mail_id, kind, filename, content_type, r2_key, size_bytes, created_at_ms) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)")
+    .bind(eventKey, kind, check.filename, check.contentType, key, bytes.byteLength, nowMs).run();
+  return Number(row.meta?.last_row_id ?? 0) || null;
+}
+
+/** One piece of material taken away (the chair's, in Filarkiv). */
+export async function deleteMaterial(db: D1Database, bucket: EventMediaBucket | undefined, id: number): Promise<string | null> {
+  const row = await db.prepare("SELECT event_key, r2_key FROM event_material WHERE id = ?").bind(id).first<{ event_key: string; r2_key: string | null }>().catch(() => null);
+  if (!row) return null;
+  if (row.r2_key && bucket) await bucket.delete(row.r2_key).catch(() => undefined);
+  await db.prepare("DELETE FROM event_material WHERE id = ?").bind(id).run();
+  return row.event_key;
+}
+
 export type Material = { id: number; kind: "image" | "file" | "text"; filename: string | null; content_type: string | null; text: string | null; mail_id: number | null };
 
 export async function materialOf(db: D1Database, eventKey: string): Promise<Material[]> {

@@ -11,6 +11,7 @@ import { boardMembers } from "./data.js";
 import { sameSubject } from "../saga/teamMail.js";
 import type { EventMediaBucket } from "../event-files.js";
 import { matchEvent, storeMaterial, upcomingEvents, type UpcomingEvent } from "./mailMaterial.js";
+import { teacherKey, teacherOfSender } from "./eventArchive.js";
 import { studioIdOf } from "./posterStudio.js";
 import { parseMail, type WebmailSession } from "./webmail.js";
 
@@ -182,6 +183,13 @@ async function takeMaterial(s: WebmailSession, db: D1Database, bucket: EventMedi
   if (key) {
     await db.prepare("DELETE FROM event_material WHERE mail_id = ?").bind(row.id).run();
     await storeMaterial(db, bucket, row.id, key, message, nowMs);
+  } else {
+    // No one event: from a teacher Saga knows, the material goes in their own folder (Filarkiv → Undervisere, eventArchive.ts).
+    const teacher = await teacherOfSender(db, row.sender);
+    if (teacher) {
+      await db.prepare("DELETE FROM event_material WHERE mail_id = ?").bind(row.id).run();
+      await storeMaterial(db, bucket, row.id, teacherKey(teacher), message, nowMs);
+    }
   }
   return key;
 }

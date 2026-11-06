@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { teacherKey } from "./eventArchive.js";
 import type { EventMediaBucket } from "../event-files.js";
 import { eventDetail } from "../event-detail.js";
 import { posterImage, posterImageAllowed } from "../poster-image.js";
@@ -122,6 +123,13 @@ export async function studioData(db: D1Database, id: string, nowMs: number, fetc
         FROM room_bookings b WHERE b.clerk_user_id IN (${marks}) AND b.status = 'scheduled' AND b.id <> ? ORDER BY b.starts_at_ms DESC LIMIT 12`)
       .bind(...owners, event.bookingId ?? -1).all<{ id: number; title: string; starts_at_ms: number; cover: number | null }>().then(r => r.results ?? []).catch(() => []) : [];
     for (const o of others) if (o.cover) pictures.push({ url: `${base}/fil/${o.cover}`, label: `Fra "${o.title}"` });
+    // "Det er også disse mapper Saga skal søge i ved PR": the teacher's own folder in Filarkiv → Undervisere (eventArchive.ts).
+    if (event.host) {
+      const own = await db.prepare("SELECT id, kind, filename FROM event_material WHERE event_key = ? AND kind IN ('image', 'file') ORDER BY id DESC LIMIT 30").bind(teacherKey(event.host))
+        .all<{ id: number; kind: string; filename: string | null }>().then(r => r.results ?? []).catch(() => []);
+      for (const m of own) if (m.kind === "image") pictures.push({ url: `${base}/materiale/${m.id}`, label: `Fra underviserens mappe: ${m.filename ?? ""}` });
+        else files.push({ url: `/plakater/materiale/${m.id}`, label: `Fra underviserens mappe: ${m.filename ?? "fil"}` });
+    }
     const consent = material?.consent_at_ms && !material.withdrawn_at_ms ? "given" : material?.withdrawn_at_ms ? "withdrawn" : "none";
     teacher = { name: event.host ?? "Underviseren", consent, quotes, pictures, events: others.map(o => ({ title: o.title, startsAt: iso(o.starts_at_ms)!, picture: o.cover ? `${base}/fil/${o.cover}` : null })) };
   }

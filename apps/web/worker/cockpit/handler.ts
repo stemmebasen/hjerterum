@@ -1,7 +1,7 @@
 import { setSiteLive, siteLive, toPublicSite } from "../public-site.js";
 import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
 import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, makeFolder, MAX_UPLOAD_BYTES, uploadFile, type ArchiveObject } from "../archive.js";
-import { copiesPage, fileArchivePage } from "./filearchivePage.js";
+import { copiesPage, eventMaterialPage, fileArchivePage } from "./filearchivePage.js";
 import { listMailHtml } from "../newsletter.js";
 import { AUDIENCES, audienceCount, draftListMail, listMail, listMailReady, listMails, newListMail, readListMailForm, saveListMail, sendListMail, testListMail } from "../list-mail.js";
 import { listMailPage, listMailsPage } from "./listMailPage.js";
@@ -53,13 +53,14 @@ import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
-import { materialFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
+import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
 import { answerInMessenger, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
+import { archivePlace, eventFolder, eventFolderBody, teacherBody, teacherFolder, teacherFolders, teacherKey as archiveTeacherKey, teachersBody } from "./eventArchive.js";
 import { fetchStockPicture, pictureIdeas, searchStock, sourcesOf, STOCK_IMAGE_HOSTS, type StockKeys, type StockKind } from "./stockPictures.js";
 import { prEventsData } from "./prEvents.js";
 import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
@@ -1384,9 +1385,49 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   // seeing, adding and fetching files; deleting and the nightly copies of the database stay the chair's (archive.manage). A deputy reads only.
   if (path === "/filarkiv" || path.startsWith("/filarkiv/")) {
     if (!who) return redirect(`${base}/hvem`);
-    const chairOnly = url.searchParams.get("vis") === "kopier" || path === "/filarkiv/kopi" || path === "/filarkiv/slet" || path === "/filarkiv/slet-mappe";
+    const chairOnly = url.searchParams.get("vis") === "kopier" || path === "/filarkiv/kopi" || path === "/filarkiv/slet" || path === "/filarkiv/slet-mappe" || path === "/filarkiv/materiale-slet";
     if (chairOnly && !may("archive.manage")) return denied("archive.manage");
     const bucket = env.ARCHIVE;
+    // "Hvad med event materialet som aftalt?" - "Underviser -> Dato/Event. Generelt materiale lægger i selve underviser-mappen" (eventArchive.ts): the teachers'
+    // and their events' own material (event_material, EVENT_MEDIA), not the archive's bucket.
+    const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
+    const place = archivePlace(url.searchParams.get("mappe") ?? "");
+    if (request.method === "GET" && path === "/filarkiv" && place) {
+      const notices: Record<string, string> = { oppe: "Filerne er lagt i mappen.", slettet: "Filen er slettet." };
+      const errors: Record<string, string> = { tom: "Vælg mindst én fil.", type: "Nogle af filerne kunne ikke bruges. Brug billeder (jpg, png, webp) eller dokumenter (pdf, Word ...) under 10 MB.", lager: "Lageret til materialet er ikke koblet på." };
+      let inner: string;
+      if (place.event) {
+        const folder = await eventFolder(db, place.event);
+        if (!folder) return html(notFound(base, who), 404);
+        inner = eventFolderBody(base, place.teacher!, place.event, folder, may("archive.manage"));
+      } else inner = place.teacher ? teacherBody(base, await teacherFolder(db, place.teacher, now), may("archive.manage")) : teachersBody(base, await teacherFolders(db, now));
+      return html(eventMaterialPage(base, who, inner, { notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "", canManage: may("archive.manage") }));
+    }
+    const materialPath = /^\/filarkiv\/materiale\/(\d+)$/.exec(path);
+    if (materialPath && request.method === "GET") return materialFile(db, media, Number(materialPath[1]), url.searchParams.get("hent") === "1");
+    const photoPath = /^\/filarkiv\/billede\/(pr|profil)\/([0-9a-f-]{36})$/.exec(path);
+    if (photoPath && request.method === "GET") return studioPicture(db, media, photoPath[1]!, photoPath[2]!, null, deps.fetcher);
+    if (path === "/filarkiv/materiale-upload" && request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const at = String(form?.get("mappe") ?? ""), to = archivePlace(at);
+      const back = (query: string) => redirect(`${base}/filarkiv?mappe=${encodeURIComponent(at)}&${query}`);
+      if (!to?.teacher) return html(notFound(base, who), 404);
+      if (!media) return back("fejl=lager");
+      const files = (form?.getAll("filer") ?? []).filter((f): f is File => typeof f === "object" && f !== null && "arrayBuffer" in f && (f as File).size > 0);
+      if (!files.length) return back("fejl=tom");
+      const key = to.event ?? archiveTeacherKey(to.teacher);
+      let kept = 0;
+      for (const f of files) if (await storeFile(db, media, key, f.name, await f.arrayBuffer(), now)) kept++;
+      if (kept) await audit(db, actor, "archive.manage", `Lagde ${kept === 1 ? "en fil" : `${kept} filer`} i ${at}`, now);
+      return back(kept === files.length ? "besked=oppe" : "fejl=type");
+    }
+    if (path === "/filarkiv/materiale-slet" && request.method === "POST") {
+      const form = await request.formData().catch(() => null);
+      const at = String(form?.get("mappe") ?? "");
+      const removed = await deleteMaterial(db, media, Number(form?.get("id") ?? 0));
+      if (removed) await audit(db, actor, "archive.manage", `Slettede en fil fra ${at}`, now);
+      return redirect(`${base}/filarkiv?mappe=${encodeURIComponent(at)}&besked=slettet`);
+    }
     const download = (object: ArchiveObject & { body: ReadableStream }, name: string) => new Response(object.body, { headers: { "content-type": object.httpMetadata?.contentType || "application/octet-stream",
       "content-length": String(object.size), "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff",
       "content-security-policy": "default-src 'none'; sandbox" } });
