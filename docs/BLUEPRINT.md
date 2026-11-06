@@ -1399,3 +1399,10 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Bestyrelsen:** ser, lægger op, opretter mapper og henter filer under Bestyrelse → Filarkiv.
 - **Formanden alene (`archive.manage`):** sletter filer og mapper og henter de natlige kopier af databasen, som indeholder alle medlemmers persondata.
 - **Suppleanter:** kan kun se og hente.
+
+## Beskeder fra Messenger i admin (2026-11-06)
+
+- **Spurgt (formanden):** "Vil jeg kunne svare på Messenger beskeder i cockpittet?" og "men hvor er beskederne så, når det virker?"
+- **PR og SoMe → Beskeder** (`cockpit/prMessenger.ts`): sidens samtaler på Messenger, de nyeste først. Samtaler, der venter på svar, er mærket. Beskederne hentes fra Meta, når siden åbnes, og gemmes ikke.
+- **Svar:** formanden skriver og trykker Send (`answerInMessenger`, `/{page}/messages`, `messaging_type` RESPONSE). Saga sender aldrig selv. Meta tillader et svar inden for 24 timer efter personens seneste besked, og derefter er svarfeltet lukket med en forklaring. Svaret skrives i formandens log.
+- **Adgang:** kun formanden, som resten af PR og SoMe (`social.manage`).

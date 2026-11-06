@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -239,7 +239,7 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
     }));
     // "Saga læser Messenger": what teachers send the page there. Needs pages_messaging - until the page is connected again with it, a plain word.
     found.push(...await sentInMessenger(deps.fetcher, page).catch(error => {
-      problems.push(/permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Messenger kan ikke læses endnu: appen hos Meta mangler brugsscenariet Messenger (tilladelsen pages_messaging)" : `Messenger: ${error instanceof Error ? error.message : error}`);
+      problems.push(/permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? (env as MetaEnv).META_MESSENGER === "1" ? "Messenger kan ikke læses endnu: tryk \"Forbind Facebook og Instagram\" igen, og sig ja til beskeder" : "Messenger kan ikke læses endnu: appen hos Meta mangler brugsscenariet Messenger (tilladelsen pages_messaging)" : `Messenger: ${error instanceof Error ? error.message : error}`);
       return [];
     }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }
@@ -904,6 +904,28 @@ async function ownWordsOnShares(db: D1Database): Promise<number> {
   for (const p of waiting) await db.prepare("UPDATE social_posts SET source = json_set(source, '$.instagramText', ?) WHERE id = ?")
     .bind(instagramShareText(p.text, p.source.author ?? null, "", p.source.network === "facebook" ? "facebook" : "instagram"), p.id).run();
   return waiting.length;
+}
+
+/** PR og SoMe → Beskeder: the page's conversations in Messenger, read when the chair opens them (nothing is kept). */
+export async function messengerInbox(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<{ threads: MessengerThread[]; error: string | null }> {
+  const account = await socialAccount(db);
+  if (!account) return { threads: [], error: "Facebook og Instagram er ikke forbundet." };
+  try {
+    const { page } = await access(env, account);
+    return { threads: await messengerThreads(deps.fetcher, page), error: null };
+  } catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    return { threads: [], error: /permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(text) ? "Beskederne kan ikke læses endnu: tryk \"Forbind Facebook og Instagram\" under Overblik igen, og sig ja til beskeder." : `Beskederne kunne ikke hentes: ${text}` };
+  }
+}
+
+/** The chair's answer in Messenger (only when Send is pressed). */
+export async function answerInMessenger(env: SocialEnv, deps: SagaDeps, db: D1Database, recipientId: string, text: string): Promise<"sent" | "late" | "error"> {
+  const account = await socialAccount(db);
+  if (!account || !text.trim() || !/^\d{3,30}$/.test(recipientId)) return "error";
+  const { page } = await access(env, account);
+  return sendMessengerReply(deps.fetcher, page, recipientId, text.trim().slice(0, 1900)).then(() => "sent" as const,
+    error => /outside of allowed window|\(#10\)|2018278|2018109/i.test(error instanceof Error ? error.message : String(error)) ? "late" as const : "error" as const);
 }
 
 /** Once: the links of the posts published before the calendar showed them ("Og et lille link til det publicerede opslag"). */
