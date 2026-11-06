@@ -1,3 +1,4 @@
+import { TEAM_MAIL } from "../site/mail";
 import { useState, type FormEvent } from "react";
 import { ENQUIRY_HONEYPOT, ENQUIRY_LIMITS, ENQUIRY_PATH, ENQUIRY_TOPICS, enquiryTopic, type EnquiryTopic } from "../site/enquiries";
 
@@ -70,6 +71,6 @@ export function EnquiryForm({ topic: initial, lang = "da" }: { topic: string; la
       <p>{t.consent} <a href="/privatliv#henvendelser">{t.privacy}</a>.</p>
       <button className="lys-btn" type="submit" disabled={state.sending}>{state.sending ? t.sending : t.send}</button>
     </div>
-    {state.error && <p className="site-enquiry-error wide" role="alert">{state.error} {t.fallback} <a href="mailto:team@hjerterum.info">team@hjerterum.info</a>.</p>}
+    {state.error && <p className="site-enquiry-error wide" role="alert">{state.error} {t.fallback} <a href={"mailto:" + TEAM_MAIL}>{TEAM_MAIL}</a>.</p>}
   </form>;
 }

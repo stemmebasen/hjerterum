@@ -4,6 +4,7 @@
  * accounts for all 56. The untouched originals are archived in docs/legacy/holistisk-org/. Markdown: site/markdown.ts;
  * a line "{{name}}" places a live part of the page (the calendar, the plans, the price calculator …). */
 
+import { TEAM_MAIL } from "./mail.js";
 import { STATUTES } from "./statutes.js";
 
 export type Lang = "da" | "en";
@@ -77,7 +78,7 @@ export const ABOUT_WORDS = {
 } as const;
 
 /** Requested: "team@hjerterum.info ... bliver i øvrigt den nye officielle kontaktadresse" (1 Nov 2026). */
-export const CONTACT_EMAIL = "team@hjerterum.info";
+export const CONTACT_EMAIL = TEAM_MAIL;
 export const SIGNUP_URL = "https://holistisk.org/bliv-medlem/";
 export const CIRKLER_URL = "https://cirkler.net";
 export const NEWSLETTER_ACTION = "https://holistisk.us6.list-manage.com/subscribe/post?u=e41afd3f798957ec11726bf83&id=0070dc72a9&f_id=00b8ede5f0";
@@ -206,7 +207,7 @@ Hjerterum Open er events, som Hjerterum selv skaber og arrangerer – koncerter,
 - Eventene er åbne for både medlemmer og ikke-medlemmer.
 - Medlemmer deltager ofte gratis eller til reduceret pris. Prisen for ikke-medlemmer fastsættes fra event til event, og nogle events er gratis for alle.
 
-Har du ønsker eller idéer til indhold, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).
+Har du ønsker eller idéer til indhold, så skriv til [[mail]].
 
 ## Spørgsmål til et event? {#skriv}
 Har du spørgsmål om tilmelding, pladser eller et bestemt event, så skriv til os her.
@@ -324,7 +325,7 @@ Når du har meldt dig ind, får du en bekræftelse pr. mail med alle oplysninger
 Medlemskabet gælder fra oprettelsesdatoen, til det opsiges.
 
 ## Opsigelse og pause {#opsigelse}
-Du opsiger selv dit medlemskab, når du er logget ind: gå til [Min profil → Medlemskab](https://medlem.hjerterum.info/member-portal/medlemskab), og vælg **Opsig medlemskab**. Har du brug for hjælp – eller vil du holde pause et par måneder – så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).
+Du opsiger selv dit medlemskab, når du er logget ind: gå til [Min profil → Medlemskab](https://medlem.hjerterum.info/member-portal/medlemskab), og vælg **Opsig medlemskab**. Har du brug for hjælp – eller vil du holde pause et par måneder – så skriv til [[mail]].
 
 ## Bindingsperiode
 Bindingsperioden er løbende måned + 1 måned. Det betyder, at du betaler én gang mere, efter du har opsagt.
@@ -491,7 +492,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     lead: "Betaling, aflysning, rengøring – og hvordan du bedst kommunikerer med os.",
     description: "Vilkår for leje af salen i Hjerterum: betaling, aflysningspolitik, rengøringsgebyr og kommunikationspolitik.",
     card: { title: "Vilkår for leje", text: "Betaling, aflysning, rengøring og kommunikation." },
-    body: `Priser: se [lejepriser](/brug-hjerterum/lejepriser). Sådan booker du: se [de fem trin](/brug-hjerterum/booking). Har du spørgsmål, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info).
+    body: `Priser: se [lejepriser](/brug-hjerterum/lejepriser). Sådan booker du: se [de fem trin](/brug-hjerterum/booking). Har du spørgsmål, så skriv til [[mail]].
 
 ## Betaling og oprettelse af event {#betaling}
 Når vi har aftalt en booking med dig, sender vi dig en faktura pr. mail. Vi går først i gang med at oprette dit event på hjemmesiden og Facebook, når vi har modtaget betalingen. Spørgsmål om fakturaer: [skriv til os](#skriv) eller til [regnskab@holistisk.org](mailto:regnskab@holistisk.org).
@@ -510,7 +511,7 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
 
 ## Kommunikation {#kommunikation}
-**Mail er kommunikationsvej nr. 1.** Skriv altid først til [team@hjerterum.info](mailto:team@hjerterum.info). Her fanger du os bedst, og alle bookinger, spørgsmål og henvendelser håndteres via mail.
+**Mail er kommunikationsvej nr. 1.** Skriv altid først til [[mail]]. Her fanger du os bedst, og alle bookinger, spørgsmål og henvendelser håndteres via mail.
 
 **Hjerterums Messenger-side – til akutte henvendelser.** [Messenger-siden](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) bruges til akutte henvendelser, der kræver hurtigt svar. Skriv gerne dit telefonnummer, så kontakter vi dig hurtigst muligt. Vil du have os til at dele et opslag eller en reel om dit event, så tag Hjerterum i det – se [PR for dit event](/brug-hjerterum/pr).
 
@@ -685,7 +686,7 @@ Netværksnavn og kode får du sammen med din booking – eller spørg os.
 Hjerterum, Guldsmedgade 26B, st., 8000 Aarhus C. Indgangen er ved gitterlågen i Guldsmedgade – se [adgang og nøgle](/brug-hjerterum/adgang).
 
 ## Hvis noget går galt
-Skriv til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) ved akutte henvendelser, der kræver hurtigt svar, og skriv gerne dit telefonnummer, så kontakter vi dig hurtigst muligt. Alt andet går til [team@hjerterum.info](mailto:team@hjerterum.info) – se [kommunikation](/brug-hjerterum/vilkaar#kommunikation).`,
+Skriv til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/?mibextid=wwXIfr) ved akutte henvendelser, der kræver hurtigt svar, og skriv gerne dit telefonnummer, så kontakter vi dig hurtigst muligt. Alt andet går til [[mail]] – se [kommunikation](/brug-hjerterum/vilkaar#kommunikation).`,
     sources: []
   },
   {
@@ -751,11 +752,11 @@ ${FACEBOOK_GROUPS}`,
 1. Log ind på [medlemssiden](/member-portal/events), og vælg **Mine events**. Her ser du dine kommende events, hvor mange der er tilmeldt, og om eventet er godkendt.
 2. Vælg **Redigér** for at rette titel, tekst, tidspunkt eller pris.
 
-Har du booket til standardpris, så skriv til [team@hjerterum.info](mailto:team@hjerterum.info), hvis noget skal ændres.
+Har du booket til standardpris, så skriv til [[mail]], hvis noget skal ændres.
 
 ## Aflys dit event {#aflys}
 1. Vælg **Annullér event** under **Mine events** på [medlemssiden](/member-portal/events).
-2. Skriv altid til [team@hjerterum.info](mailto:team@hjerterum.info), at du har aflyst.
+2. Skriv altid til [[mail]], at du har aflyst.
 
 Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser – se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
 
@@ -1011,7 +1012,7 @@ ${statutesMarkdown(STATUTES)}
     description: "Hjerterums privatlivspolitik: medlemskab, events, booking, Saga, nyhedsbrev, besøgsstatistik uden cookies og dine rettigheder.",
     card: { title: "Privatlivspolitik", text: "Dine oplysninger og dine rettigheder." },
     body: `## Dataansvarlig {#ansvarlig}
-Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C. Skriv til [team@hjerterum.info](mailto:team@hjerterum.info) om alt, der handler om dine oplysninger.
+Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C. Skriv til [[mail]] om alt, der handler om dine oplysninger.
 
 ## Når du er medlem {#medlem}
 Vi har dit navn, din e-mail, dit medlemskab (type, start og betalinger) og - hvis du selv skriver dem - dit telefonnummer og din fødselsdag. Vi bruger dem til at administrere medlemskabet, give dig adgang til medlemssiden og sende dig besked om dit medlemskab. Grundlaget er medlemsaftalen med dig. Når du melder dig ud, sletter vi dine oplysninger, når vi ikke længere skal bruge dem - regnskabsoplysninger gemmer vi i 5 år efter regnskabsårets udløb, som bogføringsloven kræver.
@@ -1047,7 +1048,7 @@ Har din browser Global Privacy Control slået til, tæller vi slet ikke dit bes�
 Tallene bruges kun samlet – fx hvor mange besøgende en side havde – af bestyrelsen og Hjerterums administration. **Besøg og optællingen af henvendelser slettes automatisk efter 6 måneder.**
 
 ## Dine rettigheder {#rettigheder}
-Du kan bede om at se de oplysninger, vi har om dig, få dem rettet eller slettet, få dem udleveret, eller gøre indsigelse mod, at vi bruger dem. Skriv til [team@hjerterum.info](mailto:team@hjerterum.info). Er du utilfreds med, hvordan vi behandler dine oplysninger, kan du klage til [Datatilsynet](https://www.datatilsynet.dk).
+Du kan bede om at se de oplysninger, vi har om dig, få dem rettet eller slettet, få dem udleveret, eller gøre indsigelse mod, at vi bruger dem. Skriv til [[mail]]. Er du utilfreds med, hvordan vi behandler dine oplysninger, kan du klage til [Datatilsynet](https://www.datatilsynet.dk).
 
 Se også [cookies](/cookies) og [handelsbetingelser](/handelsbetingelser).`,
     sources: []
@@ -1060,7 +1061,7 @@ Se også [cookies](/cookies) og [handelsbetingelser](/handelsbetingelser).`,
     description: "Hjerterums handelsbetingelser: medlemskab, billetter, leje af sal, betaling, fortrydelsesret, opsigelse og klager.",
     card: { title: "Handelsbetingelser", text: "Medlemskab, billetter, leje og betaling." },
     body: `## Sælger {#saelger}
-Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C, [team@hjerterum.info](mailto:team@hjerterum.info).
+Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C, [[mail]].
 
 ## Priser og betaling {#betaling}
 Alle priser er i danske kroner inkl. eventuel moms. Du betaler med betalingskort gennem vores betalingsleverandør; vi ser og gemmer ikke dine kortoplysninger. Leje af salen til standardpris betales efter faktura.
@@ -1075,7 +1076,7 @@ Køber du billet til et event, er købet bindende. Aflyser Hjerterum eller arran
 For leje af salen gælder [vilkårene for leje](/brug-hjerterum/vilkaar), herunder aflysning og rengøring.
 
 ## Fortrydelsesret {#fortrydelse}
-Når du køber medlemskab, har du 14 dages fortrydelsesret fra købet. Beder du os om at starte medlemskabet med det samme, og fortryder du inden for de 14 dage, betaler du for den del, du har haft. Fortryd ved at skrive til [team@hjerterum.info](mailto:team@hjerterum.info) inden fristen. Billetter til events på en bestemt dato og leje af salen til en bestemt tid er undtaget fra fortrydelsesretten (forbrugeraftalelovens § 18, stk. 2, nr. 12).
+Når du køber medlemskab, har du 14 dages fortrydelsesret fra købet. Beder du os om at starte medlemskabet med det samme, og fortryder du inden for de 14 dage, betaler du for den del, du har haft. Fortryd ved at skrive til [[mail]] inden fristen. Billetter til events på en bestemt dato og leje af salen til en bestemt tid er undtaget fra fortrydelsesretten (forbrugeraftalelovens § 18, stk. 2, nr. 12).
 
 ## Klager {#klager}
 Skriv først til os, så finder vi en løsning. Kan vi ikke blive enige, kan du klage til Center for Klageløsning, Nævnenes Hus, Toldboden 2, 8800 Viborg, [naevneneshus.dk](https://naevneneshus.dk).
@@ -1123,7 +1124,7 @@ Vælg, hvad din henvendelse handler om, så kommer den til de rette i teamet. Du
 {{enquiry-generel}}
 
 ## Eller skriv direkte
-- **Medlemskab og bookinger:** Team Hjerterum – [team@hjerterum.info](mailto:team@hjerterum.info)
+- **Medlemskab og bookinger:** Team Hjerterum – [[mail]]
 - **Idéer til events:** [events@holistisk.org](mailto:events@holistisk.org)
 - **Økonomi og regnskab:** kassereren – [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Andre henvendelser:** Jacob Hauge, formand – [jh@holistisk.org](mailto:jh@holistisk.org)
@@ -1186,7 +1187,7 @@ const ABOUT: SitePage = {
 ## Kontakt {#kontakt}
 **Hjerterum**, Guldsmedgade 26B, st., 8000 Aarhus C
 
-- **Medlemskab og bookinger:** [team@hjerterum.info](mailto:team@hjerterum.info)
+- **Medlemskab og bookinger:** [[mail]]
 - **Idéer til events:** [events@holistisk.org](mailto:events@holistisk.org)
 - **Økonomi og regnskab:** [regnskab@holistisk.org](mailto:regnskab@holistisk.org)
 - **Andre henvendelser:** Jacob Hauge, formand – [jh@holistisk.org](mailto:jh@holistisk.org)

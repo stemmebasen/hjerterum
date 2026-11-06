@@ -1,3 +1,4 @@
+import { TEAM_MAIL } from "../site/mail";
 import { useEffect, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { membershipPlans } from "../membership";
 import { renderMarkdown } from "../site/markdown";
@@ -171,7 +172,7 @@ export function SiteFooter() {
       {/* Requested: "Kan du finde et sted til linjen: Autentisk er det nye cool" - the house's motto, under the name on every page. */}
       <p className="site-motto">Autentisk er det nye cool</p>
       <p>Et varmt rum for nærvær, oplevelser og fællesskab – skabt af medlemmer for medlemmer.</p>
-      <p>Guldsmedgade 26B, st., 8000 Aarhus C<br /><a href="mailto:team@hjerterum.info">team@hjerterum.info</a></p>
+      <p>Guldsmedgade 26B, st., 8000 Aarhus C<br /><a href={"mailto:" + TEAM_MAIL}>{TEAM_MAIL}</a></p>
     </div>
     {/* Requested: "Når man klikker på et menupunkt i footeren skal man tages til toppen af den side man har klikket på". The page one is on: up to
         the top at once (a browser may keep the place when the address does not change); another page opens at the top (main.tsx). */}

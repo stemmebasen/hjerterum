@@ -1,4 +1,5 @@
 import { SITE_PAGES, type SitePage } from "../site/pages.js";
+import { withMail } from "../site/mail.js";
 
 /** Asked: "tjek også om der er andre områder hun skal have opdateret sin viden". hjerterum.info is the site now - holistisk.org is the
  * old one. Every Saga (website, member area, admin) reads the current site from the same pages the site itself shows (site/pages.ts),
@@ -8,7 +9,7 @@ export const CURRENT_SITE = "https://www.hjerterum.info";
 
 /** One Danish page as Saga reads it: title, address, lead and text, without image and block markers. */
 export function sitePageText(page: SitePage): string {
-  const body = page.body.replace(/^\{\{[^}]+\}\}\s*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const body = withMail(page.body, false).replace(/^\{\{[^}]+\}\}\s*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
   return `### ${[page.title, page.em].filter(Boolean).join(" ")} (${CURRENT_SITE}${page.path})\n${page.lead ?? ""}\n${body}`;
 }
 

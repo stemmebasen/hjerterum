@@ -27,7 +27,7 @@ describe("cancelling a membership from the member area", () => {
   it("the site says you cancel yourself when logged in, and that team@hjerterum.info helps - and no expired trial offer", () => {
     const terms = SITE_PAGES.find(p => p.path === "/medlemskab/vilkaar")!.body;
     expect(terms).toContain("Du opsiger selv dit medlemskab, når du er logget ind");
-    expect(terms).toContain("team@hjerterum.info");
+    expect(terms).toContain("[[mail]]"); // the address, put together in the browser (site/mail.ts)
     const all = SITE_PAGES.map(p => p.body).join("\n");
     expect(all).not.toContain("hjerterum@holistisk.org");
     expect(all).not.toContain("senest den 15. oktober 2026");

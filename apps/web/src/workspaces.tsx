@@ -1,3 +1,4 @@
+import { TEAM_MAIL } from "../site/mail";
 import { EventCard, calendarMonth, calendarText } from "./event-card";
 import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
 import { EventPrMaterial } from "./pr-material-editor";
@@ -536,7 +537,7 @@ function MemberEvents({
         code === "invalid_duration_not_half_hours" ? "Bookingen skal gå op i halve timer." :
         code === "invalid_crosses_a_time_boundary" ? "Med medlemsrabat eller gratis leje kan en booking på en hverdag ikke gå hen over kl. 18.30. Læg den helt før eller helt efter - eller book to gange." :
         code.startsWith("invalid_non_member_minimum_") ? `Med ${plan.type === "free" ? "gratis leje" : "reduceret leje"} skal ikke-medlemmer betale mindst ${code.slice("invalid_non_member_minimum_".length)} kr. Sæt prisen for ikke-medlemmer op, eller vælg standardleje.` :
-        "Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til team@hjerterum.info, hvis det bliver ved."
+        `Eventet kunne ikke gemmes. Prøv igen om lidt, eller skriv til ${TEAM_MAIL}, hvis det bliver ved.`
       );
     } finally {
       setSaving(false);
@@ -866,7 +867,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
     setBusy(false);
   }
 
-  // Requested: "Man skal selv kunne opsige når man er logget ind. Har man brug for hjælp kan man skrive team@hjerterum.info". Paid through
+  // Requested: "Man skal selv kunne opsige når man er logget ind. Har man brug for hjælp kan man skrive [team-adressen]". Paid through
   // MembershipWorks (or given by Hjerterum), the cancellation goes to the team, who end it there (worker/membership-cancel-request.ts).
   async function requestCancel() {
     if (!window.confirm("Vil du opsige dit medlemskab? Bindingsperioden er løbende måned + 1 måned.")) return;
@@ -875,7 +876,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
     const response = await apiFetch(clerk, "/api/members/me/cancel-request", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({}) }).catch(() => null);
     setMessage(response?.ok
       ? "Tak – din opsigelse er modtaget. Du får svar på mail med datoen for sidste træk."
-      : "Opsigelsen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info.");
+      : `Opsigelsen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til ${TEAM_MAIL}.`);
     if (response?.ok) setCancelSent(true);
     setBusy(false);
   }
@@ -886,7 +887,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
         {!cancelSent && <button type="button" className="text-button is-danger membership-cancel" disabled={busy} onClick={() => void requestCancel()}>Opsig medlemskab</button>}
       </div>
       {message && <p className="workspace-message" role="status">{message}</p>}
-      <p className="small muted">Brug for hjælp? Skriv til <a className="text-link" href="mailto:team@hjerterum.info">team@hjerterum.info</a>.</p>
+      <p className="small muted">Brug for hjælp? Skriv til <a className="text-link" href={"mailto:" + TEAM_MAIL}>{TEAM_MAIL}</a>.</p>
     </>
   );
 
@@ -1146,7 +1147,7 @@ export function MemberWorkspace({
         // Requested: "Inviter din CIRKEL med" under every event (cirkel-invite.tsx) - it says itself when CIRKLER is for members only.
         normalized === "/member-portal/cirkel" ? <CirkelInvite clerk={clerk} /> :
         accessError && normalized !== "/member-portal/profil" ? <>
-          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href="mailto:team@hjerterum.info">Kontakt Hjerterum →</a></div>
+          <section className="workspace-section member-page workspace-narrow"><p className="kicker">Medlemsområde</p><h1>Medlemskab kræves</h1><div className="workspace-card"><p>{accessError}</p><p>Er du allerede medlem, så skriv til os, så kobler vi dit medlemskab på din e-mail.</p><a className="text-link" href={`mailto:${TEAM_MAIL}`}>Kontakt Hjerterum →</a></div>
             {/* Requested: "Det bør være muligt at booke lokalet uden at være medlem" - the calculator books the room at the standard price and shows what members pay. */}
             <div className="workspace-card"><h2>Vil du leje salen?</h2><p>Det kan du også uden medlemskab - til standardpris. I prisberegneren ser du samtidig, hvad du ville betale som medlem.</p><a className="pill-button dark" href="https://www.hjerterum.info/brug-hjerterum/lejepriser#beregner">Beregn pris og book salen</a></div></section>
           <section className="workspace-section member-page"><p className="kicker">Bliv medlem</p><h2>Vælg dit medlemskab</h2><p>Du melder dig til i det nuværende medlemssystem. Bruger du samme e-mail, får du adgang her, så snart medlemskabet er aktivt.</p><MembershipPlans /></section>

@@ -1,3 +1,4 @@
+import { TEAM_MAIL } from "../site/mail";
 import { EventCard } from "./event-card";
 import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, RowText } from "./event-row";
 import { EventPage, eventPagePath } from "./event-page";
@@ -263,7 +264,7 @@ const START_TIMES = Array.from({ length: 36 }, (_, i) => `${String(6 + Math.floo
 /** Asked: "Hvorfor videresendes man til https://www.hjerterum.info/beregner?" - the booking request opens right here, under the price, with the
  * date and time already chosen; it goes to the same place as the calculator's form (worker/beregner/handler.ts → team@'s inbox). */
 const BOOKING_ERRORS: Record<string, string> = { missing_fields: "Udfyld de felter, der er markeret med *.", too_many: "Der er sendt mange forespørgsler herfra. Prøv igen om en time.",
-  image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", not_delivered: "Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til team@hjerterum.info." };
+  image_too_large: "Billedet er for stort (højst 8 MB).", image_type: "Billedet skal være JPG, PNG, WebP eller GIF.", not_delivered: `Forespørgslen kunne ikke sendes lige nu. Prøv igen om lidt, eller skriv til ${TEAM_MAIL}.` };
 
 function RoomBookingForm({ date, start, end, hours, dayOfWeek, priceKr, onClose }: { date: string; start: string; end: string; hours: number; dayOfWeek: number; priceKr: number; onClose: () => void }) {
   const [opened] = useState(() => Date.now());
