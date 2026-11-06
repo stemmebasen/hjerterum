@@ -1406,3 +1406,10 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **PR og SoMe → Beskeder** (`cockpit/prMessenger.ts`): sidens samtaler på Messenger, de nyeste først. Samtaler, der venter på svar, er mærket. Beskederne hentes fra Meta, når siden åbnes, og gemmes ikke.
 - **Svar:** formanden skriver og trykker Send (`answerInMessenger`, `/{page}/messages`, `messaging_type` RESPONSE). Saga sender aldrig selv. Meta tillader et svar inden for 24 timer efter personens seneste besked, og derefter er svarfeltet lukket med en forklaring. Svaret skrives i formandens log.
 - **Adgang:** kun formanden, som resten af PR og SoMe (`social.manage`).
+
+## Billeder fra Pexels og fri kunst i Plakater og opslag (2026-11-06)
+
+- **Spurgt (formanden):** "Vi skal gøre det kreative værksted langt bedre og med flere designs … lad os koble pexels api på". Af de gratis kilder valgte formanden desuden "Kunst og botanik (CC0)".
+- **Find et billede:** i trin 1 kan formanden søge i fotos fra Pexels eller i kunstværker og botaniske tegninger i det offentlige domæne (CC0) fra Art Institute of Chicago og The Met (`cockpit/stockPictures.ts`). Saga foreslår engelske søgeord ud fra eventet, med natur, lys, ting og hænder frem for ansigter.
+- **Det valgte billede** hentes af serveren ud fra sit id (aldrig en adresse fra browseren) og gemmes med eventets materiale (`storeUpload`). Derefter kan det bruges i alle designs. Filnavnet siger, hvor billedet kommer fra, og siden viser "Fotos fra Pexels", som Pexels beder om.
+- **Nøgle:** `PEXELS_API_KEY` er en hemmelighed i GitHub og sendes til Cloudflare ved deploy. Indtil nøglen er sat, står der, at Pexels ikke er koblet på. Kunsten kræver ingen nøgle.

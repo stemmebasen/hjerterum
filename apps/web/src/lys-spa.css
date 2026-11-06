@@ -658,6 +658,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-thumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studio-thumb.is-picked { border-color: var(--lys-terra, #94503f); color: var(--lys-ink, #2a2622); }
 .studio-muted { color: var(--lys-muted); font-size: 14.5px; }
+.studio-finder-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.studio-finder-tabs button { font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--lys-line, rgba(127,127,127,.35)); background: transparent; color: inherit; cursor: pointer; }
+.studio-finder-tabs button.is-on { background: var(--lys-terra, #94503f); border-color: transparent; color: #fff; }
+.studio-finder-search { display: flex; gap: 8px; margin: 8px 0; }
+.studio-finder-search input { flex: 1; min-width: 0; font: inherit; padding: 8px 12px; border-radius: 10px; }
+.studio-finder-ideas { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 12px; font-size: 14px; }
 .studio-soft { margin: 6px 0 0; color: var(--lys-muted); font-size: 13.5px; font-style: italic; }
 .studio-files { margin: 12px 0 0; padding-left: 18px; font-size: 14.5px; }
 .studio-files small { color: var(--lys-muted); margin-left: 6px; }

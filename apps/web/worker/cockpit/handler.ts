@@ -60,6 +60,7 @@ import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
+import { fetchStockPicture, pictureIdeas, searchArt, searchPexels, STOCK_IMAGE_HOSTS, type StockSource } from "./stockPictures.js";
 import { prEventsData } from "./prEvents.js";
 import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
@@ -1148,7 +1149,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const download = /^\/plakater\/materiale\/(\d+)$/.exec(path);
     if (download && request.method === "GET") return materialFile(db, media, Number(download[1]), true);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload|\/billedsoeg|\/billede-hent)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1156,7 +1157,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const assets = (env as { ASSETS?: { fetch(request: Request): Promise<Response> } }).ASSETS;
       const shell = assets ? await assets.fetch(new Request(`${url.origin}/`)).then(r => r.ok ? r.text() : null).catch(() => null) : null;
       if (!shell) return html(problem(base, who, "Værktøjet kunne ikke åbnes lige nu. Prøv igen om lidt."), 503);
-      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src https://www.hjerterum.info; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" } });
+      return new Response(shell, { headers: { ...HEADERS, "content-security-policy": `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: ${STOCK_IMAGE_HOSTS.join(" ")}; media-src https://www.hjerterum.info; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` } });
     }
     if (part === "/data" && request.method === "GET") {
       const data = await studioData(db, id!, now, deps.fetcher);
@@ -1236,6 +1237,32 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!stored) return answer({ error: "file_type" }, 422);
       await audit(db, actor, "posters.design", `Lagde et billede ved ${eventKeyOf(id!)}`, now);
       return answer({ ok: true, url: `/plakater/billede/materiale/${stored}` });
+    }
+    // "lad os koble pexels api på" and "Kunst og botanik (CC0)" (stockPictures.ts): search, and the chosen picture fetched and kept with the event.
+    if (part === "/billedsoeg" && request.method === "GET") {
+      const kind: StockSource = url.searchParams.get("kilde") === "kunst" ? "kunst" : "pexels";
+      const key = (env as { PEXELS_API_KEY?: string }).PEXELS_API_KEY;
+      if (kind === "pexels" && !key) return answer({ ready: false, query: "", ideas: [], results: [] });
+      const eventKey = eventKeyOf(id!);
+      const row = eventKey.startsWith("mw:")
+        ? await db.prepare("SELECT title, description, category FROM house_events WHERE id = ?").bind(eventKey.slice(3)).first<{ title: string; description: string | null; category: string | null }>().catch(() => null)
+        : await db.prepare("SELECT title, description, NULL AS category FROM room_bookings WHERE id = ?").bind(Number(eventKey.slice(3))).first<{ title: string; description: string | null; category: string | null }>().catch(() => null);
+      const asked = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
+      const ideas = asked ? null : await pictureIdeas(env as SagaEnv, deps, { title: row?.title ?? "", description: (row?.description ?? "").replace(/<[^>]+>/g, " "), category: row?.category ?? null });
+      const list = ideas ? (kind === "pexels" ? ideas.foto : ideas.kunst) : [];
+      const query = asked || list[0] || "nature light";
+      const results = await (kind === "pexels" ? searchPexels(deps.fetcher, key!, query) : searchArt(deps.fetcher, query)).catch(() => []);
+      return answer({ ready: true, query, ideas: list, results });
+    }
+    if (part === "/billede-hent" && request.method === "POST") {
+      if (!media) return answer({ error: "not_possible" }, 400);
+      const body = await request.json().catch(() => null) as { source?: unknown; id?: unknown } | null;
+      const picture = await fetchStockPicture(deps.fetcher, (env as { PEXELS_API_KEY?: string }).PEXELS_API_KEY, String(body?.source ?? ""), String(body?.id ?? "")).catch(() => null);
+      if (!picture) return answer({ error: "not_found" }, 404);
+      const stored = await storeUpload(db, media, eventKeyOf(id!), picture.name, picture.bytes, now);
+      if (!stored) return answer({ error: "file_type" }, 422);
+      await audit(db, actor, "posters.design", `Hentede ${picture.name} til ${eventKeyOf(id!)}`, now);
+      return answer({ ok: true, url: `/plakater/billede/materiale/${stored}`, label: picture.name.replace(/\.jpg$/, "") });
     }
     // Requested (the chair, 5 Nov 2026): "en mulighed for, at AI kan komme med et forslag til delingsteksten" (social/writer.ts).
     if (part === "/tekst" && request.method === "POST") {
