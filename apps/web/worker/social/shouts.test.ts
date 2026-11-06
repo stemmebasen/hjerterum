@@ -63,6 +63,11 @@ describe("two posts on each medium for every event", () => {
   it("gives an event that came late one post a week before when the day's three are full, and never proposes one on the day", async () => {
     const late = Array.from({ length: 8 }, (_, i) => ({ key: `mw:${i}`, title: `E${i}`, startsMs: NOW + 11 * DAY + i * 3_600_000 }) as NewsletterEvent);
     const { times, single } = placeFirsts(late, late.map(e => shoutWindows(e.startsMs, NOW)), NOW + 30 * 60_000, []);
+    // Also first posts in their usual window that the change of plan squeezed into a day or two.
+    const squeezed = Array.from({ length: 6 }, (_, i) => ({ key: `mw:s${i}`, title: `S${i}`, startsMs: NOW + 15 * DAY + i * 3_600_000 }) as NewsletterEvent);
+    const tight = placeFirsts(squeezed, squeezed.map(e => shoutWindows(e.startsMs, NOW)), NOW + 30 * 60_000, []);
+    const tightDays = new Map<string, number>(); for (const t of tight.times) tightDays.set(dateOf(t), (tightDays.get(dateOf(t)) ?? 0) + 1);
+    expect(Math.max(...tightDays.values())).toBeLessThanOrEqual(3);
     const perDay = new Map<string, number>(); for (const t of times) perDay.set(dateOf(t), (perDay.get(dateOf(t)) ?? 0) + 1);
     expect(Math.max(...perDay.values())).toBeLessThanOrEqual(3);
     expect(single.filter(Boolean).length).toBeGreaterThan(0);

@@ -167,7 +167,8 @@ export function shoutWindows(startsMs: number, nowMs: number): ShoutWindow[] {
  * made when there is room in the day's three; else the event has one post, a week before. The first posts' times (Facebook), and which events then
  * have only the one (their time in the reminder's window). */
 export function placeFirsts(events: NewsletterEvent[], windows: ShoutWindow[][], notBeforeMs: number, taken: number[]): { times: number[]; single: boolean[]; latest: number[] } {
-  const first = eventPostTimes(events, notBeforeMs, taken, windows.map(w => w[0]!.earliest), windows.map(w => w[0]!.latest), windows.map(w => w.length === 2 && Boolean(w[0]!.late)));
+  // Every first post that has a reminder after it keeps to the day's three (found 6 Nov: the first plan put five on one day).
+  const first = eventPostTimes(events, notBeforeMs, taken, windows.map(w => w[0]!.earliest), windows.map(w => w[0]!.latest), windows.map(w => w.length === 2));
   const single = first.map(t => Number.isNaN(t));
   if (!single.some(Boolean)) return { times: first, single, latest: windows.map(w => w[0]!.latest) };
   const idx = events.map((_, i) => i).filter(i => single[i]);

@@ -449,10 +449,12 @@ export async function planShouts(env: SocialEnv, deps: SagaDeps, db: D1Database)
   const second = events.map(e => shoutWindows(e.startsMs, now)[1]!);
   const notBefore = now + 30 * MINUTE;
   const fbTaken = await takenSlots(db, now);
-  const times = eventPostTimes(events, notBefore, fbTaken, second.map(w => w.earliest), second.map(w => w.latest));
-  const igTimes = instagramPostTimes(events, times, notBefore, await instagramSlots(db, now), second.map(w => w.latest), fbTaken);
+  // The reminder keeps to the day's three too; with no room, the event has its first post only.
+  const times = eventPostTimes(events, notBefore, fbTaken, second.map(w => w.earliest), second.map(w => w.latest), events.map(() => true));
+  const igTimes = instagramPostTimes(events, times.map((t, i) => Number.isNaN(t) ? second[i]!.latest : t), notBefore, await instagramSlots(db, now), second.map(w => w.latest), fbTaken);
   let made = 0;
   for (const [i, p] of firsts.entries()) {
+    if (Number.isNaN(times[i]!)) { await db.prepare("UPDATE social_posts SET source = json_set(source, '$.shouts', 1) WHERE id = ?").bind(p.id).run(); continue; }
     const text = words.events[`E${i + 1}`] ?? `Om en uge: ${p.text}`;
     const ig = p.channels.includes("instagram");
     const { video: _v, videoTemplate: _t, videoAtMs: _a, videoNotifiedAtMs: _n, videoAsk: _q, videoChoices: _c, videoChoicesTold: _ct, stillAsk: _s, noVideo: _o, instagramAtMs: _i, ...rest } = p.source;
@@ -492,6 +494,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (await claimJob(db, "social_shouts_v1", 0, now)) await replanForShouts(db, now);
   // Asked: "Hvorfor har du lagt så mange ind?" - once more, now with no day over three (placeFirsts).
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
+  if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
   await retimeOverdue(db, now);
   let fresh = 0;
   const series = await seriesMap(db, now);
