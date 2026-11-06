@@ -53,8 +53,10 @@ export function prCalendarSection(base: string, d: CalendarData): string {
   // An event on Facebook and Instagram at different times ("forskellige tidspunkter på de to medier"): one entry for each, at its own time.
   const entries = d.posts.flatMap((p): SocialPost[] => {
     const ig = p.source.instagramAtMs;
-    if (!ig || ig === p.publish_at_ms || !p.channels.includes("instagram") || p.channels.length < 2) return [p];
+    if (!ig || ig === p.publish_at_ms || !p.channels.includes("instagram")) return [p];
     const each = (c: "facebook" | "instagram", at: number | null): SocialPost => ({ ...p, channels: [c], publish_at_ms: at, status: p.published[c] ? "published" : p.status === "published" ? "approved" : p.status, source: { ...p.source, moveChannel: c } as SocialPost["source"] });
+    // Only on Instagram: it goes out at Instagram's own time (social.ts dueAt), and stands there in the calendar.
+    if (!p.channels.includes("facebook")) return [each("instagram", ig)];
     return [each("facebook", p.publish_at_ms), each("instagram", ig)];
   }).sort((a, b) => (a.publish_at_ms ?? 0) - (b.publish_at_ms ?? 0));
   for (const p of entries) { const day = dateOf(p.publish_at_ms!); byDay.set(day, [...(byDay.get(day) ?? []), p]); }
@@ -84,7 +86,7 @@ export function prCalendarSection(base: string, d: CalendarData): string {
   const weeks = d.mondays.map(monday => {
     const days = [0, 1, 2, 3, 4, 5, 6].map(i => {
       const day = addDays(monday, i), posts = byDay.get(day) ?? [];
-      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length ? "" : " is-empty"}" data-day="${day}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
+      return `<div class="cal-day${day === today ? " is-today" : ""}${day < today ? " is-past" : ""}${posts.length ? "" : " is-empty"}" data-day="${day}" id="dag-${day}"><h4>${DAYS[i]} ${dayLabel(day)}</h4>
 ${posts.length ? `<ul>${posts.map(item).join("")}</ul>` : ""}</div>`;
     }).join("");
     return `<section class="cal-week"><h3>Uge ${weekNumber(weekKey(monday))}</h3><div class="cal-grid">${days}</div></section>`;
@@ -111,7 +113,7 @@ if(j&&j.ok)location.reload();else alert(j&&j.error==="time"?"Det tidspunkt kan o
 export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}.cal-legend .cal-item{display:inline-block;font-size:13px;padding:4px 10px}
 .cal-week h3{font-size:15px;margin:18px 0 8px}.cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .cal-day{background:var(--soft);border-radius:12px;padding:8px;min-height:90px;min-width:0}.cal-day h4{margin:0 0 6px;font-size:12.5px;color:var(--muted);font-weight:600}
-.cal-day.is-today{outline:2px solid var(--accent)}.cal-day.is-past{opacity:.6}.cal-day ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
+.cal-day.is-today{outline:2px solid var(--accent)}.cal-day:target{outline:3px solid var(--accent);scroll-margin-top:80px}.cal-day.is-past{opacity:.6}.cal-day ul{list-style:none;margin:0;padding:0;display:grid;gap:5px}
 .cal-item{display:block;border-radius:9px;padding:6px 8px;text-decoration:none;color:var(--ink);background:var(--card);border-left:4px solid var(--line);font-size:13px;line-height:1.3;overflow-wrap:anywhere}
 .cal-item b{display:block;font-weight:600}.cal-item small{display:block;color:var(--muted);font-size:11.5px}.cal-time{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
 .cal-ok{color:#2e9d5b;font-weight:800}.cal-item.is-draft{border-left-color:#d9822b;background:rgba(217,130,43,.16)}.cal-item.is-approved{border-left-color:#4c6fff;background:rgba(76,111,255,.18)}.cal-item.is-sent{border-left-color:#2e9d5b;background:rgba(46,157,91,.2)}

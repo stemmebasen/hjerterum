@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { esc } from "./page.js";
 import { facebookEvents, LIST_DAYS } from "./fbEvents.js";
 import { prReadyNames } from "./prMaterial.js";
-import { mondayOf } from "../social/plan.js";
+import { dateOf, mondayOf } from "../social/plan.js";
 import type { SocialStatus } from "../social/social.js";
 
 /** Requested (the chair, 3 Nov 2026): "Det kunne også være fedt med en eventoversigt over alle kommende events, med en PR-status i højre side samt nogle
@@ -12,6 +12,8 @@ import type { SocialStatus } from "../social/social.js";
 export type PrEventRow = {
   key: string; title: string; startsMs: number; host: string | null; monday: string;
   post: { id: number; status: SocialStatus; publishAtMs: number | null; publishedAtMs: number | null } | null;
+  /** Every time one of the event's posts goes out on a medium and has not yet, as the calendar shows it. */
+  planned: { channel: "facebook" | "instagram"; atMs: number; approved: boolean }[];
   facebookEvent: { at: number; link: string | null } | null;
   material: boolean | null;
   studio: string | null;
@@ -19,17 +21,30 @@ export type PrEventRow = {
 
 export async function prEventsData(db: D1Database, nowMs: number): Promise<PrEventRow[]> {
   const events = await facebookEvents(db, nowMs, LIST_DAYS);
-  const posts = await db.prepare(`SELECT id, status, publish_at_ms, published_at_ms, json_extract(source, '$.key') AS key FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.removed') IS NULL
+  const posts = await db.prepare(`SELECT id, status, publish_at_ms, published_at_ms, channels, published, json_extract(source, '$.instagramAtMs') AS ig, json_extract(source, '$.key') AS key FROM social_posts WHERE kind = 'event' AND json_extract(source, '$.removed') IS NULL
       AND json_extract(source, '$.key') IN (SELECT value FROM json_each(?)) ORDER BY CASE status WHEN 'published' THEN 0 WHEN 'approved' THEN 1 WHEN 'draft' THEN 2 ELSE 3 END`)
-    .bind(JSON.stringify(events.map(e => e.key))).all<{ id: number; status: SocialStatus; publish_at_ms: number | null; published_at_ms: number | null; key: string }>()
+    .bind(JSON.stringify(events.map(e => e.key))).all<{ id: number; status: SocialStatus; publish_at_ms: number | null; published_at_ms: number | null; channels: string | null; published: string | null; ig: number | null; key: string }>()
     .then(r => r.results ?? []).catch(() => []);
   const byKey = new Map<string, (typeof posts)[number]>();
   for (const p of posts) if (!byKey.has(p.key)) byKey.set(p.key, p);
+  // Reported (the chair, 6 Nov 2026): "under events står der opslag, der er planlagt, som jeg ikke kan se i kalenderen. Det må virkelig ikke ske." Each
+  // time is shown here exactly as the calendar has it (Facebook at the post's time, Instagram at its own), with a link to that day in the calendar.
+  const planned = new Map<string, PrEventRow["planned"]>();
+  const list = <T,>(json: string | null, fallback: T): T => { try { return json ? JSON.parse(json) as T : fallback; } catch { return fallback; } };
+  for (const p of posts) {
+    if (!["draft", "approved", "publishing", "failed"].includes(p.status) || !p.publish_at_ms) continue;
+    const channels = list<string[]>(p.channels, ["facebook"]), done = list<Record<string, unknown>>(p.published, {});
+    const at = [...planned.get(p.key) ?? []];
+    if (channels.includes("facebook") && !done.facebook) at.push({ channel: "facebook", atMs: p.publish_at_ms, approved: p.status !== "draft" });
+    if (channels.includes("instagram") && !done.instagram) at.push({ channel: "instagram", atMs: p.ig ?? p.publish_at_ms, approved: p.status !== "draft" });
+    planned.set(p.key, at.sort((a, b) => a.atMs - b.atMs));
+  }
   const ready = await prReadyNames(db);
   return events.map(e => {
     const p = byKey.get(e.key);
     return { key: e.key, title: e.title, startsMs: e.startsMs, host: e.host, monday: mondayOf(e.startsMs),
       post: p ? { id: p.id, status: p.status, publishAtMs: p.publish_at_ms, publishedAtMs: p.published_at_ms } : null,
+      planned: planned.get(e.key) ?? [],
       facebookEvent: e.done ? { at: e.done.at, link: e.done.link } : null,
       material: e.host ? ready.has(e.host.trim().toLowerCase()) : null,
       // Plakater og opslag's address for the event: the calendar's by its id without "SF", the house's own as "h<n>".
@@ -51,6 +66,16 @@ function postChip(r: PrEventRow): string {
   return `<span class="chip">Opslag sprunget over</span>`;
 }
 
+/** The event's posts in the calendar, each a link to its day there. */
+function plannedLine(base: string, r: PrEventRow): string {
+  if (!r.planned.length) return "";
+  const link = (t: PrEventRow["planned"][number]) => {
+    const day = dateOf(t.atMs);
+    return `<a href="${base}/pr/kalender?start=${mondayOf(t.atMs)}#dag-${day}">${t.channel === "facebook" ? "Facebook" : "Instagram"} ${esc(WHEN.format(t.atMs))}${t.approved ? " ✓" : ""}</a>`;
+  };
+  return `<p class="pe-planned small"><span class="muted">I kalenderen:</span> ${r.planned.map(link).join(" · ")}</p>`;
+}
+
 export function prEventsSection(base: string, rows: PrEventRow[], nowMs: number): string {
   if (!rows.length) return `<section class="panel"><p class="empty">Ingen events de næste seks uger.</p></section>`;
   const ok = (r: PrEventRow) => Boolean(r.post && ["published", "approved", "publishing"].includes(r.post.status) && r.facebookEvent);
@@ -65,7 +90,8 @@ export function prEventsSection(base: string, rows: PrEventRow[], nowMs: number)
       acts.push(`<form method="post" action="${base}/arrangementer/facebook"><input type="hidden" name="event" value="${esc(r.key)}"><input type="hidden" name="done" value="1"><input type="hidden" name="tilbage" value="pr-events"><button class="ghost">Facebook-begivenhed oprettet</button></form>`);
     if (r.studio) acts.push(`<a class="button ghost" href="${base}/plakater/${esc(r.studio)}?fra=%2Fpr%2Fevents">Lav design</a>`);
     return `<li class="${ok(r) ? "is-ok" : ""}"><div class="pe-main"><span class="at">${esc(WHEN.format(r.startsMs))}</span><b>${esc(r.title)}</b>${r.host ? `<span class="muted"> · ${esc(r.host)}</span>` : ""}
-<div class="pe-acts">${acts.join("")}</div></div>
+<div class="pe-acts">${acts.join("")}</div>
+${plannedLine(base, r)}</div>
 <div class="pe-status">${postChip(r)}${r.facebookEvent ? `<span class="chip good">${r.facebookEvent.link ? `<a href="${esc(r.facebookEvent.link)}" target="_blank" rel="noopener">Facebook-begivenhed</a>` : "Facebook-begivenhed"} ✓</span>` : `<span class="chip wait">Ingen Facebook-begivenhed</span>`}
 ${r.material === null ? "" : r.material ? `<span class="chip good">PR-materiale klar</span>` : `<span class="chip">Intet PR-materiale</span>`}</div></li>`;
   };
@@ -77,5 +103,6 @@ ${r.material === null ? "" : r.material ? `<span class="chip good">PR-materiale 
 export const PR_EVENTS_STYLE = `.pe-list{list-style:none;margin:0;padding:0}.pe-list li{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,300px);gap:16px;padding:14px 0;border-top:1px solid var(--line)}
 .pe-list li:first-child{border-top:0}.pe-main .at{display:block;color:var(--muted);font-size:13px}.pe-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.pe-acts form{margin:0}
 .pe-acts button,.pe-acts .button{font-size:13px;padding:6px 12px;min-height:0}.pe-status{display:flex;flex-direction:column;align-items:flex-end;gap:6px}.pe-status .chip{margin:0}.pe-status a{color:inherit}
+.pe-planned{margin:8px 0 0;font-size:13px}.pe-planned a{color:inherit}
 .pe-list li.is-ok .pe-main b::after{content:" ✓";color:var(--accent)}
 @media (max-width:760px){.pe-list li{grid-template-columns:1fr}.pe-status{flex-direction:row;flex-wrap:wrap;align-items:flex-start}}`;

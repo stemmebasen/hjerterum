@@ -45,6 +45,16 @@ describe("PR og SoMe → Events", () => {
     expect(page).toContain("Opslag godkendt");
     expect(page).toContain("Facebook-begivenhed ✓");
     expect(page).toContain("1 mangler noget.");
+    // Reported: "under events står der opslag, der er planlagt, som jeg ikke kan se i kalenderen. Det må virkelig ikke ske." Every time the list shows
+    // links to its day in the calendar - and the post stands there, at that time.
+    const links = [...page.matchAll(/href="(\/pr\/kalender\?start=[\d-]+)#dag-([\d-]+)">(Facebook|Instagram) [^<]*?(\d{2}[.:]\d{2})/g)];
+    expect(links.length).toBeGreaterThan(0);
+    for (const [, href, day, , time] of links) {
+      const calendar = await (await call(href!)).text();
+      const cell = calendar.split(`id="dag-${day}"`)[1]!.split('class="cal-day')[0]!;
+      expect(cell).toContain(`<span class="cal-time">${time!.replace(":", ".")}</span>`);
+      expect(cell).toContain("Dans");
+    }
     // A week outside the six weeks is not planned from here.
     expect((await call("/pr/events/opslag", { method: "POST", body: form({ uge: "2027-03-01" }) })).headers.get("location")).toBe("/pr/events");
   });
