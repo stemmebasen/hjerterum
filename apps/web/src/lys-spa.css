@@ -771,7 +771,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .member-event-visual { aspect-ratio: 1920 / 1005; }
 .member-event-visual .event-photo { height: 100%; }
 .event-page-image { max-width: 960px; border-radius: var(--lys-radius); margin: 8px 0 36px; }
-.nl-feat .nl-feat-photo { margin-bottom: 18px; background: var(--nl-panel, var(--lys-soft)); }
+.nl-feat .nl-feat-photo { margin-bottom: 18px; background: var(--nl-panel, var(--lys-soft)); border-radius: 16px; }
+/* Douglas (6 Nov 2026): "the rounded corners in 'Om lidt i Hjerterum' suck most of the time" - the photo was rounded, the blurred frame around
+   a whole picture was not. The frame is rounded now, the photo inside it not. */
+.nl-feat .nl-feat-photo img { border-radius: 0; margin: 0; }
 
 /* "Snart i Hjerterum" in the member area (program-guide.tsx): the next event large, the four after it as a list. */
 .program-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 28px; align-items: start; }

@@ -40,7 +40,54 @@ function tolerateTranslation(): void {
 }
 
 const STYLE = `.goog-te-banner-frame,.skiptranslate>iframe,#goog-gt-tt,.goog-te-balloon-frame{display:none!important}body{top:0!important;position:static!important}
-.goog-text-highlight{background:none!important;box-shadow:none!important}#google_translate_element{display:none}`;
+.goog-text-highlight{background:none!important;box-shadow:none!important}#google_translate_element{display:none}
+html.retranslating body{opacity:.55;transition:opacity .15s}`;
+
+/** Douglas (6 Nov 2026): "It does not translate to English on the 'My Profile' and 'Calendar' in 'My Page' pages. Also the booking request does not
+ * translate." Google's widget translates the page once; what React shows afterwards - a page whose data comes later, the booking request opened
+ * with a click - stays Danish. When new Danish text appears, the page is translated again: Google's own "Show original" and then "Translate" (its
+ * hidden bar), the only way it offers. The page dims for that moment. */
+const WORDS = /[a-zæøå]{3,}/i;
+const OURS = "font,script,style,textarea,input,select,.skiptranslate,.notranslate,[translate=\"no\"],#google_translate_element";
+function untranslated(node: Node): boolean {
+  const element = node.nodeType === Node.TEXT_NODE ? node.parentElement : node as Element;
+  if (!element || element.closest(OURS)) return false;
+  return WORDS.test(node.textContent ?? "");
+}
+function bar(id: string): HTMLElement | null {
+  for (const frame of document.querySelectorAll<HTMLIFrameElement>("iframe.skiptranslate")) {
+    const found = frame.contentDocument?.getElementById(id) ?? null;
+    if (found) return found;
+  }
+  return null;
+}
+function watchNewText(): void {
+  let busy = false, timer = 0;
+  const html = document.documentElement;
+  const again = () => {
+    const restore = bar(":1.restore"), confirm = bar(":1.confirm");
+    if (!restore || !confirm || !html.classList.contains("translated-ltr")) return;
+    busy = true;
+    html.classList.add("retranslating");
+    restore.click();
+    let waited = 0;
+    const next = window.setInterval(() => {
+      waited += 100;
+      if (html.classList.contains("translated-ltr") && waited < 400) return;
+      window.clearInterval(next);
+      confirm.click();
+      // Google adds its translation over a moment; what it changes then is not new text.
+      window.setTimeout(() => { busy = false; html.classList.remove("retranslating"); }, 1500);
+    }, 100);
+  };
+  new MutationObserver(changes => {
+    if (busy) return;
+    const fresh = changes.some(change => [...change.addedNodes].some(untranslated) || (change.type === "characterData" && untranslated(change.target)));
+    if (!fresh) return;
+    window.clearTimeout(timer);
+    timer = window.setTimeout(again, 600);
+  }).observe(document.body, { childList: true, subtree: true, characterData: true });
+}
 
 /** Google turned "Hjerterum" into "Heart Room" and "Heart Space". The name (and CIRKLER) is kept: each time it appears in the page's text, it
  * is put in a span Google leaves alone - also in what the page shows later. */
@@ -108,6 +155,7 @@ export function startTranslation(): void {
     if (!w.google?.translate) return;
     started = true;
     new w.google.translate.TranslateElement({ pageLanguage: "da", includedLanguages: "en", autoDisplay: false }, "google_translate_element");
+    watchNewText();
   };
   const fallBack = () => {
     if (started) return;
