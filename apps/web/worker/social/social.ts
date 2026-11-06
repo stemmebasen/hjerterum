@@ -10,7 +10,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText } from "./plan.js";
+import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -190,7 +190,7 @@ export async function approveWeek(db: D1Database, week: string, who: string, now
 const SHARE_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus for meditation, yoga, personlig udvikling og fællesskab. "
   + "Hjerterum deler et opslag, som en underviser eller en anden har lavet og tagget Hjerterum i. Skriv 1-2 korte, varme sætninger (højst 30 ord) på dansk, "
   + "som Hjerterum sætter over delingen: tak gerne personen ved fornavn og sig kort, hvad opslaget handler om, ud fra teksten. Find ikke på detaljer, "
-  + "ingen helbredsløfter, ingen emojis, ingen hashtags, ingen links. Svar kun med teksten.";
+  + "ingen helbredsløfter, ingen hashtags, ingen links. Gerne én passende emoji fra naturen eller med begejstring og kærlighed (fx 🌿 🌸 🌙 🤍 ✨ 🙌). Svar kun med teksten.";
 
 export const firstName = (name: string | null) => (name ?? "").replace(/^@/, "").split(/\s+/)[0] ?? "";
 export const plainShareText = (author: string | null) => `Tak til ${firstName(author) || "jer"} for at dele. Vi glæder os til at se jer i Hjerterum.`;
@@ -272,8 +272,9 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
 const WEEK_SYSTEM = `Du skriver Hjerterums opslag på Facebook og Instagram (Hjerterum er en forening og et hus i Aarhus for meditation, yoga, personlig udvikling og fællesskab).
 Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: {"uge": "...", "events": {"E1": "..."}}
 - "uge": 1-2 korte, varme sætninger (højst 35 ord), der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
-- "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår (ugedag og "kl. TT.MM", som de står i feltet "hvornaar" - aldrig en dato). Linket til eventet sættes på af systemet, så skriv ingen adresse.
-Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen emojis, ingen hashtags, ingen udråbstegn.
+- "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår: ugedag med dato og "kl. TT.MM", som de står i feltet "hvornaar" (fx "lørdag d. 21. november kl. 10.30") - opslaget går ud en til to uger før, så ugedagen alene er ikke nok. Linket til eventet sættes på af systemet, så skriv ingen adresse.
+Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen hashtags, ingen udråbstegn.
+Emojis (formanden: "gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): 1-2 i hver tekst, valgt så de passer til netop eventet - fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Ved en sætnings slutning, aldrig flere i træk.
 Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
 - Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
 - Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."
@@ -285,18 +286,18 @@ Et eksempel på tonen (efterlign ikke ordene): "Lørdag kl. 13.00 inviterer Mari
 type WeekWords = { intro: string; events: Record<string, string> };
 
 /** The second post about each event, a week before (shoutWindows): told differently from the first. */
-const REMINDER_RULE = `\nDette er det ANDET opslag om hvert event: en påmindelse cirka en uge før. Skriv det anderledes end et første opslag, fx med "om en uge" eller "på onsdag", kort og med lyst til at komme. Gentag ikke en lang introduktion.`;
+const REMINDER_RULE = `\nDette er det ANDET opslag om hvert event: en påmindelse cirka en uge før. Skriv det anderledes end et første opslag, fx med "om en uge", kort og med lyst til at komme - stadig med ugedag og dato. Gentag ikke en lang introduktion.`;
 
 async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[], reminder = false): Promise<WeekWords> {
   const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, reminder ? `Om en uge: ${plainEventText(e)}` : plainEventText(e)])) };
   if (!env.AI_API_KEY || !env.AI_MODEL || !events.length) return plain;
   const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: reminder ? WEEK_SYSTEM + REMINDER_RULE : WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
-    ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: `${dayName(e.startsMs)} kl. ${clock(e.startsMs)}`, beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
+    ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: longWhen(e.startsMs), beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   const data = json ? parse<{ uge?: unknown; events?: Record<string, unknown> }>(json, {}) : {};
   const clean = (v: unknown, max: number) => typeof v === "string" ? v.replace(/[ \t]+/g, " ").trim().slice(0, max) : "";
   return { intro: clean(data.uge, 400) || plain.intro,
-    events: Object.fromEntries(Object.entries(plain.events).map(([ref, text]) => [ref, clean(data.events?.[ref], 600) || text])) };
+    events: Object.fromEntries(Object.entries(plain.events).map(([ref, text], i) => [ref, withEventDate(clean(data.events?.[ref], 600) || text, events[i]!.startsMs)])) };
 }
 
 /** Asked (the chair, 5 Nov 2026) about an event without a post in Plakater og opslag: "Hvorfor kan det ikke bruges? Det forstår jeg ikke." The chair makes one
@@ -536,6 +537,17 @@ async function retimeOverdue(db: D1Database, nowMs: number): Promise<void> {
   const events = late.map(p => ({ title: p.source.title ?? "", startsMs: p.source.startsMs! }) as NewsletterEvent);
   // A first post with its reminder there gives way when the day's three are full (the reminder tells about the event).
   const fb = eventPostTimes(events, nowMs + 30 * MINUTE, rest.map(p => p.publish_at_ms!), [], latest, late.map(p => p.source.shout !== 2 && withReminder.has(p.source_key)));
+  // Reported (the chair, 6 Nov 2026): "et opslag om et kursus i mirakler, som skulle sendes i dag, to uger før, men som nu er helt forsvundet." A first post
+  // with no room among the day's three by ten days before is not set aside while its reminder is still to come: it gets the first time it can have up to
+  // the day before the reminder - a fourth that day only when there is no other way.
+  const reminderAt = new Map((await db.prepare("SELECT source_key, publish_at_ms FROM social_posts WHERE source_key LIKE '%:2' AND status IN ('draft', 'approved', 'publishing')")
+    .all<{ source_key: string; publish_at_ms: number | null }>().then(r => r.results ?? []).catch(() => [])).map(r => [r.source_key.slice(0, -2), r.publish_at_ms ?? 0]));
+  const stuck = late.map((p, i) => i).filter(i => Number.isNaN(fb[i]!) && late[i]!.source.shout !== 2 && (reminderAt.get(late[i]!.source_key) ?? 0) - 86_400_000 > nowMs + 30 * MINUTE);
+  if (stuck.length) {
+    const before = stuck.map(i => reminderAt.get(late[i]!.source_key)! - 86_400_000);
+    const again = eventPostTimes(stuck.map(i => events[i]!), nowMs + 30 * MINUTE, [...rest.map(p => p.publish_at_ms!), ...fb.filter(t => !Number.isNaN(t))], [], before);
+    stuck.forEach((i, k) => { if (!Number.isNaN(again[k]!) && again[k]! <= before[k]!) { fb[i] = again[k]!; latest[i] = before[k]!; } });
+  }
   const ig = instagramPostTimes(events, fb.map((t, i) => Number.isNaN(t) ? latest[i]! : t), nowMs + 30 * MINUTE, rest.filter(p => p.channels.includes("instagram")).map(p => p.source.instagramAtMs ?? p.publish_at_ms!), latest, rest.map(p => p.publish_at_ms!));
   for (const [i, p] of late.entries()) {
     if (Number.isNaN(fb[i]!) || fb[i]! > latest[i]! || fb[i]! < nowMs) {
@@ -823,6 +835,20 @@ async function ownWordsOnShares(db: D1Database): Promise<number> {
   return waiting.length;
 }
 
+/** Once (the chair, 6 Nov 2026: "Det er en fejl, at der bare står lørdag klokken 10:30, da det først er lørdagen efter."): the waiting event posts' words
+ * get the event's date beside its weekday. */
+async function datesInWaiting(db: D1Database): Promise<number> {
+  const waiting = await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'failed') AND json_extract(source, '$.startsMs') IS NOT NULL", [], "id", 1000);
+  let changed = 0;
+  for (const p of waiting) {
+    const text = withEventDate(p.text, p.source.startsMs!), ig = p.source.instagramText ? withEventDate(p.source.instagramText, p.source.startsMs!) : p.source.instagramText;
+    if (text === p.text && ig === p.source.instagramText) continue;
+    await db.prepare("UPDATE social_posts SET text = ?, source = ? WHERE id = ? AND status IN ('draft', 'approved', 'failed')").bind(text, JSON.stringify({ ...p.source, instagramText: ig }), p.id).run();
+    changed++;
+  }
+  return changed;
+}
+
 /** In every round (config-entry.ts): publish what is due, look for new tags every half hour, and plan next week on Thursday. */
 export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void> {
   const db = env.DB;
@@ -830,6 +856,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   const now = deps.now();
   await releaseStuck(db, now);
   if (await claimJob(db, "social_share_own_words", 0, now).catch(() => false)) await ownWordsOnShares(db).catch(error => console.warn("social_share_words_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_event_dates", 0, now).catch(() => false)) await datesInWaiting(db).catch(error => console.warn("social_event_dates_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
   await oldSiteInWaiting(db, now).catch(error => console.warn("social_old_site_failed", error instanceof Error ? error.message : error));
   await publishDue(env, deps, db).catch(error => console.warn("social_publish_failed", error instanceof Error ? error.message : error));

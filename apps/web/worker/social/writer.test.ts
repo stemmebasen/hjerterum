@@ -1,3 +1,4 @@
+import { longWhen, withEventDate } from "./plan.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleCockpitRequest } from "../cockpit/handler.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase } from "../saga/test-support.js";
@@ -11,7 +12,7 @@ import { proposeWords, withSignUp, WRITER_MODEL } from "./writer.js";
 const ORIGIN = "https://admin.hjerterum.example";
 const NOW = Date.parse("2026-11-05T09:00:00Z");
 const HEX = "0123456789abcdef01234567";
-const WORDS = { facebook: "Gongen fylder rummet, og du må bare ligge. Kasper spiller lørdag kl. 13.00.", instagram: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag kl. 13.00.\n\n#aarhus #lydhealing" };
+const WORDS = { facebook: "Gongen fylder rummet, og du må bare ligge. Kasper spiller lørdag d. 7. november kl. 13.00.", instagram: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag d. 7. november kl. 13.00.\n\n#aarhus #lydhealing" };
 
 async function setup(ai: (system: string, user: string) => string = () => JSON.stringify(WORDS)) {
   vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
@@ -49,7 +50,7 @@ describe("Saga's proposal for a post's words", () => {
     expect(seen.user).toContain("Formandens ønske til denne version: mere legende");
     expect(seen.user).toContain("Lydhealing med Kasper - lørdag kl. 13.00.");
     expect(words).toEqual({ text: WORDS.facebook,
-      instagramText: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag kl. 13.00.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).\n\n#aarhus #lydhealing" });
+      instagramText: "Du må gerne komme træt.\n\nKasper spiller gongs lørdag d. 7. november kl. 13.00.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).\n\n#aarhus #lydhealing" });
     expect((await socialPost(db, 1))!.text).toBe(post.text);
   });
 
@@ -78,5 +79,20 @@ describe("Saga's proposal for a post's words", () => {
   it("puts where to sign up above the hashtags", () => {
     expect(withSignUp("Kom.\n\n#aarhus #yoga")).toBe("Kom.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).\n\n#aarhus #yoga");
     expect(withSignUp("Kom.")).toBe("Kom.\n\nLæs mere og tilmeld dig på hjerterum.info/events (link i bio).");
+  });
+});
+
+describe("the event's day in the words", () => {
+  // Reported (the chair, 6 Nov 2026): "Det er en fejl, at der bare står lørdag klokken 10:30, da det først er lørdagen efter."
+  const SAT = Date.parse("2026-11-21T09:30:00Z");
+  it("puts the date beside the event's weekday, once", () => {
+    expect(withEventDate("Lørdag kl. 10.30 guider Mette dig i kurset.", SAT)).toBe("Lørdag d. 21. november kl. 10.30 guider Mette dig i kurset.");
+    expect(withEventDate("Kom på lørdag, når Mette guider.", SAT)).toBe("Kom på lørdag d. 21. november, når Mette guider.");
+    expect(withEventDate("Lørdag d. 21. november kl. 10.30 guider Mette.", SAT)).toBe("Lørdag d. 21. november kl. 10.30 guider Mette.");
+    expect(withEventDate("Lørdag 21/11 kl. 10.30.", SAT)).toBe("Lørdag 21/11 kl. 10.30.");
+    // Another day, or none: as it was.
+    expect(withEventDate("Om en uge tegner vi sammen.", SAT)).toBe("Om en uge tegner vi sammen.");
+    expect(withEventDate("Søndag hviler vi.", SAT)).toBe("Søndag hviler vi.");
+    expect(longWhen(SAT)).toBe("lørdag d. 21. november kl. 10.30");
   });
 });
