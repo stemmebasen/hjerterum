@@ -62,12 +62,14 @@ function bar(id: string): HTMLElement | null {
   return null;
 }
 function watchNewText(): void {
-  let busy = false, timer = 0;
+  // missed: new text came while Google was at work (fx the booking request opened just as the hall's free time came back) - one more round
+  // for that, and no more: Google's own restoring brings Danish text back too, and that must not start rounds without end.
+  let busy = false, missed = false, timer = 0;
   const html = document.documentElement;
-  const again = () => {
+  const again = (followUp: boolean) => {
     const restore = bar(":1.restore"), confirm = bar(":1.confirm");
     if (!restore || !confirm || !html.classList.contains("translated-ltr")) return;
-    busy = true;
+    busy = true; missed = false;
     html.classList.add("retranslating");
     restore.click();
     let waited = 0;
@@ -75,17 +77,23 @@ function watchNewText(): void {
       waited += 100;
       if (html.classList.contains("translated-ltr") && waited < 400) return;
       window.clearInterval(next);
+      // What came before this is in the page Google now translates (and Google's own restoring is not new text): only what comes after counts.
+      missed = false;
       confirm.click();
       // Google adds its translation over a moment; what it changes then is not new text.
-      window.setTimeout(() => { busy = false; html.classList.remove("retranslating"); }, 1500);
+      window.setTimeout(() => {
+        busy = false; html.classList.remove("retranslating");
+        if (missed && !followUp) again(true);
+        missed = false;
+      }, 1500);
     }, 100);
   };
   new MutationObserver(changes => {
-    if (busy) return;
     const fresh = changes.some(change => [...change.addedNodes].some(untranslated) || (change.type === "characterData" && untranslated(change.target)));
     if (!fresh) return;
+    if (busy) { missed = true; return; }
     window.clearTimeout(timer);
-    timer = window.setTimeout(again, 600);
+    timer = window.setTimeout(() => again(false), 600);
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
