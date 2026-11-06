@@ -35,6 +35,7 @@ export type PrPageData = {
   nowMs: number;
   /** Whether the posts and the newsletter link to the new website yet (public-site.ts). */
   siteLive?: boolean;
+  shareEvent?: boolean;
   notice: string;
   error: string;
 };
@@ -173,6 +174,15 @@ export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "beskeder" |
 export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["beskeder", "/pr/beskeder", "Beskeder"], ["mails", "/pr/mails", "Mails"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
 
 /** Requested: "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside." Which website the posts and the newsletter link to. */
+/** "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead): the chair's own yes, given here once. */
+function shareEventCard(base: string, on: boolean): string {
+  return `<section class="panel"><header><h2>Når et opslag ikke bliver godkendt</h2></header>${on
+    ? `<p><b>Slået til.</b> Bliver ingen af et events opslag godkendt i tide, deler Saga eventets Facebook-begivenhed på Facebook i stedet - med titel og tidspunkt - hvis begivenheden er oprettet med link (Events → Facebook-begivenheder). Du får besked på Telegram, og du kan stoppe den i kalenderen.</p>
+<form method="post" action="${base}/pr/del-begivenhed"><input type="hidden" name="on" value="0"><button class="ghost">Slå fra</button></form>`
+    : `<p>Bliver ingen af et events opslag godkendt i tide, lægges det til side. Slår du dette til, deler Saga i stedet eventets Facebook-begivenhed på Facebook (kun når den er oprettet med link).</p>
+<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele Facebook-begivenheden af sig selv, når et events opslag ikke bliver godkendt?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
+}
+
 function siteCard(base: string, live: boolean): string {
   return `<section class="panel"><header><h2>Hjemmesiden i opslagene</h2></header>${live
     ? `<p>Opslag og nyhedsbrev linker til den nye hjemmeside, <b>hjerterum.info</b>.</p>
@@ -216,7 +226,8 @@ ${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.
   const sections: Record<PrTab, string> = {
     overblik: `${prPlanSection(base, d.plan)}
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
-${siteCard(base, Boolean(d.siteLive))}`,
+${siteCard(base, Boolean(d.siteLive))}
+${shareEventCard(base, Boolean(d.shareEvent))}`,
     kalender: d.calendar ? prCalendarSection(base, d.calendar) : "",
     mails: prMailSection(base, d.mails ?? [], d.mailEvents ?? [], d.nowMs),
     events: prEventsSection(base, d.events ?? [], d.nowMs),
