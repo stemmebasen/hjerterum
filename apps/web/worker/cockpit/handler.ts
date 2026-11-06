@@ -60,7 +60,7 @@ import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
 import { prPlanData } from "./prPlan.js";
 import { insightData } from "./prInsight.js";
-import { fetchStockPicture, pictureIdeas, searchArt, searchPexels, STOCK_IMAGE_HOSTS, type StockSource } from "./stockPictures.js";
+import { fetchStockPicture, pictureIdeas, searchStock, sourcesOf, STOCK_IMAGE_HOSTS, type StockKeys, type StockKind } from "./stockPictures.js";
 import { prEventsData } from "./prEvents.js";
 import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
@@ -1240,24 +1240,26 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     }
     // "lad os koble pexels api på" and "Kunst og botanik (CC0)" (stockPictures.ts): search, and the chosen picture fetched and kept with the event.
     if (part === "/billedsoeg" && request.method === "GET") {
-      const kind: StockSource = url.searchParams.get("kilde") === "kunst" ? "kunst" : "pexels";
-      const key = (env as { PEXELS_API_KEY?: string }).PEXELS_API_KEY;
-      if (kind === "pexels" && !key) return answer({ ready: false, query: "", ideas: [], results: [] });
+      const asks = url.searchParams.get("kilde") ?? "";
+      const kind: StockKind = asks === "kunst" ? "kunst" : asks === "illustration" ? "illustration" : "foto";
+      const keys = env as StockKeys;
+      const { ready, missing } = sourcesOf(kind, keys);
+      if (!ready) return answer({ ready: false, missing, query: "", ideas: [], results: [] });
       const eventKey = eventKeyOf(id!);
       const row = eventKey.startsWith("mw:")
         ? await db.prepare("SELECT title, description, category FROM house_events WHERE id = ?").bind(eventKey.slice(3)).first<{ title: string; description: string | null; category: string | null }>().catch(() => null)
         : await db.prepare("SELECT title, description, NULL AS category FROM room_bookings WHERE id = ?").bind(Number(eventKey.slice(3))).first<{ title: string; description: string | null; category: string | null }>().catch(() => null);
       const asked = (url.searchParams.get("q") ?? "").trim().slice(0, 80);
       const ideas = asked ? null : await pictureIdeas(env as SagaEnv, deps, { title: row?.title ?? "", description: (row?.description ?? "").replace(/<[^>]+>/g, " "), category: row?.category ?? null });
-      const list = ideas ? (kind === "pexels" ? ideas.foto : ideas.kunst) : [];
+      const list = ideas ? ideas[kind] : [];
       const query = asked || list[0] || "nature light";
-      const results = await (kind === "pexels" ? searchPexels(deps.fetcher, key!, query) : searchArt(deps.fetcher, query)).catch(() => []);
-      return answer({ ready: true, query, ideas: list, results });
+      const results = await searchStock(deps.fetcher, keys, kind, query).catch(() => []);
+      return answer({ ready: true, missing, query, ideas: list, results });
     }
     if (part === "/billede-hent" && request.method === "POST") {
       if (!media) return answer({ error: "not_possible" }, 400);
       const body = await request.json().catch(() => null) as { source?: unknown; id?: unknown } | null;
-      const picture = await fetchStockPicture(deps.fetcher, (env as { PEXELS_API_KEY?: string }).PEXELS_API_KEY, String(body?.source ?? ""), String(body?.id ?? "")).catch(() => null);
+      const picture = await fetchStockPicture(deps.fetcher, env as StockKeys, String(body?.source ?? ""), String(body?.id ?? "")).catch(() => null);
       if (!picture) return answer({ error: "not_found" }, 404);
       const stored = await storeUpload(db, media, eventKeyOf(id!), picture.name, picture.bytes, now);
       if (!stored) return answer({ error: "file_type" }, 422);
