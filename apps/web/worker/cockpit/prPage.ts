@@ -94,7 +94,7 @@ function shareCard(base: string, p: SocialPost, account: SocialAccount | null, a
   const allowed: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
   const locked = !open(p) || p.status === "approved";
   return `<article class="pr-post">
-<header><span class="chip">${NETWORK[s.network ?? "facebook"]}</span>${status(p)}${s.sharedAt ? `<span class="chip good">Delt d. ${esc(SHARED_DAY.format(s.sharedAt))}</span>` : ""}${s.consent ? `<span class="chip good">PR-samtykke givet</span>` : ""}
+<header><span class="chip">${NETWORK[s.network ?? "facebook"]}</span>${s.via === "messenger" ? `<span class="chip">Sendt i Messenger</span>` : ""}${status(p)}${s.sharedAt ? `<span class="chip good">Delt d. ${esc(SHARED_DAY.format(s.sharedAt))}</span>` : ""}${s.consent ? `<span class="chip good">PR-samtykke givet</span>` : ""}
 <b>${esc(s.author ?? "Ukendt afsender")}</b> <span class="small muted">${esc(when(s.createdMs ?? null))}</span>${s.permalink ? ` · <a href="${esc(s.permalink)}" target="_blank" rel="noopener">Se opslaget</a>` : ""}</header>
 <div class="pr-orig">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<p>${esc((s.text ?? "").slice(0, 500))}${(s.text ?? "").length > 500 ? " …" : ""}</p></div>
 ${s.sharedAt ? `<p class="small muted">Hjerterum har allerede delt det d. ${esc(SHARED_DAY.format(s.sharedAt))}. Du kan springe det over.</p>` : ""}

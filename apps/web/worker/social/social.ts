@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, postPhotoToPage, postToPage, publishToInstagram, reelStatus, sentInMessenger, startReel, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { at, clock, dateOf, dayName, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -31,7 +31,9 @@ export type SocialAccount = { page_id: string; page_name: string; page_token_sea
 
 export type ShareSource = { network: Channel; id: string; author: string | null; permalink: string | null; text: string; media: TaggedPost["media"]; createdMs: number; consent: boolean;
   /** When Hjerterum had already shared it (before Saga found it): "Delt d. <dato>". */
-  sharedAt?: number | null };
+  sharedAt?: number | null;
+  /** Sent to the page in Messenger (meta.ts sentInMessenger), not tagged. */
+  via?: "messenger" };
 export type EventSource = { key: string; title: string; startsMs: number; host: string | null };
 export type SocialPost = { id: number; kind: SocialKind; source_key: string; week: string | null; channels: Channel[]; text: string; link: string | null; images: string[];
   source: Partial<ShareSource & EventSource> & { instagramText?: string; events?: EventSource[]; collaborators?: string[]; format?: "reel"; video?: string;
@@ -225,6 +227,11 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
       problems.push(/permission|\(#10\)|\(#200\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Instagram-tags kan ikke læses: appen mangler tilladelsen instagram_manage_comments (ikke instagram_business_manage_comments)" : `Instagram: ${error instanceof Error ? error.message : error}`);
       return [];
     }));
+    // "Saga læser Messenger": what teachers send the page there. Needs pages_messaging - until the page is connected again with it, a plain word.
+    found.push(...await sentInMessenger(deps.fetcher, page).catch(error => {
+      problems.push(/permission|\(#10\)|\(#200\)|\(#230\)|meta_403/i.test(error instanceof Error ? error.message : String(error)) ? "Messenger kan ikke læses endnu: forbind Facebook og Instagram igen og sig ja til beskeder" : `Messenger: ${error instanceof Error ? error.message : error}`);
+      return [];
+    }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }
   await db.prepare("UPDATE social_account SET checked_at_ms = ?, check_error = ? WHERE id = 1").bind(now, problems.join(" · ").slice(0, 500) || null).run().catch(() => undefined);
   // Only what was posted after the page was connected: the first look does not bring up years of old tags.
@@ -254,7 +261,7 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
     const channels: Channel[] = instagramOk ? ["facebook", "instagram"] : ["facebook"];
     const shared = sharedAt(post);
     const source: ShareSource & { instagramText?: string; collaborators?: string[] } = { network: post.network, id: post.id, author: post.author, permalink: post.permalink, text: post.text.slice(0, 2200),
-      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(instagramOk ? { instagramText: instagramShareText(intro, post.author, post.text, post.network),
+      media: post.media, createdMs: post.createdMs, consent, sharedAt: shared, ...(post.via ? { via: post.via } : {}), ...(instagramOk ? { instagramText: instagramShareText(intro, post.author, post.text, post.network),
         // The one who made it is invited as collaborator on Hjerterum's post of it.
         collaborators: post.network === "instagram" ? [instagramName(post.author)].filter((n): n is string => Boolean(n)) : [] } : {}) };
     if (await insertPost(db, { kind: "share", sourceKey: `${post.network}:${post.id}`, channels, text: intro, link: post.permalink, images: post.images.slice(0, 10), source, publishAtMs: null }, now)) {

@@ -855,7 +855,7 @@ Still open:
 - **Events, der kommer til senere,** får deres opslag af sig selv. Hver tredje time lægger Saga nye events i allerede planlagte uger (denne og næste) som kladder (`topUpWeeks`), og formanden får besked. Kun nye events får ord fra Saga. Det, formanden har rettet eller sprunget over, bliver stående.
 - **Et aflyst eller fjernet event** får aldrig sit opslag. Det springes over med grunden.
 - **Påmindelsen om Facebook-begivenheder** går til både Lisbeth og Frederik (`FB_EVENTS_PEOPLE`).
-- **Systemet holder øje med tags:** hver halve time ser det efter Facebook-opslag, der tagger Hjerterums side, og Instagram-opslag, der tagger @hjerterum_aarhus på billedet. Meta giver ikke adgang til stories, @-omtaler kun i Instagram-teksten eller links sendt via Messenger.
+- **Systemet holder øje med tags:** hver halve time ser det efter Facebook-opslag, der tagger Hjerterums side, og Instagram-opslag, der tagger @hjerterum_aarhus på billedet. Meta giver ikke adgang til stories eller @-omtaler, der kun står i Instagram-teksten. Links sendt via Messenger læser Saga siden 6. november 2026 (se nedenfor).
 
 ## Overdragelse af PR-arbejdet fra Gitta (2026-11-03)
 
@@ -1373,3 +1373,10 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Den samme mail i flere mapper vises én gang.
 - **Rettet samme dag:** De 17 PR-mails i indbakken blev stadig ikke flyttet. De lå der ikke længere, fordi Lisbeth og Gitta allerede havde flyttet dem til deres egne mapper, mens Saga kun så indbakkens gamle række og bad postkassen flytte noget, der ikke var der.
   - Nu spørger Saga først postkassen, hvilke mails der stadig ligger i indbakken (`present`). Kun dem flyttes. Resten markeres som håndteret andetsteds og vises i PR-sektionen fra den mappe, de ligger i.
+
+## Saga læser Messenger (2026-11-06)
+
+- **Spurgt (formanden):** "Hvorfor dukker disse to ikke op i admin? Altså, hvorfor finder Saga dem ikke?" En underviser sendte sin reel og en anden en Facebook-video som besked til siden. Svar: "Saga læser Messenger".
+- **Nu:** hver halve time læser Saga også sidens nyeste Messenger-samtaler (`sentInMessenger` i `social/meta.ts`). Hvert link til et opslag på Instagram eller Facebook, som en anden har sendt, bliver en deling under Tagget i, mærket "Sendt i Messenger". Delingen får afsenderens navn, beskedens ord og linket, og hvert link deles kun én gang. En video deles som link på Facebook.
+- **Tilladelse:** kræver `pages_messaging`. Formanden forbinder Facebook og Instagram igen og siger ja til beskeder. Bruges en Facebook Login for Business-konfiguration (`META_LOGIN_CONFIG_ID`), skal tilladelsen også tilføjes i den. Indtil da står der under Tagget i: "Messenger kan ikke læses endnu".
+- **Ikke med:** beskeder på Instagram (Direct). Saga svarer ikke på beskeder.
