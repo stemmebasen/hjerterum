@@ -392,7 +392,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
     menu: "Sådan booker du",
     image: HALL.wide,
     body: `## 1. Find dato og pris {#dato}
-Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før. I [prisberegneren](/brug-hjerterum/lejepriser#beregner) ser du standardprisen, og hvad samme booking koster som medlem.
+Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før. I [prisberegneren](/brug-hjerterum/lejepriser#beregner) ser du standardprisen, som er den samme for alle. Medlemmer kan i stedet leje til reduceret pris eller gratis, og beregneren viser også, hvad det koster.
 
 ## 2. Book {#book}
 - **Er du medlem,** kan du leje til reduceret pris eller helt gratis. Du opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga, vores digitale assistent, hjælper dig. Hjerterums team godkender alle medlemsoprettede events.
