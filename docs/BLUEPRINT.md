@@ -1443,3 +1443,15 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Siden viser, hvor langt uploaden er, og hver del prøves op til tre gange.
   - Afbrydes uploaden, ryddes den op.
   - Kun i `filer/`, aldrig blandt de natlige kopier. Suppleanter kan ikke lægge op.
+
+## Plakatsiden: editor med lag og 10 nye designs (2026-11-07)
+
+- **Spurgt (formanden):** "Vi er nødt til at optimere den grafiske sektion ... flytte rundt på billeder, gøre dem mindre eller større og dreje dem rundt. Altså et lille mini Photoshop ... Det kommer til at ligne det samme, det hele." Formandens valg: "Egen editor med lag".
+- **Editoren** (`src/design-editor.tsx`, Fabric.js 6, indlæses først, når den åbnes) er en arbejdsflade med lag:
+  - Billeder, tekster, former og logo flyttes, skaleres og drejes med håndtag, og der er hjælpelinjer ved sidens midte.
+  - **Panelet til højre:** tekst, skrift, størrelse, fed og kursiv, justering, bogstav- og linjeafstand, husets farver og egen farve. Billeder kan skiftes, zoomes, beskæres og få en ramme (firkant, afrundet, cirkel, bue eller blød), sort/hvid og skygge. Logoets farve kan ændres. Det valgte kan drejes, gøres gennemsigtigt, flyttes i lag, spejlvendes, duplikeres og slettes.
+  - **Tilføj:** overskrift, undertekst, lille tekst, firkant, cirkel, bue, streg, logo og billeder fra eventet og underviseren.
+  - **Genveje:** fortryd og gentag (Ctrl+Z / Ctrl+Shift+Z), piletaster, Delete og Ctrl+D.
+  - **"Brug designet"** sender designet videre til opslaget (trin 2). "Download" henter det som jpg.
+- **10 nye designs** (`src/layer-templates.ts`): Polaroids, Magasinforside, Stor typografi, Buen, Skråt bånd, Billetten, Citatet, Rammen, Kollagen og Stilhed. Hver har sin egen komposition og kan åbnes i editoren. I Facebook-cover-formatet bliver hvert design billede til venstre og ord til højre.
+- **"✏️ Åbn i editoren"** på Sagas forslag åbner det nuværende design som ét billede, man kan bygge videre på.

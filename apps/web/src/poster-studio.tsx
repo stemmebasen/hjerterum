@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { splitTitle, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { EditorStart } from "./design-editor";
+// "Et lille mini Photoshop" (design-editor.tsx, Fabric.js): loaded when it is opened.
+const DesignEditor = lazy(() => import("./design-editor").then(m => ({ default: m.DesignEditor })));
+const LayerGallery = lazy(() => import("./design-editor").then(m => ({ default: m.LayerGallery })));
+import { C, PALETTES, SITE_LABEL, splitTitle, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** The event's title as the posters read it, where the calendar ran a title in capitals and its subtitle together
  * ("LÆR AT LYTTE TIL DIN INTUITIONKursus i …" → "Lær at lytte til din intuition · Kursus i …"). */
@@ -261,6 +265,7 @@ export function PosterStudio({ id }: { id: string }) {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
   const proposal = useRef<HTMLCanvasElement | null>(null);
+  const [editor, setEditor] = useState<EditorStart | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -319,6 +324,20 @@ export function PosterStudio({ id }: { id: string }) {
   const postLink = post?.monday ? `/pr/uge?uge=${post.monday}#opslag-${post.id}` : "/pr/events";
   const postable = format !== "story";
   const planned = post?.publishAtMs && post.publishAtMs > Date.now() ? post.publishAtMs : null;
+
+  // The editor's words, colours (the chosen mood's) and pictures.
+  const editorInput = { words, colors: { ...C, ...(PALETTES.find(p => p.key === style.palette)?.colors ?? {}) }, site: SITE_LABEL,
+    // The teacher's own words, else the first line of the event's own description.
+    quote: t?.quotes.offering || t?.quotes.facilitator || t?.quotes.participant || event.lines.find(l => l.trim().length > 30) || null };
+  const editorPictures = [...data.eventPictures, ...(t?.pictures ?? [])].filter((p, i, all) => all.findIndex(q => q.url === p.url) === i);
+  const openEditor = (start: EditorStart) => { setEditor(start); };
+  const useEdited = (blob: Blob) => {
+    setEditor(null);
+    if (!post) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "hjerterum-design.jpg"; a.click(); return; }
+    setPreview({ blob, url: URL.createObjectURL(blob) }); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
+  };
+  const editorView = editor ? <Suspense fallback={<div className="ed"><p className="ed-busy">Åbner editoren …</p></div>}>
+    <DesignEditor format={format} start={editor} input={editorInput} pictures={editorPictures} photoUrl={picked} logo={logo} onUse={useEdited} onClose={() => setEditor(null)} /></Suspense> : null;
 
   const next = () => {
     const canvas = proposal.current;
@@ -497,7 +516,7 @@ export function PosterStudio({ id }: { id: string }) {
     </section>
   </main>;
 
-  return <main className="page-shell site-page poster-page studio">{head}
+  return <main className="page-shell site-page poster-page studio">{head}{editorView}
     <section className="studio-proposal">
       {!logo ? <p className="poster-empty">Tegner forslaget …</p>
         : <Design key={`${chosen}-${format}-${JSON.stringify(style)}`} variant={chosen} style={style} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
@@ -508,7 +527,9 @@ export function PosterStudio({ id }: { id: string }) {
           <p className="studio-muted">Står der tekst på fotoet, eller vil du have et andet billede eller design, så tryk <b>Ret forslaget</b>.</p>
           {message && <p className="studio-message" role="status">{message}</p>}
           <p className="studio-actions"><button type="button" className="lys-btn" disabled={!logo || !postable || Boolean(picked && !photo)} onClick={next}>Næste →</button>
-            <button type="button" className="lys-btn ghost" aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Luk" : "Ret forslaget"}</button></p>
+            <button type="button" className="lys-btn ghost" aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Luk" : "Ret forslaget"}</button>
+            <button type="button" className="lys-btn ghost" disabled={!logo} onClick={() => proposal.current && openEditor({ kind: "flat", image: proposal.current.toDataURL("image/png") })}>✏️ Åbn i editoren</button></p>
+          <p className="studio-muted">I editoren kan du flytte, skalere og dreje, lægge billeder, tekster, former og logo ind - eller vælge et af de nye designs nedenfor under "Ret forslaget".</p>
           {!postable && <p className="studio-muted">En story kan Saga ikke poste. Vælg formatet Opslag for at gå videre.</p>}
         </> : <>
           {Date.parse(event.startsAt) < Date.now() ? <p>Eventet er overstået, så der laves ikke noget opslag til det. Du kan stadig hente designet.</p>
@@ -556,7 +577,12 @@ export function PosterStudio({ id }: { id: string }) {
       </div>
       <p className="studio-muted studio-format-help">{FORMAT_HELP[format]}</p>
 
-      <h2 className="studio-step">Design</h2>
+      <h2 className="studio-step">Nye designs - kan redigeres</h2>
+      <p className="studio-muted">Hvert design åbner i editoren, hvor alt kan flyttes, skaleres og drejes: billederne, teksterne, formerne og logoet.</p>
+      {!logo ? <p className="poster-empty">Tegner designene …</p> : <Suspense fallback={<p className="poster-empty">Tegner designene …</p>}>
+        <LayerGallery format={format} input={editorInput} photoUrl={picked} logo={logo} onOpen={key => openEditor({ kind: "layers", key })} /></Suspense>}
+
+      <h2 className="studio-step">Flere designs</h2>
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <>
         <div className="poster-grid">
         {all.map(key => {
