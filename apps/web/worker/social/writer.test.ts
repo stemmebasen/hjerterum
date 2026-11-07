@@ -96,3 +96,15 @@ describe("the event's day in the words", () => {
     expect(longWhen(SAT)).toBe("lørdag d. 21. november kl. 10.30");
   });
 });
+
+describe("the fresh form", () => {
+  // Asked (the chair, 7 Nov 2026): "Sproget er nødt til at være meget mere friskt, og vi skal bruge emojis til opslagene."
+  it("gives the day and time on lines of their own, with the clock face nearest the time", async () => {
+    const { clockEmoji, plainEventText, whenLines } = await import("./plan.js");
+    expect(whenLines(Date.parse("2026-11-09T17:45:00Z"))).toBe("📅 Mandag d. 9. november\n🕖 Kl. 18.45");
+    expect(clockEmoji(Date.parse("2026-11-09T17:30:00Z"))).toBe("🕡");
+    expect(clockEmoji(Date.parse("2026-11-09T11:00:00Z"))).toBe("🕛");
+    expect(plainEventText({ key: "mw:x", title: "Movie-night", host: "Line Holm", startsMs: Date.parse("2026-11-09T17:45:00Z") } as never))
+      .toBe("✨ Movie-night med Line\n\n📅 Mandag d. 9. november\n🕖 Kl. 18.45\n\nLæs mere og tilmeld dig via linket - vi ses i Hjerterum! ❤️");
+  });
+});

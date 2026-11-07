@@ -33,3 +33,11 @@ Bagefter: "Det er også fint, hvis du udvider intervallerne med en dag, både de
 - **Emojis (6. nov.):** "passende emojis, og gerne nogle, der er baseret i naturen eller begejstring og kærlighed". Facebook får 1-2 og Instagram 2-4, valgt til netop eventet.
 - **Op til 5 om dagen (6. nov.):** "Der er stadig en del steder med kun 1 dag til eventet … Husk også at delinger på de sociale medier sagtens kan krydse hinanden i kalenderen." Formandens valg: "Op til 5 om dagen". Normalt gælder dagens tre tider (12, 15 og 19.30). Kommer et event ellers ud mindre end 3 dage før, må Saga bruge to ekstra tider, kl. 9.30 og 17.30, med mindst to timer imellem. Facebook og Instagram må gerne ligge på samme tid. Hver time rykker Saga sine forslag frem: helst 3 dage før, ellers 2 dage før. Tidspunkter, som formanden selv har valgt (flyttet i kalenderen eller gemt), røres ikke.
 - **Facebook-begivenheden i stedet (6. nov.):** "Er det muligt at dele selve eventet (altså videresende kan man sige) som et post via systemet?" og "Når der ikke er godkendt et opslag, så deles selve eventet bare". Reglen er en indstilling, som formanden slår til under PR og SoMe → Overblik ("Del Facebook-begivenheden"), så den er godkendt i admin. Når den er slået til, og eventets sidste opslag når sit tidspunkt uden godkendelse, deler Saga i stedet eventets Facebook-begivenhed på Facebook. Det sker kun, når begivenheden er oprettet med link, og ingen af eventets opslag er godkendt. Opslaget får titel og tidspunkt og vises som begivenhedens eget kort. Det sker én gang pr. event, kun på Facebook, og formanden får besked på Telegram.
+- **Friskere sprog med emojis (7. nov.):** "Sproget er nødt til at være meget mere friskt, og vi skal bruge emojis til opslagene", med formandens eget eksempel ("🎬 Film, fællesskab og gode snakke! …"). Sagas eventopslag og tekstforslag har nu denne form:
+  1. En første linje med emoji og et kort udråb.
+  2. Et kort afsnit om, hvad man oplever.
+  3. Hvem der er vært, med emojis.
+  4. "📅 Mandag d. 9. november" og uret med "Kl. 18.45" på hver sin linje (`whenLines`).
+  5. En varm, inviterende afslutning med emoji.
+
+  Opslaget er på 50-90 ord med 4-7 emojis. Formandens eksempel er Sagas model for formen, ikke for ordene.

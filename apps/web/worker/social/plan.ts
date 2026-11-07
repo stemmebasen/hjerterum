@@ -240,10 +240,21 @@ export function withEventDate(text: string, startsMs: number): string {
   return text.replace(new RegExp(`(?<!\\p{L})(${day})(?!\\p{L})`, "iu"), (word: string) => `${word}${date}`);
 }
 
-/** "Workshop: Indre barn med Steven - torsdag d. 12. november kl. 19.00. Læs mere og tilmeld dig via linket." */
-export function plainEventText(e: NewsletterEvent): string {
-  return `${listTitle(e.title)}${e.host ? ` med ${e.host}` : ""} - ${longWhen(e.startsMs)}. Læs mere og tilmeld dig via linket.`;
+/** The clock face nearest the time: 🕡 for 18.30, 🕖 for 19.00. */
+export function clockEmoji(ms: number): string {
+  const p = parts(ms), minutes = Number(p.hour) * 60 + Number(p.minute);
+  const half = Math.round(minutes / 30) % 48, hour = Math.floor(half / 2) % 12 || 12;
+  return String.fromCodePoint((half % 2 ? 0x1f55c : 0x1f550) + hour - 1);
 }
+/** Asked (the chair, 7 Nov 2026): "Sproget er nødt til at være meget mere friskt, og vi skal bruge emojis til opslagene" - with the time on lines of its own:
+ * "📅 Mandag d. 9. november" and "🕡 Kl. 18.45". */
+export const whenLines = (ms: number) => { const d = dayDate(ms); return `📅 ${d.charAt(0).toUpperCase()}${d.slice(1)}\n${clockEmoji(ms)} Kl. ${clock(ms)}`; };
+
+/** Without Saga: the event in the chair's form - "✨ Workshop: Indre barn med Steven", the day and time on lines of their own, and a warm ending. */
+export function plainEventText(e: NewsletterEvent): string {
+  return `✨ ${listTitle(e.title)}${e.host ? ` med ${firstWord(e.host)}` : ""}\n\n${whenLines(e.startsMs)}\n\nLæs mere og tilmeld dig via linket - vi ses i Hjerterum! ❤️`;
+}
+const firstWord = (name: string) => name.trim().split(/\s+/)[0] ?? name;
 export const PLAIN_WEEK_INTRO = "Her er ugens events i Hjerterum. Vi glæder os til at se dig.";
 
 /** The list under "Ugens events": one line per event, as the newsletter writes them ("TORS. 12/11 · 19.00 · Indre barn (Steven)"). */
