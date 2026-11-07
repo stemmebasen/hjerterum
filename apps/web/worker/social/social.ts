@@ -10,7 +10,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
 import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, withEventDate } from "./plan.js";
+import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -290,28 +290,44 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
 
 const WEEK_SYSTEM = `Du skriver Hjerterums opslag på Facebook og Instagram (Hjerterum er en forening og et hus i Aarhus for meditation, yoga, personlig udvikling og fællesskab).
 Du får ugens udvalgte events med en reference (E1, E2 ...). Svar KUN med JSON: {"uge": "...", "events": {"E1": "..."}}
-- "uge": 1-2 korte, varme sætninger (højst 35 ord), der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
-- "events": et lille opslag til hvert event på Facebook: 2-3 korte sætninger, højst 45 ord. Hvad det er, hvem der leder det (fornavn), og hvornår: ugedag med dato og "kl. TT.MM", som de står i feltet "hvornaar" (fx "lørdag d. 21. november kl. 10.30") - opslaget går ud en til to uger før, så ugedagen alene er ikke nok. Linket til eventet sættes på af systemet, så skriv ingen adresse.
-Varmt, konkret og roligt. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen hashtags, ingen udråbstegn.
-Emojis (formanden: "gerne nogle, der er baseret i naturen eller begejstring og kærlighed"): 1-2 i hver tekst, valgt så de passer til netop eventet - fra naturen (🌿 🍃 🌱 🌸 🌾 🍂 🌊 🌙 ☀️ 🌳 🪷) eller begejstring og kærlighed (🤍 💛 🧡 ✨ 🙌 🥰 💫). Ved en sætnings slutning, aldrig flere i træk.
+- "uge": 1-2 korte, friske sætninger (højst 35 ord) med 1-2 emojis, der indleder "Ugens events" - hvad ugen byder på (bredden, ingen navne). Listen over events sættes ind under teksten af systemet.
+- "events": et opslag til hvert event på Facebook. Formanden (7. nov. 2026): "Sproget er nødt til at være meget mere friskt, og vi skal bruge emojis til opslagene." Byg det sådan, med en tom linje mellem delene:
+  1. En første linje med en emoji, der passer til eventet, og et kort, levende udråb (højst 7 ord, gerne med udråbstegn).
+  2. Et kort afsnit (1-2 sætninger) om, hvad man oplever - til "du" eller "vi", konkret og ud fra beskrivelsen.
+  3. En linje om, hvem der leder det (fornavn), og gerne en konkret detalje fra beskrivelsen, med 1-2 emojis til sidst.
+  4. Feltet "hvornaar_linjer" præcis som det står (to linjer: 📅 dag og dato, og uret med "Kl. TT.MM").
+  5. En kort, inviterende afslutning med en emoji (fx ❤️ ✨ 🌿 🙌).
+  50-90 ord i alt. Linket til eventet sættes på af systemet, så skriv ingen adresse.
+Friskt, varmt og med begejstring - men ægte, aldrig sælgende. Find ikke på detaljer, der ikke står i beskrivelsen. Ingen helbredsløfter, ingen hashtags.
+Emojis: 4-7 i hvert opslag, valgt til netop eventet (🎬 film, 🎶 musik og lyd, 🔔 gong, 🧘 yoga og meditation, 💃 dans, ☕ café, 🍿 film og hygge, 🌿 🍂 🌙 🌸 natur, ❤️ ✨ 🙌 🤍 begejstring og kærlighed). Ved en sætnings slutning eller som markør i starten af en linje.
 Sproget (formanden: "Dette er dårligt dansk"): skriv mundret, naturligt dansk, som en dansk tekstforfatter skriver det, aldrig oversat engelsk.
 - Sammensatte ord skrives i ét ord: aurabalancering, lydhealing, yogaforløb, meditationsaften. Aldrig "aura balancering".
 - Hele sætninger med et udsagnsord. Ingen sætningsbrokker som "Fire timers aurabalancering i ro og nærvær."
 - Dansk kommatering: intet komma foran "med", "og" eller "i", som man ville sætte det på engelsk.
 - Ingen stive vendinger som "X leder den", "X faciliterer" eller "Oplev ...". Skriv fx "Marianne guider dig", "Kom med Marianne" eller "Marianne inviterer til".
 - Kun underviserens fornavn.
-Et eksempel på tonen (efterlign ikke ordene): "Lørdag kl. 13.00 inviterer Marianne til fire timers aurabalancering. Der er ro og nærvær og plads til bare at være."`;
+Formandens eget eksempel på formen og tonen (efterlign formen og friskheden, ikke ordene):
+"🎬 Film, fællesskab og gode snakke!
+
+Kom med til en hyggelig filmaften, hvor vi ser en film sammen og bagefter deler tanker, oplevelser og perspektiver.
+
+Line er aftenens vært, og caféen er selvfølgelig åben inden filmen ☕🍿
+
+📅 Mandag d. 9. november
+🕡 Kl. 18.45
+
+Tag plads, læn dig tilbage, og vær med til en aften med film og fællesskab! ❤️"`;
 
 type WeekWords = { intro: string; events: Record<string, string> };
 
 /** The second post about each event, a week before (shoutWindows): told differently from the first. */
-const REMINDER_RULE = `\nDette er det ANDET opslag om hvert event: en påmindelse cirka en uge før. Skriv det anderledes end et første opslag, fx med "om en uge", kort og med lyst til at komme - stadig med ugedag og dato. Gentag ikke en lang introduktion.`;
+const REMINDER_RULE = `\nDette er det ANDET opslag om hvert event: en påmindelse cirka en uge før. Skriv det anderledes end et første opslag, fx med "⏰ Om en uge ..." i første linje, kortere (40-70 ord) og med lyst til at komme - stadig i samme form med "hvornaar_linjer". Gentag ikke en lang introduktion.`;
 
 async function weekWords(env: SagaEnv, deps: SagaDeps, events: NewsletterEvent[], reminder = false): Promise<WeekWords> {
   const plain: WeekWords = { intro: PLAIN_WEEK_INTRO, events: Object.fromEntries(events.map((e, i) => [`E${i + 1}`, reminder ? `Om en uge: ${plainEventText(e)}` : plainEventText(e)])) };
   if (!env.AI_API_KEY || !env.AI_MODEL || !events.length) return plain;
   const raw = await completeAs("social-week", "mid", 2500)(env, deps, [{ role: "system", content: reminder ? WEEK_SYSTEM + REMINDER_RULE : WEEK_SYSTEM }, { role: "user", content: JSON.stringify(events.map((e, i) => ({
-    ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: longWhen(e.startsMs), beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
+    ref: `E${i + 1}`, titel: e.title, underviser: e.host, hvornaar: longWhen(e.startsMs), hvornaar_linjer: whenLines(e.startsMs), beskrivelse: e.description.slice(0, 600) }))) }]).catch(() => "");
   const json = /\{[\s\S]*\}/.exec(raw)?.[0];
   const data = json ? parse<{ uge?: unknown; events?: Record<string, unknown> }>(json, {}) : {};
   const clean = (v: unknown, max: number) => typeof v === "string" ? v.replace(/[ \t]+/g, " ").trim().slice(0, max) : "";
