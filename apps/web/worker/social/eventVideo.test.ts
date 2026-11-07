@@ -53,7 +53,7 @@ describe("an event's post with its video", () => {
     await publishDue(env as never, deps(fetcher, AT + 60_000), db);
     await publishDue(env as never, deps(fetcher, AT + 6 * 60_000), db);
     const reel = graph.find(c => c.path === "/17841/media")!;
-    expect(reel.params).toMatchObject({ media_type: "REELS", video_url: VIDEO, caption: "Kom til dans med Kasper.\n\nlink i bio" });
+    expect(reel.params).toMatchObject({ media_type: "REELS", video_url: VIDEO, caption: "Kom til dans med Kasper.\n\nlink i bio", thumb_offset: "4500" });
     // "Hvorfor er det, at vi ikke deler film på Facebook også?" - the video, with the words and the link.
     expect(graph.find(c => c.path === "/755/videos")!.params).toMatchObject({ file_url: VIDEO, description: "Kom til dans med Kasper.\n\nhttps://www.hjerterum.info/events/a" });
     expect(graph.some(c => c.path === "/755/feed" || c.path === "/755/photos")).toBe(false);

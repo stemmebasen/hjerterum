@@ -768,6 +768,9 @@ export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Da
 export class ReelPending extends Error { constructor() { super("reel_pending"); } }
 
 /** One approved post goes out: on each of its channels that it has not gone out on yet. */
+/** The moment of a reel Instagram takes as its cover. */
+export const REEL_COVER_MS = { event: 4500, week: 2500 };
+
 export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database, post: SocialPost): Promise<void> {
   const account = await socialAccount(db);
   if (!account) throw new Error("Facebook og Instagram er ikke forbundet");
@@ -795,7 +798,9 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
         if (post.source.format === "reel" || (post.kind === "event" && post.source.video && !post.source.noVideo)) {
           if (!post.source.video) throw new Error("Reelen har ingen video");
           const caption = await pub(post.kind === "event" ? post.source.instagramText || instagramEventText(post.text) : post.text);
-          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption, collaborators: post.source.collaborators ?? [] });
+          // The cover from when everything is in place (video/src: an event's video is whole by 4.5 s, "Ugens events" shows its week by 2.5 s).
+          done.instagram_container ??= await startReel(deps.fetcher, instagram, { videoUrl: post.source.video, caption, collaborators: post.source.collaborators ?? [],
+            thumbOffsetMs: post.source.format === "reel" ? REEL_COVER_MS.week : REEL_COVER_MS.event });
           await db.prepare("UPDATE social_posts SET published = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(done), deps.now(), post.id).run();
           const status = await reelStatus(deps.fetcher, instagram.token, done.instagram_container);
           if (status === "ERROR" || status === "EXPIRED") { delete done.instagram_container; throw new Error(`Instagram kunne ikke behandle videoen (${status})`); }

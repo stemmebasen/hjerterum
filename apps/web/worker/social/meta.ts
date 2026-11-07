@@ -244,9 +244,12 @@ export async function followerCounts(fetcher: Fetcher, page: { id: string; token
 
 /** Requested: "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel (.github/workflows/ugens-reel.yml makes the video). Instagram fetches
  * the video from its public address and works on it for a while, so a reel goes out in steps over Saga's rounds: the container, its status, the publishing. */
-export async function startReel(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { videoUrl: string; caption: string; collaborators?: string[] }): Promise<string> {
+/** Reported (the chair, 7 Nov 2026): "når vi laver videoer til Instagram, så starter de med en helt tom side, hvilket gør, at i oversigten på Instagram ... er der helt
+ * tomme thumbnails." Instagram takes the first frame as the reel's cover unless told otherwise: `thumbOffsetMs` is the moment the cover is taken from. */
+export async function startReel(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { videoUrl: string; caption: string; collaborators?: string[]; thumbOffsetMs?: number }): Promise<string> {
   const invited = (post.collaborators ?? []).slice(0, 3);
   return (await graph<{ id: string }>(fetcher, "POST", `/${account.igUserId}/media`, { media_type: "REELS", video_url: post.videoUrl, caption: post.caption, share_to_feed: "true",
+    ...(post.thumbOffsetMs ? { thumb_offset: String(Math.round(post.thumbOffsetMs)) } : {}),
     ...(invited.length ? { collaborators: JSON.stringify(invited) } : {}), access_token: account.token })).id;
 }
 export async function reelStatus(fetcher: Fetcher, token: string, container: string): Promise<string> {
