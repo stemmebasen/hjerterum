@@ -23,16 +23,33 @@ const BACKUP_LINE = "Sikkerhedskopi: hver nat ved 3-4-tiden gemmes en kopi af da
 /** Requested: "Vi skal have drag and drop i filarkivet". Files dropped anywhere on the page are put in the upload form and sent at once;
  * the form itself still works without the script. */
 function dropScript(): string {
+  // "zip-filer på ca. 600 MB": what is bigger than one request may be goes up in parts (archive.ts startBigUpload) - with how far it has come.
   return `<script>(()=>{const form=document.getElementById("fa-upload"),input=document.getElementById("fa-files"),over=document.getElementById("fa-over"),status=document.getElementById("fa-status");
-if(!form||!input||!over)return;const max=${MAX_UPLOAD_BYTES};let depth=0;
+if(!form||!input||!over)return;const max=${MAX_UPLOAD_BYTES},root=form.getAttribute("action").replace(/[/]upload$/,""),folder=form.querySelector("input[name=mappe]").value;let depth=0;
 const hasFiles=e=>Array.from(e.dataTransfer?.types||[]).includes("Files");
+const say=(t,bad)=>{status.textContent=t;status.classList.toggle("bad",Boolean(bad))};
+const mb=n=>Math.round(n/1048576).toLocaleString("da-DK");
+async function big(files){const b=form.querySelector("button");if(b){b.disabled=true;b.textContent="Lægger op …"}form.classList.add("busy");
+for(const [i,f] of Array.from(files).entries()){const label=(files.length>1?(i+1)+" af "+files.length+": ":"")+"”"+f.name+"”";
+const r=await fetch(root+"/stor/start",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({mappe:folder,navn:f.name,type:f.type,size:f.size})}).catch(()=>null);
+const s=r&&r.ok?await r.json():null;if(!s){say("Kunne ikke begynde på "+label+". Prøv igen.",1);return false}
+const parts=[];const size=s.partBytes;const count=Math.max(1,Math.ceil(f.size/size));
+for(let n=0;n<count;n++){say("Lægger "+label+" op … "+Math.round(n/count*100)+" % ("+mb(n*size)+" af "+mb(f.size)+" MB)");let p=null;
+for(let tries=0;tries<3&&!p;tries++){const q=await fetch(root+"/stor/del?k="+encodeURIComponent(s.key)+"&id="+encodeURIComponent(s.uploadId)+"&nr="+(n+1),{method:"PUT",body:f.slice(n*size,Math.min(f.size,(n+1)*size))}).catch(()=>null);p=q&&q.ok?await q.json():null}
+if(!p){await fetch(root+"/stor/slut",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({k:s.key,id:s.uploadId,afbryd:true})}).catch(()=>null);say(label+" blev afbrudt undervejs. Prøv igen.",1);return false}
+parts.push(p)}
+const d=await fetch(root+"/stor/slut",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({k:s.key,id:s.uploadId,parts})}).catch(()=>null);
+if(!d||!d.ok){say(label+" kunne ikke samles. Prøv igen.",1);return false}}
+location.href=root+"?"+(folder?"mappe="+encodeURIComponent(folder)+"&":"")+"besked=oppe";return true}
+const send=files=>{let total=0,biggest=0;for(const f of files){total+=f.size;biggest=Math.max(biggest,f.size)}
+if(total<=max){input.files=files;say("Lægger "+(files.length===1?"”"+files[0].name+"”":files.length+" filer")+" op …");form.classList.add("busy");form.requestSubmit();return}
+void big(files)};
 addEventListener("dragenter",e=>{if(!hasFiles(e))return;e.preventDefault();depth++;over.hidden=false});
 addEventListener("dragover",e=>{if(!hasFiles(e))return;e.preventDefault();e.dataTransfer.dropEffect="copy"});
 addEventListener("dragleave",e=>{if(!hasFiles(e))return;depth=Math.max(0,depth-1);if(!depth)over.hidden=true});
-addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();depth=0;over.hidden=true;const files=e.dataTransfer.files;if(!files.length)return;
-let total=0;for(const f of files)total+=f.size;if(total>max){status.textContent="Filerne fylder for meget på én gang (højst "+Math.round(max/1048576)+" MB). Læg dem op i flere omgange.";status.classList.add("bad");return}
-input.files=files;status.classList.remove("bad");status.textContent="Lægger "+(files.length===1?"\u201d"+files[0].name+"\u201d":files.length+" filer")+" op …";form.classList.add("busy");form.requestSubmit()});
-form.addEventListener("submit",()=>{const b=form.querySelector("button");if(b){b.disabled=true;b.textContent="Lægger op …"}});})()</script>`;
+addEventListener("drop",e=>{if(!hasFiles(e))return;e.preventDefault();depth=0;over.hidden=true;const files=e.dataTransfer.files;if(files.length)send(files)});
+form.addEventListener("submit",e=>{let total=0;for(const f of input.files)total+=f.size;if(total>max){e.preventDefault();void big(input.files);return}
+const b=form.querySelector("button");if(b){b.disabled=true;b.textContent="Lægger op …"}});})()</script>`;
 }
 
 /** canManage: the chair (archive.manage) - deleting, and the database's nightly copies. The board sees, adds and fetches files (the chair, 6 Nov 2026). */
@@ -58,7 +75,7 @@ ${data.ready ? `<div class="fa-actions">
 <form method="post" action="${base}/filarkiv/upload" enctype="multipart/form-data" class="card fa-drop" id="fa-upload"><input type="hidden" name="mappe" value="${esc(view.folder)}">
 <label for="fa-files"><b>Læg filer op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</b></label>
 <p class="fa-hint">Træk filerne hertil - eller vælg dem herunder.</p><input id="fa-files" type="file" name="filer" multiple required>
-<small class="muted" id="fa-status">Højst ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB ad gangen.</small><button>Læg op</button></form>
+<small class="muted" id="fa-status">Også store filer, fx zip-filer på flere GB: de lægges op i bidder, og siden viser, hvor langt den er.</small><button>Læg op</button></form>
 <form method="post" action="${base}/filarkiv/mappe" class="card"><input type="hidden" name="mappe" value="${esc(view.folder)}">
 <label for="fa-new"><b>Ny mappe</b></label><input id="fa-new" name="navn" required maxlength="120" placeholder="Fx Regnskaber"><button class="ghost">Opret mappen</button></form></div>
 <div class="fa-over" id="fa-over" hidden><p>Slip filerne for at lægge dem op${view.folder ? ` i ${esc(parts[parts.length - 1]!)}` : ""}</p></div>${dropScript()}` : ""}

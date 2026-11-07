@@ -11,12 +11,21 @@ export type ArchiveBucket = {
   head(key: string): Promise<ArchiveObject | null>;
   put(key: string, value: ReadableStream | ArrayBuffer | Uint8Array | string, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
   delete(keys: string | string[]): Promise<void>;
+  createMultipartUpload?(key: string, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<{ key: string; uploadId: string }>;
+  resumeMultipartUpload?(key: string, uploadId: string): ArchiveMultipart;
 };
+export type ArchivePart = { partNumber: number; etag: string };
+export type ArchiveMultipart = { uploadPart(partNumber: number, value: ReadableStream | ArrayBuffer | Uint8Array): Promise<ArchivePart>; complete(parts: ArchivePart[]): Promise<unknown>; abort(): Promise<void> };
 
 export const FILES = "filer/";
 export const COPIES = "kopier/";
 const FOLDER_MARK = ".mappe";
 export const MAX_UPLOAD_BYTES = 95 * 1024 * 1024;
+/** Asked (7 Nov 2026): "får fejlen »413 Payload Too Large« på de store filer (zip-filer på ca. 600 MB). Kan du hæve grænsen for upload" - Cloudflare takes at most
+ * about 100 MB in one request, so a big file goes up in parts of PART_BYTES (R2's multipart upload: every part but the last the same size), put together in the
+ * archive. Up to MAX_BIG_BYTES a file. */
+export const PART_BYTES = 50 * 1024 * 1024;
+export const MAX_BIG_BYTES = 20 * 1024 * 1024 * 1024;
 
 /** A name as one may keep it: no slashes, no control characters, not empty, not "." or "..". */
 export function cleanName(raw: string): string {
@@ -53,15 +62,43 @@ export async function listFolder(bucket: ArchiveBucket, folderPath: string): Pro
 }
 
 /** A file into a folder; a name already there gets " (2)", " (3)" ... */
-export async function uploadFile(bucket: ArchiveBucket, folderPath: string, file: { name: string; type: string; bytes: ArrayBuffer }, by: string, nowMs: number): Promise<string> {
+/** A name not yet taken in the folder: "x.pdf", else "x (2).pdf" ... */
+async function freeKey(bucket: ArchiveBucket, folderPath: string, fileName: string): Promise<string> {
   const prefix = prefixOf(cleanFolder(folderPath));
-  const name = cleanName(file.name) || "fil";
+  const name = cleanName(fileName) || "fil";
   const dot = name.lastIndexOf(".");
   const [stem, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ""];
   let key = `${prefix}${name}`;
   for (let n = 2; await bucket.head(key) && n < 100; n++) key = `${prefix}${stem} (${n})${ext}`;
+  return key;
+}
+
+export async function uploadFile(bucket: ArchiveBucket, folderPath: string, file: { name: string; type: string; bytes: ArrayBuffer }, by: string, nowMs: number): Promise<string> {
+  const key = await freeKey(bucket, folderPath, file.name);
   await bucket.put(key, file.bytes, { httpMetadata: { contentType: file.type || "application/octet-stream" }, customMetadata: { by, at: String(nowMs) } });
   return key;
+}
+
+/** A big file begun: where it goes, and the upload's id for its parts. */
+export async function startBigUpload(bucket: ArchiveBucket, folderPath: string, file: { name: string; type: string; size: number }, by: string, nowMs: number): Promise<{ key: string; uploadId: string } | null> {
+  if (!bucket.createMultipartUpload || !(file.size > 0) || file.size > MAX_BIG_BYTES) return null;
+  const key = await freeKey(bucket, folderPath, file.name);
+  const made = await bucket.createMultipartUpload(key, { httpMetadata: { contentType: file.type || "application/octet-stream" }, customMetadata: { by, at: String(nowMs) } });
+  return { key: made.key, uploadId: made.uploadId };
+}
+
+/** One part of a big file (1, 2, 3 ...), and its receipt. Only in the file archive. */
+export async function uploadBigPart(bucket: ArchiveBucket, key: string, uploadId: string, partNumber: number, body: ReadableStream | ArrayBuffer): Promise<ArchivePart | null> {
+  if (!bucket.resumeMultipartUpload || !key.startsWith(FILES) || key.includes("/../") || !uploadId || !(partNumber >= 1 && partNumber <= 10_000)) return null;
+  return bucket.resumeMultipartUpload(key, uploadId).uploadPart(partNumber, body);
+}
+
+export async function finishBigUpload(bucket: ArchiveBucket, key: string, uploadId: string, parts: ArchivePart[] | null): Promise<boolean> {
+  if (!bucket.resumeMultipartUpload || !key.startsWith(FILES) || key.includes("/../") || !uploadId) return false;
+  const upload = bucket.resumeMultipartUpload(key, uploadId);
+  if (!parts) { await upload.abort(); return true; }
+  await upload.complete([...parts].sort((a, b) => a.partNumber - b.partNumber));
+  return true;
 }
 
 export async function makeFolder(bucket: ArchiveBucket, folderPath: string, name: string): Promise<string | null> {
