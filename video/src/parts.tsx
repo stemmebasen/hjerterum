@@ -38,7 +38,8 @@ export function lines(text: string, chars: number, max = 4): string[] {
   return out.length > max ? [...out.slice(0, max - 1), out.slice(max - 1).join(" ")] : out;
 }
 
-/** Hjerterum's own stamp (apps/web/public/brand/hjerterum-stempel.png, copied in), in one colour, turning from 270 degrees into place. */
+/** Hjerterum's own round logo (apps/web/public/brand/hjerterum-rundt-logo.png, copied in - the chair, 7 Nov 2026: "Kan dette runde logo bruges i Pr i stedet for
+ * »Vi følger hinanden hjem«?"), in one colour, turning from 270 degrees into place. */
 export const Stamp: React.FC<{ size: number; color: string; delay?: number; style?: React.CSSProperties }> = ({ size, color, delay = 0, style }) => {
   const f = useCurrentFrame(), { fps } = useVideoConfig();
   const t = interpolate(f - delay, [0, fps * 1.6], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.out(Easing.cubic) });

@@ -1,6 +1,6 @@
 // Renders the jobs that video/jobs.mjs wrote:  node video/render.mjs <out-dir>
 // Each finished video is <out-dir>/<job.out>; <out-dir>/done.json lists the jobs that were made (a job that fails is left out, and its post keeps
-// its picture). The house's own stamp is copied in first (apps/web/public/brand/hjerterum-stempel.png) - never a logo of our own making.
+// its picture). The house's own round logo is copied in first (apps/web/public/brand/hjerterum-rundt-logo.png, the chair's file, 7 Nov 2026) - never a logo of our own making.
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,7 @@ const out = process.argv[2];
 const jobs = existsSync(join(out, "jobs.json")) ? JSON.parse(readFileSync(join(out, "jobs.json"), "utf8")) : [];
 const done = [];
 if (jobs.length) {
-  copyFileSync(join(HERE, "..", "apps", "web", "public", "brand", "hjerterum-stempel.png"), join(HERE, "public", "stempel.png"));
+  copyFileSync(join(HERE, "..", "apps", "web", "public", "brand", "hjerterum-rundt-logo.png"), join(HERE, "public", "stempel.png"));
   const serveUrl = await bundle({ entryPoint: join(HERE, "src", "index.ts"), publicDir: join(HERE, "public") });
   const browserExecutable = process.env.REMOTION_BROWSER || null;
   for (const job of jobs) {
