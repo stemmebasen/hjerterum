@@ -1,6 +1,6 @@
 import { setSiteLive, siteLive, toPublicSite } from "../public-site.js";
 import { WEBMAIL_PAGE_HEADERS, webmailRoute } from "./webmail.js";
-import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, makeFolder, MAX_UPLOAD_BYTES, uploadFile, type ArchiveObject } from "../archive.js";
+import { cleanFolder, copies, COPIES, deleteFile, deleteFolder, FILES, listFolder, finishBigUpload, makeFolder, MAX_UPLOAD_BYTES, PART_BYTES, startBigUpload, uploadBigPart, uploadFile, type ArchiveObject } from "../archive.js";
 import { copiesPage, eventMaterialPage, fileArchivePage } from "./filearchivePage.js";
 import { listMailHtml } from "../newsletter.js";
 import { AUDIENCES, audienceCount, draftListMail, listMail, listMailReady, listMails, newListMail, readListMailForm, saveListMail, sendListMail, testListMail } from "../list-mail.js";
@@ -1446,6 +1446,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!object) return html(notFound(base, who), 404);
       if (path === "/filarkiv/kopi") await audit(db, actor, "archive.manage", `Hentede kopien ${key.slice(COPIES.length)}`, now);
       return download(object, key.slice(key.lastIndexOf("/") + 1));
+    }
+    // "får fejlen »413 Payload Too Large« på de store filer (zip-filer på ca. 600 MB)" (archive.ts): a big file in parts, put together in the archive.
+    if (path === "/filarkiv/stor/start" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { mappe?: unknown; navn?: unknown; type?: unknown; size?: unknown } | null;
+      const started = await startBigUpload(bucket, cleanFolder(String(body?.mappe ?? "")), { name: String(body?.navn ?? ""), type: String(body?.type ?? ""), size: Number(body?.size) }, who, now).catch(() => null);
+      return started ? answer({ ...started, partBytes: PART_BYTES }) : answer({ error: "not_possible" }, 400);
+    }
+    if (path === "/filarkiv/stor/del" && request.method === "PUT") {
+      const part = await uploadBigPart(bucket, url.searchParams.get("k") ?? "", url.searchParams.get("id") ?? "", Number(url.searchParams.get("nr")), request.body ?? new ArrayBuffer(0)).catch(() => null);
+      return part ? answer(part) : answer({ error: "part_failed" }, 400);
+    }
+    if (path === "/filarkiv/stor/slut" && request.method === "POST") {
+      const body = await request.json().catch(() => null) as { k?: unknown; id?: unknown; parts?: unknown; afbryd?: unknown } | null;
+      const key = String(body?.k ?? ""), parts = Array.isArray(body?.parts) ? (body!.parts as Array<{ partNumber: number; etag: string }>).filter(p => Number.isInteger(p?.partNumber) && typeof p?.etag === "string") : [];
+      const done = await finishBigUpload(bucket, key, String(body?.id ?? ""), body?.afbryd === true ? null : parts).catch(() => false);
+      if (done && body?.afbryd !== true) await audit(db, actor, "archive.manage", `Lagde "${key.slice(FILES.length)}" op i filarkivet`, now);
+      return done ? answer({ ok: true }) : answer({ error: "not_finished" }, 400);
     }
     if (request.method !== "POST") return html(notFound(base, who), 404);
     const form = await request.formData().catch(() => null);

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanFolder, copiesToKeep, deleteFile, deleteFolder, listFolder, makeFolder, pruneCopies, uploadFile, type ArchiveBucket, type ArchiveObject } from "./archive.js";
+import { cleanFolder, copiesToKeep, deleteFile, deleteFolder, finishBigUpload, listFolder, makeFolder, MAX_BIG_BYTES, pruneCopies, startBigUpload, uploadBigPart, uploadFile, type ArchiveBucket, type ArchiveObject } from "./archive.js";
 import { handleCockpitRequest } from "./cockpit/handler.js";
 import { scheduledArchive } from "./archive-jobs.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase, memberCookie } from "./saga/test-support.js";
@@ -8,6 +8,7 @@ import { saveBoardMessage } from "./saga/store.js";
 /** R2, in memory. */
 export function memoryBucket(): ArchiveBucket & { keys(): string[] } {
   const store = new Map<string, { bytes: Uint8Array; meta: ArchiveObject }>();
+  const uploads = new Map<string, { key: string; options: { customMetadata?: Record<string, string> } | undefined; parts: Map<number, Uint8Array> }>();
   const bytesOf = async (v: ReadableStream | ArrayBuffer | Uint8Array | string) => typeof v === "string" ? new TextEncoder().encode(v) : v instanceof Uint8Array ? v : v instanceof ArrayBuffer ? new Uint8Array(v) : new Uint8Array(await new Response(v).arrayBuffer());
   return {
     keys: () => [...store.keys()].sort(),
@@ -15,6 +16,17 @@ export function memoryBucket(): ArchiveBucket & { keys(): string[] } {
     async head(key) { return store.get(key)?.meta ?? null; },
     async get(key) { const o = store.get(key); return o ? { ...o.meta, body: new Response(o.bytes as unknown as BodyInit).body! } : null; },
     async delete(keys) { for (const k of Array.isArray(keys) ? keys : [keys]) store.delete(k); },
+    // R2's multipart upload, as far as the archive uses it: parts kept by number, put together on complete.
+    async createMultipartUpload(key, options) { const uploadId = `up-${key}`; uploads.set(uploadId, { key, options, parts: new Map() }); return { key, uploadId }; },
+    resumeMultipartUpload(key, uploadId) {
+      const up = uploads.get(uploadId)!;
+      return {
+        async uploadPart(n, value) { up.parts.set(n, await bytesOf(value)); return { partNumber: n, etag: `e${n}` }; },
+        async complete(parts) { const all = parts.map(p => up.parts.get(p.partNumber)!); const bytes = new Uint8Array(all.reduce((a, b) => a + b.byteLength, 0)); let at = 0; for (const b of all) { bytes.set(b, at); at += b.byteLength; }
+          store.set(key, { bytes, meta: { key, size: bytes.byteLength, uploaded: new Date(), ...(up.options?.customMetadata ? { customMetadata: up.options.customMetadata } : {}) } }); uploads.delete(uploadId); },
+        async abort() { uploads.delete(uploadId); }
+      };
+    },
     async list({ prefix = "", delimiter }) {
       const objects: ArchiveObject[] = [], prefixes = new Set<string>();
       for (const [key, o] of [...store].sort(([a], [b]) => a.localeCompare(b))) {
@@ -26,6 +38,24 @@ export function memoryBucket(): ArchiveBucket & { keys(): string[] } {
     }
   };
 }
+
+// Asked (7 Nov 2026): "får fejlen »413 Payload Too Large« på de store filer (zip-filer på ca. 600 MB). Kan du hæve grænsen for upload".
+describe("big files in the file archive", () => {
+  it("go up in parts and are put together, under a name not taken, and only in the file archive", async () => {
+    const bucket = memoryBucket();
+    await bucket.put("filer/Hjerterum day/dag.zip", "x");
+    const started = (await startBigUpload(bucket, "Hjerterum day", { name: "dag.zip", type: "application/zip", size: 7 }, "Gitta", 0))!;
+    expect(started.key).toBe("filer/Hjerterum day/dag (2).zip");
+    const second = await uploadBigPart(bucket, started.key, started.uploadId, 2, new TextEncoder().encode("DEF").buffer);
+    const first = await uploadBigPart(bucket, started.key, started.uploadId, 1, new TextEncoder().encode("ABCD").buffer);
+    expect(await finishBigUpload(bucket, started.key, started.uploadId, [second!, first!])).toBe(true);
+    expect(new TextDecoder().decode(await new Response((await bucket.get(started.key))!.body).arrayBuffer())).toBe("ABCDDEF");
+    expect((await bucket.head(started.key))!.customMetadata).toMatchObject({ by: "Gitta" });
+    // Never outside the files - not among the nightly copies.
+    expect(await uploadBigPart(bucket, "kopier/x.sql.gz", started.uploadId, 1, new ArrayBuffer(1))).toBeNull();
+    expect(await startBigUpload(bucket, "", { name: "for-stor.zip", type: "", size: MAX_BIG_BYTES + 1 }, "Gitta", 0)).toBeNull();
+  });
+});
 
 // Requested: "kan vi ikke helt erstatte Google-kontoen og så lave 'vores egen Google-konto' med R2 i admin?" - "Og så skal der i admin være et form for filarkiv".
 describe("the file archive", () => {

@@ -1434,3 +1434,12 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 
 - **Formanden:** "Kan dette runde logo bruges i Pr i stedet for »Vi følger hinanden hjem«?" Plakaterne og opslagenes designs (`LOGO_FILE`) og videoerne (`video/public/stempel.png`) bruger nu det runde HJERTERUM-logo med hænderne om hjertet.
 - Det er formandens egen fil. Kun den hvide baggrund er gjort gennemsigtig (`public/brand/hjerterum-rundt-logo.png`), så logoet kan få designets farve som før. Den gamle fil ligger der stadig.
+
+## Store filer i Filarkivet (2026-11-07)
+
+- **Meldt:** "får fejlen »413 Payload Too Large« på de store filer (zip-filer på ca. 600 MB). Kan du hæve grænsen for upload". Cloudflare tager højst omkring 100 MB i én forespørgsel.
+- **Nu:** filer over 95 MB lægges op i dele á 50 MB med R2's multipart upload (`startBigUpload`, `uploadBigPart` og `finishBigUpload` i `archive.ts`, ruterne `/filarkiv/stor/start|del|slut`). Delene samles i arkivet til én fil.
+  - Op til 20 GB pr. fil.
+  - Siden viser, hvor langt uploaden er, og hver del prøves op til tre gange.
+  - Afbrydes uploaden, ryddes den op.
+  - Kun i `filer/`, aldrig blandt de natlige kopier. Suppleanter kan ikke lægge op.
