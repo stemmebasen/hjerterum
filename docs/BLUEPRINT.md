@@ -1429,3 +1429,8 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
 - **Ikke en kopi:** mapperne viser selve materialet, så Filarkivet og Plakater og opslag altid viser det samme.
 - **Saga søger i mapperne:** på Plakater og opslag tilbydes billeder og filer fra underviserens mappe ("Fra underviserens mappe: …"). En PR-mail, der ikke kan kobles til ét event, men er fra en kendt underviser, lægges i underviserens egen mappe.
 - **Adgang:** bestyrelsen ser, henter og lægger op. Kun formanden sletter (`archive.manage`). Suppleanter kan kun læse.
+
+## Det runde HJERTERUM-logo i PR (2026-11-07)
+
+- **Formanden:** "Kan dette runde logo bruges i Pr i stedet for »Vi følger hinanden hjem«?" Plakaterne og opslagenes designs (`LOGO_FILE`) og videoerne (`video/public/stempel.png`) bruger nu det runde HJERTERUM-logo med hænderne om hjertet.
+- Det er formandens egen fil. Kun den hvide baggrund er gjort gennemsigtig (`public/brand/hjerterum-rundt-logo.png`), så logoet kan få designets farve som før. Den gamle fil ligger der stadig.

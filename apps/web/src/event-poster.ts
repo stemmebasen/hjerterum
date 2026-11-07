@@ -389,10 +389,11 @@ export function blob(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, w
 }
 
 /** Hjerterum's hands in one colour (the logo file is light on transparent). */
-/** Hjerterum's logo - the round mark "VI FØLGER HINANDEN HJEM" around the hands holding the heart, exactly as the chair sent it
- * (public/brand/hjerterum-stempel.png): "NEJ, du må ikke tegne dit eget logo. Du skal bruge mit". It is one colour on a clear
- * ground, so it is only given the design's colour. Centre (cx, cy), radius r. */
-export const LOGO_FILE = "/brand/hjerterum-stempel.png";
+/** Hjerterum's logo, exactly as the chair sent it: "NEJ, du må ikke tegne dit eget logo. Du skal bruge mit". First the round mark "VI FØLGER HINANDEN HJEM"
+ * (public/brand/hjerterum-stempel.png); then (the chair, 7 Nov 2026): "Kan dette runde logo bruges i Pr i stedet for »Vi følger hinanden hjem«?" - the round
+ * "HJERTERUM" around the hands holding the heart (public/brand/hjerterum-rundt-logo.png: the chair's file, only its white ground made clear). It is one colour on
+ * a clear ground, so it is only given the design's colour. Centre (cx, cy), radius r. */
+export const LOGO_FILE = "/brand/hjerterum-rundt-logo.png";
 export function stamp(ctx: Ctx, img: HTMLImageElement | null, cx: number, cy: number, r: number, color: string) {
   if (!img) return;
   // The chair (6 Nov 2026): "Logoet er også meget, meget lille ... Der må være en minimumsstørrelse for logoet, så man kan se det ordentligt på opslagene."
