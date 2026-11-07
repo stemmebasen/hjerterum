@@ -8,7 +8,7 @@ import { saveBoardMessage } from "./saga/store.js";
 /** R2, in memory. */
 export function memoryBucket(): ArchiveBucket & { keys(): string[] } {
   const store = new Map<string, { bytes: Uint8Array; meta: ArchiveObject }>();
-  const uploads = new Map<string, { key: string; options?: { customMetadata?: Record<string, string> }; parts: Map<number, Uint8Array> }>();
+  const uploads = new Map<string, { key: string; options: { customMetadata?: Record<string, string> } | undefined; parts: Map<number, Uint8Array> }>();
   const bytesOf = async (v: ReadableStream | ArrayBuffer | Uint8Array | string) => typeof v === "string" ? new TextEncoder().encode(v) : v instanceof Uint8Array ? v : v instanceof ArrayBuffer ? new Uint8Array(v) : new Uint8Array(await new Response(v).arrayBuffer());
   return {
     keys: () => [...store.keys()].sort(),
