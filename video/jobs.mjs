@@ -163,10 +163,12 @@ async function weekJob(weekPath, eventsPath, out, now) {
   const name = `${String(w.week).toLowerCase()}-${randomBytes(6).toString("hex")}`;
   const reelSource = { format: "reel", video: `${SITE}/api/social-reels/${name}.mp4`, events: source.events ?? [], collaborators: source.collaborators ?? [] };
   const caption = String(source.instagramText || w.text || "").trim();
-  const at = Number(w.publish_at_ms) + 3_600_000;
+  // "sikr der køres én gang på IG og en gang på FB kl. 7.30" (the chair, 8 Nov 2026): the reel on both, at Ugens events' own time - and the picture post
+  // then stays home (social.ts publishOne).
+  const at = Number(w.publish_at_ms);
   writeFileSync(join(out, "jobs.json"), JSON.stringify([{ composition: "Week", props, out: `${name}.mp4`, name,
     sql: "INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms) VALUES " +
-      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
+      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["facebook","instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
   console.log("Ugens reel:", name, events.length, "events");
 }
 

@@ -1076,8 +1076,12 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
       if (done[channel] || dueAt(post, channel) > deps.now()) continue;
       // Asked (the chair, 6 Nov 2026): "Hvorfor er det, at vi ikke deler film på Facebook også?" - "Videoen på begge": an event's video goes on Facebook too,
       // with the words and the link in them (pages_manage_posts). Should Facebook refuse it for want of a permission, the picture goes out as before.
-      const facebookVideo = channel === "facebook" && post.kind === "event" && post.source.video && !post.source.noFacebookVideo
-        ? await postVideoToPage(deps.fetcher, page, { url: post.source.video, description: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) }).catch(error => {
+      // Requested (the chair, 8 Nov 2026): "sikr der køres én gang på IG og en gang på FB kl. 7.30" - Ugens reel is a video on Facebook too, its words with
+      // the website's events in place of "linket i bio".
+      const weekReel = post.kind === "week" && post.source.format === "reel";
+      const facebookVideo = channel === "facebook" && (post.kind === "event" || weekReel) && post.source.video && !post.source.noFacebookVideo
+        ? await postVideoToPage(deps.fetcher, page, { url: post.source.video, description: await pub(weekReel ? post.text.replace(/via linket i bio/gi, `på ${SITE.replace(/^https?:\/\//, "")}/events`)
+          : post.link ? `${post.text}\n\n${post.link}` : post.text) }).catch(error => {
           if (/permission|\(#10\)|\(#200\)|publish_video|meta_403/i.test(error instanceof Error ? error.message : String(error))) return null;
           throw error;
         }) : null;
@@ -1228,6 +1232,12 @@ export async function publishOne(env: SocialEnv, deps: SagaDeps, db: D1Database,
     const some = Object.keys(post.published).some(k => k === "facebook" || k === "instagram");
     await db.prepare(`UPDATE social_posts SET status = ?, error = ?, ${some ? "published_at_ms = coalesce(published_at_ms, ?)," : ""} updated_at_ms = ? WHERE id = ?`)
       .bind(...[some ? "published" : "skipped", some ? "Eventet var begyndt, før det skulle ud på det andet medie" : "Eventet var begyndt, før opslaget skulle ud", ...(some ? [now] : []), now, post.id]).run();
+    return false;
+  }
+  // "sikr der køres én gang på IG og en gang på FB": with Ugens reel approved (on both), the week's picture post does not go out as well.
+  if (post.kind === "week" && post.source.format !== "reel" && post.week
+    && await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ? AND status IN ('approved', 'publishing', 'published')").bind(`reel:${post.week}`).first().catch(() => null)) {
+    await db.prepare("UPDATE social_posts SET status = 'skipped', error = 'Ugens reel går ud i stedet - én gang på hvert medie', updated_at_ms = ? WHERE id = ? AND status = 'approved'").bind(now, post.id).run();
     return false;
   }
   // Claimed first, so two rounds (or a round and the cockpit) never send the same post.

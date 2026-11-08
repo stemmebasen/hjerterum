@@ -121,10 +121,10 @@ const COLLAB_HELP = `<small class="pr-help">Instagram sender en invitation til d
 function reelCard(base: string, p: SocialPost): string {
   const locked = !open(p) || p.status === "approved";
   return `<article class="pr-post">
-<header>${status(p)}<b>Ugens events som reel</b> <span class="small muted">Instagram</span></header>
+<header>${status(p)}<b>Ugens events som reel</b> <span class="small muted">${p.channels.includes("facebook") ? "Instagram og Facebook · erstatter billedopslaget, når den er godkendt" : "Instagram"}</span></header>
 ${p.source.video ? `<video class="pr-reel" src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
-<label class="pr-field"><span>Teksten på Instagram</span><textarea name="text" rows="8"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
+<label class="pr-field"><span>${p.channels.includes("facebook") ? "Teksten (på Facebook står eventsiden i stedet for \"linket i bio\")" : "Teksten på Instagram"}</span><textarea name="text" rows="8"${locked ? " disabled" : ""}>${esc(p.text)}</textarea></label>
 <label class="pr-field"><span>Vis også opslaget på deres Instagram (samarbejde)</span>${COLLAB_HELP}<input name="collaborators" value="${esc((p.source.collaborators ?? []).map(n => "@" + n).join(", "))}"${locked ? " disabled" : ""}></label>
 <div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label></div>
 ${actions(base, p, "Godkend")}</form></article>`;
