@@ -1468,3 +1468,13 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - Højst 10 sletninger pr. runde.
   - Formanden får besked på Telegram, og kalenderen viser "Slettet efter eventet".
 - En sletning kan ikke fortrydes, og likes og kommentarer forsvinder med opslaget.
+
+## Dine egne opslag i PR-kalenderen (2026-11-08)
+
+- **Spurgt (formanden):** "bliver de manuelle posts jeg laver også registreret i kalenderen så vi ikke lægger dobbelt ind?"
+- **Saga læser sidens egne opslag** på Facebook og Instagram hvert kvarter (`findOwnPosts` i `worker/social/social.ts`).
+  - Hun finder opslag, hun ikke selv har lavet, om et kommende event. Det genkendes på eventets Facebook-begivenhed, eventets side på hjemmesiden eller titlen i teksten.
+  - Opslaget kommer i PR-kalenderen som publiceret, mærket "dit eget opslag".
+- **Ingen dobbelt-deling:** Sagas forslag om samme event på samme medie, op til fire dage før eller efter dit opslag, tages af. Har forslaget begge medier, beholder det det andet medie.
+  - Et godkendt opslag ændrer Saga ikke. Du får besked på Telegram, så du selv kan stoppe det.
+- **Dine egne opslag slettes aldrig af Saga**, heller ikke dagen efter eventet.

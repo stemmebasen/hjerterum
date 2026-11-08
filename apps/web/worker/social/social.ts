@@ -54,6 +54,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     /** Gone out as the event itself (shareEventInstead): its picture or video with the short fixed words (eventItselfText) - not Saga's, not a link card.
      * (`fbEventShare`/`pageShare`: the link card of the first version, 8 Nov 2026.) */
     eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean; noFbEventTold?: 1;
+    /** Posted by the chair directly on Facebook or Instagram (findOwnPosts): in the calendar, never deleted by Saga. */
+    own?: boolean;
     /** The event's own picture, kept when the chair's design takes its place (setPostDesign) - for the post made the event itself again (asEventItself). */
     eventImage?: string;
     /** The chair chose the time (moved it in the calendar, or saved it): Saga does not move it (pullEarlier). */
@@ -608,7 +610,7 @@ export async function deleteOldEventPosts(env: SocialEnv, deps: SagaDeps, db: D1
   const now = deps.now();
   // Published posts of events begun at least a day ago and not more than 60 days ago (older ones were before this rule).
   const posts = (await socialPosts(db, `kind = 'event' AND status = 'published' AND json_extract(source, '$.startsMs') < ? AND json_extract(source, '$.startsMs') > ?`,
-    [now - 14 * 3_600_000, now - 60 * 86_400_000], "published_at_ms, id", 500)).filter(p => p.source.key && p.source.startsMs && !p.source.removed);
+    [now - 14 * 3_600_000, now - 60 * 86_400_000], "published_at_ms, id", 500)).filter(p => p.source.key && p.source.startsMs && !p.source.removed && !p.source.own);
   const byEvent = new Map<string, SocialPost[]>();
   for (const p of posts) byEvent.set(p.source.key!, [...(byEvent.get(p.source.key!) ?? []), p]);
   const { page, instagram } = await access(env, account);
@@ -800,6 +802,75 @@ export async function redoEventItself(env: SocialEnv, deps: SagaDeps, db: D1Data
     done++;
   }
   return done;
+}
+
+/** Asked (the chair, 8 Nov 2026): "bliver de manuelle posts jeg laver også registreret i kalenderen så vi ikke lægger dobbelt ind?" Saga reads the page's own
+ * recent posts on Facebook and Instagram; one Saga did not make, about a coming event (its Facebook event's address, its page on the website, or its title
+ * in the words), is put in the calendar as published - "dit eget opslag" - and Saga's proposals for that event on that medium within four days of it are
+ * set aside (an approved one is only told about). */
+const OWN_WINDOW_MS = 4 * 86_400_000;
+const plain = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+export function aboutEvent(words: string, refs: string[], event: { title: string; fbLink: string | null; links: string[] }): boolean {
+  const fbId = event.fbLink?.match(/events\/(\d+)/)?.[1];
+  if (fbId && [words, ...refs].some(r => r.includes(fbId))) return true;
+  if (event.links.some(l => l.length > 12 && [words, ...refs].some(r => r.includes(l.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))))) return true;
+  const text = ` ${plain(words)} `;
+  // The title, or its first part (before " - ", "|", ":" or ","), when it is long enough to tell one event from another.
+  return [event.title, event.title.split(/\s[-–|:]\s|,|\|/)[0] ?? ""].map(plain).some(t => t.length >= 8 && text.includes(` ${t} `));
+}
+export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const account = await socialAccount(db);
+  if (!account) return 0;
+  const now = deps.now();
+  const { page, instagram } = await access(env, account);
+  const fb = (await pagePosts(deps.fetcher, page, 30)).map(p => ({ network: "facebook" as const, id: p.id, createdMs: p.createdMs, words: p.message, refs: p.refs, permalink: p.permalink }));
+  const ig = instagram ? (await ownInstagramMedia(deps.fetcher, instagram, 30)).map(m => ({ network: "instagram" as const, id: m.id, createdMs: m.createdMs, words: m.caption, refs: [], permalink: m.permalink })) : [];
+  const recent = [...fb, ...ig].filter(p => p.id && p.createdMs >= Math.max(account.connected_at_ms, now - 14 * 86_400_000));
+  if (!recent.length) return 0;
+  // What Saga put out herself (or already has): by its id, or by its time on that medium (a video's post has an id of its own).
+  const mine = await db.prepare("SELECT published, published_at_ms, source_key FROM social_posts WHERE published != '{}' OR source_key LIKE 'own:%'").all<{ published: string; published_at_ms: number | null; source_key: string }>()
+    .then(r => r.results ?? []).catch(() => []);
+  const ids = new Set(mine.flatMap(r => { const p = JSON.parse(r.published || "{}") as Record<string, string>; return [p.facebook, p.instagram, r.source_key.startsWith("own:") ? r.source_key.split(":").pop() : undefined]; }).filter(Boolean));
+  const times = mine.map(r => r.published_at_ms ?? 0).filter(Boolean);
+  const fresh = recent.filter(p => !ids.has(p.id) && ![...ids].some(i => typeof i === "string" && i.endsWith(`_${p.id.split("_").pop()}`)) && !times.some(t => Math.abs(t - p.createdMs) < 15 * MINUTE));
+  if (!fresh.length) return 0;
+  // The coming events: the calendar's, and those with posts (some are only in the membership system's list).
+  const listed = (await facebookEvents(db, now - 86_400_000, 70)).map(e => ({ key: e.key, title: e.title, startsMs: e.startsMs }));
+  const withPosts = (await db.prepare(`SELECT json_extract(source, '$.key') AS k, max(json_extract(source, '$.title')) AS t, max(json_extract(source, '$.startsMs')) AS s, group_concat(DISTINCT link) AS l FROM social_posts
+      WHERE kind = 'event' AND json_extract(source, '$.startsMs') > ? AND json_extract(source, '$.key') IS NOT NULL GROUP BY k`).bind(now - 86_400_000)
+    .all<{ k: string; t: string | null; s: number; l: string | null }>().then(r => r.results ?? []).catch(() => []));
+  const events = new Map<string, { key: string; title: string; startsMs: number; links: string[]; fbLink: string | null }>();
+  for (const e of listed) events.set(e.key, { ...e, links: [], fbLink: null });
+  for (const r of withPosts) { const e = events.get(r.k) ?? { key: r.k, title: r.t ?? "", startsMs: r.s, links: [], fbLink: null }; e.links = (r.l ?? "").split(",").filter(Boolean); events.set(r.k, e); }
+  const fbLinks = await db.prepare("SELECT event_key, link FROM facebook_events WHERE link IS NOT NULL").all<{ event_key: string; link: string }>().then(r => r.results ?? []).catch(() => []);
+  for (const f of fbLinks) { const e = events.get(f.event_key); if (e) e.fbLink = f.link; }
+  let made = 0;
+  for (const post of fresh) {
+    const hits = [...events.values()].filter(e => e.title && aboutEvent(post.words, post.refs, e));
+    // One event, or the nearest to come when the words name several.
+    const event = hits.sort((a, b) => a.startsMs - b.startsMs)[0];
+    if (!event) continue;
+    const name = post.network === "facebook" ? "Facebook" : "Instagram";
+    const inserted = await db.prepare(`INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, approved_by, approved_at_ms, published, published_at_ms, created_at_ms, updated_at_ms)
+      VALUES ('event', ?, ?, ?, ?, ?, '[]', ?, ?, 'published', ?, ?, ?, ?, ?, ?)`).bind(`own:${post.network}:${post.id}`, weekKey(mondayOf(event.startsMs)), JSON.stringify([post.network]), post.words.slice(0, 5000) || `(${name})`,
+      post.permalink, JSON.stringify({ key: event.key, title: event.title, startsMs: event.startsMs, own: true, shout: 1, shouts: 1 }), post.createdMs, `Dig selv (direkte på ${name})`, post.createdMs,
+      JSON.stringify({ [post.network]: post.id, ...(post.permalink ? { [`${post.network}_link`]: post.permalink } : {}) }), post.createdMs, now, now).run();
+    if (Number(inserted.meta?.changes ?? 0) !== 1) continue;
+    made++;
+    // Saga's own for the event on that medium near it: a proposal set aside (or only its other medium kept); an approved one told about.
+    const near = (await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved') AND json_extract(source, '$.key') = ? AND source_key NOT LIKE 'own:%'", [event.key], "publish_at_ms, id", 20))
+      .filter(p => p.channels.includes(post.network) && Math.abs(dueAt(p, post.network) - post.createdMs) <= OWN_WINDOW_MS);
+    const skipped: string[] = [], approved: string[] = [];
+    for (const p of near) {
+      if (p.status === "approved") { approved.push(longWhen(dueAt(p, post.network))); continue; }
+      const rest = p.channels.filter(c => c !== post.network);
+      if (rest.length) await db.prepare("UPDATE social_posts SET channels = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(JSON.stringify(rest), now, p.id).run();
+      else await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(`Du har selv delt eventet på ${name} ${longWhen(post.createdMs)}`, now, p.id).run();
+      skipped.push(longWhen(dueAt(p, post.network)));
+    }
+    await tellChair(env, deps, `Saga har set dit eget opslag om "${event.title}" på ${name} og lagt det i PR-kalenderen.${skipped.length ? ` Hendes forslag på ${name} ${skipped.join(" og ")} er taget af, så det ikke kommer dobbelt.` : ""}${approved.length ? ` OBS: et godkendt opslag på ${name} ${approved.join(" og ")} går stadig ud - stop det i kalenderen, hvis det er for tæt på.` : ""}`).catch(() => undefined);
+  }
+  return made;
 }
 
 async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number | null }>> {
@@ -1262,6 +1333,8 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (await claimJob(db, "social_bio_line", 0, now).catch(() => false)) await bioLineInWaiting(db).catch(error => console.warn("social_bio_line_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_event_dates", 0, now).catch(() => false)) await datesInWaiting(db).catch(error => console.warn("social_event_dates_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_own_posts", Math.floor(now / (15 * MINUTE)) * 15 * MINUTE, now).catch(() => false))
+    await findOwnPosts(env, deps, db).catch(error => console.warn("social_own_posts_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_find_fb_events", Math.floor(now / 3_600_000) * 3_600_000, now).catch(() => false))
     await findFacebookEvents(env, deps, db).catch(error => console.warn("social_find_fb_events_failed", error instanceof Error ? error.message : error));
   await redoEventItself(env, deps, db).catch(error => console.warn("social_redo_event_itself_failed", error instanceof Error ? error.message : error));

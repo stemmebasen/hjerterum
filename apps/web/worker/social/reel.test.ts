@@ -58,7 +58,8 @@ describe("Ugens events as a reel", () => {
     await run(AT + 6 * 60_000);
     await run(AT + 11 * 60_000);
     await run(AT + 16 * 60_000);
-    const made = graph.filter(c => c.path === "/17841/media");
+    // Only the reel made (Saga also reads the page's own posts - findOwnPosts).
+    const made = graph.filter(c => c.path === "/17841/media" && c.params.media_type);
     expect(made).toHaveLength(1);
     expect(made[0]!.params).toMatchObject({ media_type: "REELS", video_url: VIDEO, caption: "Ugens reel", share_to_feed: "true", collaborators: '["kasper.yoga","anna.yoga"]' });
     expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
