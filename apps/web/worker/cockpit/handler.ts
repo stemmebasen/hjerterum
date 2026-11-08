@@ -979,7 +979,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
-        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt, deles Facebook-begivenheden.", "begivenhed-fra": "Slået fra: Facebook-begivenheden deles ikke af sig selv.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
         flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
@@ -1076,7 +1076,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/pr/del-begivenhed" && request.method === "POST") {
       const on = String((await request.formData().catch(() => null))?.get("on") ?? "") === "1";
       await setShareFacebookEvent(db, on, who, now);
-      await audit(db, actor, "social.manage", on ? "Slog til: eventet selv deles på Facebook, når et events opslag ikke bliver godkendt i tide" : "Slog fra: eventet deles ikke af sig selv", now);
+      await audit(db, actor, "social.manage", on ? "Slog til: eventet selv (billede og fast tekst) udgives, når et events opslag ikke bliver godkendt i tide" : "Slog fra: eventet deles ikke af sig selv", now);
       return back(`besked=${on ? "begivenhed-til" : "begivenhed-fra"}`);
     }
     // "Can we automatically delete reels that are outdated the day after the event has ended?" (social.ts deleteOldEventPosts) - the chair's approval in admin, once.

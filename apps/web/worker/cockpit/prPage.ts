@@ -187,10 +187,10 @@ function deleteOldCard(base: string, on: boolean): string {
 /** "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead): the chair's own yes, given here once. */
 function shareEventCard(base: string, on: boolean): string {
   return `<section class="panel"><header><h2>Når et opslag ikke bliver godkendt</h2></header>${on
-    ? `<p><b>Slået til.</b> Bliver et events opslag (14 eller 7 dage før) ikke godkendt i tide, deler Saga eventet selv på Facebook på opslagets tid - med titel og tidspunkt. Er eventets Facebook-begivenhed oprettet med link (Events → Facebook-begivenheder), deles den; ellers eventets egen side. Du får besked på Telegram, og du kan stoppe det i kalenderen.</p>
+    ? `<p><b>Slået til.</b> Bliver et events opslag (14 eller 7 dage før) ikke godkendt i tide, udgiver Saga eventet selv på opslagets tid: eventets billede eller video med en kort, fast tekst (titel, tid, vært og tilmelding) på Facebook og Instagram. Du får besked på Telegram, og du kan stoppe det i kalenderen.</p>
 <form method="post" action="${base}/pr/del-begivenhed"><input type="hidden" name="on" value="0"><button class="ghost">Slå fra</button></form>`
-    : `<p>Bliver et events opslag ikke godkendt i tide, lægges det til side. Slår du dette til, deler Saga i stedet eventet selv på Facebook ved både 14 og 7 dage før - Facebook-begivenheden, når den er oprettet med link, ellers eventets egen side.</p>
-<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele eventet selv på Facebook, når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
+    : `<p>Bliver et events opslag ikke godkendt i tide, lægges det til side. Slår du dette til, udgiver Saga i stedet eventet selv ved både 14 og 7 dage før: eventets billede eller video med en kort, fast tekst - titel, tid, vært og tilmelding.</p>
+<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga udgive eventet selv (billede og fast tekst), når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Udgiv eventet selv</button></form>`}</section>`;
 }
 
 function siteCard(base: string, live: boolean): string {

@@ -42,3 +42,4 @@ Bagefter: "Det er også fint, hvis du udvider intervallerne med en dag, både de
   5. En varm, inviterende afslutning med emoji.
 
   Opslaget er på 50-90 ord med 4-7 emojis. Formandens eksempel er Sagas model for formen, ikke for ordene.
+- **Eventet selv uden linkkort (8. nov.):** "Det er ikke et link vi skal dele med repost af opslaget". Formandens valg: "Kort fast tekst + billede". Når et opslag ikke er godkendt i tide, udgives eventet selv på opslagets tid på opslagets egne medier (Facebook og Instagram). Det er eventets billede, design eller video med en kort, fast tekst: titel, dag og tid, vært, Hjerterum og tilmelding ("her 👇" med linket på Facebook, "via linket i bio" på Instagram). Ingen tekst fra Saga går ud ulæst, og det er aldrig et linkkort. Facebook-begivenheden bruges ikke længere til det.
