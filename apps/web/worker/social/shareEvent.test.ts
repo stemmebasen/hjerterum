@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { connectSocial, publishDue, setShareFacebookEvent, socialPosts, topUpWeeks } from "./social.js";
+import { asEventItself, connectSocial, publishDue, setPostDesign, setShareFacebookEvent, socialPosts, topUpWeeks } from "./social.js";
 
 // Asked (the chair, 6 Nov 2026): "Er det muligt at dele selve eventet (altså videresende kan man sige) som et post via systemet?" -
 // "Når der ikke er godkendt et opslag, så deles selve eventet bare".
@@ -86,5 +86,19 @@ describe("the Facebook event shared when no post was approved", () => {
     await setShareFacebookEvent(other.db, true, "Jacob Hauge", NOW);
     await topUpWeeks(other.env as never, deps(other.fetcher, NOW), other.db);
     expect((await socialPosts(other.db, "kind = 'event'"))[0]!.text.startsWith("✨ Lydbad ✨\n\n🗓")).toBe(true);
+  });
+
+  // Requested (the chair, 8 Nov 2026): "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
+  it("makes a post the event itself on the chair's button: the event's own picture again, no video, the short words - a proposal to approve", async () => {
+    const { db, env, fetcher } = await setup({ ai: "Giv dig selv en pause i lydens bølger 🌊🤍" });
+    const [before] = await socialPosts(db, "kind = 'event'");
+    // The event's picture, then the chair's design in its place (kept as the event's own), and a video.
+    await db.prepare("UPDATE social_posts SET images = '[\"https://x.example/event.jpg\"]', source = json_remove(json_set(source, '$.video', 'https://x.example/v.mp4'), '$.design') WHERE id = ?").bind(before!.id).run();
+    await setPostDesign(db, before!.id, "https://x.example/design2.jpg", NOW);
+    const after = await asEventItself(env as never, deps(fetcher, NOW), db, before!.id, NOW);
+    expect(after).toMatchObject({ status: "draft", images: ["https://x.example/event.jpg"], source: { eventItself: true, noVideo: true, noFacebookVideo: true } });
+    expect(after!.source.design).toBeUndefined();
+    expect(after!.text).toBe("✨ Lydbad ✨\n\nGiv dig selv en pause i lydens bølger 🌊🤍\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
+    expect(after!.source.instagramText).toContain("via linket i bio");
   });
 });

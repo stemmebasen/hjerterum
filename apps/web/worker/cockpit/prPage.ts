@@ -75,7 +75,7 @@ function actions(base: string, p: SocialPost, approveLabel: string): string {
   if (!open(p)) return `<p class="small muted">${p.status === "published" ? `Publiceret ${esc(when(p.published_at_ms))}. ${sentLinks(p)}` : "Publiceres nu."}</p>`;
   const buttons = p.status === "approved"
     ? `<button name="do" value="fortryd" class="ghost">Fortryd godkendelsen</button>`
-    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}`;
+    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}${p.kind === "event" && !p.source.eventItself ? `<button name="do" value="kort" class="ghost" onclick="return confirm('Gøre opslaget til eventet selv? Eventets eget billede (ikke designet, ingen video) og en kort tekst fra Saga med titel, tid og vært. Teksten her bliver erstattet.')" title="Eventets eget billede med en kort tekst - i stedet for designet og teksten">Del eventet med kort tekst</button>` : ""}`;
   return `<p class="pr-acts">${buttons}</p>${p.error ? `<p class="small warn">${esc(p.error)}</p>` : ""}${p.approved_by && p.status === "approved" ? `<p class="small muted">Godkendt af ${esc(p.approved_by)}.</p>` : ""}`;
 }
 

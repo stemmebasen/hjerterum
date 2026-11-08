@@ -54,7 +54,7 @@ import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
-import { answerInMessenger, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -979,7 +979,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
-        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", kort: "Opslaget er nu eventet selv: eventets billede og den korte tekst. Læs det, og godkend, når du er klar.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
         flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
@@ -1127,6 +1127,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const action = field("do");
       if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }
       if (action === "spring") { await decidePost(db, post.id, "skip", who, now); return backHere("besked=sprunget"); }
+      // "omgøre et design så Saga bare viderdeler eventet med en kort tekst" (social.ts asEventItself) - before the form's words, which it replaces.
+      if (action === "kort" && post.kind === "event") { await asEventItself(social, deps, db, post.id, now); return backHere("besked=kort"); }
       // Saving and approving both keep what is in the form first (a disabled form sends nothing, and then nothing is changed).
       if (form?.has("text")) {
         const channels = (form.getAll("channel") ?? []).map(String).filter((c): c is Channel => c === "facebook" || c === "instagram");
