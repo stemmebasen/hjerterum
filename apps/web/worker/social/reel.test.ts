@@ -88,10 +88,15 @@ describe("Ugens events as a reel", () => {
 
   // Requested (the chair, 8 Nov 2026): "Lav dem forfra, og sikr der køres én gang på IG og en gang på FB kl. 7.30".
   it("goes on Facebook as a video too, and the week's picture post then stays home", async () => {
-    const { db, graph, run } = await setup([]);
+    const { db, env, graph, run } = await setup([]);
     await db.prepare(`UPDATE social_posts SET channels = '["facebook","instagram"]', text = 'Ugens events\n\nSe alle events og tilmeld dig via linket i bio.', status = 'approved', approved_by = 'Jacob Hauge', approved_at_ms = 0 WHERE source_key = 'reel:2026-W46'`).run();
     await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, approved_by, approved_at_ms, created_at_ms, updated_at_ms)
       VALUES ('week', 'week:2026-W46', '2026-W46', '["facebook","instagram"]', 'Ugens events', NULL, '["https://x.example/a.jpg","https://x.example/b.jpg"]', '{}', ?, 'approved', 'Jacob Hauge', 0, 0, 0)`).bind(AT).run();
+    // One card in Ugens opslag: the reel, and the picture post as its stand-in.
+    const cookie = await personalCookie("Jacob Hauge", AT - 3_600_000);
+    const page = await (await handleCockpitRequest(new Request("https://admin.hjerterum.example/pr/uge?uge=2026-11-09", { headers: { cookie } }), env, deps(async () => new Response("{}"), AT - 3_600_000))).text();
+    expect(page).toContain('<section class="pr-week-pair"><h3>Ugens events</h3>');
+    expect(page).toContain("Reserve: Ugens events som billedopslag");
     await run(AT + 60_000);
     await run(AT + 6 * 60_000);
     expect((await socialPosts(db, "source_key = 'week:2026-W46'"))[0]).toMatchObject({ status: "skipped" });

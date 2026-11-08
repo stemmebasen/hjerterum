@@ -144,6 +144,20 @@ function timeLine(p: SocialPost, nowMs: number): string {
     ? `<span> Tidspunktet er passeret. ${p.status === "approved" ? "Saga sender det i næste runde." : "Godkender du, sendes det med det samme - eller vælg et nyt tidspunkt nedenfor."}</span>` : p.status === "approved" ? "" : `<span> Sendes først, når du har godkendt.${p.kind === "event" && p.source.shouts === 2 ? " Du godkender begge eventets opslag på én gang." : ""}</span>`}</p>`;
 }
 
+/** Asked (the chair, 8 Nov 2026): "Og der er både noget, der hedder Ugens events, og Ugens reel?" - "Ja" to one card: the reel on top, the picture post under it
+ * as the stand-in that goes out only when the reel is not approved (social.ts publishOne). */
+function weekCards(base: string, posts: SocialPost[], account: SocialAccount | null, monday: string, ai: boolean, nowMs: number): string {
+  const reel = posts.find(p => p.kind === "week" && p.source.format === "reel"), picture = posts.find(p => p.kind === "week" && p.source.format !== "reel");
+  const card = (p: SocialPost) => weekCard(base, p, account, monday, ai, nowMs);
+  if (!reel || !picture) return posts.map(card).join("");
+  const reelOn = ["approved", "publishing", "published"].includes(reel.status);
+  const pair = `<section class="pr-week-pair"><h3>Ugens events</h3>
+<p class="small muted">Reelen går ud på Instagram og Facebook. Billedopslaget er reserve: det går kun ud, hvis reelen ikke er godkendt${reelOn ? " - og reelen er godkendt, så billedopslaget går ikke ud" : ""}.</p>
+${card(reel)}
+<details class="pr-standin"${!reelOn && picture.status === "approved" ? " open" : ""}><summary>Reserve: Ugens events som billedopslag${picture.status === "skipped" ? " (går ikke ud)" : ""}</summary>${card(picture)}</details></section>`;
+  return [pair, ...posts.filter(p => p !== reel && p !== picture).map(card)].join("");
+}
+
 function weekCard(base: string, p: SocialPost, account: SocialAccount | null, monday: string, ai = false, nowMs = Date.now()): string {
   if (p.source.format === "reel") return reelCard(base, p);
   const locked = !open(p) || p.status === "approved";
@@ -223,7 +237,7 @@ ${a.check_error ? `<p class="small warn">Sidst: ${esc(a.check_error)}</p>` : ""}
     ? `<div class="pr-acts">${drafts ? `<form method="post" action="${base}/pr/uge/godkend"><input type="hidden" name="uge" value="${d.week.monday}"><button>Godkend hele ugen (${drafts})</button></form>` : ""}
 <form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button class="ghost">Tilføj nye events fra kalenderen</button></form></div>
 <p class="small muted">"Ugens events" og ${eventCount} events med hvert sit opslag på Facebook. Et godkendt opslag går ud på sit tidspunkt; et event, der er begyndt, får ikke sit opslag bagefter.</p>
-${d.week.posts.map(p => weekCard(base, p, a, d.week.monday, d.aiReady, d.nowMs)).join("")}`
+${weekCards(base, d.week.posts, a, d.week.monday, d.aiReady, d.nowMs)}`
     : `<p class="empty">Ugen er ikke planlagt endnu. Saga planlægger næste uge torsdag fra kl. 10.</p>
 ${a ? `<form method="post" action="${base}/pr/uge/planlaeg"><input type="hidden" name="uge" value="${d.week.monday}"><button>Lad Saga planlægge uge ${weekNumber(d.week.key)} nu</button></form>` : ""}`;
 
@@ -258,6 +272,7 @@ ${sections[tab]}</main>${tab === "uge" || tab === "tagget" ? WRITER_SCRIPT(base)
 
 const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
 /* "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." */.pr-post{background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 14px;scroll-margin-top:90px}.pr-post:nth-of-type(even){background:var(--card)}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
+.pr-week-pair{border:2px solid var(--line);border-radius:18px;padding:14px 14px 2px;margin:0 0 14px}.pr-week-pair>h3{margin:0 0 4px}.pr-standin>summary{cursor:pointer;font-weight:600;margin:6px 0 12px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}
 .pr-design{display:flex;align-items:center;gap:12px;margin:0 0 12px}.pr-video{display:flex;align-items:flex-end;gap:12px;margin:0 0 12px}.pr-video video{width:160px;aspect-ratio:9/16;border-radius:12px;background:#000}.pr-design img{width:72px;height:90px;object-fit:cover;border-radius:10px}.pr-reel{display:block;width:100%;max-width:270px;aspect-ratio:9/16;border-radius:14px;background:#000;margin:0 0 12px}.pr-strip{display:flex;gap:6px;overflow-x:auto;margin:0 0 12px}.pr-strip img{height:72px;border-radius:8px}
 .pr-when{margin:0 0 12px;padding:8px 12px;border-radius:10px;background:var(--tint);font-size:14.5px}.pr-when span{color:var(--muted)}.pr-when.is-late{background:var(--warn-soft)}.pr-when.is-late span{color:var(--warn)}
