@@ -9,7 +9,7 @@ import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { instagramName } from "../../pr-material.js";
-import { finishReel, followerCounts, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { deletePublished, finishReel, followerCounts, isGone, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -42,6 +42,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     /** Taken down again on Facebook and Instagram by hand (the chair, 3 Nov 2026: "Jeg har slettet opslagene igen for Aura-eventet, for det var bare
      * en test. Det må du gerne registrere."): kept in the history, and the event may get a new post. */
     removed?: { atMs: number; note: string };
+    /** Taken down by Saga the day after the event (deleteOldEventPosts), on each medium: when. The event's most popular post stays. */
+    deleted?: Partial<Record<Channel, number>>;
     /** Instagram's own time, when it is not Facebook's (publish_at_ms) - "forskellige tidspunkter på de to medier". */
     instagramAtMs?: number | null;
     /** The event's video (video/, made on GitHub by .github/workflows/video-events.yml): on Instagram as a reel, unless the chair took it off. */
@@ -573,6 +575,86 @@ async function addInstagram(db: D1Database, nowMs: number): Promise<void> {
  * (14 and 7 days before) passes unapproved, the event itself is shared on the page instead (shareEventInstead) - its Facebook event (Events →
  * Facebook-begivenheder, with its link), else its own page, with its title and time. Only on Facebook (Instagram has no events). */
 const SHARE_EVENT_KEY = "social_share_facebook_event";
+
+/** Requested (the chair, 8 Nov 2026): "Can we automatically delete reels that are outdated the day after the event has ended?" - asked what, "Alt, men lad os
+ * sikre at det altid er et event opslag tilbage - det mest populære". A setting the chair turns on in PR og SoMe → Overblik (an approval in admin, once):
+ * the day after an event has ended (from 10.00), its posts on Facebook and Instagram are taken down - all but the most popular on each medium (likes and
+ * comments; of equals the newest). "Ugens events" and shares of others' posts stay. A deletion cannot be undone. */
+const DELETE_OLD_KEY = "social_delete_old_event_posts";
+export async function deleteOldOn(db: D1Database): Promise<boolean> {
+  return (await db.prepare("SELECT setting_value AS v FROM platform_settings WHERE setting_key = ?").bind(DELETE_OLD_KEY).first<{ v: string }>().catch(() => null))?.v === "1";
+}
+export async function setDeleteOld(db: D1Database, on: boolean, by: string, nowMs: number): Promise<void> {
+  await db.prepare(`INSERT INTO platform_settings (setting_key, setting_value, updated_by_email, updated_at_ms) VALUES (?, ?, ?, ?)
+    ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_by_email = excluded.updated_by_email, updated_at_ms = excluded.updated_at_ms`)
+    .bind(DELETE_OLD_KEY, on ? "1" : "0", by, nowMs).run();
+}
+/** When an event is over: its end (the calendar's, or the booking's), else its start. */
+async function eventEndMs(db: D1Database, key: string, startsMs: number): Promise<number> {
+  const [source, id] = [key.slice(0, 3), key.slice(3)];
+  const row = source === "mw:" ? await db.prepare("SELECT ends_at_ms AS e FROM house_events WHERE id = ?").bind(id).first<{ e: number | null }>().catch(() => null)
+    : source === "hr:" ? await db.prepare("SELECT ends_at_ms AS e FROM room_bookings WHERE id = ?").bind(Number(id)).first<{ e: number | null }>().catch(() => null) : null;
+  return Math.max(startsMs, row?.e ?? startsMs);
+}
+/** At most this many posts are taken down in one round (Meta's limits). */
+const DELETE_PER_ROUND = 10;
+export async function deleteOldEventPosts(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  if (!(await deleteOldOn(db))) return 0;
+  const account = await socialAccount(db);
+  if (!account) return 0;
+  const now = deps.now();
+  // Published posts of events begun at least a day ago and not more than 60 days ago (older ones were before this rule).
+  const posts = (await socialPosts(db, `kind = 'event' AND status = 'published' AND json_extract(source, '$.startsMs') < ? AND json_extract(source, '$.startsMs') > ?`,
+    [now - 14 * 3_600_000, now - 60 * 86_400_000], "published_at_ms, id", 500)).filter(p => p.source.key && p.source.startsMs && !p.source.removed);
+  const byEvent = new Map<string, SocialPost[]>();
+  for (const p of posts) byEvent.set(p.source.key!, [...(byEvent.get(p.source.key!) ?? []), p]);
+  const { page, instagram } = await access(env, account);
+  let deleted = 0;
+  const told: string[] = [], failed: string[] = [];
+  for (const [key, group] of byEvent) {
+    if (deleted >= DELETE_PER_ROUND) break;
+    // "the day after the event has ended": from 10.00 the day after its last day.
+    if (now < at(addDays(dateOf(await eventEndMs(db, key, group[0]!.source.startsMs!)), 1), 10, 0)) continue;
+    for (const channel of ["facebook", "instagram"] as const) {
+      const token = channel === "facebook" ? page.token : instagram?.token;
+      const live = group.filter(p => p.published[channel] && !p.source.deleted?.[channel]);
+      if (!token || live.length < 2) continue;
+      // How popular each is - a post that cannot be read is not taken down this round (nor the others: the most popular must be known).
+      const scores: number[] = [];
+      let unknown = false;
+      for (const p of live) {
+        const score = await popularity(deps.fetcher, channel, token, p.published[channel]!).catch(error => isGone(error) ? -1 : null);
+        if (score === null) { unknown = true; break; }
+        scores.push(score);
+      }
+      if (unknown) continue;
+      // Taken down by hand already: noted, and not counted.
+      const there = live.filter((p, i) => scores[i]! >= 0);
+      for (const [i, p] of live.entries()) if (scores[i]! < 0) await markDeleted(db, p, channel, now);
+      if (there.length < 2) continue;
+      const best = there.reduce((a, b) => { const sa = scores[live.indexOf(a)]!, sb = scores[live.indexOf(b)]!; return sb > sa || (sb === sa && (b.published_at_ms ?? 0) > (a.published_at_ms ?? 0)) ? b : a; });
+      for (const p of there) {
+        if (p === best || deleted >= DELETE_PER_ROUND) continue;
+        try {
+          await deletePublished(deps.fetcher, token, p.published[channel]!);
+          await markDeleted(db, p, channel, now);
+          deleted++;
+          told.push(`${p.source.title ?? "Event"} (${channel === "facebook" ? "Facebook" : "Instagram"})`);
+        } catch (error) {
+          if (isGone(error)) { await markDeleted(db, p, channel, now); continue; }
+          failed.push(`${p.source.title ?? "Event"} (${channel === "facebook" ? "Facebook" : "Instagram"}): ${(error instanceof Error ? error.message : String(error)).slice(0, 160)}`);
+        }
+      }
+    }
+  }
+  if (told.length) await tellChair(env, deps, `Saga har slettet ${told.length === 1 ? "et gammelt opslag" : `${told.length} gamle opslag`} om events, der er forbi - det mest populære om hvert event er blevet stående: ${[...new Set(told)].join(", ")}. Se kalenderen: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
+  if (failed.length) await tellChair(env, deps, `Saga kunne ikke slette ${failed.length === 1 ? "et gammelt opslag" : `${failed.length} gamle opslag`}: ${failed.join("; ")}. Saga prøver igen senere.`).catch(() => undefined);
+  return deleted;
+}
+async function markDeleted(db: D1Database, p: SocialPost, channel: Channel, nowMs: number): Promise<void> {
+  p.source = { ...p.source, deleted: { ...p.source.deleted, [channel]: nowMs } };
+  await db.prepare("UPDATE social_posts SET source = ?, updated_at_ms = ? WHERE id = ?").bind(JSON.stringify(p.source), nowMs, p.id).run();
+}
 export async function shareFacebookEventOn(db: D1Database): Promise<boolean> {
   return (await db.prepare("SELECT setting_value AS v FROM platform_settings WHERE setting_key = ?").bind(SHARE_EVENT_KEY).first<{ v: string }>().catch(() => null))?.v === "1";
 }
@@ -1065,6 +1147,8 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   await topUpWeeks(env, deps, db).catch(error => console.warn("social_top_up_failed", error instanceof Error ? error.message : error));
   await countFollowers(env, deps, db).catch(error => console.warn("social_stats_failed", error instanceof Error ? error.message : error));
   await notifyVideos(env, deps, db).catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_delete_old", Math.floor(now / 3_600_000) * 3_600_000, now).catch(() => false))
+    await deleteOldEventPosts(env, deps, db).catch(error => console.warn("social_delete_old_failed", error instanceof Error ? error.message : error));
 }
 
 // ---- The videos, approved from Saga's link ----

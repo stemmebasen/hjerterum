@@ -29,7 +29,9 @@ const DAYS = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
 const TONE: Record<SocialPost["status"], [string, string]> = {
   draft: ["is-draft", "Forslag"], approved: ["is-approved", "Godkendt"], publishing: ["is-approved", "Publiceres"], published: ["is-sent", "Publiceret"], failed: ["is-failed", "Fejlet"], skipped: ["is-removed", "Sprunget over"]
 };
-const toneOf = (p: SocialPost): [string, string] => p.source.removed ? ["is-removed", "Slettet igen"] : TONE[p.status];
+// Taken down by Saga after the event (social.ts deleteOldEventPosts) on every medium it went out on.
+const toneOf = (p: SocialPost): [string, string] => p.source.removed ? ["is-removed", "Slettet igen"]
+  : p.status === "published" && p.source.deleted && p.channels.every(c => !p.published[c] || p.source.deleted?.[c]) ? ["is-removed", "Slettet efter eventet"] : TONE[p.status];
 const addDays = (date: string, days: number) => new Date(Date.parse(`${date}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 const dayLabel = (date: string) => `${Number(date.slice(8))}/${Number(date.slice(5, 7))}`;
 
@@ -98,6 +100,7 @@ ${all.length > 1 ? `<p class="cal-peek-all"><b>Eventets opslag</b><br>${all.map(
   // Asked (the chair, 6 Nov 2026): "Og et lille link til det publicerede opslag hvis muligt".
   const links = (p: SocialPost) => {
     const out = (["facebook", "instagram"] as const).filter(c => p.channels.includes(c)).map(c => {
+      if (p.source.deleted?.[c]) return `<span class="muted">Slettet på ${c === "facebook" ? "Facebook" : "Instagram"} efter eventet</span>`;
       const link = p.published[c === "facebook" ? "facebook_link" : "instagram_link"] ?? (c === "facebook" && p.published.facebook ? `https://www.facebook.com/${encodeURIComponent(p.published.facebook)}` : null);
       return link ? `<a href="${esc(link)}" target="_blank" rel="noopener">Se på ${c === "facebook" ? "Facebook" : "Instagram"} ↗</a>` : "";
     }).filter(Boolean);
