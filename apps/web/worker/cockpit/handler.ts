@@ -1139,7 +1139,9 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
           ...(post.source.format === "reel" || !form.has("kanaler") ? {} : { channels }), ...(atMs !== undefined && atMs !== null ? { publishAtMs: atMs } : {}),
           ...(form.has("instagram_at") ? { instagramAtMs: field("instagram_at") ? fromLocalInput(field("instagram_at")) : null } : {}),
           // "Video på Instagram": the box was on the page, so what is not ticked was taken off.
-          ...(form.has("video_box") ? { noVideo: !form.has("video"), noFacebookVideo: !form.has("facebook_video") } : {}) }, now);
+          ...(form.has("video_box") ? { noVideo: !form.has("video"), noFacebookVideo: !form.has("facebook_video") } : {}),
+          // "Her er ingen mulighed for at afvælge video": before Saga has made it, no video at all (video-events.yml makes none then).
+          ...(form.has("novideo_box") ? { noVideo: form.has("no_video"), noFacebookVideo: form.has("no_video") } : {}) }, now);
       }
       if (action === "godkend") {
         const decided = await decidePost(db, post.id, "approve", who, now);

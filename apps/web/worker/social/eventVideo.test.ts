@@ -90,4 +90,21 @@ describe("an event's post with its video", () => {
     expect(made.params.media_type).toBeUndefined();
     expect(made.params.image_url).toBe("https://d1tif55lvfk8gc.cloudfront.net/a.jpg");
   });
+
+  // Reported (the chair, 8 Nov 2026): "Her er ingen mulighed for at afvælge video" - before Saga has made it.
+  it("takes the video off before it is made: shown as a box, and no video afterwards", async () => {
+    const { db, call } = await setup();
+    const [post] = await socialPosts(db, "kind = 'event'");
+    await db.prepare("UPDATE social_posts SET source = json_remove(source, '$.video', '$.videoTemplate') WHERE id = ?").bind(post!.id).run();
+    const page = await (await call("/pr/uge?uge=2026-11-09")).text();
+    expect(page).toContain("Uden video - brug billedet");
+    const form = new FormData(); form.append("do", "gem"); form.append("text", post!.text); form.append("novideo_box", "1"); form.append("no_video", "1");
+    await call(`/pr/opslag/${post!.id}`, { method: "POST", body: form });
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "draft", source: { noVideo: true, noFacebookVideo: true } });
+    // Ticked off again: Saga may make the video.
+    const again = new FormData(); again.append("do", "gem"); again.append("text", post!.text); again.append("novideo_box", "1");
+    await call(`/pr/opslag/${post!.id}`, { method: "POST", body: again });
+    const [after] = await socialPosts(db, "kind = 'event'");
+    expect(after!.source.noVideo).toBeUndefined();
+  });
 });
