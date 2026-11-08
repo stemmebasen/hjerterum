@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, Circle, FabricImage, Gradient, Group, Line, Path, Point, Rect, Shadow, StaticCanvas, Textbox, filters, type FabricObject } from "fabric";
 import { SIZES, type Format } from "./event-poster";
-import { layerDesign, LAYER_DESIGNS, type Colors, type Frame, type Layer, type LayerDesign, type LayerInput } from "./layer-templates";
+import { layerDesign, LAYER_DESIGNS, roomBelow, type Colors, type Frame, type Layer, type LayerDesign, type LayerInput } from "./layer-templates";
 
 /** Asked (the chair, 7 Nov 2026): "Vi er nødt til at optimere den grafiske sektion ... flytte rundt på billeder, gøre dem mindre eller større og dreje dem rundt.
  * Altså et lille mini Photoshop." - "Egen editor med lag". A design is opened as layers (Fabric.js): every picture, word, shape and the logo can be moved,
@@ -80,7 +80,7 @@ async function photoObject(layer: Extract<Layer, { kind: "photo" }>, url: string
   return picture;
 }
 
-function textObject(layer: Extract<Layer, { kind: "text" }>): Textbox {
+function textObject(layer: Extract<Layer, { kind: "text" }>, bottom = Infinity): Textbox {
   const t = new Textbox(layer.text, {
     left: layer.x, top: layer.y, width: layer.w, fontSize: layer.size, fontFamily: layer.font === "serif" ? SERIF_OF : SANS_OF, fill: layer.color,
     fontWeight: layer.weight ?? (layer.font === "serif" ? 400 : 500), fontStyle: layer.italic ? "italic" : "normal", textAlign: layer.align ?? "left",
@@ -88,7 +88,9 @@ function textObject(layer: Extract<Layer, { kind: "text" }>): Textbox {
   });
   // The words in at most their lines, and no word wider than the box.
   const lines = layer.maxLines ?? 99;
-  for (let i = 0; i < 40 && (t.textLines.length > lines || (t.width ?? 0) > layer.w + 1); i++) { t.set({ fontSize: (t.fontSize ?? 40) * 0.94, width: layer.w }); t.initDimensions(); }
+  // Reported (the chair, 8 Nov 2026): "Der er så mange layout fejl" - a long title ran into the teacher's name and the date below it: the words end above
+  // the next layer under them (`bottom`).
+  for (let i = 0; i < 40 && (t.textLines.length > lines || (t.width ?? 0) > layer.w + 1 || layer.y + (t.height ?? 0) > bottom); i++) { t.set({ fontSize: (t.fontSize ?? 40) * 0.94, width: layer.w }); t.initDimensions(); }
   (t as Tagged).role = layer.role ?? "text";
   if (layer.angle) t.rotate(layer.angle);
   return t;
@@ -127,7 +129,7 @@ export async function buildDesign(canvas: Canvas | StaticCanvas, design: LayerDe
   await Promise.all(EDITOR_FONTS.slice(0, 2).map(f => document.fonts.load(`40px "${f}"`).catch(() => [])));
   for (const layer of design.layers) {
     const obj = layer.kind === "photo" ? await photoObject(layer, photos[(layer.slot ?? 1) - 1] ?? photos[0] ?? null, colors)
-      : layer.kind === "text" ? textObject(layer) : layer.kind === "logo" ? await logoObject(logo, layer) : shapeObject(layer);
+      : layer.kind === "text" ? textObject(layer, roomBelow(design.layers, layer)) : layer.kind === "logo" ? await logoObject(logo, layer) : shapeObject(layer);
     if (obj) canvas.add(obj);
   }
   canvas.renderAll();

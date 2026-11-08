@@ -62,7 +62,7 @@ function block(ctx: Ctx, r: { x: number; y: number; w: number; h: number }, w: P
     return { lines, s, height };
   };
   let lay = room(st.size);
-  for (let size = st.size - 4; lay.height > r.h && size > st.size * 0.45; size -= 4) lay = room(size);
+  for (let size = st.size - 4; lay.height > r.h && size > st.size * 0.3; size -= 4) lay = room(size);
   let y = anchor === "top" ? r.y : anchor === "bottom" ? r.y + r.h - lay.height : r.y + (r.h - lay.height) / 2;
   const x = st.align === "center" ? r.x + r.w / 2 : r.x;
   const align = st.align === "center" ? "center" : "left";
@@ -216,7 +216,8 @@ export const TEMPLATES: Record<string, Template> = {
       spaced(ctx, w.month.slice(0, 3), 175 * u, 360 * u, `400 ${Math.round(34 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 4 * u, "center");
       spaced(ctx, weekday(w), 330 * u, 250 * u, `700 ${Math.round(28 * u)}px "Space Mono", ui-monospace, monospace`, G.cocoa, 3 * u);
       text(ctx, `kl. ${w.time}`, 330 * u, 300 * u, `400 ${Math.round(28 * u)}px "Space Mono", ui-monospace, monospace`, G.grey);
-      block(ctx, { x: 60 * u, y: 440 * u, w: right - 130 * u, h: (L ? H : spot.y) - 470 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: null, size: 100 * u, maxLines: 3, meta: false }, "top", u);
+      // Reported (the chair, 8 Nov 2026): "Der er så mange layout fejl" - the teacher's line ran into "Læs mere på": the words end above it.
+      block(ctx, { x: 60 * u, y: 440 * u, w: right - 130 * u, h: (L ? H : spot.y) - 540 * u }, w, { color: G.cocoa, accent: G.cocoa, muted: G.grey, kicker: null, size: 100 * u, maxLines: 3, meta: false }, "top", u);
       text(ctx, `Læs mere på ${SITE_LABEL}`, 60 * u, (L ? H : spot.y) - 36 * u, `400 ${Math.round(26 * u)}px "Space Mono", ui-monospace, monospace`, G.grey);
     }
   },

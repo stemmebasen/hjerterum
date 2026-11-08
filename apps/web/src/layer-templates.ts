@@ -178,6 +178,14 @@ export const LAYER_DESIGNS: Maker[] = [
   } },
 ];
 
+/** Where a text must end: a little above the next words or logo under it in its column (none for turned words). */
+export function roomBelow(layers: Layer[], layer: Extract<Layer, { kind: "text" }>): number {
+  if (layer.angle) return Infinity;
+  const under = layers.filter((o): o is Extract<Layer, { kind: "text" | "logo" }> => o.kind === "text" || o.kind === "logo")
+    .filter(o => o !== layer && !o.angle && o.y > layer.y + 1 && o.x < layer.x + layer.w && o.x + (o.kind === "text" ? o.w : o.size) > layer.x).map(o => o.y);
+  return under.length ? Math.min(...under) - layer.size * 0.12 : Infinity;
+}
+
 /** A design for the format: its own composition in a tall format, the wide cover as a picture with the words beside it. */
 export function layerDesign(key: string, input: LayerInput): LayerDesign | null {
   const maker = LAYER_DESIGNS.find(m => m.key === key);
