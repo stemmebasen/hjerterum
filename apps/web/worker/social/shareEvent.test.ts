@@ -11,7 +11,7 @@ const FB_EVENT = "https://www.facebook.com/events/123456789";
 describe("the Facebook event shared when no post was approved", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  async function setup() {
+  async function setup(o: { reminder?: boolean; fbLink?: boolean } = {}) {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
     const services = fakeServices({ ai: () => "{}" });
@@ -21,8 +21,12 @@ describe("the Facebook event shared when no post was approved", () => {
     // The event's only post, a draft whose time came an hour ago, unapproved.
     await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
       VALUES ('event', 'event:2026-W46:mw:SFa', '2026-W46', '["facebook","instagram"]', 'Kom til lydbad.', 'https://www.hjerterum.info/events/a', '["https://x.example/design.jpg"]', ?, ?, 'draft', 0, 0)`)
-      .bind(JSON.stringify({ key: "mw:SFa", title: "Lydbad", startsMs: starts, shout: 1, shouts: 1, design: true, instagramAtMs: NOW - 3_600_000 }), NOW - 3_600_000).run();
-    await db.prepare("INSERT INTO facebook_events (event_key, title, starts_at_ms, done_by, done_at_ms, link) VALUES ('mw:SFa', 'Lydbad', ?, 'Jacob Hauge', 0, ?)").bind(starts, FB_EVENT).run();
+      .bind(JSON.stringify({ key: "mw:SFa", title: "Lydbad", startsMs: starts, shout: 1, shouts: o.reminder ? 2 : 1, design: true, instagramAtMs: NOW - 3_600_000 }), NOW - 3_600_000).run();
+    // The reminder a week before, still to come.
+    if (o.reminder) await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
+      VALUES ('event', 'event:2026-W46:mw:SFa:2', '2026-W46', '["facebook","instagram"]', 'Om en uge: lydbad.', 'https://www.hjerterum.info/events/a', '[]', ?, ?, 'draft', 0, 0)`)
+      .bind(JSON.stringify({ key: "mw:SFa", title: "Lydbad", startsMs: starts, shout: 2, shouts: 2 }), starts - 3 * 86_400_000).run();
+    if (o.fbLink !== false) await db.prepare("INSERT INTO facebook_events (event_key, title, starts_at_ms, done_by, done_at_ms, link) VALUES ('mw:SFa', 'Lydbad', ?, 'Jacob Hauge', 0, ?)").bind(starts, FB_EVENT).run();
     // The once-only replans were done long ago (as in production).
     for (const key of ["social_balance_retime", "social_instagram_times", "social_shouts_v1", "social_shouts_v2", "social_shouts_v3"])
       await db.prepare("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES (?, 0, 0)").bind(key).run();
@@ -57,5 +61,27 @@ describe("the Facebook event shared when no post was approved", () => {
     // The event's card, not the design as a photo, and nothing on Instagram.
     expect(calls.find(c => c.path === "/755/feed")!.params).toMatchObject({ link: FB_EVENT });
     expect(calls.some(c => c.path === "/755/photos" || c.path.startsWith("/17841"))).toBe(false);
+  });
+
+  // Requested (the chair, 8 Nov 2026): "repost the event itself when nothing else has been planned still working out 7 and 14 days rule" - "Ved både 14 og 7 dage".
+  it("shares the event at the first post's time too, with the reminder still to come", async () => {
+    const { db, env, fetcher } = await setup({ reminder: true });
+    await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
+    await topUpWeeks(env as never, deps(fetcher, NOW), db);
+    const first = (await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa'"))[0]!;
+    expect(first).toMatchObject({ status: "approved", channels: ["facebook"], link: FB_EVENT, publish_at_ms: NOW, source: { fbEventShare: true, before: { link: "https://www.hjerterum.info/events/a", channels: ["facebook", "instagram"] } } });
+    // The reminder is untouched - a post of its own, waiting for the chair.
+    expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa:2'"))[0]).toMatchObject({ status: "draft", channels: ["facebook", "instagram"] });
+  });
+
+  it("shares the event's own page when it has no Facebook event", async () => {
+    const { db, env, fetcher, calls } = await setup({ fbLink: false });
+    await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
+    await topUpWeeks(env as never, deps(fetcher, NOW), db);
+    const [post] = await socialPosts(db, "kind = 'event'");
+    expect(post).toMatchObject({ status: "approved", channels: ["facebook"], link: "https://www.hjerterum.info/events/a", source: { pageShare: true } });
+    expect(post!.source.fbEventShare).toBeUndefined();
+    await publishDue(env as never, deps(fetcher, NOW + 60_000), db);
+    expect(calls.find(c => c.path === "/755/feed")!.params.message).toContain("Lydbad - mandag d. 9. november kl. 19.00");
   });
 });

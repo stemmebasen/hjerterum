@@ -1076,7 +1076,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (path === "/pr/del-begivenhed" && request.method === "POST") {
       const on = String((await request.formData().catch(() => null))?.get("on") ?? "") === "1";
       await setShareFacebookEvent(db, on, who, now);
-      await audit(db, actor, "social.manage", on ? "Slog til: Facebook-begivenheden deles, når et events opslag ikke bliver godkendt" : "Slog fra: Facebook-begivenheden deles ikke af sig selv", now);
+      await audit(db, actor, "social.manage", on ? "Slog til: eventet selv deles på Facebook, når et events opslag ikke bliver godkendt i tide" : "Slog fra: eventet deles ikke af sig selv", now);
       return back(`besked=${on ? "begivenhed-til" : "begivenhed-fra"}`);
     }
     if (path === "/pr/afbryd") {
