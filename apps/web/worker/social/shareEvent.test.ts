@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { deps, fakeServices, sagaEnv, testDatabase } from "../saga/test-support.js";
-import { asEventItself, connectSocial, publishDue, setPostDesign, setShareFacebookEvent, socialPosts, topUpWeeks } from "./social.js";
+import { asEventItself, connectSocial, findFacebookEvents, publishDue, redoEventItself, setShareFacebookEvent, socialPosts, topUpWeeks } from "./social.js";
 
 // Asked (the chair, 6 Nov 2026): "Er det muligt at dele selve eventet (altså videresende kan man sige) som et post via systemet?" -
 // "Når der ikke er godkendt et opslag, så deles selve eventet bare".
@@ -11,7 +11,7 @@ const FB_EVENT = "https://www.facebook.com/events/123456789";
 describe("the Facebook event shared when no post was approved", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  async function setup(o: { reminder?: boolean; fbLink?: boolean; ai?: string } = {}) {
+  async function setup(o: { reminder?: boolean; fbLink?: boolean; ai?: string; pageEvents?: unknown[] } = {}) {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
     const services = fakeServices({ ai: () => o.ai ?? "{}" });
@@ -30,11 +30,14 @@ describe("the Facebook event shared when no post was approved", () => {
     // The once-only replans were done long ago (as in production).
     for (const key of ["social_balance_retime", "social_instagram_times", "social_shouts_v1", "social_shouts_v2", "social_shouts_v3"])
       await db.prepare("INSERT INTO job_claims (job_key, scheduled_for_ms, claimed_at_ms) VALUES (?, 0, 0)").bind(key).run();
-    const calls: Array<{ path: string; params: Record<string, string> }> = [];
+    const calls: Array<{ method: string; path: string; params: Record<string, string> }> = [];
     const fetcher: typeof fetch = async (input, init) => {
       const url = String(input);
       if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
-      calls.push({ path: url.slice(GRAPH.length).split("?")[0]!, params: Object.fromEntries(new URLSearchParams(String(init?.body ?? ""))) });
+      const path = url.slice(GRAPH.length).split("?")[0]!, method = init?.method ?? "GET";
+      calls.push({ method, path, params: Object.fromEntries(new URLSearchParams(String(init?.body ?? ""))) });
+      if (path === "/755/events") return new Response(JSON.stringify({ data: o.pageEvents ?? [] }));
+      if (method === "DELETE") return new Response(JSON.stringify({ success: true }));
       return new Response(JSON.stringify({ id: "755_9" }));
     };
     return { db, env, services, fetcher, calls };
@@ -46,59 +49,67 @@ describe("the Facebook event shared when no post was approved", () => {
     expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "draft" });
   });
 
-  // Requested (the chair, 8 Nov 2026): "repost the event itself when nothing else has been planned still working out 7 and 14 days rule" - "Ved både 14 og 7
-  // dage"; then "Det er ikke et link vi skal dele med repost af opslaget" - "Kort fast tekst + billede".
-  it("puts out the event itself - its picture with short fixed words, on both media - and tells the chair", async () => {
-    const { db, env, services, fetcher, calls } = await setup();
+  // Corrected (the chair, 8 Nov 2026): "Nu er movie Night kommet ud med en reel. Jeg havde ikke godkendt den så den bør have været en deling af begivenheden".
+  it("shares the event's Facebook event with the short words - on Facebook only, never the picture or video - and tells the chair", async () => {
+    const { db, env, services, fetcher, calls } = await setup({ ai: "Giv dig selv en pause i lydens bølger 🌊🤍" });
     await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
     await topUpWeeks(env as never, deps(fetcher, NOW), db);
     const [post] = await socialPosts(db, "kind = 'event'");
-    expect(post).toMatchObject({ status: "approved", channels: ["facebook", "instagram"], link: "https://www.hjerterum.info/events/a", publish_at_ms: NOW, source: { eventItself: true, design: true } });
-    expect(post!.text).toBe("✨ Lydbad ✨\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
-    expect(post!.source.instagramText).toContain("💛 Læs mere og tilmeld dig via linket i bio");
-    expect(services.telegram("sendMessage").some(c => JSON.stringify(c.body).includes("udgiver eventet selv"))).toBe(true);
+    expect(post).toMatchObject({ status: "approved", channels: ["facebook"], link: FB_EVENT, images: [], publish_at_ms: NOW, source: { fbEventShare: true, noVideo: true } });
+    expect(post!.source.design).toBeUndefined();
+    expect(post!.text).toBe("✨ Lydbad ✨\n\nGiv dig selv en pause i lydens bølger 🌊🤍\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
+    expect(services.telegram("sendMessage").some(c => JSON.stringify(c.body).includes("deler Facebook-begivenheden"))).toBe(true);
     await publishDue(env as never, deps(fetcher, NOW + 60_000), db);
-    // The picture as a photo with the words and the link in them - never a link card.
-    expect(calls.find(c => c.path === "/755/photos")!.params).toMatchObject({ url: "https://x.example/design.jpg" });
-    expect(calls.find(c => c.path === "/755/photos")!.params.caption).toContain("Med Sarah Bjørk");
-    expect(calls.some(c => c.path === "/755/feed")).toBe(false);
-    expect(calls.find(c => c.path === "/17841/media")!.params.caption).toContain("linket i bio");
+    expect(calls.find(c => c.path === "/755/feed")!.params).toMatchObject({ link: FB_EVENT });
+    expect(calls.some(c => c.path === "/755/photos" || c.path === "/755/videos" || c.path.startsWith("/17841"))).toBe(false);
   });
 
-  it("does so at the first post's time too, with the reminder still to come", async () => {
+  it("shares at the first post's time too (14 days before), with the reminder still to come", async () => {
     const { db, env, fetcher } = await setup({ reminder: true });
     await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
     await topUpWeeks(env as never, deps(fetcher, NOW), db);
-    expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa'"))[0]).toMatchObject({ status: "approved", publish_at_ms: NOW, source: { eventItself: true } });
-    // The reminder is untouched - a post of its own, waiting for the chair.
+    expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa'"))[0]).toMatchObject({ status: "approved", link: FB_EVENT, source: { fbEventShare: true } });
     expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa:2'"))[0]).toMatchObject({ status: "draft", channels: ["facebook", "instagram"] });
   });
 
-  // Asked (the chair, 8 Nov 2026): "Men kan du komme med nogle eksempler på hvad Saga kan skrive i de linjer" - "Saga skriver indledningen".
-  it("has Saga's own short line over the fixed lines - never one with a time or a link", async () => {
-    const { db, env, fetcher } = await setup({ ai: "Giv dig selv en pause i lydens bølger 🌊🤍" });
+  it("puts nothing out in its place when the Facebook event is not known - and tells the chair once", async () => {
+    const { db, env, services, fetcher } = await setup({ fbLink: false });
     await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
     await topUpWeeks(env as never, deps(fetcher, NOW), db);
     const [post] = await socialPosts(db, "kind = 'event'");
-    expect(post!.text).toBe("✨ Lydbad ✨\n\nGiv dig selv en pause i lydens bølger 🌊🤍\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
-    expect(post!.source.instagramText).toContain("Giv dig selv en pause i lydens bølger 🌊🤍\n\n🗓");
-    const other = await setup({ ai: "Mød op kl. 19 og mærk roen 🌿" });
-    await setShareFacebookEvent(other.db, true, "Jacob Hauge", NOW);
-    await topUpWeeks(other.env as never, deps(other.fetcher, NOW), other.db);
-    expect((await socialPosts(other.db, "kind = 'event'"))[0]!.text.startsWith("✨ Lydbad ✨\n\n🗓")).toBe(true);
+    expect(post!.status).not.toBe("approved");
+    expect(post!.source.fbEventShare).toBeUndefined();
+    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("kender ikke eventets Facebook-begivenhed")).length).toBe(1);
   });
 
-  // Requested (the chair, 8 Nov 2026): "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
-  it("makes a post the event itself on the chair's button: the event's own picture again, no video, the short words - a proposal to approve", async () => {
-    const { db, env, fetcher } = await setup({ ai: "Giv dig selv en pause i lydens bølger 🌊🤍" });
+  it("finds the event's Facebook event on the page by its time and title", async () => {
+    const { db, env, fetcher } = await setup({ fbLink: false, pageEvents: [{ id: "999", name: "Lydbad med gongs", start_time: "2026-11-09T19:00:00+0100" }, { id: "111", name: "Noget andet", start_time: "2026-11-09T19:00:00+0100" }] });
+    await db.prepare("INSERT INTO house_events (id, title, starts_at_ms, content_hash, updated_at_ms) VALUES ('SFa', 'Lydbad', ?, 'h', 0)").bind(Date.parse("2026-11-09T18:00:00Z")).run();
+    expect(await findFacebookEvents(env as never, deps(fetcher, NOW), db)).toBe(1);
+    expect(await db.prepare("SELECT link FROM facebook_events WHERE event_key = 'mw:SFa'").first()).toEqual({ link: "https://www.facebook.com/events/999" });
+  });
+
+  // "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
+  it("makes a post a share of the Facebook event on the chair's button - a proposal to approve", async () => {
+    const { db, env, fetcher } = await setup();
     const [before] = await socialPosts(db, "kind = 'event'");
-    // The event's picture, then the chair's design in its place (kept as the event's own), and a video.
-    await db.prepare("UPDATE social_posts SET images = '[\"https://x.example/event.jpg\"]', source = json_remove(json_set(source, '$.video', 'https://x.example/v.mp4'), '$.design') WHERE id = ?").bind(before!.id).run();
-    await setPostDesign(db, before!.id, "https://x.example/design2.jpg", NOW);
-    const after = await asEventItself(env as never, deps(fetcher, NOW), db, before!.id, NOW);
-    expect(after).toMatchObject({ status: "draft", images: ["https://x.example/event.jpg"], source: { eventItself: true, noVideo: true, noFacebookVideo: true } });
-    expect(after!.source.design).toBeUndefined();
-    expect(after!.text).toBe("✨ Lydbad ✨\n\nGiv dig selv en pause i lydens bølger 🌊🤍\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
-    expect(after!.source.instagramText).toContain("via linket i bio");
+    expect(await asEventItself(env as never, deps(fetcher, NOW), db, before!.id, NOW)).toBe("ok");
+    expect((await socialPosts(db, "kind = 'event'"))[0]).toMatchObject({ status: "draft", channels: ["facebook"], link: FB_EVENT, images: [], source: { fbEventShare: true } });
+    const other = await setup({ fbLink: false });
+    const [post] = await socialPosts(other.db, "kind = 'event'");
+    expect(await asEventItself(other.env as never, deps(other.fetcher, NOW), other.db, post!.id, NOW)).toBe("no_event");
+  });
+
+  // "Slet og del begivenheden": the post that went out as the event's video is taken down, and the Facebook event shared instead.
+  it("takes down a post that went out as the event itself, and shares the Facebook event instead", async () => {
+    const { db, env, fetcher, calls } = await setup();
+    await db.prepare(`UPDATE social_posts SET status = 'published', published = '{"facebook":"1097","instagram":"1810"}', source = json_set(source, '$.eventItself', 1, '$.video', 'https://x.example/v.mp4')`).run();
+    expect(await redoEventItself(env as never, deps(fetcher, NOW), db)).toBe(1);
+    expect(calls.filter(c => c.method === "DELETE").map(c => c.path).sort()).toEqual(["/1097", "/1810"]);
+    const posts = await socialPosts(db, "kind = 'event'", [], "id");
+    expect(posts[0]!.source.removed).toBeTruthy();
+    expect(posts[1]).toMatchObject({ source_key: "event:2026-W46:mw:SFa:begivenhed", status: "approved", channels: ["facebook"], link: FB_EVENT, source: { fbEventShare: true } });
+    // Once.
+    expect(await redoEventItself(env as never, deps(fetcher, NOW), db)).toBe(0);
   });
 });
