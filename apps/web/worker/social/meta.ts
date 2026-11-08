@@ -25,10 +25,10 @@ export class MetaError extends Error {
 
 type Fetcher = SagaDeps["fetcher"];
 
-async function graph<T>(fetcher: Fetcher, method: "GET" | "POST", path: string, params: Record<string, string>): Promise<T> {
+async function graph<T>(fetcher: Fetcher, method: "GET" | "POST" | "DELETE", path: string, params: Record<string, string>): Promise<T> {
   const query = new URLSearchParams(params);
-  const url = method === "GET" ? `${path.startsWith("https://") ? path : GRAPH + path}${path.includes("?") ? "&" : "?"}${query}` : GRAPH + path;
-  const response = await fetcher(url, method === "GET" ? { headers: { accept: "application/json" } }
+  const url = method !== "POST" ? `${path.startsWith("https://") ? path : GRAPH + path}${path.includes("?") ? "&" : "?"}${query}` : GRAPH + path;
+  const response = await fetcher(url, method === "GET" ? { headers: { accept: "application/json" } } : method === "DELETE" ? { method, headers: { accept: "application/json" } }
     : { method, headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" }, body: query.toString() });
   const data = await response.json().catch(() => null) as (T & { error?: { message?: string; code?: number } }) | null;
   if (!response.ok || !data || data.error) throw new MetaError(`meta_${response.status}: ${(data?.error?.message ?? "").slice(0, 200)}`.trim(), data?.error?.code ?? null);
@@ -273,3 +273,22 @@ export async function ownInstagramMedia(fetcher: Fetcher, account: { igUserId: s
   const data = await graph<{ data?: Array<{ caption?: string; timestamp?: string }> }>(fetcher, "GET", `/${account.igUserId}/media`, { fields: "caption,timestamp", limit: String(limit), access_token: account.token });
   return (data.data ?? []).map(m => ({ createdMs: Date.parse(m.timestamp ?? "") || 0, caption: m.caption ?? "" }));
 }
+
+/** Requested (the chair, 8 Nov 2026): "Can we automatically delete reels that are outdated the day after the event has ended?" - "Alt, men lad os sikre at det
+ * altid er et event opslag tilbage - det mest populære". How popular a post is: its likes (Facebook: reactions) and comments. */
+export async function popularity(fetcher: Fetcher, network: "facebook" | "instagram", token: string, id: string): Promise<number> {
+  if (network === "instagram") {
+    const d = await graph<{ like_count?: number; comments_count?: number }>(fetcher, "GET", `/${id}`, { fields: "like_count,comments_count", access_token: token });
+    return (d.like_count ?? 0) + (d.comments_count ?? 0);
+  }
+  const d = await graph<{ reactions?: { summary?: { total_count?: number } }; comments?: { summary?: { total_count?: number } } }>(fetcher, "GET", `/${id}`,
+    { fields: "reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)", access_token: token });
+  return (d.reactions?.summary?.total_count ?? 0) + (d.comments?.summary?.total_count ?? 0);
+}
+/** A post (Facebook: post, photo or video; Instagram: the media) taken down. */
+export async function deletePublished(fetcher: Fetcher, token: string, id: string): Promise<void> {
+  await graph<{ success?: boolean }>(fetcher, "DELETE", `/${id}`, { access_token: token });
+}
+/** Meta's word that a post is not there (any more): already taken down by hand. */
+export const isGone = (error: unknown) => /does not exist/i.test(error instanceof Error ? error.message : String(error));
+

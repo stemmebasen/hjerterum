@@ -36,6 +36,7 @@ export type PrPageData = {
   /** Whether the posts and the newsletter link to the new website yet (public-site.ts). */
   siteLive?: boolean;
   shareEvent?: boolean;
+  deleteOld?: boolean;
   notice: string;
   error: string;
 };
@@ -174,6 +175,15 @@ export type PrTab = "overblik" | "kalender" | "events" | "tagget" | "beskeder" |
 export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Overblik"], ["kalender", "/pr/kalender", "Kalender"], ["events", "/pr/events", "Events"], ["tagget", "/pr/tagget", "Tagget i"], ["beskeder", "/pr/beskeder", "Beskeder"], ["mails", "/pr/mails", "Mails"], ["uge", "/pr/uge", "Ugens opslag"], ["sendt", "/pr/sendt", "Publiceret og indsigt"]];
 
 /** Requested: "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside." Which website the posts and the newsletter link to. */
+/** "Can we automatically delete reels that are outdated the day after the event has ended?" (social.ts deleteOldEventPosts): the chair's own yes, given here once. */
+function deleteOldCard(base: string, on: boolean): string {
+  return `<section class="panel"><header><h2>Opslag om events, der er forbi</h2></header>${on
+    ? `<p><b>Slået til.</b> Dagen efter et event er slut (fra kl. 10), sletter Saga eventets opslag på Facebook og Instagram - reels, billeder og delte begivenheder. Det mest populære om hvert event (flest likes og kommentarer) bliver stående på hvert medie. "Ugens events" og delinger af andres opslag bliver stående. Du får besked på Telegram, og kalenderen viser, hvad der er slettet.</p>
+<form method="post" action="${base}/pr/slet-gamle"><input type="hidden" name="on" value="0"><button class="ghost">Slå fra</button></form>`
+    : `<p>Slår du dette til, sletter Saga dagen efter et event eventets opslag på Facebook og Instagram, så kun det mest populære om eventet bliver stående på hvert medie. En sletning kan ikke fortrydes, og likes og kommentarer forsvinder med opslaget.</p>
+<form method="post" action="${base}/pr/slet-gamle" onsubmit="return confirm('Skal Saga slette et events opslag dagen efter eventet, så kun det mest populære bliver stående? Det kan ikke fortrydes.')"><input type="hidden" name="on" value="1"><button>Slet gamle eventopslag</button></form>`}</section>`;
+}
+
 /** "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead): the chair's own yes, given here once. */
 function shareEventCard(base: string, on: boolean): string {
   return `<section class="panel"><header><h2>Når et opslag ikke bliver godkendt</h2></header>${on
@@ -227,7 +237,8 @@ ${p.source.removed ? `<small class="muted">Slettet igen: ${esc(p.source.removed.
     overblik: `${prPlanSection(base, d.plan)}
 <section class="panel"><header><h2>Forbindelse</h2></header>${connection}</section>
 ${siteCard(base, Boolean(d.siteLive))}
-${shareEventCard(base, Boolean(d.shareEvent))}`,
+${shareEventCard(base, Boolean(d.shareEvent))}
+${deleteOldCard(base, Boolean(d.deleteOld))}`,
     kalender: d.calendar ? prCalendarSection(base, d.calendar) : "",
     mails: prMailSection(base, d.mails ?? [], d.mailEvents ?? [], d.nowMs),
     events: prEventsSection(base, d.events ?? [], d.nowMs),

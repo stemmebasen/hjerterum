@@ -1455,3 +1455,16 @@ Formanden talte med Gitta om at overtage hendes PR-arbejde. Det, hun fortalte, o
   - **"Brug designet"** sender designet videre til opslaget (trin 2). "Download" henter det som jpg.
 - **10 nye designs** (`src/layer-templates.ts`): Polaroids, Magasinforside, Stor typografi, Buen, Skråt bånd, Billetten, Citatet, Rammen, Kollagen og Stilhed. Hver har sin egen komposition og kan åbnes i editoren. I Facebook-cover-formatet bliver hvert design billede til venstre og ord til højre.
 - **"✏️ Åbn i editoren"** på Sagas forslag åbner det nuværende design som ét billede, man kan bygge videre på.
+
+## Gamle eventopslag slettes dagen efter (2026-11-08)
+
+- **Formanden:** "Can we automatically delete reels that are outdated the day after the event has ended?" Formandens valg af, hvad der slettes: "Alt, men lad os sikre at det altid er et event opslag tilbage - det mest populære".
+- **En indstilling**, som formanden slår til under PR og SoMe → Overblik ("Slet gamle eventopslag", `/pr/slet-gamle`). Den er dermed godkendt i admin. Den er slået fra, indtil formanden slår den til.
+- **Sådan virker det** (`deleteOldEventPosts` i `worker/social/social.ts`, hver time):
+  - Fra kl. 10 dagen efter eventets sidste dag sletter Saga eventets opslag på Facebook og Instagram: reels, billeder og delte begivenheder.
+  - Det mest populære opslag bliver stående på hvert medie. Det er det med flest likes (Facebook: reaktioner) og kommentarer; ved lige mange det nyeste.
+  - "Ugens events" og delinger af andres opslag bliver stående.
+  - Kan et opslags popularitet ikke læses, slettes intet på det medie den runde.
+  - Højst 10 sletninger pr. runde.
+  - Formanden får besked på Telegram, og kalenderen viser "Slettet efter eventet".
+- En sletning kan ikke fortrydes, og likes og kommentarer forsvinder med opslaget.

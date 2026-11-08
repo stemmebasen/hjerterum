@@ -54,7 +54,7 @@ import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
-import { answerInMessenger, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { answerInMessenger, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -979,7 +979,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
-        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt, deles Facebook-begivenheden.", "begivenhed-fra": "Slået fra: Facebook-begivenheden deles ikke af sig selv.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
+        "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt, deles Facebook-begivenheden.", "begivenhed-fra": "Slået fra: Facebook-begivenheden deles ikke af sig selv.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
         flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", tom: "Der er ingen events i den uge.",
@@ -993,7 +993,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         ...(tab === "beskeder" ? { messenger: await messengerInbox(social, deps, db) } : {}),
         weeks: [{ monday: thisMonday, key: weekKey(thisMonday), label: `Denne uge (uge ${Number(weekKey(thisMonday).slice(6))})` }, { monday: coming, key: weekKey(coming), label: `Næste uge (uge ${Number(weekKey(coming).slice(6))})` },
           ...(monday !== thisMonday && monday !== coming ? [{ monday, key: weekKey(monday), label: `Uge ${Number(weekKey(monday).slice(6))}` }] : [])],
-        week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now, siteLive: await siteLive(db), shareEvent: await shareFacebookEventOn(db),
+        week: { monday, key: weekKey(monday), posts: await weekPosts(db, weekKey(monday)) }, recent: await recentPosts(db), aiReady: Boolean(env.AI_API_KEY && env.AI_MODEL), nowMs: now, siteLive: await siteLive(db), shareEvent: await shareFacebookEventOn(db), deleteOld: await deleteOldOn(db),
         notice: notices[url.searchParams.get("besked") ?? ""] ?? "", error: errors[url.searchParams.get("fejl") ?? ""] ?? "" };
       // The tagged posts' pictures live on Facebook's and Instagram's own addresses.
       return html(prPage(base, who, pageData, tab), 200, { "content-security-policy": String(HEADERS["content-security-policy"]).replace(/img-src [^;]*/, "img-src 'self' data: https:; media-src https:") });
@@ -1078,6 +1078,13 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       await setShareFacebookEvent(db, on, who, now);
       await audit(db, actor, "social.manage", on ? "Slog til: eventet selv deles på Facebook, når et events opslag ikke bliver godkendt i tide" : "Slog fra: eventet deles ikke af sig selv", now);
       return back(`besked=${on ? "begivenhed-til" : "begivenhed-fra"}`);
+    }
+    // "Can we automatically delete reels that are outdated the day after the event has ended?" (social.ts deleteOldEventPosts) - the chair's approval in admin, once.
+    if (path === "/pr/slet-gamle" && request.method === "POST") {
+      const on = String((await request.formData().catch(() => null))?.get("on") ?? "") === "1";
+      await setDeleteOld(db, on, who, now);
+      await audit(db, actor, "social.manage", on ? "Slog til: Saga sletter et events opslag dagen efter eventet (det mest populære bliver stående)" : "Slog fra: Saga sletter ikke gamle eventopslag", now);
+      return back(`besked=${on ? "slet-til" : "slet-fra"}`);
     }
     if (path === "/pr/afbryd") {
       await disconnectSocial(db);
