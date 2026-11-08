@@ -25,6 +25,9 @@ describe("an event's old posts taken down the day after", () => {
     await post("event:2026-W44:mw:SFa", ["facebook", "instagram"], { facebook: "755_1", instagram: "1781" }, STARTS - 14 * 86_400_000, { shout: 1 });
     await post("event:2026-W44:mw:SFa:2", ["facebook", "instagram"], { facebook: "755_2", instagram: "1782" }, STARTS - 7 * 86_400_000, { shout: 2 });
     await post("event:2026-W44:mw:SFa:x", ["facebook"], { facebook: "755_3" }, STARTS - 3 * 86_400_000, { fbEventShare: true });
+    // "Ugens events" (the chair, 8 Nov 2026: "Det skal aldrig slettes efterfølgende").
+    for (const [i, id] of ["755_8", "755_9"].entries()) await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, images, source, publish_at_ms, status, published, published_at_ms, created_at_ms, updated_at_ms)
+      VALUES ('week', ?, '2026-W44', '["facebook"]', 'Ugens events', '[]', ?, ?, 'published', ?, ?, 0, 0)`).bind(`week:2026-W44:${i}`, JSON.stringify({ events: [{ key: "mw:SFa", title: "Lydbad", startsMs: STARTS }] }), STARTS - 86_400_000, JSON.stringify({ facebook: id }), STARTS - 86_400_000).run();
     const all: Record<string, number | "gone" | "error"> = { "755_1": 6, "755_2": 2, "755_3": 10, "1781": 3, "1782": 1, ...scores };
     const calls: Array<{ method: string; path: string }> = [];
     const fetcher: typeof fetch = async (input, init) => {
@@ -63,6 +66,8 @@ describe("an event's old posts taken down the day after", () => {
     expect(deletes(calls)).toEqual(["/1782", "/755_1", "/755_2"]);
     const posts = await socialPosts(db, "kind = 'event'", [], "id");
     expect(posts.map(p => p.source.deleted ?? {})).toEqual([{ facebook: NOW }, { facebook: NOW, instagram: NOW }, {}]);
+    // "Ugens events" is never taken down.
+    expect(calls.some(c => c.path === "/755_8" || c.path === "/755_9")).toBe(false);
     expect(services.telegram("sendMessage").some(c => JSON.stringify(c.body).includes("slettet 3 gamle opslag"))).toBe(true);
     // Once done, nothing more.
     calls.length = 0;
