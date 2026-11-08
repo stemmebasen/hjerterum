@@ -43,7 +43,7 @@ jobs:
           pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
             "SELECT p.week, p.text, p.source, p.publish_at_ms, (SELECT 1 FROM social_posts r WHERE r.source_key = 'reel:' || p.week) AS has_reel, (SELECT ig_user_id FROM social_account WHERE id = 1) AS ig FROM social_posts p WHERE p.week = ($WEEK) AND p.source_key = 'week:' || p.week" > /tmp/week.json
           pnpm --dir apps/web exec wrangler d1 execute DB --remote --env staging --json --command \
-            "SELECT images, source FROM social_posts WHERE kind = 'event' AND status <> 'skipped' AND week = ($WEEK)" > /tmp/events.json
+            "SELECT images, source FROM social_posts WHERE kind = 'event' AND week = ($WEEK)" > /tmp/events.json
       - name: Make the reel
         shell: bash
         run: |

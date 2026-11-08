@@ -33,6 +33,7 @@ describe("Ugens events as a reel", () => {
       if (path === "/17841/media" && method === "POST") return new Response(JSON.stringify({ id: `reel-${++media}` }));
       if (/^\/reel-\d+$/.test(path!)) return new Response(JSON.stringify({ status_code: statuses.shift() ?? "FINISHED" }));
       if (path === "/17841/media_publish") return new Response(JSON.stringify({ id: "ig-reel" }));
+      if (path === "/755/videos" && method === "POST") return new Response(JSON.stringify({ id: "fb-video" }));
       return new Response(JSON.stringify({ data: [] }));
     };
     for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER]] as const).entries())
@@ -83,5 +84,22 @@ describe("Ugens events as a reel", () => {
     expect((await site.fetch(new Request("https://www.hjerterum.info/api/social-reels/../../pr/x.mp4"), env)).headers.get("content-type")).not.toBe("video/mp4");
     expect((await site.fetch(new Request("https://www.hjerterum.info/api/social-reels/A_B.mp4"), env)).headers.get("content-type")).not.toBe("video/mp4");
     expect((await site.fetch(new Request("https://www.hjerterum.info/api/social-reels/2026-w46-ffffffffffff.mp4"), env)).status).toBe(404);
+  });
+
+  // Requested (the chair, 8 Nov 2026): "Lav dem forfra, og sikr der køres én gang på IG og en gang på FB kl. 7.30".
+  it("goes on Facebook as a video too, and the week's picture post then stays home", async () => {
+    const { db, graph, run } = await setup([]);
+    await db.prepare(`UPDATE social_posts SET channels = '["facebook","instagram"]', text = 'Ugens events\n\nSe alle events og tilmeld dig via linket i bio.', status = 'approved', approved_by = 'Jacob Hauge', approved_at_ms = 0 WHERE source_key = 'reel:2026-W46'`).run();
+    await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, approved_by, approved_at_ms, created_at_ms, updated_at_ms)
+      VALUES ('week', 'week:2026-W46', '2026-W46', '["facebook","instagram"]', 'Ugens events', NULL, '["https://x.example/a.jpg","https://x.example/b.jpg"]', '{}', ?, 'approved', 'Jacob Hauge', 0, 0, 0)`).bind(AT).run();
+    await run(AT + 60_000);
+    await run(AT + 6 * 60_000);
+    expect((await socialPosts(db, "source_key = 'week:2026-W46'"))[0]).toMatchObject({ status: "skipped" });
+    const video = graph.find(c => c.path === "/755/videos")!;
+    expect(video.params).toMatchObject({ file_url: VIDEO });
+    // The website's events in place of "linket i bio" (the old site until the new one is in use).
+    expect(video.params.description).toMatch(/og tilmeld dig på (www\.hjerterum\.info|holistisk\.org)\/events/);
+    expect(graph.filter(c => c.path === "/17841/media_publish")).toHaveLength(1);
+    expect(graph.some(c => c.method === "POST" && (c.path === "/755/photos" || c.path === "/755/feed"))).toBe(false);
   });
 });

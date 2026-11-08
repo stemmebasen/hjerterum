@@ -136,6 +136,7 @@ function weekRange(mondayMs) {
   return a.getMonth() === b.getMonth() ? `${a.getDate()}.–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}` : `${a.getDate()}. ${MONTH_SHORT[a.getMonth()]}–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}`;
 }
 
+const WEEK_REEL_MAX = 14;
 async function weekJob(weekPath, eventsPath, out, now) {
   const skip = why => { writeFileSync(join(out, "jobs.json"), "[]"); writeFileSync(join(out, "skip"), why + "\n"); console.log("skip:", why); };
   const [w] = rows(weekPath);
@@ -146,7 +147,8 @@ async function weekJob(weekPath, eventsPath, out, now) {
   const posts = rows(eventsPath).map(r => ({ source: json(r.source, {}), images: json(r.images, []) })).filter(r => r.source.startsMs && r.images[0]).sort((a, b) => a.source.startsMs - b.source.startsMs);
   for (const r of posts) {
     const title = cleanTitle(r.source.title);
-    if (seen.has(title.toLowerCase()) || events.length >= 8) continue;
+    // Reported (the chair, 8 Nov 2026): "Hvorfor vises kun disse i ugens reel?" - it stopped at 8 (Monday to Thursday): the whole week, up to 14 (7 pages, about 35 s).
+    if (seen.has(title.toLowerCase()) || events.length >= WEEK_REEL_MAX) continue;
     const pic = await picture(r.images[0]);
     if (!pic) continue;
     seen.add(title.toLowerCase());
@@ -161,10 +163,12 @@ async function weekJob(weekPath, eventsPath, out, now) {
   const name = `${String(w.week).toLowerCase()}-${randomBytes(6).toString("hex")}`;
   const reelSource = { format: "reel", video: `${SITE}/api/social-reels/${name}.mp4`, events: source.events ?? [], collaborators: source.collaborators ?? [] };
   const caption = String(source.instagramText || w.text || "").trim();
-  const at = Number(w.publish_at_ms) + 3_600_000;
+  // "sikr der køres én gang på IG og en gang på FB kl. 7.30" (the chair, 8 Nov 2026): the reel on both, at Ugens events' own time - and the picture post
+  // then stays home (social.ts publishOne).
+  const at = Number(w.publish_at_ms);
   writeFileSync(join(out, "jobs.json"), JSON.stringify([{ composition: "Week", props, out: `${name}.mp4`, name,
     sql: "INSERT OR IGNORE INTO social_posts (kind, source_key, week, channels, text, link, images, source, publish_at_ms, status, created_at_ms, updated_at_ms) VALUES " +
-      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
+      `('week', ${sql("reel:" + w.week)}, ${sql(w.week)}, '["facebook","instagram"]', ${sql(caption)}, NULL, '[]', ${sql(JSON.stringify(reelSource))}, ${at}, 'draft', ${now}, ${now});` }], null, 2));
   console.log("Ugens reel:", name, events.length, "events");
 }
 
