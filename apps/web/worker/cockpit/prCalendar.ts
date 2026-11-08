@@ -54,7 +54,7 @@ const cardLink = (base: string, p: SocialPost) => p.kind !== "share" && ["draft"
   ? `<p class="cal-links"><a href="${postCardHref(base, p)}">${p.status === "approved" ? "Fortryd eller ret" : p.status === "skipped" ? "Godkend igen" : "Godkend, ret eller spring over"} →</a></p>` : "";
 
 const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}`
-  : `${p.source.title ?? "Event"}${p.source.eventItself ? " · eventet selv" : p.source.fbEventShare ? " · Facebook-begivenheden" : p.source.pageShare ? " · eventet selv" : p.source.shout === 2 ? " · påmindelse" : ""}`;
+  : `${p.source.title ?? "Event"}${p.source.own ? " · dit eget opslag" : p.source.eventItself ? " · eventet selv" : p.source.fbEventShare ? " · Facebook-begivenheden" : p.source.pageShare ? " · eventet selv" : p.source.shout === 2 ? " · påmindelse" : ""}`;
 const where = (p: SocialPost) => p.channels.map(c => c === "instagram" ? (p.kind === "event" && p.source.video && !p.source.noVideo ? "IG ▶" : "IG") : p.kind === "event" && p.source.video && !p.source.noFacebookVideo ? "FB ▶" : "FB").join(" + ");
 
 export function prCalendarSection(base: string, d: CalendarData): string {
