@@ -53,6 +53,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     /** Gone out as the event itself (shareEventInstead): its picture or video with the short fixed words (eventItselfText) - not Saga's, not a link card.
      * (`fbEventShare`/`pageShare`: the link card of the first version, 8 Nov 2026.) */
     eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean;
+    /** The event's own picture, kept when the chair's design takes its place (setPostDesign) - for the post made the event itself again (asEventItself). */
+    eventImage?: string;
     /** The chair chose the time (moved it in the calendar, or saved it): Saga does not move it (pullEarlier). */
     chairTime?: boolean;
     /** "to shouts på hvert medie" (plan.ts shoutWindows): which of the event's posts this is - the first (none said: the first) or the reminder a week
@@ -684,6 +686,25 @@ export async function eventHook(env: SagaEnv, deps: SagaDeps, p: SocialPost): Pr
     .then(t => t.replace(/\s+/g, " ").replace(/^["“]|["”]$/g, "").trim()).catch(() => "");
   // Only a line that is words (not a time, a link or an answer gone wrong).
   return line && /\p{L}/u.test(line) && !/\d|https?:|www\.|#/.test(line) && line.length <= 110 ? line : "";
+}
+
+/** Requested (the chair, 8 Nov 2026): "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
+ * A post made the event itself, by the chair's button: the event's own picture again (not the design, no video), Saga's short line over the fixed lines
+ * (eventItselfText) - a proposal again, for the chair to read and approve. The design stays when the event's own picture cannot be found. */
+async function eventImageOf(db: D1Database, key: string | undefined): Promise<string | null> {
+  if (!key?.startsWith("mw:")) return null;
+  return (await db.prepare("SELECT image_url AS u FROM house_events WHERE id = ?").bind(key.slice(3)).first<{ u: string | null }>().catch(() => null))?.u ?? null;
+}
+export async function asEventItself(env: SagaEnv, deps: SagaDeps, db: D1Database, id: number, nowMs: number): Promise<SocialPost | null> {
+  const p = await socialPost(db, id);
+  if (!p || p.kind !== "event" || !p.source.startsMs || !["draft", "approved", "failed", "skipped"].includes(p.status)) return null;
+  const line = await eventHook(env, deps, p);
+  const own = p.source.design ? p.source.eventImage ?? await eventImageOf(db, p.source.key) : p.images[0] ?? null;
+  const { design: _d, ...rest } = p.source;
+  const source = { ...(own ? rest : p.source), eventItself: true, noVideo: true, noFacebookVideo: true, instagramText: eventItselfText(p.source, "instagram", line) };
+  await db.prepare(`UPDATE social_posts SET text = ?, images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
+    .bind(eventItselfText(p.source, "facebook", line), JSON.stringify(own ? [own] : p.images), JSON.stringify(source), nowMs, id).run();
+  return socialPost(db, id);
 }
 
 async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | null> {
@@ -1323,6 +1344,6 @@ export async function setPostDesign(db: D1Database, postId: number, url: string,
   const post = await socialPost(db, postId);
   if (!post || !["draft", "approved", "failed"].includes(post.status)) return false;
   await db.prepare("UPDATE social_posts SET images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
-    .bind(JSON.stringify([url]), JSON.stringify({ ...post.source, design: true }), nowMs, postId).run();
+    .bind(JSON.stringify([url]), JSON.stringify({ ...post.source, design: true, eventImage: post.source.eventImage ?? (post.source.design ? undefined : post.images[0]) }), nowMs, postId).run();
   return true;
 }
