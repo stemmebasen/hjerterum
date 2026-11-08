@@ -294,8 +294,10 @@ export const isGone = (error: unknown) => /does not exist/i.test(error instanceo
 
 /** The page's coming Facebook events (made by hand - Meta lets no app create them): to find each event's link (social.ts findFacebookEvents). */
 export async function pageEvents(fetcher: Fetcher, page: { id: string; token: string }): Promise<Array<{ id: string; name: string; startMs: number }>> {
-  const data = await graph<{ data?: Array<{ id: string; name?: string; start_time?: string }> }>(fetcher, "GET", `/${page.id}/events`,
-    { fields: "id,name,start_time", time_filter: "upcoming", limit: "100", access_token: page.token });
-  return (data.data ?? []).map(e => ({ id: e.id, name: e.name ?? "", startMs: Date.parse(e.start_time ?? "") || 0 })).filter(e => e.startMs > 0);
+  const data = await graph<{ data?: Array<{ id: string; name?: string; start_time?: string; event_times?: Array<{ id: string; start_time?: string }> }> }>(fetcher, "GET", `/${page.id}/events`,
+    { fields: "id,name,start_time,event_times", time_filter: "upcoming", limit: "100", access_token: page.token });
+  // A recurring event (found 8 Nov 2026: Movie-night) is one event on the page, with each date its own (event_times) - the date's own is what is shared.
+  return (data.data ?? []).flatMap(e => [{ id: e.id, name: e.name ?? "", startMs: Date.parse(e.start_time ?? "") || 0 },
+    ...(e.event_times ?? []).map(t => ({ id: t.id, name: e.name ?? "", startMs: Date.parse(t.start_time ?? "") || 0 }))]).filter(e => e.startMs > 0);
 }
 

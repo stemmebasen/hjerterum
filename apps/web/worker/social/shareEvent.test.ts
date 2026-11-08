@@ -11,7 +11,7 @@ const FB_EVENT = "https://www.facebook.com/events/123456789";
 describe("the Facebook event shared when no post was approved", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  async function setup(o: { reminder?: boolean; fbLink?: boolean; ai?: string; pageEvents?: unknown[] } = {}) {
+  async function setup(o: { reminder?: boolean; fbLink?: boolean; ai?: string; pageEvents?: unknown[]; refuse?: boolean } = {}) {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
     const services = fakeServices({ ai: () => o.ai ?? "{}" });
@@ -37,7 +37,7 @@ describe("the Facebook event shared when no post was approved", () => {
       const path = url.slice(GRAPH.length).split("?")[0]!, method = init?.method ?? "GET";
       calls.push({ method, path, params: Object.fromEntries(new URLSearchParams(String(init?.body ?? ""))) });
       if (path === "/755/events") return new Response(JSON.stringify({ data: o.pageEvents ?? [] }));
-      if (method === "DELETE") return new Response(JSON.stringify({ success: true }));
+      if (method === "DELETE") return path === "/1810" && o.refuse ? new Response(JSON.stringify({ error: { message: "(#10) Application does not have permission for this action", code: 10 } }), { status: 403 }) : new Response(JSON.stringify({ success: true }));
       return new Response(JSON.stringify({ id: "755_9" }));
     };
     return { db, env, services, fetcher, calls };
@@ -89,6 +89,14 @@ describe("the Facebook event shared when no post was approved", () => {
     expect(await db.prepare("SELECT link FROM facebook_events WHERE event_key = 'mw:SFa'").first()).toEqual({ link: "https://www.facebook.com/events/999" });
   });
 
+  // Reported (the chair, 8 Nov 2026): "men det er jo lige her" - an event only in the membership system's list, and a recurring event on Facebook.
+  it("finds a recurring Facebook event's own date for an event that only has posts", async () => {
+    const { db, env, fetcher } = await setup({ fbLink: false, pageEvents: [{ id: "500", name: "Lydbad hver mandag", start_time: "2026-11-02T19:00:00+0100",
+      event_times: [{ id: "501", start_time: "2026-11-09T19:00:00+0100" }, { id: "502", start_time: "2026-11-16T19:00:00+0100" }] }] });
+    expect(await findFacebookEvents(env as never, deps(fetcher, NOW), db)).toBe(1);
+    expect(await db.prepare("SELECT link FROM facebook_events WHERE event_key = 'mw:SFa'").first()).toEqual({ link: "https://www.facebook.com/events/501" });
+  });
+
   // "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
   it("makes a post a share of the Facebook event on the chair's button - a proposal to approve", async () => {
     const { db, env, fetcher } = await setup();
@@ -110,6 +118,17 @@ describe("the Facebook event shared when no post was approved", () => {
     expect(posts[0]!.source.removed).toBeTruthy();
     expect(posts[1]).toMatchObject({ source_key: "event:2026-W46:mw:SFa:begivenhed", status: "approved", channels: ["facebook"], link: FB_EVENT, source: { fbEventShare: true } });
     // Once.
+    expect(await redoEventItself(env as never, deps(fetcher, NOW), db)).toBe(0);
+  });
+
+  it("shares the Facebook event all the same when Meta will not take the old post down - and tells the chair what to delete", async () => {
+    const { db, env, services, fetcher } = await setup({ refuse: true });
+    await db.prepare(`UPDATE social_posts SET status = 'published', published = '{"facebook":"1097","instagram":"1810","instagram_link":"https://www.instagram.com/reel/X/"}', source = json_set(source, '$.eventItself', 1)`).run();
+    expect(await redoEventItself(env as never, deps(fetcher, NOW), db)).toBe(1);
+    const posts = await socialPosts(db, "kind = 'event'", [], "id");
+    expect(posts[0]!.error).toContain("Instagram: meta_403");
+    expect(posts[1]).toMatchObject({ status: "approved", link: FB_EVENT });
+    expect(services.telegram("sendMessage").some(c => JSON.stringify(c.body).includes("https://www.instagram.com/reel/X/"))).toBe(true);
     expect(await redoEventItself(env as never, deps(fetcher, NOW), db)).toBe(0);
   });
 });

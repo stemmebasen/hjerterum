@@ -741,7 +741,14 @@ export async function findFacebookEvents(env: SocialEnv, deps: SagaDeps, db: D1D
   const account = await socialAccount(db);
   if (!account) return 0;
   const now = deps.now();
-  const wanted = (await facebookEvents(db, now)).filter(e => !e.done?.link);
+  // The calendar's events, and - reported (the chair, 8 Nov 2026: "men det er jo lige her") - those only in the membership system's list, that have posts.
+  const listed = await facebookEvents(db, now);
+  const known = new Set(listed.map(e => e.key));
+  const withPosts = (await db.prepare(`SELECT DISTINCT json_extract(source, '$.key') AS k, json_extract(source, '$.title') AS t, json_extract(source, '$.startsMs') AS s FROM social_posts
+      WHERE kind = 'event' AND json_extract(source, '$.startsMs') > ? AND json_extract(source, '$.key') IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM facebook_events f WHERE f.event_key = json_extract(social_posts.source, '$.key') AND f.link IS NOT NULL)`).bind(now)
+    .all<{ k: string; t: string | null; s: number }>().then(r => r.results ?? []).catch(() => [])).filter(r => !known.has(r.k)).map(r => ({ key: r.k, title: r.t ?? "", startsMs: r.s, done: null }));
+  const wanted = [...listed.filter(e => !e.done?.link), ...withPosts];
   if (!wanted.length) return 0;
   const { page } = await access(env, account);
   const found = await pageEvents(deps.fetcher, page);
@@ -772,19 +779,24 @@ export async function redoEventItself(env: SocialEnv, deps: SagaDeps, db: D1Data
   for (const p of posts) {
     const link = await facebookEventLink(db, p.source.key);
     if (!link) continue;
+    // Each medium on its own: what Meta will not take down is told (with Meta's words), and the Facebook event is shared all the same.
+    const failed: string[] = [];
     for (const channel of ["facebook", "instagram"] as const) {
       const id = p.published[channel], token = channel === "facebook" ? page.token : instagram?.token;
       if (!id || !token) continue;
-      await deletePublished(deps.fetcher, token, id).catch(error => { if (!isGone(error)) throw error; });
+      await deletePublished(deps.fetcher, token, id).catch(error => { if (!isGone(error)) failed.push(`${channel === "facebook" ? "Facebook" : "Instagram"}: ${(error instanceof Error ? error.message : String(error)).slice(0, 200)}`); });
     }
-    await db.prepare("UPDATE social_posts SET source = ?, updated_at_ms = ? WHERE id = ?")
-      .bind(JSON.stringify({ ...p.source, removed: { atMs: now, note: "Slettet: skulle have været en deling af Facebook-begivenheden (formanden)" } }), now, p.id).run();
+    await db.prepare("UPDATE social_posts SET source = ?, error = ?, updated_at_ms = ? WHERE id = ?")
+      .bind(JSON.stringify({ ...p.source, removed: { atMs: now, note: failed.length ? `Kunne ikke slettes af Saga - ${failed.join("; ")}` : "Slettet: skulle have været en deling af Facebook-begivenheden (formanden)" } }),
+        failed.length ? failed.join("; ") : null, now, p.id).run();
     const { design: _d, video: _v, instagramAtMs: _i, instagramText: _t, eventItself: _e, ...rest } = p.source;
     await insertPost(db, { kind: "event", sourceKey: `${p.source_key}:begivenhed`, week: p.week, channels: ["facebook"], text: eventItselfText(p.source, "facebook"), link,
       images: [], source: { ...rest, shout: 1, shouts: 1, fbEventShare: true, noVideo: true, noFacebookVideo: true }, publishAtMs: now }, now);
     await db.prepare(`UPDATE social_posts SET status = 'approved', approved_by = 'Saga (Facebook-begivenheden, efter dit ønske)', approved_at_ms = ? WHERE source_key = ? AND status = 'draft'`)
       .bind(now, `${p.source_key}:begivenhed`).run();
-    await tellChair(env, deps, `Saga har slettet opslaget om "${p.source.title ?? "eventet"}" på Facebook og Instagram og deler nu Facebook-begivenheden på Facebook i stedet, som du bad om.`).catch(() => undefined);
+    await tellChair(env, deps, failed.length
+      ? `Saga deler nu Facebook-begivenheden for "${p.source.title ?? "eventet"}" på Facebook, som du bad om. Meta ville ikke lade hende slette det gamle opslag (${failed.join("; ")}) - slet det i hånden: ${[p.published.facebook_link, p.published.instagram_link].filter(Boolean).join(" og ")}`
+      : `Saga har slettet opslaget om "${p.source.title ?? "eventet"}" på Facebook og Instagram og deler nu Facebook-begivenheden på Facebook i stedet, som du bad om.`).catch(() => undefined);
     done++;
   }
   return done;
