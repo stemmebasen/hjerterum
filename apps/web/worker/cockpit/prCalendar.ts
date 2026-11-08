@@ -41,9 +41,17 @@ export function calendarHref(base: string, p: SocialPost): string {
   const studio = p.kind === "event" && p.source.key ? studioIdOf(p.source.key) : null;
   if (studio && !["published", "publishing"].includes(p.status)) return `${base}/plakater/${esc(studio)}?fra=${back}`;
   if (p.kind === "share") return `${base}/pr/tagget`;
+  return postCardHref(base, p);
+}
+/** The post's own card in Ugens opslag - under its event's week, which need not be the week it goes out in. */
+export function postCardHref(base: string, p: SocialPost): string {
   const monday = p.kind === "event" && p.source.startsMs ? mondayOf(p.source.startsMs) : mondayOf(p.publish_at_ms ?? 0);
   return `${base}/pr/uge?uge=${monday}#opslag-${p.id}`;
 }
+/** Reported (the chair, 8 Nov 2026): "Nej, eventet til 19.30 er ikke under uge 45" - an event's post opens in Plakater og opslag, and its card (approve, skip,
+ * take back) is under the event's week: a link straight to it. */
+const cardLink = (base: string, p: SocialPost) => p.kind !== "share" && ["draft", "approved", "failed", "skipped"].includes(p.status) && !p.source.removed
+  ? `<p class="cal-links"><a href="${postCardHref(base, p)}">${p.status === "approved" ? "Fortryd eller ret" : p.status === "skipped" ? "Godkend igen" : "Godkend, ret eller spring over"} →</a></p>` : "";
 
 const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}`
   : `${p.source.title ?? "Event"}${p.source.eventItself ? " · eventet selv" : p.source.fbEventShare ? " · Facebook-begivenheden" : p.source.pageShare ? " · eventet selv" : p.source.shout === 2 ? " · påmindelse" : ""}`;
@@ -83,7 +91,7 @@ export function prCalendarSection(base: string, d: CalendarData): string {
     const move = movable(p) ? `<details class="cal-move"><summary>Flyt</summary><form method="post" action="${base}/pr/kalender/flyt"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="channel" value="${channel}">
 <input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="at" value=""><input type="datetime-local" required value="${localValue(p.publish_at_ms!)}" aria-label="Nyt tidspunkt"><button>Flyt</button></form></details>` : "";
     return `<li${movable(p) ? ` draggable="true" data-id="${p.id}" data-channel="${channel}" data-time="${clock(p.publish_at_ms!)}"` : ""}><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${p.status === "approved" || p.status === "publishing" ? `<span class="cal-ok" title="Godkendt og klar til afsendelse">✓</span> ` : ""}${esc(label(p))}</b>
-<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${peek(p)}${move}</li>`;
+<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${cardLink(base, p)}${peek(p)}${move}</li>`;
   };
   // Asked (the chair, 6 Nov 2026): "Kan jeg holde mus over et event i kalenderen for at se opslaget/opslagene?" - the post as it goes out, and when the
   // event's other posts go out.
