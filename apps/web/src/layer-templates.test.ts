@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { C } from "./event-poster";
-import { LAYER_DESIGNS, layerDesign } from "./layer-templates";
+import { LAYER_DESIGNS, layerDesign, roomBelow, type Layer } from "./layer-templates";
 
 // Asked (the chair, 7 Nov 2026): "Altså et lille mini Photoshop ... Jeg synes heller ikke, at de designforslag, der er, er fyldestgørende. Det kommer til at ligne det samme, det hele."
 const words = { title: "Lydbad med gongs", rest: null, teacher: "Kasper Holm", kicker: "Lyd", day: "Lørdag 21. november", time: "18.30–20.00", number: "21", month: "november" };
@@ -30,5 +30,15 @@ describe("the designs made of layers", () => {
       return `${Math.round(photo.x / 50)}-${Math.round(photo.y / 50)}-${Math.round(photo.w / 50)}-${photo.frame ?? "rect"}-${d.background}`;
     }));
     expect(shapes.size).toBe(LAYER_DESIGNS.length);
+  });
+
+  // Reported (the chair, 8 Nov 2026): "Der er så mange layout fejl" - a long title ran into the teacher's name below it.
+  it("gives every title room that ends above the words under it", () => {
+    for (const m of LAYER_DESIGNS) {
+      const d = layerDesign(m.key, { W: 1080, H: 1350, words, colors: C as never, site: "holistisk.org", quote: null })!;
+      const title = d.layers.find((l): l is Extract<Layer, { kind: "text" }> => l.kind === "text" && l.role === "title" && !l.angle)!;
+      const sub = d.layers.find((l): l is Extract<Layer, { kind: "text" }> => l.kind === "text" && l.role === "sub" && l.y > title.y && l.x < title.x + title.w && l.x + l.w > title.x);
+      if (sub) expect(roomBelow(d.layers, title)).toBeLessThanOrEqual(sub.y);
+    }
   });
 });
