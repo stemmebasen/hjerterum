@@ -137,6 +137,12 @@ function weekRange(mondayMs) {
 }
 
 const WEEK_REEL_MAX = 14;
+/** Noon on the Monday of an ISO week ("2026-W46"), as ms. */
+export function isoMonday(week) {
+  const [, y, n] = /^(\d{4})-W(\d{2})$/.exec(week) ?? [];
+  const jan4 = Date.UTC(Number(y), 0, 4), day = (new Date(jan4).getUTCDay() + 6) % 7;
+  return jan4 - day * 86_400_000 + (Number(n) - 1) * 7 * 86_400_000 + 12 * 3_600_000;
+}
 async function weekJob(weekPath, eventsPath, out, now) {
   const skip = why => { writeFileSync(join(out, "jobs.json"), "[]"); writeFileSync(join(out, "skip"), why + "\n"); console.log("skip:", why); };
   const [w] = rows(weekPath);
@@ -158,7 +164,9 @@ async function weekJob(weekPath, eventsPath, out, now) {
   }
   if (!events.length) return skip("ugen har ingen events med billede");
   const source = json(w.source, {});
-  const monday = Number(w.publish_at_ms) - 15.5 * 3_600_000;
+  // Reported (the chair, 8 Nov 2026): "Hvorfor hedder overskriften 8-14. nov!?! Det er 9-15!!" - the Monday was counted back from the post's time (once always
+  // Monday 15.30); now it is the week's own Monday, from its number.
+  const monday = isoMonday(String(w.week));
   const props = { weekNo: Number(String(w.week).slice(6)), range: weekRange(monday), events };
   const name = `${String(w.week).toLowerCase()}-${randomBytes(6).toString("hex")}`;
   const reelSource = { format: "reel", video: `${SITE}/api/social-reels/${name}.mp4`, events: source.events ?? [], collaborators: source.collaborators ?? [] };
