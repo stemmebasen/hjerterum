@@ -292,3 +292,10 @@ export async function deletePublished(fetcher: Fetcher, token: string, id: strin
 /** Meta's word that a post is not there (any more): already taken down by hand. */
 export const isGone = (error: unknown) => /does not exist/i.test(error instanceof Error ? error.message : String(error));
 
+/** The page's coming Facebook events (made by hand - Meta lets no app create them): to find each event's link (social.ts findFacebookEvents). */
+export async function pageEvents(fetcher: Fetcher, page: { id: string; token: string }): Promise<Array<{ id: string; name: string; startMs: number }>> {
+  const data = await graph<{ data?: Array<{ id: string; name?: string; start_time?: string }> }>(fetcher, "GET", `/${page.id}/events`,
+    { fields: "id,name,start_time", time_filter: "upcoming", limit: "100", access_token: page.token });
+  return (data.data ?? []).map(e => ({ id: e.id, name: e.name ?? "", startMs: Date.parse(e.start_time ?? "") || 0 })).filter(e => e.startMs > 0);
+}
+

@@ -75,7 +75,7 @@ function actions(base: string, p: SocialPost, approveLabel: string): string {
   if (!open(p)) return `<p class="small muted">${p.status === "published" ? `Publiceret ${esc(when(p.published_at_ms))}. ${sentLinks(p)}` : "Publiceres nu."}</p>`;
   const buttons = p.status === "approved"
     ? `<button name="do" value="fortryd" class="ghost">Fortryd godkendelsen</button>`
-    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}${p.kind === "event" && !p.source.eventItself ? `<button name="do" value="kort" class="ghost" onclick="return confirm('Gøre opslaget til eventet selv? Eventets eget billede (ikke designet, ingen video) og en kort tekst fra Saga med titel, tid og vært. Teksten her bliver erstattet.')" title="Eventets eget billede med en kort tekst - i stedet for designet og teksten">Del eventet med kort tekst</button>` : ""}`;
+    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}${p.kind === "event" && !p.source.eventItself ? `<button name="do" value="kort" class="ghost" onclick="return confirm('Dele eventets Facebook-begivenhed i stedet, med en kort tekst? Designet, videoen og teksten her bliver erstattet, og det sker kun på Facebook.')" title="Eventets Facebook-begivenhed med en kort tekst - i stedet for designet og teksten">Del begivenheden med kort tekst</button>` : ""}`;
   return `<p class="pr-acts">${buttons}</p>${p.error ? `<p class="small warn">${esc(p.error)}</p>` : ""}${p.approved_by && p.status === "approved" ? `<p class="small muted">Godkendt af ${esc(p.approved_by)}.</p>` : ""}`;
 }
 
@@ -187,10 +187,10 @@ function deleteOldCard(base: string, on: boolean): string {
 /** "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead): the chair's own yes, given here once. */
 function shareEventCard(base: string, on: boolean): string {
   return `<section class="panel"><header><h2>Når et opslag ikke bliver godkendt</h2></header>${on
-    ? `<p><b>Slået til.</b> Bliver et events opslag (14 eller 7 dage før) ikke godkendt i tide, udgiver Saga eventet selv på opslagets tid: eventets billede eller video med en kort indledning fra Saga og faste linjer (titel, tid, vært og tilmelding) på Facebook og Instagram. Du får besked på Telegram, og du kan stoppe det i kalenderen.</p>
+    ? `<p><b>Slået til.</b> Bliver et events opslag (14 eller 7 dage før) ikke godkendt i tide, deler Saga eventets Facebook-begivenhed på Facebook på opslagets tid, med en kort tekst (titel, tid, vært). Saga finder selv begivenhederne på Facebook-siden; ellers læg linket ind under Events → Facebook-begivenheder. Kender Saga ikke begivenheden, deles intet, og du får besked. Du kan stoppe det i kalenderen.</p>
 <form method="post" action="${base}/pr/del-begivenhed"><input type="hidden" name="on" value="0"><button class="ghost">Slå fra</button></form>`
-    : `<p>Bliver et events opslag ikke godkendt i tide, lægges det til side. Slår du dette til, udgiver Saga i stedet eventet selv ved både 14 og 7 dage før: eventets billede eller video med en kort indledning fra Saga og faste linjer - titel, tid, vært og tilmelding.</p>
-<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga udgive eventet selv (billede og fast tekst), når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Udgiv eventet selv</button></form>`}</section>`;
+    : `<p>Bliver et events opslag ikke godkendt i tide, lægges det til side. Slår du dette til, deler Saga i stedet eventets Facebook-begivenhed på Facebook ved både 14 og 7 dage før, med en kort tekst.</p>
+<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele eventets Facebook-begivenhed, når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
 }
 
 function siteCard(base: string, live: boolean): string {

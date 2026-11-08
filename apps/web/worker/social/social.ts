@@ -8,8 +8,9 @@ import { claimJob } from "../saga/store.js";
 import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
+import { facebookEvents } from "../cockpit/fbEvents.js";
 import { instagramName } from "../../pr-material.js";
-import { deletePublished, finishReel, followerCounts, isGone, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { deletePublished, finishReel, followerCounts, isGone, pageEvents, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -52,7 +53,7 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     noFacebookVideo?: boolean;
     /** Gone out as the event itself (shareEventInstead): its picture or video with the short fixed words (eventItselfText) - not Saga's, not a link card.
      * (`fbEventShare`/`pageShare`: the link card of the first version, 8 Nov 2026.) */
-    eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean;
+    eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean; noFbEventTold?: 1;
     /** The event's own picture, kept when the chair's design takes its place (setPostDesign) - for the post made the event itself again (asEventItself). */
     eventImage?: string;
     /** The chair chose the time (moved it in the calendar, or saved it): Saga does not move it (pullEarlier). */
@@ -545,7 +546,9 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
   if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
   const sharedEvents = await retimeOverdue(db, now, p => eventHook(env, deps, p));
-  for (const e of sharedEvents) await tellChair(env, deps, `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga udgiver eventet selv (billedet med titel og tid) ${longWhen(e.at)}, som du har valgt. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
+  for (const e of sharedEvents) await tellChair(env, deps, e.at === null
+    ? `Opslaget om "${e.title}" blev ikke godkendt i tide, og Saga kender ikke eventets Facebook-begivenhed, så den kan ikke deles. Læg linket ind under Events → Facebook-begivenheder, eller godkend opslaget: ${cockpitUrl(env)}/pr/kalender`
+    : `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga deler Facebook-begivenheden på Facebook ${longWhen(e.at)}, som du har valgt. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
   await pullEarlier(db, now).catch(error => console.warn("social_pull_earlier_failed", error instanceof Error ? error.message : error));
   let fresh = 0;
   const series = await seriesMap(db, now);
@@ -688,40 +691,107 @@ export async function eventHook(env: SagaEnv, deps: SagaDeps, p: SocialPost): Pr
   return line && /\p{L}/u.test(line) && !/\d|https?:|www\.|#/.test(line) && line.length <= 110 ? line : "";
 }
 
-/** Requested (the chair, 8 Nov 2026): "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om".
- * A post made the event itself, by the chair's button: the event's own picture again (not the design, no video), Saga's short line over the fixed lines
- * (eventItselfText) - a proposal again, for the chair to read and approve. The design stays when the event's own picture cannot be found. */
-async function eventImageOf(db: D1Database, key: string | undefined): Promise<string | null> {
-  if (!key?.startsWith("mw:")) return null;
-  return (await db.prepare("SELECT image_url AS u FROM house_events WHERE id = ?").bind(key.slice(3)).first<{ u: string | null }>().catch(() => null))?.u ?? null;
+/** The event's Facebook event (Events → Facebook-begivenheder, or found on the page by findFacebookEvents): its link, or null. */
+async function facebookEventLink(db: D1Database, key: string | undefined): Promise<string | null> {
+  if (!key) return null;
+  return (await db.prepare("SELECT link FROM facebook_events WHERE event_key = ?").bind(key).first<{ link: string | null }>().catch(() => null))?.link ?? null;
 }
-export async function asEventItself(env: SagaEnv, deps: SagaDeps, db: D1Database, id: number, nowMs: number): Promise<SocialPost | null> {
+/** Corrected (the chair, 8 Nov 2026): "Nu er movie Night kommet ud med en reel. Jeg havde ikke godkendt den så den bør have været en deling af
+ * begivenheden". The event shared is its Facebook event - on Facebook, as the event's own card, with the short words over it (eventItselfText) - not its
+ * picture or video, and nothing on Instagram (it has no events). */
+async function asFacebookEventShare(db: D1Database, p: SocialPost, link: string, line: string, nowMs: number, approveAt: number | null): Promise<void> {
+  const { design: _d, video: _v, instagramAtMs: _i, instagramText: _t, eventItself: _e, pageShare: _p, ...rest } = p.source;
+  const source = { ...rest, fbEventShare: true, noVideo: true, noFacebookVideo: true, instagramAtMs: null };
+  const text = eventItselfText(p.source, "facebook", line);
+  if (approveAt !== null) await db.prepare(`UPDATE social_posts SET status = 'approved', channels = '["facebook"]', text = ?, link = ?, images = '[]', source = ?, publish_at_ms = ?, approved_by = 'Saga (Facebook-begivenheden, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
+    WHERE id = ? AND status = 'draft'`).bind(text, link, JSON.stringify(source), approveAt, nowMs, nowMs, p.id).run();
+  else await db.prepare(`UPDATE social_posts SET status = 'draft', channels = '["facebook"]', text = ?, link = ?, images = '[]', source = ?, approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
+    .bind(text, link, JSON.stringify(source), nowMs, p.id).run();
+}
+/** Requested (the chair, 8 Nov 2026): "Jeg vil også gerne kunne omgøre et design så Saga bare viderdeler eventet med en kort tekst som vi lige har skrevet om" -
+ * the chair's button: the post made a share of the event's Facebook event with the short words, a proposal again to read and approve. "no_event" when
+ * the event's Facebook event is not known. */
+export async function asEventItself(env: SagaEnv, deps: SagaDeps, db: D1Database, id: number, nowMs: number): Promise<"ok" | "no_event" | "not_found"> {
   const p = await socialPost(db, id);
-  if (!p || p.kind !== "event" || !p.source.startsMs || !["draft", "approved", "failed", "skipped"].includes(p.status)) return null;
-  const line = await eventHook(env, deps, p);
-  const own = p.source.design ? p.source.eventImage ?? await eventImageOf(db, p.source.key) : p.images[0] ?? null;
-  const { design: _d, ...rest } = p.source;
-  const source = { ...(own ? rest : p.source), eventItself: true, noVideo: true, noFacebookVideo: true, instagramText: eventItselfText(p.source, "instagram", line) };
-  await db.prepare(`UPDATE social_posts SET text = ?, images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?`)
-    .bind(eventItselfText(p.source, "facebook", line), JSON.stringify(own ? [own] : p.images), JSON.stringify(source), nowMs, id).run();
-  return socialPost(db, id);
+  if (!p || p.kind !== "event" || !p.source.startsMs || !["draft", "approved", "failed", "skipped"].includes(p.status)) return "not_found";
+  const link = await facebookEventLink(db, p.source.key);
+  if (!link) return "no_event";
+  await asFacebookEventShare(db, p, link, await eventHook(env, deps, p), nowMs, null);
+  return "ok";
 }
 
-async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | null> {
+/** Each of an event's posts (14 and 7 days before) that comes unapproved: its Facebook event shared instead at the post's time (asFacebookEventShare). The
+ * time it goes out; "no_event" when the event has no Facebook event known (then nothing goes out in its place, and the chair is told); null when the
+ * setting is off or the event too near. */
+async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | "no_event" | null> {
   if (!p.source.key || !p.source.startsMs || !(await shareFacebookEventOn(db))) return null;
   if (p.source.startsMs < nowMs + 3 * 3_600_000) return null;
-  // At the post's own time - it has just come, unapproved (Instagram at its own, when that is still to come).
+  const link = await facebookEventLink(db, p.source.key);
+  if (!link) return "no_event";
+  // At the post's own time - it has just come, unapproved.
   const at = Math.max(nowMs, p.publish_at_ms ?? nowMs);
-  const ig = p.source.instagramAtMs && p.source.instagramAtMs > at ? p.source.instagramAtMs : null;
-  const line = await hook(p);
-  const source = { ...p.source, eventItself: true, instagramText: eventItselfText(p.source, "instagram", line), instagramAtMs: ig };
-  await db.prepare(`UPDATE social_posts SET status = 'approved', text = ?, source = ?, publish_at_ms = ?, approved_by = 'Saga (eventet selv, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
-    WHERE id = ? AND status = 'draft'`).bind(eventItselfText(p.source, "facebook", line), JSON.stringify(source), at, nowMs, nowMs, p.id).run();
+  await asFacebookEventShare(db, p, link, await hook(p), nowMs, at);
   return at;
 }
 
-async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number }>> {
-  const shared: Array<{ title: string; at: number }> = [];
+/** Asked (the chair, 8 Nov 2026) for the event's Facebook event to be what is shared - and none had its link in Events → Facebook-begivenheder: Saga finds
+ * the page's own coming events on Facebook and ticks each off with its link, when exactly one is at the event's time (to the minute) and shares a word
+ * of its title. An event ticked by hand keeps what was given. Facebook refusing (a permission): nothing found, nothing changed. */
+export async function findFacebookEvents(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const account = await socialAccount(db);
+  if (!account) return 0;
+  const now = deps.now();
+  const wanted = (await facebookEvents(db, now)).filter(e => !e.done?.link);
+  if (!wanted.length) return 0;
+  const { page } = await access(env, account);
+  const found = await pageEvents(deps.fetcher, page);
+  const words = (t: string) => new Set(t.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(w => w.length > 2));
+  let made = 0;
+  for (const e of wanted) {
+    const own = words(e.title);
+    const same = found.filter(f => Math.abs(f.startMs - e.startsMs) < 60_000 && [...words(f.name)].some(w => own.has(w)));
+    if (same.length !== 1) continue;
+    await db.prepare(`INSERT INTO facebook_events (event_key, title, starts_at_ms, done_by, done_at_ms, link) VALUES (?, ?, ?, 'Saga (fundet på Facebook-siden)', ?, ?)
+      ON CONFLICT(event_key) DO UPDATE SET link = COALESCE(facebook_events.link, excluded.link)`).bind(e.key, e.title.slice(0, 300), e.startsMs, now, `https://www.facebook.com/events/${same[0]!.id}`).run();
+    made++;
+  }
+  return made;
+}
+
+/** "Nu er movie Night kommet ud med en reel. Jeg havde ikke godkendt den så den bør have været en deling af begivenheden" - asked what now: "Slet og del
+ * begivenheden". A post that went out as the event's picture or video in its place (eventItself, 8 Nov 2026) is taken down on Facebook and Instagram,
+ * and the event's Facebook event is shared instead - once its link is known, while the event is still to come. */
+export async function redoEventItself(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
+  const now = deps.now();
+  const posts = (await socialPosts(db, "kind = 'event' AND status = 'published' AND json_extract(source, '$.eventItself') = 1 AND json_extract(source, '$.removed') IS NULL AND json_extract(source, '$.startsMs') > ?",
+    [now + 3 * 3_600_000], "id", 20));
+  const account = posts.length ? await socialAccount(db) : null;
+  if (!account) return 0;
+  const { page, instagram } = await access(env, account);
+  let done = 0;
+  for (const p of posts) {
+    const link = await facebookEventLink(db, p.source.key);
+    if (!link) continue;
+    for (const channel of ["facebook", "instagram"] as const) {
+      const id = p.published[channel], token = channel === "facebook" ? page.token : instagram?.token;
+      if (!id || !token) continue;
+      await deletePublished(deps.fetcher, token, id).catch(error => { if (!isGone(error)) throw error; });
+    }
+    await db.prepare("UPDATE social_posts SET source = ?, updated_at_ms = ? WHERE id = ?")
+      .bind(JSON.stringify({ ...p.source, removed: { atMs: now, note: "Slettet: skulle have været en deling af Facebook-begivenheden (formanden)" } }), now, p.id).run();
+    const { design: _d, video: _v, instagramAtMs: _i, instagramText: _t, eventItself: _e, ...rest } = p.source;
+    await insertPost(db, { kind: "event", sourceKey: `${p.source_key}:begivenhed`, week: p.week, channels: ["facebook"], text: eventItselfText(p.source, "facebook"), link,
+      images: [], source: { ...rest, shout: 1, shouts: 1, fbEventShare: true, noVideo: true, noFacebookVideo: true }, publishAtMs: now }, now);
+    await db.prepare(`UPDATE social_posts SET status = 'approved', approved_by = 'Saga (Facebook-begivenheden, efter dit ønske)', approved_at_ms = ? WHERE source_key = ? AND status = 'draft'`)
+      .bind(now, `${p.source_key}:begivenhed`).run();
+    await tellChair(env, deps, `Saga har slettet opslaget om "${p.source.title ?? "eventet"}" på Facebook og Instagram og deler nu Facebook-begivenheden på Facebook i stedet, som du bad om.`).catch(() => undefined);
+    done++;
+  }
+  return done;
+}
+
+async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number | null }>> {
+  const shared: Array<{ title: string; at: number | null }> = [];
   const late = (await socialPosts(db, `kind = 'event' AND status = 'draft'
       AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
     .filter(p => p.source.startsMs);
@@ -729,7 +799,12 @@ async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost
   // "Når der ikke er godkendt et opslag, så deles selve eventet bare" - "Ved både 14 og 7 dage": each post, come unapproved - the event itself instead (when the chair said so).
   for (const p of [...late]) {
     const at = await shareEventInstead(db, p, nowMs, hook);
-    if (at !== null) { shared.push({ title: p.source.title ?? "", at }); late.splice(late.indexOf(p), 1); }
+    if (typeof at === "number") { shared.push({ title: p.source.title ?? "", at }); late.splice(late.indexOf(p), 1); }
+    // No Facebook event to share: the post goes on as before (a later time, or set aside) - and the chair is told, once.
+    else if (at === "no_event" && !p.source.noFbEventTold) {
+      shared.push({ title: p.source.title ?? "", at: null });
+      await db.prepare("UPDATE social_posts SET source = json_set(source, '$.noFbEventTold', 1) WHERE id = ?").bind(p.id).run();
+    }
   }
   if (!late.length) return shared;
   const ids = new Set(late.map(p => p.id));
@@ -1175,6 +1250,9 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (await claimJob(db, "social_bio_line", 0, now).catch(() => false)) await bioLineInWaiting(db).catch(error => console.warn("social_bio_line_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_event_dates", 0, now).catch(() => false)) await datesInWaiting(db).catch(error => console.warn("social_event_dates_failed", error instanceof Error ? error.message : error));
   await retireCancelled(db, now).catch(error => console.warn("social_retire_failed", error instanceof Error ? error.message : error));
+  if (await claimJob(db, "social_find_fb_events", Math.floor(now / 3_600_000) * 3_600_000, now).catch(() => false))
+    await findFacebookEvents(env, deps, db).catch(error => console.warn("social_find_fb_events_failed", error instanceof Error ? error.message : error));
+  await redoEventItself(env, deps, db).catch(error => console.warn("social_redo_event_itself_failed", error instanceof Error ? error.message : error));
   await oldSiteInWaiting(db, now).catch(error => console.warn("social_old_site_failed", error instanceof Error ? error.message : error));
   await publishDue(env, deps, db).catch(error => console.warn("social_publish_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
