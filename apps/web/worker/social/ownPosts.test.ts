@@ -17,6 +17,8 @@ describe("the chair's own posts on Facebook and Instagram", () => {
     expect(aboutEvent("Læs mere på hjerterum.info/events/somatisk", [], event)).toBe(true);
     expect(aboutEvent("🌿 Somatisk Yin Yoga på søndag ✨", [], event)).toBe(true);
     expect(aboutEvent("Yoga på søndag", [], event)).toBe(false);
+    // Not the list of all events.
+    expect(aboutEvent("Se alle events på holistisk.org/events/", [], { ...event, fbLink: null, links: ["https://holistisk.org/events/"] })).toBe(false);
   });
 
   it("puts a post about a coming event in the calendar, and takes Saga's proposal near it off - not the one a week later", async () => {
@@ -32,7 +34,7 @@ describe("the chair's own posts on Facebook and Instagram", () => {
     await post("event:2026-W47:mw:SFa", NOW + 86_400_000, { shout: 1, shouts: 2 });
     await post("event:2026-W47:mw:SFa:2", NOW + 7 * 86_400_000, { shout: 2, shouts: 2 });
     // One Saga made herself (a video: its post has an id of its own on the page).
-    await post("event:2026-W46:mw:SFb", NOW - 86_400_000, { title: "Andet" }, "published", '{"facebook":"9001"}', NOW - 2 * 3_600_000);
+    await post("event:2026-W46:mw:SFb", NOW - 86_400_000, { title: "Andet" }, "published", '{"facebook":"9001234567"}', NOW - 2 * 3_600_000);
     const fetcher: typeof fetch = async (input, init) => {
       const url = String(input);
       if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
@@ -40,7 +42,9 @@ describe("the chair's own posts on Facebook and Instagram", () => {
       if (path === "/755/posts") return new Response(JSON.stringify({ data: [
         { id: "755_77", created_time: iso(NOW - 3_600_000), message: "🌿 Lydbad med gongs - kom og mærk roen", permalink_url: "https://www.facebook.com/755/posts/77" },
         { id: "755_78", created_time: iso(NOW - 2 * 3_600_000 + 60_000), message: "Lydbad med gongs (Sagas video)" },
-        { id: "755_79", created_time: iso(NOW - 5 * 3_600_000), message: "God søndag fra Hjerterum" }] }));
+        { id: "755_79", created_time: iso(NOW - 5 * 3_600_000), message: "God søndag fra Hjerterum" },
+        // Saga's video of yesterday: on the page at another time than she noted, its address the video's.
+        { id: "755_80", created_time: iso(NOW - 30 * 3_600_000), message: "Lydbad med gongs - en video", permalink_url: "https://www.facebook.com/reel/9001234567/" }] }));
       if (path === "/17841/media") return new Response(JSON.stringify({ data: [{ id: "1799", caption: "Lydbad med gongs ✨ link i bio", timestamp: iso(NOW - 30 * 60_000), permalink: "https://www.instagram.com/p/X/" }] }));
       return new Response("{}", { status: 404 });
     };

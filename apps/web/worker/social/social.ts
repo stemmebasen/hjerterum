@@ -813,7 +813,9 @@ const plain = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").tr
 export function aboutEvent(words: string, refs: string[], event: { title: string; fbLink: string | null; links: string[] }): boolean {
   const fbId = event.fbLink?.match(/events\/(\d+)/)?.[1];
   if (fbId && [words, ...refs].some(r => r.includes(fbId))) return true;
-  if (event.links.some(l => l.length > 12 && [words, ...refs].some(r => r.includes(l.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))))) return true;
+  // Only an event's own page (".../events/<its slug>"), never the list of all events (found 8 Nov 2026: "holistisk.org/events/" took a post about another event).
+  const own = event.links.map(l => l.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")).filter(l => /\/events?\/[^/?#]+/.test(l));
+  if (own.some(l => [words, ...refs].some(r => r.includes(l)))) return true;
   const text = ` ${plain(words)} `;
   // The title, or its first part (before " - ", "|", ":" or ","), when it is long enough to tell one event from another.
   return [event.title, event.title.split(/\s[-–|:]\s|,|\|/)[0] ?? ""].map(plain).some(t => t.length >= 8 && text.includes(` ${t} `));
@@ -832,7 +834,10 @@ export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Databas
     .then(r => r.results ?? []).catch(() => []);
   const ids = new Set(mine.flatMap(r => { const p = JSON.parse(r.published || "{}") as Record<string, string>; return [p.facebook, p.instagram, r.source_key.startsWith("own:") ? r.source_key.split(":").pop() : undefined]; }).filter(Boolean));
   const times = mine.map(r => r.published_at_ms ?? 0).filter(Boolean);
-  const fresh = recent.filter(p => !ids.has(p.id) && ![...ids].some(i => typeof i === "string" && i.endsWith(`_${p.id.split("_").pop()}`)) && !times.some(t => Math.abs(t - p.createdMs) < 15 * MINUTE));
+  // A video's post on the page has an id of its own, and the video's in its address (found 8 Nov 2026: ".../reel/<the video's id>/").
+  const known = [...ids].filter((i): i is string => typeof i === "string" && i.length >= 6);
+  const fresh = recent.filter(p => !ids.has(p.id) && !known.some(i => i.endsWith(`_${p.id.split("_").pop()}`) || (p.permalink ?? "").includes(i) || p.refs.some(r => r.includes(i)))
+    && !times.some(t => Math.abs(t - p.createdMs) < 15 * MINUTE));
   if (!fresh.length) return 0;
   // The coming events: the calendar's, and those with posts (some are only in the membership system's list).
   const listed = (await facebookEvents(db, now - 86_400_000, 70)).map(e => ({ key: e.key, title: e.title, startsMs: e.startsMs }));
