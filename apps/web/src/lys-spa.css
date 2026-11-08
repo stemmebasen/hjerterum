@@ -1101,6 +1101,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .ed { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: 250px minmax(0, 1fr) 290px; grid-template-rows: auto minmax(0, 1fr); background: var(--lys-soft, #efe9df); color: var(--lys-ink, #2a2622); }
 .ed-bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--lys-bg, #fff); border-bottom: 1px solid var(--lys-line, rgba(0,0,0,.1)); }
 .ed-bar b { font: 400 22px/1 var(--lys-serif, serif); margin-right: 12px; }
+.ed-error { color: #d93025; font-size: 13px; max-width: 320px; }
 .ed-space { flex: 1; }
 .ed-add, .ed-props { overflow: auto; padding: 14px 16px; background: var(--lys-bg, #fff); }
 .ed-add { border-right: 1px solid var(--lys-line, rgba(0,0,0,.1)); }
