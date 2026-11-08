@@ -136,6 +136,7 @@ function weekRange(mondayMs) {
   return a.getMonth() === b.getMonth() ? `${a.getDate()}.–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}` : `${a.getDate()}. ${MONTH_SHORT[a.getMonth()]}–${b.getDate()}. ${MONTH_SHORT[b.getMonth()]}`;
 }
 
+const WEEK_REEL_MAX = 14;
 async function weekJob(weekPath, eventsPath, out, now) {
   const skip = why => { writeFileSync(join(out, "jobs.json"), "[]"); writeFileSync(join(out, "skip"), why + "\n"); console.log("skip:", why); };
   const [w] = rows(weekPath);
@@ -146,7 +147,8 @@ async function weekJob(weekPath, eventsPath, out, now) {
   const posts = rows(eventsPath).map(r => ({ source: json(r.source, {}), images: json(r.images, []) })).filter(r => r.source.startsMs && r.images[0]).sort((a, b) => a.source.startsMs - b.source.startsMs);
   for (const r of posts) {
     const title = cleanTitle(r.source.title);
-    if (seen.has(title.toLowerCase()) || events.length >= 8) continue;
+    // Reported (the chair, 8 Nov 2026): "Hvorfor vises kun disse i ugens reel?" - it stopped at 8 (Monday to Thursday): the whole week, up to 14 (7 pages, about 35 s).
+    if (seen.has(title.toLowerCase()) || events.length >= WEEK_REEL_MAX) continue;
     const pic = await picture(r.images[0]);
     if (!pic) continue;
     seen.add(title.toLowerCase());
