@@ -1067,21 +1067,21 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     }
     // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" (public-site.ts).
     if (path === "/pr/hjemmeside" && request.method === "POST") {
-      const live = String((await request.formData().catch(() => null))?.get("live") ?? "") === "1";
+      const live = field("live") === "1";
       await setSiteLive(db, live, who, now);
       await audit(db, actor, "social.manage", live ? "Opslag og nyhedsbrev linker nu til den nye hjemmeside" : "Opslag og nyhedsbrev linker igen til den gamle hjemmeside", now);
       return back(`besked=${live ? "ny-side" : "gammel-side"}`);
     }
     // "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead) - the chair's approval in admin, once.
     if (path === "/pr/del-begivenhed" && request.method === "POST") {
-      const on = String((await request.formData().catch(() => null))?.get("on") ?? "") === "1";
+      const on = field("on") === "1";
       await setShareFacebookEvent(db, on, who, now);
       await audit(db, actor, "social.manage", on ? "Slog til: eventet selv (billede og fast tekst) udgives, når et events opslag ikke bliver godkendt i tide" : "Slog fra: eventet deles ikke af sig selv", now);
       return back(`besked=${on ? "begivenhed-til" : "begivenhed-fra"}`);
     }
     // "Can we automatically delete reels that are outdated the day after the event has ended?" (social.ts deleteOldEventPosts) - the chair's approval in admin, once.
     if (path === "/pr/slet-gamle" && request.method === "POST") {
-      const on = String((await request.formData().catch(() => null))?.get("on") ?? "") === "1";
+      const on = field("on") === "1";
       await setDeleteOld(db, on, who, now);
       await audit(db, actor, "social.manage", on ? "Slog til: Saga sletter et events opslag dagen efter eventet (det mest populære bliver stående)" : "Slog fra: Saga sletter ikke gamle eventopslag", now);
       return back(`besked=${on ? "slet-til" : "slet-fra"}`);
