@@ -45,7 +45,8 @@ describe("the chair's own posts on Facebook and Instagram", () => {
         { id: "755_79", created_time: iso(NOW - 5 * 3_600_000), message: "God søndag fra Hjerterum" },
         // Saga's video of yesterday: on the page at another time than she noted, its address the video's.
         { id: "755_80", created_time: iso(NOW - 30 * 3_600_000), message: "Lydbad med gongs - en video", permalink_url: "https://www.facebook.com/reel/9001234567/" }] }));
-      if (path === "/17841/media") return new Response(JSON.stringify({ data: [{ id: "1799", caption: "Lydbad med gongs ✨ link i bio", timestamp: iso(NOW - 30 * 60_000), permalink: "https://www.instagram.com/p/X/" }] }));
+      // Minutes after the Facebook one (found 8 Nov 2026: it was taken for Saga's own by its time).
+      if (path === "/17841/media") return new Response(JSON.stringify({ data: [{ id: "1799", caption: "Lydbad med gongs ✨ link i bio", timestamp: iso(NOW - 3_600_000 + 4 * 60_000), permalink: "https://www.instagram.com/p/X/" }] }));
       return new Response("{}", { status: 404 });
     };
     expect(await findOwnPosts(env as never, deps(fetcher, NOW), db)).toBe(2);
@@ -57,5 +58,26 @@ describe("the chair's own posts on Facebook and Instagram", () => {
     expect(services.telegram("sendMessage").some(c => JSON.stringify(c.body).includes("dit eget opslag"))).toBe(true);
     // Once.
     expect(await findOwnPosts(env as never, deps(fetcher, NOW + 60_000), db)).toBe(0);
+  });
+
+  it("finds the Instagram post made minutes after the chair's own Facebook post, found in an earlier round", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "{}" });
+    const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
+    await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", 0);
+    await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, images, source, publish_at_ms, status, published, published_at_ms, created_at_ms, updated_at_ms)
+      VALUES ('event', 'own:facebook:755_77', '2026-W47', '["facebook"]', 'Lydbad med gongs', '[]', ?, ?, 'published', '{"facebook":"755_77"}', ?, 0, 0)`)
+      .bind(JSON.stringify({ key: "mw:SFa", title: "Lydbad med gongs", startsMs: STARTS, own: true }), NOW - 3_600_000, NOW - 3_600_000).run();
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
+      const path = url.slice(GRAPH.length).split("?")[0]!;
+      if (path === "/755/posts") return new Response(JSON.stringify({ data: [{ id: "755_77", created_time: iso(NOW - 3_600_000), message: "Lydbad med gongs" }] }));
+      if (path === "/17841/media") return new Response(JSON.stringify({ data: [{ id: "1799", caption: "Lydbad med gongs ✨", timestamp: iso(NOW - 3_600_000 + 4 * 60_000) }] }));
+      return new Response("{}", { status: 404 });
+    };
+    expect(await findOwnPosts(env as never, deps(fetcher, NOW), db)).toBe(1);
+    expect((await socialPosts(db, "source_key = 'own:instagram:1799'"))[0]).toMatchObject({ channels: ["instagram"], source: { key: "mw:SFa", own: true } });
   });
 });

@@ -833,11 +833,13 @@ export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Databas
   const mine = await db.prepare("SELECT published, published_at_ms, source_key FROM social_posts WHERE published != '{}' OR source_key LIKE 'own:%'").all<{ published: string; published_at_ms: number | null; source_key: string }>()
     .then(r => r.results ?? []).catch(() => []);
   const ids = new Set(mine.flatMap(r => { const p = JSON.parse(r.published || "{}") as Record<string, string>; return [p.facebook, p.instagram, r.source_key.startsWith("own:") ? r.source_key.split(":").pop() : undefined]; }).filter(Boolean));
-  const times = mine.map(r => r.published_at_ms ?? 0).filter(Boolean);
+  // Saga's own times on each medium - not the chair's (found 8 Nov 2026: her Instagram post, minutes after her Facebook one, was taken for Saga's).
+  const sagas = mine.filter(r => !r.source_key.startsWith("own:") && r.published_at_ms);
+  const timesOn = (network: Channel) => sagas.filter(r => (JSON.parse(r.published || "{}") as Record<string, string>)[network]).map(r => r.published_at_ms!);
   // A video's post on the page has an id of its own, and the video's in its address (found 8 Nov 2026: ".../reel/<the video's id>/").
   const known = [...ids].filter((i): i is string => typeof i === "string" && i.length >= 6);
   const fresh = recent.filter(p => !ids.has(p.id) && !known.some(i => i.endsWith(`_${p.id.split("_").pop()}`) || (p.permalink ?? "").includes(i) || p.refs.some(r => r.includes(i)))
-    && !times.some(t => Math.abs(t - p.createdMs) < 15 * MINUTE));
+    && !timesOn(p.network).some(t => Math.abs(t - p.createdMs) < 15 * MINUTE));
   if (!fresh.length) return 0;
   // The coming events: the calendar's, and those with posts (some are only in the membership system's list).
   const listed = (await facebookEvents(db, now - 86_400_000, 70)).map(e => ({ key: e.key, title: e.title, startsMs: e.startsMs }));
