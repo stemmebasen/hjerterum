@@ -9,18 +9,25 @@ export const INTRO = 96, PAGE = 120, OUTRO = 120;
 export const weekFrames = (p: WeekProps) => INTRO + Math.ceil(p.events.length / 2) * PAGE + OUTRO;
 const soft = (f: number, dur: number, edge = 24) => interpolate(f, [0, edge, dur - edge, dur], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
 
+/** Reported (the chair, 8 Nov 2026): "Hvorfor bruges ikke eventfotos dimensioner i stedet for et længere format?" - each photo in its own shape, whole: a tall
+ * or square one beside the words (larger), a wide one above them. */
 const Card: React.FC<{ e: WeekEvent; delay: number; tilt: number }> = ({ e, delay, tilt }) => {
   const f = useCurrentFrame();
   const t = rise(f, delay, 42), w = rise(f, delay + 14);
-  return <div style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>
-    <div style={{ transform: `translateY(${(1 - t) * 60}px) rotate(${tilt * (0.4 + 0.6 * t)}deg) scale(${1 + f * 0.0002})`, opacity: t, boxShadow: "0 30px 70px rgba(60,35,20,.28)", borderRadius: "44px 70px 52px 80px / 60px 48px 74px 50px" }}>
-      <Pic p={e.picture} width={660} maxHeight={230} radius="44px 70px 52px 80px / 60px 48px 74px 50px" border={`10px solid ${C.cream}`} /></div>
-    <div style={{ opacity: w, transform: `translateY(${(1 - w) * 24}px)` }}>
-      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 32, letterSpacing: "0.18em", color: C.terra }}>{e.day.toUpperCase()} {e.date} · KL. {e.time}</div>
-      <div style={{ fontFamily: serif, fontSize: fit(e.title, 860, 58, 2), color: C.ink, lineHeight: 1.08, marginTop: 6 }}>{e.title}</div>
-      {e.host && <div style={{ fontFamily: serif, fontStyle: "italic", fontSize: 40, color: C.muted, marginTop: 4 }}>med {e.host}</div>}
-    </div>
+  const tall = e.picture.ratio < 1.25;
+  const box = tall ? { w: 330, h: 420 } : { w: 680, h: 280 };
+  const pw = Math.min(box.w, box.h * e.picture.ratio), ph = pw / e.picture.ratio;
+  const radius = "34px 52px 40px 58px / 44px 36px 54px 38px";
+  const picture = <div style={{ transform: `translateY(${(1 - t) * 60}px) rotate(${tilt * (0.4 + 0.6 * t)}deg) scale(${1 + f * 0.0002})`, opacity: t, boxShadow: "0 30px 70px rgba(60,35,20,.28)", borderRadius: radius, flex: "none" }}>
+    <Pic p={e.picture} width={pw} maxHeight={ph} radius={radius} border={`10px solid ${C.cream}`} /></div>;
+  const words = (width: number) => <div style={{ opacity: w, transform: `translateY(${(1 - w) * 24}px)`, width, textAlign: tall ? "left" : "center" }}>
+    <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.16em", color: C.terra }}>{e.day.toUpperCase()} {e.date} · KL. {e.time}</div>
+    <div style={{ fontFamily: serif, fontSize: fit(e.title, width, tall ? 52 : 58, tall ? 3 : 2, 40), color: C.ink, lineHeight: 1.08, marginTop: 6 }}>{e.title}</div>
+    {e.host && <div style={{ fontFamily: serif, fontStyle: "italic", fontSize: 38, color: C.muted, marginTop: 4 }}>med {e.host}</div>}
   </div>;
+  return tall
+    ? <div style={{ display: "flex", alignItems: "center", gap: 40, width: 900 }}>{picture}{words(900 - 40 - pw - 20)}</div>
+    : <div style={{ display: "grid", gap: 14, justifyItems: "center", textAlign: "center" }}>{picture}{words(860)}</div>;
 };
 
 const Page: React.FC<{ two: WeekEvent[] }> = ({ two }) => {
