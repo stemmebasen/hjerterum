@@ -159,6 +159,7 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
   const refresh = () => setTick(t => t + 1);
   const history = useRef<{ stack: string[]; at: number; restoring: boolean }>({ stack: [], at: -1, restoring: false });
   const [busy, setBusy] = useState("Bygger designet …");
+  const [useError, setUseError] = useState("");
   const swatches = useMemo(() => [...new Set([input.colors.cream, input.colors.sand, input.colors.blush, input.colors.sage, input.colors.camel, input.colors.terra, input.colors.muted, input.colors.ink, input.colors.dusk, "#ffffff", "#000000"])], [input.colors]);
 
   const snapshot = () => {
@@ -299,11 +300,17 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
   const tintLogo = async (color: string) => { const o = selected as (FabricImage & Tagged) | null; if (!o || o.role !== "logo" || !logo) return;
     const el = await loadImage(tintedLogo(logo, color)); if (!el) return; o.setElement(el); o.tint = color; changed(); };
 
-  const use = async () => {
+  // Reported (the chair, 8 Nov 2026): "Når jeg klikker Brug designet, sker der ingenting" - the picture was read back with fetch() from a data: address, which
+  // the admin's own rules (connect-src 'self') do not allow. Made straight from the canvas instead, and told when it cannot be.
+  const use = () => {
     const c = fc.current; if (!c) return;
     c.discardActiveObject(); c.renderAll();
-    const url = c.toDataURL({ format: "jpeg", quality: 0.92, multiplier: 1 / (c.getZoom() || 1) });
-    onUse(await (await fetch(url)).blob());
+    setUseError("");
+    try {
+      c.toCanvasElement(1 / (c.getZoom() || 1)).toBlob(blob => blob ? onUse(blob) : setUseError("Designet kunne ikke gemmes. Prøv igen, eller brug Download."), "image/jpeg", 0.92);
+    } catch {
+      setUseError("Et af billederne må ikke gemmes herfra (det ligger på en anden side). Skift billedet, eller brug Download.");
+    }
   };
   const download = async () => {
     const c = fc.current; if (!c) return;
@@ -327,7 +334,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
       <button type="button" className="lys-btn ghost" disabled={h.at >= h.stack.length - 1} onClick={() => void restore(h.at + 1)} title="Gentag (Ctrl+Shift+Z)">↷ Gentag</button>
       <span className="ed-space" />
       <button type="button" className="lys-btn ghost" onClick={() => void download()}>Download</button>
-      <button type="button" className="lys-btn" disabled={Boolean(busy)} onClick={() => void use()}>Brug designet →</button>
+      <button type="button" className="lys-btn" disabled={Boolean(busy)} onClick={use}>Brug designet →</button>
+      {useError && <span className="ed-error" role="alert">{useError}</span>}
       <button type="button" className="lys-btn ghost" onClick={onClose} aria-label="Luk editoren">Luk</button>
     </header>
     <aside className="ed-add">
