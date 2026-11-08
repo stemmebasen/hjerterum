@@ -542,7 +542,7 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   // Asked: "Hvorfor har du lagt så mange ind?" - once more, now with no day over three (placeFirsts).
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
   if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
-  const sharedEvents = await retimeOverdue(db, now);
+  const sharedEvents = await retimeOverdue(db, now, p => eventHook(env, deps, p));
   for (const e of sharedEvents) await tellChair(env, deps, `Opslaget om "${e.title}" blev ikke godkendt i tide, så Saga udgiver eventet selv (billedet med titel og tid) ${longWhen(e.at)}, som du har valgt. Stop det her: ${cockpitUrl(env)}/pr/kalender`).catch(() => undefined);
   await pullEarlier(db, now).catch(error => console.warn("social_pull_earlier_failed", error instanceof Error ? error.message : error));
   let fresh = 0;
@@ -667,24 +667,39 @@ export async function setShareFacebookEvent(db: D1Database, on: boolean, by: str
  * and 7-9 days before) that comes unapproved goes out as the event itself at that post's time: its own picture or video, on its own media, with short
  * fixed words (title, time, host, sign-up) - no words of Saga's unread, and no link card. The time it goes out, or null when it cannot (the setting off,
  * or the event too near). */
-export function eventItselfText(source: { title?: string; startsMs?: number; host?: string | null }, network: Channel): string {
+export function eventItselfText(source: { title?: string; startsMs?: number; host?: string | null }, network: Channel, hook = ""): string {
   const when = longWhen(source.startsMs!);
-  return [`✨ ${source.title ?? "Event"} ✨`, "", `🗓 ${when.charAt(0).toUpperCase()}${when.slice(1)}`, ...(source.host ? [`🌿 Med ${source.host}`] : []), "📍 Hjerterum", "",
+  return [`✨ ${source.title ?? "Event"} ✨`, "", ...(hook ? [hook, ""] : []), `🗓 ${when.charAt(0).toUpperCase()}${when.slice(1)}`, ...(source.host ? [`🌿 Med ${source.host}`] : []), "📍 Hjerterum", "",
     network === "instagram" ? "💛 Læs mere og tilmeld dig via linket i bio" : "💛 Læs mere og tilmeld dig her 👇"].join("\n");
 }
-async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number): Promise<number | null> {
+/** Asked (the chair, 8 Nov 2026): "Men kan du komme med nogle eksempler på hvad Saga kan skrive i de linjer" - "Saga skriver indledningen": one short line of
+ * Saga's own over the fixed lines, with an emoji or two - no time, date or number (the lines below tell them), nothing made up. None without Saga's AI. */
+const HOOK_SYSTEM = "Du skriver for Hjerterum, en forening og et hus i Aarhus for meditation, yoga, personlig udvikling og fællesskab. Skriv én kort, frisk og varm "
+  + "indledning (højst 12 ord) på dansk til et opslag om eventet. Brug 1-2 emojis fra naturen eller med begejstring og kærlighed (fx 🌿 🌊 🌸 🌙 🤍 💛 ✨ 🙌). "
+  + "Nævn ikke dag, dato, tid, pris eller tal - det står nedenunder. Find ikke på detaljer, ingen helbredsløfter, ingen hashtags, ingen links. Svar kun med linjen.";
+export async function eventHook(env: SagaEnv, deps: SagaDeps, p: SocialPost): Promise<string> {
+  if (!env.AI_API_KEY || !env.AI_MODEL) return "";
+  const line = await completeAs("social-event-hook", true, 80)(env, deps, [{ role: "system", content: HOOK_SYSTEM },
+    { role: "user", content: JSON.stringify({ titel: p.source.title ?? "", vaert: p.source.host ?? null, tekst: p.text.replace(/\s+/g, " ").slice(0, 800) }) }])
+    .then(t => t.replace(/\s+/g, " ").replace(/^["“]|["”]$/g, "").trim()).catch(() => "");
+  // Only a line that is words (not a time, a link or an answer gone wrong).
+  return line && /\p{L}/u.test(line) && !/\d|https?:|www\.|#/.test(line) && line.length <= 110 ? line : "";
+}
+
+async function shareEventInstead(db: D1Database, p: SocialPost, nowMs: number, hook: (p: SocialPost) => Promise<string>): Promise<number | null> {
   if (!p.source.key || !p.source.startsMs || !(await shareFacebookEventOn(db))) return null;
   if (p.source.startsMs < nowMs + 3 * 3_600_000) return null;
   // At the post's own time - it has just come, unapproved (Instagram at its own, when that is still to come).
   const at = Math.max(nowMs, p.publish_at_ms ?? nowMs);
   const ig = p.source.instagramAtMs && p.source.instagramAtMs > at ? p.source.instagramAtMs : null;
-  const source = { ...p.source, eventItself: true, instagramText: eventItselfText(p.source, "instagram"), instagramAtMs: ig };
+  const line = await hook(p);
+  const source = { ...p.source, eventItself: true, instagramText: eventItselfText(p.source, "instagram", line), instagramAtMs: ig };
   await db.prepare(`UPDATE social_posts SET status = 'approved', text = ?, source = ?, publish_at_ms = ?, approved_by = 'Saga (eventet selv, efter din indstilling)', approved_at_ms = ?, error = NULL, updated_at_ms = ?
-    WHERE id = ? AND status = 'draft'`).bind(eventItselfText(p.source, "facebook"), JSON.stringify(source), at, nowMs, nowMs, p.id).run();
+    WHERE id = ? AND status = 'draft'`).bind(eventItselfText(p.source, "facebook", line), JSON.stringify(source), at, nowMs, nowMs, p.id).run();
   return at;
 }
 
-async function retimeOverdue(db: D1Database, nowMs: number): Promise<Array<{ title: string; at: number }>> {
+async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost) => Promise<string> = async () => ""): Promise<Array<{ title: string; at: number }>> {
   const shared: Array<{ title: string; at: number }> = [];
   const late = (await socialPosts(db, `kind = 'event' AND status = 'draft'
       AND min(publish_at_ms, coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms)) < ? AND json_extract(source, '$.startsMs') > ?`, [nowMs + 15 * MINUTE, nowMs + 3 * 3_600_000], "publish_at_ms, id", 200))
@@ -692,7 +707,7 @@ async function retimeOverdue(db: D1Database, nowMs: number): Promise<Array<{ tit
   if (!late.length) return shared;
   // "Når der ikke er godkendt et opslag, så deles selve eventet bare" - "Ved både 14 og 7 dage": each post, come unapproved - the event itself instead (when the chair said so).
   for (const p of [...late]) {
-    const at = await shareEventInstead(db, p, nowMs);
+    const at = await shareEventInstead(db, p, nowMs, hook);
     if (at !== null) { shared.push({ title: p.source.title ?? "", at }); late.splice(late.indexOf(p), 1); }
   }
   if (!late.length) return shared;

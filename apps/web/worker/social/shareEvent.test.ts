@@ -11,10 +11,10 @@ const FB_EVENT = "https://www.facebook.com/events/123456789";
 describe("the Facebook event shared when no post was approved", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  async function setup(o: { reminder?: boolean; fbLink?: boolean } = {}) {
+  async function setup(o: { reminder?: boolean; fbLink?: boolean; ai?: string } = {}) {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
-    const services = fakeServices({ ai: () => "{}" });
+    const services = fakeServices({ ai: () => o.ai ?? "{}" });
     const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", 0);
     const starts = Date.parse("2026-11-09T18:00:00Z");
@@ -72,5 +72,19 @@ describe("the Facebook event shared when no post was approved", () => {
     expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa'"))[0]).toMatchObject({ status: "approved", publish_at_ms: NOW, source: { eventItself: true } });
     // The reminder is untouched - a post of its own, waiting for the chair.
     expect((await socialPosts(db, "source_key = 'event:2026-W46:mw:SFa:2'"))[0]).toMatchObject({ status: "draft", channels: ["facebook", "instagram"] });
+  });
+
+  // Asked (the chair, 8 Nov 2026): "Men kan du komme med nogle eksempler på hvad Saga kan skrive i de linjer" - "Saga skriver indledningen".
+  it("has Saga's own short line over the fixed lines - never one with a time or a link", async () => {
+    const { db, env, fetcher } = await setup({ ai: "Giv dig selv en pause i lydens bølger 🌊🤍" });
+    await setShareFacebookEvent(db, true, "Jacob Hauge", NOW);
+    await topUpWeeks(env as never, deps(fetcher, NOW), db);
+    const [post] = await socialPosts(db, "kind = 'event'");
+    expect(post!.text).toBe("✨ Lydbad ✨\n\nGiv dig selv en pause i lydens bølger 🌊🤍\n\n🗓 Mandag d. 9. november kl. 19.00\n🌿 Med Sarah Bjørk\n📍 Hjerterum\n\n💛 Læs mere og tilmeld dig her 👇");
+    expect(post!.source.instagramText).toContain("Giv dig selv en pause i lydens bølger 🌊🤍\n\n🗓");
+    const other = await setup({ ai: "Mød op kl. 19 og mærk roen 🌿" });
+    await setShareFacebookEvent(other.db, true, "Jacob Hauge", NOW);
+    await topUpWeeks(other.env as never, deps(other.fetcher, NOW), other.db);
+    expect((await socialPosts(other.db, "kind = 'event'"))[0]!.text.startsWith("✨ Lydbad ✨\n\n🗓")).toBe(true);
   });
 });
