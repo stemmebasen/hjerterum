@@ -352,7 +352,7 @@ export function PosterStudio({ id }: { id: string }) {
     setBusy(true); setMessage("Publicerer …");
     const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text, instagramText, channels, ...(post.video ? { video: useVideo, facebookVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
+      body: JSON.stringify({ text, instagramText, channels, ...(post.video || !useVideo ? { video: useVideo, facebookVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
     const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null : null;
     setBusy(false);
     if (body) { setSent(body); setMessage(""); setStep("sendt"); window.scrollTo(0, 0); }
@@ -473,8 +473,10 @@ export function PosterStudio({ id }: { id: string }) {
             : <span className="studio-muted">Instagram er ikke forbundet.</span>}
           {post.video && channels.includes("facebook") && <label><input type="checkbox" checked={facebookVideo} onChange={() => setFacebookVideo(!facebookVideo)} /> Videoen på Facebook (ellers billedet)</label>}
           {post.video && channels.includes("instagram") && <label><input type="checkbox" checked={useVideo} onChange={() => setUseVideo(!useVideo)} /> Videoen på Instagram (ellers billedet)</label>}
+          {/* Reported (the chair, 8 Nov 2026): "Her er ingen mulighed for at afvælge video" - before Saga has made it: no video at all, the picture instead. */}
+          {!post.video && channels.includes("instagram") && <label><input type="checkbox" checked={!useVideo} onChange={() => { const off = useVideo; setUseVideo(!off); setFacebookVideo(!off); }} /> Uden video - brug billedet</label>}
         </fieldset>
-        {post.instagram && channels.includes("instagram") && post.videoTemplates.length > 1 && (post.videoRemake || videoNote) && <fieldset className="studio-choices"><legend>Videoen på Instagram</legend>
+        {post.instagram && channels.includes("instagram") && (post.video || useVideo) && post.videoTemplates.length > 1 && (post.videoRemake || videoNote) && <fieldset className="studio-choices"><legend>Videoen på Instagram</legend>
           <p className="studio-muted">{post.video ? `Saga har lavet videoen i skabelon ${post.videoTemplate ?? ""}: ${post.videoTemplates.find(t => t.no === post.videoTemplate)?.name ?? ""}. Vælg en anden, hvis du vil.` : "Vælg skabelonen til videoen."}</p>
           <div className="studio-whens">
             <label><span>Skabelon</span><select value={template} onChange={e => setTemplate(Number(e.target.value))}>
