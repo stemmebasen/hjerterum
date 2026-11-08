@@ -177,10 +177,10 @@ export const PR_TABS: Array<[PrTab, string, string]> = [["overblik", "/pr", "Ove
 /** "Når der ikke er godkendt et opslag, så deles selve eventet bare" (social.ts shareEventInstead): the chair's own yes, given here once. */
 function shareEventCard(base: string, on: boolean): string {
   return `<section class="panel"><header><h2>Når et opslag ikke bliver godkendt</h2></header>${on
-    ? `<p><b>Slået til.</b> Bliver ingen af et events opslag godkendt i tide, deler Saga eventets Facebook-begivenhed på Facebook i stedet - med titel og tidspunkt - hvis begivenheden er oprettet med link (Events → Facebook-begivenheder). Du får besked på Telegram, og du kan stoppe den i kalenderen.</p>
+    ? `<p><b>Slået til.</b> Bliver et events opslag (14 eller 7 dage før) ikke godkendt i tide, deler Saga eventet selv på Facebook på opslagets tid - med titel og tidspunkt. Er eventets Facebook-begivenhed oprettet med link (Events → Facebook-begivenheder), deles den; ellers eventets egen side. Du får besked på Telegram, og du kan stoppe det i kalenderen.</p>
 <form method="post" action="${base}/pr/del-begivenhed"><input type="hidden" name="on" value="0"><button class="ghost">Slå fra</button></form>`
-    : `<p>Bliver ingen af et events opslag godkendt i tide, lægges det til side. Slår du dette til, deler Saga i stedet eventets Facebook-begivenhed på Facebook (kun når den er oprettet med link).</p>
-<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele Facebook-begivenheden af sig selv, når et events opslag ikke bliver godkendt?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
+    : `<p>Bliver et events opslag ikke godkendt i tide, lægges det til side. Slår du dette til, deler Saga i stedet eventet selv på Facebook ved både 14 og 7 dage før - Facebook-begivenheden, når den er oprettet med link, ellers eventets egen side.</p>
+<form method="post" action="${base}/pr/del-begivenhed" onsubmit="return confirm('Skal Saga dele eventet selv på Facebook, når et events opslag ikke bliver godkendt i tide?')"><input type="hidden" name="on" value="1"><button>Del Facebook-begivenheden</button></form>`}</section>`;
 }
 
 function siteCard(base: string, live: boolean): string {
