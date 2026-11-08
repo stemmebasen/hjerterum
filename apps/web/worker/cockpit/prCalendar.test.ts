@@ -35,6 +35,8 @@ describe("the PR calendar", () => {
     expect(page).toContain(`href="/plakater/${HEX}?fra=%2Fpr%2Fkalender"`);
     expect(page).toMatch(/cal-item is-draft[^>]*><span class="cal-time">15\.00<\/span><b>Aurabalancering<\/b>/);
     expect(page).toContain("Tor 19/11");
+    // "Nej, eventet til 19.30 er ikke under uge 45": straight to the post's card (under its event's week) to approve, skip or take back.
+    expect(page).toContain(`href="/pr/uge?uge=2026-11-30#opslag-${post!.id}">Godkend, ret eller spring over →</a>`);
     // "Og så savner jeg også en mulighed for at planlægge udsendingen": the chair's own time.
     const at = Date.parse("2026-11-20T18:00:00Z");
     expect((await call(`/plakater/${HEX}/publicer`, { method: "POST", body: JSON.stringify({ text: "Kom", channels: ["facebook"], at: Date.parse("2026-12-06T12:00:00Z") }) })).status).toBe(422);
