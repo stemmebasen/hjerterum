@@ -162,40 +162,22 @@ describe("flocks", () => {
     expect((await call(`/flokke/${id}`, { cookie: frank.cookie })).body).toContain("Caféen på hjørnet");
   });
 
-  it("asks each member after the event whether to meet again, and a new flock from it is only offered, never joined for them", async () => {
+  it("has no Eftermøde: no question after the event, and the old address does nothing", async () => {
     const gry = await join("Gry");
-    const hans = await join("Hans");
-    const ida = await join("Ida");
     const first = flockIdFrom((await startFlock(gry.cookie)).headers.get("location"));
-    await call(`/flokke/${first}/bliv-del-af`, { cookie: hans.cookie, form: {} });
-    await call(`/flokke/${first}/bliv-del-af`, { cookie: ida.cookie, form: {} });
     const after = event.starts_at + 5 * 3600_000;
-    const page = await call(`/flokke/${first}`, { cookie: hans.cookie }, after);
-    expect(page.body).toContain("Eftermødet");
-    expect(page.body).toContain("Eventet er slut.");
-    await call(`/flokke/${first}/eftermoedet`, { cookie: gry.cookie, form: { svar: "ja" } }, after);
-    await call(`/flokke/${first}/eftermoedet`, { cookie: hans.cookie, form: { svar: "ja" } }, after);
-    await call(`/flokke/${first}/eftermoedet`, { cookie: ida.cookie, form: { svar: "nej" } }, after);
-    expect((await call(`/flokke/${first}/bliv-del-af`, { cookie: (await join("Jens")).cookie, form: {} }, after)).headers.get("location")).toContain("besked=event_closed");
-
-    const form = await call(`/events/${later.slug}/opret-flok`, { cookie: gry.cookie }, after);
-    expect(form.body).toContain("Fortsæt fra en tidligere flok");
-    const next = await call(`/events/${later.slug}/opret-flok`, { cookie: gry.cookie, form: { moedested: "Ved indgangen", tidspunkt: meetAt(later.starts_at), stoerrelse: "6", offentligt: "ja", fra_flok: first } }, after);
-    const nextId = flockIdFrom(next.headers.get("location"));
-    expect(nextId).not.toBe("");
-
-    const hansPage = await call("/flokke", { cookie: hans.cookie }, after);
-    expect(hansPage.body).toContain("Fra dine Eftermøder");
-    expect(hansPage.body).toContain(`/flokke/${nextId}`);
-    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flock_members WHERE flock_id = ? AND left_at IS NULL").all(nextId)[0]).toEqual({ n: 1 });
-    expect((await call("/flokke", { cookie: ida.cookie }, after)).body).not.toContain("Fra dine Eftermøder");
+    expect((await call(`/flokke/${first}`, { cookie: gry.cookie }, after)).body).not.toContain("Eftermød");
+    expect((await call(`/events/${later.slug}/opret-flok`, { cookie: gry.cookie }, after)).body).not.toContain("Fortsæt fra en tidligere flok");
+    expect((await call("/flokke", { cookie: gry.cookie }, after)).body).not.toContain("Eftermød");
+    expect((await call(`/flokke/${first}/eftermoedet`, { cookie: gry.cookie, form: { svar: "ja" } }, after)).status).not.toBe(302);
   });
 });
 
 describe("partners", () => {
   it("explains the model and stores an inquiry, readable only with the token", async () => {
     const page = await call("/samarbejde");
-    expect(page.body).toContain("billetfordel");
+    expect(page.body).toContain("kontakt os");
+    expect(page.body).not.toMatch(/rabat|billetfordel/i);
     expect(page.body).toContain("radioomtale");
     const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej" } });
     expect(bad.status).toBe(400);
@@ -208,7 +190,7 @@ describe("partners", () => {
 
   it("shows an offer only when the organiser has confirmed it", () => {
     const e = { organizer_id: "hjerterum", slug: "x", starts_at: NOW };
-    const offer: PartnerOffer = { organizerSlug: "hjerterum", kind: "member_discount", text: "Rabat", confirmedBy: "", confirmedOn: "2026-10-01" };
+    const offer: PartnerOffer = { organizerSlug: "hjerterum", kind: "welcome_drink", text: "Kaffe", confirmedBy: "", confirmedOn: "2026-10-01" };
     expect(offersFor(e, [offer])).toEqual([]);
     expect(offersFor(e, [{ ...offer, confirmedBy: "Sofie" }])).toHaveLength(1);
     expect(offersFor(e, [{ ...offer, confirmedBy: "Sofie", validUntil: "2026-10-01" }])).toEqual([]);

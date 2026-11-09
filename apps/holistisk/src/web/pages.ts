@@ -8,13 +8,13 @@ import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
-import { KIND_LABELS, offersBlock, offersFor, PARTNER_OFFERS } from "../flokken/partners.js";
+import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, cities, countByArea, countEvents, eventBySlug, heroEvents, hasPrices, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
@@ -36,7 +36,7 @@ export type View = { status: number; body: string; headers?: Record<string, stri
 /** Text cut at a word boundary, for titles and descriptions. */
 export const clip = (text: string, max: number): string => text.length <= max ? text : text.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
 
-export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], area: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
+export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], area: null, zone: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
 
 /** The filters an activity's page lists: its category, or its topic's words. */
 export const activityFilters = (a: Activity, over: Partial<Filters> = {}): Filters =>
@@ -112,7 +112,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
     ${freeCards.length ? cardGrid(freeCards, ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}
-    <p class="savings-note">Som medlem af Flokken får du billetfordele hos vores partnere, når de er aftalt – de vises på eventet. <a href="/spar-paa-billetten">Sådan sparer du</a></p>
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
@@ -125,7 +124,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
   <aside class="partner-teaser" aria-labelledby="h-partner">
     <div><p class="hero-kicker">For foreninger og kultursteder</p><h2 id="h-partner">Vil I have flere med?</h2>
-    <p>Tilbyd Flokkens medlemmer en billetfordel og få synlighed på Flokken – og mulighed for radioomtale.</p></div>
+    <p>Vil I have jeres events med på Flokken? Kontakt os – og hør om mulighed for radioomtale.</p></div>
     <p><a class="button button-alt" href="/samarbejde">Læs om samarbejde</a></p>
   </aside>
   ${section("h-topics", "Populære emner", activityChips(TOPICS))}
@@ -152,9 +151,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 
 export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters): Promise<View> {
   const areas = activeAreas(regions);
-  const [{ events, total }, cats, cityList, prices] = await Promise.all([
-    listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), cities(db, regions, ctx.now, f.area), hasPrices(db, regions, ctx.now)
-  ]);
+  const [{ events, total }, cats] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
   const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
@@ -163,13 +160,13 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
-    <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter dato, by, aktivitet og pris – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
   <div class="list-layout" id="soeg">
     <aside class="list-filters">
       <details class="filter-toggle" data-collapse-mobile open>
         <summary>Søg og filtrér${hasFilters(f) ? html` <span class="count">aktive</span>` : ""}</summary>
-        ${filterPanel(f, areas, cityList, cats, prices)}
+        ${filterPanel(f, cats)}
       </details>
     </aside>
     <section class="list-results" aria-labelledby="h-results">
@@ -178,7 +175,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
         <a class="map-link" href="/kort${f.price === "gratis" ? "?vis=gratis" : ""}">${MAP_PIN} Se på kort</a>
         ${activeFilterChips(f)}
       </div>
-      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, en anden by eller færre aktiviteter.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
+      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, et andet område eller færre filtre.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
       ${pagination(f, total, PAGE_SIZE, "/kalender")}
     </section>
   </div>
@@ -497,15 +494,13 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
 
 // ————————————————————————————————————————— Spar på billetten
 
-/** Free and cheap events, and the member benefits partners have confirmed. Everything on it comes from the events'
- * own prices and from PARTNER_OFFERS; nothing is promised that has not been agreed. */
+/** Free and cheap events, from the events' own prices. */
 export async function savingsPage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const [free, cheap] = await Promise.all([
     listEvents(db, emptyFilters({ price: "gratis", period: "maaned" }), regions, ctx.now, 40),
     listEvents(db, emptyFilters({ price: "under-100", period: "maaned" }), regions, ctx.now, 80)
   ]);
   const cheapPaid = cheap.events.filter(e => e.is_free !== 1).slice(0, 30);
-  const offers = PARTNER_OFFERS.filter(o => o.confirmedBy.trim() && /^\d{4}-\d{2}-\d{2}$/.test(o.confirmedOn));
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Spar på billetten", path: "/spar-paa-billetten" }];
   const body = html`
 <div class="wrap">
@@ -513,20 +508,14 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
     ${crumbsNav(crumbs)}
     <p class="section-kicker">Spar på billetten</p>
     <h1>Det skal ikke koste en formue <span class="marker">at komme ud.</span></h1>
-    <p class="standfirst">Gratis og billige events i ${ctx.regionLabel} den næste måned – og billetfordele for Flokkens medlemmer, så snart vores partnere tilbyder dem.</p>
+    <p class="standfirst">Gratis og billige events i ${ctx.regionLabel} den næste måned.</p>
     <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis events</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
   </header>
-  <section class="section savings-offers" aria-labelledby="h-member">
-    <div class="section-head"><h2 id="h-member">Medlemsfordele</h2></div>
-    ${offers.length ? html`<ul class="offer-list">${offers.map(o => html`<li><strong>${organizerBySlug(o.organizerSlug)?.name ?? o.organizerSlug}</strong> · ${KIND_LABELS[o.kind]}: ${o.text}</li>`)}</ul>`
-      : html`<p>Vi er ved at aftale billetfordele med spillesteder, caféer og foreninger i Aarhus. Når en arrangør har bekræftet en fordel, står den her og på eventet – og du får den som medlem af Flokken.</p>
-      <p><a class="button button-alt" href="/samarbejde">Er du arrangør? Bliv partner</a></p>`}
-  </section>
   ${section("h-free", `Gratis – ${eventsLabel(free.total)} den næste måned`, free.events.length ? html`${dayList(free.events, ctx.now)}${free.total > free.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?pris=gratis&periode=maaned">Se alle ${free.total}</a></p>` : ""}` : html`<p class="empty">Ingen gratis events med kendt pris den næste måned lige nu.</p>`, { href: "/kalender?pris=gratis", label: "Alle gratis →" })}
   ${cheapPaid.length ? section("h-cheap", "Op til 100 kr.", dayList(cheapPaid, ctx.now), { href: "/kalender?pris=under-100", label: "Alle op til 100 kr. →" }) : ""}
   <p class="meta-muted small">Priserne er arrangørernes egne og hentes hver nat. Events uden oplyst pris er ikke med her.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Spar på billetten – gratis og billige events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned – og billetfordele for Flokkens medlemmer.`, canonical: "/spar-paa-billetten", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Spar på billetten – gratis og billige events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned.`, canonical: "/spar-paa-billetten", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Index pages
@@ -559,7 +548,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[])
     <p class="standfirst">Flokken hjælper folk i Aarhus med at finde lokale events – og andre, der gerne vil opleve det samme. Eventet er udgangspunktet for at mødes.</p>
   </header>
   <h2>Hvad er en flok?</h2>
-  <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet, og bagefter vælger hver især, om de vil finde på noget sammen igen – det kalder vi Eftermødet. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
+  <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet og går ind sammen. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du events?</h2>
   <p>Vi starter i ${ctx.regionLabel} (${areas.map(a => a.place).join(", ")}). Hver nat henter Flokken events fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig events eller oplysninger, og hvert event viser, hvor det kommer fra.</p>
   <ul class="source-list">

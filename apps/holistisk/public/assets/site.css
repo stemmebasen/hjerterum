@@ -90,7 +90,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 va
 img { max-width: 100%; display: block; }
 a { color: inherit; text-decoration: none; }
 a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .18em; }
-.standfirst a, .event-text a, .prose a, .facts-list a, .source a, .empty a, .meta-muted a, .offerings ul a, .more-line a:not(.button):not(.button-secondary), .trust-line a, .savings-note a { color: var(--berry); font-weight: 700; }
+.standfirst a, .event-text a, .prose a, .facts-list a, .source a, .empty a, .meta-muted a, .offerings ul a, .more-line a:not(.button):not(.button-secondary), .trust-line a { color: var(--berry); font-weight: 700; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.08; letter-spacing: -.01em; margin: 0 0 .4em; color: var(--ink); }
 h1 { font-size: clamp(2.3rem, 1.5rem + 3.6vw, 4.2rem); line-height: 1.02; }
@@ -351,6 +351,18 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .chip span { display: inline-block; padding: 5px 12px; border: 2px solid var(--rule); border-radius: 999px; font-size: .86rem; font-weight: 700; background: var(--card); }
 .chip input:checked + span { background: var(--green); border-color: var(--green); color: var(--butter); }
 .chip input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.filter-label { font-size: .88rem; font-weight: 800; color: var(--ink-2); margin: 0; }
+.filter-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 12px; border: 2px solid var(--rule); border-radius: 999px; font-size: .86rem; font-weight: 700; background: var(--card); color: var(--ink); text-decoration: none; }
+.filter-chip:hover { border-color: var(--ink); text-decoration: none; }
+.filter-chip .count { color: var(--muted); font-size: .74rem; font-weight: 800; }
+.filter-chip.is-on { background: var(--green); border-color: var(--green); color: var(--butter); }
+.filter-chip.is-on::after { content: "×"; font-weight: 800; margin-left: 2px; }
+.filter-chip.is-on .count { color: var(--butter); }
+.filter-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.filter-search { display: grid; gap: 8px; padding-top: 14px; border-top: 2px solid var(--rule); }
+.search-row { display: flex; gap: 8px; }
+.search-row input { flex: 1; min-width: 0; }
 .date-range { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; font-size: .8rem; color: var(--muted); }
 .date-range label { display: grid; gap: 4px; min-width: 0; }
 .date-range input { min-width: 0; padding: 6px 8px; }
@@ -402,9 +414,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .savings .section-kicker { color: var(--berry-dark); }
 .savings .more { color: var(--berry-dark); }
 .savings .ticket-body::before, .savings .ticket-body::after { background: var(--butter); }
-.savings-note { margin: 18px 0 0; font-weight: 700; color: var(--ink); }
-.savings-note a { color: var(--berry-dark); }
-.savings-offers { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 24px 12px; box-shadow: 0 4px 0 var(--ink); }
 .offer-list { padding-left: 1.1em; }
 /* What a flock of five gets is not decided: a teaser, *****. */
 .secret, .how span.secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
@@ -441,7 +450,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .member-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
 .member-list li { background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; font-weight: 800; }
 .pill-small { font-size: .72rem; font-weight: 800; color: #17543f; background: var(--green-soft); border-radius: 999px; padding: 2px 8px; }
-.eftermoede { background: var(--lilac); border: 2px solid var(--ink); border-radius: var(--radius); padding: 4px 22px 16px; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
 .choice-row .is-chosen { background: var(--green); color: var(--butter); }
 .form-card { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 22px; display: grid; gap: 16px; box-shadow: 0 5px 0 var(--ink); }

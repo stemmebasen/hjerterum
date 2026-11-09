@@ -2,7 +2,8 @@ import { CATEGORIES, categoryBySlug } from "../categories.js";
 import { areaBySlug, type Area } from "../geo.js";
 import { priceLabel } from "../price.js";
 import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallClock } from "../time.js";
-import { PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
+import { hasFilters, PERIOD_CHIPS, PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
+import { ZONES, zoneBySlug } from "../zones.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { offersFor } from "../flokken/partners.js";
@@ -47,12 +48,12 @@ export function seats(members: number, size: number): SafeHtml {
     html`<svg class="seat${i < taken ? " is-taken" : ""}" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">${PERSON}</svg>`)}</span>`;
 }
 
-/** The chips under a card or row: free, a confirmed member benefit, and the flock line. */
+/** The chips under a card or row: free, a confirmed extra for flocks, and the flock line. */
 export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
   // A card with a picture panel already carries the round "Gratis" stamp.
   const free = e.is_free === 1 && !options.freeStamped;
   const benefit = offersFor(e).length > 0;
-  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
+  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flockBadge(e, now)}</span>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
@@ -176,60 +177,36 @@ export function section(id: string, title: string, body: SafeHtml, more?: { href
 }
 
 /** The filter panel: a plain GET form (it works without JavaScript); the script only submits on change. */
-export function filterPanel(f: Filters, areas: Area[], cityList: Array<{ city: string; n: number }>, categoryCounts: Map<string, number>, showPrice: boolean): SafeHtml {
-  const checked = (on: boolean) => on ? raw(" checked") : "";
-  const selected = (on: boolean) => on ? raw(" selected") : "";
-  return html`<form class="filters" action="/kalender" method="get" data-autosubmit>
-  ${f.topic ? html`<input type="hidden" name="emne" value="${f.topic}">` : ""}
-  <div class="filter-group">
-    <label for="f-q">Søg</label>
-    <input id="f-q" name="q" type="search" value="${f.q}" placeholder="Ord, underviser, sted …" maxlength="80">
-  </div>
-  <fieldset class="filter-group">
-    <legend>Hvornår</legend>
-    <div class="chips">
-      <label class="chip"><input type="radio" name="periode" value=""${checked(!f.period)}><span>Alle kommende</span></label>
-      ${PERIODS.map(p => html`<label class="chip"><input type="radio" name="periode" value="${p.value}"${checked(f.period === p.value)}><span>${p.label}</span></label>`)}
+/** The calendar's filters: Område, Pris and Hvornår as chips at the top, then the categories, and the search field at
+ * the bottom. A chip is a link: clicking it chooses it, clicking it again takes it off, so with nothing chosen
+ * everything is shown. Works without JavaScript. */
+export function filterPanel(f: Filters, categoryCounts: Map<string, number>): SafeHtml {
+  const base = { ...f, page: 1 };
+  const chip = (label: string, on: boolean, toggled: Partial<Filters>, n?: number): SafeHtml =>
+    html`<li><a class="filter-chip${on ? " is-on" : ""}" href="/kalender${toQuery(base, toggled)}#soeg" rel="nofollow"${on ? raw(' aria-current="true"') : ""}>${label}${n !== undefined ? html` <span class="count">${n}</span>` : ""}${on ? html`<span class="visually-hidden"> (valgt – klik for at fjerne)</span>` : ""}</a></li>`;
+  const group = (id: string, title: string, chips: SafeHtml[]): SafeHtml =>
+    html`<div class="filter-group" role="group" aria-labelledby="${id}"><p class="filter-label" id="${id}">${title}</p><ul class="filter-chips">${chips}</ul></div>`;
+  const hidden = (name: string, value: string | null | undefined) => value ? html`<input type="hidden" name="${name}" value="${value}">` : "";
+  return html`<div class="filters">
+  ${group("fl-zone", "Område", ZONES.map(z => chip(z.label, f.zone === z.slug, { zone: f.zone === z.slug ? null : z.slug, area: null, city: null })))}
+  ${group("fl-price", "Pris", PRICES.map(p => chip(p.label, f.price === p.value, { price: f.price === p.value ? null : p.value })))}
+  ${group("fl-when", "Hvornår", PERIOD_CHIPS.map(v => chip(PERIODS.find(p => p.value === v)!.label, f.period === v, { period: f.period === v ? null : v, from: null, to: null })))}
+  ${group("fl-cat", "Kategori", CATEGORIES.filter(c => f.categories.includes(c.slug) || (categoryCounts.get(c.slug) ?? 0) > 0).map(c => {
+    const on = f.categories.includes(c.slug);
+    return chip(c.name, on, { categories: on ? f.categories.filter(x => x !== c.slug) : [...f.categories, c.slug] }, categoryCounts.get(c.slug) ?? 0);
+  }))}
+  <form class="filter-search" action="/kalender#soeg" method="get" role="search">
+    ${hidden("periode", f.period)}${f.period ? "" : html`${hidden("fra", f.from)}${hidden("til", f.to)}`}
+    ${f.categories.map(c => hidden("kategori", c))}
+    ${hidden("omraade", f.zone ?? f.area)}${hidden("by", f.city)}${hidden("pris", f.price)}${hidden("emne", f.topic)}
+    <label class="filter-label" for="f-q">Søg</label>
+    <div class="search-row">
+      <input id="f-q" name="q" type="search" value="${f.q}" placeholder="Ord, underviser, sted …" maxlength="80">
+      <button type="submit">Søg</button>
     </div>
-    <div class="date-range">
-      <label>Fra <input type="date" name="fra" value="${f.period ? "" : f.from ?? ""}"></label>
-      <label>Til <input type="date" name="til" value="${f.period ? "" : f.to ?? ""}"></label>
-    </div>
-  </fieldset>
-  <div class="filter-group">
-    <label for="f-area">Område</label>
-    <select id="f-area" name="omraade">
-      <option value="">Alle områder</option>
-      ${areas.map(a => html`<option value="${a.slug}"${selected(f.area === a.slug)}>${a.name}</option>`)}
-    </select>
-  </div>
-  ${cityList.length > 1 || f.city ? html`<div class="filter-group">
-    <label for="f-city">By</label>
-    <select id="f-city" name="by">
-      <option value="">Alle byer</option>
-      ${cityList.map(c => html`<option value="${c.city}"${selected(f.city === c.city)}>${c.city} (${c.n})</option>`)}
-      ${f.city && !cityList.some(c => c.city === f.city) ? html`<option value="${f.city}" selected>${f.city}</option>` : ""}
-    </select>
-  </div>` : ""}
-  <fieldset class="filter-group">
-    <legend>Kategori</legend>
-    <div class="checks">
-      ${CATEGORIES.map(c => html`<label class="check"><input type="checkbox" name="kategori" value="${c.slug}"${checked(f.categories.includes(c.slug))}><span>${c.name}</span><span class="count">${categoryCounts.get(c.slug) ?? 0}</span></label>`)}
-    </div>
-  </fieldset>
-  ${showPrice || f.price ? html`<fieldset class="filter-group">
-    <legend>Pris</legend>
-    <div class="chips">
-      <label class="chip"><input type="radio" name="pris" value=""${checked(!f.price)}><span>Alle</span></label>
-      ${PRICES.map(p => html`<label class="chip"><input type="radio" name="pris" value="${p.value}"${checked(f.price === p.value)}><span>${p.label}</span></label>`)}
-    </div>
-    <p class="hint">Kun events med en kendt pris tæller med.</p>
-  </fieldset>` : ""}
-  <div class="filter-actions">
-    <button type="submit">Vis events</button>
-    <a class="reset" href="/kalender">Nulstil filtre</a>
-  </div>
-</form>`;
+  </form>
+  ${hasFilters(f) ? html`<p class="filter-actions"><a class="reset" href="/kalender#soeg">Nulstil alle filtre</a></p>` : ""}
+</div>`;
 }
 
 /** The active filters as removable chips. */
@@ -239,6 +216,7 @@ export function activeFilterChips(f: Filters): SafeHtml {
   if (f.period) chips.push({ label: PERIODS.find(p => p.value === f.period)!.label, href: "/kalender" + toQuery(f, { period: null, page: 1 }) });
   if (!f.period && (f.from || f.to)) chips.push({ label: `${f.from ?? "nu"} – ${f.to ?? ""}`, href: "/kalender" + toQuery(f, { from: null, to: null, page: 1 }) });
   for (const c of f.categories) chips.push({ label: categoryBySlug(c)?.name ?? c, href: "/kalender" + toQuery(f, { categories: f.categories.filter(x => x !== c), page: 1 }) });
+  if (f.zone) chips.push({ label: zoneBySlug(f.zone)!.label, href: "/kalender" + toQuery(f, { zone: null, page: 1 }) });
   if (f.area) chips.push({ label: areaBySlug(f.area)?.name ?? f.area, href: "/kalender" + toQuery(f, { area: null, city: null, page: 1 }) });
   if (f.city) chips.push({ label: f.city, href: "/kalender" + toQuery(f, { city: null, page: 1 }) });
   if (f.price) chips.push({ label: PRICES.find(p => p.value === f.price)!.label, href: "/kalender" + toQuery(f, { price: null, page: 1 }) });
