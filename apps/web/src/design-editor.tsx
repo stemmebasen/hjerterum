@@ -17,8 +17,8 @@ type Props = {
 
 export const EDITOR_FONTS = ["Playfair Display", "Inter", "Cormorant Garamond", "Jost", "DM Serif Display", "DM Sans", "Fraunces", "Work Sans"];
 const SERIF_OF = "Playfair Display", SANS_OF = "Inter";
-const PROPS = ["role", "tint", "frameKind", "frameW", "frameH", "zoomIn", "focusX", "focusY", "slot", "srcUrl"];
-type Tagged = FabricObject & { role?: string; tint?: string; frameKind?: Frame; frameW?: number; frameH?: number; zoomIn?: number; focusX?: number; focusY?: number; slot?: number; srcUrl?: string };
+const PROPS = ["role", "tint", "effect", "frameKind", "frameW", "frameH", "zoomIn", "focusX", "focusY", "slot", "srcUrl"];
+type Tagged = FabricObject & { role?: string; tint?: string; effect?: string; frameKind?: Frame; frameW?: number; frameH?: number; zoomIn?: number; focusX?: number; focusY?: number; slot?: number; srcUrl?: string };
 
 // ---- Building a design ----
 
@@ -95,6 +95,19 @@ function textObject(layer: Extract<Layer, { kind: "text" }>, bottom = Infinity):
   if (layer.angle) t.rotate(layer.angle);
   return t;
 }
+
+/** Requested (the chair, 9 Nov 2026): "muligheden for at lægge en effekt, for eksempel slør eller andre typer effekter, over et billede, så man kan leve med, at
+ * kvaliteten ikke er så høj." A few looks that hide a soft or grainy photo, in the house's colours. */
+export const PHOTO_EFFECTS: Array<{ key: string; label: string; make: (c: Colors) => InstanceType<typeof filters.BaseFilter>[] }> = [
+  { key: "", label: "Ingen", make: () => [] },
+  { key: "slor", label: "Slør", make: () => [new filters.Blur({ blur: 0.2 })] },
+  { key: "drom", label: "Drømmende", make: c => [new filters.Blur({ blur: 0.05 }), new filters.Brightness({ brightness: 0.06 }), new filters.Saturation({ saturation: -0.2 }), new filters.BlendColor({ color: c.cream, mode: "screen", alpha: 0.18 })] },
+  { key: "korn", label: "Korn", make: () => [new filters.Contrast({ contrast: 0.06 }), new filters.Noise({ noise: 70 })] },
+  { key: "blod", label: "Blødt lys", make: () => [new filters.Contrast({ contrast: -0.15 }), new filters.Brightness({ brightness: 0.08 }), new filters.Saturation({ saturation: -0.15 })] },
+  { key: "varm", label: "Varm", make: c => [new filters.Saturation({ saturation: -0.1 }), new filters.BlendColor({ color: c.camel, mode: "tint", alpha: 0.22 }), new filters.Brightness({ brightness: 0.03 })] },
+  { key: "hus", label: "Husets farver", make: c => [new filters.Grayscale(), new filters.BlendColor({ color: c.camel, mode: "tint", alpha: 0.45 })] },
+  { key: "sh", label: "Sort/hvid", make: () => [new filters.Grayscale()] },
+];
 
 async function logoObject(logo: HTMLImageElement | null, layer: Extract<Layer, { kind: "logo" }>): Promise<FabricObject | null> {
   if (!logo) return null;
@@ -377,8 +390,10 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
           <label className="ed-field"><span>Udsnit lodret</span><input type="range" min={0} max={1} step={0.01} value={photo.focusY ?? 0.5} onChange={e => void refill(photo, { focus: [photo.focusX ?? 0.5, Number(e.target.value)] })} /></label>
           <div className="ed-field"><span>Form</span><p className="ed-row">{([["rect", "Firkant"], ["round", "Afrundet"], ["circle", "Cirkel"], ["arch", "Bue"], ["pebble", "Blød"]] as const).map(([f, label]) =>
             <button key={f} type="button" className={photo.frameKind === f ? "is-on" : ""} onClick={() => void refill(photo, { frame: f })}>{label}</button>)}</p></div>
+          <div className="ed-field"><span>Effekt</span><p className="ed-row">{PHOTO_EFFECTS.map(fx =>
+            <button key={fx.key} type="button" className={(photo.effect ?? (photo.filters?.length ? "sh" : "")) === fx.key ? "is-on" : ""}
+              onClick={() => { photo.filters = fx.make(input.colors); photo.effect = fx.key; photo.applyFilters(); changed(); }}>{fx.label}</button>)}</p></div>
           <p className="ed-row">
-            <button type="button" className={photo.filters?.length ? "is-on" : ""} onClick={() => { photo.filters = photo.filters?.length ? [] : [new filters.Grayscale()]; photo.applyFilters(); changed(); }}>Sort/hvid</button>
             <button type="button" className={o.shadow ? "is-on" : ""} onClick={() => set({ shadow: o.shadow ? null : new Shadow({ color: "rgba(40,25,15,0.32)", blur: 40, offsetY: 18 }) })}>Skygge</button>
           </p>
         </>}
@@ -398,7 +413,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
 export const LAYER_DESIGN_LIST = LAYER_DESIGNS.map(m => ({ key: m.key, label: m.label, about: m.about }));
 
 /** The new designs as small pictures, each opening in the editor. */
-export function LayerGallery({ format, input, photoUrl, logo, onOpen }: { format: Format; input: Omit<LayerInput, "W" | "H">; photoUrl: string | null; logo: HTMLImageElement | null; onOpen: (key: string) => void }) {
+export function LayerGallery({ format, input, photoUrl, logo, onOpen, quotes }: { format: Format; input: Omit<LayerInput, "W" | "H">; photoUrl: string | null; logo: HTMLImageElement | null; onOpen: (key: string) => void;
+  quotes?: { count: number; at: number; next: () => void } }) {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const size = SIZES[format];
   useEffect(() => {
@@ -418,6 +434,9 @@ export function LayerGallery({ format, input, photoUrl, logo, onOpen }: { format
   return <div className="poster-grid ed-gallery">{LAYER_DESIGNS.map(m => <figure key={m.key} className="poster-card">
     <button type="button" className="ed-thumb" onClick={() => onOpen(m.key)} aria-label={`Åbn ${m.label} i editoren`}>
       {thumbs[m.key] ? <img src={thumbs[m.key]} alt="" style={{ aspectRatio: `${size.width} / ${size.height}` }} /> : <span className="ed-thumb-wait" style={{ aspectRatio: `${size.width} / ${size.height}` }}>Tegner …</span>}</button>
-    <figcaption><div><b>{m.label}</b><p>{m.about}</p></div><p className="studio-actions"><button type="button" className="lys-btn" onClick={() => onOpen(m.key)}>Åbn i editoren</button></p></figcaption>
+    <figcaption><div><b>{m.label}</b><p>{m.about}</p></div><p className="studio-actions"><button type="button" className="lys-btn" onClick={() => onOpen(m.key)}>Åbn i editoren</button>
+      {m.key === "citat" && quotes && (quotes.count > 1
+        ? <button type="button" className="lys-btn ghost" onClick={quotes.next}>✨ Nyt citat ({quotes.at + 1}/{quotes.count})</button>
+        : <span className="studio-muted">{quotes.count ? "Der er kun ét citat - underviserens egne ord kan lægges ind i PR-materialet." : "Ingen citater endnu - underviserens egne ord kan lægges ind i PR-materialet."}</span>)}</p></figcaption>
   </figure>)}</div>;
 }

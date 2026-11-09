@@ -262,6 +262,7 @@ export function PosterStudio({ id }: { id: string }) {
   const [effect, setEffect] = useState<"zoom" | "ryst" | "slor">("zoom");
   const [writing, setWriting] = useState("");
   const [busy, setBusy] = useState(false);
+  const [quoteAt, setQuoteAt] = useState(0);
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState<{ publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null>(null);
   const proposal = useRef<HTMLCanvasElement | null>(null);
@@ -326,9 +327,13 @@ export function PosterStudio({ id }: { id: string }) {
   const planned = post?.publishAtMs && post.publishAtMs > Date.now() ? post.publishAtMs : null;
 
   // The editor's words, colours (the chosen mood's) and pictures.
+  // Requested (the chair, 9 Nov 2026): "Ved citat versionen kunne det være fedt at kunne klikke på en knap og få et nyt citat." The real words there are - the
+  // teacher's own (with consent), then the event description's sentences - one after another; never words made up and put in someone's mouth.
+  const own = t?.consent === "given" ? [t.quotes.offering, t.quotes.facilitator, t.quotes.participant] : [];
+  const quotes = [...own, ...event.lines.flatMap(l => l.split(/(?<=[.!?])\s+/))]
+    .map(q => (q ?? "").trim()).filter((q, i, all) => q.length >= 30 && q.length <= 220 && all.indexOf(q) === i);
   const editorInput = { words, colors: { ...C, ...(PALETTES.find(p => p.key === style.palette)?.colors ?? {}) }, site: SITE_LABEL,
-    // The teacher's own words, else the first line of the event's own description.
-    quote: t?.quotes.offering || t?.quotes.facilitator || t?.quotes.participant || event.lines.find(l => l.trim().length > 30) || null };
+    quote: quotes.length ? quotes[quoteAt % quotes.length]! : null };
   const editorPictures = [...data.eventPictures, ...(t?.pictures ?? [])].filter((p, i, all) => all.findIndex(q => q.url === p.url) === i);
   const openEditor = (start: EditorStart) => { setEditor(start); };
   const useEdited = (blob: Blob) => {
@@ -582,7 +587,8 @@ export function PosterStudio({ id }: { id: string }) {
       <h2 className="studio-step">Nye designs - kan redigeres</h2>
       <p className="studio-muted">Hvert design åbner i editoren, hvor alt kan flyttes, skaleres og drejes: billederne, teksterne, formerne og logoet.</p>
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <Suspense fallback={<p className="poster-empty">Tegner designene …</p>}>
-        <LayerGallery format={format} input={editorInput} photoUrl={picked} logo={logo} onOpen={key => openEditor({ kind: "layers", key })} /></Suspense>}
+        <LayerGallery format={format} input={editorInput} photoUrl={picked} logo={logo} onOpen={key => openEditor({ kind: "layers", key })}
+          quotes={{ count: quotes.length, at: quotes.length ? quoteAt % quotes.length : 0, next: () => setQuoteAt(n => n + 1) }} /></Suspense>}
 
       <h2 className="studio-step">Flere designs</h2>
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <>
