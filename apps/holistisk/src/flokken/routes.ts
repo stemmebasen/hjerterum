@@ -6,7 +6,7 @@ import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSes
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
 import { findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, safetyPage, welcomePage, type View } from "./pages.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
-import { createFlock, eftermoedeFlocks, eftermoedeInvitations, flockById, flockHost, flockMemberNames, joinFlock, leaveFlock, memberFlocks, setAgain, updateFlock, upcomingFlocks } from "./store.js";
+import { createFlock, flockById, flockHost, flockMemberNames, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
 
@@ -88,8 +88,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   if (path === "/flokke" && !post) {
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent("/flokke")}`);
-    const [flocks, invitations] = await Promise.all([memberFlocks(db, m.id), eftermoedeInvitations(db, m.id, now)]);
-    return { view: myFlocksPage(pc, m, flocks, invitations, message) };
+    return { view: myFlocksPage(pc, m, await memberFlocks(db, m.id), message) };
   }
 
   const create = /^\/events\/([a-z0-9-]{1,90})\/opret-flok$/.exec(path)?.[1];
@@ -99,22 +98,21 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const action = `/events/${e.slug}/opret-flok`;
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(action)}`);
-    const follows = await eftermoedeFlocks(db, m.id, now);
     if (!post) {
       if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(`/events/${e.slug}`, "event_closed") + "#flokke");
-      return { view: flockFormPage(pc, e, defaultFlockForm(e, now), {}, { mode: "create", action, follows }) };
+      return { view: flockFormPage(pc, e, defaultFlockForm(e, now), {}, { mode: "create", action }) };
     }
     const data = await formData(request);
-    if (!data) return { view: flockFormPage(pc, e, defaultFlockForm(e, now), { meetingPlace: "Formularen kunne ikke læses. Prøv igen." }, { mode: "create", action, follows, status: 400 }) };
+    if (!data) return { view: flockFormPage(pc, e, defaultFlockForm(e, now), { meetingPlace: "Formularen kunne ikke læses. Prøv igen." }, { mode: "create", action, status: 400 }) };
     const form = readFlockForm(data);
-    const checked = validateFlockForm(form, e, now, { allowedFollows: follows.map(f => f.id) });
-    if ("errors" in checked) return { view: flockFormPage(pc, e, form, checked.errors, { mode: "create", action, follows, status: 400 }) };
+    const checked = validateFlockForm({ ...form, followsFlockId: "" }, e, now, { allowedFollows: [] });
+    if ("errors" in checked) return { view: flockFormPage(pc, e, form, checked.errors, { mode: "create", action, status: 400 }) };
     const result = await createFlock(db, e, m.id, checked.input, now);
     if ("error" in result) return go(withMessage(`/events/${e.slug}`, result.error) + "#flokke");
     return go(withMessage(flockPath(result.id), "oprettet"));
   }
 
-  const flock = /^\/flokke\/([0-9a-f-]{36})(?:\/(bliv-del-af|forlad|eftermoedet|ret))?$/.exec(path);
+  const flock = /^\/flokke\/([0-9a-f-]{36})(?:\/(bliv-del-af|forlad|ret))?$/.exec(path);
   if (flock) {
     const [, id, action] = flock as unknown as [string, string, string | undefined];
     const m = await member();
@@ -149,13 +147,6 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (action === "forlad") {
       const result = await leaveFlock(db, f, m.id, now);
       return go(withMessage(here, "error" in result ? result.error : "forladt"));
-    }
-    if (action === "eftermoedet") {
-      const data = await formData(request);
-      const answer = String(data?.get("svar") ?? "");
-      if (answer !== "ja" && answer !== "nej") return go(here);
-      const result = await setAgain(db, f, m.id, answer === "ja");
-      return go(withMessage(here, "error" in result ? result.error : answer === "ja" ? "eftermoede_ja" : "eftermoede_nej") + "#eftermoedet");
     }
   }
   return null;
