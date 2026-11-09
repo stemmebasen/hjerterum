@@ -1,3 +1,4 @@
+import { quoteChoices } from "./quotes";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { EditorStart } from "./design-editor";
 // "Et lille mini Photoshop" (design-editor.tsx, Fabric.js): loaded when it is opened.
@@ -329,8 +330,7 @@ export function PosterStudio({ id }: { id: string }) {
   // The editor's words, colours (the chosen mood's) and pictures.
   // Requested (the chair, 9 Nov 2026): "Ved citat versionen kunne det være fedt at kunne klikke på en knap og få et nyt citat." The real words there are - the
   // teacher's own, then the event description's sentences - one after another; never words made up and put in someone's mouth.
-  const quotes = [t?.quotes.offering, t?.quotes.facilitator, t?.quotes.participant, ...event.lines.flatMap(l => l.split(/(?<=[.!?])\s+/))]
-    .map(q => (q ?? "").trim()).filter((q, i, all) => q.length >= 30 && q.length <= 220 && all.indexOf(q) === i);
+  const quotes = quoteChoices([t?.quotes.offering, t?.quotes.facilitator, t?.quotes.participant], event.lines);
   const editorInput = { words, colors: { ...C, ...(PALETTES.find(p => p.key === style.palette)?.colors ?? {}) }, site: SITE_LABEL,
     quote: quotes.length ? quotes[quoteAt % quotes.length]! : null };
   const editorPictures = [...data.eventPictures, ...(t?.pictures ?? [])].filter((p, i, all) => all.findIndex(q => q.url === p.url) === i);
