@@ -341,7 +341,8 @@ export function PosterStudio({ id }: { id: string }) {
     setPreview({ blob, url: URL.createObjectURL(blob) }); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
   };
   const editorView = editor ? <Suspense fallback={<div className="ed"><p className="ed-busy">Åbner editoren …</p></div>}>
-    <DesignEditor format={format} start={editor} input={editorInput} pictures={editorPictures} photoUrl={picked} logo={logo} onUse={useEdited} onClose={() => setEditor(null)} /></Suspense> : null;
+    <DesignEditor format={format} start={editor} input={editorInput} pictures={editorPictures} photoUrl={picked} logo={logo} onUse={useEdited} onClose={() => setEditor(null)}
+      finder={chosen => <PictureFinder id={id} onChosen={chosen} />} /></Suspense> : null;
 
   const next = () => {
     const canvas = proposal.current;
