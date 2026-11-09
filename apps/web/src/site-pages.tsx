@@ -144,7 +144,7 @@ export function BookingChoice() {
     <article className="booking-choice-card members">
       <p className="lys-kicker">B) Reduceret pris · C) Gratis leje</p>
       <h3>Er du medlem? Book med medlemsrabat</h3>
-      <p>Du opretter selv dit event på medlemssiden – Saga hjælper dig.</p>
+      <p>Du opretter selv dit event på medlemssiden – Saga kan hjælpe dig.</p>
       {/* Douglas (3 Nov): "So it is not confusing, this box must say something like: 'Must give members a discount when attending your event. -
           Teachers choosing this option must be a member.'" */}
       <p className="booking-choice-terms">Medlemmer skal have rabat, når de deltager i dit event. Vælger du denne mulighed, skal du selv være medlem.</p>
@@ -278,7 +278,7 @@ export function SitePageView({ page, header, widgets }: { page: SitePage; header
 }
 
 const CATEGORIES = [
-  { key: null, label: "Events", href: "/events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
+  { key: null, label: "Alle", href: "/events", icon: "M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" },
   { key: "foredrag", label: "Foredrag", href: "/events?vis=foredrag", icon: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3" },
   { key: "koncerter", label: "Koncerter", href: "/events?vis=koncerter", icon: "M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" },
   { key: "cafe", label: "Café", href: "/events?vis=cafe", icon: "M4 8h13v5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6V8zM17 9h1.5a2.5 2.5 0 0 1 0 5H17M8 2v3M12 2v3" },
@@ -308,7 +308,9 @@ function SiteHero({ coming }: { coming?: ReactNode }) {
   return <section className="nl-hero">
     <div className="nl-hero-text">
       <p className="lys-kicker">Hjerterum · Aarhus</p>
-      <h1 className="nl-tagline">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>
+      {/* Douglas (9 Nov 2026): Google made the line "Experiences for members of members" - in English it is said here, not translated. */}
+      {englishOn() ? <h1 className="nl-tagline notranslate" translate="no">Experiences<br />for members<em><span>by</span> members</em></h1>
+        : <h1 className="nl-tagline">Oplevelser<br />for medlemmer<em><span>af</span> medlemmer</em></h1>}
       <span className="nl-rule" aria-hidden="true" />
       <p className="nl-lead">Et varmt fællesskab for fordybelse, nye perspektiver og oplevelser med andre mennesker.</p>
       <p className="lys-kicker nl-motto">Et rum for det menneskelige</p>

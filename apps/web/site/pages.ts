@@ -62,7 +62,7 @@ export const LEGAL_LINKS = [
 /** Requested: "Denne tekst må gerne stå relevante steder på hjemmesiden og i medlemssektionen. Lav gerne alternative formuleringer". */
 export const BENEFITS = {
   full: "Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre medlemmer, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.",
-  front: "Som betalende medlem får du mere end et sted at komme: rabat eller gratis adgang til events, mulighed for selv at skabe events for andre medlemmer, en plads i CIRKLER og din egen offentlige profil, hvis du er behandler eller underviser.",
+  front: "Som betalende medlem får du rabat eller gratis adgang til events, mulighed for selv at skabe events for andre, en plads i CIRKLER og din egen offentlige profil, hvis du er behandler eller underviser.",
   member: "Dit medlemskab giver dig rabat eller gratis adgang til events, mulighed for at oprette dine egne events, en plads i CIRKLER og – hvis du underviser eller behandler – din egen offentlige profil.",
   upgrade: "Med et betalende medlemskab får du events med rabat eller gratis, kan oprette dine egne events, være med i CIRKLER og få en offentlig profil som behandler eller underviser."
 } as const;
@@ -357,7 +357,7 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
 
 ## Sådan gør du – i fem trin {#trin}
 1. **Find dato og pris.** Tjek [kalenderen](/events), og brug [prisberegneren](/brug-hjerterum/lejepriser#beregner).
-2. **Book.** Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga hjælper dig. Ellers sender du en [bookingforespørgsel](/brug-hjerterum/booking#book).
+2. **Book.** Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga kan hjælpe dig. Ellers sender du en [bookingforespørgsel](/brug-hjerterum/booking#book).
 3. **Del billeder til PR, og tag Hjerterum.** Det giver dit event mest synlighed. Se [PR for dit event](/brug-hjerterum/pr).
 4. **Vi godkender og deler.** Dit event kommer på hjemmesiden og Hjerterums Facebook-side, i Ugens events og i nyhedsbrevet Månedens events.
 5. **Nå længere ud selv,** fx i [relevante Facebook-grupper](/brug-hjerterum/pr#grupper).
@@ -396,7 +396,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
 Tjek [kalenderen](/events), og planlæg gerne 4–8 uger før. I [prisberegneren](/brug-hjerterum/lejepriser#beregner) ser du standardprisen, som er den samme for alle. Medlemmer kan i stedet leje til reduceret pris eller gratis, og beregneren viser også, hvad det koster.
 
 ## 2. Book {#book}
-- **Er du medlem,** kan du leje til reduceret pris eller helt gratis. Du opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga, vores digitale assistent, hjælper dig. Hjerterums team godkender alle medlemsoprettede events.
+- **Er du medlem,** kan du leje til reduceret pris eller helt gratis. Du opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga, vores digitale assistent, kan hjælpe dig. Hjerterums team godkender alle medlemsoprettede events.
 - **Er du ikke medlem,** lejer du til standardpris. Send en bookingforespørgsel med det, der står herunder. Du får en faktura, og når den er betalt, lægger vi eventet ud (op til ca. 5 hverdage).
 
 {{booking-choice}}
@@ -541,7 +541,7 @@ Det afhænger af, om du lejer til standardpris, med medlemsrabat eller gratis, o
 +++
 
 +++ Hvordan booker jeg?
-Som medlem opretter du selv dit event på medlemssiden, og Saga hjælper dig. Ellers sender du en bookingforespørgsel. Se [sådan booker du](/brug-hjerterum/booking).
+Som medlem opretter du selv dit event på medlemssiden, og Saga kan hjælpe dig. Ellers sender du en bookingforespørgsel. Se [sådan booker du](/brug-hjerterum/booking).
 +++
 
 +++ Skal jeg være medlem for at leje?

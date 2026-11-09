@@ -97,50 +97,41 @@ function watchNewText(): void {
   }).observe(document.body, { childList: true, subtree: true, characterData: true });
 }
 
-/** Google turned "Hjerterum" into "Heart Room" and "Heart Space". The name (and CIRKLER) is kept: each time it appears in the page's text, it
- * is put in a span Google leaves alone - also in what the page shows later. */
-/** Labels Google cannot read right once the name is kept out of them. */
-// Asked (4 Nov): "'Front' in the top menu in English should be 'Home'".
+/** Labels Google cannot read right on their own. */
+// Asked (4 Nov): "'Front' in the top menu in English should be 'Home'". Alone, "Om" became "Sore".
 const PHRASES: Record<string, string> = { "Forside": "Home", "Om Hjerterum": "About Hjerterum", "Brug Hjerterum": "Use Hjerterum", "Bliv en del af Hjerterum": "Become part of Hjerterum" };
-// The spaces around the name go with it: Google trims them from the text it translates ("af Hjerterum" became "ofHjerterum").
-const NAME = /\s?(?:Hjerterums?|CIRKLER)\s?/g;
-function keepNames(root: Node): void {
+function keepPhrases(root: Node): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode: node => {
       const parent = node.parentElement;
-      const value = node.nodeValue ?? "";
-      if (!parent || !(NAME.test(value) || value.trim() in PHRASES)) { NAME.lastIndex = 0; return NodeFilter.FILTER_REJECT; }
-      NAME.lastIndex = 0;
+      if (!parent || !((node.nodeValue ?? "").trim() in PHRASES)) return NodeFilter.FILTER_REJECT;
       return parent.closest('script,style,textarea,input,[translate="no"],.notranslate') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
     }
   });
   const found: Text[] = [];
   for (let node = walker.nextNode(); node; node = walker.nextNode()) found.push(node as Text);
   for (const text of found) {
-    // A short label is said whole: alone, "Om" became "Sore".
-    const whole = PHRASES[(text.nodeValue ?? "").trim()];
-    if (whole) {
-      const keep = document.createElement("span");
-      keep.className = "notranslate";
-      keep.setAttribute("translate", "no");
-      text.replaceWith(keep);
-      keep.appendChild(text);
-      text.nodeValue = whole;
-      continue;
-    }
-    let node: Text = text;
-    for (let match = NAME.exec(node.nodeValue ?? ""); match; match = NAME.exec(node.nodeValue ?? "")) {
-      const name = node.splitText(match.index);
-      const rest = name.splitText(match[0].length);
-      const keep = document.createElement("span");
-      keep.className = "notranslate";
-      keep.setAttribute("translate", "no");
-      name.replaceWith(keep);
-      keep.appendChild(name);
-      node = rest;
-      NAME.lastIndex = 0;
-    }
-    NAME.lastIndex = 0;
+    const keep = document.createElement("span");
+    keep.className = "notranslate";
+    keep.setAttribute("translate", "no");
+    text.replaceWith(keep);
+    keep.appendChild(text);
+    text.nodeValue = PHRASES[(text.nodeValue ?? "").trim()]!;
+  }
+}
+
+/** Google turned "Hjerterum" into "Heart Room". The name used to be kept out of the text Google translates, but then Google translated the
+ * sentence in pieces - Douglas (8-9 Nov 2026): "put your event in. Hjerterums calendar", "Do you want to use it yourself? Hjerterum?",
+ * "CIRKLERSmall". Now Google gets the whole sentence, and the names are put back in its English afterwards. */
+const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"]];
+export function englishNames(text: string): string {
+  return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
+}
+function fixNames(root: Node): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: node => node.parentElement?.closest("font") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const fixed = englishNames(node.nodeValue ?? "");
+    if (fixed !== node.nodeValue) node.nodeValue = fixed;
   }
 }
 
@@ -151,9 +142,15 @@ export function startTranslation(): void {
   const style = document.createElement("style");
   style.textContent = STYLE;
   document.head.appendChild(style);
-  keepNames(document.body);
-  new MutationObserver(changes => { for (const change of changes) for (const node of change.addedNodes) if (node.nodeType === Node.ELEMENT_NODE || node.nodeType === Node.TEXT_NODE) keepNames(node.nodeType === Node.TEXT_NODE ? node.parentNode ?? node : node); })
-    .observe(document.body, { childList: true, subtree: true });
+  keepPhrases(document.body);
+  new MutationObserver(changes => {
+    for (const change of changes) for (const node of change.addedNodes) {
+      if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) continue;
+      const root = node.nodeType === Node.TEXT_NODE ? node.parentNode ?? node : node;
+      keepPhrases(root);
+      fixNames(root);
+    }
+  }).observe(document.body, { childList: true, subtree: true });
   const holder = document.createElement("div");
   holder.id = "google_translate_element";
   document.body.appendChild(holder);
