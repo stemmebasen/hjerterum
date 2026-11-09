@@ -150,6 +150,14 @@ export async function buildDesign(canvas: Canvas | StaticCanvas, design: LayerDe
   canvas.renderAll();
 }
 
+/** The ground of slide `i` of a carousel: the design's own first, then the next of the house's soft colours (dark ones for a dark design). */
+export function slideTone(own: string, c: Colors, i: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(own), n = m ? parseInt(m[1]!, 16) : 0xffffff;
+  const dark = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.45;
+  const tones = (dark ? [c.dusk, "#3b2a22", "#2c3529", "#3a2530"] : [c.sage, c.sand, c.blush, c.cream]).filter(t => t.toLowerCase() !== own.toLowerCase());
+  return i === 0 ? own : tones[(i - 1) % tones.length]!;
+}
+
 /** A design at full size, as a jpg (made from the canvas - the admin's rules allow no fetch() of a data: address). */
 export async function designBlob(design: LayerDesign, size: { width: number; height: number }, photos: Array<string | null>, logo: HTMLImageElement | null, colors: Colors): Promise<Blob | null> {
   const el = document.createElement("canvas");
@@ -171,13 +179,15 @@ export function QuoteCarousel({ format, input, quotes, photoUrl, logo, start, on
   const [thumbs, setThumbs] = useState<string[]>([]);
   const [busy, setBusy] = useState("");
   const slides = chosen.map(i => quotes[i]!).filter(Boolean);
-  const make = (q: string) => layerDesign(key, { ...input, quote: q, W: size.width, H: size.height })!;
+  // Asked (the chair, 10 Nov 2026): "der er også brug for at være en lille variation mellem de tre. Det kan være en farveforskel" - "Tre toner af husets
+  // farver": slide 1 in the design's own ground, the others in two more of the house's soft colours (a dark design keeps to dark ones, for its light words).
+  const make = (q: string, i = 0) => { const d = layerDesign(key, { ...input, quote: q, W: size.width, H: size.height })!; return { ...d, background: slideTone(d.background, input.colors, i) }; };
   useEffect(() => {
     let live = true;
     setThumbs([]);
     void (async () => {
       const out: string[] = [];
-      for (const q of slides) { out.push(await designThumb(make(q), size, [photoUrl, photoUrl, photoUrl], logo, input.colors).catch(() => "")); if (live) setThumbs([...out]); }
+      for (const [i, q] of slides.entries()) { out.push(await designThumb(make(q, i), size, [photoUrl, photoUrl, photoUrl], logo, input.colors).catch(() => "")); if (live) setThumbs([...out]); }
     })();
     return () => { live = false; };
   }, [key, JSON.stringify(chosen), photoUrl, logo]);
@@ -185,7 +195,7 @@ export function QuoteCarousel({ format, input, quotes, photoUrl, logo, start, on
   const use = async () => {
     setBusy("Laver karrusellen …");
     const blobs: Blob[] = [];
-    for (const q of slides) { const b = await designBlob(make(q), size, [photoUrl, photoUrl, photoUrl], logo, input.colors); if (!b) { setBusy("Et af billederne kunne ikke laves. Prøv et andet foto."); return; } blobs.push(b); }
+    for (const [i, q] of slides.entries()) { const b = await designBlob(make(q, i), size, [photoUrl, photoUrl, photoUrl], logo, input.colors); if (!b) { setBusy("Et af billederne kunne ikke laves. Prøv et andet foto."); return; } blobs.push(b); }
     setBusy(""); onUse(blobs);
   };
   return <div className="ed ed-carousel" role="dialog" aria-label="Karrusel med citater">
