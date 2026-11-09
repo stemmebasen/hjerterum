@@ -4,10 +4,11 @@ import { html, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import type { View } from "./pages.js";
 
-/** Partners: local associations and venues that offer Flokken's members a ticket benefit and get visibility on the
- * platform in return. Only offers the organiser has actually confirmed are shown; the list is empty until then. */
+/** Partners: local associations and venues that have their events on the site, and may offer flocks
+ * something extra. There are no ticket discounts. Only offers the organiser has actually confirmed are shown; the list
+ * is empty until then. */
 
-export type OfferKind = "member_discount" | "reserved_seats" | "meeting_point" | "welcome_drink" | "eftermoede" | "other";
+export type OfferKind = "reserved_seats" | "meeting_point" | "welcome_drink" | "other";
 
 export type PartnerOffer = {
   /** The organiser it applies to (src/organizers.ts slug = the events' organizer_id). */
@@ -15,7 +16,7 @@ export type PartnerOffer = {
   /** Only these events (their slugs); empty or left out = all the organiser's events. */
   eventSlugs?: string[];
   kind: OfferKind;
-  /** As the organiser worded it, e.g. "20 kr. rabat på billetten – vis Flokken ved indgangen". */
+  /** As the organiser worded it, e.g. "Kaffe til flokke, der kommer før kl. 19". */
   text: string;
   /** Who at the organiser confirmed it, and when (ISO date). An offer without both is never shown. */
   confirmedBy: string;
@@ -25,11 +26,9 @@ export type PartnerOffer = {
 };
 
 export const KIND_LABELS: Record<OfferKind, string> = {
-  member_discount: "Medlemsrabat",
   reserved_seats: "Reserverede pladser",
   meeting_point: "Mødested før eventet",
   welcome_drink: "Kaffe eller velkomstdrink",
-  eftermoede: "Eftermødet",
   other: "Ekstra for flokke"
 };
 
@@ -97,21 +96,18 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
   </header>
   <h2>Sådan er modellen tænkt</h2>
   <ol class="steps">
-    <li><strong>I tilbyder Flokkens medlemmer en billetfordel</strong> – fx en rabat eller et par reserverede pladser til et event.</li>
-    <li><strong>I får synlighed på Flokken</strong> – jeres events og fordelen vises på eventsiderne, hvor flokkene bliver dannet.</li>
+    <li><strong>Vil I være med på siden, så <a href="#kontakt">kontakt os</a></strong> – så viser vi jeres events i kalenderen, på kortet og på eventsiderne, hvor flokkene bliver dannet.</li>
     <li><strong>Mulighed for radioomtale og anden promovering</strong> – vi er ved at bygge samarbejder op og aftaler det konkret med hver enkelt.</li>
   </ol>
-  <p>Fordelen og formen aftaler vi sammen. Vi viser kun tilbud, som I har bekræftet.</p>
   <h2>Valgfrie oplevelser for flokke</h2>
-  <p>Ud over billetfordelen kan I vælge at gøre det lettere at komme som flok:</p>
+  <p>I kan også vælge at gøre det lettere at komme som flok. Vi viser kun det, som I har bekræftet:</p>
   <ul>
     <li>Reserverede pladser til flokke</li>
     <li>Et fast mødested før eventet</li>
     <li>Kaffe eller en velkomstdrink</li>
-    <li>Et frivilligt Eftermøde – et sted at blive hængende bagefter</li>
   </ul>
-  <h2>Jeres events er måske allerede her</h2>
-  <p>Flokken henter hver nat events fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede eventdata på jeres hjemmeside, kan vi tage den med.</p>
+  <h2>Sådan kommer jeres events med</h2>
+  <p>Flokken henter hver nat events fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede eventdata på jeres hjemmeside, kan vi tage den med – så I ikke skal skrive noget to steder.</p>
   <h2 id="kontakt">Skriv til os</h2>
   ${state.sent ? html`<p class="flash" role="status">Tak for jeres henvendelse. Vi vender tilbage.</p>` : html`
   ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
@@ -126,5 +122,5 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
     <p class="small meta-muted">Vi gemmer kun det, I skriver her, for at kunne svare jer.</p>
   </form>`}
 </div>`;
-  return { status: state.status ?? 200, ...(state.sent || state.errors ? { headers: { "cache-control": "no-store" } } : {}), body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Tilbyd Flokkens medlemmer en billetfordel og få synlighed på Flokken – og mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, ...(state.sent || state.errors ? { headers: { "cache-control": "no-store" } } : {}), body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Vil I have jeres events med på Flokken? Kontakt os – og hør om mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
 }
