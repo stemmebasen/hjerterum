@@ -62,12 +62,11 @@ describe("front page", () => {
 });
 
 describe("spar på billetten", () => {
-  it("lists free and cheap events from their own prices and promises no benefit that is not confirmed", async () => {
+  it("lists free and cheap events from their own prices and promises no ticket discounts", async () => {
     const { status, body } = await text("/spar-paa-billetten");
     expect(status).toBe(200);
-    expect(body).toContain("Medlemsfordele");
-    expect(body).toContain("Vi er ved at aftale billetfordele");
-    expect(body).not.toContain("Medlemsfordel</span>");
+    expect(body).not.toMatch(/billetfordel|rabat|Medlemsfordel/i);
+    expect((await text("/")).body).not.toMatch(/billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
     expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));
     expect((await text("/kalender?pris=gratis")).body).toContain('<span class="price-chip">Gratis</span>');

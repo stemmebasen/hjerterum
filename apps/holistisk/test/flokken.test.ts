@@ -188,7 +188,7 @@ describe("flocks", () => {
 describe("partners", () => {
   it("explains the model and stores an inquiry, readable only with the token", async () => {
     const page = await call("/samarbejde");
-    expect(page.body).toContain("billetfordel");
+    expect(page.body).not.toMatch(/billetfordel|rabat/i);
     expect(page.body).toContain("radioomtale");
     const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej" } });
     expect(bad.status).toBe(400);
@@ -201,7 +201,7 @@ describe("partners", () => {
 
   it("shows an offer only when the organiser has confirmed it", () => {
     const e = { organizer_id: "hjerterum", slug: "x", starts_at: NOW };
-    const offer: PartnerOffer = { organizerSlug: "hjerterum", kind: "member_discount", text: "Rabat", confirmedBy: "", confirmedOn: "2026-10-01" };
+    const offer: PartnerOffer = { organizerSlug: "hjerterum", kind: "reserved_seats", text: "Fem pladser", confirmedBy: "", confirmedOn: "2026-10-01" };
     expect(offersFor(e, [offer])).toEqual([]);
     expect(offersFor(e, [{ ...offer, confirmedBy: "Sofie" }])).toHaveLength(1);
     expect(offersFor(e, [{ ...offer, confirmedBy: "Sofie", validUntil: "2026-10-01" }])).toEqual([]);
