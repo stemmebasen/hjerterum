@@ -2,6 +2,7 @@ import type { D1Database } from "../db.js";
 import { localDate, nextLocalDate, startOfLocalDay, wallClock } from "../time.js";
 import { dateWindow, type Filters } from "./filters.js";
 import { activityBySlug } from "../activities.js";
+import { zoneSql } from "../zones.js";
 
 /** Read side of the portal. Visible = scheduled or cancelled, not yet over, and in an active region. */
 
@@ -37,6 +38,8 @@ function visible(regions: string[], now: number): Where {
   };
 }
 
+const ZONE = zoneSql("e");
+
 const likeEscape = (term: string) => `%${term.replace(/[\\%_]/g, m => "\\" + m)}%`;
 
 export function filterWhere(f: Filters, regions: string[], now: number): Where {
@@ -53,6 +56,7 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
     w.params.push(...f.categories);
   }
   if (f.area) { w.sql.push("e.area = ?"); w.params.push(f.area); }
+  if (f.zone) { w.sql.push(`${ZONE} = ?`); w.params.push(f.zone); }
   if (f.city) { w.sql.push("e.city = ?"); w.params.push(f.city); }
   if (f.price === "gratis") w.sql.push("e.is_free = 1");
   if (f.price === "under-100") w.sql.push("(e.is_free = 1 OR e.price_min_minor <= 10000)");

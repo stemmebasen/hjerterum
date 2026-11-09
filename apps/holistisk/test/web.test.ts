@@ -95,6 +95,57 @@ describe("the calendar", () => {
     expect(rows((await text("/kalender?emne=klarsyn")).body)).toContain("Klarsyn med Karina Graabæk");
   });
 
+  it("has toggleable chips for Område, Pris and Hvornår, with the search field at the bottom", async () => {
+    const all = count((await text("/kalender")).body);
+    const nord = await text("/kalender?omraade=nord");
+    expect(rows(nord.body)).toContain("You Can Sing! / Aarhus");
+    const midt = count((await text("/kalender?omraade=midtbyen")).body);
+    expect(midt).toBeGreaterThan(0);
+    expect(midt + count(nord.body)).toBeLessThanOrEqual(all);
+    // The old areas still work in links.
+    expect(count((await text("/kalender?omraade=aarhus")).body)).toBeGreaterThan(0);
+    // A chosen chip links to the same list without it; the others add to it.
+    expect(nord.body).toMatch(/<a class="filter-chip is-on" href="\/kalender#soeg"[^>]*>Nord/);
+    expect(nord.body).toContain('href="/kalender?omraade=syd#soeg"');
+    expect(nord.body).toContain('href="/kalender?omraade=nord&amp;pris=gratis#soeg"');
+    expect(nord.body).toContain('href="/kalender?periode=14-dage&amp;omraade=nord#soeg"');
+    for (const label of ["Midtbyen", "Nord", "Syd", "Vest", "Gratis", "Under 100 kr.", "Under 200 kr.", "Under 500 kr.", "I dag", "I morgen", "I weekenden", "Næste 14 dage"])
+      expect(nord.body).toContain(`>${label}`);
+    // Område, Pris and Hvornår come first, the search field last, and it keeps the chosen chips.
+    const panel = nord.body.slice(nord.body.indexOf('<div class="filters">'));
+    expect(panel.indexOf("Område")).toBeLessThan(panel.indexOf("Pris"));
+    expect(panel.indexOf("Pris")).toBeLessThan(panel.indexOf("Hvornår"));
+    expect(panel.indexOf("Hvornår")).toBeLessThan(panel.indexOf('id="f-q"'));
+    expect(panel).toContain('<input type="hidden" name="omraade" value="nord">');
+    expect(count((await text("/kalender?periode=14-dage")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?periode=uge")).body));
+  });
+
+  it("places events in Midtbyen, Nord, Syd or Vest by postcode, town or position", async () => {
+    const { zoneSql } = await import("../src/zones.js");
+    const db = testDb();
+    const zone = (postal_code: string | null, city: string | null, lat: number | null = null, lon: number | null = null) =>
+      (db.raw.prepare(`SELECT ${zoneSql("e")} AS z FROM (SELECT ? AS postal_code, ? AS city, ? AS lat, ? AS lon) e`).get(postal_code, city, lat, lon) as { z: string | null }).z;
+    expect(zone("8000", "Aarhus C")).toBe("midtbyen");
+    expect(zone("8200", "Aarhus N")).toBe("nord");
+    expect(zone("8240", "Risskov")).toBe("nord");
+    expect(zone("8900", "Randers C")).toBe("nord");
+    expect(zone("8260", "Viby J")).toBe("syd");
+    expect(zone("8270", "Højbjerg")).toBe("syd");
+    expect(zone("8700", "Horsens")).toBe("syd");
+    expect(zone("8766", "Nørre Snede")).toBe("syd");
+    expect(zone("8210", "Aarhus V")).toBe("vest");
+    expect(zone("8220", "Brabrand")).toBe("vest");
+    expect(zone("8600", "Silkeborg")).toBe("vest");
+    expect(zone(null, "Brabrand")).toBe("vest");
+    expect(zone(null, "Aarhus C")).toBe("midtbyen");
+    expect(zone(null, null, 56.153436, 10.213776)).toBe("midtbyen"); // Dokk1
+    expect(zone(null, null, 56.1890, 10.2050)).toBe("nord");
+    expect(zone(null, null, 56.1200, 10.1900)).toBe("syd");
+    expect(zone(null, null, 56.1550, 10.1200)).toBe("vest");
+    expect(zone("5000", "Odense C")).toBeNull();
+    expect(zone(null, null)).toBeNull();
+  });
+
   it("ignores unknown or hostile values instead of echoing them", async () => {
     const { status, body } = await text("/kalender?kategori=%3Cscript%3E&omraade=mars&fra=2026-13-45&pris=dyrt&emne=x&q=%3Cimg%20src%3Dx%3E");
     expect(status).toBe(200);

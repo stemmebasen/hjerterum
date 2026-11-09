@@ -14,7 +14,7 @@ import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, cities, countByArea, countEvents, eventBySlug, heroEvents, hasPrices, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
@@ -36,7 +36,7 @@ export type View = { status: number; body: string; headers?: Record<string, stri
 /** Text cut at a word boundary, for titles and descriptions. */
 export const clip = (text: string, max: number): string => text.length <= max ? text : text.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
 
-export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], area: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
+export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], area: null, zone: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
 
 /** The filters an activity's page lists: its category, or its topic's words. */
 export const activityFilters = (a: Activity, over: Partial<Filters> = {}): Filters =>
@@ -152,9 +152,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 
 export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters): Promise<View> {
   const areas = activeAreas(regions);
-  const [{ events, total }, cats, cityList, prices] = await Promise.all([
-    listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), cities(db, regions, ctx.now, f.area), hasPrices(db, regions, ctx.now)
-  ]);
+  const [{ events, total }, cats] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
   const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
@@ -163,13 +161,13 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
-    <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter dato, by, aktivitet og pris – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
   <div class="list-layout" id="soeg">
     <aside class="list-filters">
       <details class="filter-toggle" data-collapse-mobile open>
         <summary>Søg og filtrér${hasFilters(f) ? html` <span class="count">aktive</span>` : ""}</summary>
-        ${filterPanel(f, areas, cityList, cats, prices)}
+        ${filterPanel(f, cats)}
       </details>
     </aside>
     <section class="list-results" aria-labelledby="h-results">
@@ -178,7 +176,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
         <a class="map-link" href="/kort${f.price === "gratis" ? "?vis=gratis" : ""}">${MAP_PIN} Se på kort</a>
         ${activeFilterChips(f)}
       </div>
-      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, en anden by eller færre aktiviteter.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
+      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, et andet område eller færre filtre.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
       ${pagination(f, total, PAGE_SIZE, "/kalender")}
     </section>
   </div>
