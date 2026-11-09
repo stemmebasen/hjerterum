@@ -34,7 +34,7 @@ describe("the chair's own posts on Facebook and Instagram", () => {
     await post("event:2026-W47:mw:SFa", NOW + 86_400_000, { shout: 1, shouts: 2 });
     await post("event:2026-W47:mw:SFa:2", NOW + 7 * 86_400_000, { shout: 2, shouts: 2 });
     // One Saga made herself (a video: its post has an id of its own on the page).
-    await post("event:2026-W46:mw:SFb", NOW - 86_400_000, { title: "Andet" }, "published", '{"facebook":"9001234567"}', NOW - 2 * 3_600_000);
+    await post("event:2026-W46:mw:SFb", NOW - 86_400_000, { key: "mw:SFb", title: "Andet" }, "published", '{"facebook":"9001234567"}', NOW - 2 * 3_600_000);
     const fetcher: typeof fetch = async (input, init) => {
       const url = String(input);
       if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
@@ -79,5 +79,32 @@ describe("the chair's own posts on Facebook and Instagram", () => {
     };
     expect(await findOwnPosts(env as never, deps(fetcher, NOW), db)).toBe(1);
     expect((await socialPosts(db, "source_key = 'own:instagram:1799'"))[0]).toMatchObject({ channels: ["instagram"], source: { key: "mw:SFa", own: true } });
+  });
+
+  // Requested (the chair, 9 Nov 2026): "det må kun deles to gange på hver platform" - Advent FLOW: the chair's own on Facebook 27 days before, Saga's two on both.
+  it("keeps an event to two shares on each medium, the chair's own counted", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const services = fakeServices({ ai: () => "{}" });
+    const env = sagaEnv(db, { MAIL_ENCRYPTION_KEY: "a-long-enough-test-key" } as never);
+    await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", 0);
+    const starts = NOW + 27 * 86_400_000;
+    const post = (key: string, at: number, extra: Record<string, unknown>) => db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, images, source, publish_at_ms, status, created_at_ms, updated_at_ms)
+      VALUES ('event', ?, '2026-W49', '["facebook","instagram"]', 'Advent', '[]', ?, ?, 'draft', 0, 0)`).bind(key, JSON.stringify({ key: "mw:SFadv", title: "Advent FLOW Special", startsMs: starts, ...extra }), at).run();
+    await post("event:2026-W49:mw:SFadv", starts - 14 * 86_400_000, { shout: 1, shouts: 2, instagramAtMs: starts - 13 * 86_400_000 });
+    await post("event:2026-W49:mw:SFadv:2", starts - 7 * 86_400_000, { shout: 2, shouts: 2 });
+    await db.prepare(`INSERT INTO social_posts (kind, source_key, week, channels, text, images, source, publish_at_ms, status, published, published_at_ms, created_at_ms, updated_at_ms)
+      VALUES ('event', 'own:facebook:755_90', '2026-W49', '["facebook"]', 'Advent', '[]', ?, ?, 'published', '{"facebook":"755_90"}', ?, 0, 0)`)
+      .bind(JSON.stringify({ key: "mw:SFadv", title: "Advent FLOW Special", startsMs: starts, own: true }), NOW - 3_600_000, NOW - 3_600_000).run();
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
+      return new Response(JSON.stringify({ data: [] }));
+    };
+    await findOwnPosts(env as never, deps(fetcher, NOW), db);
+    const [first, reminder] = await socialPosts(db, "source_key LIKE 'event:%'", [], "id");
+    // The one nearest the chair's own gives way on Facebook and keeps Instagram; the reminder stays on both.
+    expect(first).toMatchObject({ status: "draft", channels: ["instagram"] });
+    expect(reminder).toMatchObject({ status: "draft", channels: ["facebook", "instagram"] });
   });
 });

@@ -820,10 +820,36 @@ export function aboutEvent(words: string, refs: string[], event: { title: string
   // The title, or its first part (before " - ", "|", ":" or ","), when it is long enough to tell one event from another.
   return [event.title, event.title.split(/\s[-–|:]\s|,|\|/)[0] ?? ""].map(plain).some(t => t.length >= 8 && text.includes(` ${t} `));
 }
+/** Requested (the chair, 9 Nov 2026): "det må kun deles to gange på hver platform" - an event is shared at most twice on each medium, the chair's own posts
+ * counted. Over that, Saga's proposals on that medium are taken off it, the one nearest the chair's own first (a proposal on both keeps its other medium);
+ * an approved one is left and told about. Returns what was taken off and what is still over. */
+const PER_PLATFORM = 2;
+async function keepTwo(db: D1Database, key: string, network: Channel, ownAt: number, nowMs: number): Promise<{ taken: string[]; over: string[] }> {
+  const all = (await socialPosts(db, "kind = 'event' AND status IN ('draft', 'approved', 'publishing', 'published') AND json_extract(source, '$.key') = ? AND json_extract(source, '$.removed') IS NULL", [key], "publish_at_ms, id", 50))
+    .filter(p => p.channels.includes(network));
+  let count = all.length;
+  const taken: string[] = [], over: string[] = [];
+  const sagas = all.filter(p => !p.source.own && (p.status === "draft" || p.status === "approved")).sort((a, b) => Math.abs(dueAt(a, network) - ownAt) - Math.abs(dueAt(b, network) - ownAt));
+  for (const p of sagas) {
+    if (count <= PER_PLATFORM) break;
+    if (p.status === "approved") { over.push(longWhen(dueAt(p, network))); continue; }
+    const rest = p.channels.filter(c => c !== network);
+    if (rest.length) await db.prepare("UPDATE social_posts SET channels = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(JSON.stringify(rest), nowMs, p.id).run();
+    else await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'")
+      .bind(`Højst ${PER_PLATFORM} delinger på ${network === "facebook" ? "Facebook" : "Instagram"} - du har selv delt eventet`, nowMs, p.id).run();
+    taken.push(longWhen(dueAt(p, network)));
+    count--;
+  }
+  return { taken, over };
+}
+
 export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const account = await socialAccount(db);
   if (!account) return 0;
   const now = deps.now();
+  // The chair's own posts found before (or before this rule): their events kept to two on each medium.
+  const earlier = await socialPosts(db, "kind = 'event' AND source_key LIKE 'own:%' AND json_extract(source, '$.startsMs') > ?", [now], "publish_at_ms, id", 50);
+  for (const o of earlier) for (const c of o.channels) if (o.source.key) await keepTwo(db, o.source.key, c, o.publish_at_ms ?? now, now);
   const { page, instagram } = await access(env, account);
   const fb = (await pagePosts(deps.fetcher, page, 30)).map(p => ({ network: "facebook" as const, id: p.id, createdMs: p.createdMs, words: p.message, refs: p.refs, permalink: p.permalink }));
   const ig = instagram ? (await ownInstagramMedia(deps.fetcher, instagram, 30)).map(m => ({ network: "instagram" as const, id: m.id, createdMs: m.createdMs, words: m.caption, refs: [], permalink: m.permalink })) : [];
@@ -875,7 +901,10 @@ export async function findOwnPosts(env: SocialEnv, deps: SagaDeps, db: D1Databas
       else await db.prepare("UPDATE social_posts SET status = 'skipped', error = ?, updated_at_ms = ? WHERE id = ? AND status = 'draft'").bind(`Du har selv delt eventet på ${name} ${longWhen(post.createdMs)}`, now, p.id).run();
       skipped.push(longWhen(dueAt(p, post.network)));
     }
-    await tellChair(env, deps, `Saga har set dit eget opslag om "${event.title}" på ${name} og lagt det i PR-kalenderen.${skipped.length ? ` Hendes forslag på ${name} ${skipped.join(" og ")} er taget af, så det ikke kommer dobbelt.` : ""}${approved.length ? ` OBS: et godkendt opslag på ${name} ${approved.join(" og ")} går stadig ud - stop det i kalenderen, hvis det er for tæt på.` : ""}`).catch(() => undefined);
+    // "kun deles to gange på hver platform": yours counted.
+    const two = await keepTwo(db, event.key, post.network, post.createdMs, now);
+    skipped.push(...two.taken); approved.push(...two.over);
+    await tellChair(env, deps, `Saga har set dit eget opslag om "${event.title}" på ${name} og lagt det i PR-kalenderen.${skipped.length ? ` Hendes forslag på ${name} ${skipped.join(" og ")} er taget af, så eventet højst deles to gange på ${name}.` : ""}${approved.length ? ` OBS: et godkendt opslag på ${name} ${approved.join(" og ")} går stadig ud - stop det i kalenderen, hvis det bliver for meget.` : ""}`).catch(() => undefined);
   }
   return made;
 }
