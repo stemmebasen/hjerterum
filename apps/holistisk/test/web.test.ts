@@ -103,11 +103,11 @@ describe("the calendar", () => {
     // The old areas still work in links.
     expect(count((await text("/kalender?omraade=aarhus")).body)).toBeGreaterThan(0);
     // A chosen chip links to the same list without it; the others add to it.
-    expect(nord.body).toMatch(/<a class="filter-chip is-on" href="\/kalender#soeg"[^>]*>Nord/);
+    expect(nord.body).toMatch(/<a class="filter-chip is-on" href="\/kalender#soeg"[^>]*>Nord for Aarhus/);
     expect(nord.body).toContain('href="/kalender?omraade=syd#soeg"');
     expect(nord.body).toContain('href="/kalender?omraade=nord&amp;pris=gratis#soeg"');
     expect(nord.body).toContain('href="/kalender?periode=14-dage&amp;omraade=nord#soeg"');
-    for (const label of ["Midtbyen", "Nord", "Syd", "Vest", "Gratis", "Under 100 kr.", "Under 200 kr.", "Under 500 kr.", "I dag", "I morgen", "I weekenden", "Næste 14 dage"])
+    for (const label of ["Aarhus midtby", "Nord for Aarhus", "Vest for Aarhus", "Syd for Aarhus", "Gratis", "Under 100 kr.", "Under 200 kr.", "Under 500 kr.", "I dag", "I morgen", "I weekenden", "Næste 14 dage"])
       expect(nord.body).toContain(`>${label}`);
     // Område, Pris and Hvornår come first, the search field last, and it keeps the chosen chips.
     const panel = nord.body.slice(nord.body.indexOf('<div class="filters">'));
