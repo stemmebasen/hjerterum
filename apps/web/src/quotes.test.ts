@@ -17,4 +17,8 @@ describe("the quotes offered", () => {
     expect(quoteChoices(["Jeg holder et rum for ro og nærvær.", null], ["Jeg holder et rum for ro og nærvær.", "Kom og mærk roen i kroppen sammen med andre."]))
       .toEqual(["Jeg holder et rum for ro og nærvær.", "Kom og mærk roen i kroppen sammen med andre."]);
   });
+  it("does not start with a heading line like 'Underviser: Pia Brændstrup'", () => {
+    expect(wholeSentences(["Underviser: Pia Brændstrup", "Kender du følelsen af, at dagen er gået, uden at du rigtig har været til stede i den?", "Tid: 19.00-20.30"]))
+      .toEqual(["Kender du følelsen af, at dagen er gået, uden at du rigtig har været til stede i den?"]);
+  });
 });

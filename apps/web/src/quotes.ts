@@ -8,6 +8,9 @@ export function wholeSentences(lines: string[]): string[] {
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) { if (open) paragraphs.push(open); open = ""; continue; }
+    // Reported (the chair, 10 Nov 2026): "Dels starter slide 1 med at nævne hendes navn" - "Underviser: Pia Brændstrup" (no full stop) was joined to the question
+    // on the next line. A line runs on only into one that goes on in lower case; else it stands alone (and, unfinished, is not offered).
+    if (open && !/^[a-zæøå]/.test(line)) { paragraphs.push(open); open = ""; }
     open = open ? `${open} ${line}` : line;
     if (/[.!?…:]["”»)]?$/.test(line)) { paragraphs.push(open); open = ""; }
   }
