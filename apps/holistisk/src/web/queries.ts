@@ -20,13 +20,17 @@ export type EventRow = {
   categories: string | null;
   /** Open flocks going to the event (Flokken). */
   flock_count: number | null;
+  /** The open flock furthest along that still has room (else the fullest): "members/size", e.g. "2/5". */
+  flock_fill: string | null;
 };
 
 const ENDS = "COALESCE(e.ends_at, e.starts_at + 10800000)";
 const SELECT = `SELECT e.*, s.name AS source_name, s.attribution AS source_attribution, s.homepage_url AS source_homepage,
   o.name AS organizer_name, o.website_url AS organizer_url,
   (SELECT group_concat(category, ',') FROM (SELECT category FROM event_categories c WHERE c.event_id = e.id ORDER BY c.rank)) AS categories,
-  (SELECT COUNT(*) FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') AS flock_count
+  (SELECT COUNT(*) FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') AS flock_count,
+  (SELECT x.n || '/' || x.max_size FROM (SELECT f.max_size, f.created_at, (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) AS n
+    FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') x ORDER BY (x.n < x.max_size) DESC, x.n DESC, x.created_at LIMIT 1) AS flock_fill
   FROM events e JOIN sources s ON s.id = e.primary_source_id LEFT JOIN organizers o ON o.id = e.organizer_id`;
 
 type Where = { sql: string[]; params: unknown[] };

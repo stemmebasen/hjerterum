@@ -1,5 +1,5 @@
 import type { EventRow } from "../web/queries.js";
-import { eventPath, placeLine } from "../web/components.js";
+import { eventPath, placeLine, seats } from "../web/components.js";
 import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
@@ -71,7 +71,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   </div>
   ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
-    <p class="flock-meta">${spotsLine(f)}</p>
+    <p class="flock-meta">${seats(f.member_count, f.max_size)} ${spotsLine(f)}</p>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
     <div class="flock-actions">${action(f)}</div>
   </li>`)}</ul>`
@@ -107,7 +107,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
       <dt>Hvornår</dt><dd>${capitalize(dayLabel(f.meeting_at, ctx.now))} kl. ${hhmm(f.meeting_at)}</dd>
       <dt>Hvor</dt><dd>${f.meeting_place}<br><a href="https://www.openstreetmap.org/search?query=${encodeURIComponent([f.meeting_place.replace(/^ved\s+(indgangen\s+til\s+)?/i, ""), f.event_city].filter(Boolean).join(", "))}" rel="noopener" target="_blank">Find det på kortet</a></dd>
       <dt>Eventet</dt><dd><a href="/events/${f.event_slug}">${f.event_title}</a><br>${capitalize(dayLabel(f.event_starts_at, ctx.now))} · ${timeRangeLabel(f.event_starts_at, f.event_ends_at, false, ctx.now)}${e ? html`<br>${placeLine(e)}` : ""}</dd>
-      <dt>Flokken</dt><dd>${spotsLine(f)}</dd>
+      <dt>Flokken</dt><dd>${seats(f.member_count, f.max_size)} ${spotsLine(f)}</dd>
     </dl>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
     ${e?.signup_url && canJoin ? html`<p class="small meta-muted">Billet eller tilmelding sker hos arrangøren – hver for sig. <a href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren</a></p>` : ""}
@@ -301,7 +301,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
   return html`<ul class="flock-grid">${flocks.map(f => html`<li class="flock-card"><a href="${flockPath(f.id)}">
     <span class="flock-title">${f.event_title}</span>
     <span class="flock-when">${meetingLine(f, now)}</span>
-    <span class="flock-meta">${spotsLine(f)}</span>
+    <span class="flock-meta">${seats(f.member_count, f.max_size)} ${spotsLine(f)}</span>
   </a></li>`)}</ul>`;
 }
 
