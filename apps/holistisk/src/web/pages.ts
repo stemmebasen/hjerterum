@@ -69,6 +69,9 @@ function organizerList(profiles: OrganizerProfile[]): SafeHtml {
   return linkList(profiles.map(p => ({ href: `/arrangoerer/${p.slug}`, label: p.name, note: [p.address, p.city].filter(Boolean).join(", ") })), { columns: false });
 }
 
+/** A calendar page for the front page's calendar button. */
+const CALENDAR_ICON = raw('<svg class="calendar-cta-icon" viewBox="0 0 48 48" width="52" height="52" aria-hidden="true"><rect x="5" y="9" width="38" height="34" rx="7" fill="#fff" stroke="currentColor" stroke-width="3.5"/><path d="M5 19h38" stroke="currentColor" stroke-width="3.5"/><path d="M15 5v8M33 5v8" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><circle cx="16" cy="27" r="2.6" fill="#b3164f"/><circle cx="24" cy="27" r="2.6" fill="currentColor"/><circle cx="32" cy="27" r="2.6" fill="currentColor"/><circle cx="16" cy="35" r="2.6" fill="currentColor"/><circle cx="24" cy="35" r="2.6" fill="currentColor"/></svg>');
+
 /** A small map pin for links to the map. */
 const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="9.8" r="2.3" fill="currentColor"/></svg>');
 
@@ -103,6 +106,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
       <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
+      <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
       <ul class="quick-links" aria-label="Genveje">
         <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/kort">Kort</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
       </ul>

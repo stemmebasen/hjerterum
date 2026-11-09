@@ -233,6 +233,17 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 2px solid var(--green-2); border-radius: 999px; background: var(--card); color: var(--green-2); font-weight: 800; font-size: .9rem; cursor: pointer; box-shadow: none; }
 .pill:hover { background: var(--green-2); color: #fff; }
 .more-line { margin: 26px 0; }
+/* The front page's big calendar button: the calendar is the most important way in. */
+.calendar-cta { display: flex; align-items: center; gap: 16px; margin: 18px 0 4px; padding: 14px 22px 14px 16px; background: var(--butter); color: var(--ink); border: 3px solid var(--ink); border-radius: var(--radius); box-shadow: 6px 6px 0 var(--berry); transform: rotate(-1.2deg); transition: transform .15s ease, box-shadow .15s ease; text-decoration: none; }
+.calendar-cta:hover, .calendar-cta:focus-visible { transform: rotate(0deg) translate(-2px, -2px); box-shadow: 8px 8px 0 var(--berry); text-decoration: none; }
+.calendar-cta:active { transform: translate(3px, 3px); box-shadow: 2px 2px 0 var(--berry); }
+.calendar-cta-icon { flex: none; color: var(--ink); transform: rotate(-6deg); }
+.calendar-cta-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.calendar-cta-text strong { font: 700 clamp(1.6rem, 1.2rem + 1.4vw, 2.2rem)/1.05 var(--display); letter-spacing: -.01em; }
+.calendar-cta-text span { font-weight: 700; font-size: .98rem; color: var(--berry); }
+.calendar-cta-arrow { flex: none; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--ink); color: var(--butter); font: 700 1.6rem/1 var(--display); }
+@media (max-width: 380px) { .calendar-cta { gap: 12px; padding: 12px 14px 12px 12px; } .calendar-cta-icon { width: 42px; height: 42px; } .calendar-cta-arrow { width: 40px; height: 40px; } }
+@media (prefers-reduced-motion: reduce) { .calendar-cta, .calendar-cta:hover, .calendar-cta:focus-visible { transform: none; } }
 .quick-links { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; padding: 0; }
 .quick-links a { display: inline-block; padding: 6px 14px; border-radius: 999px; background: var(--card); border: 2px solid var(--rule); font-size: .92rem; font-weight: 700; }
 .quick-links a:hover { border-color: var(--ink); background: var(--butter-soft); text-decoration: none; }
