@@ -435,7 +435,7 @@ export function LayerGallery({ format, input, photoUrl, logo, onOpen, quotes }: 
     <button type="button" className="ed-thumb" onClick={() => onOpen(m.key)} aria-label={`Åbn ${m.label} i editoren`}>
       {thumbs[m.key] ? <img src={thumbs[m.key]} alt="" style={{ aspectRatio: `${size.width} / ${size.height}` }} /> : <span className="ed-thumb-wait" style={{ aspectRatio: `${size.width} / ${size.height}` }}>Tegner …</span>}</button>
     <figcaption><div><b>{m.label}</b><p>{m.about}</p></div><p className="studio-actions"><button type="button" className="lys-btn" onClick={() => onOpen(m.key)}>Åbn i editoren</button>
-      {m.key === "citat" && quotes && (quotes.count > 1
+      {m.key.startsWith("citat") && quotes && (quotes.count > 1
         ? <button type="button" className="lys-btn ghost" onClick={quotes.next}>✨ Nyt citat ({quotes.at + 1}/{quotes.count})</button>
         : <span className="studio-muted">{quotes.count ? "Der er kun ét citat - underviserens egne ord kan lægges ind i PR-materialet." : "Ingen citater endnu - underviserens egne ord kan lægges ind i PR-materialet."}</span>)}</p></figcaption>
   </figure>)}</div>;

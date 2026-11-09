@@ -42,6 +42,34 @@ function landscape(i: LayerInput, key: string, label: string, about: string, bg:
 
 type Maker = { key: string; label: string; about: string; frame: Frame; make: (i: LayerInput) => LayerDesign };
 
+// ---- Botanical shapes (drawn leaves and stems - never a logo) ----
+const LEAF = "M0 26 C 28 -4 72 -4 100 26 C 72 56 28 56 0 26 Z";
+/** One leaf, its middle at (cx, cy), `len` long, turned `angle` degrees. */
+const leaf = (cx: number, cy: number, len: number, angle: number, fill: string, opacity = 1): Layer =>
+  ({ kind: "path", d: LEAF, x: cx - len / 2, y: cy - len * 0.26, w: len, h: len * 0.52, fill, angle, opacity });
+/** A sprig: a stem from (x0, y0) to (x1, y1) with leaves on both sides, smaller towards the tip. */
+function sprig(x0: number, y0: number, x1: number, y1: number, n: number, len: number, stem: string, fill: string, opacity = 1): Layer[] {
+  const dir = Math.atan2(y1 - y0, x1 - x0) * 180 / Math.PI;
+  const leaves: Layer[] = [{ kind: "line", x1: x0, y1: y0, x2: x1, y2: y1, stroke: stem, width: Math.max(2, len * 0.04) }];
+  for (let i = 1; i <= n; i++) {
+    const t = i / (n + 1), side = i % 2 ? 1 : -1, size = len * (1 - t * 0.45);
+    const px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t, a = (dir + side * 38) * Math.PI / 180;
+    leaves.push(leaf(px + Math.cos(a) * size * 0.45, py + Math.sin(a) * size * 0.45, size, dir + side * 38, fill, opacity));
+  }
+  leaves.push(leaf(x1 + Math.cos(dir * Math.PI / 180) * len * 0.25, y1 + Math.sin(dir * Math.PI / 180) * len * 0.25, len * 0.5, dir, fill, opacity));
+  return leaves;
+}
+/** A wreath of leaves around (cx, cy), radius r, with a few berries. */
+function wreath(cx: number, cy: number, r: number, n: number, len: number, fill: string, berry: string): Layer[] {
+  const out: Layer[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * 2 * Math.PI, wob = i % 2 ? 1.06 : 0.94;
+    out.push(leaf(cx + Math.cos(t) * r * wob, cy + Math.sin(t) * r * wob, len * (i % 3 ? 1 : 0.8), (t * 180) / Math.PI + 90 + (i % 2 ? 25 : -25), fill, i % 4 ? 0.95 : 0.7));
+    if (i % 5 === 2) out.push({ kind: "circle", x: cx + Math.cos(t + 0.15) * r, y: cy + Math.sin(t + 0.15) * r, r: len * 0.09, fill: berry });
+  }
+  return out;
+}
+
 export const LAYER_DESIGNS: Maker[] = [
   { key: "polaroid", label: "Polaroids", about: "Fotoet som et polaroid på bordet, datoen på et kort ved siden af.", frame: "rect", make: i => {
     const { W, H, words: w, colors: c } = i, u = W / 1080;
@@ -130,11 +158,12 @@ export const LAYER_DESIGNS: Maker[] = [
     return { key: "citat", label: "Citatet", about: "", background: c.sage, layers: [
       { kind: "text", role: "kicker", text: "“", x: W * 0.07, y: H * 0.02, w: W * 0.3, size: 300 * u, font: "serif", color: c.terra },
       { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.1, y: H * 0.2, w: W * 0.8, size: 76 * u, font: "serif", color: c.ink, italic: true, maxLines: 6, lineHeight: 1.15 },
-      { kind: "photo", x: W * 0.1, y: H * 0.7, w: W * 0.22, h: W * 0.22, frame: "circle" },
-      { kind: "text", role: "title", text: w.title, x: W * 0.36, y: H * 0.71, w: W * 0.56, size: 44 * u, font: "serif", color: c.ink, maxLines: 2 },
-      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.36, y: H * 0.79, w: W * 0.56, size: 36 * u, font: "serif", color: c.terra, italic: true },
-      { kind: "text", role: "date", text: dateLine(w), x: W * 0.36, y: H * 0.84, w: W * 0.56, size: 30 * u, font: "sans", color: c.ink, weight: 500 },
-      { kind: "logo", x: W * 0.8, y: H * 0.03, size: W * 0.13, color: c.ink },
+      // "Logoet og eventinfo er en lille smule for lille" (the chair, 9 Nov 2026).
+      { kind: "photo", x: W * 0.08, y: H * 0.68, w: W * 0.26, h: W * 0.26, frame: "circle" },
+      { kind: "text", role: "title", text: w.title, x: W * 0.38, y: H * 0.69, w: W * 0.56, size: 56 * u, font: "serif", color: c.ink, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.38, y: H * 0.79, w: W * 0.56, size: 44 * u, font: "serif", color: c.terra, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.38, y: H * 0.85, w: W * 0.56, size: 36 * u, font: "sans", color: c.ink, weight: 500 },
+      { kind: "logo", x: W * 0.77, y: H * 0.03, size: W * 0.17, color: c.ink },
     ] };
   } },
   { key: "ramme", label: "Rammen", about: "En bred farvet ramme om fotoet og ordene, som et indrammet billede.", frame: "rect", make: i => {
@@ -174,6 +203,77 @@ export const LAYER_DESIGNS: Maker[] = [
       { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.12, y: H * 0.78, w: W * 0.76, size: 36 * u, font: "serif", color: c.muted, italic: true, align: "center" },
       { kind: "text", role: "date", text: upper(dateLine(w)), x: W * 0.12, y: H * 0.86, w: W * 0.76, size: 24 * u, font: "sans", color: c.ink, weight: 600, spacing: 300, align: "center" },
       { kind: "text", role: "small", text: i.site, x: W * 0.12, y: H * 0.9, w: W * 0.76, size: 24 * u, font: "sans", color: c.muted, align: "center" },
+    ] };
+  } },
+  // Requested (the chair, 9 Nov 2026): "De her er super gode. Kan du lave flere 4-5 flotte varianter med citater - gerne mere kunstneriske og botaniske. Logoet
+  // og eventinfo er en lille smule for lille."
+  { key: "citat-gren", label: "Citat med grene", about: "Citatet stort mellem to grene med blade, fotoet i en cirkel og eventet tydeligt nederst.", frame: "circle", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080;
+    return { key: "citat-gren", label: "", about: "", background: c.cream, layers: [
+      ...sprig(W * 1.02, H * 0.0, W * 0.76, H * 0.13, 6, 100 * u, c.camel, "#9fb18f", 0.9),
+      ...sprig(W * 1.03, H * 1.0, W * 0.8, H * 0.93, 5, 90 * u, c.camel, "#b9c6a7", 0.9),
+      { kind: "logo", x: W * 0.07, y: H * 0.04, size: W * 0.18, color: c.ink },
+      { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.12, y: H * 0.2, w: W * 0.76, size: 78 * u, font: "serif", color: c.ink, italic: true, maxLines: 6, lineHeight: 1.15, align: "center" },
+      { kind: "line", x1: W * 0.44, y1: H * 0.66, x2: W * 0.56, y2: H * 0.66, stroke: c.terra, width: 3 * u },
+      { kind: "photo", x: W * 0.08, y: H * 0.7, w: W * 0.25, h: W * 0.25, frame: "circle", border: { width: 8 * u, color: "#ffffff" } },
+      { kind: "text", role: "title", text: w.title, x: W * 0.38, y: H * 0.71, w: W * 0.56, size: 56 * u, font: "serif", color: c.ink, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.38, y: H * 0.81, w: W * 0.56, size: 44 * u, font: "serif", color: c.terra, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.38, y: H * 0.87, w: W * 0.56, size: 36 * u, font: "sans", color: c.ink, weight: 500 },
+    ] };
+  } },
+  { key: "citat-krans", label: "Bladkransen", about: "Citatet inde i en krans af blade, fotoet og eventet under kransen.", frame: "round", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080, cy = H * 0.37, r = W * 0.37;
+    return { key: "citat-krans", label: "", about: "", background: c.sage, layers: [
+      ...wreath(W / 2, cy, r, 30, 90 * u, "#8ea37c", c.terra),
+      { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.26, y: cy - r * 0.55, w: W * 0.48, size: 52 * u, font: "serif", color: c.ink, italic: true, maxLines: 7, lineHeight: 1.15, align: "center" },
+      { kind: "logo", x: W * 0.79, y: H * 0.03, size: W * 0.16, color: c.ink },
+      { kind: "photo", x: W * 0.08, y: H * 0.74, w: W * 0.28, h: W * 0.2, frame: "round" },
+      { kind: "text", role: "title", text: w.title, x: W * 0.4, y: H * 0.74, w: W * 0.54, size: 54 * u, font: "serif", color: c.ink, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.4, y: H * 0.835, w: W * 0.54, size: 42 * u, font: "serif", color: c.terra, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.4, y: H * 0.89, w: W * 0.54, size: 34 * u, font: "sans", color: c.ink, weight: 600 },
+    ] };
+  } },
+  { key: "citat-nat", label: "Nattehaven", about: "Lyse ord på mørk bund mellem bregner, fotoet i en bue.", frame: "arch", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080;
+    return { key: "citat-nat", label: "", about: "", background: c.dusk, layers: [
+      ...sprig(-W * 0.03, H * 0.19, W * 0.24, H * 0.02, 7, 100 * u, c.camel, c.camel, 0.55),
+      ...sprig(W * 1.03, H * 0.19, W * 0.76, H * 0.02, 7, 100 * u, c.camel, c.blush, 0.45),
+      ...sprig(W * 1.03, H * 1.0, W * 0.78, H * 0.94, 5, 90 * u, c.camel, c.camel, 0.4),
+      { kind: "circle", x: W * 0.5, y: H * 0.1, r: 14 * u, fill: c.blush, opacity: 0.8 },
+      { kind: "logo", x: W * 0.41, y: H * 0.03, size: W * 0.18, color: c.cream },
+      { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.14, y: H * 0.2, w: W * 0.72, size: 76 * u, font: "serif", color: c.cream, italic: true, maxLines: 6, lineHeight: 1.15, align: "center" },
+      { kind: "photo", x: W * 0.08, y: H * 0.64, w: W * 0.26, h: H * 0.28, frame: "arch", border: { width: 6 * u, color: c.camel } },
+      { kind: "text", role: "title", text: w.title, x: W * 0.4, y: H * 0.68, w: W * 0.54, size: 56 * u, font: "serif", color: c.cream, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.4, y: H * 0.79, w: W * 0.54, size: 44 * u, font: "serif", color: c.blush, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.4, y: H * 0.86, w: W * 0.54, size: 36 * u, font: "sans", color: c.cream, weight: 600 },
+    ] };
+  } },
+  { key: "citat-herbarium", label: "Herbariet", about: "Som en side fra en herbariebog: et presset foto med tape, en tegnet stilk og citatet.", frame: "rect", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080;
+    return { key: "citat-herbarium", label: "", about: "", background: c.sand, layers: [
+      { kind: "rect", x: W * 0.05, y: W * 0.05, w: W * 0.9, h: H - W * 0.1, fill: "rgba(0,0,0,0)", stroke: c.camel, strokeWidth: 2 * u, dash: [10 * u, 8 * u] },
+      ...sprig(W * 0.14, H * 0.62, W * 0.2, H * 0.08, 8, 95 * u, c.muted, "#8a9b74", 0.9),
+      { kind: "photo", x: W * 0.52, y: H * 0.07, w: W * 0.36, h: W * 0.42, angle: 4, border: { width: 16 * u, bottom: 16 * u, color: "#fffdf8" }, shadow: true },
+      { kind: "rect", x: W * 0.6, y: H * 0.055, w: W * 0.18, h: 34 * u, fill: "rgba(201,151,111,0.55)", angle: -6 },
+      { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.3, y: H * 0.46, w: W * 0.6, size: 60 * u, font: "serif", color: c.ink, italic: true, maxLines: 5, lineHeight: 1.15 },
+      { kind: "line", x1: W * 0.1, y1: H * 0.755, x2: W * 0.9, y2: H * 0.755, stroke: c.camel, width: 2 * u },
+      { kind: "text", role: "title", text: w.title, x: W * 0.1, y: H * 0.77, w: W * 0.6, size: 52 * u, font: "serif", color: c.ink, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.1, y: H * 0.86, w: W * 0.6, size: 40 * u, font: "serif", color: c.terra, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.1, y: H * 0.91, w: W * 0.62, size: 34 * u, font: "sans", color: c.ink, weight: 500 },
+      { kind: "logo", x: W * 0.74, y: H * 0.79, size: W * 0.17, color: c.ink },
+    ] };
+  } },
+  { key: "citat-bue", label: "Citat under buen", about: "Fotoet i en høj bue med blade ved foden, citatet under og eventet nederst.", frame: "arch", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080;
+    return { key: "citat-bue", label: "", about: "", background: c.blush, layers: [
+      { kind: "photo", x: W * 0.27, y: H * 0.05, w: W * 0.46, h: H * 0.36, frame: "arch", shadow: true },
+      ...sprig(W * 0.12, H * 0.43, W * 0.34, H * 0.36, 5, 80 * u, c.terra, c.terra, 0.75),
+      ...sprig(W * 0.88, H * 0.43, W * 0.66, H * 0.36, 5, 80 * u, c.terra, c.terra, 0.75),
+      { kind: "text", role: "quote", text: i.quote ?? w.title, x: W * 0.1, y: H * 0.46, w: W * 0.8, size: 62 * u, font: "serif", color: c.ink, italic: true, maxLines: 5, lineHeight: 1.15, align: "center" },
+      { kind: "text", role: "title", text: w.title, x: W * 0.08, y: H * 0.73, w: W * 0.6, size: 52 * u, font: "serif", color: c.ink, maxLines: 2 },
+      { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.08, y: H * 0.83, w: W * 0.6, size: 42 * u, font: "serif", color: c.terra, italic: true },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.08, y: H * 0.89, w: W * 0.62, size: 34 * u, font: "sans", color: c.ink, weight: 600 },
+      { kind: "logo", x: W * 0.74, y: H * 0.76, size: W * 0.18, color: c.terra },
     ] };
   } },
 ];
