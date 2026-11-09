@@ -53,7 +53,14 @@ function routes(feed: string) {
     "https://aarhuslindyhoppers.nemtilmeld.dk/robots.txt": { body: "User-agent: *\nDisallow: /Xkhr7dheeeee/\n" },
     "https://aarhuslindyhoppers.nemtilmeld.dk/": { body: fixture("nemtilmeld-aarhuslindyhoppers.html") },
     "https://www.fof.dk/robots.txt": { body: "User-Agent: *\nAllow: /\nDisallow: /soeg\nDisallow: /*/soeg\n" },
-    "https://www.fof.dk/aarhus/foredrag-i-aarhus": { body: fixture("fof-foredrag.html") }
+    "https://www.fof.dk/aarhus/foredrag-i-aarhus": { body: fixture("fof-foredrag.html") },
+    "https://filuren.dk/robots.txt": { status: 404 },
+    "https://filuren.dk/kalender/": { body: fixture("filuren-kalender.html") },
+    "https://katapult.dk/robots.txt": { status: 404 },
+    "https://katapult.dk/saeson-2026/": { body: fixture("katapult-saeson.html") },
+    "https://katapult.dk/": (url: string) => ({ body: fixture(url.includes("don-quixote") ? "katapult-don-quixote.html" : "katapult-storyslam.html") }),
+    "https://bora-bora.dk/robots.txt": { status: 404 },
+    "https://bora-bora.dk/": (url: string) => ({ body: url === "https://bora-bora.dk/" ? fixture("borabora-forside.html") : url.includes("/wired/") ? fixture("borabora-wired.html") : "<html></html>" })
   };
 }
 
