@@ -70,39 +70,15 @@ export async function memberFlocks(db: D1Database, memberId: string): Promise<Fl
   return results;
 }
 
-/** Earlier flocks the member said yes to meeting again after (Eftermødet), to start a new flock from. */
-export async function eftermoedeFlocks(db: D1Database, memberId: string, now: number): Promise<FlockRow[]> {
-  const { results } = await db.prepare(`${FLOCK_SELECT} WHERE f.id IN (SELECT flock_id FROM flock_members WHERE member_id = ?1 AND left_at IS NULL AND again = 1)
-    AND ${ENDS} < ?2 ORDER BY e.starts_at DESC LIMIT 20`).bind(memberId, now).all<FlockRow>();
-  return results;
-}
-
-/** New flocks started from an Eftermøde the member said yes to, that the member has not joined. They are only shown,
- * never joined for the member. */
-export async function eftermoedeInvitations(db: D1Database, memberId: string, now: number): Promise<Array<FlockRow & { started_by: string; from_title: string }>> {
-  const { results } = await db.prepare(`SELECT x.*, s.first_name AS started_by, pe.title AS from_title FROM (${FLOCK_SELECT}) x
-    JOIN flocks p ON p.id = x.follows_flock_id JOIN events pe ON pe.id = p.event_id JOIN members s ON s.id = x.created_by
-    WHERE x.status = 'open' AND x.is_member = 0 AND x.event_status = 'scheduled' AND x.event_starts_at > ?2
-      AND EXISTS (SELECT 1 FROM flock_members pm WHERE pm.flock_id = x.follows_flock_id AND pm.member_id = ?1 AND pm.again = 1)
-      AND EXISTS (SELECT 1 FROM flock_members sm WHERE sm.flock_id = x.follows_flock_id AND sm.member_id = x.created_by AND sm.again = 1)
-    ORDER BY x.event_starts_at`).bind(memberId, now).all<FlockRow & { started_by: string; from_title: string }>();
-  return results;
-}
-
 export type FlockInput = { meetingPlace: string; meetingAt: number; note: string | null; maxSize: number; followsFlockId: string | null };
 
-export type FlockError = "event_closed" | "already_in_flock" | "too_many" | "full" | "closed" | "not_member" | "not_host" | "too_small" | "not_eftermoede";
+export type FlockError = "event_closed" | "already_in_flock" | "too_many" | "full" | "closed" | "not_member" | "not_host" | "too_small";
 
 export async function createFlock(db: D1Database, event: { id: string; starts_at: number; status: string }, memberId: string, input: FlockInput, now: number): Promise<{ id: string } | { error: FlockError }> {
   if (event.status !== "scheduled" || event.starts_at <= now) return { error: "event_closed" };
   if (await memberFlockForEvent(db, event.id, memberId)) return { error: "already_in_flock" };
   const recent = await db.prepare("SELECT COUNT(*) AS n FROM flocks WHERE created_by = ? AND created_at > ?").bind(memberId, now - 86_400_000).first<{ n: number }>();
   if ((recent?.n ?? 0) >= CREATED_PER_DAY) return { error: "too_many" };
-  if (input.followsFlockId) {
-    const ok = await db.prepare("SELECT 1 AS ok FROM flock_members WHERE flock_id = ? AND member_id = ? AND left_at IS NULL AND again = 1")
-      .bind(input.followsFlockId, memberId).first<{ ok: number }>();
-    if (!ok) return { error: "not_eftermoede" };
-  }
   const id = crypto.randomUUID();
   await db.batch([
     db.prepare(`INSERT INTO flocks (id, event_id, created_by, meeting_place, meeting_at, note, max_size, follows_flock_id, status, created_at, updated_at)
@@ -132,13 +108,6 @@ export async function leaveFlock(db: D1Database, f: FlockRow, memberId: string, 
     db.prepare(`UPDATE flocks SET status = 'closed', updated_at = ? WHERE id = ?
       AND NOT EXISTS (SELECT 1 FROM flock_members WHERE flock_id = ? AND left_at IS NULL)`).bind(now, f.id, f.id)
   ]);
-  return { ok: true };
-}
-
-/** Eftermødet: whether the member wants to find something to do together again. */
-export async function setAgain(db: D1Database, f: FlockRow, memberId: string, again: boolean): Promise<{ ok: true } | { error: FlockError }> {
-  if (!f.is_member) return { error: "not_member" };
-  await db.prepare("UPDATE flock_members SET again = ? WHERE flock_id = ? AND member_id = ? AND left_at IS NULL").bind(again ? 1 : 0, f.id, memberId).run();
   return { ok: true };
 }
 

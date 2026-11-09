@@ -8,7 +8,7 @@ import type { FieldErrors, FlockForm } from "./forms.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Opret en flok, Find en flok,
- * Bliv en del af flokken, Eftermødet. */
+ * Bliv en del af flokken. */
 
 export type View = { status: number; body: string; headers?: Record<string, string> };
 const PRIVATE = { "cache-control": "private, no-store" };
@@ -28,8 +28,6 @@ const MESSAGES: Record<string, string> = {
   tilsluttet: "Du er nu en del af flokken. Mødested og tidspunkt står herunder.",
   forladt: "Du har forladt flokken.",
   rettet: "Mødested og tidspunkt er opdateret.",
-  eftermoede_ja: "Tak! Du har sagt ja til at finde på noget sammen igen.",
-  eftermoede_nej: "Tak. Du har sagt nej tak denne gang.",
   logget_ud: "Du er logget ud.",
   tak: "Tak for din henvendelse. Vi vender tilbage."
 };
@@ -41,8 +39,7 @@ const ERRORS: Record<string, string> = {
   closed: "Flokken er lukket.",
   not_member: "Du er ikke en del af flokken.",
   not_host: "Kun den, der står for flokken, kan rette mødested og tidspunkt.",
-  too_small: "Flokken har allerede flere medlemmer end det.",
-  not_eftermoede: "Du kan kun fortsætte fra en flok, hvor du har sagt ja til Eftermødet."
+  too_small: "Flokken har allerede flere medlemmer end det."
 };
 export const flash = (code: string | null): SafeHtml => {
   if (!code) return html``;
@@ -70,7 +67,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
   <div class="flock-panel-head">
     <h2 id="h-flokke">Find en flok</h2>
-    <p>Følges med andre til eventet. En flok er en lille, uformel gruppe, der mødes et offentligt sted før eventet – og bagefter vælger hver især, om de vil finde på noget sammen igen.</p>
+    <p>Følges med andre til eventet. En flok er en lille, uformel gruppe, der mødes et offentligt sted før eventet og går ind sammen.</p>
   </div>
   ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
@@ -81,7 +78,6 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
     : html`<p class="flock-empty">${over ? "Der var ingen flok til dette event." : "Der er ingen flok til eventet endnu. Opret den første – så kan andre finde den her."}</p>`}
   ${canStart ? myFlockId && member ? flocks.some(f => f.id === myFlockId) ? "" : html`<p class="flock-mine">Du er med i en flok til eventet. <a href="${flockPath(myFlockId)}">Se din flok</a></p>`
     : html`<p class="flock-create"><a class="button button-alt" href="${member ? create : loginPath(create)}">Opret en flok</a></p>` : ""}
-  ${over && myFlockId ? html`<p class="flock-mine"><a href="${flockPath(myFlockId)}#eftermoedet">Eftermødet: vil du finde på noget sammen igen?</a></p>` : ""}
   ${trustLine}
 </section>`;
 }
@@ -89,7 +85,6 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 // ————————————————————————————————————————— A flock's own page
 
 export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, names: Array<{ id: string; first_name: string; again: number | null }>, member: Member | null, hostId: string | null, message: string | null): View {
-  const over = eventOver(f, ctx.now);
   const canJoin = f.status === "open" && f.event_status === "scheduled" && f.event_starts_at > ctx.now;
   const isHost = !!member && hostId === member.id;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: f.event_title, path: `/events/${f.event_slug}` }, { name: "Flokken", path: flockPath(f.id) }];
@@ -97,7 +92,6 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
     : isFull(f) ? html`<p class="flock-state">Flokken er fuld.</p>`
     : member ? html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form>`
     : html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
-  const yes = names.filter(n => n.again === 1);
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
@@ -124,15 +118,6 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
     <ul class="member-list">${names.map(n => html`<li>${n.first_name}${member && n.id === member.id ? html` <span class="meta-muted">(dig)</span>` : ""}${n.id === hostId ? html` <span class="pill-small">står for flokken</span>` : ""}</li>`)}</ul>
     <p class="small meta-muted">Kun medlemmer af flokken kan se navnene. I finder hinanden ved mødestedet.</p>
   </section>
-  <section class="section eftermoede" id="eftermoedet" aria-labelledby="h-eftermoede">
-    <div class="section-head"><h2 id="h-eftermoede">Eftermødet</h2></div>
-    <p>${over ? "Eventet er slut." : "Når eventet er slut,"} vil du så finde på noget sammen igen? Det er helt frivilligt – du vælger fra event til event.</p>
-    <form method="post" action="${flockPath(f.id)}/eftermoedet" class="choice-row">
-      <button type="submit" name="svar" value="ja"${f.again === 1 ? raw(' aria-pressed="true" class="is-chosen"') : raw(' class="button-secondary"')}>Ja, gerne igen</button>
-      <button type="submit" name="svar" value="nej"${f.again === 0 ? raw(' aria-pressed="true" class="is-chosen"') : raw(' class="button-secondary"')}>Ikke denne gang</button>
-    </form>
-    ${f.again === 1 ? html`<p>${yes.length > 1 ? html`Også ja: ${yes.filter(n => n.id !== member?.id).map((n, i) => html`${i ? ", " : ""}${n.first_name}`)}. ` : ""}Find et nyt event i <a href="/kalender">kalenderen</a> og vælg <strong>Opret en flok</strong> – vælg denne flok som udgangspunkt, så kan de andre, der har sagt ja, se den under <a href="/flokke">Mine flokke</a> og selv vælge at være med.</p>` : ""}
-  </section>
   <section class="section" aria-labelledby="h-leave">
     <form method="post" action="${flockPath(f.id)}/forlad"><button type="submit" class="button-quiet">Forlad flokken</button></form>
   </section>` : html`<p class="meta-muted">${f.member_count === 1 ? "1 person" : `${f.member_count} personer`} er med. Navnene kan kun ses af dem i flokken.</p>`}
@@ -143,7 +128,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
 
 // ————————————————————————————————————————— Creating and editing
 
-export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, errors: FieldErrors, options: { mode: "create" | "edit"; action: string; follows?: FlockRow[]; status?: number }): View {
+export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, errors: FieldErrors, options: { mode: "create" | "edit"; action: string; status?: number }): View {
   const err = (k: keyof FieldErrors) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
   const describedBy = (k: keyof FieldErrors) => errors[k] ? raw(` aria-describedby="err-${k}" aria-invalid="true"`) : "";
   const create = options.mode === "create";
@@ -181,15 +166,6 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
       <span class="hint">Fx “Vi tager en kop kaffe først” eller “Første gang for mig også”. Skriv ikke telefonnummer eller adresse.</span>
       ${err("note")}
     </div>
-    ${create && options.follows?.length ? html`<div class="field">
-      <label for="f-follows">Fortsæt fra en tidligere flok <span class="meta-muted">(valgfrit)</span></label>
-      <select id="f-follows" name="fra_flok"${describedBy("followsFlockId")}>
-        <option value="">Nej, en ny flok</option>
-        ${options.follows.map(p => html`<option value="${p.id}"${form.followsFlockId === p.id ? raw(" selected") : ""}>${p.event_title} (${dayLabel(p.event_starts_at, ctx.now)})</option>`)}
-      </select>
-      <span class="hint">De andre fra den flok, der også sagde ja til Eftermødet, kan så se den nye flok og selv vælge at være med.</span>
-      ${err("followsFlockId")}
-    </div>` : ""}
     <div class="field field-check">
       <label><input type="checkbox" name="offentligt" value="ja"${form.publicPlace ? raw(" checked") : ""}${describedBy("publicPlace")}> Mødestedet er et offentligt sted</label>
       ${err("publicPlace")}
@@ -206,11 +182,11 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
 
 // ————————————————————————————————————————— Mine flokke
 
-export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[], invitations: Array<FlockRow & { started_by: string; from_title: string }>, message: string | null): View {
+export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[], message: string | null): View {
   const upcoming = flocks.filter(f => !eventOver(f, ctx.now)).reverse();
   const past = flocks.filter(f => eventOver(f, ctx.now));
   const row = (f: FlockRow) => html`<li class="flock-card"><a href="${flockPath(f.id)}"><span class="flock-title">${f.event_title}</span>
-    <span class="flock-when">${meetingLine(f, ctx.now)}</span><span class="flock-meta">${spotsLine(f)}${eventOver(f, ctx.now) ? html` · Eftermødet: ${f.again === 1 ? "ja" : f.again === 0 ? "ikke denne gang" : "ikke svaret"}` : ""}</span></a></li>`;
+    <span class="flock-when">${meetingLine(f, ctx.now)}</span><span class="flock-meta">${spotsLine(f)}</span></a></li>`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Mine flokke", path: "/flokke" }];
   const body = html`
 <div class="wrap narrow">
@@ -220,11 +196,6 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
     ${flash(message)}
     <p class="standfirst">Her er dine flokke. Find et event i <a href="/kalender">kalenderen</a> for at finde eller oprette en flok.</p>
   </header>
-  ${invitations.length ? html`<section class="section" aria-labelledby="h-inv">
-    <div class="section-head"><h2 id="h-inv">Fra dine Eftermøder</h2></div>
-    <ul class="flock-list">${invitations.map(f => html`<li class="flock-card"><a href="${flockPath(f.id)}"><span class="flock-title">${f.event_title}</span>
-      <span class="flock-when">${meetingLine(f, ctx.now)}</span><span class="flock-meta">${f.started_by} fra jeres flok til ${f.from_title} har oprettet en flok. Du vælger selv, om du vil være med.</span></a></li>`)}</ul>
-  </section>` : ""}
   <section class="section" aria-labelledby="h-up">
     <div class="section-head"><h2 id="h-up">Kommende</h2></div>
     ${upcoming.length ? html`<ul class="flock-list">${upcoming.map(row)}</ul>` : html`<p class="empty">Du er ikke i nogen flok endnu. <a href="/kalender">Find et event</a> og vælg <strong>Find en flok</strong> eller <strong>Opret en flok</strong>.</p>`}
@@ -314,7 +285,7 @@ export function safetyPage(ctx: PageContext): View {
   <h2>Du deler kun dit fornavn</h2>
   <p>Flokken kender kun dit fornavn. Vi beder ikke om e-mail, telefonnummer, alder eller billede. Navnene i en flok kan kun ses af dem, der er med i den. Del ikke telefonnummer eller adresse i flokkens besked.</p>
   <h2>Du bestemmer selv</h2>
-  <p>Ingen bliver sat i en flok automatisk. Du vælger selv, om du vil oprette en flok eller være en del af en. Du kan forlade en flok når som helst – også i sidste øjeblik. Efter eventet vælger du selv, om du vil finde på noget sammen igen (Eftermødet).</p>
+  <p>Ingen bliver sat i en flok automatisk. Du vælger selv, om du vil oprette en flok eller være en del af en. Du kan forlade en flok når som helst – også i sidste øjeblik.</p>
   <h2>Billet og tilmelding</h2>
   <p>Hver person køber selv billet eller tilmelder sig hos arrangøren. Flokken håndterer ikke betaling.</p>
   <h2>Det har vi ikke endnu</h2>
@@ -338,7 +309,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et event</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
   <li><span class="how-n" aria-hidden="true">2</span><strong>Find en flok – eller opret en</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
-  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>Et offentligt sted før eventet. Bagefter vælger I selv, om I vil ses igen – det er Eftermødet.</span></li>
+  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>Et offentligt sted før eventet – og så går I ind sammen.</span></li>
 </ol>`;
 
 export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {

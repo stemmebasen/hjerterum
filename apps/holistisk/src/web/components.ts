@@ -37,12 +37,12 @@ export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_
     : html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
 }
 
-/** The chips under a card or row: free, a confirmed member benefit, and the flock line. */
+/** The chips under a card or row: free, a confirmed extra for flocks, and the flock line. */
 export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
   // A card with a picture panel already carries the round "Gratis" stamp.
   const free = e.is_free === 1 && !options.freeStamped;
   const benefit = offersFor(e).length > 0;
-  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Medlemsfordel</span>` : ""}${flockBadge(e, now)}</span>`;
+  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flockBadge(e, now)}</span>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
