@@ -41,13 +41,6 @@ export async function flockById(db: D1Database, id: string, memberId: string | n
   return db.prepare(`${FLOCK_SELECT} WHERE f.id = ?2`).bind(memberId ?? "", id).first<FlockRow>();
 }
 
-/** The current members' first names, in the order they joined. Only shown to members of the flock. */
-export async function flockMemberNames(db: D1Database, flockId: string): Promise<Array<{ id: string; first_name: string; again: number | null }>> {
-  const { results } = await db.prepare(`SELECT m.id, m.first_name, fm.again FROM flock_members fm JOIN members m ON m.id = fm.member_id
-    WHERE fm.flock_id = ? AND fm.left_at IS NULL ORDER BY fm.joined_at`).bind(flockId).all<{ id: string; first_name: string; again: number | null }>();
-  return results;
-}
-
 /** The member who looks after the meeting place and time: the one who started the flock, or, once they have left,
  * whoever has been in it longest. */
 export async function flockHost(db: D1Database, f: Pick<FlockRow, "id" | "created_by">): Promise<string | null> {
