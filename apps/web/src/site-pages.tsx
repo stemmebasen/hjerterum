@@ -55,8 +55,11 @@ function SectionTabs({ page }: { page: SitePage }) {
   const item = NAV.find(entry => entry.sub && entry.section === page.section);
   const tree = item && sectionTree(item.href);
   if (!tree) return null;
-  const tabs = [tree.root, ...tree.groups.map(group => group.page)];
-  const here = tabs.find(tab => tab.path === page.path) ?? tree.groups.find(group => group.pages.some(child => child.path === page.path))?.page;
+  // Douglas (9 Nov 2026): under Om Hjerterum the tabs are the pages one can go to; under "Sådan booker du" they were Brug Hjerterum's headings.
+  // Inside a group with pages of its own (Booking & leje …), the tabs are that group's pages - the same kind of menu everywhere.
+  const group = tree.groups.find(g => g.pages.length && (g.page.path === page.path || g.pages.some(child => child.path === page.path)));
+  const tabs = group ? [group.page, ...group.pages] : [tree.root, ...tree.groups.map(g => g.page)];
+  const here = tabs.find(tab => tab.path === page.path) ?? tree.groups.find(g => g.pages.some(child => child.path === page.path))?.page;
   // The legal pages share Om Hjerterum's section without being in its menu.
   if (!here) return null;
   return <nav className="site-tabs" aria-label={item.label}>
@@ -219,6 +222,12 @@ function body(page: SitePage, parts: string[], widgets: Widgets) {
   </div>;
 }
 
+/** The headline in two parts ("Sådan" / "booker du"). Google translated them one by one ("Such / are you booking"); in English it gets the whole line. */
+function PageTitle({ page }: { page: SitePage }) {
+  if (page.em && englishOn()) return <h1 className="lys-title">{`${page.title} ${page.em}`}</h1>;
+  return <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>;
+}
+
 export function SitePageInner({ page, widgets, parent }: { page: SitePage; widgets: Widgets; parent?: SitePage | undefined }) {
   const parts = page.body.split(/^\{\{([a-z-]+)\}\}$/m);
   // Reported (Gitta): on the "Om at bruge Hjerterum" pages the line on the right "ser ud til at høre til i venstre side" - there it goes under the headline.
@@ -226,10 +235,10 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
   // Requested: the words beside the headline "bør vertikalt centreres mellem h1'erens øverste og nederste kant" - the headline and the words share a row.
   if (!leadUnder) return <>
     <section className="site-intro site-intro-row">
-      {parent && <a className="site-back" href={parent.path}>← {NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
+      {parent && <a className="site-back" href={parent.path}>{"←\u00a0"}{NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
       <p className="lys-kicker">{page.kicker}</p>
       <div className="site-intro-head">
-        <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
+        <PageTitle page={page} />
         <p className="site-intro-aside">{page.lead}</p>
       </div>
     </section>
@@ -238,9 +247,11 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
   return <>
     <section className={"lys-intro site-intro" + (page.article ? " is-article" : "")}>
         <div>
-          {parent && <a className="site-back" href={parent.path}>← {NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
-          <p className="lys-kicker">{page.kicker}</p>
-          <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>
+          {parent && <a className="site-back" href={parent.path}>{"←\u00a0"}{NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
+          {/* Douglas (9 Nov 2026): "← Brug Hjerterum", then "BRUG HJERTERUM", then "Sådan booker du" - "I am confused on this one". The kicker
+              is left out where the way back already says it. */}
+          {!(parent && page.kicker.toLowerCase() === (NAV.find(item => item.href === parent.path)?.label ?? parent.card.title).toLowerCase()) && <p className="lys-kicker">{page.kicker}</p>}
+          <PageTitle page={page} />
           {/* Asked (screenshot of /medlemskab): "Is this layout intended?" - with a picture, the words go under the headline and the picture
               stands alone beside them, so neither column is left half empty. A long text keeps its words under the headline too. */}
           {leadUnder && <p className="site-intro-lead">{page.lead}</p>}

@@ -74,7 +74,7 @@ export const ABOUT_WORDS = {
   welcome: "Uanset om du søger fordybelse, refleksion eller bare en pause fra hverdagen, er Hjerterum et sted, hvor alle er velkomne. Kom og bliv en del af et fællesskab, der inspirerer og forbinder mennesker på tværs af livets mange facetter.",
   kinds: "Fællesskab, film, sang, musik, dans, fællesspisning, foredrag, kurser, yoga, åndedrætsøvelser, meditation, bevægelse, kreativitet – og alt det, der skaber glæde, forbindelse og inspiration.",
   membership: (monthKr: number) => `Bliv medlem fra kun ${monthKr} kr./måned og deltag i medlemsarrangementer, og få en stor rabat på arrangementer, hvor ikke-medlemmer er tilladt – og nogle gange gratis.`,
-  teachers: "Som underviser kan du bruge vores skønne og veludstyrede rum til dine begivenheder til meget rimelige priser og drage fordel af vores store netværk af medlemmer og følgere."
+  teachers: "Som underviser kan du bruge vores skønne og veludstyrede sal til dine begivenheder til meget rimelige priser og drage fordel af vores store netværk af medlemmer og følgere."
 } as const;
 
 /** Requested: "team@hjerterum.info ... bliver i øvrigt den nye officielle kontaktadresse" (1 Nov 2026). */
@@ -456,7 +456,7 @@ Fast pris efter bookingens varighed.
 | 9 timer | 2.520 kr. |
 | 10 timer | 2.700 kr. |
 
-> **Kun for medlemmer:** B) Reduceret pris – med medlemsrabat og C) Gratis leje kræver, at du selv er betalende medlem af Hjerterum. I de tilfælde opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
+> **Kun for medlemmer:** Som betalende medlem kan du leje salen til B) reduceret pris eller C) gratis leje – se detaljerne herunder. Du opretter selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events).
 
 ### B) Reduceret pris – med medlemsrabat
 Til events, hvor medlemmer betaler mindre end ikke-medlemmer for at deltage.
