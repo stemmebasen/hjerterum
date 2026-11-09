@@ -116,9 +116,16 @@ describe("flocks", () => {
     const page = await call(`/events/${event.slug}`);
     expect(page.body).toContain("Ved indgangen til Hjerterum");
     expect(page.body).toContain("1 af 3 · plads til 2 mere");
+    expect(page.body).toContain('aria-label="1 af 3 pladser taget"');
     expect(page.body).toContain("Bliv en del af flokken");
     expect(page.body).not.toContain("Anna");
-    expect((await call("/kalender")).body).toContain("1 flok · Find en flok");
+    // On the calendar: one person per seat, filled for those who are in.
+    const calendar = (await call("/kalender")).body;
+    expect(calendar).toContain('<span class="flock-badge-text">1 af 3 · Find en flok</span>');
+    const badge = calendar.slice(calendar.indexOf('aria-label="1 af 3 pladser taget"'), calendar.indexOf("flock-badge-text"));
+    expect(badge.match(/class="seat is-taken"/g)).toHaveLength(1);
+    expect(badge.match(/class="seat"/g)).toHaveLength(2);
+    expect(calendar).not.toContain("●●●");
 
     const bo = await join("Bo");
     const outsider = await call(`/flokke/${id}`, { cookie: bo.cookie });

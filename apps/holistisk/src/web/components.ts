@@ -29,11 +29,22 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
 
 /** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for
  * events that have started or are cancelled. */
-export function flockBadge(e: Pick<EventRow, "flock_count" | "status" | "starts_at">, now: number): SafeHtml {
+export function flockBadge(e: Pick<EventRow, "flock_count" | "flock_fill" | "status" | "starts_at">, now: number): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   const n = e.flock_count ?? 0;
-  return n ? html`<span class="flock-badge"><span aria-hidden="true">●●●</span> ${n === 1 ? "1 flok" : `${n} flokke`} · Find en flok</span>`
-    : html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
+  const [members, size] = (e.flock_fill ?? "").split("/").map(Number);
+  if (!n || !size) return html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
+  const more = n > 1 ? ` · ${n} flokke` : "";
+  return html`<span class="flock-badge">${seats(members ?? 0, size)}<span class="flock-badge-text">${members} af ${size}${more} · Find en flok</span></span>`;
+}
+
+const PERSON = raw('<path d="M8 7.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Zm0 1.6c-3.3 0-5.6 1.9-5.6 4.4V15h11.2v-1.8c0-2.5-2.3-4.4-5.6-4.4Z"/>');
+
+/** One person per seat in a flock: filled for those who are in it, outlined for the free seats. */
+export function seats(members: number, size: number): SafeHtml {
+  const taken = Math.max(0, Math.min(members, size));
+  return html`<span class="seats" role="img" aria-label="${taken} af ${size} pladser taget">${Array.from({ length: size }, (_, i) =>
+    html`<svg class="seat${i < taken ? " is-taken" : ""}" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">${PERSON}</svg>`)}</span>`;
 }
 
 /** The chips under a card or row: free, a confirmed member benefit, and the flock line. */
