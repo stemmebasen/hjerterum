@@ -923,6 +923,8 @@ async function retimeOverdue(db: D1Database, nowMs: number, hook: (p: SocialPost
     else if (at === "no_event" && !p.source.noFbEventTold) {
       shared.push({ title: p.source.title ?? "", at: null });
       await db.prepare("UPDATE social_posts SET source = json_set(source, '$.noFbEventTold', 1) WHERE id = ?").bind(p.id).run();
+      // Kept when the post is given its later time below (found 9 Nov 2026: it was written over, and the chair would be told again).
+      p.source = { ...p.source, noFbEventTold: 1 };
     }
   }
   if (!late.length) return shared;
