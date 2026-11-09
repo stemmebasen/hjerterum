@@ -74,6 +74,9 @@ const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 
 // ————————————————————————————————————————— Front page
 
+/** Why the site exists, in Jake's words. Shown on the front page and at the top of /om. */
+const MISSION = "Hvis du savner at opleve nye ting og møde nye mennesker, så er du IKKE alene. Vi er rigtig mange, der har det ligesom dig. Derfor lavede vi Flokken!";
+
 /** How many of the coming week's events the front page lists before pointing to the calendar. */
 const FRONT_WEEK_LIMIT = 80;
 
@@ -97,7 +100,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>
+      <h1>Byen er fuld af gode oplevelser – <span class="marker">del dem med gode mennesker!</span></h1>
       <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
@@ -108,6 +111,10 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </div>
 </div>
 <div class="wrap">
+  <aside class="mission" aria-labelledby="h-mission">
+    <h2 id="h-mission">Derfor findes Flokken</h2>
+    <p>${MISSION}</p>
+  </aside>
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
@@ -545,8 +552,10 @@ export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[])
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Om Flokken</h1>
-    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde lokale events – og andre, der gerne vil opleve det samme. Eventet er udgangspunktet for at mødes.</p>
+    <p class="standfirst">${MISSION}</p>
   </header>
+  <h2>Byens arrangører</h2>
+  <p>Og så vil vi kaste lys over alt det, der sker i byen. Bag hvert event står et spillested, en forening eller en ildsjæl, som flere burde opdage.</p>
   <h2>Hvad er en flok?</h2>
   <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet og går ind sammen. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du events?</h2>
