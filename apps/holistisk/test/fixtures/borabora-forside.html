@@ -1,0 +1,735 @@
+<!doctype html><html lang="da-DK"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"><meta name="msapplication-TileColor" content="#ffffff"><meta name="msapplication-config" content="https://bora-bora.dk/wp-content/themes/bora-bora/assets/img/favicons/browserconfig.xml"><meta name="theme-color" content="#ffffff">  <meta name='robots' content='index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' /><title>Bora Bora</title><meta name="description" content="Bora Bora - Dans og visuelt teater er et lille storbyteater i hjertet af Aarhus. Få en oplevelse du aldrig glemmer." /><link rel="canonical" href="https://bora-bora.dk/" /><meta property="og:locale" content="da_DK" /><meta property="og:type" content="website" /><meta property="og:title" content="Bora Bora" /><meta property="og:description" content="Bora Bora - Dans og visuelt teater er et lille storbyteater i hjertet af Aarhus. Få en oplevelse du aldrig glemmer." /><meta property="og:url" content="https://bora-bora.dk/" /><meta property="og:site_name" content="Bora Bora" /><meta property="article:modified_time" content="2026-10-14T12:46:15+00:00" /><meta name="twitter:card" content="summary_large_image" />      </head><body class="font-sans leading-normal bg-[#191919]" x-data :class="$store.nav.open ? 'overflow-hidden' : ''"><noscript>
+<iframe src="" data-consent-src="https://www.googletagmanager.com/ns.html?id=GTM-WTBK2FSD" data-category-consent="cookie_cat_statistic" height="0" width="0" style="display:none;visibility:hidden"></iframe>
+</noscript><header
+class="site-header js-site-header"
+:class="$store.site.headerHasBg ? 'bg-opacity-100 py-3 lg:py-4' : 'bg-opacity-0'"
+><div class="site-header-item site-header-item--left"><div class="lg:hidden">
+<button
+type="button"
+class="flex items-center space-x-3 group col-span"
+x-data
+@click="$store.nav.toggle()"
+>
+<div class="text-xs uppercase" x-text="$store.nav.open ? 'Luk' : 'Menu' " >Menu</div>
+</button></div><div class="absolute left-0 z-10 items-center hidden text-white cursor-pointer sub-menu-overlay-close group js-sub-menu-overlay-close"><div class="flex items-center space-x-3 group col-span">
+<div class="text-xs leading-none uppercase">Luk</div></div></div>
+<a
+href="/"
+class="hidden w-24 transition-all duration-200 ease-in-out xl:w-28 site-header-logo lg:block"
+:class="$store.site.headerHasBg ? '!w-20' : ''"
+>
+        </a></div><div class="site-header-item site-header-item--middle">
+<a
+href="/"
+class="w-16 transition-all duration-200 ease-in-out md:w-20 lg:hidden"
+:class="$store.site.headerHasBg ? '!w-14 md:!w-16' : ''"
+>
+        </a><div class="hidden lg:block"><ul id="menu-navigation" class="flex flex-row flex-nowrap items-center header-navigation-menu js-header-navigation-menu"><li class="menu-item"><a title="Program" href="https://bora-bora.dk/forestillinger/">Program</a></li><li class="menu-item menu-item-has-children"><a title="Billetter" href="#">Billetter</a><div class="sub-menu-overlay"><div class="sub-menu-overlay__menu scroll-container disable-scrollbars"><ul role="menu" class="dropdown-navigation-container js-dropdown-menu"><li class="menu-item"><a title="Billetkøb" href="https://bora-bora.dk/billetter/">Billetkøb</a></li><li class="menu-item"><a title="KluBora medlemskab" href="https://bora-bora.dk/klubora/">KluBora medlemskab</a></li><li class="menu-item"><a title="Gavekort" href="https://bora-bora.dk/gavekort/">Gavekort</a></li><li class="menu-item"><a title="For virksomheder" href="https://bora-bora.dk/bb2b/">For virksomheder</a></li></ul></div></div></li><li class="menu-item menu-item-has-children"><a title="Praktisk information" href="#">Praktisk information</a><div class="sub-menu-overlay"><div class="sub-menu-overlay__menu scroll-container disable-scrollbars"><ul role="menu" class="dropdown-navigation-container js-dropdown-menu"><li class="menu-item"><a title="Kontakt" href="https://bora-bora.dk/kontakt/">Kontakt</a></li><li class="menu-item"><a title="Ankomst" href="https://bora-bora.dk/ankomst/">Ankomst</a></li><li class="menu-item"><a title="Nyhedsbrev" href="https://bora-bora.dk/nyhedsbrev/">Nyhedsbrev</a></li><li class="menu-item"><a title="For uddannelser" href="https://bora-bora.dk/for-uddannelser/">For uddannelser</a></li><li class="menu-item"><a title="Presserum" href="https://bora-bora.dk/presserum/">Presserum</a></li></ul></div></div></li><li class="menu-item menu-item-has-children"><a title="Om Bora Bora" href="#">Om Bora Bora</a><div class="sub-menu-overlay"><div class="sub-menu-overlay__menu scroll-container disable-scrollbars"><ul role="menu" class="dropdown-navigation-container js-dropdown-menu"><li class="menu-item"><a title="Om Teatret" href="https://bora-bora.dk/om-bora-bora/">Om Teatret</a></li><li class="menu-item"><a title="Medarbejdere" href="https://bora-bora.dk/medarbejdere/">Medarbejdere</a></li><li class="menu-item"><a title="Huskompagnier" href="https://bora-bora.dk/huskompagnier/">Huskompagnier</a></li><li class="menu-item"><a title="Festivaler" href="https://bora-bora.dk/festival/">Festivaler</a></li><li class="menu-item"><a title="Tidligere forestillinger" href="https://bora-bora.dk/tidligere-forestillinger/">Tidligere forestillinger</a></li></ul></div></div></li><li class="menu-item menu-item-has-children"><a title="For Branchen" href="#">For Branchen</a><div class="sub-menu-overlay"><div class="sub-menu-overlay__menu scroll-container disable-scrollbars"><ul role="menu" class="dropdown-navigation-container js-dropdown-menu"><li class="menu-item"><a title="Kunstnerisk profil" href="https://bora-bora.dk/kunstnerisk-profil/">Kunstnerisk profil</a></li><li class="menu-item"><a title="Kunstnerisk råd" href="https://bora-bora.dk/kunstnerisk-raad/">Kunstnerisk råd</a></li><li class="menu-item"><a title="Samarbejde med os" href="https://bora-bora.dk/samarbejde-med-os/">Samarbejde med os</a></li><li class="menu-item"><a title="Bora Bora Residency Centre" href="https://bora-bora.dk/bora-bora-residency-centre/">Bora Bora Residency Centre</a></li><li class="menu-item"><a title="Partnerskaber og netværk" href="https://bora-bora.dk/partnerskaber-og-netvaerk/">Partnerskaber og netværk</a></li><li class="menu-item"><a title="Sale – teknisk info" href="https://bora-bora.dk/ressourcer/">Sale – teknisk info</a></li></ul></div></div></li></ul></div></div><div class="site-header-item site-header-item--right"><div class="flex items-center text-xs min-[1150px]:text-sm uppercase justify-self-end">
+<a href="/" class="duration-200 cursor-pointer ease-in-out ">Da</a>
+<span class="mx-1.5">/</span>
+<a href="/en" class="duration-200 cursor-pointer ease-in-out opacity-50 hover:opacity-100">En</a></div><div class="transition-opacity duration-200 cursor-pointer hover:opacity-70 js-search-overlay-trigger">
+</div><button
+type="button"
+class="relative flex items-center justify-center gap-1 px-3 py-1 text-xs duration-200 ease-in-out border border-white rounded-full cursor-pointer hover:bg-white hover:text-black justify-self-end"
+@click="basm.showBasket"
+>
+<div class="basm_basket_count text-xs min-[1150px]:text-sm">0</div>
+</button></div></header><div
+class="fixed z-10 w-full max-h-screen overflow-y-auto transition transform bg-[#191919]"
+x-data="{ expanded: false }"
+x-show="$store.nav.open"
+x-transition:enter=" ease-out duration-200"
+x-transition:enter-start="-translate-x-full"
+x-transition:enter-end=""
+x-transition:leave="transition ease-in duration-150"
+x-transition:leave-start=""
+x-transition:leave-end="-translate-x-full"
+@click.away="$store.nav.open = false"
+x-cloak
+><div class="flex items-center min-h-screen px-5 pt-20 pb-4 overflow-y-auto sm:px-12 lg:px-2xl"><ul class="font-light"><li x-show="$store.nav.open">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/forestillinger/"
+target=""
+class="text-xl block py-3.5 leading-tight text-left uppercase "
+:class="expanded === false || expanded === 1 ? 'text-white' : 'text-[#666666]';"
+>
+Program                        </a></li><li x-show="$store.nav.open"><div
+class="py-2.5 uppercase cursor-pointer"
+:class="expanded === false || expanded === 2 ? 'text-white' : 'text-[#666666]';"
+>
+<button
+type="button"
+class="flex"
+@click="expanded !== 2 ? expanded = 2 : expanded = false;"
+><div class="text-xl leading-tight text-left uppercase transition">
+Billetter</div>
+</button><ul class="pt-2.5 text-white" x-show="expanded === 2" x-collapse.duration.200ms><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/billetter/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Billetkøb                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/klubora/"
+target=""
+class="text-sm leading-tight transition x"
+>
+KluBora medlemskab                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/gavekort/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Gavekort                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/bb2b/"
+target=""
+class="text-sm leading-tight transition x"
+>
+For virksomheder                                        </a></li></ul></div></li><li x-show="$store.nav.open"><div
+class="py-2.5 uppercase cursor-pointer"
+:class="expanded === false || expanded === 3 ? 'text-white' : 'text-[#666666]';"
+>
+<button
+type="button"
+class="flex"
+@click="expanded !== 3 ? expanded = 3 : expanded = false;"
+><div class="text-xl leading-tight text-left uppercase transition">
+Praktisk information</div>
+</button><ul class="pt-2.5 text-white" x-show="expanded === 3" x-collapse.duration.200ms><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/kontakt/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Kontakt                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/ankomst/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Ankomst                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/nyhedsbrev/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Nyhedsbrev                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/for-uddannelser/"
+target=""
+class="text-sm leading-tight transition x"
+>
+For uddannelser                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/presserum/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Presserum                                        </a></li></ul></div></li><li x-show="$store.nav.open"><div
+class="py-2.5 uppercase cursor-pointer"
+:class="expanded === false || expanded === 4 ? 'text-white' : 'text-[#666666]';"
+>
+<button
+type="button"
+class="flex"
+@click="expanded !== 4 ? expanded = 4 : expanded = false;"
+><div class="text-xl leading-tight text-left uppercase transition">
+Om Bora Bora</div>
+</button><ul class="pt-2.5 text-white" x-show="expanded === 4" x-collapse.duration.200ms><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/om-bora-bora/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Om Teatret                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/medarbejdere/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Medarbejdere                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/huskompagnier/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Huskompagnier                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/festival/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Festivaler                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/tidligere-forestillinger/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Tidligere forestillinger                                        </a></li></ul></div></li><li x-show="$store.nav.open"><div
+class="py-2.5 uppercase cursor-pointer"
+:class="expanded === false || expanded === 5 ? 'text-white' : 'text-[#666666]';"
+>
+<button
+type="button"
+class="flex"
+@click="expanded !== 5 ? expanded = 5 : expanded = false;"
+><div class="text-xl leading-tight text-left uppercase transition">
+For Branchen</div>
+</button><ul class="pt-2.5 text-white" x-show="expanded === 5" x-collapse.duration.200ms><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/kunstnerisk-profil/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Kunstnerisk profil                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/kunstnerisk-raad/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Kunstnerisk råd                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/samarbejde-med-os/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Samarbejde med os                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/bora-bora-residency-centre/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Bora Bora Residency Centre                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/partnerskaber-og-netvaerk/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Partnerskaber og netværk                                        </a></li><li class="py-2.5 pr-2.5 pl-6">
+<a
+@click="$store.nav.open = false"
+href="https://bora-bora.dk/ressourcer/"
+target=""
+class="text-sm leading-tight transition x"
+>
+Sale – teknisk info                                        </a></li></ul></div></li></ul></div></div><main role="main" class="relative"><div
+type="hero"
+class="relative min-h-screen text-white transition duration-500"
+:class="$store.site.didScroll ? 'opacity-0' : '' "
+hero
+><div class="absolute top-0 left-0 z-0 w-full h-screen bg-transparent"><video
+class="fixed top-0 left-0 object-cover w-full h-screen"
+src="https://bora-bora.dk/wp-content/uploads/2026/10/webforside-mym-1.mov"
+x-effect="$store.site.didScroll ? $el.pause() : $el.play()"
+playsinline
+autoplay
+loop
+muted
+></div><h1 class="sr-only">
+Bora Bora</h1><div
+class="hero-scroll-indicator"
+:class="$store.site.didScroll ? 'opacity-0' : '' "
+><div
+class="hero-scroll-indicator-inner"
+@click="$event.target.closest('[hero]').nextSibling.scrollIntoView({behavior: 'smooth'});"
+><div class="hero-scroll-indicator-icon"><div class="hero-scroll-indicator-icon__scroller"></div></div><div class="hero-scroll-indicator-text">Udforsk vores program</div></div></div></div><section class="relative pt-10 mb-20 overflow-hidden focusSwiper"><div class="swiper-wrapper"><div class="swiper-slide px-10 text-center text-white sm:!w-10/12 md:px-20 lg:!w-1/2">
+<a href="https://bora-bora.dk/nyhedsbrev/" class="mx-auto btn"><div class="text-xl font-light leading-none uppercase">Få seneste nyt i vores nyhedsbrev</div><p class="text-sm leading-tighter text-[#AFAFAF] mt-1.5 font-light">Tilmeld dig her!</p>
+</a></div></div></section><div class="relative px-5 py-16 sm:px-12 sm:py-24 lg:py-36" x-data="{month: 'november'}"><div class="fixed-headline" x-text="month" :class="$store.site.didScroll ? 'opacity-100' : '' "></div><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-full lg:ml-0 lg:max-w-[50%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">3 uger med forestillinger, fester og ny inspiration</div><div class="text-2xl 2xl:text-3xl"><h2>Move Your Mind 2026</h2><div>9.&nbsp;&ndash;&nbsp;27. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/MoveYourMind-ny-Web-Main-2600x1500px.webp)"
+href="https://bora-bora.dk/forestillinger/move-your-mind-2026/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+FESTIVAL</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Ásrún &amp; Alexander / Iceland Dance Company (ISL)</div><div class="text-2xl 2xl:text-3xl"><h2>Ball</h2><div>9.&nbsp;&ndash;&nbsp;11. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/Web-Main-2600x1500px-Ball-01.jpg)"
+href="https://bora-bora.dk/forestillinger/ball-asrun-alexander/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148761"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Birgitte Stougaard Pedersen (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Foredrag: Rytme (Ball)</h2><div>9.&nbsp;&ndash;&nbsp;11. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/07/MYM-foredrag-rytme-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/foredrag-rytme/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148761"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Maria Naidu (SE)</div><div class="text-2xl 2xl:text-3xl"><h2>ON and ON and ON ON and ON</h2><div>12. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/On-and-On-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/on-and-on-and-on-on-and-on/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="153424"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Aarhus Dance Collective & HeadQuarters</div><div class="text-2xl 2xl:text-3xl"><h2>Dansefest Efter ON and ON and ON ON and ON</h2><div>12. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/MYM-dansefest-BB-Web-Main-2600x1500px-NY.jpg)"
+href="https://bora-bora.dk/forestillinger/dansefest-efter-on-and-on/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="153424"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Marie Kaae (DK/CM)</div><div class="text-2xl 2xl:text-3xl"><h2>Wired</h2><div>17.&nbsp;&ndash;&nbsp;19. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/Wired-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/wired/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148861"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Cypher Movement & HeadQuarters</div><div class="text-2xl 2xl:text-3xl"><h2>Dansefest efter Wired</h2><div>17.&nbsp;&ndash;&nbsp;19. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/MYM-dansefest-BB-Web-Main-2600x1500px-NY.jpg)"
+href="https://bora-bora.dk/forestillinger/dansefest-efter-wired/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148861"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Elizabeth Löwe Hunter (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Foredrag: Afro-diasporiske musik- og dansekulturer (Wired)</h2><div>17.&nbsp;&ndash;&nbsp;19. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/07/MYM-foredrag-afrodisp-kultur-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/foredrag-afro-diasporiske-musik-og-dansekulturer/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148861"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Spine Fiction (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Sanseporten</h2><div>19.&nbsp;&ndash;&nbsp;21. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/Web-Galleri-2600x1500px-Sanseporten-1.jpg)"
+href="https://bora-bora.dk/forestillinger/sanseporten/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;50&nbsp;&ndash;&nbsp;100</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="151182"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Mette Ingvartsen (DK/BE)</div><div class="text-2xl 2xl:text-3xl"><h2>Delirious Night</h2><div>25.&nbsp;&ndash;&nbsp;27. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/DelNight-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/delirious-night/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148763"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Dansestudiet, HeadQuarters & DJs Kulturrådmand Jesper Kjeldsen og Disco Jesus</div><div class="text-2xl 2xl:text-3xl"><h2>Dansefest Efter Delirious Night</h2><div>25.&nbsp;&ndash;&nbsp;27. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/MYM-dansefest-BB-Web-Main-2600x1500px-NY.jpg)"
+href="https://bora-bora.dk/forestillinger/dansefest-efter-delirious-night/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148763"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'november'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Christian Bjørnskov (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Foredrag: Lykke (Delirious Night)</h2><div>25.&nbsp;&ndash;&nbsp;27. november 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/07/MYM-foredrag-lykke-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/foredrag-lykke/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #31d88a; color: #000;"
+>
+Move Your Mind Festival</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148763"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'december'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Aarhus Dance Collective (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>DanseTapas</h2><div>9.&nbsp;&ndash;&nbsp;11. december 2026</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/06/Dansetapas-2026-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/dansetapas-2026/"
+>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+DKK 60</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="151183"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'januar'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">AVIAJA Dance (GL/DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Whiteout</h2><div>19.&nbsp;&ndash;&nbsp;21. januar 2027</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/Whiteout-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/whiteout/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #FFFFFF; color: #000;"
+>
+Gæstespil</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148992"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'februar'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Svalholm (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Eclipse of the Heart</h2><div>2.&nbsp;&ndash;&nbsp;4. februar 2027</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/EclipseOfTheHeart-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/eclipse-of-the-heart/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #FFFFFF; color: #000;"
+>
+Gæstespil</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="151705"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'februar'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Dansk Danseteater (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Creatures of Butter</h2><div>26. februar&nbsp;&ndash;&nbsp;3. marts 2027</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/04/CreaturesOfButter-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/creatures-of-butter/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #FFFFFF; color: #000;"
+>
+URPREMIERE / CO-PRODUKTION</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="147714"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'marts'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:max-w-[58.3333%] lg:ml-[8.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">Parts+Labour (CAN)</div><div class="text-2xl 2xl:text-3xl"><h2>Labour</h2><div>15.&nbsp;&ndash;&nbsp;18. marts 2027</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/Labour-Web-Main-2600x1500px-2.jpg)"
+href="https://bora-bora.dk/forestillinger/labour/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #FFFFFF; color: #000;"
+>
+Internationalt gæstespil</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148994"
+>
+Køb billetter
+</button></div></div></div></div></article><div aria-hidden="true" x-intersect="month = 'april'"></div><article class="flex flex-wrap -mx-5"><div class="relative w-full max-w-[94%] px-5 group md:ml-[41.6667%] md:max-w-[58.3333%] lg:ml-[58.3333%] lg:max-w-[33.3333%]"><div     x-data="{ inView: false }"
+x-intersect.once="setTimeout(() => inView = true, 300)"
+x-cloak
+><div class="relative mb-12 sm:mb-20 lg:mb-0"     :class="{
+'transition duration-1000 ease-out transform': true,
+'opacity-0 translate-y-12': !inView
+}"
+><div class="absolute z-0 w-full h-0 pb-[100%] transform -translate-x-1/2 -translate-y-1/2 bg-[#303030] rounded-full top-1/2 left-1/2 opacity-0 scale-0 group-hover:scale-100 group-hover:opacity-100 transition duration-700 ease-out"></div><div class="relative pb-2 font-light leading-none text-center text-white uppercase lg:absolute lg:left-0 lg:bottom-full lg:w-full"><div class="mb-3 text-sm text-gray-400">DON GNU (DK)</div><div class="text-2xl 2xl:text-3xl"><h2>Decrepit Beauty</h2><div>23.&nbsp;&ndash;&nbsp;29. april 2027</div></div></div>
+<a
+x-cursor="'Læs mere'"
+class="relative block bg-center bg-no-repeat bg-cover aspect-[26/15]"
+style="background-image: url(https://bora-bora.dk/wp-content/uploads/2026/05/DecrepitBeauty-DonGnu-Web-Main-2600x1500px.jpg)"
+href="https://bora-bora.dk/forestillinger/don-gnu-decrepit-beauty/"
+><div class="absolute top-0 right-0 text-xs uppercase origin-top-right rotate-90"><div
+class="px-2.5 py-1 transform translate-x-full translate-y-[calc(-100%-5px)]"
+style="background-color: #FFFFFF; color: #000;"
+>
+URPREMIERE / CO-PRODUKTION</div></div>
+</a><div class="relative z-10 flex items-center justify-around w-full pt-2 text-sm leading-3 text-white uppercase lg:absolute lg:top-full lg:left-0"><div class="relative before:block before:rounded-full before:bg-white before:w-2.5 before:h-2.5 before:absolute before:top-[1px] before:-left-4">
+From&nbsp;DKK&nbsp;95&nbsp;&ndash;&nbsp;210</div>
+<button
+type="button"
+class="basm basm_select uppercase hover:underline"
+data-event_no="148999"
+>
+Køb billetter
+</button></div></div></div></div></article></div></main><footer class="relative pt-8 px-5 pb-12 bg-[#141414] sm:py-24"><div class="px-5 mx-auto space-y-10 lg:px-12 max-w-screen-2xl lg:space-y-20"><div class="grid grid-cols-9 gap-10 lg:gap-20"><div class="col-span-9 mt-2 lg:col-span-3">
+<a
+href="/"
+class="block w-24 transition-all duration-150 ease-in-out hover:opacity-60"
+>
+                </a></div><div class="col-span-9 lg:col-span-6 text-[#aaa] font-light sm:text-lg lg:text-2xl"><p>Bora Bora – Dans og Visuelt Teater præsenterer dans og scenekunst fra ind- og udland, arrangerer lokale, nationale og internationale festivaler og er et produktionscenter for det lokale dansemiljø i Aarhus.</p></div></div><div class="grid grid-cols-9 gap-10 lg:gap-20"><div class="col-span-9 md:col-span-3 lg:col-span-2"><div class="mb-2 text-sm leading-4 text-white uppercase lg:mb-3">Bora Bora</div><div class="text-[#aaa] font-light flex flex-col"><p>Valdemarsgade 1<br />
+8000 Aarhus C</p>
+<a href="tel:86 19 00 79" class="underline">86 19 00 79</a>
+<a href="mailto:info@bora-bora.dk" class="underline">info@bora-bora.dk</a>
+<a href="https://bora-bora.dk/persondatapolitik/" class="mt-2 underline">Persondatapolitik</a></div></div><div class="col-span-9 md:col-span-3 lg:col-span-2"><div class="mb-2 text-sm leading-4 text-white uppercase lg:mb-3">Følg os</div><div class="text-[#aaa] font-light flex flex-col">
+<a href="https://www.facebook.com/BoraBoraDans" target="_blank" class="underline">Facebook</a>
+<a href="https://www.instagram.com/boraboradans/" target="_blank" class="underline">Instagram</a>
+<a href="https://www.linkedin.com/company/bora-bora/mycompany/" target="_blank" class="underline">LinkedIn</a></div></div><div class="col-span-9 lg:col-span-3 lg:order-first">
+<a href="https://mailchi.mp/bora-bora/nyhedsbrev" target="_blank" rel="noopener noreferrer" class="block w-full px-8 py-3 text-sm text-center text-white uppercase bg-transparent border border-solid rounded-full hover:opacity-50 sm:w-fit lg:w-full">Tilmeld nyhedsbrev</a></div></div></div></footer><div class="fixed top-0 left-0 z-50 flex flex-col items-center justify-center w-full h-screen text-center text-white bg-black bg-opacity-90 backdrop-blur-lg search-overlay js-search-overlay"><form class="z-10 w-full max-w-screen-xl px-5 my-16 lg:px-12 search-overlay-form" action="https://bora-bora.dk/" method="get" role="search">
+<input class="w-full leading-tighter uppercase font-light py-2 text-[10vw] sm:text-[6vw] lg:text-[4vw] appearance-none placeholder-current bg-transparent border-b focus:outline-none search-overlay-input js-search-overlay-input" name="s" type="search" value="" placeholder="Søg..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" /><div class="pt-3 font-light text-left sm:text-right">
+Tryk på enter for at søge eller ESC for at lukke</div></form><button class="absolute z-20 cursor-pointer top-3 right-3 lg:top-5 lg:right-5 js-close-search-overlay focus:outline-none" aria-label="Close search form">
+
+</button><div class="fixed top-0 left-0 w-full h-screen cursor-pointer js-search-overlay-background"></div></div>      </body></html>
+
+

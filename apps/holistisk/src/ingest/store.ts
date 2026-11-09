@@ -47,6 +47,18 @@ export async function markSourceEnabled(db: D1Database, id: string, enabled: boo
   await db.prepare("UPDATE sources SET enabled = ? WHERE id = ?").bind(enabled ? 1 : 0, id).run();
 }
 
+/** A switched-off source's coming events leave the site (unless another enabled source also lists them). They are
+ * withdrawn, not deleted, so switching the source on again brings them back on its next collection. */
+export async function withdrawSourceEvents(db: D1Database, id: string, now: number): Promise<number> {
+  const res = await db.prepare(
+    `UPDATE events SET status = 'withdrawn', updated_at = ?
+     WHERE primary_source_id = ? AND status IN ('scheduled', 'cancelled') AND starts_at > ?
+       AND NOT EXISTS (SELECT 1 FROM event_sources es JOIN sources s ON s.id = es.source_id
+                       WHERE es.event_id = events.id AND es.source_id != ? AND s.enabled = 1)`
+  ).bind(now, id, now, id).run();
+  return Number(res.meta?.changes ?? 0);
+}
+
 function organizerStatement(db: D1Database, r: EventRecord, now: number): D1PreparedStatement | null {
   if (!r.organizer_id || !r.organizer_name) return null;
   return db.prepare(

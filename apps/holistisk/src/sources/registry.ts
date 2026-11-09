@@ -16,6 +16,11 @@ import { musikhuset } from "./musikhuset.js";
 import { aakb } from "./aakb.js";
 import { resonans } from "./resonans.js";
 import { folkestedet } from "./folkestedet.js";
+import { radar } from "./radar.js";
+import { loeves } from "./loeves.js";
+import { nemtilmeld } from "./nemtilmeld.js";
+import { fof } from "./fof.js";
+import { borabora, filuren, katapult } from "./theatres.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -39,7 +44,14 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   musikhuset,
   aakb,
   resonans,
-  folkestedet
+  folkestedet,
+  radar,
+  loeves,
+  nemtilmeld,
+  fof,
+  filuren,
+  katapult,
+  borabora
 };
 
 export const SOURCES: SourceConfig[] = [
@@ -274,7 +286,8 @@ export const SOURCES: SourceConfig[] = [
     completeListing: true,
     canonicalToSource: false,
     respectRobots: true,
-    enabled: () => true,
+    // Switched off at the project owner's request (2026-11-09): big stages, not what Socialklubben is about.
+    enabled: () => false,
     defaults: {
       timezone: TIMEZONE,
       organizerName: "Train",
@@ -297,7 +310,8 @@ export const SOURCES: SourceConfig[] = [
     completeListing: true,
     canonicalToSource: false,
     respectRobots: true,
-    enabled: () => true,
+    // Switched off at the project owner's request (2026-11-09): big stages, not what Socialklubben is about.
+    enabled: () => false,
     defaults: {
       timezone: TIMEZONE,
       organizerName: "Musikhuset Aarhus",
@@ -387,6 +401,160 @@ export const SOURCES: SourceConfig[] = [
       venues: [{ match: /./, name: "Folkestedet", address: "Carl Blochs Gade 28", postalCode: "8000", city: "Aarhus C", lat: 56.154924, lon: 10.19369 }]
     },
     options: { url: "https://folkestedet.aarhus.dk/kalender", defaultCategories: ["sociale-faellesskaber"] }
+  },
+  {
+    id: "radar",
+    name: "Radar",
+    adapter: "radar",
+    homepageUrl: "https://radarlive.dk/kalender/",
+    permissionBasis: "Radars offentlige kalender (radarlive.dk/kalender) og eventsiderne; ingen robots.txt.",
+    attribution: "Radar, Karen Wegeners Gade 6, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Radar",
+      organizerUrl: "https://radarlive.dk/",
+      // Coordinates: OpenStreetMap (as in places.ts).
+      venues: [{ match: /./, name: "Radar", address: "Karen Wegeners Gade 6", postalCode: "8000", city: "Aarhus C", lat: 56.153242, lon: 10.194083 }]
+    },
+    options: { url: "https://radarlive.dk/kalender/", enrichBudget: 12, defaultCategories: ["koncerter-musik"] }
+  },
+  {
+    id: "loeves",
+    name: "Løve's Bog- og VinCafé",
+    adapter: "loeves",
+    homepageUrl: "https://www.loeves.dk/bogcafeen-kalender.html",
+    permissionBasis: "Løve's offentlige kalender (loeves.dk/bogcafeen-kalender.html), der linker til caféens egne Facebook-events; ingen robots.txt.",
+    attribution: "Løve's Bog- og VinCafé, Nørregade 32, Aarhus",
+    imagePolicy: "none",
+    descriptionPolicy: "none",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Løve's Bog- og VinCafé",
+      organizerUrl: "https://www.loeves.dk/",
+      venues: [{ match: /./, name: "Løve's Bog- og VinCafé", address: "Nørregade 32", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { url: "https://www.loeves.dk/bogcafeen-kalender.html", defaultCategories: ["foredrag-debat"] }
+  },
+  {
+    id: "aarhus-lindy-hoppers",
+    name: "Aarhus Lindy Hoppers",
+    adapter: "nemtilmeld",
+    homepageUrl: "https://aarhuslindyhoppers.nemtilmeld.dk/",
+    permissionBasis: "Foreningens offentlige eventliste på NemTilmeld (aarhuslindyhoppers.nemtilmeld.dk); robots.txt tillader den.",
+    attribution: "Aarhus Lindy Hoppers",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: { timezone: TIMEZONE, organizerName: "Aarhus Lindy Hoppers", organizerUrl: "https://aarhuslindyhoppers.nemtilmeld.dk/", venues: [] },
+    // Weekly courses and the membership are left out (over two days); workshops and parties stay.
+    options: { url: "https://aarhuslindyhoppers.nemtilmeld.dk/", maxDays: 2, city: "Aarhus", defaultCategories: ["dans-bevaegelse"] }
+  },
+  {
+    id: "fof-aarhus",
+    name: "FOF Aarhus – foredrag",
+    adapter: "fof",
+    homepageUrl: "https://www.fof.dk/aarhus/foredrag-i-aarhus",
+    permissionBasis: "FOF Aarhus' offentlige foredragsliste (fof.dk/aarhus/foredrag-i-aarhus) og foredragenes egne sider (schema.org Course-data); robots.txt tillader alt undtagen søgning.",
+    attribution: "FOF Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 45,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: { timezone: TIMEZONE, organizerName: "FOF Aarhus", organizerUrl: "https://www.fof.dk/fof-aarhus", venues: [] },
+    options: { url: "https://www.fof.dk/aarhus/foredrag-i-aarhus", maxPages: 10, enrichBudget: 20, defaultCategories: ["foredrag-debat"] }
+  },
+  {
+    id: "filuren",
+    name: "Teaterhuset Filuren",
+    adapter: "filuren",
+    homepageUrl: "https://filuren.dk/",
+    permissionBasis: "Filurens offentlige kalender (filuren.dk/kalender) med hver forestilling og tid; robots.txt tillader den. Tilføjet efter ønske fra projektejer (2026-11-09).",
+    attribution: "Teaterhuset Filuren, Thomas Jensens Allé, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Teaterhuset Filuren",
+      organizerUrl: "https://filuren.dk/",
+      venues: [{ match: /./, name: "Teaterhuset Filuren", address: "Thomas Jensens Allé", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { url: "https://filuren.dk/kalender/", defaultCategories: ["scenekunst", "boern-familie"] }
+  },
+  {
+    id: "katapult",
+    name: "Teater Katapult",
+    adapter: "katapult",
+    homepageUrl: "https://katapult.dk/",
+    permissionBasis: "Katapults offentlige sæsonprogram (katapult.dk/saeson-2026/) og forestillingernes sider; robots.txt tillader alt. Tilføjet efter ønske fra projektejer (2026-11-09).",
+    attribution: "Teater Katapult, Karen Wegeners Gade 8, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Teater Katapult",
+      organizerUrl: "https://katapult.dk/",
+      venues: [{ match: /./, name: "Teater Katapult", address: "Karen Wegeners Gade 8", postalCode: "8000", city: "Aarhus C", lat: null, lon: null }]
+    },
+    options: { // The season page has the year in its address: change it when the next season is published.
+      url: "https://katapult.dk/saeson-2026/", defaultCategories: ["scenekunst"] }
+  },
+  {
+    id: "bora-bora",
+    name: "Bora Bora – dans og visuelt teater",
+    adapter: "borabora",
+    homepageUrl: "https://bora-bora.dk/",
+    permissionBasis: "Bora Boras offentlige program (bora-bora.dk) og forestillingernes sider; robots.txt tillader alt. Tilføjet efter ønske fra projektejer (2026-11-09).",
+    attribution: "Bora Bora, Valdemarsgade 1, Aarhus",
+    imagePolicy: "allowed",
+    descriptionPolicy: "excerpt",
+    priority: 50,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: true,
+    enabled: () => true,
+    defaults: {
+      timezone: TIMEZONE,
+      organizerName: "Bora Bora – dans og visuelt teater",
+      organizerUrl: "https://bora-bora.dk/",
+      venues: [{ match: /./, name: "Bora Bora", address: "Valdemarsgade 1", postalCode: "8000", city: "Aarhus C", lat: 56.151826, lon: 10.199036 }]
+    },
+    options: { url: "https://bora-bora.dk/", maxPages: 20, defaultCategories: ["scenekunst", "dans-bevaegelse"] }
   },
   {
     id: "billetto",

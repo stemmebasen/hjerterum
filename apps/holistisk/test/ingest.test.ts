@@ -8,6 +8,8 @@ import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
 
 const NOW = Date.parse("2026-10-10T12:00:00Z");
 const hjerterum = SOURCES.filter(s => s.id === "hjerterum");
+// The sources a run collects without keys: Billetto needs one, and some are switched off.
+const COLLECTED = SOURCES.filter(s => s.enabled({} as never));
 const DETAIL = JSON.stringify({ ttl: "Deep Shamanic Healing Journey", adn: "Hjerterum", adr: { ad1: "Guldsmedgade 26", con: "DK", zip: "8000", cit: "Aarhus", loc: ["10.2078481", "56.1593182"] } });
 
 function routes(feed: string) {
@@ -43,7 +45,22 @@ function routes(feed: string) {
     "https://godsbanen.dk/kalender/": { body: fixture("godsbanen-kalender.html") },
     "https://voxhall.dk/robots.txt": { body: "User-agent: *\nDisallow: /wp-admin/\n" },
     "https://voxhall.dk/koncerter/": { body: fixture("voxhall-koncerter.html") },
-    "https://voxhall.dk/wp-json/wp/v2/voxhall-event": { body: fixture("voxhall-events.json"), headers: { "content-type": "application/json" } }
+    "https://voxhall.dk/wp-json/wp/v2/voxhall-event": { body: fixture("voxhall-events.json"), headers: { "content-type": "application/json" } },
+    "https://radarlive.dk/robots.txt": { status: 404 },
+    "https://radarlive.dk/kalender/": { body: fixture("radar-kalender.html") },
+    "https://www.loeves.dk/robots.txt": { status: 404 },
+    "https://www.loeves.dk/bogcafeen-kalender.html": { body: fixture("loeves-kalender.html") },
+    "https://aarhuslindyhoppers.nemtilmeld.dk/robots.txt": { body: "User-agent: *\nDisallow: /Xkhr7dheeeee/\n" },
+    "https://aarhuslindyhoppers.nemtilmeld.dk/": { body: fixture("nemtilmeld-aarhuslindyhoppers.html") },
+    "https://www.fof.dk/robots.txt": { body: "User-Agent: *\nAllow: /\nDisallow: /soeg\nDisallow: /*/soeg\n" },
+    "https://www.fof.dk/aarhus/foredrag-i-aarhus": { body: fixture("fof-foredrag.html") },
+    "https://filuren.dk/robots.txt": { status: 404 },
+    "https://filuren.dk/kalender/": { body: fixture("filuren-kalender.html") },
+    "https://katapult.dk/robots.txt": { status: 404 },
+    "https://katapult.dk/saeson-2026/": { body: fixture("katapult-saeson.html") },
+    "https://katapult.dk/": (url: string) => ({ body: fixture(url.includes("don-quixote") ? "katapult-don-quixote.html" : "katapult-storyslam.html") }),
+    "https://bora-bora.dk/robots.txt": { status: 404 },
+    "https://bora-bora.dk/": (url: string) => ({ body: url === "https://bora-bora.dk/" ? fixture("borabora-forside.html") : url.includes("/wired/") ? fixture("borabora-wired.html") : "<html></html>" })
   };
 }
 
@@ -198,16 +215,16 @@ describe("collecting Hjerterum's calendar", () => {
     expect(first.deferred).not.toContain("billetto");
     // The next runs take the deferred sources, not the ones just collected, until every source has had its turn.
     let seen = new Set(done);
-    for (let i = 1; i <= 10 && seen.size < SOURCES.filter(s => s.id !== "billetto").length; i++) {
+    for (let i = 1; i <= 10 && seen.size < COLLECTED.length; i++) {
       const before = calls.length;
       const next = await run(NOW + i * 3600_000, 20);
       expect(calls.length - before).toBeLessThanOrEqual(20);
       expect(next.sources.filter(s => s.status === "ok").some(s => seen.has(s.id))).toBe(false);
       for (const s of next.sources) if (s.status === "ok") seen.add(s.id);
     }
-    expect(seen.size).toBe(SOURCES.filter(s => s.id !== "billetto").length);
+    expect(seen.size).toBe(COLLECTED.length);
     const status = await ingestStatus(db, NOW + 11 * 3600_000);
-    expect(status.sources.filter(s => s.id !== "billetto").every(s => s.status === "ok")).toBe(true);
+    expect(status.sources.filter(s => COLLECTED.some(c => c.id === s.id)).every(s => s.status === "ok")).toBe(true);
     expect((await run(NOW + 12 * 3600_000, 20)).reason).toBe("nothing_due");
     // A day later the first batch is due again.
     expect((await run(NOW + 21 * 3600_000, 20)).sources.filter(s => s.status === "ok").map(s => s.id)).toEqual(done);

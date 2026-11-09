@@ -137,7 +137,7 @@ describe("Train (public content API)", () => {
       "https://zr3nrpl4.apicdn.sanity.io/robots.txt": { status: 404 },
       "https://zr3nrpl4.apicdn.sanity.io/v2021-10-21/data/query/production": { body: fixture("train-sanity.json"), headers: { "content-type": "application/json" } }
     });
-    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: [source("train")] });
+    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: [{ ...source("train"), enabled: () => true }] });
     expect(out.sources[0]).toMatchObject({ status: "ok", rejected: 0, created: 44 });
     expect(calls.filter(c => c.includes("/data/query/"))).toHaveLength(1);
     expect(decodeURIComponent(calls.find(c => c.includes("/data/query/"))!)).toContain('$from="2026-10-24"');
@@ -167,7 +167,7 @@ describe("Musikhuset (the site's JSON API)", () => {
       "https://www.musikhuset.dk/api/v2/events/showings": { body: fixture("musikhuset-showings.json"), headers: { "content-type": "application/json" } },
       "https://www.musikhuset.dk/api/v2/events": { body: fixture("musikhuset-events.json"), headers: { "content-type": "application/json" } }
     });
-    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: [source("musikhuset")] });
+    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: [{ ...source("musikhuset"), enabled: () => true }] });
     expect(out.sources[0]).toMatchObject({ status: "ok", rejected: 0 });
     const cats = db.raw.prepare("SELECT c.category, COUNT(*) AS n FROM event_categories c GROUP BY c.category").all() as Array<{ category: string; n: number }>;
     const has = (c: string) => (cats.find(x => x.category === c)?.n ?? 0) > 0;
