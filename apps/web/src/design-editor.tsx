@@ -13,6 +13,8 @@ export type EditorPicture = { url: string; label: string };
 type Props = {
   format: Format; start: EditorStart; input: Omit<LayerInput, "W" | "H">; pictures: EditorPicture[]; photoUrl: string | null; logo: HTMLImageElement | null;
   onUse: (blob: Blob) => void; onClose: () => void;
+  /** Requested (the chair, 10 Nov 2026): "Jeg bør kunne trække billeder ind fra Pixabay i editoren." The studio's picture finder (Pexels, Unsplash, Pixabay, art). */
+  finder?: (chosen: (url: string, label: string) => void) => React.ReactNode;
 };
 
 export const EDITOR_FONTS = ["Playfair Display", "Inter", "Cormorant Garamond", "Jost", "DM Serif Display", "DM Sans", "Fraunces", "Work Sans"];
@@ -163,7 +165,7 @@ export async function designThumb(design: LayerDesign, size: { width: number; he
 const ROLE_LABEL: Record<string, string> = { photo: "Billede", "photo-frame": "Billede med ramme", placeholder: "Billedfelt", logo: "Logo", title: "Overskrift", sub: "Undertekst", date: "Dato", kicker: "Lille overskrift",
   small: "Lille tekst", quote: "Citat", text: "Tekst", shape: "Form", flat: "Designet" };
 
-export function DesignEditor({ format, start, input, pictures, photoUrl, logo, onUse, onClose }: Props) {
+export function DesignEditor({ format, start, input, pictures, photoUrl, logo, onUse, onClose, finder }: Props) {
   const { width: W, height: H } = SIZES[format];
   const host = useRef<HTMLDivElement>(null), el = useRef<HTMLCanvasElement>(null), fc = useRef<Canvas | null>(null);
   const [zoom, setZoom] = useState(0.5);
@@ -192,13 +194,17 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
 
   // The canvas, once.
   useEffect(() => {
-    const c = new Canvas(el.current!, { width: W, height: H, preserveObjectStacking: true, backgroundColor: "#ffffff" });
+    // Reported (the chair, 10 Nov 2026): "Når jeg markerer elementer i editoren, kan jeg ikke se det, mens jeg gør det" - the marking box in the house's
+    // orange, and what is chosen plainly framed.
+    const c = new Canvas(el.current!, { width: W, height: H, preserveObjectStacking: true, backgroundColor: "#ffffff",
+      selectionColor: "rgba(228,87,46,0.12)", selectionBorderColor: "#e4572e", selectionLineWidth: 2, selectionDashArray: [6, 4] });
+    c.on("object:added", e => e.target.set({ borderColor: "#e4572e", cornerColor: "#e4572e", cornerStrokeColor: "#ffffff", transparentCorners: false, borderScaleFactor: 2, cornerSize: 14 }));
     fc.current = c;
     const pick = () => { setSelected((c.getActiveObject() as Tagged) ?? null); refresh(); };
     c.on("selection:created", pick); c.on("selection:updated", pick); c.on("selection:cleared", () => setSelected(null));
     c.on("object:modified", () => { snapshot(); refresh(); });
     // Guides: the middle of the page, across and down, when something comes near it.
-    let guides: Array<"v" | "h"> = [];
+    let guides: Array<"v" | "h"> = [], drewGuides = false;
     c.on("object:moving", e => {
       const t = e.target, center = t.getCenterPoint(), near = 12 / (c.getZoom() || 1);
       guides = [];
@@ -209,7 +215,9 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
     });
     c.on("after:render", () => {
       const ctx = c.contextTop; if (!ctx) return;
-      c.clearContext(ctx);
+      // Only the guides' own drawing is wiped - the top layer also holds the marking box while one is drawn.
+      if (!guides.length && !drewGuides) return;
+      c.clearContext(ctx); drewGuides = guides.length > 0;
       if (!guides.length) return;
       const z = c.getZoom();
       ctx.save(); ctx.strokeStyle = "#e4572e"; ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
@@ -275,7 +283,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
   const changed = () => { fc.current?.requestRenderAll(); snapshot(); refresh(); };
   const set = (props: Record<string, unknown>) => { if (!selected) return; selected.set(props); selected.setCoords(); changed(); };
   const add = (obj: FabricObject) => { const c = fc.current; if (!c) return; c.add(obj); c.setActiveObject(obj); setSelected(obj as Tagged); changed(); };
-  const remove = () => { const c = fc.current, o = c?.getActiveObject(); if (!c || !o) return; c.remove(o); c.discardActiveObject(); setSelected(null); changed(); };
+  // "kan jeg ikke altid slette elementer": with more than one marked, each of them is taken away (not the marking itself).
+  const remove = () => { const c = fc.current; if (!c) return; const all = c.getActiveObjects(); if (!all.length) return; c.discardActiveObject(); c.remove(...all); setSelected(null); changed(); };
   const duplicate = async () => { const c = fc.current, o = c?.getActiveObject() as Tagged | undefined; if (!c || !o) return;
     const copy = await o.clone(PROPS) as Tagged; copy.set({ left: (o.left ?? 0) + 30, top: (o.top ?? 0) + 30 }); add(copy); };
   const layer = (how: "up" | "down" | "top" | "bottom") => { const c = fc.current, o = c?.getActiveObject(); if (!c || !o) return;
@@ -298,8 +307,18 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
       fill: input.colors.ink, fontStyle: kind === "sub" ? "italic" : "normal", textAlign: "center" });
     (t as Tagged).role = kind; add(t);
   };
-  const addPicture = async (url: string) => {
-    const obj = await photoObject({ kind: "photo", x: W * 0.25, y: H * 0.25, w: W * 0.5, h: W * 0.5, frame: "round" }, url, input.colors); add(obj);
+  const addPicture = async (url: string, at?: { x: number; y: number }) => {
+    const size = W * 0.5;
+    const obj = await photoObject({ kind: "photo", x: at ? Math.max(0, Math.min(W - size, at.x - size / 2)) : W * 0.25, y: at ? Math.max(0, Math.min(H - size, at.y - size / 2)) : H * 0.25, w: size, h: size, frame: "round" }, url, input.colors); add(obj);
+  };
+  // Pictures found while the editor is open, first; and dropped on the page where they are let go.
+  const [found, setFound] = useState<EditorPicture[]>([]);
+  const pics = [...found, ...pictures.filter(p => !found.some(f => f.url === p.url))];
+  const drop = (e: React.DragEvent) => {
+    const url = e.dataTransfer.getData("text/x-hjerterum-picture"), c = fc.current; if (!url || !c) return;
+    e.preventDefault();
+    const box = (e.currentTarget as HTMLElement).querySelector("canvas")!.getBoundingClientRect(), z = c.getZoom() || 1;
+    void addPicture(url, { x: (e.clientX - box.left) / z, y: (e.clientY - box.top) / z });
   };
   const addShape = (kind: "rect" | "circle" | "line" | "arch") => {
     const fill = input.colors.camel;
@@ -357,12 +376,15 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
       <p className="ed-row"><button type="button" onClick={() => addShape("rect")}>▭ Firkant</button><button type="button" onClick={() => addShape("circle")}>◯ Cirkel</button><button type="button" onClick={() => addShape("arch")}>⌂ Bue</button><button type="button" onClick={() => addShape("line")}>― Streg</button></p>
       {logo && <p className="ed-row"><button type="button" onClick={() => void addLogo()}>Logo</button></p>}
       <h3>Billeder</h3>
-      <div className="ed-pics">{pictures.map(p => <button key={p.url} type="button" title={`Læg ind: ${p.label}`} onClick={() => void addPicture(p.url)}><img src={p.url} alt={p.label} loading="lazy" /></button>)}</div>
-      {!pictures.length && <p className="studio-muted">Ingen billeder endnu. Find et under "Find et billede".</p>}
+      <div className="ed-pics">{pics.map(p => <button key={p.url} type="button" title={`Læg ind: ${p.label} (eller træk det ind)`} draggable
+        onDragStart={e => { e.dataTransfer.setData("text/x-hjerterum-picture", p.url); e.dataTransfer.effectAllowed = "copy"; }} onClick={() => void addPicture(p.url)}><img src={p.url} alt={p.label} loading="lazy" /></button>)}</div>
+      {!pics.length && <p className="studio-muted">Ingen billeder endnu. Find et herunder.</p>}
+      {finder && <details className="ed-finder"><summary>Find billeder (Pixabay, Pexels, Unsplash, kunst)</summary>
+        {finder((url, label) => { setFound(f => [{ url, label }, ...f.filter(x => x.url !== url)]); void addPicture(url); })}</details>}
       <h3>Baggrund</h3>
       <Swatches value={typeof fc.current?.backgroundColor === "string" ? fc.current.backgroundColor : null} onPick={color => { const c = fc.current; if (!c) return; c.backgroundColor = color; changed(); }} />
     </aside>
-    <div className="ed-stage" ref={host}>
+    <div className="ed-stage" ref={host} onDragOver={e => { if (e.dataTransfer.types.includes("text/x-hjerterum-picture")) { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } }} onDrop={drop}>
       <canvas ref={el} />
       {busy && <p className="ed-busy">{busy}</p>}
     </div>
@@ -384,7 +406,7 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
           <div className="ed-field"><span>Farve</span><Swatches value={fill} onPick={color => set({ fill: color })} /></div>
         </>}
         {photo && <>
-          <div className="ed-field"><span>Skift billede</span><div className="ed-pics">{pictures.map(p => <button key={p.url} type="button" onClick={() => void refill(photo, { url: p.url })}><img src={p.url} alt={p.label} loading="lazy" /></button>)}</div></div>
+          <div className="ed-field"><span>Skift billede</span><div className="ed-pics">{pics.map(p => <button key={p.url} type="button" onClick={() => void refill(photo, { url: p.url })}><img src={p.url} alt={p.label} loading="lazy" /></button>)}</div></div>
           <label className="ed-field"><span>Zoom i billedet</span><input type="range" min={1} max={3} step={0.02} value={photo.zoomIn ?? 1} onChange={e => void refill(photo, { zoom: Number(e.target.value) })} /></label>
           <label className="ed-field"><span>Udsnit vandret</span><input type="range" min={0} max={1} step={0.01} value={photo.focusX ?? 0.5} onChange={e => void refill(photo, { focus: [Number(e.target.value), photo.focusY ?? 0.5] })} /></label>
           <label className="ed-field"><span>Udsnit lodret</span><input type="range" min={0} max={1} step={0.01} value={photo.focusY ?? 0.5} onChange={e => void refill(photo, { focus: [photo.focusX ?? 0.5, Number(e.target.value)] })} /></label>
