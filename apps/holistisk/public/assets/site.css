@@ -165,7 +165,10 @@ strong { font-weight: 800; }
 .hero { background: var(--paper); background-image: radial-gradient(rgba(23, 51, 45, .08) 1.2px, transparent 1.3px); background-size: 22px 22px; border-bottom: 2px solid var(--ink); }
 .hero-inner { padding-top: 40px; padding-bottom: 52px; display: grid; gap: 34px; align-items: center; }
 @media (min-width: 940px) { .hero-inner { grid-template-columns: 1fr 1fr; gap: 48px; padding-top: 64px; padding-bottom: 76px; } }
-.hero h1 { font-size: clamp(2.4rem, 1.3rem + 4vw, 4.4rem); line-height: 1.02; max-width: 9.5em; margin-bottom: .45em; }
+.hero h1 { font-size: clamp(2.4rem, 1.3rem + 4vw, 3.9rem); line-height: 1.02; max-width: 10em; margin-bottom: .45em; }
+/* The second line ("– del dem med gode mennesker!") always starts on its own line, never splits off the dash or leaves "mennesker!" alone. */
+.hero-title { text-wrap: balance; }
+.hero-line { display: block; text-wrap: balance; }
 .hero .standfirst { max-width: 32em; }
 .hero-kicker { display: inline-block; font: 600 .95rem var(--display); color: var(--green-2); background: var(--green-soft); border-radius: 999px; padding: 4px 14px; margin: 0 0 1em; }
 /* The hero's tickets, drawn like the share image: three real coming events, fanned, the free one stamped. */
