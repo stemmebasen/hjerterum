@@ -713,6 +713,14 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .studio-mock-text { white-space: pre-wrap; padding: 0 14px 10px; margin: 0; font-size: 15px; line-height: 1.4; }
 .studio-mock-link { padding: 0 14px 10px; margin: 0; font-size: 13.5px; color: #385898; overflow-wrap: anywhere; }
 .studio-mock-picture { width: 100%; display: block; }
+.studio-mock-slides { display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x mandatory; }
+.studio-mock-slides img { flex: 0 0 88%; width: 88%; display: block; scroll-snap-align: start; }
+.ed .ed-stage.ed-slides { grid-column: 2 / -1; display: flex; flex-direction: row; gap: 24px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 24px; overflow: auto; }
+.ed-slides figure { margin: 0; flex: 0 1 30%; min-width: 220px; max-width: 360px; text-align: center; }
+.ed-slides img, .ed-slides .ed-thumb-wait { width: 100%; display: block; box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.ed-quotes { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; font-size: 14px; }
+.ed-quotes label { display: block; cursor: pointer; line-height: 1.4; }
+.ed-quote-no { display: inline-block; min-width: 20px; text-align: center; border-radius: 999px; background: #e4572e; color: #fff; font-size: 12px; margin: 0 4px; }
 .studio-mock-video { margin-top: 18px; }
 .studio-mock-video video { width: 100%; display: block; aspect-ratio: 9 / 16; background: #000; }
 .studio-mock-video header span { margin-left: auto; font-size: 13px; }

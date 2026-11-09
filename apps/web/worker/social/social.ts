@@ -10,7 +10,7 @@ import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { facebookEvents } from "../cockpit/fbEvents.js";
 import { instagramName } from "../../pr-material.js";
-import { deletePublished, finishReel, followerCounts, isGone, pageEvents, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
+import { deletePublished, postPhotosToPage, finishReel, followerCounts, isGone, pageEvents, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
 import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
@@ -1137,7 +1137,9 @@ export async function publishPost(env: SocialEnv, deps: SagaDeps, db: D1Database
           if (/permission|\(#10\)|\(#200\)|publish_video|meta_403/i.test(error instanceof Error ? error.message : String(error))) return null;
           throw error;
         }) : null;
-      if (channel === "facebook") done.facebook = facebookVideo ?? ((post.source.design || post.source.eventItself) && post.images[0]
+      if (channel === "facebook") done.facebook = facebookVideo ?? (post.source.design && post.images.length > 1
+        ? await postPhotosToPage(deps.fetcher, page, { urls: post.images, caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
+        : (post.source.design || post.source.eventItself) && post.images[0]
         ? await postPhotoToPage(deps.fetcher, page, { url: post.images[0], caption: await pub(post.link ? `${post.text}\n\n${post.link}` : post.text) })
         : await postToPage(deps.fetcher, page, { message: await pub(post.text), link: post.link ? await pub(post.link) : post.link }));
       else {
@@ -1572,6 +1574,16 @@ export async function eventPost(db: D1Database, key: string): Promise<SocialPost
 }
 
 /** The design becomes the post's picture (on Facebook and Instagram); a changed post is a draft again, for the chair to approve. */
+/** "Kan citatdesignet laves til en karrusel med tre blade, som jeg så vælger?" - "Tre citater, du vælger": the chair's slides (2-10, the designs stored here)
+ * are the post's pictures - a carousel on Instagram, one post with them all on Facebook - and no video then. A proposal again, to approve. */
+export async function setPostCarousel(db: D1Database, postId: number, urls: string[], nowMs: number): Promise<boolean> {
+  const post = await socialPost(db, postId);
+  if (!post || !["draft", "approved", "failed"].includes(post.status) || urls.length < 2 || urls.length > 10) return false;
+  await db.prepare("UPDATE social_posts SET images = ?, source = ?, status = 'draft', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ?")
+    .bind(JSON.stringify(urls), JSON.stringify({ ...post.source, design: true, noVideo: true, noFacebookVideo: true, eventImage: post.source.eventImage ?? (post.source.design ? undefined : post.images[0]) }), nowMs, postId).run();
+  return true;
+}
+
 export async function setPostDesign(db: D1Database, postId: number, url: string, nowMs: number): Promise<boolean> {
   const post = await socialPost(db, postId);
   if (!post || !["draft", "approved", "failed"].includes(post.status)) return false;

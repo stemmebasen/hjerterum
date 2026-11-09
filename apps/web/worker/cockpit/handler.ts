@@ -54,7 +54,7 @@ import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
-import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -1168,7 +1168,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const download = /^\/plakater\/materiale\/(\d+)$/.exec(path);
     if (download && request.method === "GET") return materialFile(db, media, Number(download[1]), true);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload|\/billedsoeg|\/billede-hent)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/karrusel|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload|\/billedsoeg|\/billede-hent)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1184,12 +1184,25 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return data ? answer({ ...data, who, back: `${base}/plakater`, siteLive: await siteLive(db) }) : answer({ error: "not_found" }, 404);
     }
     // "Brug i opslaget": the design becomes the picture of the event's open post in PR og SoMe, which is a draft again for the chair to approve.
+    // "Kan citatdesignet laves til en karrusel med tre blade, som jeg så vælger?" (social.ts setPostCarousel) - only slides stored here.
+    if (part === "/karrusel" && request.method === "POST") {
+      const data = await studioData(db, id!, now, deps.fetcher);
+      if (!data?.post) return answer({ error: "no_post" }, 404);
+      const body = await request.json().catch(() => null) as { urls?: unknown } | null;
+      const urls = Array.isArray(body?.urls) ? body!.urls.filter((u): u is string => typeof u === "string" && /^https:\/\/www\.hjerterum\.info\/api\/social-designs\/[0-9a-f]{32}\.jpg$/.test(u)) : [];
+      if (urls.length < 2 || urls.length !== (body!.urls as unknown[]).length) return answer({ error: "bad_request" }, 400);
+      if (!(await setPostCarousel(db, data.post.id, urls, now))) return answer({ error: "not_possible" }, 422);
+      await audit(db, actor, "posters.design", `Lagde en karrusel med ${urls.length} billeder i opslaget om "${data.event.title}"`, now);
+      return answer({ ok: true });
+    }
     if (part === "/opslag" && request.method === "POST") {
       if (!media) return answer({ error: "not_possible" }, 400);
       const data = await studioData(db, id!, now, deps.fetcher);
       if (!data?.post) return answer({ error: "no_post" }, 404);
       const stored = await storeSocialDesign(media, await request.arrayBuffer());
       if (!stored.ok) return answer(stored, 422);
+      // A slide of a carousel: kept, and laid in the post with the others (/karrusel).
+      if (url.searchParams.get("kun") === "gem") return answer({ ok: true, url: stored.url });
       await setPostDesign(db, data.post.id, stored.url, now);
       await audit(db, actor, "posters.design", `Lagde et design i opslaget om "${data.event.title}"`, now);
       return answer({ ok: true, url: stored.url, monday: data.post.monday });

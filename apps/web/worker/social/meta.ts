@@ -208,6 +208,16 @@ export async function postPhotoToPage(fetcher: Fetcher, page: { id: string; toke
   return made.post_id ?? made.id;
 }
 
+/** Requested (the chair, 10 Nov 2026): "Kan citatdesignet laves til en karrusel med tre blade" - several pictures in one Facebook post: each uploaded unpublished,
+ * then one post with them all. */
+export async function postPhotosToPage(fetcher: Fetcher, page: { id: string; token: string }, post: { urls: string[]; caption: string }): Promise<string> {
+  const ids: string[] = [];
+  for (const url of post.urls.slice(0, 10)) ids.push((await graph<{ id: string }>(fetcher, "POST", `/${page.id}/photos`, { url, published: "false", access_token: page.token })).id);
+  const params: Record<string, string> = { message: post.caption, access_token: page.token };
+  ids.forEach((id, i) => { params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id }); });
+  return (await graph<{ id: string }>(fetcher, "POST", `/${page.id}/feed`, params)).id;
+}
+
 /** A photo or a carousel (2-10 photos) on Instagram: the containers first, then published. Instagram reads the photos from their (public) addresses. */
 export async function publishToInstagram(fetcher: Fetcher, account: { igUserId: string; token: string }, post: { caption: string; images: string[]; collaborators?: string[] },
   wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms))): Promise<string> {

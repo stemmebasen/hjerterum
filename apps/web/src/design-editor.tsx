@@ -150,6 +150,62 @@ export async function buildDesign(canvas: Canvas | StaticCanvas, design: LayerDe
   canvas.renderAll();
 }
 
+/** A design at full size, as a jpg (made from the canvas - the admin's rules allow no fetch() of a data: address). */
+export async function designBlob(design: LayerDesign, size: { width: number; height: number }, photos: Array<string | null>, logo: HTMLImageElement | null, colors: Colors): Promise<Blob | null> {
+  const el = document.createElement("canvas");
+  const c = new StaticCanvas(el, { width: size.width, height: size.height, renderOnAddRemove: false });
+  await buildDesign(c, design, photos, logo, colors);
+  const blob = await new Promise<Blob | null>(resolve => { try { c.toCanvasElement(1).toBlob(resolve, "image/jpeg", 0.92); } catch { resolve(null); } });
+  void c.dispose();
+  return blob;
+}
+
+/** Requested (the chair, 10 Nov 2026): "Kan citatdesignet laves til en karrusel med tre blade, som jeg så vælger?" - "Tre citater, du vælger": the same quote
+ * design three times, a quote of the chair's choosing on each, with the event and the logo on every slide. */
+export function QuoteCarousel({ format, input, quotes, photoUrl, logo, start, onUse, onClose }: { format: Format; input: Omit<LayerInput, "W" | "H">; quotes: string[]; photoUrl: string | null;
+  logo: HTMLImageElement | null; start: string; onUse: (slides: Blob[]) => void; onClose: () => void }) {
+  const size = SIZES[format];
+  const designs = LAYER_DESIGNS.filter(m => m.key.startsWith("citat"));
+  const [key, setKey] = useState(designs.some(m => m.key === start) ? start : designs[0]!.key);
+  const [chosen, setChosen] = useState<number[]>(quotes.slice(0, 3).map((_, i) => i));
+  const [thumbs, setThumbs] = useState<string[]>([]);
+  const [busy, setBusy] = useState("");
+  const slides = chosen.map(i => quotes[i]!).filter(Boolean);
+  const make = (q: string) => layerDesign(key, { ...input, quote: q, W: size.width, H: size.height })!;
+  useEffect(() => {
+    let live = true;
+    setThumbs([]);
+    void (async () => {
+      const out: string[] = [];
+      for (const q of slides) { out.push(await designThumb(make(q), size, [photoUrl, photoUrl, photoUrl], logo, input.colors).catch(() => "")); if (live) setThumbs([...out]); }
+    })();
+    return () => { live = false; };
+  }, [key, JSON.stringify(chosen), photoUrl, logo]);
+  const toggle = (i: number) => setChosen(c => c.includes(i) ? c.filter(x => x !== i) : c.length >= 3 ? c : [...c, i]);
+  const use = async () => {
+    setBusy("Laver karrusellen …");
+    const blobs: Blob[] = [];
+    for (const q of slides) { const b = await designBlob(make(q), size, [photoUrl, photoUrl, photoUrl], logo, input.colors); if (!b) { setBusy("Et af billederne kunne ikke laves. Prøv et andet foto."); return; } blobs.push(b); }
+    setBusy(""); onUse(blobs);
+  };
+  return <div className="ed ed-carousel" role="dialog" aria-label="Karrusel med citater">
+    <header className="ed-bar"><b>Karrusel med citater</b><span className="ed-space" />
+      <button type="button" className="lys-btn" disabled={slides.length < 2 || Boolean(busy)} onClick={() => void use()}>Brug karrusellen ({slides.length} slides) →</button>
+      <button type="button" className="lys-btn ghost" onClick={onClose}>Luk</button></header>
+    <aside className="ed-add">
+      <h3>Design</h3>
+      <p className="ed-row">{designs.map(m => <button key={m.key} type="button" className={m.key === key ? "is-on" : ""} onClick={() => setKey(m.key)}>{m.label}</button>)}</p>
+      <h3>Vælg tre citater</h3>
+      <p className="studio-muted">Rækkefølgen er den, du vælger dem i.</p>
+      <ol className="ed-quotes">{quotes.map((q, i) => <li key={i}><label><input type="checkbox" checked={chosen.includes(i)} disabled={!chosen.includes(i) && chosen.length >= 3} onChange={() => toggle(i)} />
+        {chosen.includes(i) && <b className="ed-quote-no">{chosen.indexOf(i) + 1}</b>} {q}</label></li>)}</ol>
+      {busy && <p className="studio-muted" role="status">{busy}</p>}
+    </aside>
+    <div className="ed-stage ed-slides">{slides.map((q, i) => <figure key={q}>{thumbs[i] ? <img src={thumbs[i]} alt={`Slide ${i + 1}`} style={{ aspectRatio: `${size.width} / ${size.height}` }} />
+      : <span className="ed-thumb-wait" style={{ aspectRatio: `${size.width} / ${size.height}` }}>Tegner …</span>}<figcaption>Slide {i + 1}</figcaption></figure>)}</div>
+  </div>;
+}
+
 /** A small picture of a design, for the gallery. */
 export async function designThumb(design: LayerDesign, size: { width: number; height: number }, photos: Array<string | null>, logo: HTMLImageElement | null, colors: Colors): Promise<string> {
   const el = document.createElement("canvas");
@@ -436,7 +492,7 @@ export const LAYER_DESIGN_LIST = LAYER_DESIGNS.map(m => ({ key: m.key, label: m.
 
 /** The new designs as small pictures, each opening in the editor. */
 export function LayerGallery({ format, input, photoUrl, logo, onOpen, quotes }: { format: Format; input: Omit<LayerInput, "W" | "H">; photoUrl: string | null; logo: HTMLImageElement | null; onOpen: (key: string) => void;
-  quotes?: { count: number; at: number; next: () => void } }) {
+  quotes?: { count: number; at: number; next: () => void; carousel?: (key: string) => void } }) {
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const size = SIZES[format];
   useEffect(() => {
@@ -458,7 +514,8 @@ export function LayerGallery({ format, input, photoUrl, logo, onOpen, quotes }: 
       {thumbs[m.key] ? <img src={thumbs[m.key]} alt="" style={{ aspectRatio: `${size.width} / ${size.height}` }} /> : <span className="ed-thumb-wait" style={{ aspectRatio: `${size.width} / ${size.height}` }}>Tegner …</span>}</button>
     <figcaption><div><b>{m.label}</b><p>{m.about}</p></div><p className="studio-actions"><button type="button" className="lys-btn" onClick={() => onOpen(m.key)}>Åbn i editoren</button>
       {m.key.startsWith("citat") && quotes && (quotes.count > 1
-        ? <button type="button" className="lys-btn ghost" onClick={quotes.next}>✨ Nyt citat ({quotes.at + 1}/{quotes.count})</button>
+        ? <><button type="button" className="lys-btn ghost" onClick={quotes.next}>✨ Nyt citat ({quotes.at + 1}/{quotes.count})</button>
+          {quotes.carousel && <button type="button" className="lys-btn ghost" onClick={() => quotes.carousel!(m.key)}>Karrusel med 3 citater</button>}</>
         : <span className="studio-muted">{quotes.count ? "Der er kun ét citat - underviserens egne ord kan lægges ind i PR-materialet." : "Ingen citater endnu - underviserens egne ord kan lægges ind i PR-materialet."}</span>)}</p></figcaption>
   </figure>)}</div>;
 }
