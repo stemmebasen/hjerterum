@@ -175,4 +175,33 @@
     toBottom();
     schedule();
   }
+  // The profile photo: made small (at most 600 px, JPEG) in the browser before it is sent, so a phone photo of several
+  // MB fits. Without this, or in a browser that cannot, the photo is sent as it is and the server says if it is too big.
+  var photoInput = document.querySelector("[data-photo-input]");
+  if (photoInput && window.DataTransfer && window.URL && document.createElement("canvas").toBlob) {
+    photoInput.addEventListener("change", function () {
+      var file = photoInput.files && photoInput.files[0];
+      if (!file || !/^image\//.test(file.type) || photoInput.getAttribute("data-shrunk") === file.name) return;
+      var img = new Image();
+      var src = URL.createObjectURL(file);
+      img.onload = function () {
+        var scale = Math.min(1, 600 / Math.max(img.naturalWidth, img.naturalHeight));
+        var canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(src);
+        canvas.toBlob(function (blob) {
+          if (!blob) return;
+          var name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+          var transfer = new DataTransfer();
+          transfer.items.add(new File([blob], name, { type: "image/jpeg" }));
+          photoInput.setAttribute("data-shrunk", name);
+          photoInput.files = transfer.files;
+        }, "image/jpeg", 0.85);
+      };
+      img.onerror = function () { URL.revokeObjectURL(src); };
+      img.src = src;
+    });
+  }
 })();

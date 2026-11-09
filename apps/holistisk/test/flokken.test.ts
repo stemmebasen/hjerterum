@@ -32,25 +32,30 @@ beforeAll(async () => {
 });
 
 type Res = { status: number; body: string; headers: Headers };
-async function call(path: string, init: { method?: string; form?: Record<string, string>; cookie?: string; origin?: string | null; headers?: Record<string, string> } = {}, now = NOW): Promise<Res> {
+async function call(path: string, init: { method?: string; form?: Record<string, string>; multipart?: FormData; cookie?: string; origin?: string | null; headers?: Record<string, string> } = {}, now = NOW): Promise<Res & { bytes?: Uint8Array }> {
   const headers: Record<string, string> = { ...init.headers };
   if (init.cookie) headers.cookie = init.cookie;
-  const method = init.method ?? (init.form ? "POST" : "GET");
+  const method = init.method ?? (init.form || init.multipart ? "POST" : "GET");
   if (method === "POST" && init.origin !== null) headers.origin = init.origin ?? ORIGIN;
-  const body = init.form ? new URLSearchParams(init.form) : undefined;
-  if (body) headers["content-type"] = "application/x-www-form-urlencoded";
+  const body = init.multipart ?? (init.form ? new URLSearchParams(init.form) : undefined);
+  if (init.form) headers["content-type"] = "application/x-www-form-urlencoded";
   const r = await handle(new Request(ORIGIN + path, { method, headers, body: body ?? null }), env, now);
+  if ((r.headers.get("content-type") ?? "").startsWith("image/")) return { status: r.status, body: "", headers: r.headers, bytes: new Uint8Array(await r.arrayBuffer()) };
   return { status: r.status, body: await r.text(), headers: r.headers };
 }
 const cookieOf = (r: Res) => /flok_session=[^;]+/.exec(r.headers.get("set-cookie") ?? "")?.[0] ?? "";
 const flockIdFrom = (location: string | null) => /\/flokke\/([0-9a-f-]{36})/.exec(location ?? "")?.[1] ?? "";
 const meetAt = (ms: number) => toLocalInput(ms - 30 * 60_000);
 
-async function join(name: string): Promise<{ cookie: string; code: string }> {
+/** A new member; with `profile` (the default) they have also said their age group and a line about themselves, as
+ * everyone must before starting or joining a flock. */
+async function join(name: string, profile: { alder: string; om_mig: string } | null = { alder: "30-39", om_mig: `${name} her, glæder mig` }): Promise<{ cookie: string; code: string }> {
   const r = await call("/bliv-medlem", { form: { fornavn: name, naeste: "/flokke" } });
   expect(r.status).toBe(200);
   const code = /<p class="code">([A-Z0-9-]+)<\/p>/.exec(r.body)?.[1] ?? "";
-  return { cookie: cookieOf(r), code };
+  const cookie = cookieOf(r);
+  if (profile) expect((await call("/profil", { cookie, form: { fornavn: name, ...profile } })).status).toBe(303);
+  return { cookie, code };
 }
 
 async function startFlock(cookie: string, extra: Record<string, string> = {}, slug = event.slug, startsAt = event.starts_at): Promise<Res> {
@@ -62,7 +67,7 @@ describe("membership", () => {
     const bad = await call("/bliv-medlem", { form: { fornavn: "<script>" } });
     expect(bad.status).toBe(400);
     expect(bad.body).toContain("Skriv dit fornavn");
-    const { cookie, code } = await join("Maria");
+    const { cookie, code } = await join("Maria", null);
     expect(cookie).toMatch(/^flok_session=/);
     expect(normalizeCode(code)).toBe(code);
     expect((await call("/flokke", { cookie })).body).toContain("Hej Maria");
@@ -136,7 +141,7 @@ describe("flocks", () => {
     expect(joined.headers.get("location")).toBe(`/flokke/${id}?besked=tilsluttet`);
     const inside = await call(`/flokke/${id}`, { cookie: bo.cookie });
     expect(inside.body).toContain("Anna");
-    expect(inside.body).toContain("Bo <span class=\"meta-muted\">(dig)</span>");
+    expect(inside.body).toContain("<strong>Bo</strong> <span class=\"meta-muted\">· 30–39 år</span> <span class=\"meta-muted\">(dig)</span>");
     expect(inside.body).toContain("Forlad flokken");
 
     const cleo = await join("Cleo");
@@ -378,5 +383,102 @@ describe("served on its own domain socialklubben.dk", () => {
     expect((await at("https://www.socialklubben.dk/kalender?periode=maaned")).headers.get("location")).toBe("https://socialklubben.dk/kalender?periode=maaned");
     expect((await at("https://socialklubben.dk/socialklubben/kort")).headers.get("location")).toBe("https://socialklubben.dk/kort");
     expect((await at("https://socialklubben.dk/socialklubben")).headers.get("location")).toBe("https://socialklubben.dk/");
+  });
+});
+
+describe("profile", () => {
+  const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0xff, 0xd9]);
+  const photoForm = (fields: Record<string, string>, bytes: Uint8Array<ArrayBuffer> | null, name = "mig.jpg") => {
+    const form = new FormData();
+    for (const [k, v] of Object.entries(fields)) form.set(k, v);
+    if (bytes) form.set("foto", new File([bytes], name, { type: "image/jpeg" }));
+    return form;
+  };
+
+  it("is asked for, once, before someone starts or joins a flock, and then they join at once", async () => {
+    const host = await join("Hanne", { alder: "40-49", om_mig: "Elsker jazz, kommer altid lidt for tidligt" });
+    const id = flockIdFrom((await startFlock(host.cookie, {}, later.slug, later.starts_at)).headers.get("location"));
+    const ib = await join("Ib", null);
+    // Starting a flock: first the profile, then back to the form.
+    const create = `/events/${later.slug}/opret-flok`;
+    expect((await call(create, { cookie: ib.cookie })).headers.get("location")).toBe(`/profil?naeste=${encodeURIComponent(create)}`);
+    // Joining: the profile, then straight into the flock.
+    const asked = await call(`/flokke/${id}/bliv-del-af`, { cookie: ib.cookie, form: {} });
+    const profile = asked.headers.get("location") ?? "";
+    expect(profile).toBe(`/profil?naeste=${encodeURIComponent(`/flokke/${id}`)}&flok=${id}`);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flock_members WHERE flock_id = ? AND left_at IS NULL").all(id)[0]).toEqual({ n: 1 });
+    const form = await call(profile, { cookie: ib.cookie });
+    expect(form.body).toContain("Sig hej til flokken");
+    expect(form.body).toContain("Gem og bliv en del af flokken");
+    expect(form.body).toContain('value="Ib"');
+
+    const missing = await call(profile, { cookie: ib.cookie, form: { fornavn: "Ib", alder: "", om_mig: "" } });
+    expect(missing.status).toBe(400);
+    expect(missing.body).toContain("Vælg din aldersgruppe.");
+    expect(missing.body).toContain("Skriv en linje om dig selv");
+    const saved = await call(profile, { cookie: ib.cookie, form: { fornavn: "Ib", alder: "30-39", om_mig: "Lidt genert i starten. Ring på 12 34 56 78" } });
+    expect(saved.headers.get("location")).toBe(`/flokke/${id}?besked=tilsluttet`);
+    const stored = db.raw.prepare("SELECT age_group, intro FROM members WHERE first_name = 'Ib'").all()[0];
+    expect(stored).toEqual({ age_group: "30-39", intro: "Lidt genert i starten. Ring på [nummer skjult]" });
+
+    // Inside: everyone's age group, line and how often they have been with a flock.
+    const inside = (await call(`/flokke/${id}`, { cookie: host.cookie })).body;
+    expect(inside).toContain("<strong>Ib</strong> <span class=\"meta-muted\">· 30–39 år</span>");
+    expect(inside).toContain("Lidt genert i starten.");
+    expect(inside).toContain("Første flok");
+    // Outside: only the age groups, no names or lines.
+    const kaj = await join("Kaj");
+    const outside = (await call(`/flokke/${id}`, { cookie: kaj.cookie })).body;
+    expect(outside).toContain("2 personer er med (30–39, 40–49 år)");
+    expect(outside).not.toContain("Hanne");
+    expect(outside).not.toContain("genert");
+    expect((await call(`/flokke/${id}`)).body).not.toContain("40–49");
+  });
+
+  it("counts the flocks someone has been with, once the event is over", async () => {
+    const lis = await join("Lis");
+    await startFlock(lis.cookie);
+    const mads = await join("Mads");
+    const id = flockIdFrom((await startFlock(mads.cookie, {}, later.slug, later.starts_at)).headers.get("location"));
+    await call(`/flokke/${id}/bliv-del-af`, { cookie: lis.cookie, form: {} });
+    const before = (await call(`/flokke/${id}`, { cookie: mads.cookie })).body;
+    expect(before).not.toContain("Har været med");
+    const afterFirst = event.starts_at + 6 * 3600_000;
+    const after = (await call(`/flokke/${id}`, { cookie: mads.cookie }, afterFirst)).body;
+    const lisCard = after.slice(after.indexOf("<strong>Lis</strong>"), after.indexOf("</li>", after.indexOf("<strong>Lis</strong>")));
+    expect(lisCard).toContain("Har været med 1 gang");
+  });
+
+  it("can have a photo that only the others in the flock can see", async () => {
+    const nina = await join("Nina");
+    const id = flockIdFrom((await startFlock(nina.cookie, {}, later.slug, later.starts_at)).headers.get("location"));
+    const fields = { fornavn: "Nina", alder: "50-59", om_mig: "Glæder mig til koncerten" };
+    const notImage = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, new TextEncoder().encode("<svg onload=alert(1)>"), "x.svg") });
+    expect(notImage.status).toBe(400);
+    expect(notImage.body).toContain("Billedet skal være JPG, PNG eller WebP.");
+    const tooBig = new Uint8Array(260_000); tooBig.set(JPEG);
+    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, tooBig) })).body).toContain("Billedet er for stort");
+    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) })).status).toBe(303);
+
+    const ole = await join("Ole");
+    await call(`/flokke/${id}/bliv-del-af`, { cookie: ole.cookie, form: {} });
+    const inside = (await call(`/flokke/${id}`, { cookie: ole.cookie })).body;
+    const src = /<img class="avatar" src="([^"]+)" alt="Nina"/.exec(inside)?.[1] ?? "";
+    expect(src).toMatch(new RegExp(`^/flokke/${id}/foto/[0-9a-f-]{36}$`));
+    const img = await call(src, { cookie: ole.cookie });
+    expect(img.status).toBe(200);
+    expect(img.headers.get("content-type")).toBe("image/jpeg");
+    expect(img.headers.get("cache-control")).toBe("private, max-age=3600");
+    expect(img.bytes).toEqual(JPEG);
+    // Not for someone outside the flock, nor without logging in, nor after leaving.
+    const per = await join("Per");
+    expect((await call(src, { cookie: per.cookie })).status).toBe(404);
+    expect((await call(src)).status).toBe(404);
+    await call(`/flokke/${id}/forlad`, { cookie: ole.cookie, form: {} });
+    expect((await call(src, { cookie: ole.cookie })).status).toBe(404);
+    // Removing it.
+    await call("/profil", { cookie: nina.cookie, form: { ...fields, fjern_foto: "ja" } });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM member_photos").all()[0]).toEqual({ n: 0 });
+    expect((await call(`/flokke/${id}`, { cookie: nina.cookie })).body).toContain('class="avatar avatar-initial"');
   });
 });

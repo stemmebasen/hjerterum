@@ -4,25 +4,27 @@ import { eventBySlug, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
+import { flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
-import { createFlock, flockById, flockHost, flockMemberNames, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
+import { createFlock, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
 
 export type FlokkenResult =
   | { view: View; cookie?: string }
   | { redirect: string; cookie?: string }
-  | { json: unknown; status: number };
+  | { json: unknown; status: number }
+  | { image: { type: string; body: Uint8Array<ArrayBuffer> } };
 
 const MAX_BODY = 20_000;
 const go = (to: string, cookie?: string): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
 const withMessage = (path: string, code: string) => `${path}${path.includes("?") ? "&" : "?"}besked=${encodeURIComponent(code)}`;
 
-async function formData(request: Request): Promise<FormData | null> {
+async function formData(request: Request, max = MAX_BODY): Promise<FormData | null> {
   const length = Number(request.headers.get("content-length") ?? "0");
-  if (length > MAX_BODY) return null;
+  if (length > max) return null;
   try { return await request.formData(); } catch { return null; }
 }
 
@@ -31,6 +33,10 @@ const bearerOk = (request: Request, env: Env): boolean => {
   const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
   return !!token && token.length >= 24 && sameSecret(given, token);
 };
+
+/** Where a member who has not yet told the others their age group and a line about themselves goes first. `flock` is
+ * a flock to join once that is done. */
+const profilePath = (next: string, flock?: string) => `/profil?naeste=${encodeURIComponent(next)}${flock ? `&flok=${flock}` : ""}`;
 
 /** A chat message as the page gets it: first name only, never the member's id. */
 const chatJson = (c: ChatMessage, memberId: string, now: number) =>
@@ -98,6 +104,34 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return go("/", clearSessionCookie());
   }
 
+  if (path === "/profil") {
+    const m = await member();
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(`/profil${url.search}`)}`);
+    const profile = await profileFor(db, m.id);
+    if (!profile) return go("/log-ind");
+    const next = safeNext(url.searchParams.get("naeste"));
+    const joinId = /^[0-9a-f-]{36}$/.test(url.searchParams.get("flok") ?? "") ? url.searchParams.get("flok")! : null;
+    const state = { next, joinId, profile, firstTime: !profileComplete(profile) };
+    const action = `/profil${url.search}`;
+    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", removePhoto: false }, errors: {} }) };
+    const data = await formData(request, PROFILE_MAX_BODY);
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", removePhoto: false }, errors: { photo: "Billedet er for stort. Vælg et mindre billede (højst 250 KB)." }, status: 400 }) };
+    const form = readProfileForm(data);
+    const checked = validateProfile(form);
+    const photo = await readPhoto(data);
+    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photo && "error" in photo ? { photo: photo.error } : {}) };
+    if ("errors" in checked || (photo && "error" in photo)) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
+    await saveProfile(db, m.id, checked.values, photo, form.removePhoto, now);
+    if (joinId) {
+      const f = await flockById(db, joinId, m.id);
+      if (f) {
+        const result = await joinFlock(db, f, m.id, now);
+        return go(withMessage(flockPath(f.id), "error" in result ? result.error : "tilsluttet"));
+      }
+    }
+    return go(withMessage(next, "profil_gemt"));
+  }
+
   if (path === "/flokke" && !post) {
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent("/flokke")}`);
@@ -111,6 +145,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const action = `/events/${e.slug}/opret-flok`;
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(action)}`);
+    if (!profileComplete(await profileFor(db, m.id))) return go(profilePath(action));
     if (!post) {
       if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(`/events/${e.slug}`, "event_closed") + "#flokke");
       return { view: flockFormPage(pc, e, defaultFlockForm(e, now), {}, { mode: "create", action }) };
@@ -154,6 +189,15 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return wantsJson ? { json: { message: chatJson(result.message, m.id, now) }, status: 200 } : go(`${here}#chat`);
   }
 
+  // A member's photo, for the others in the flock only.
+  const photo = /^\/flokke\/([0-9a-f-]{36})\/foto\/([0-9a-f-]{36})$/.exec(path);
+  if (photo && !post) {
+    const m = await member();
+    const found = m ? await flockPhoto(db, photo[1]!, photo[2]!, m.id) : null;
+    if (!found) return { view: notFound() };
+    return { image: { type: found.type, body: found.data } };
+  }
+
   const flock = /^\/flokke\/([0-9a-f-]{36})(?:\/(bliv-del-af|forlad|ret))?$/.exec(path);
   if (flock) {
     const [, id, action] = flock as unknown as [string, string, string | undefined];
@@ -163,10 +207,11 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const here = flockPath(f.id);
     if (!action) {
       if (post) return null;
-      const [e, names, host, messages] = await Promise.all([eventBySlug(db, f.event_slug), f.is_member ? flockMemberNames(db, f.id) : Promise.resolve([]), flockHost(db, f),
+      const [e, people, ages, host, messages] = await Promise.all([eventBySlug(db, f.event_slug), f.is_member ? flockMembers(db, f.id, now) : Promise.resolve([]),
+        m && !f.is_member ? flockAgeGroups(db, f.id) : Promise.resolve([]), flockHost(db, f),
         m && f.is_member ? chatMessages(db, f.id, m.id) : Promise.resolve([])]);
       const chat = f.is_member ? { messages, open: chatOpen({ status: f.status, eventEnds: f.event_ends_at ?? f.event_starts_at + 3 * 3600_000 }, now) } : null;
-      return { view: flockPage(pc, f, e, names, m, host, message, chat) };
+      return { view: flockPage(pc, f, e, people, m, host, message, chat, ages) };
     }
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(here)}`);
     if (action === "ret") {
@@ -185,6 +230,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     }
     if (!post) return go(here);
     if (action === "bliv-del-af") {
+      if (!f.is_member && !profileComplete(await profileFor(db, m.id))) return go(profilePath(here, f.id));
       const result = await joinFlock(db, f, m.id, now);
       return go(withMessage(here, "error" in result ? result.error : "tilsluttet"));
     }

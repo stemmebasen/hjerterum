@@ -163,7 +163,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
     return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
@@ -172,6 +172,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (result) {
       const cookie = "cookie" in result && result.cookie ? { "set-cookie": result.cookie } : {};
       if ("json" in result) return json(env, result.json, result.status);
+      if ("image" in result) return new Response(result.image.body, { headers: { ...SECURITY_HEADERS, "content-type": result.image.type, "cache-control": "private, max-age=3600", "x-robots-tag": "noindex" } });
       if ("redirect" in result) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
       return respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers, ...cookie } });
     }

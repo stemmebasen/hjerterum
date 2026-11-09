@@ -9,7 +9,7 @@ export function testDb(): D1Database & { raw: DatabaseSync } {
   const dir = new URL("../migrations/", import.meta.url);
   for (const file of readdirSync(dir).filter(f => f.endsWith(".sql")).sort()) raw.exec(readFileSync(new URL(file, dir), "utf8"));
 
-  const convert = (v: unknown) => v === undefined ? null : typeof v === "boolean" ? (v ? 1 : 0) : v;
+  const convert = (v: unknown) => v === undefined ? null : typeof v === "boolean" ? (v ? 1 : 0) : v instanceof ArrayBuffer ? new Uint8Array(v) : v;
   const statement = (sql: string, params: unknown[] = []): D1PreparedStatement & { exec(): D1Result } => {
     const exec = (): D1Result => {
       const stmt = raw.prepare(sql);

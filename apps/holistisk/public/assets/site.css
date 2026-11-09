@@ -450,6 +450,13 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .meet-box { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 8px 22px 18px; box-shadow: 0 5px 0 var(--ink); }
 .member-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
 .member-list li { background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; font-weight: 800; }
+.member-cards { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 10px; }
+.member-card { display: flex; gap: 14px; align-items: flex-start; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 12px 14px; }
+.member-card p { margin: 0; }
+.member-text { display: grid; gap: 2px; min-width: 0; }
+.member-intro { overflow-wrap: anywhere; }
+.avatar { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid var(--ink); background: var(--green-soft); }
+.avatar-initial { display: grid; place-items: center; font-weight: 800; font-size: 1.4rem; color: #17543f; }
 .pill-small { font-size: .72rem; font-weight: 800; color: #17543f; background: var(--green-soft); border-radius: 999px; padding: 2px 8px; }
 /* The flock's chat */
 .chat { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 4px 22px 18px; box-shadow: 0 5px 0 var(--ink); }
