@@ -7,7 +7,7 @@ import { trainEvents, type TrainEvent } from "../src/sources/train.js";
 import { musikhusetEvents, type MhEvent, type MhShowing } from "../src/sources/musikhuset.js";
 import { aakbEvents, type AakbEvent } from "../src/sources/aakb.js";
 import { resonansEvents, type ResonansEvent } from "../src/sources/resonans.js";
-import { parseFolkestedet } from "../src/sources/folkestedet.js";
+import { folkestedet, folkestedetPrice, parseFolkestedet } from "../src/sources/folkestedet.js";
 import { applyGodsPage, godsEvents, parseGodsDate, parseGodsList, parseGodsPage, parseGodsTime } from "../src/sources/godsbanen.js";
 import { coordinatesFor } from "../src/places.js";
 import { testDb } from "./d1.js";
@@ -201,6 +201,19 @@ describe("Dokk1 (the libraries' events API)", () => {
   });
 });
 
+describe("Aarhus' local libraries (the same API, every branch but Dokk1)", () => {
+  it("keeps the other libraries' events, each at its own library, and counts the free ones as free", () => {
+    const rows = JSON.parse(fixture("aakb-events.json")) as AakbEvent[];
+    const { events } = aakbEvents(rows, source("aakb-lokal"), NOW);
+    const dokk1 = aakbEvents(rows, source("dokk1"), NOW).events;
+    expect(events.length).toBeGreaterThan(5);
+    expect(events.some(e => e.venueName === "Dokk1")).toBe(false);
+    expect(events.some(e => dokk1.some(d => d.sourceEventId === e.sourceEventId))).toBe(false);
+    expect(new Set(events.map(e => e.venueName)).size).toBeGreaterThan(3);
+    expect(events.some(e => e.price?.isFree)).toBe(true);
+  });
+});
+
 describe("Resonans Bistro & Bar", () => {
   it("reads the café's concerts", () => {
     const { events, unreadable } = resonansEvents(JSON.parse(fixture("resonans-events.json")) as ResonansEvent[], source("resonans"));
@@ -222,6 +235,26 @@ describe("Folkestedet (calendar cards)", () => {
     expect(iso(harpin.startsAt)).toBe("2026-10-25T14:00:00.000Z");
     expect(iso(harpin.endsAt)).toBe("2026-10-25T16:00:00.000Z");
     expect(harpin).toMatchObject({ venueName: "Folkestedet", address: "Carl Blochs Gade 28", sourceUrl: "https://folkestedet.aarhus.dk/kalender/harpin-wolf-the-black-sheep" });
+  });
+});
+
+describe("Folkestedet (prices from the event's page)", () => {
+  it("reads the price line, a stated free event, and leaves the sidebar's \"gratishold\" alone", () => {
+    expect(folkestedetPrice(fixture("folkestedet-kvinde.html"))).toMatchObject({ minMinor: 5000, maxMinor: 5000, isFree: false });
+    expect(folkestedetPrice(fixture("folkestedet-jule-disco.html"))).toMatchObject({ minMinor: 6000, maxMinor: 19000, isFree: false });
+    expect(folkestedetPrice(fixture("folkestedet-bytteboers.html"))).toMatchObject({ isFree: true });
+    expect(folkestedetPrice(fixture("folkestedet-julefrokost.html"))).toBeNull();
+  });
+
+  it("counts an event whose page names no price as free, and says so", async () => {
+    const page = (body: string) => ({ get: async () => ({ status: 200, body: new TextEncoder().encode(body).buffer, attempts: 1, url: "", headers: new Headers({ "content-type": "text/html; charset=utf-8" }) }) });
+    const base = parseFolkestedet(fixture("folkestedet-kalender.html"), source("folkestedet"), "https://folkestedet.aarhus.dk/kalender").events[0]!;
+    const ctx = (body: string) => ({ http: page(body), now: NOW, env: {} }) as never;
+    const free = await folkestedet.enrich!(base, source("folkestedet"), ctx(fixture("folkestedet-julefrokost.html")));
+    expect(free).toMatchObject({ price: { isFree: true } });
+    expect(free.qualityFlags).toContain("free_inferred");
+    const paid = await folkestedet.enrich!(base, source("folkestedet"), ctx(fixture("folkestedet-kvinde.html")));
+    expect(paid).toMatchObject({ price: { minMinor: 5000, isFree: false } });
   });
 });
 
