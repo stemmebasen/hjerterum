@@ -349,6 +349,18 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .chip span { display: inline-block; padding: 5px 12px; border: 2px solid var(--rule); border-radius: 999px; font-size: .86rem; font-weight: 700; background: var(--card); }
 .chip input:checked + span { background: var(--green); border-color: var(--green); color: var(--butter); }
 .chip input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.filter-label { font-size: .88rem; font-weight: 800; color: var(--ink-2); margin: 0; }
+.filter-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.filter-chip { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 12px; border: 2px solid var(--rule); border-radius: 999px; font-size: .86rem; font-weight: 700; background: var(--card); color: var(--ink); text-decoration: none; }
+.filter-chip:hover { border-color: var(--ink); text-decoration: none; }
+.filter-chip .count { color: var(--muted); font-size: .74rem; font-weight: 800; }
+.filter-chip.is-on { background: var(--green); border-color: var(--green); color: var(--butter); }
+.filter-chip.is-on::after { content: "×"; font-weight: 800; margin-left: 2px; }
+.filter-chip.is-on .count { color: var(--butter); }
+.filter-chip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.filter-search { display: grid; gap: 8px; padding-top: 14px; border-top: 2px solid var(--rule); }
+.search-row { display: flex; gap: 8px; }
+.search-row input { flex: 1; min-width: 0; }
 .date-range { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; font-size: .8rem; color: var(--muted); }
 .date-range label { display: grid; gap: 4px; min-width: 0; }
 .date-range input { min-width: 0; padding: 6px 8px; }
