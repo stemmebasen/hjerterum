@@ -4,6 +4,7 @@ import type { EditorStart } from "./design-editor";
 // "Et lille mini Photoshop" (design-editor.tsx, Fabric.js): loaded when it is opened.
 const DesignEditor = lazy(() => import("./design-editor").then(m => ({ default: m.DesignEditor })));
 const LayerGallery = lazy(() => import("./design-editor").then(m => ({ default: m.LayerGallery })));
+const QuoteCarousel = lazy(() => import("./design-editor").then(m => ({ default: m.QuoteCarousel })));
 import { C, PALETTES, SITE_LABEL, splitTitle, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** The event's title as the posters read it, where the calendar ran a title in capitals and its subtitle together
@@ -242,6 +243,9 @@ export function PosterStudio({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const [step, setStep] = useState<Step>("forslag");
   const [preview, setPreview] = useState<{ blob: Blob; url: string } | null>(null);
+  // "Kan citatdesignet laves til en karrusel med tre blade": the slides, when the post is a carousel; the quote design it was opened from.
+  const [slides, setSlides] = useState<Array<{ blob: Blob; url: string }> | null>(null);
+  const [carousel, setCarousel] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [instagramText, setInstagramText] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
@@ -336,10 +340,16 @@ export function PosterStudio({ id }: { id: string }) {
   const editorPictures = [...data.eventPictures, ...(t?.pictures ?? [])].filter((p, i, all) => all.findIndex(q => q.url === p.url) === i);
   const openEditor = (start: EditorStart) => { setEditor(start); };
   const useEdited = (blob: Blob) => {
-    setEditor(null);
+    setEditor(null); setSlides(null);
     if (!post) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "hjerterum-design.jpg"; a.click(); return; }
     setPreview({ blob, url: URL.createObjectURL(blob) }); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
   };
+  const useCarousel = (blobs: Blob[]) => {
+    const made = blobs.map(blob => ({ blob, url: URL.createObjectURL(blob) }));
+    setCarousel(null); setSlides(made); setPreview(made[0]!); setUseVideo(false); setFacebookVideo(false); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
+  };
+  const carouselView = carousel ? <Suspense fallback={<div className="ed"><p className="ed-busy">Åbner karrusellen …</p></div>}>
+    <QuoteCarousel format={format} input={editorInput} quotes={quotes} photoUrl={picked} logo={logo} start={carousel} onUse={useCarousel} onClose={() => setCarousel(null)} /></Suspense> : null;
   const editorView = editor ? <Suspense fallback={<div className="ed"><p className="ed-busy">Åbner editoren …</p></div>}>
     <DesignEditor format={format} start={editor} input={editorInput} pictures={editorPictures} photoUrl={picked} logo={logo} onUse={useEdited} onClose={() => setEditor(null)}
       finder={chosen => <PictureFinder id={id} onChosen={chosen} />} /></Suspense> : null;
@@ -349,13 +359,23 @@ export function PosterStudio({ id }: { id: string }) {
     if (!canvas) return;
     canvas.toBlob(blob => {
       if (!blob) { setMessage("Billedet kunne ikke laves. Prøv igen."); return; }
-      setPreview({ blob, url: URL.createObjectURL(blob) }); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
+      setPreview({ blob, url: URL.createObjectURL(blob) }); setSlides(null); setMessage(""); setStep("opslag"); window.scrollTo(0, 0);
     }, "image/jpeg", 0.9);
   };
   const publish = async () => {
     if (!preview || !post) return;
     setBusy(true); setMessage("Publicerer …");
-    const stored = await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
+    // A carousel: each slide kept, then laid in the post together.
+    const stored = slides && slides.length > 1 ? await (async () => {
+      const urls: string[] = [];
+      for (const s of slides) {
+        const r = await fetch(`/plakater/${id}/opslag?kun=gem`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: s.blob }).catch(() => null);
+        const u = r?.ok ? (await r.json().catch(() => null) as { url?: string } | null)?.url : null;
+        if (!u) return null;
+        urls.push(u);
+      }
+      return fetch(`/plakater/${id}/karrusel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ urls }) }).catch(() => null);
+    })() : await fetch(`/plakater/${id}/opslag`, { method: "POST", headers: { "content-type": "image/jpeg" }, body: preview.blob }).catch(() => null);
     const response = stored?.ok ? await fetch(`/plakater/${id}/publicer`, { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ text, instagramText, channels, ...(post.video || !useVideo ? { video: useVideo, facebookVideo } : {}), ...(when === "valgt" && chosenAt ? { at: new Date(chosenAt).getTime(), ...(chosenIg && channels.includes("instagram") ? { instagramAt: new Date(chosenIg).getTime() } : {}) } : { now: when === "nu" || !planned }) }) }).catch(() => null) : null;
     const body = response?.ok ? await response.json().catch(() => null) as { publishAtMs: number | null; channels: string[]; status?: string; instagramAtMs?: number | null } | null : null;
@@ -455,7 +475,8 @@ export function PosterStudio({ id }: { id: string }) {
         <header><img src={LOGO_FILE} alt="" /><b>Hjerterum</b></header>
         <p className="studio-mock-text">{text}</p>
         {post.link && <p className="studio-mock-link">{post.link}</p>}
-        {post.video && facebookVideo ? <video className="studio-mock-picture" src={post.video} controls muted playsInline loop /> : <img className="studio-mock-picture" src={preview.url} alt="Opslagets billede" />}
+        {slides && slides.length > 1 ? <div className="studio-mock-slides">{slides.map((s, i) => <img key={s.url} src={s.url} alt={`Slide ${i + 1} af ${slides.length}`} />)}</div>
+          : post.video && facebookVideo ? <video className="studio-mock-picture" src={post.video} controls muted playsInline loop /> : <img className="studio-mock-picture" src={preview.url} alt="Opslagets billede" />}
       </div>
       {post.video && channels.includes("instagram") && <div className="studio-mock studio-mock-video">
         <header><img src={LOGO_FILE} alt="" /><b>Instagram</b><span className="studio-muted">{useVideo ? "reel" : "billedet"}</span></header>
@@ -523,7 +544,7 @@ export function PosterStudio({ id }: { id: string }) {
     </section>
   </main>;
 
-  return <main className="page-shell site-page poster-page studio">{head}{editorView}
+  return <main className="page-shell site-page poster-page studio">{head}{editorView}{carouselView}
     <section className="studio-proposal">
       {!logo ? <p className="poster-empty">Tegner forslaget …</p>
         : <Design key={`${chosen}-${format}-${JSON.stringify(style)}`} variant={chosen} style={style} words={words} assets={assets} format={format} chosen title={event.title} big canvasRef={proposal} />}
@@ -588,7 +609,7 @@ export function PosterStudio({ id }: { id: string }) {
       <p className="studio-muted">Hvert design åbner i editoren, hvor alt kan flyttes, skaleres og drejes: billederne, teksterne, formerne og logoet.</p>
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <Suspense fallback={<p className="poster-empty">Tegner designene …</p>}>
         <LayerGallery format={format} input={editorInput} photoUrl={picked} logo={logo} onOpen={key => openEditor({ kind: "layers", key })}
-          quotes={{ count: quotes.length, at: quotes.length ? quoteAt % quotes.length : 0, next: () => setQuoteAt(n => n + 1) }} /></Suspense>}
+          quotes={{ count: quotes.length, at: quotes.length ? quoteAt % quotes.length : 0, next: () => setQuoteAt(n => n + 1), ...(format === "story" ? {} : { carousel: (key: string) => setCarousel(key) }) }} /></Suspense>}
 
       <h2 className="studio-step">Flere designs</h2>
       {!logo ? <p className="poster-empty">Tegner designene …</p> : <>
