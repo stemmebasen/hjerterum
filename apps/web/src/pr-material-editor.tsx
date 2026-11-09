@@ -64,7 +64,8 @@ export function PrMaterialEditor({ clerk, onBack, inline = false }: { clerk: Cle
   return <section className={`profile-editor pr-editor${inline ? " is-inline" : ""}`} aria-label="Mit PR-materiale" aria-busy={busy}>
     {!inline && onBack && <button className="text-button" disabled={busy} onClick={onBack}>← Tilbage til min profil</button>}
     {!inline && <><p className="kicker">Til undervisere · PR</p><h2>Lad os fortælle om dig</h2></>}
-    <p>Hjerterum deler events på Instagram, Facebook og i nyhedsbrevet. <strong>Vi kan kun reklamere for dine events, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke herunder.</strong> Uden dem kommer dine events stadig i kalenderen, men vi kan ikke lave opslag om dem.</p>
+    {/* Douglas (8 Nov 2026): "There is a lot of repetition here" - in the event form, the box above already says it. */}
+    {!inline && <p>Hjerterum deler events på Instagram, Facebook og i nyhedsbrevet. <strong>Vi kan kun reklamere for dine events, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke herunder.</strong> Uden dem kommer dine events stadig i kalenderen, men vi kan ikke lave opslag om dem.</p>}
     <p className={`profile-badge${ready ? " ok" : ""}`}>{!material ? "Henter …" : ready ? "✓ Klar til PR" : `Mangler: ${missing.join(" og ")}`}</p>
 
     <h3>Billeder ({photos.length}/{PR_MAX_PHOTOS})</h3>
@@ -72,8 +73,9 @@ export function PrMaterialEditor({ clerk, onBack, inline = false }: { clerk: Cle
     <div className="pr-photos">{photos.map(p => <figure key={p.id}><img src={p.url} alt="" loading="lazy" /><button type="button" className="text-button" disabled={busy} onClick={() => void remove(p.id)}>Fjern</button></figure>)}
       {photos.length < PR_MAX_PHOTOS && <label className="pr-add pill-button">+ Tilføj billeder<input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden disabled={busy} onChange={e => { const f = e.target.files; void upload(f); e.target.value = ""; }} /></label>}</div>
 
-    <h3>Citater til PR</h3>
-    <p className="profile-note">Én linje hver er nok. Vi bruger dem i opslag om dine events.</p>
+    {/* Douglas: "What is this 'Quotes for PR' and the line below? Is it a mistake?" - said plainly what they are for. */}
+    <h3>Korte citater til vores opslag</h3>
+    <p className="profile-note">Skriv en linje om dig, en om det, deltagerne får med, og gerne en fra en tidligere deltager. Vi bruger dem i opslagene om dine events på Instagram og Facebook.</p>
     <fieldset className="profile-fields workspace-form" disabled={busy}>
       {field("facilitator", "Om dig som facilitator", "Fx: Anna holder rummet med en rolig og varm tilstedeværelse.")}
       {field("offering", "Det, deltagerne får med", "Fx: Du går hjem med mere ro i kroppen og nye værktøjer til hverdagen.")}
@@ -125,7 +127,7 @@ export function EventPrMaterial({ clerk }: { clerk: ClerkBrowser }) {
   if (!m) return null;
   const ready = readyForPr(m);
   return <fieldset className={`event-section event-pr${ready ? " is-ready" : ""}`}>
-    <legend>Billeder til PR</legend>
+    <legend>Billeder og citater til PR</legend>
     {ready ? <p className="event-pr-ok"><strong>✓ Dit PR-materiale er klar.</strong> Vi kan reklamere for dit event på Instagram, Facebook og i nyhedsbrevet med dine billeder og citater.</p>
       : <p className="event-pr-warn" role="note"><strong>Uden billeder kan du ikke forvente PR fra huset.</strong> Dit event kommer i kalenderen, men vi kan kun reklamere for det på Instagram, Facebook og i nyhedsbrevet, når du har delt mindst {PR_MIN_PHOTOS} billeder og givet dit samtykke. Gør det her, mens du opretter eventet - det tager et par minutter, og det gælder også dine næste events.</p>}
     {open ? <PrMaterialEditor clerk={clerk} inline /> : <button type="button" className="text-button" onClick={() => setOpen(true)}>Se eller ret dit PR-materiale</button>}

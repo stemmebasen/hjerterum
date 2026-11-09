@@ -518,7 +518,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 /* "Oktober i Hjerterum" - the calendar section. */
 .nl-month { padding: 84px 0 10px; }
 .nl-head { text-align: center; margin-bottom: 40px; }
-.nl-big { margin: 14px 0 0; font: 400 clamp(60px, 7vw, 104px)/.95 var(--lys-serif); letter-spacing: -.01em; }
+/* Douglas (9 Nov 2026): "In a little while" - "Could be a bit smaller." */
+.nl-big { margin: 14px 0 0; font: 400 clamp(46px, 5.4vw, 80px)/.95 var(--lys-serif); letter-spacing: -.01em; }
 .nl-big em { display: block; font-size: .46em; margin-top: 10px; }
 .nl-head .nl-rule { margin: 24px auto 0; width: 64px; height: 4px; }
 .nl-empty { text-align: center; color: var(--lys-muted); }

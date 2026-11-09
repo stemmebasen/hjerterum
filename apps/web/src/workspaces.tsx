@@ -811,6 +811,11 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [billingState, setBillingState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
+  // Arriving at …#medlemskab (the menu's "Betaling og medlemskab →"): the part is drawn once the page has loaded, so it is scrolled to then.
+  useEffect(() => {
+    if (billingState === "loading" || window.location.hash !== "#medlemskab") return;
+    document.getElementById("medlemskab")?.scrollIntoView({ block: "start" });
+  }, [billingState]);
   const [subscription, setSubscription] = useState<{ amountMinor: number | null; interval: string | null; nextChargeAt: string | null; cancelAtPeriodEnd: boolean; endsAt: string | null } | null>(null);
 
   useEffect(() => {
@@ -1004,7 +1009,8 @@ function MembershipHero({ clerk, member }: { clerk: ClerkBrowser; member: Member
         {price && <div><dt>Pris</dt><dd>{price}</dd></div>}
         {payment && <div><dt>Betaling</dt><dd>{payment}</dd></div>}
       </dl>}
-      <a className="pill-button dark" href="/member-portal/medlemskab">Se og administrér medlemskab</a>
+      {/* Douglas (8 Nov 2026): "When you click 'View and Manage Membership' it just refreshes the page" - it goes down to the membership part. */}
+      <a className="pill-button dark" href="#medlemskab" onClick={e => { const to = document.getElementById("medlemskab"); if (!to) return; e.preventDefault(); to.scrollIntoView({ behavior: "smooth", block: "start" }); history.replaceState(null, "", "#medlemskab"); }}>Se og administrér medlemskab</a>
     </section>
   );
 }
