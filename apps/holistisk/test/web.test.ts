@@ -124,7 +124,7 @@ describe("the calendar", () => {
     const { zoneSql } = await import("../src/zones.js");
     const db = testDb();
     const zone = (postal_code: string | null, city: string | null, lat: number | null = null, lon: number | null = null) =>
-      (db.raw.prepare(`SELECT ${zoneSql("e")} AS z FROM (SELECT ? AS postal_code, ? AS city, ? AS lat, ? AS lon) e`).get(postal_code, city, lat, lon) as { z: string | null }).z;
+      (db.raw.prepare(`SELECT ${zoneSql("e")} AS z FROM (SELECT ? AS postal_code, ? AS city, ? AS lat, ? AS lon) e`).all(postal_code, city, lat, lon)[0] as { z: string | null }).z;
     expect(zone("8000", "Aarhus C")).toBe("midtbyen");
     expect(zone("8200", "Aarhus N")).toBe("nord");
     expect(zone("8240", "Risskov")).toBe("nord");
