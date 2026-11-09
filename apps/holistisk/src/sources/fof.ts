@@ -112,7 +112,9 @@ export function parseFofPage(html: string): FofPage {
 export function applyFofPage(event: SourceEvent, page: FofPage, zone: string): SourceEvent {
   const out: SourceEvent = { ...event, qualityFlags: event.qualityFlags.filter(f => f !== "time_from_event_page") };
   const day = localDate(event.startsAt, zone);
-  const inst = page.instances.find(i => i.startDate?.slice(0, 10) === day) ?? page.instances[0];
+  // The hold on the list's date; else (the talk was moved) the first one after it.
+  const inst = page.instances.find(i => i.startDate?.slice(0, 10) === day)
+    ?? page.instances.find(i => (i.startDate?.slice(0, 10) ?? "") > day) ?? page.instances[0];
   if (page.description) out.paragraphs = [page.description];
   if (page.keywords) out.categoryHints = [...new Set([...out.categoryHints, ...page.keywords.split(",").map(k => k.trim()).filter(Boolean)])];
   if (!inst) return out;
@@ -162,8 +164,10 @@ export const fof: SourceAdapter = {
       cards.push(...fresh);
     }
     if (!cards.length) throw new Error("fof_no_talks_found");
-    const { events: all, unreadable } = fofEvents(cards, config, ctx.now);
-    const events = all.filter(e => (e.endsAt ?? e.startsAt) >= ctx.now - 86_400_000);
+    // FOF lists only talks that can still be booked, so a card whose date has passed is out of date (the talk was
+    // moved): it is kept, and looked up first, so its page gives the real date. Soonest first after that.
+    const { events, unreadable } = fofEvents(cards, config, ctx.now);
+    events.sort((a, b) => a.startsAt - b.startsAt);
     return { events, windowEnd: events.length ? Math.max(...events.map(e => e.startsAt)) : null, unreadable };
   },
   async enrich(event: SourceEvent, config: SourceConfig, ctx: AdapterContext): Promise<SourceEvent> {

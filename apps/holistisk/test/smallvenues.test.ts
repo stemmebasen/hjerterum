@@ -104,6 +104,34 @@ describe("FOF Aarhus' talks (list pages + talk pages)", () => {
   });
 });
 
+describe("FOF: a talk that was moved", () => {
+  // On 2026-11-09 FOF's list still said "Mandag 9/11" for this talk, while its page had moved it to Monday 25 January.
+  const card = { id: "1", title: "Bjørn Zäll: The Beatles - bandet, der erobrede verden", link: "/aftenskolen/fof-aarhus/the-beatles-bandet-der-erobrede-verden", image: null, subText1: "Aarhus C", splashTextExtra: "Mandag 9/11" };
+  const list = `<script>self.__next_f.push([1,${JSON.stringify(JSON.stringify({ items: [card] }))}])</script>`;
+  const LATER = Date.parse("2026-11-12T08:00:00Z");
+
+  it("takes the date of the talk's page", () => {
+    const base = fofEvents([card], source("fof-aarhus"), LATER).events[0]!;
+    const e = applyFofPage(base, parseFofPage(fixture("fof-the-beatles.html")), ZONE);
+    expect(iso(e.startsAt)).toBe("2027-01-25T18:00:00.000Z");
+    expect(iso(e.endsAt)).toBe("2027-01-25T20:00:00.000Z");
+    expect(e).toMatchObject({ allDay: false, venueName: "Godsbanen, Aarhus C", price: { minMinor: 10000 } });
+  });
+
+  it("is still collected after the list's date has passed", async () => {
+    const db = testDb();
+    const { fetcher } = fakeFetch({
+      "https://www.fof.dk/robots.txt": { body: "User-Agent: *\nAllow: /\n" },
+      "https://www.fof.dk/aarhus/foredrag-i-aarhus": { body: list },
+      "https://www.fof.dk/aftenskolen/fof-aarhus/the-beatles-bandet-der-erobrede-verden": { body: fixture("fof-the-beatles.html") }
+    });
+    const out = await runIngest({ DB: db }, { trigger: "test", now: LATER, fetcher, sleep: noSleep, sources: [source("fof-aarhus")] });
+    expect(out.sources[0]).toMatchObject({ status: "ok", created: 1, enriched: 1 });
+    const row = db.raw.prepare("SELECT starts_at, status FROM events").all()[0] as { starts_at: number; status: string };
+    expect([iso(row.starts_at), row.status]).toEqual(["2027-01-25T18:00:00.000Z", "scheduled"]);
+  });
+});
+
 describe("switching a source off", () => {
   it("takes its coming events off the site and brings them back when it is switched on again", async () => {
     const db = testDb();
