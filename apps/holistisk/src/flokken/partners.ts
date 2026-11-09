@@ -1,7 +1,7 @@
 import type { D1Database } from "../db.js";
 import type { EventRow } from "../web/queries.js";
 import { html, type SafeHtml } from "../web/html.js";
-import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
+import { crumbsNav, organiserEmail, page, type Crumb, type PageContext } from "../web/layout.js";
 import type { View } from "./pages.js";
 
 /** Partners: local associations and venues that have their events on the site, and may offer flocks
@@ -96,7 +96,7 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
   </header>
   <h2>Sådan er modellen tænkt</h2>
   <ol class="steps">
-    <li><strong>Vil I være med på siden, så <a href="#kontakt">kontakt os</a></strong> – så viser vi jeres events i kalenderen, på kortet og på eventsiderne, hvor flokkene bliver dannet.</li>
+    <li><strong>Vil I være med på siden, så <a href="mailto:${organiserEmail(ctx)}">kontakt os</a></strong> på ${organiserEmail(ctx)} eller via formularen herunder – så viser vi jeres events i kalenderen, på kortet og på eventsiderne, hvor flokkene bliver dannet.</li>
     <li><strong>Mulighed for radioomtale og anden promovering</strong> – vi er ved at bygge samarbejder op og aftaler det konkret med hver enkelt.</li>
   </ol>
   <h2>Valgfrie oplevelser for flokke</h2>

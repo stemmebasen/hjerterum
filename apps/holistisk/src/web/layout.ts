@@ -22,6 +22,10 @@ export type PageContext = {
   member?: { firstName: string; admin: boolean } | null;
 };
 
+/** Where organisers write to be on the site (Jake's address for now). CONTACT_EMAIL, when set, takes its place. */
+export const ORGANISER_EMAIL = "jh@jacobhauge.com";
+export const organiserEmail = (ctx: Pick<PageContext, "contactEmail">): string => ctx.contactEmail ?? ORGANISER_EMAIL;
+
 export type Crumb = { name: string; path: string };
 
 export type PageMeta = {
@@ -117,7 +121,7 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit event på siden? Skynd dig og tag fat i os – <a href="/samarbejde#kontakt">klik her</a></div>`
+${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:${organiserEmail(ctx)}?subject=${encodeURIComponent("Mit event på Socialklubben")}">klik her</a></div>`
   : ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">

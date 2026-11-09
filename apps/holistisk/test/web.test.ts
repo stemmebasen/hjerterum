@@ -95,7 +95,7 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="/samarbejde#kontakt">klik her</a>');
+    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20event%20p%C3%A5%20Socialklubben">klik her</a>');
     expect(body).not.toContain("Testversion");
   });
 
