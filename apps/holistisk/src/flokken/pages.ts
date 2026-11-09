@@ -6,6 +6,7 @@ import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "./auth.js";
 import type { FieldErrors, FlockForm } from "./forms.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
+import { MAX_LENGTH, type ChatMessage } from "./chat.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Opret en flok, Find en flok,
  * Bliv en del af flokken. */
@@ -29,7 +30,8 @@ const MESSAGES: Record<string, string> = {
   forladt: "Du har forladt flokken.",
   rettet: "Mødested og tidspunkt er opdateret.",
   logget_ud: "Du er logget ud.",
-  tak: "Tak for din henvendelse. Vi vender tilbage."
+  tak: "Tak for din henvendelse. Vi vender tilbage.",
+  meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den."
 };
 const ERRORS: Record<string, string> = {
   event_closed: "Eventet er gået i gang, afholdt eller aflyst, så flokken kan ikke ændres.",
@@ -39,8 +41,17 @@ const ERRORS: Record<string, string> = {
   closed: "Flokken er lukket.",
   not_member: "Du er ikke en del af flokken.",
   not_host: "Kun den, der står for flokken, kan rette mødested og tidspunkt.",
-  too_small: "Flokken har allerede flere medlemmer end det."
+  too_small: "Flokken har allerede flere medlemmer end det.",
+  chat_closed: "Chatten er lukket. Den lukker en uge efter eventet.",
+  chat_empty: "Skriv en besked først.",
+  chat_too_long: `Beskeden er for lang. Højst ${MAX_LENGTH} tegn.`,
+  chat_too_fast: "Du har skrevet mange beskeder på kort tid. Vent lidt, og prøv igen.",
+  not_found: "Beskeden findes ikke længere."
 };
+/** The text for a ?besked= code, for the chat's JSON answers. */
+export const noticeText = (code: string): string => MESSAGES[code] ?? ERRORS[code] ?? "Noget gik galt. Prøv igen.";
+/** "I dag kl. 18.42" for a chat message. */
+export const chatTime = (at: number, now: number): string => `${capitalize(dayLabel(at, now))} kl. ${hhmm(at)}`;
 export const flash = (code: string | null): SafeHtml => {
   if (!code) return html``;
   const ok = MESSAGES[code];
@@ -84,7 +95,33 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 
 // ————————————————————————————————————————— A flock's own page
 
-export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, names: Array<{ id: string; first_name: string; again: number | null }>, member: Member | null, hostId: string | null, message: string | null): View {
+// ————————————————————————————————————————— The flock's chat
+
+function chatItem(c: ChatMessage, memberId: string, flockId: string, now: number): SafeHtml {
+  const mine = c.member_id === memberId;
+  return html`<li class="chat-msg${mine ? " is-mine" : ""}" data-id="${c.id}" data-at="${c.created_at}">
+    <p class="chat-meta"><strong>${c.first_name}</strong>${mine ? html` <span class="meta-muted">(dig)</span>` : ""} <time datetime="${new Date(c.created_at).toISOString()}">${chatTime(c.created_at, now)}</time></p>
+    <p class="chat-body">${c.body}</p>
+    ${mine ? "" : html`<form method="post" action="${flockPath(flockId)}/chat/${c.id}/meld" class="chat-report" data-chat-report><button type="submit" class="button-link">Meld besked</button></form>`}
+  </li>`;
+}
+
+export function chatSection(f: Pick<FlockRow, "id">, chat: { messages: ChatMessage[]; open: boolean }, member: Member, now: number): SafeHtml {
+  return html`<section class="section chat" id="chat" aria-labelledby="h-chat">
+    <div class="section-head"><h2 id="h-chat">Chat</h2></div>
+    <p class="small meta-muted">Kun dem i flokken kan læse med. Sig hej, aftal detaljer eller skriv, hvis du bliver forsinket. Telefonnumre og e-mails bliver skjult.</p>
+    <p class="chat-empty" data-chat-empty${chat.messages.length ? raw(" hidden") : ""}>Ingen beskeder endnu. Sig hej!</p>
+    <ol class="chat-list" data-chat aria-live="polite">${chat.messages.map(c => chatItem(c, member.id, f.id, now))}</ol>
+    ${chat.open ? html`<form method="post" action="${flockPath(f.id)}/chat" class="chat-form" data-chat-form>
+      <label for="chat-text" class="visually-hidden">Skriv en besked</label>
+      <textarea id="chat-text" name="tekst" rows="2" maxlength="${MAX_LENGTH}" required placeholder="Skriv en besked …"></textarea>
+      <button type="submit">Send</button>
+      <p class="field-error" data-chat-error role="alert" hidden></p>
+    </form>` : html`<p class="notice" data-chat-closed>Chatten er lukket. Den lukker en uge efter eventet.</p>`}
+  </section>`;
+}
+
+export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, names: Array<{ id: string; first_name: string; again: number | null }>, member: Member | null, hostId: string | null, message: string | null, chat: { messages: ChatMessage[]; open: boolean } | null = null): View {
   const canJoin = f.status === "open" && f.event_status === "scheduled" && f.event_starts_at > ctx.now;
   const isHost = !!member && hostId === member.id;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: f.event_title, path: `/events/${f.event_slug}` }, { name: "Flokken", path: flockPath(f.id) }];
@@ -118,6 +155,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, nam
     <ul class="member-list">${names.map(n => html`<li>${n.first_name}${member && n.id === member.id ? html` <span class="meta-muted">(dig)</span>` : ""}${n.id === hostId ? html` <span class="pill-small">står for flokken</span>` : ""}</li>`)}</ul>
     <p class="small meta-muted">Kun medlemmer af flokken kan se navnene. I finder hinanden ved mødestedet.</p>
   </section>
+  ${chat && member ? chatSection(f, chat, member, ctx.now) : ""}
   <section class="section" aria-labelledby="h-leave">
     <form method="post" action="${flockPath(f.id)}/forlad"><button type="submit" class="button-quiet">Forlad flokken</button></form>
   </section>` : html`<p class="meta-muted">${f.member_count === 1 ? "1 person" : `${f.member_count} personer`} er med. Navnene kan kun ses af dem i flokken.</p>`}
@@ -284,12 +322,15 @@ export function safetyPage(ctx: PageContext): View {
   <p>En flok mødes ved indgangen til eventet, på en café eller et andet offentligt sted – aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
   <h2>Du deler kun dit fornavn</h2>
   <p>Flokken kender kun dit fornavn. Vi beder ikke om e-mail, telefonnummer, alder eller billede. Navnene i en flok kan kun ses af dem, der er med i den. Del ikke telefonnummer eller adresse i flokkens besked.</p>
+  <h2>Chatten i flokken</h2>
+  <p>Hver flok har en lille chat, som kun dem i flokken kan læse. Telefonnumre og e-mails bliver skjult automatisk, så I ikke behøver at dele dem. Chatten lukker en uge efter eventet, og beskederne slettes 30 dage efter.</p>
+  <p>Er en besked ubehagelig, så tryk <strong>Meld besked</strong>. Den forsvinder med det samme for dig, og når to har meldt den, forsvinder den for alle. Vi læser alle meldinger.</p>
   <h2>Du bestemmer selv</h2>
   <p>Ingen bliver sat i en flok automatisk. Du vælger selv, om du vil oprette en flok eller være en del af en. Du kan forlade en flok når som helst – også i sidste øjeblik.</p>
   <h2>Billet og tilmelding</h2>
   <p>Hver person køber selv billet eller tilmelder sig hos arrangøren. Flokken håndterer ikke betaling.</p>
   <h2>Det har vi ikke endnu</h2>
-  <p>Flokken har endnu ikke blokering, indberetning eller verificerede profiler.${ctx.contactEmail ? html` Oplever du noget ubehageligt, så skriv til <a href="mailto:${ctx.contactEmail}">${ctx.contactEmail}</a>.` : ""} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
+  <p>Flokken har endnu ikke blokering eller verificerede profiler.${ctx.contactEmail ? html` Oplever du noget ubehageligt, så skriv til <a href="mailto:${ctx.contactEmail}">${ctx.contactEmail}</a>.` : ""} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Tryghed i Flokken", description: "Offentlige mødesteder, kun fornavn, og du kan altid forlade en flok.", canonical: "/tryghed", breadcrumbs: crumbs }, body) };
 }

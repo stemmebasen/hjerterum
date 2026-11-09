@@ -3,7 +3,8 @@ import { isProduction } from "./env.js";
 import { activeAreas, activeRegions, areaBySlug, regionBySlug } from "./geo.js";
 import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
-import { ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
+import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
+import { purgeOldChats } from "./flokken/chat.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -162,7 +163,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
     return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
@@ -277,7 +278,14 @@ export default {
     const work = scheduledRun(env, controller.cron, { now: controller.scheduledTime || Date.now() })
       .then(outcome => console.log(JSON.stringify({ event: "cron", cron: controller.cron, status: outcome.status, reason: outcome.reason ?? null })))
       .catch(error => console.error(JSON.stringify({ event: "cron_failed", cron: controller.cron, error: error instanceof Error ? error.message : String(error) })));
-    if (ctx) ctx.waitUntil(work);
-    await work;
+    // Once a day: flock chats are deleted 30 days after their event.
+    const purge = controller.cron === DAILY_CRON && env.DB
+      ? purgeOldChats(env.DB, controller.scheduledTime || Date.now())
+        .then(deleted => console.log(JSON.stringify({ event: "chat_purge", deleted })))
+        .catch(error => console.error(JSON.stringify({ event: "chat_purge_failed", error: error instanceof Error ? error.message : String(error) })))
+      : Promise.resolve();
+    const all = Promise.all([work, purge]);
+    if (ctx) ctx.waitUntil(all);
+    await all;
   }
 };

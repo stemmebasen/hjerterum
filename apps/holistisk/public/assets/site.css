@@ -450,6 +450,23 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .member-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
 .member-list li { background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; font-weight: 800; }
 .pill-small { font-size: .72rem; font-weight: 800; color: #17543f; background: var(--green-soft); border-radius: 999px; padding: 2px 8px; }
+/* The flock's chat */
+.chat { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 4px 22px 18px; box-shadow: 0 5px 0 var(--ink); }
+.chat-list { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 10px; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; }
+.chat-list:empty { display: none; }
+.chat-msg { background: var(--paper); border: 2px solid var(--rule); border-radius: 14px; padding: 8px 12px; max-width: 88%; }
+.chat-msg.is-mine { justify-self: end; background: var(--green-soft); border-color: #17543f; }
+.chat-meta { margin: 0; font-size: .85rem; }
+.chat-meta time { color: var(--muted, #5b5b5b); margin-left: 4px; }
+.chat-body { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-report { margin: 2px 0 0; }
+.button-link { min-height: 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--muted, #5b5b5b); font-weight: 600; font-size: .8rem; text-decoration: underline; }
+.button-link:hover { background: none; color: var(--alert); }
+.button-link:active { transform: none; }
+.chat-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: end; }
+.chat-form textarea { width: 100%; min-height: 48px; border: 2px solid var(--rule); border-radius: var(--radius-s); padding: 10px 12px; font: inherit; resize: vertical; background: var(--card); }
+.chat-form .field-error { grid-column: 1 / -1; margin: 0; }
+.chat-empty { font-weight: 700; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
 .choice-row .is-chosen { background: var(--green); color: var(--butter); }
 .form-card { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 22px; display: grid; gap: 16px; box-shadow: 0 5px 0 var(--ink); }
