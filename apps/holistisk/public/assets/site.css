@@ -165,7 +165,7 @@ strong { font-weight: 800; }
 .hero { background: var(--paper); background-image: radial-gradient(rgba(23, 51, 45, .08) 1.2px, transparent 1.3px); background-size: 22px 22px; border-bottom: 2px solid var(--ink); }
 .hero-inner { padding-top: 40px; padding-bottom: 52px; display: grid; gap: 34px; align-items: center; }
 @media (min-width: 940px) { .hero-inner { grid-template-columns: 1fr 1fr; gap: 48px; padding-top: 64px; padding-bottom: 76px; } }
-.hero h1 { font-size: clamp(2.6rem, 1.4rem + 4.4vw, 4.9rem); line-height: 1.02; max-width: 7.8em; margin-bottom: .45em; }
+.hero h1 { font-size: clamp(2.4rem, 1.3rem + 4vw, 4.4rem); line-height: 1.02; max-width: 9.5em; margin-bottom: .45em; }
 .hero .standfirst { max-width: 32em; }
 .hero-kicker { display: inline-block; font: 600 .95rem var(--display); color: var(--green-2); background: var(--green-soft); border-radius: 999px; padding: 4px 14px; margin: 0 0 1em; }
 /* The hero's tickets, drawn like the share image: three real coming events, fanned, the free one stamped. */
@@ -418,6 +418,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .offer-list { padding-left: 1.1em; }
 /* What a flock of five gets is not decided: a teaser, *****. */
 .secret, .how span.secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
+.mission { margin-top: 40px; background: var(--butter); border-radius: var(--radius); padding: 24px 30px; }
+.mission h2 { margin-bottom: .3em; }
+.mission p { margin-bottom: 0; max-width: 40em; font-size: 1.14rem; line-height: 1.55; }
 .partner-teaser { margin-top: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--green); color: #e6efe9; border-radius: var(--radius); padding: 26px 30px; }
 .partner-teaser h2 { color: #fff; margin-bottom: .2em; }
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }

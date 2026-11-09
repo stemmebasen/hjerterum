@@ -31,7 +31,9 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain('<h1>Find et event – og en <span class="marker">flok at følges med.</span></h1>');
+    expect(body).toContain('<h1>Byen er fuld af gode oplevelser – <span class="marker">del dem med gode mennesker!</span></h1>');
+    expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
+    expect(body).toContain("så er du IKKE alene");
     // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
     expect(body).toContain("<strong>Find en flok – eller opret en</strong>");
     expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");
