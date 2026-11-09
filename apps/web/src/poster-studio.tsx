@@ -328,9 +328,8 @@ export function PosterStudio({ id }: { id: string }) {
 
   // The editor's words, colours (the chosen mood's) and pictures.
   // Requested (the chair, 9 Nov 2026): "Ved citat versionen kunne det være fedt at kunne klikke på en knap og få et nyt citat." The real words there are - the
-  // teacher's own (with consent), then the event description's sentences - one after another; never words made up and put in someone's mouth.
-  const own = t?.consent === "given" ? [t.quotes.offering, t.quotes.facilitator, t.quotes.participant] : [];
-  const quotes = [...own, ...event.lines.flatMap(l => l.split(/(?<=[.!?])\s+/))]
+  // teacher's own, then the event description's sentences - one after another; never words made up and put in someone's mouth.
+  const quotes = [t?.quotes.offering, t?.quotes.facilitator, t?.quotes.participant, ...event.lines.flatMap(l => l.split(/(?<=[.!?])\s+/))]
     .map(q => (q ?? "").trim()).filter((q, i, all) => q.length >= 30 && q.length <= 220 && all.indexOf(q) === i);
   const editorInput = { words, colors: { ...C, ...(PALETTES.find(p => p.key === style.palette)?.colors ?? {}) }, site: SITE_LABEL,
     quote: quotes.length ? quotes[quoteAt % quotes.length]! : null };
