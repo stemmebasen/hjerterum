@@ -233,6 +233,24 @@ async function shareIntro(env: SagaEnv, deps: SagaDeps, post: TaggedPost): Promi
 }
 
 /** Every half hour: new posts that tag Hjerterum become drafts for the chair (each once), and the chair is told in one message. */
+/** How old a tag may be and still come up as new. */
+const TAG_FRESH_MS = 3 * 86_400_000;
+const linkKey = (url: string | null | undefined) => (url ?? "").toLowerCase().replace(/[?#].*$/, "").replace(/^https?:\/\/(?:www\.|m\.|web\.)?/, "").replace(/\/$/, "");
+const mediaCode = (url: string | null | undefined) => /instagram\.com\/(?:[^/]+\/)?(?:reel|reels|p|tv)\/([A-Za-z0-9_-]+)/i.exec(url ?? "")?.[1] ?? null;
+const opening = (text: string | null | undefined) => (text ?? "").toLowerCase().replace(/https?:\/\/\S+/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().slice(0, 80);
+/** Whether a tagged post is one already seen (another id, another way in). */
+export function sameTaggedPost(p: TaggedPost, x: { key: string; link: string | null; author?: string | null; text?: string; permalink?: string | null }): boolean {
+  if (x.key === `${p.network}:${p.id}`) return true;
+  const links = [x.link, x.permalink].map(linkKey).filter(Boolean);
+  if (p.permalink && links.includes(linkKey(p.permalink))) return true;
+  const code = mediaCode(p.permalink);
+  if (code && [x.link, x.permalink].some(l => mediaCode(l) === code)) return true;
+  const tail = p.id.split("_").pop();
+  if (p.network === "facebook" && tail && tail.length > 8 && x.key.startsWith("facebook:") && x.key.split("_").pop() === tail) return true;
+  const words = opening(p.text);
+  return Boolean(p.author && x.author && p.author.trim().toLowerCase() === x.author.trim().toLowerCase() && words.length >= 30 && opening(x.text) === words);
+}
+
 export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   const account = await socialAccount(db);
   if (!account) return 0;
@@ -254,11 +272,14 @@ export async function scanTags(env: SocialEnv, deps: SagaDeps, db: D1Database): 
     }));
   } catch (error) { problems.push(error instanceof Error ? error.message : String(error)); }
   await db.prepare("UPDATE social_account SET checked_at_ms = ?, check_error = ? WHERE id = 1").bind(now, problems.join(" · ").slice(0, 500) || null).run().catch(() => undefined);
-  // Only what was posted after the page was connected: the first look does not bring up years of old tags.
-  found = found.filter(p => p.createdMs >= account.connected_at_ms - 14 * 86_400_000);
-  const known = new Set((await db.prepare("SELECT source_key FROM social_posts WHERE kind = 'share' AND source_key IN (SELECT value FROM json_each(?))")
-    .bind(JSON.stringify(found.map(p => `${p.network}:${p.id}`))).all<{ source_key: string }>().then(r => r.results ?? []).catch(() => [])).map(r => r.source_key));
-  const fresh = found.filter(p => !known.has(`${p.network}:${p.id}`)).slice(0, 10);
+  // Only what was posted after the page was connected: the first look does not bring up years of old tags. Reported (the chair, 10 Nov 2026): "Jeg bliver ved
+  // med at se gamle opslag, som vi er tagget i, som jeg allerede har skjult" - and nothing older than three days comes up as new (Facebook can show a tag days late).
+  found = found.filter(p => p.createdMs >= Math.max(account.connected_at_ms - 14 * 86_400_000, now - TAG_FRESH_MS));
+  // Every post there has been (shared, skipped or waiting): the same post found again - by another way (a reel sent in Messenger, then tagged), under another
+  // id, or the same words by the same maker in an event and on their page - is not new.
+  const seen = await db.prepare("SELECT source_key, link, source FROM social_posts WHERE kind = 'share'").all<{ source_key: string; link: string | null; source: string }>()
+    .then(r => (r.results ?? []).map(x => ({ key: x.source_key, link: x.link, ...(JSON.parse(x.source || "{}") as { author?: string | null; text?: string; permalink?: string | null }) }))).catch(() => []);
+  const fresh = found.filter(p => !seen.some(x => sameTaggedPost(p, x))).slice(0, 10);
   if (!fresh.length) return 0;
   const ready = await prReadyNames(db);
   // "Delt d. <dato>": what Hjerterum has already shared, by hand or otherwise - on Facebook the post itself, on Instagram a post naming its maker.
