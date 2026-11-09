@@ -53,7 +53,7 @@ export function postCardHref(base: string, p: SocialPost): string {
 const cardLink = (base: string, p: SocialPost) => p.kind !== "share" && ["draft", "approved", "failed", "skipped"].includes(p.status) && !p.source.removed
   ? `<p class="cal-links"><a href="${postCardHref(base, p)}">${p.status === "approved" ? "Fortryd eller ret" : p.status === "skipped" ? "Godkend igen" : "Godkend, ret eller spring over"} →</a></p>` : "";
 
-const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}`
+const label = (p: SocialPost) => p.kind === "week" ? (p.source.format === "reel" ? "Ugens events · reel" : "Ugens events") : p.kind === "share" ? `Deling: ${p.source.author ?? "opslag"}`
   : `${p.source.title ?? "Event"}${p.source.own ? " · dit eget opslag" : p.source.eventItself ? " · eventet selv" : p.source.fbEventShare ? " · Facebook-begivenheden" : p.source.pageShare ? " · eventet selv" : p.source.shout === 2 ? " · påmindelse" : ""}`;
 const where = (p: SocialPost) => p.channels.map(c => c === "instagram" ? (p.kind === "event" && p.source.video && !p.source.noVideo ? "IG ▶" : "IG") : p.kind === "event" && p.source.video && !p.source.noFacebookVideo ? "FB ▶" : "FB").join(" + ");
 
@@ -61,7 +61,11 @@ export function prCalendarSection(base: string, d: CalendarData): string {
   const today = dateOf(d.nowMs);
   const byDay = new Map<string, SocialPost[]>();
   // An event on Facebook and Instagram at different times ("forskellige tidspunkter på de to medier"): one entry for each, at its own time.
-  const entries = d.posts.flatMap((p): SocialPost[] => {
+  // Reported (the chair, 9 Nov 2026): "Der er stadig begge typer ugens" - with the week's reel there, the picture post (its stand-in) is not shown as well,
+  // unless it went out.
+  const reelWeeks = new Set(d.posts.filter(p => p.kind === "week" && p.source.format === "reel" && p.status !== "skipped").map(p => p.week));
+  const shown = d.posts.filter(p => !(p.kind === "week" && p.source.format !== "reel" && reelWeeks.has(p.week) && p.status !== "published"));
+  const entries = shown.flatMap((p): SocialPost[] => {
     const ig = p.source.instagramAtMs;
     if (!ig || ig === p.publish_at_ms || !p.channels.includes("instagram")) return [p];
     const each = (c: "facebook" | "instagram", at: number | null): SocialPost => ({ ...p, channels: [c], publish_at_ms: at, status: p.published[c] ? "published" : p.status === "published" ? "approved" : p.status, source: { ...p.source, moveChannel: c } as SocialPost["source"] });

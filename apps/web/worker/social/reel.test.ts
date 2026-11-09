@@ -97,6 +97,10 @@ describe("Ugens events as a reel", () => {
     const page = await (await handleCockpitRequest(new Request("https://admin.hjerterum.example/pr/uge?uge=2026-11-09", { headers: { cookie } }), env, deps(async () => new Response("{}"), AT - 3_600_000))).text();
     expect(page).toContain('<section class="pr-week-pair"><h3>Ugens events</h3>');
     expect(page).toContain("Reserve: Ugens events som billedopslag");
+    // "Der er stadig begge typer ugens": one entry in the calendar too.
+    const calendar = await (await handleCockpitRequest(new Request("https://admin.hjerterum.example/pr/kalender?start=2026-11-09", { headers: { cookie } }), env, deps(async () => new Response("{}"), AT - 3_600_000))).text();
+    expect(calendar).toContain("Ugens events · reel");
+    expect(calendar).not.toMatch(/Ugens events<\/b>/);
     await run(AT + 60_000);
     await run(AT + 6 * 60_000);
     expect((await socialPosts(db, "source_key = 'week:2026-W46'"))[0]).toMatchObject({ status: "skipped" });
