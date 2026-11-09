@@ -147,7 +147,7 @@ jobs:
           P / > /tmp/portal.html
           grep -q 'flok at følges med' /tmp/portal.html
           grep -q 'Sådan virker Socialklubben' /tmp/portal.html
-          PG /spar-paa-billetten 'Medlemsfordele'
+          PG /spar-paa-billetten 'Gratis'
           P /kalender > /tmp/events.html
           EVENT_PATH="$(grep -o 'href="/socialklubben/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="\/socialklubben//;s/"$//')"
           test -n "$EVENT_PATH"
@@ -156,11 +156,12 @@ jobs:
           grep -q 'Tilmeld hos arrangøren\|Dette event er afholdt' /tmp/event.html
           grep -q 'id="flokke"' /tmp/event.html
           PG "/kalender?kategori=yoga&periode=maaned&omraade=aarhus" 'class="results-count"'
+          PG "/kalender?omraade=midtbyen&periode=14-dage" 'class="filter-chip is-on"'
           PG /aarhus '<h1>Events i Aarhus</h1>'
           PG /kort 'id="kort-data"'
           PG /find-en-flok '<h1>Find en flok</h1>'
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
-          PG /samarbejde 'billetfordel'
+          PG /samarbejde 'kontakt os'
           PG /tryghed 'offentligt sted'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
           PG /spiritualitet/aarhus '<h1>Spirituelle arrangementer i Aarhus</h1>'

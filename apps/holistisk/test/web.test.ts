@@ -93,6 +93,12 @@ describe("the calendar", () => {
     expect(rows((await text("/kalender?emne=klarsyn")).body)).toContain("Klarsyn med Karina Graabæk");
   });
 
+  it("invites organisers in the top banner instead of calling the site a test version", async () => {
+    const { body } = await text("/");
+    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20event%20p%C3%A5%20Socialklubben">klik her</a>');
+    expect(body).not.toContain("Testversion");
+  });
+
   it("has toggleable chips for Område, Pris and Hvornår, with the search field at the bottom", async () => {
     const all = count((await text("/kalender")).body);
     const nord = await text("/kalender?omraade=nord");
@@ -103,11 +109,11 @@ describe("the calendar", () => {
     // The old areas still work in links.
     expect(count((await text("/kalender?omraade=aarhus")).body)).toBeGreaterThan(0);
     // A chosen chip links to the same list without it; the others add to it.
-    expect(nord.body).toMatch(/<a class="filter-chip is-on" href="\/kalender#soeg"[^>]*>Nord/);
+    expect(nord.body).toMatch(/<a class="filter-chip is-on" href="\/kalender#soeg"[^>]*>Nord for Aarhus/);
     expect(nord.body).toContain('href="/kalender?omraade=syd#soeg"');
     expect(nord.body).toContain('href="/kalender?omraade=nord&amp;pris=gratis#soeg"');
     expect(nord.body).toContain('href="/kalender?periode=14-dage&amp;omraade=nord#soeg"');
-    for (const label of ["Midtbyen", "Nord", "Syd", "Vest", "Gratis", "Under 100 kr.", "Under 200 kr.", "Under 500 kr.", "I dag", "I morgen", "I weekenden", "Næste 14 dage"])
+    for (const label of ["Aarhus midtby", "Nord for Aarhus", "Vest for Aarhus", "Syd for Aarhus", "Gratis", "Under 100 kr.", "Under 200 kr.", "Under 500 kr.", "I dag", "I morgen", "I weekenden", "Næste 14 dage"])
       expect(nord.body).toContain(`>${label}`);
     // Område, Pris and Hvornår come first, the search field last, and it keeps the chosen chips.
     const panel = nord.body.slice(nord.body.indexOf('<div class="filters">'));

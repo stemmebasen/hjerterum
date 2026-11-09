@@ -13,27 +13,27 @@ const r = (from: number, to = from): [number, number] => [from, to];
 
 export const ZONES: ZoneDef[] = [
   {
-    slug: "midtbyen", label: "Midtbyen",
+    slug: "midtbyen", label: "Aarhus midtby",
     postcodes: [r(8000, 8099)],
     towns: ["aarhus", "århus", "aarhus c", "århus c"]
   },
   {
-    slug: "nord", label: "Nord",
+    slug: "nord", label: "Nord for Aarhus",
     // Aarhus N, Risskov, Egå, Hadsten, Trige, Hinnerup, Djursland, Lystrup, Hjortshøj, Skødstrup, Randers.
     postcodes: [r(8200), r(8240, 8259), r(8370), r(8380), r(8382), r(8400, 8444), r(8500, 8599), r(8870, 8879), r(8900, 8999)],
     towns: ["aarhus n", "århus n", "risskov", "egå", "lystrup", "skødstrup", "hjortshøj", "lisbjerg", "trige", "hadsten", "hinnerup", "randers", "langå", "hornslet", "ebeltoft", "rønde", "grenaa", "grenå", "auning", "mørke", "ryomgård", "kolind"]
   },
   {
-    slug: "syd", label: "Syd",
-    // Viby, Højbjerg, Odder, Tranbjerg, Mårslet, Beder, Malling, Solbjerg, Hasselager, Hørning, Skanderborg, Ry, Horsens.
-    postcodes: [r(8260, 8369), r(8660, 8799)],
-    towns: ["viby", "viby j", "højbjerg", "odder", "tranbjerg", "tranbjerg j", "mårslet", "beder", "malling", "solbjerg", "hasselager", "hørning", "skanderborg", "ry", "horsens", "hedensted", "brædstrup", "nørre snede"]
-  },
-  {
-    slug: "vest", label: "Vest",
+    slug: "vest", label: "Vest for Aarhus",
     // Aarhus V, Brabrand, Åbyhøj, Tilst, Hammel, Harlev, Galten, Sabro, Silkeborg.
     postcodes: [r(8210, 8239), r(8381), r(8450, 8499), r(8600, 8659), r(8880, 8883)],
     towns: ["aarhus v", "århus v", "brabrand", "åbyhøj", "tilst", "hammel", "harlev", "galten", "skovby", "sabro", "silkeborg", "kjellerup", "gjern", "them"]
+  },
+  {
+    slug: "syd", label: "Syd for Aarhus",
+    // Viby, Højbjerg, Odder, Tranbjerg, Mårslet, Beder, Malling, Solbjerg, Hasselager, Hørning, Skanderborg, Ry, Horsens.
+    postcodes: [r(8260, 8369), r(8660, 8799)],
+    towns: ["viby", "viby j", "højbjerg", "odder", "tranbjerg", "tranbjerg j", "mårslet", "beder", "malling", "solbjerg", "hasselager", "hørning", "skanderborg", "ry", "horsens", "hedensted", "brædstrup", "nørre snede"]
   }
 ];
 
