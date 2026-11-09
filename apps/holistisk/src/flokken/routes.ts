@@ -4,7 +4,8 @@ import { eventBySlug, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
 import { createFlock, flockById, flockHost, flockMemberNames, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
@@ -24,6 +25,16 @@ async function formData(request: Request): Promise<FormData | null> {
   if (length > MAX_BODY) return null;
   try { return await request.formData(); } catch { return null; }
 }
+
+const bearerOk = (request: Request, env: Env): boolean => {
+  const token = env.INGEST_TOKEN;
+  const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
+  return !!token && token.length >= 24 && sameSecret(given, token);
+};
+
+/** A chat message as the page gets it: first name only, never the member's id. */
+const chatJson = (c: ChatMessage, memberId: string, now: number) =>
+  ({ id: c.id, name: c.first_name, body: c.body, at: c.created_at, time: chatTime(c.created_at, now), mine: c.member_id === memberId });
 
 async function eventFor(db: D1Database, slug: string, regions: string[]): Promise<EventRow | null> {
   const e = await eventBySlug(db, slug);
@@ -52,10 +63,12 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return go(withMessage("/samarbejde", "tak") + "#kontakt");
   }
   if (path === "/api/samarbejde" && !post) {
-    const token = env.INGEST_TOKEN;
-    const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
-    if (!token || token.length < 24 || !sameSecret(given, token)) return { json: { error: "unauthorized" }, status: 401 };
+    if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
     return { json: await listInquiries(db), status: 200 };
+  }
+  if (path === "/api/chat-meldinger" && !post) {
+    if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
+    return { json: await reportedMessages(db), status: 200 };
   }
 
   if (path === "/log-ind") {
@@ -112,6 +125,35 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return go(withMessage(flockPath(result.id), "oprettet"));
   }
 
+  // The flock's chat: GET (JSON) for new messages, POST to write, POST …/<message>/meld to report. Without JavaScript
+  // the forms post and come back to the flock's page.
+  const chat = /^\/flokke\/([0-9a-f-]{36})\/chat(?:\/([0-9a-f-]{36})\/meld)?$/.exec(path);
+  if (chat) {
+    const [, id, reportId] = chat as unknown as [string, string, string | undefined];
+    const wantsJson = (request.headers.get("accept") ?? "").includes("application/json");
+    const here = flockPath(id);
+    const fail = (code: string, status: number): FlokkenResult => wantsJson ? { json: { error: code, text: noticeText(code) }, status } : go(withMessage(here, code) + "#chat");
+    const m = await member();
+    if (!m) return wantsJson ? { json: { error: "login" }, status: 401 } : go(`/log-ind?naeste=${encodeURIComponent(here)}`);
+    const access = await chatAccess(db, id, m.id);
+    if (!access) return fail("not_member", 403);
+    if (!post) {
+      if (!wantsJson) return go(`${here}#chat`);
+      const after = Number(url.searchParams.get("efter") ?? "0");
+      const messages = await chatMessages(db, id, m.id, Number.isFinite(after) && after > 0 ? after : 0);
+      return { json: { open: chatOpen(access, now), messages: messages.map(c => chatJson(c, m.id, now)) }, status: 200 };
+    }
+    if (reportId) {
+      const result = await reportMessage(db, access, m.id, reportId, now);
+      if ("error" in result) return fail(result.error, 400);
+      return wantsJson ? { json: { ok: true, text: noticeText("meldt") }, status: 200 } : go(withMessage(here, "meldt") + "#chat");
+    }
+    const data = await formData(request);
+    const result = await postMessage(db, access, m.id, String(data?.get("tekst") ?? ""), now);
+    if ("error" in result) return fail(result.error, result.error === "chat_too_fast" ? 429 : 400);
+    return wantsJson ? { json: { message: chatJson(result.message, m.id, now) }, status: 200 } : go(`${here}#chat`);
+  }
+
   const flock = /^\/flokke\/([0-9a-f-]{36})(?:\/(bliv-del-af|forlad|ret))?$/.exec(path);
   if (flock) {
     const [, id, action] = flock as unknown as [string, string, string | undefined];
@@ -121,8 +163,10 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const here = flockPath(f.id);
     if (!action) {
       if (post) return null;
-      const [e, names, host] = await Promise.all([eventBySlug(db, f.event_slug), f.is_member ? flockMemberNames(db, f.id) : Promise.resolve([]), flockHost(db, f)]);
-      return { view: flockPage(pc, f, e, names, m, host, message) };
+      const [e, names, host, messages] = await Promise.all([eventBySlug(db, f.event_slug), f.is_member ? flockMemberNames(db, f.id) : Promise.resolve([]), flockHost(db, f),
+        m && f.is_member ? chatMessages(db, f.id, m.id) : Promise.resolve([])]);
+      const chat = f.is_member ? { messages, open: chatOpen({ status: f.status, eventEnds: f.event_ends_at ?? f.event_starts_at + 3 * 3600_000 }, now) } : null;
+      return { view: flockPage(pc, f, e, names, m, host, message, chat) };
     }
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(here)}`);
     if (action === "ret") {

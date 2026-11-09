@@ -4,6 +4,7 @@ import { runIngest } from "../src/ingest/run.js";
 import { SOURCES } from "../src/sources/registry.js";
 import { normalizeCode } from "../src/flokken/auth.js";
 import { toLocalInput } from "../src/flokken/forms.js";
+import { maskContacts, purgeOldChats } from "../src/flokken/chat.js";
 import { offersFor, type PartnerOffer } from "../src/flokken/partners.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
@@ -170,6 +171,110 @@ describe("flocks", () => {
     expect((await call(`/events/${later.slug}/opret-flok`, { cookie: gry.cookie }, after)).body).not.toContain("Fortsæt fra en tidligere flok");
     expect((await call("/flokke", { cookie: gry.cookie }, after)).body).not.toContain("Eftermød");
     expect((await call(`/flokke/${first}/eftermoedet`, { cookie: gry.cookie, form: { svar: "ja" } }, after)).status).not.toBe(302);
+  });
+});
+
+describe("the flock's chat", () => {
+  const jsonCall = (path: string, cookie: string, form?: Record<string, string>, now = NOW) =>
+    call(path, { cookie, ...(form ? { form } : {}), headers: { accept: "application/json" } }, now);
+
+  it("is only for the flock's members, hides phone numbers and e-mails, and can be read for new messages", async () => {
+    const eva = await join("Eva");
+    const id = flockIdFrom((await startFlock(eva.cookie)).headers.get("location"));
+    const finn = await join("Finn");
+
+    // Not a member yet: no chat on the page, and the chat answers neither reading nor writing.
+    expect((await call(`/flokke/${id}`, { cookie: finn.cookie })).body).not.toContain('id="chat"');
+    expect((await jsonCall(`/flokke/${id}/chat`, finn.cookie)).status).toBe(403);
+    expect((await jsonCall(`/flokke/${id}/chat`, finn.cookie, { tekst: "Hej" })).status).toBe(403);
+    expect((await jsonCall(`/flokke/${id}/chat`, "", { tekst: "Hej" })).status).toBe(401);
+
+    const evaPage = await call(`/flokke/${id}`, { cookie: eva.cookie });
+    expect(evaPage.body).toContain('id="chat"');
+    expect(evaPage.body).toContain("Ingen beskeder endnu");
+
+    const sent = await jsonCall(`/flokke/${id}/chat`, eva.cookie, { tekst: "Hej! Ring på 22 33 44 55 eller skriv til eva@example.dk. Vi ses kl. 18.30 den 10.11.2026" });
+    expect(sent.status).toBe(200);
+    const message = JSON.parse(sent.body).message;
+    expect(message.body).toBe("Hej! Ring på [nummer skjult] eller skriv til [e-mail skjult]. Vi ses kl. 18.30 den 10.11.2026");
+    expect(message).not.toHaveProperty("member_id");
+    expect(message.mine).toBe(true);
+    expect(db.raw.prepare("SELECT body FROM flock_messages WHERE id = ?").all(message.id)[0]).toEqual({ body: message.body });
+
+    await call(`/flokke/${id}/bliv-del-af`, { cookie: finn.cookie, form: {} });
+    const read = JSON.parse((await jsonCall(`/flokke/${id}/chat`, finn.cookie)).body);
+    expect(read.open).toBe(true);
+    expect(read.messages.map((m: { name: string; mine: boolean }) => [m.name, m.mine])).toEqual([["Eva", false]]);
+
+    // Without JavaScript: the form posts and comes back to the chat on the flock's page.
+    const plain = await call(`/flokke/${id}/chat`, { cookie: finn.cookie, form: { tekst: "<b>Jeg kommer lidt senere</b>" } });
+    expect(plain.status).toBe(303);
+    expect(plain.headers.get("location")).toBe(`/flokke/${id}#chat`);
+    const finnPage = await call(`/flokke/${id}`, { cookie: finn.cookie });
+    expect(finnPage.body).toContain("&lt;b&gt;Jeg kommer lidt senere&lt;/b&gt;");
+    expect(finnPage.body).toContain(`action="/flokke/${id}/chat/${message.id}/meld"`);
+
+    // Polling from the last message seen returns only that and newer ones.
+    const newer = JSON.parse((await jsonCall(`/flokke/${id}/chat?efter=${NOW}`, eva.cookie)).body);
+    expect(newer.messages).toHaveLength(2);
+    expect((await jsonCall(`/flokke/${id}/chat`, eva.cookie, { tekst: "   " })).status).toBe(400);
+    expect(JSON.parse((await jsonCall(`/flokke/${id}/chat`, eva.cookie, { tekst: "x".repeat(501) })).body).error).toBe("chat_too_long");
+
+    // Someone who leaves can no longer read along.
+    await call(`/flokke/${id}/forlad`, { cookie: finn.cookie, form: {} });
+    expect((await jsonCall(`/flokke/${id}/chat`, finn.cookie)).status).toBe(403);
+  });
+
+  it("hides a reported message from the reporter at once and from everyone after two reports", async () => {
+    const gry = await join("Gry");
+    const id = flockIdFrom((await startFlock(gry.cookie, { stoerrelse: "4" })).headers.get("location"));
+    const [hans, ida] = [await join("Hans"), await join("Ida")];
+    for (const m of [hans, ida]) await call(`/flokke/${id}/bliv-del-af`, { cookie: m.cookie, form: {} });
+    const bad = JSON.parse((await jsonCall(`/flokke/${id}/chat`, gry.cookie, { tekst: "Noget grimt" })).body).message;
+
+    expect((await jsonCall(`/flokke/${id}/chat/${bad.id}/meld`, gry.cookie, {})).status).toBe(400);
+    expect((await jsonCall(`/flokke/${id}/chat/${bad.id}/meld`, hans.cookie, {})).status).toBe(200);
+    const names = async (cookie: string) => JSON.parse((await jsonCall(`/flokke/${id}/chat`, cookie)).body).messages.map((m: { id: string }) => m.id);
+    expect(await names(hans.cookie)).toEqual([]);
+    expect(await names(ida.cookie)).toEqual([bad.id]);
+
+    const plain = await call(`/flokke/${id}/chat/${bad.id}/meld`, { cookie: ida.cookie, form: {} });
+    expect(plain.headers.get("location")).toBe(`/flokke/${id}?besked=meldt#chat`);
+    expect(await names(gry.cookie)).toEqual([]);
+
+    const unauth = await call("/api/chat-meldinger");
+    expect(unauth.status).toBe(401);
+    const list = JSON.parse((await call("/api/chat-meldinger", { headers: { authorization: `Bearer ${"x".repeat(32)}` } })).body);
+    expect(list[0]).toMatchObject({ id: bad.id, body: "Noget grimt", written_by: "Gry", reports: 2 });
+  });
+
+  it("closes a week after the event and is deleted 30 days after it", async () => {
+    const jon = await join("Jon");
+    const id = flockIdFrom((await startFlock(jon.cookie, {}, later.slug, later.starts_at)).headers.get("location"));
+    await jsonCall(`/flokke/${id}/chat`, jon.cookie, { tekst: "Ses!" });
+    const ends = (db.raw.prepare("SELECT COALESCE(ends_at, starts_at + 10800000) AS t FROM events WHERE slug = ?").all(later.slug)[0] as { t: number }).t;
+
+    const inWeek = ends + 6 * 86_400_000;
+    expect((await jsonCall(`/flokke/${id}/chat`, jon.cookie, { tekst: "Tak for i aftes" }, inWeek)).status).toBe(200);
+    const after = ends + 8 * 86_400_000;
+    const closed = await jsonCall(`/flokke/${id}/chat`, jon.cookie, { tekst: "Hallo?" }, after);
+    expect(JSON.parse(closed.body).error).toBe("chat_closed");
+    expect(JSON.parse((await jsonCall(`/flokke/${id}/chat`, jon.cookie, undefined, after)).body).open).toBe(false);
+    expect((await call(`/flokke/${id}`, { cookie: jon.cookie }, after)).body).toContain("Chatten er lukket");
+
+    const count = () => (db.raw.prepare("SELECT COUNT(*) AS n FROM flock_messages WHERE flock_id = ?").all(id)[0] as { n: number }).n;
+    await purgeOldChats(db, ends + 29 * 86_400_000);
+    expect(count()).toBe(2);
+    await purgeOldChats(db, ends + 31 * 86_400_000);
+    expect(count()).toBe(0);
+  });
+
+  it("masks contact details but leaves times, dates and short numbers", () => {
+    expect(maskContacts("+45 12 34 56 78")).toBe("[nummer skjult]");
+    expect(maskContacts("ring 12345678 nu")).toBe("ring [nummer skjult] nu");
+    expect(maskContacts("0045-1234-5678")).toBe("[nummer skjult]");
+    expect(maskContacts("mig: a.b+c@gmail.com")).toBe("mig: [e-mail skjult]");
+    expect(maskContacts("kl. 19.30, bord 12, 2 billetter, 24.12.2026")).toBe("kl. 19.30, bord 12, 2 billetter, 24.12.2026");
   });
 });
 
