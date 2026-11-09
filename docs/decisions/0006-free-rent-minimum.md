@@ -2,6 +2,8 @@
 
 Dato: 31. oktober 2026. Besluttet af formanden (Jacob Hauge) i udviklingssamtalen.
 
+**Erstattet af 0012 (9. november 2026):** gratis leje er igen mindst 150 kr. i A-tid og 75 kr. i B-tid.
+
 ## Beslutning
 
 Gratis leje – underviseren opkræver selv:

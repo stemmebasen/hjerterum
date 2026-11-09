@@ -670,11 +670,12 @@ function MemberEvents({
 }
 
 /** The rule for the non-member price, shown at the field (the chair, 4 Nov 2026: the form refuses a price that breaks the rent rules "med en klar
- * forklaring"; decision 0006: free rent at least 75 kr. a person; reduced: the member price plus 100 kr. in the evening and at weekends, 50 kr. by day). */
+ * forklaring"; decision 0012: free rent at least 150 kr. a person in A-time, 75 kr. in B-time; reduced: the member price plus 100 kr. in the evening and at weekends, 50 kr. by day). */
 function nonMemberRule(plan: Plan): string {
-  if (plan.type === "free") return "Ved gratis leje: mindst 75 kr. for ikke-medlemmer. Medlemmer deltager gratis.";
+  const evening = plan.date && plan.start ? (new Date(`${plan.date}T12:00:00`).getDay() % 6 === 0 || plan.start >= "18:30") : null;
+  if (plan.type === "free") return evening === null ? "Ved gratis leje: mindst 150 kr. aften og weekend, 75 kr. om dagen for ikke-medlemmer. Medlemmer deltager gratis."
+    : `Ved gratis leje: mindst ${evening ? "150" : "75"} kr. for ikke-medlemmer. Medlemmer deltager gratis.`;
   if (plan.type === "reduced") {
-    const evening = plan.date && plan.start ? (new Date(`${plan.date}T12:00:00`).getDay() % 6 === 0 || plan.start >= "18:30") : null;
     return evening === null ? "Ved reduceret leje: mindst medlemsprisen + 100 kr. aften og weekend, + 50 kr. om dagen."
       : `Ved reduceret leje: mindst medlemsprisen + ${evening ? "100" : "50"} kr. for ikke-medlemmer.`;
   }
