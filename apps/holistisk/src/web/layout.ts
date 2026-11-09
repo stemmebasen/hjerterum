@@ -109,7 +109,7 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="preload" href="/assets/fonts/lexend-latin.woff2" as="font" type="font/woff2" crossorigin>` : html`<link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=27">
+<link rel="stylesheet" href="/assets/site.css?v=28">
 <script src="/assets/site.js?v=9" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -117,7 +117,8 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
+${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit event på siden? Skynd dig og tag fat i os – <a href="/samarbejde#kontakt">klik her</a></div>`
+  : ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">
 ${body}

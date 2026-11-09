@@ -93,6 +93,12 @@ describe("the calendar", () => {
     expect(rows((await text("/kalender?emne=klarsyn")).body)).toContain("Klarsyn med Karina Graabæk");
   });
 
+  it("invites organisers in the top banner instead of calling the site a test version", async () => {
+    const { body } = await text("/");
+    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="/samarbejde#kontakt">klik her</a>');
+    expect(body).not.toContain("Testversion");
+  });
+
   it("has toggleable chips for Område, Pris and Hvornår, with the search field at the bottom", async () => {
     const all = count((await text("/kalender")).body);
     const nord = await text("/kalender?omraade=nord");

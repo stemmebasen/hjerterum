@@ -108,6 +108,7 @@ strong { font-weight: 800; }
 .meta { font-size: .93rem; color: var(--ink-2); margin: 0; }
 .meta-muted { color: var(--muted); }
 .env-banner { background: var(--green); color: var(--butter); text-align: center; font-size: .8rem; font-weight: 700; padding: 5px 8px; }
+.env-banner a { color: inherit; text-decoration: underline; }
 
 /* A highlighter stroke behind the words that matter */
 .marker { background: linear-gradient(transparent 58%, var(--butter) 58%, var(--butter) 90%, transparent 90%); padding: 0 .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
