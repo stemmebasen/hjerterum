@@ -80,6 +80,8 @@ describe("the Facebook event shared when no post was approved", () => {
     expect(post!.status).not.toBe("approved");
     expect(post!.source.fbEventShare).toBeUndefined();
     expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("kender ikke eventets Facebook-begivenhed")).length).toBe(1);
+    // Told once, also when its next time comes (the told mark survives the post's new time).
+    expect((await socialPosts(db, "kind = 'event'"))[0]!.source.noFbEventTold).toBe(1);
   });
 
   it("finds the event's Facebook event on the page by its time and title", async () => {
