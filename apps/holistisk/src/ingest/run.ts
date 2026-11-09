@@ -3,7 +3,7 @@ import type { Env } from "../env.js";
 import { ADAPTERS, SOURCES } from "../sources/registry.js";
 import { BudgetError, createHttpClient, HttpError, type HttpOptions } from "../sources/http.js";
 import type { SourceConfig } from "../sources/types.js";
-import { ENRICH_BUDGET, expireEvents, markSourceEnabled, processSource, syncSources, type SourceStats } from "./store.js";
+import { ENRICH_BUDGET, expireEvents, markSourceEnabled, processSource, syncSources, withdrawSourceEvents, type SourceStats } from "./store.js";
 
 /** One collection run. Each source succeeds or fails on its own; the run and each source's outcome are written to
  * ingest_runs / ingest_source_runs and to the Worker log, so a failed night can be seen and diagnosed afterwards.
@@ -70,9 +70,11 @@ export async function runIngest(env: Env, options: RunOptions): Promise<RunOutco
     const priorities = new Map(sources.map(s => [s.id, s.priority]));
     const budget = options.requestBudget ?? (Number(env.INGEST_REQUEST_BUDGET) || REQUEST_BUDGET);
     const http = createHttpClient({ ...options, requestBudget: budget });
-    for (const source of sources) {
-      if (source.enabled(env)) continue;
-      await markSourceEnabled(db, source.id, false);
+    const disabled = sources.filter(s => !s.enabled(env));
+    for (const source of disabled) await markSourceEnabled(db, source.id, false);
+    for (const source of disabled) {
+      const withdrawn = await withdrawSourceEvents(db, source.id, now);
+      if (withdrawn) console.log(JSON.stringify({ event: "ingest_source_disabled", runId, source: source.id, withdrawn }));
       await logSource(db, runId, source.id, "skipped", null, 0, "disabled", now, Date.now());
       outcome.sources.push({ id: source.id, status: "skipped", error: "disabled" });
     }

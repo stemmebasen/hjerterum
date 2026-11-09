@@ -19,7 +19,15 @@ Only sources with a documented basis are enabled. Public availability alone is n
 | **Dokk1** (Aarhus Kommunes Biblioteker, Hack Kampmanns Plads 2) | The libraries' public events API (`aakb.dk/api/v1/events/happening`), one GET; only Hovedbiblioteket (Dokk1), physical, the next 30 days, no "Hjælp og vejledning"/"Dagtilbud". Most are free. robots.txt allows /api/ with Crawl-delay 10. Adapter `aakb` (set `branches` to take other libraries too). | Public calendar | Teaser, pictures |
 | **Resonans Bistro & Bar** (Jægergårdsgade 150) | The site's JSON list (`/public/events/upcoming`): concerts in the café with start, status, picture and ticket link (no price). robots.txt allows all. Adapter `resonans`. | Public calendar | Pictures |
 | **Folkestedet** (Aarhus Kommune, Carl Blochs Gade 28) | The calendar page's cards: date, time, address, teaser, tag. Recurring courses and exhibitions (date ranges) are left out. No robots.txt. Adapter `folkestedet`. | Public calendar | Teaser, pictures |
+| **Radar** (Karen Wegeners Gade 6, Aarhus C) | The calendar page (radarlive.dk/kalender/: link with year, day, month, title, teaser, picture) and, within a budget of 12 a run, each event's page for "Døre/Koncert 19:00/20:00", price, genre and the YourTicket link. "[GRATIS]" in a title marks a free event. No robots.txt. Adapter `radar`. | Public calendar; added at the project owner's request (2026-11-09) | Teaser, pictures |
+| **Løve's Bog- og VinCafé** (Nørregade 32, Aarhus C) | The calendar page (loeves.dk/bogcafeen-kalender.html): month headings, date lines and the event linked to the café's own Facebook event. No times are given, so events are all-day. No robots.txt. Adapter `loeves`. | Public calendar; added at the project owner's request (2026-11-09) | Title and link only |
+| **Aarhus Lindy Hoppers** | Their NemTilmeld event list (aarhuslindyhoppers.nemtilmeld.dk): title, description, time span, place, price, sign-up status. Events over two days (weekly courses, the membership) are left out. robots.txt allows it. Adapter `nemtilmeld` – any association on NemTilmeld can be added as a new entry with its own `url`. | Public list; added at the project owner's request (2026-11-09) | Excerpt, pictures |
+| **FOF Aarhus – foredrag** | The talks list (fof.dk/aarhus/foredrag-i-aarhus, ~8 pages of 12, read from the Next.js page payload: title, link, weekday and date, town) and, within a budget of 20 a run, each talk's page (schema.org Course: date, place, price, booking link per "hold"; start and end time from the payload). robots.txt allows all but search. Adapter `fof`. | Public list; added at the project owner's request (2026-11-09) | Description, pictures |
 | **Hjerterum** (Aarhus) | MembershipWorks RSS `api.membershipworks.com/v2/events?_op=rss&org=22308` and `/v2/event?eid=` | Hjerterum's own public calendar; the project is run for Hjerterum. MembershipWorks' robots.txt allows `/v2/*`. **To confirm:** the board's written OK to show its texts and pictures on holistisk.org. | Full text, pictures shown with credit |
+
+## Switched off at the project owner's request
+
+**Musikhuset Aarhus** and **Train** (2026-11-09): big stages, not what Socialklubben is about. Their entries stay in `registry.ts` with `enabled: () => false`; the collector takes their coming events off the site (status `withdrawn`), and switching them on again brings them back.
 
 ## Ready, switched off until access is in place
 
@@ -40,6 +48,8 @@ Lysets Hus' page has no feed: the adapter reads its text layout. The year is cho
 | Gomde (Smedehalden 3, Knebel) | Its Google Calendar mixes temple practice with internal and private entries, so it is not published; programmes sit in Retreat Guru behind a login API. | Profile with the daily temple practice. |
 
 **YOGO** (yogo.dk) runs the booking for Yoga & Meditation Horsens, Yogaskolen i Aarhus and YO Studios. Their public calendars are `<studio>.yogo.dk`, fed by `api.yogo.dk`; one adapter can serve all three.
+
+**Folkehusene** (folkehuse.aarhus.dk/det-sker, 40+ houses): the calendar is the "Det sker i Aarhus" event API (`api.detskeriaarhus.dk`, the same as the Aarhusguiden widget) and needs an API key from Aarhus Kommune / MKB Kommunikation. The key in the site's own script is not ours to use. With a key, one adapter could cover all of Aarhus' folkehuse.
 
 Looked at and not used yet: Radar (HTML plus ~26 pages a night; many of its concerts come through VoxHall and Godsbanen), Studenterhus Aarhus (calendar is a widget mirroring Facebook), "Det sker i Aarhus" (API needs a key from MKB Kommunikation), VisitAarhus and Kultunaut (robots.txt / agreement), Gyngen and Fatter Eskil (sites down).
 
