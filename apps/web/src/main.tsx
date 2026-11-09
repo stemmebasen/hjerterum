@@ -13,7 +13,7 @@ import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
 import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
-import { startTranslation } from "./translate-in-place";
+import { englishOn, startTranslation } from "./translate-in-place";
 import { loadClerk, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { AdminWorkspace, MemberWorkspace } from "./workspaces";
 import { CodeSignIn, CodeSignInPlaceholder } from "./code-sign-in";
@@ -342,7 +342,9 @@ function RoomPriceCalculator() {
         <label>Start<select value={start} onChange={(event) => setStart(event.target.value)}>{START_TIMES.map((t) => <option key={t} value={t}>{t.replace(":", ".")}</option>)}</select></label>
         <div className="rc-hours"><span id="rc-hours-label">Varighed</span>
           <div role="group" aria-labelledby="rc-hours-label"><button type="button" onClick={() => setHours(Math.max(2, hours - 0.5))} disabled={hours <= 2} aria-label="Kortere">−</button>
-            <b aria-live="polite">{String(hours).replace(".", ",")} t</b><button type="button" onClick={() => setHours(Math.min(10, hours + 0.5))} disabled={hours >= 10} aria-label="Længere">+</button></div></div>
+            {/* Douglas (9 Nov 2026): "The price calculator always says '2 hours' even when you click '+' or '-'" - in English Google had replaced the
+                number, so React's new number never showed. Numbers are kept out of the translation; the unit is chosen here. */}
+            <b aria-live="polite" className="notranslate" translate="no">{englishOn() ? `${hours} h` : `${String(hours).replace(".", ",")} t`}</b><button type="button" onClick={() => setHours(Math.min(10, hours + 0.5))} disabled={hours >= 10} aria-label="Længere">+</button></div></div>
       </div>
       {/* Douglas (3 Nov): "Need to remove the words: 'B-time · weekdays before 6:30 PM' on this section as it is not relevant for the standard
           option" - the time band sets only the members' prices, so it is said there. */}
@@ -350,18 +352,18 @@ function RoomPriceCalculator() {
       <div className="rc-prices">
         <article className="rc-tile open">
           <span className="rc-label">Standardpris</span>
-          <strong>{kr(standard.totalPriceKr)}</strong>
+          <strong className="notranslate" translate="no">{kr(standard.totalPriceKr)}</strong>
           <span className="rc-sub">For alle · også uden medlemskab</span>
           <button type="button" className="rc-book" onClick={() => setBooking(true)} aria-expanded={booking} disabled={hallFree === false}>Book →</button>
         </article>
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Reduceret pris</span>
-          <strong>{crosses ? "–" : kr(reduced.totalPriceKr)}</strong>
-          <span className="rc-sub">{crosses ? "Medlemmer booker før eller efter kl. 18.30" : `Kun for medlemmer · ${band}`}</span>
+          <strong className="notranslate" translate="no">{crosses ? "–" : kr(reduced.totalPriceKr)}</strong>
+          <span className="rc-sub" key={`${crosses}-${standard.band}`}>{crosses ? "Medlemmer booker før eller efter kl. 18.30" : `Kun for medlemmer · ${band}`}</span>
         </article>
         <article className="rc-tile locked" aria-disabled="true">
           <span className="rc-label">{lock} Gratis leje</span>
-          <strong>{kr(free.totalPriceKr)}</strong>
+          <strong className="notranslate" translate="no">{kr(free.totalPriceKr)}</strong>
           <span className="rc-sub">Kun for medlemmer · én gang om ugen</span>
         </article>
       </div>
