@@ -100,7 +100,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <h1>Byen er fuld af gode oplevelser – <span class="marker">del dem med gode mennesker!</span></h1>
+      <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
       <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
       <ul class="quick-links" aria-label="Genveje">
