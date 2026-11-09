@@ -119,7 +119,7 @@ function calculateFee(startMs: number, endMs: number, bookingType: RoomBookingTy
 }
 
 /** Decision 0006 and the price table, in the event form too (the chair, 4 Nov 2026, on the teacher Douglas' feedback: "Afvis med en klar forklaring"):
- * the lowest price for non-members a rent type allows - free rent at least 75 kr. a person, reduced at least the member price plus the surcharge (A-time
+ * the lowest price for non-members a rent type allows - free rent at least 150 kr. a person in A-time and 75 kr. in B-time (decision 0012), reduced at least the member price plus the surcharge (A-time
  * +100 kr., B-time +50 kr. under 400 kr.) - or null for standard rent. A blank non-member price is the members' price. The board's own events (from
  * admin, "cockpit:") are not held to it, as decision 0006 says. */
 export function nonMemberMinimumKr(startMs: number, bookingType: RoomBookingType | undefined, memberPriceKr: number): number | null {

@@ -127,8 +127,8 @@ export const isBrief = (f: EventFacts) => Object.values(f).every(v => v === null
 /** Members free and others paying: free rent; members paying less: reduced; else standard (worker/member-saga.ts REGLER FOR LEJE). */
 export function bookingTypeOf(f: Pick<EventFacts, "member_price_kr" | "non_member_price_kr">): "standard" | "reduced" | "free" {
   const member = f.member_price_kr ?? 0, other = f.non_member_price_kr ?? member;
-  // Gratis leje: members free, non-members at least 75 kr. each (FREE_RENT_MIN_NON_MEMBER_KR). Free for everyone is standard rent.
-  if (member === 0 && other >= FREE_RENT_MIN_NON_MEMBER_KR) return "free";
+  // Gratis leje: members free, non-members at least 75 kr. each (150 kr. in A-time, checked with the time - FREE_RENT_MIN_NON_MEMBER_KR). Free for everyone is standard rent.
+  if (member === 0 && other >= FREE_RENT_MIN_NON_MEMBER_KR.B) return "free";
   if (member < other) return "reduced";
   return "standard";
 }

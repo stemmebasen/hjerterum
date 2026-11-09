@@ -74,7 +74,7 @@ describe("member event input rules", () => {
 // Copenhagen is UTC+1 in November: 10:00 local is 09:00Z.
 const booking = (startsAt: string, endsAt: string, bookingType?: string, nonMemberPriceKr?: number) => normalizeCreateRoomBookingInput({
   teacherName: "Maria", teacherEmail: "maria@example.com", title: "Yoga", startsAt, endsAt, ...(bookingType ? { bookingType } : {}),
-  // A price for non-members that keeps the rent rules (decision 0006: free rent at least 75 kr.; reduced the member price + 100/50 kr.).
+  // A price for non-members that keeps the rent rules (decision 0012: free rent at least 150 kr. in A-time, 75 kr. in B-time; reduced the member price + 100/50 kr.).
   ...(bookingType === "reduced" || bookingType === "free" ? { nonMemberPriceKr: nonMemberPriceKr ?? 150 } : {})
 });
 
@@ -110,11 +110,13 @@ describe("room bookings priced by Hjerterum's price calculator", () => {
   it("holds the non-member price to the rent rules, but not the board's own events", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
-    // Free rent: at least 75 kr., in A-time as in B-time; a blank price is the members' 0 kr.
-    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 50))).rejects.toThrow("invalid_non_member_minimum_75");
+    // Free rent: at least 150 kr. in A-time (here a Saturday), 75 kr. in B-time (decision 0012); a blank price is the members' 0 kr.
+    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 75))).rejects.toThrow("invalid_non_member_minimum_150");
+    await expect(createRoomBooking(db, "u1", booking("2027-11-18T09:00:00Z", "2027-11-18T11:00:00Z", "free", 50))).rejects.toThrow("invalid_non_member_minimum_75");
     await expect(createRoomBooking(db, "u1", normalizeCreateRoomBookingInput({ teacherName: "Maria", teacherEmail: "m@example.com", title: "Yoga",
       startsAt: "2027-11-16T09:00:00Z", endsAt: "2027-11-16T11:00:00Z", bookingType: "free" }))).rejects.toThrow("invalid_non_member_minimum_75");
-    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 75))).resolves.toMatchObject({ feeKr: 0 });
+    await expect(createRoomBooking(db, "u1", booking("2027-11-20T09:00:00Z", "2027-11-20T11:00:00Z", "free", 150))).resolves.toMatchObject({ feeKr: 0 });
+    await expect(createRoomBooking(db, "u1", booking("2027-11-24T09:00:00Z", "2027-11-24T11:00:00Z", "free", 75))).resolves.toMatchObject({ feeKr: 0 }); // the next week: one free rent a week
     // Reduced: the member price (0 kr. until payment is connected) + 100 kr. in the evening, + 50 kr. by day.
     await expect(createRoomBooking(db, "u1", booking("2027-11-16T18:00:00Z", "2027-11-16T21:00:00Z", "reduced", 80))).rejects.toThrow("invalid_non_member_minimum_100");
     await expect(createRoomBooking(db, "u1", booking("2027-11-17T09:00:00Z", "2027-11-17T11:00:00Z", "reduced", 40))).rejects.toThrow("invalid_non_member_minimum_50");
