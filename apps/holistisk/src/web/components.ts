@@ -55,7 +55,7 @@ export function flockBadge(e: Pick<EventRow, "flock_count" | "flock_fill" | "sta
   const [members, size] = (e.flock_fill ?? "").split("/").map(Number);
   if (!n || !size) return html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
   const more = n > 1 ? ` · ${n} flokke` : "";
-  return html`<span class="flock-badge">${seats(members ?? 0, size)}<span class="flock-badge-text">${members} af ${size}${more} · Find en flok</span></span>`;
+  return html`<span class="flock-badge">${seats(members ?? 0, size)}<span class="flock-badge-text">${members} af ${size}${more} · Vil du med?</span></span>`;
 }
 
 const PERSON = raw('<path d="M8 7.2a3.1 3.1 0 1 0 0-6.2 3.1 3.1 0 0 0 0 6.2Zm0 1.6c-3.3 0-5.6 1.9-5.6 4.4V15h11.2v-1.8c0-2.5-2.3-4.4-5.6-4.4Z"/>');

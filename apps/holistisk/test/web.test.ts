@@ -71,14 +71,14 @@ describe("front page", () => {
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">\d+ events? i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage\. Find en flok, der skal det samme som dig, og oplev det sammen med nye mennesker\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">\d+ events? i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage\. Sæt kryds ved det, du har lyst til, så samler vi en lille flok, der skal det samme som dig – og I oplever det sammen\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
     // Not yet registered: never claim the protected RSV status.
     expect(body).not.toMatch(/registreret socialøkonomisk/i);
     // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
-    expect(body).toContain("<strong>Find en flok – eller opret en</strong>");
+    expect(body).toContain("<strong>Vis interesse – så samler vi flokken</strong>");
     expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");
     expect(body).toContain('class="ticket-stack"');
     // The hero's tickets: coming events on different days, weekday and part of the day on the stub.

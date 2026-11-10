@@ -67,6 +67,14 @@ export async function interestCounts(db: D1Database, eventIds: string[]): Promis
   return new Map(results.map(r => [r.event_id, r.n]));
 }
 
+/** For the event page: how many others are interested in the event, and the member's own standing. */
+export async function eventInterest(db: D1Database, eventId: string, memberId: string | null): Promise<{ others: number; mine: InterestStatus | null }> {
+  const row = await db.prepare(`SELECT
+      (SELECT COUNT(*) FROM event_interests WHERE event_id = ?1 AND status IN ${ACTIVE} AND member_id IS NOT ?2) AS others,
+      (SELECT status FROM event_interests WHERE event_id = ?1 AND member_id = ?2) AS mine`).bind(eventId, memberId).first<{ others: number; mine: InterestStatus | null }>();
+  return { others: row?.others ?? 0, mine: row?.mine ?? null };
+}
+
 /** The member's interests, soonest event first. */
 export async function memberInterests(db: D1Database, memberId: string): Promise<InterestRow[]> {
   const { results } = await db.prepare(`SELECT i.event_id, i.status, i.flock_id, i.created_at, i.invited_at, i.respond_by,

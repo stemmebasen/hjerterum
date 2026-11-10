@@ -113,7 +113,7 @@ export async function updateFlock(db: D1Database, f: FlockRow, memberId: string,
   return { ok: true };
 }
 
-/** Open flocks for coming events that still have room, soonest first: the public "Find en flok" list. */
+/** Open flocks for coming events that still have room, soonest first: the public "Vil du med?" list. */
 export async function upcomingFlocks(db: D1Database, regions: string[], now: number, limit = 30): Promise<FlockRow[]> {
   const { results } = await db.prepare(`${FLOCK_SELECT} WHERE f.status = 'open' AND e.status = 'scheduled' AND e.starts_at > ?2
     AND e.region IN (${regions.map((_, i) => `?${i + 4}`).join(",")})

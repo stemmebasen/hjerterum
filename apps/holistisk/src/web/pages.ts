@@ -8,7 +8,7 @@ import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
+import { flash, flockCards, flockPanel, howItWorks, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_OUTINGS } from "../flokken/profile.js";
@@ -139,7 +139,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   <div class="wrap hero-inner">
     <div class="hero-text">
       <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
-      <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage. Find en flok, der skal det samme som dig, og oplev det sammen med nye mennesker.</p>
+      <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage. Sæt kryds ved det, du har lyst til, så samler vi en lille flok, der skal det samme som dig – og I oplever det sammen.</p>
       ${searchForm(areas, {})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>
@@ -458,15 +458,17 @@ export type EventPageExtras = {
   message: string | null;
   flocks: (eventId: string) => Promise<FlockRow[]>;
   myFlock: (eventId: string) => Promise<string | null>;
+  interest?: (eventId: string) => Promise<EventInterest>;
 };
 
 export async function eventPage(db: D1Database, ctx: PageContext, regions: string[], slug: string, extras?: EventPageExtras): Promise<View | null> {
   const e = await eventBySlug(db, slug);
   if (!e || !e.region || !regions.includes(e.region)) return null;
-  const [related, flocks, myFlockId] = await Promise.all([
+  const [related, flocks, myFlockId, interest] = await Promise.all([
     relatedEvents(db, e, regions, ctx.now),
     extras ? extras.flocks(e.id) : Promise.resolve([] as FlockRow[]),
-    extras ? extras.myFlock(e.id) : Promise.resolve(null)
+    extras ? extras.myFlock(e.id) : Promise.resolve(null),
+    extras?.interest ? extras.interest(e.id) : Promise.resolve(undefined)
   ]);
   const offers = offersFor(e);
   const source = sourceById(e.primary_source_id);
@@ -508,11 +510,11 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     <div class="event-actions">
       ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren<span class="visually-hidden"> (åbner i nyt vindue)</span></a>` : ""}
       ${!over && e.status !== "withdrawn" ? html`<a class="button-secondary" href="${eventPath(e)}.ics" download>Tilføj til kalender</a>` : ""}
-      ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Find en flok</a>` : ""}
+      ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Vil du med?</a>` : ""}
     </div>
   </header>
   ${offersBlock(offers)}
-  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
+  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
   ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   <div class="main-aside">
     <div class="event-text">

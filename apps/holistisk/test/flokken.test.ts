@@ -99,8 +99,9 @@ describe("membership", () => {
 describe("flocks", () => {
   it("are found on the event page, created only by choice, joined, left and capped in size", async () => {
     const before = await call(`/events/${event.slug}`);
-    expect(before.body).toContain("Find en flok");
-    expect(before.body).toContain("Der er ingen flok til eventet endnu");
+    expect(before.body).toContain('<h2 id="h-flokke">Vil du med?</h2>');
+    expect(before.body).not.toContain("ingen flok");
+    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="flock-interest">`);
     expect(before.body).toContain(`href="/log-ind?naeste=${encodeURIComponent(`/events/${event.slug}/opret-flok`)}"`);
     expect(before.headers.get("cache-control")).toBe("private, no-store");
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flocks").all()[0]).toEqual({ n: 0 });
@@ -127,7 +128,7 @@ describe("flocks", () => {
     expect(page.body).not.toContain("Anna");
     // On the calendar: one person per seat, filled for those who are in.
     const calendar = (await call("/kalender")).body;
-    expect(calendar).toContain('<span class="flock-badge-text">1 af 3 · Find en flok</span>');
+    expect(calendar).toContain('<span class="flock-badge-text">1 af 3 · Vil du med?</span>');
     const badge = calendar.slice(calendar.indexOf('aria-label="1 af 3 pladser taget"'), calendar.indexOf("flock-badge-text"));
     expect(badge.match(/class="seat is-taken"/g)).toHaveLength(1);
     expect(badge.match(/class="seat"/g)).toHaveLength(2);
@@ -524,6 +525,43 @@ describe("Lad os komme godt i gang", () => {
     expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("Ingen endnu – vær den første");
   });
 
+  it("is one tap on the event page: Vil du med? → Jeg er interesseret, the same tick as the list", async () => {
+    const slug = (await fresh()).at(-2)!;
+    const tick = `/events/${slug}/interesse`;
+    // A newcomer: the tick waits in the cookie while they become a member and give an e-mail, then they land back on the event.
+    const anon = await call(tick, { form: {} });
+    expect(anon.headers.get("location")).toBe(`/log-ind?naeste=${encodeURIComponent(tick)}`);
+    const choices = /sk_valg=[^;]+/.exec(anon.headers.get("set-cookie") ?? "")?.[0] ?? "";
+    expect(choices).toBe(`sk_valg=${slug}`);
+    const { cookie } = await join("Tove", null);
+    const both = `${cookie}; ${choices}`;
+    const toProfile = `/profil?naeste=${encodeURIComponent(tick)}&mail=1`;
+    expect((await call(tick, { cookie: both })).headers.get("location")).toBe(toProfile);
+    const saved = await call(toProfile, { cookie: both, form: { fornavn: "Tove", alder: "50-59", om_mig: "Glad for musik", email: "tove@example.dk" } });
+    expect(saved.headers.get("location")).toBe(`${tick}?besked=profil_gemt`);
+    const back = await call(`${tick}?besked=profil_gemt`, { cookie: both });
+    expect(back.headers.get("location")).toBe(`/events/${slug}?besked=interesse_her#flokke`);
+    expect(statusOf("Tove", slug)).toBe("waiting");
+    // Without the cookie a plain visit to the address saves nothing.
+    expect((await call(tick, { cookie: await ready("Ulla") })).headers.get("location")).toBe(`/events/${slug}#flokke`);
+    expect(statusOf("Ulla", slug)).toBe(null);
+
+    const page = (await call(`/events/${slug}?besked=interesse_her`, { cookie })).body;
+    expect(page).toContain("Tak! Du er på listen – helt uforpligtende.");
+    expect(page).toContain("<strong>Du er på listen.</strong> Vi skriver, når der er en flok.");
+    expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
+    expect(page).toContain('<a class="button-secondary" href="#flokke">Vil du med?</a>');
+    expect(page).not.toContain("interesseret.</span>");
+    // Others see the count once someone is interested, never "nobody yet".
+    const stranger = (await call(`/events/${slug}`)).body;
+    expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');
+    expect(stranger).toContain(`eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a>`);
+    // Taking it back.
+    expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#flokke`);
+    expect(statusOf("Tove", slug)).toBe(null);
+    expect((await call(`/events/${slug}`)).body).not.toContain('class="interest-count"');
+  });
+
   it("keeps the ticks while a newcomer becomes a member and gives an e-mail, then puts them on the list", async () => {
     const [a, b] = await fresh();
     const anon = await choose([a!, b!, "<script>"]);
@@ -641,7 +679,7 @@ describe("Lad os komme godt i gang", () => {
     db.raw.prepare("UPDATE events SET status = 'scheduled' WHERE slug = ?").run(slug);
   });
 
-  it("works without JavaScript, says so when nothing is ticked, and is linked from Find en flok", async () => {
+  it("works without JavaScript, says so when nothing is ticked, and is linked from Vil du med?", async () => {
     const r = await call("/kom-godt-i-gang");
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
