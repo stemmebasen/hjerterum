@@ -152,7 +152,19 @@ export async function processSource(
       }
     }
     const normalized = await normalize(event, config);
-    if (!normalized.ok) { stats.rejected++; continue; }
+    if (!normalized.ok) {
+      stats.rejected++;
+      // An event already listed that now reads as a longer run (a course, a season) is taken off the site.
+      const known = link && current.get(link.event_id);
+      if (normalized.reason === "series" && known && known.status !== "withdrawn" && known.primary_source_id === config.id) {
+        writes.push(db.prepare("UPDATE events SET status = 'withdrawn', updated_at = ? WHERE id = ?").bind(now, known.id));
+        writes.push(change(db, known.id, runId, now, "withdrawn", { source: config.id, reason: "series" }));
+        known.status = "withdrawn";
+        stats.withdrawn++;
+      }
+      if (link) { seenEvents.add(link.event_id); touchedLinks.push(raw.sourceEventId); }
+      continue;
+    }
     const record = normalized.record;
     const org = organizerStatement(db, record, now);
 
