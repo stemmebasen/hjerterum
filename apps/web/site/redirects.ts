@@ -20,7 +20,7 @@ export const REDIRECTS: Record<string, string> = {
   // Medlemskab
   "/bliv-medlem": "/medlemskab",
   "/fordele-ved-medlemskab": "/medlemskab/fordele",
-  "/lav-indkomst-medlemskab-low-income-membership": "/medlemskab#reduceret",
+  "/lav-indkomst-medlemskab-low-income-membership": "/medlemskab",
   "/donationer": "/medlemskab#stoet",
   "/medlemskabs-betingelser": "/medlemskab/vilkaar",
   "/medlems-login": "/sign-in",

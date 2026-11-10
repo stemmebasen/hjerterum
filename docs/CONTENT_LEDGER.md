@@ -56,7 +56,7 @@ Vision / om os · Kontakt. The content pages live in `apps/web/site/pages.ts`.
 | [kalendervisning](https://holistisk.org/kalendervisning/) | Kalender | 2024-10-03 | [/events](/events) |  |
 | [kontakt](https://holistisk.org/kontakt/) | Tag Kontakt | 2019-08-28 | [/kontakt](/kontakt) | Kontaktside fra 2019 (Mejlgade 95, daværende team); erstattet af den nuværende kontaktside. |
 | [kontakt-os](https://holistisk.org/kontakt-os/) | Kontakt os | 2026-08-05 | [/kontakt](/kontakt) |  |
-| [lav-indkomst-medlemskab-low-income-membership](https://holistisk.org/lav-indkomst-medlemskab-low-income-membership/) | – | 2026-04-29 | [/medlemskab#reduceret](/medlemskab#reduceret) |  |
+| [lav-indkomst-medlemskab-low-income-membership](https://holistisk.org/lav-indkomst-medlemskab-low-income-membership/) | – | 2026-04-29 | [/medlemskab](/medlemskab) |  |
 | [lejepriser](https://holistisk.org/lejepriser/) | Lej Sal | 2026-08-28 | [/brug-hjerterum/lejepriser#priser](/brug-hjerterum/lejepriser#priser) |  |
 | [log-ud](https://holistisk.org/log-ud/) | Log out | 2024-10-03 | – (/) | WordPress' log-ud-side uden indhold; log ud sker nu i medlemsområdet. |
 | [managing-your-event](https://holistisk.org/managing-your-event/) | Managing Your Event | 2026-08-24 | [/brug-hjerterum/aendr-event](/brug-hjerterum/aendr-event) |  |

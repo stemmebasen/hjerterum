@@ -915,6 +915,10 @@ h3 { font-size: 25px; line-height: 1.2; }
 .site-board-photo { margin: 0; }
 .site-board-photo img { width: 100%; border-radius: 18px; display: block; }
 .site-board-photo figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.site-board-names { position: relative; display: block; height: 22px; }
+.site-board-names span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; font-size: 14px; font-weight: 600; color: var(--ink, #2a2622); }
+@media (max-width: 520px) { .site-board-names span { font-size: 12px; } }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .site-board-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
 .site-board-card { border: 1px solid var(--line, rgba(0, 0, 0, .1)); border-radius: 16px; padding: 14px 16px; background: var(--surface, transparent); }
 .site-board-card h3 { margin: 2px 0 2px; font-size: 18px; }
