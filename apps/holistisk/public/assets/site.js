@@ -211,16 +211,21 @@
   // /kom-godt-i-gang is the same list; with this file it too shows ten at a time.
   var STEP = 10;
   var pageInList = function (list, more) {
-    var items = list.querySelectorAll("li");
-    var shown = 0;
-    var reveal = function () {
-      shown = Math.min(items.length, shown + STEP);
-      Array.prototype.forEach.call(items, function (li, i) { li.hidden = i >= shown && !li.querySelector("input:checked"); });
-      more.hidden = shown >= items.length;
-      more.textContent = "Vis " + Math.min(STEP, items.length - shown) + " mere";
+    var shown = STEP, only = null;
+    var render = function () {
+      var all = Array.prototype.slice.call(list.querySelectorAll("li"));
+      var fits = all.filter(function (li) { return !only || (" " + (li.getAttribute("data-groups") || "") + " ").indexOf(" " + only + " ") >= 0; });
+      all.forEach(function (li) {
+        var i = fits.indexOf(li);
+        li.hidden = i < 0 || (i >= shown && !li.querySelector("input:checked"));
+      });
+      var rest = fits.length - shown;
+      more.hidden = rest <= 0;
+      more.textContent = "Vis " + Math.min(STEP, Math.max(rest, 0)) + " mere";
     };
-    more.addEventListener("click", reveal);
-    reveal();
+    more.addEventListener("click", function () { shown += STEP; render(); });
+    render();
+    return { only: function (group) { only = group; shown = STEP; render(); } };
   };
   var pageList = document.querySelector("[data-kickoff-list]");
   if (pageList) {
@@ -272,6 +277,7 @@
       var list = el("ul", "kickoff-list");
       data.events.forEach(function (e) {
         var li = el("li", "kickoff-item");
+        li.setAttribute("data-groups", (e.groups || []).join(" "));
         var label = el("label");
         var box = el("input"); box.type = "checkbox"; box.name = "event"; box.value = e.slug; box.checked = !!e.mine;
         var text = el("span", "kickoff-text");
@@ -290,7 +296,21 @@
       bar.appendChild(later); bar.appendChild(save);
       var note = el("p", "kickoff-note", data.member && data.ready ? "Du kan altid rette din liste under Mine flokke."
         : "Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den.");
-      form.appendChild(list); form.appendChild(more); form.appendChild(note); form.appendChild(bar);
+      // The four main kinds, to see only one of them.
+      var GROUPS = [["", "Alle"], ["underholdning", "Underholdning"], ["krea", "Krea"], ["oplysning", "Oplysning"], ["fordybelse", "Fordybelse"]];
+      var seg = el("div", "kickoff-groups");
+      seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Vis kun");
+      var segButtons = GROUPS.filter(function (g) { return !g[0] || data.events.some(function (e) { return (e.groups || []).indexOf(g[0]) >= 0; }); }).map(function (g) {
+        var b = el("button", "kickoff-group" + (g[0] ? " group-" + g[0] : ""), g[1]); b.type = "button";
+        b.setAttribute("aria-pressed", g[0] ? "false" : "true");
+        b.addEventListener("click", function () {
+          segButtons.forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+          pager.only(g[0] || null);
+        });
+        seg.appendChild(b);
+        return b;
+      });
+      form.appendChild(seg); form.appendChild(list); form.appendChild(more); form.appendChild(note); form.appendChild(bar);
       dialog.appendChild(close); dialog.appendChild(head); dialog.appendChild(form);
       document.body.appendChild(dialog);
 
@@ -307,7 +327,7 @@
       dialog.addEventListener("click", function (event) { if (event.target === dialog) shut(); });
       dialog.addEventListener("close", function () { dialog.remove(); });
       dialog.showModal();
-      pageInList(list, more);
+      var pager = pageInList(list, more);
       count();
       dialog.scrollTop = 0;
     }

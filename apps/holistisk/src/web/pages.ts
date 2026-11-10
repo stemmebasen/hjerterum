@@ -10,11 +10,11 @@ import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
-import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
@@ -36,7 +36,7 @@ export type View = { status: number; body: string; headers?: Record<string, stri
 /** Text cut at a word boundary, for titles and descriptions. */
 export const clip = (text: string, max: number): string => text.length <= max ? text : text.slice(0, max - 1).replace(/\s+\S*$/, "") + "…";
 
-export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], area: null, zone: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
+export const emptyFilters = (over: Partial<Filters> = {}): Filters => ({ q: "", from: null, to: null, period: null, categories: [], group: null, area: null, zone: null, city: null, price: null, page: 1, topic: null, organizer: null, ...over });
 
 /** The filters an activity's page lists: its category, or its topic's words. */
 export const activityFilters = (a: Activity, over: Partial<Filters> = {}): Filters =>
@@ -85,11 +85,12 @@ const FRONT_WEEK_LIMIT = 80;
 
 export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const areas = activeAreas(regions);
-  const [heroTickets, byArea, week, flocks, freeWeek] = await Promise.all([
+  const [heroTickets, byArea, week, flocks, freeWeek, groups] = await Promise.all([
     heroEvents(db, regions, ctx.now), areaCounts(db, regions, ctx.now),
     listEvents(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
     upcomingFlocks(db, regions, ctx.now, 6),
-    listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24)
+    listEvents(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24),
+    groupCounts(db, regions, ctx.now)
   ]);
   // One card per production: a free concert played twice should not fill two of the three places.
   const freeCards = freeWeek.events.filter((e, i, all) => all.findIndex(x => x.title === e.title) === i).slice(0, 3);
@@ -115,6 +116,10 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </div>
 </div>
 <div class="wrap">
+  <section class="section groups-front" aria-labelledby="h-groups">
+    <div class="section-head"><h2 id="h-groups">Hvad har du lyst til?</h2></div>
+    ${groupTiles(null, groups, g => g ? `/kalender?gruppe=${g}` : "/kalender", { label: "Hvad har du lyst til?" })}
+  </section>
   <aside class="mission" aria-labelledby="h-mission">
     <h2 id="h-mission">Derfor findes Flokken</h2>
     <p>${MISSION}</p>
@@ -162,7 +167,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 
 export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters): Promise<View> {
   const areas = activeAreas(regions);
-  const [{ events, total }, cats] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now)]);
+  const [{ events, total }, cats, groups] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
   const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
@@ -173,6 +178,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
     <h1>${heading}</h1>
     <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
+  ${groupTiles(f.group, groups, g => "/kalender" + toQuery({ ...f, page: 1 }, { group: g }) + "#soeg", { compact: true })}
   <div class="list-layout" id="soeg">
     <aside class="list-filters">
       <details class="filter-toggle" data-collapse-mobile open>

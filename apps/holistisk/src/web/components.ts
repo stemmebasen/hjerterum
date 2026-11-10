@@ -7,6 +7,21 @@ import { ZONES, zoneBySlug } from "../zones.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { offersFor } from "../flokken/partners.js";
+import { GROUPS, groupBySlug, type Group } from "../groups.js";
+
+/** The four main kinds as big tiles: one tap shows that kind, a tap on the chosen one shows everything again. */
+export function groupTiles(active: Group["slug"] | null, counts: Map<Group["slug"], number> | null, href: (slug: Group["slug"] | null) => string, options: { compact?: boolean; label?: string } = {}): SafeHtml {
+  return html`<nav class="group-tiles${options.compact ? " is-compact" : ""}" aria-label="${options.label ?? "Vælg hvad du har lyst til"}"><ul>${GROUPS.map(g => {
+    const on = active === g.slug;
+    return html`<li><a class="group-tile group-${g.slug}${on ? " is-on" : ""}" href="${href(on ? null : g.slug)}" rel="nofollow"${on ? raw(' aria-current="true"') : ""}>
+      <span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${raw(g.icon)}</svg></span>
+      <span class="group-name">${g.name}</span>
+      <span class="group-line">${g.line}</span>
+      ${counts ? html`<span class="group-count">${counts.get(g.slug) ?? 0} events</span>` : ""}
+      ${on ? html`<span class="visually-hidden"> (valgt – tryk for at vise alle)</span>` : ""}
+    </a></li>`;
+  })}</ul></nav>`;
+}
 
 export const eventPath = (e: Pick<EventRow, "slug">) => `/events/${e.slug}`;
 const cats = (e: Pick<EventRow, "categories">) => (e.categories ?? "").split(",").filter(Boolean);
@@ -197,7 +212,7 @@ export function filterPanel(f: Filters, categoryCounts: Map<string, number>): Sa
   }))}
   <form class="filter-search" action="/kalender#soeg" method="get" role="search">
     ${hidden("periode", f.period)}${f.period ? "" : html`${hidden("fra", f.from)}${hidden("til", f.to)}`}
-    ${f.categories.map(c => hidden("kategori", c))}
+    ${hidden("gruppe", f.group)}${f.categories.map(c => hidden("kategori", c))}
     ${hidden("omraade", f.zone ?? f.area)}${hidden("by", f.city)}${hidden("pris", f.price)}${hidden("emne", f.topic)}
     <label class="filter-label" for="f-q">Søg</label>
     <div class="search-row">
@@ -213,6 +228,7 @@ export function filterPanel(f: Filters, categoryCounts: Map<string, number>): Sa
 export function activeFilterChips(f: Filters): SafeHtml {
   const chips: Array<{ label: string; href: string }> = [];
   if (f.q) chips.push({ label: `“${f.q}”`, href: "/kalender" + toQuery(f, { q: "", page: 1 }) });
+  if (f.group) chips.push({ label: groupBySlug(f.group)!.name, href: "/kalender" + toQuery(f, { group: null, page: 1 }) });
   if (f.period) chips.push({ label: PERIODS.find(p => p.value === f.period)!.label, href: "/kalender" + toQuery(f, { period: null, page: 1 }) });
   if (!f.period && (f.from || f.to)) chips.push({ label: `${f.from ?? "nu"} – ${f.to ?? ""}`, href: "/kalender" + toQuery(f, { from: null, to: null, page: 1 }) });
   for (const c of f.categories) chips.push({ label: categoryBySlug(c)?.name ?? c, href: "/kalender" + toQuery(f, { categories: f.categories.filter(x => x !== c), page: 1 }) });
