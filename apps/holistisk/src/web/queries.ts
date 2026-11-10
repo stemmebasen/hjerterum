@@ -127,6 +127,41 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
   return picked.sort((a, b) => a.starts_at - b.starts_at);
 }
 
+/** "Lad os komme godt i gang": coming events to flick through and pick some to go to with others. Events where a flock
+ * already has room come first, then the soonest; at most two per organiser where there are enough others, events that last all day at the back. From
+ * an hour from now and three weeks ahead. */
+export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20): Promise<EventRow[]> {
+  const w = visible(regions, now);
+  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
+  w.params.push(now + 3600_000, now + 21 * 86400_000);
+  const room = `EXISTS (SELECT 1 FROM flocks f WHERE f.event_id = e.id AND f.status = 'open'
+    AND (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) BETWEEN 1 AND f.max_size - 1)`;
+  const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY ${room} DESC, e.all_day, e.starts_at LIMIT 200`)
+    .bind(...w.params).all<EventRow>();
+  const perOrganizer = new Map<string, number>();
+  const picked: EventRow[] = [];
+  for (const e of results) {
+    if (picked.length >= limit) break;
+    if (skip.includes(e.slug)) continue;
+    const hasRoom = hasFlockRoom(e);
+    const key = e.organizer_id ?? e.venue_name ?? e.id;
+    const n = perOrganizer.get(key) ?? 0;
+    if (!hasRoom && n >= 2) continue;
+    perOrganizer.set(key, n + 1);
+    picked.push(e);
+  }
+  // Too few with that rule (a quiet week, few organisers): fill up in the same order.
+  for (const e of results) if (picked.length < limit && !picked.includes(e) && !skip.includes(e.slug)) picked.push(e);
+  return picked.sort((a, b) => Number(hasFlockRoom(b)) - Number(hasFlockRoom(a)) || a.all_day - b.all_day || a.starts_at - b.starts_at);
+}
+
+/** The open flock furthest along that still has room, from `flock_fill`: members and size, or null. */
+export function flockRoom(e: Pick<EventRow, "flock_fill">): { members: number; size: number } | null {
+  const [members, size] = (e.flock_fill ?? "").split("/").map(Number);
+  return members && size && members < size ? { members, size } : null;
+}
+const hasFlockRoom = (e: Pick<EventRow, "flock_fill">) => flockRoom(e) !== null;
+
 /** Every coming event with a position, for the map: from now until `days` days ahead. */
 export async function mapEvents(db: D1Database, regions: string[], now: number, until: number): Promise<EventRow[]> {
   const w = visible(regions, now);
