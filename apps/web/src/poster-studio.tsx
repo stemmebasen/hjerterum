@@ -41,8 +41,8 @@ const FONTS = ["400 100px \"Playfair Display\"", "italic 400 100px \"Playfair Di
 const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 40) || "event";
 const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, style = PLAIN_STYLE }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
-  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; style?: Style }) {
+function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, onEdit, style = PLAIN_STYLE }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
+  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; onEdit?: (image: string) => void; style?: Style }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   // A style's type is loaded first, so the canvas draws with it (the studio's page has the families - EXTRA_FONTS_URL).
   const [ready, setReady] = useState(style.fonts === "klassisk");
@@ -72,6 +72,8 @@ function Design({ variant, words, assets, format, chosen, title, big, soft, canv
       <div><b>{info.label}</b>{styleLabel(style) && <p className="studio-style">{styleLabel(style)}</p>}{chosen && <span className="poster-badge">I forslaget</span>}<p>{info.about}</p>
         {soft && <p className="studio-soft">Beskæringen er forstørret her, så billedet bliver lidt blødt.</p>}</div>
       <p className="studio-actions">{onPick && <button type="button" className={"lys-btn" + (chosen ? "" : " ghost")} onClick={onPick} aria-pressed={chosen}>{chosen ? "Valgt" : "Vælg"}</button>}
+        {/* Reported (the chair, 11 Nov 2026): "Det er ikke alle designs, jeg kan åbne i editoren. Det er kun de øverste." - every design opens there, as one picture to build on. */}
+        {onEdit && <button type="button" className="lys-btn ghost" onClick={() => { try { if (ref.current) onEdit(ref.current.toDataURL("image/png")); } catch { /* a picture from elsewhere: Download instead */ } }}>✏️ Åbn i editoren</button>}
         <button type="button" className="text-button" onClick={save}>Download</button></p>
     </figcaption>}
   </figure>;
@@ -617,7 +619,7 @@ export function PosterStudio({ id }: { id: string }) {
         {all.map(key => {
           const fits = photoFits(key, format, size);
           return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen && JSON.stringify(style) === JSON.stringify(PLAIN_STYLE)} title={event.title} soft={Boolean(fits.soft)}
-            onPick={() => { setVariant(key); setStyle(PLAIN_STYLE); window.scrollTo({ top: 0, behavior: "smooth" }); }} />
+            onPick={() => { setVariant(key); setStyle(PLAIN_STYLE); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={image => openEditor({ kind: "flat", image })} />
             : <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
               <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure>;
         })}
@@ -629,7 +631,7 @@ export function PosterStudio({ id }: { id: string }) {
           return <div key={b}><h3 className="studio-mood">Flere forslag {b + 1}</h3><div className="poster-grid">
             {styleBatch(seed, fitting, 9).map((c, i) => <Design key={`${b}-${i}`} variant={c.variant} style={c.style} words={words} assets={assets} format={format}
               chosen={c.variant === chosen && JSON.stringify(c.style) === JSON.stringify(style)} title={event.title}
-              onPick={() => { setVariant(c.variant); setStyle(c.style); window.scrollTo({ top: 0, behavior: "smooth" }); }} />)}
+              onPick={() => { setVariant(c.variant); setStyle(c.style); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={image => openEditor({ kind: "flat", image })} />)}
           </div></div>;
         })}
         <p className="studio-actions"><button type="button" className="lys-btn" onClick={() => setBatches(batches + 1)}>✨ Vis flere forslag</button>
