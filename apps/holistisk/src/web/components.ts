@@ -150,8 +150,34 @@ export function cardGrid(events: EventRow[], now: number, headingLevel: 2 | 3 = 
   return html`<div class="card-grid">${events.map(e => eventCard(e, now, { headingLevel }))}</div>`;
 }
 
-/** The calendar: events grouped under their day, one line each. */
-export function dayList(events: EventRow[], now: number): SafeHtml {
+/** How many events from one organiser a day shows before the rest are folded away (Jake 2026-11-10: Dokk1 alone had
+ * half of a week's events and drowned the rest). */
+export const PER_ORGANISER_PER_DAY = 2;
+
+/** Whose event it is, for spreading a day's events: the organiser, else the venue. */
+const ownerKey = (e: EventRow) => e.organizer_id ?? (e.venue_name ? `venue:${e.venue_name.toLowerCase()}` : `event:${e.id}`);
+const ownerName = (e: EventRow) => e.organizer_name ?? e.venue_name ?? "samme arrangør";
+/** The same offering again (a weekly open workshop): the same title from the same organiser. */
+const repeatKey = (e: EventRow) => `${ownerKey(e)}|${e.title.trim().toLowerCase()}`;
+
+const WEEKDAYS_SHORT = ["søn", "man", "tir", "ons", "tor", "fre", "lør"];
+const shortDay = (ms: number) => { const [y, m, d] = localDate(ms).split("-").map(Number); return `${WEEKDAYS_SHORT[new Date(Date.UTC(y!, m! - 1, d!)).getUTCDay()]} ${d}/${m}`; };
+
+function row(e: EventRow, date: string, now: number, also: number[] = []): SafeHtml {
+  const price = priceLabel(e);
+  return html`<li class="row${e.status === "cancelled" ? " is-cancelled" : ""}"><a href="${eventPath(e)}">
+      <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
+      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${also.length ? html`<span class="row-also meta-muted">Også ${also.slice(0, 4).map(shortDay).join(", ")}${also.length > 4 ? " …" : ""}</span>` : ""}${eventChips(e, now)}</span>
+      ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
+    </a></li>`;
+}
+
+/** The calendar: events grouped under their day, one line each. With `spread` (the default) a day shows at most
+ * PER_ORGANISER_PER_DAY events from one organiser, and an offering that comes back later in the list (the same title
+ * from the same organiser) is shown once, at its first date, with "Også tir 18/11, tor 20/11". What is held back is
+ * folded under "+ 6 mere fra Dokk1" at the end of its day: nothing is gone, it just doesn't crowd out the rest. */
+export function dayList(events: EventRow[], now: number, options: { spread?: boolean } = {}): SafeHtml {
+  const spread = options.spread !== false;
   const days: Array<{ date: string; label: string; events: EventRow[] }> = [];
   for (const e of events) {
     const date = localDate(e.starts_at);
@@ -159,17 +185,36 @@ export function dayList(events: EventRow[], now: number): SafeHtml {
     if (last && last.date === date) last.events.push(e);
     else days.push({ date, label: capitalize(dayLabel(e.starts_at, now)), events: [e] });
   }
-  return html`<div class="day-list">${days.map(d => html`<section class="day" aria-label="${d.label}">
+  // Later dates of the same offering, for the "Også …" line at its first showing.
+  const later = new Map<string, number[]>();
+  const firstOf = new Map<string, EventRow>();
+  if (spread) for (const e of events) {
+    const k = repeatKey(e);
+    const first = firstOf.get(k);
+    if (!first) firstOf.set(k, e);
+    else if (localDate(e.starts_at) !== localDate(first.starts_at)) later.set(k, [...(later.get(k) ?? []), e.starts_at]);
+  }
+  return html`<div class="day-list">${days.map(d => {
+    const shown: EventRow[] = [];
+    const folded = new Map<string, EventRow[]>();
+    const perOwner = new Map<string, number>();
+    for (const e of d.events) {
+      const owner = ownerKey(e);
+      const first = firstOf.get(repeatKey(e));
+      const repeat = spread && first !== undefined && first !== e && localDate(first.starts_at) !== d.date && events.includes(first);
+      const n = perOwner.get(owner) ?? 0;
+      if (spread && (repeat || n >= PER_ORGANISER_PER_DAY)) { folded.set(owner, [...(folded.get(owner) ?? []), e]); continue; }
+      perOwner.set(owner, n + 1);
+      shown.push(e);
+    }
+    return html`<section class="day" aria-label="${d.label}">
   <h3 class="day-head"><time datetime="${d.date}">${d.label}</time></h3>
-  <ol class="rows">${d.events.map(e => {
-    const price = priceLabel(e);
-    return html`<li class="row${e.status === "cancelled" ? " is-cancelled" : ""}"><a href="${eventPath(e)}">
-      <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
-      <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === d.date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${eventChips(e, now)}</span>
-      ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
-    </a></li>`;
-  })}</ol>
-</section>`)}</div>`;
+  <ol class="rows">${shown.map(e => row(e, d.date, now, firstOf.get(repeatKey(e)) === e ? later.get(repeatKey(e)) ?? [] : []))}${[...folded.values()].map(list => html`<li class="row-more"><details>
+    <summary>+ ${list.length} mere fra ${ownerName(list[0]!)}</summary>
+    <ol class="rows">${list.map(e => row(e, d.date, now))}</ol>
+  </details></li>`)}</ol>
+</section>`;
+  })}</div>`;
 }
 
 export function searchForm(areas: Area[], selected: { q?: string; area?: string | null }, options: { compact?: boolean } = {}): SafeHtml {

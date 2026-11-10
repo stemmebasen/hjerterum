@@ -17,6 +17,7 @@ import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
 import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
+import { forYou, whyNote, type Taste } from "./foryou.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
 export function linkify(text: string): SafeHtml[] {
@@ -96,14 +97,30 @@ async function broadFirst(db: D1Database, f: Filters, regions: string[], now: nu
   return broad.total ? broad : listEvents(db, f, regions, now, pageSize);
 }
 
-export async function homePage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
+/** What "Til dig" goes on: the person's own choices on this device, and who is logged in. */
+export type Personal = { taste: Taste; member: { id: string } | null; ticked?: string[] };
+
+/** "Til dig": a row of events from the person's own choices, with one grey line saying why. Nothing before they have chosen anything. */
+async function forYouSection(db: D1Database, ctx: PageContext, regions: string[], personal: Personal | undefined, returnTo: string): Promise<SafeHtml> {
+  if (!personal) return html``;
+  const fy = await forYou(db, regions, ctx.now, personal.taste, personal.member, personal.ticked);
+  if (!fy) return html``;
+  return html`<section class="section for-you" aria-labelledby="h-for-you">
+    <div class="section-head"><h2 id="h-for-you">Til dig</h2></div>
+    ${whyNote(fy, returnTo)}
+    ${cardGrid(fy.events, ctx.now)}
+  </section>`;
+}
+
+export async function homePage(db: D1Database, ctx: PageContext, regions: string[], personal?: Personal): Promise<View> {
   const areas = activeAreas(regions);
-  const [heroTickets, byArea, week, flocks, freeWeek, groups] = await Promise.all([
+  const [heroTickets, byArea, week, flocks, freeWeek, groups, forYouBlock] = await Promise.all([
     heroEvents(db, regions, ctx.now), areaCounts(db, regions, ctx.now),
     broadFirst(db, emptyFilters({ period: "uge" }), regions, ctx.now, FRONT_WEEK_LIMIT),
     upcomingFlocks(db, regions, ctx.now, 6),
     broadFirst(db, emptyFilters({ period: "uge", price: "gratis" }), regions, ctx.now, 24),
-    groupCounts(db, regions, ctx.now)
+    groupCounts(db, regions, ctx.now),
+    forYouSection(db, ctx, regions, personal, "/")
   ]);
   // One card per production: a free concert played twice should not fill two of the three places.
   const freeCards = freeWeek.events.filter((e, i, all) => all.findIndex(x => x.title === e.title) === i).slice(0, 3);
@@ -133,6 +150,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <div class="section-head"><h2 id="h-groups">Hvad har du lyst til?</h2></div>
     ${groupTiles(null, groups, g => g ? `/kalender?gruppe=${g}` : "/kalender", { label: "Hvad har du lyst til?" })}
   </section>
+  ${forYouBlock}
   <aside class="mission" aria-labelledby="h-mission">
     <h2 id="h-mission">Derfor findes Flokken</h2>
     <p>${MISSION}</p>
@@ -180,9 +198,12 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 
 // ————————————————————————————————————————— The calendar, today, the weekend
 
-export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters): Promise<View> {
+export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters, personal?: Personal): Promise<View> {
   const areas = activeAreas(regions);
-  const [{ events, total }, cats, groups] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now)]);
+  // "Til dig" on the calendar's first page, also right after a tile was picked (the page the front page's tiles lead to); not on a search.
+  const showForYou = f.page === 1 && !f.q;
+  const [{ events, total }, cats, groups, forYouBlock] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now),
+    showForYou ? forYouSection(db, ctx, regions, personal, "/kalender") : Promise.resolve(html``)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
   const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
@@ -194,6 +215,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
     <p class="standfirst">Alle kommende events i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
   ${groupTiles(f.group, groups, g => "/kalender" + toQuery({ ...f, page: 1 }, { group: g }) + "#soeg", { compact: true })}
+  ${forYouBlock}
   <div class="list-layout" id="soeg">
     <aside class="list-filters">
       <details class="filter-toggle" data-collapse-mobile open>
@@ -394,7 +416,7 @@ export async function organizerPage(db: D1Database, ctx: PageContext, regions: s
   <div class="main-aside">
     <div>
       ${profile.offerings.length ? section("h-regular", "Faste tilbud", html`<ul class="plain-list">${profile.offerings.map(o => html`<li>${o.text}</li>`)}</ul><p class="meta meta-muted">Kilde: <a href="${profile.offerings[0]!.source}" rel="noopener">${profile.name}</a>. Tjek altid arrangørens side, før du tager afsted.</p>`) : html``}
-      ${section("h-events", `Kommende events hos ${profile.name}`, events.length ? dayList(events, ctx.now) : html`<p class="meta-muted">${profile.eventsNote}</p>`)}
+      ${section("h-events", `Kommende events hos ${profile.name}`, events.length ? dayList(events, ctx.now, { spread: false }) : html`<p class="meta-muted">${profile.eventsNote}</p>`)}
       ${total > events.length ? html`<p class="more-line">Viser de første ${events.length} af ${total}.</p>` : ""}
     </div>
     <aside class="aside">
