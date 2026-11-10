@@ -465,6 +465,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }
 .partner-teaser p { margin-bottom: 0; max-width: 40em; }
 .partner-teaser .button { border-color: var(--butter); box-shadow: 0 3px 0 var(--butter); }
+.member-teaser { margin-top: 40px; background: var(--butter); color: inherit; }
+.member-teaser h2 { color: inherit; }
+.member-teaser .hero-kicker { color: inherit; }
+.member-teaser .button { border-color: currentColor; box-shadow: 0 3px 0 currentColor; }
 
 /* Flocks */
 .flash { border-radius: var(--radius-s); padding: 10px 14px; background: var(--green-soft); color: #17543f; font-weight: 800; border: 2px solid #17543f; }

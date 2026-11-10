@@ -300,7 +300,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Bliv en del af Flokken</h1>
-    <p class="standfirst">For at oprette eller blive en del af en flok skal du være medlem. Det kræver kun dit fornavn – intet telefonnummer. Når du vil være med i en flok, beder vi om din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Vil du have besked, når vi har samlet en flok til dig, beder vi også om din e-mail.</p>
+    <p class="standfirst">For at oprette eller blive en del af en flok skal du have en profil. Det kræver kun dit fornavn – intet telefonnummer. Når du vil være med i en flok, beder vi om din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Vil du have besked, når vi har samlet en flok til dig, beder vi også om din e-mail.</p>
   </header>
   <div class="two-forms">
     <form class="form-card" method="post" action="/bliv-medlem" novalidate>
@@ -312,7 +312,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
         <span class="hint">Kun dem i dine flokke ser det.</span>
         ${state.nameError ? html`<span class="field-error" id="err-name">${state.nameError}</span>` : ""}
       </div>
-      <div class="form-actions"><button type="submit">Bliv medlem</button></div>
+      <div class="form-actions"><button type="submit">Opret profil</button></div>
       <p class="small meta-muted">Du får en personlig kode, som du bruger til at logge ind på andre enheder. Læs <a href="/tryghed">sådan holder vi det trygt</a>.</p>
     </form>
     <form class="form-card" method="post" action="/log-ind" novalidate>
@@ -327,7 +327,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
     </form>
   </div>
 </div>`;
-  return { status: state.status ?? 200, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Bliv medlem af Flokken eller log ind.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Opret en profil på Flokken eller log ind.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
 }
 
 export function welcomePage(ctx: PageContext, member: Member, code: string, next: string): View {
@@ -335,7 +335,7 @@ export function welcomePage(ctx: PageContext, member: Member, code: string, next
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Velkommen, ${member.first_name}!</h1>
-    <p class="standfirst">Du er nu medlem af Flokken og logget ind på denne enhed.</p>
+    <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem.</p>
   </header>
   <section class="code-box" aria-labelledby="h-code">
     <h2 id="h-code">Din personlige kode</h2>
@@ -345,6 +345,36 @@ export function welcomePage(ctx: PageContext, member: Member, code: string, next
   <p class="more-line"><a class="button" href="${next}">Fortsæt</a></p>
 </div>`;
   return { status: 200, headers: PRIVATE, body: page(ctx, { title: "Velkommen til Flokken", description: "Din personlige kode.", canonical: "/log-ind", noindex: true }, body) };
+}
+
+// ————————————————————————————————————————— Membership
+
+/** "Bliv medlem": what membership of the association means. No payment yet; the first outings need none. */
+export function membershipPage(ctx: PageContext, loggedIn: boolean): View {
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Bliv medlem", path: "/bliv-medlem" }];
+  const body = html`
+<div class="wrap narrow prose">
+  <header class="page-head">
+    ${crumbsNav(crumbs)}
+    <h1>Bliv medlem af Flokken</h1>
+    <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud.</p>
+  </header>
+  <h2>Prøv det først</h2>
+  <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>
+  <h2>Som medlem</h2>
+  <ul>
+    <li>kan du blive ved med at tage med i flokke, så ofte du vil,</li>
+    <li>er du med til at forme foreningen – kom med idéer, ønsker og arrangementer,</li>
+    <li>hjælper du byens mindre spillesteder, teatre og foreninger med at blive set,</li>
+    <li>gør du det lettere for nye i byen at finde en vej ind i fællesskabet.</li>
+  </ul>
+  <h2>Kontingent</h2>
+  <p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Vi er ved at gøre indmeldelsen klar. Du skal ikke betale noget nu, og vi siger til i god tid, før dine ${FREE_OUTINGS} første udflugter er brugt.</p>
+  <p class="more-line">${loggedIn
+    ? html`<a class="button" href="/kom-godt-i-gang">Find en oplevelse</a> <a class="button-secondary" href="/flokke">Mine flokke</a>`
+    : html`<a class="button" href="/log-ind?naeste=/kom-godt-i-gang">Opret profil og kom i gang</a>`}</p>
+</div>`;
+  return { status: 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Safety

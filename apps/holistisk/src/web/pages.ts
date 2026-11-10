@@ -11,6 +11,7 @@ import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockPanel, howItWorks } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
+import { FREE_OUTINGS } from "../flokken/profile.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
@@ -158,6 +159,11 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
+  <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
+    <div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>
+    <p>Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.</p></div>
+    <p><a class="button button-alt" href="/bliv-medlem">Læs om medlemskab</a></p>
+  </aside>
   <section class="section savings" aria-labelledby="h-save">
     <div class="section-head"><div><p class="section-kicker">Gratis og billigt</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
     ${freeCards.length ? cardGrid(freeCards, ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}

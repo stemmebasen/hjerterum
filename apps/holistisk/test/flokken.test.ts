@@ -646,6 +646,14 @@ describe("Lad os komme godt i gang", () => {
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
     expect(r.body).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
+    // "Bliv medlem" explains membership of the association; signing up is "Opret profil".
+    const m = await call("/bliv-medlem");
+    expect(m.status).toBe(200);
+    expect(m.body).toContain("<h1>Bliv medlem af Flokken</h1>");
+    expect(m.body).toContain("<strong>250 kr. om året</strong>");
+    expect(m.body).toContain('href="/log-ind?naeste=/kom-godt-i-gang"');
+    expect((await call("/log-ind")).body).toContain('<button type="submit">Opret profil</button>');
+    expect((await call("/")).body).toContain('<h2 id="h-member">Bliv medlem</h2>');
     expect(r.body).not.toContain("udflugter er gratis");
     expect(r.body).toContain('<input type="checkbox" name="event"');
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.

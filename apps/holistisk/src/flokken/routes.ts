@@ -5,7 +5,7 @@ import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
 import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
@@ -110,6 +110,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (!found) return { view: loginPage(pc, back, { codeError: "Koden passer ikke. Den har 12 tegn, fx K7QF-29MX-T4HD.", status: 400 }) };
     return go(back, await startSession(db, found.id, now));
   }
+  if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member())) };
   if (path === "/bliv-medlem" && post) {
     const data = await formData(request);
     const back = safeNext(String(data?.get("naeste") ?? ""));
