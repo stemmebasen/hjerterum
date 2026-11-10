@@ -138,7 +138,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   <div class="wrap hero-inner">
     <div class="hero-text">
       <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
-      <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
+      <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage. Find en flok, der skal det samme som dig, og oplev det sammen med nye mennesker.</p>
       ${searchForm(areas, {})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>

@@ -70,6 +70,8 @@ describe("front page", () => {
     expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ events? – dag for dag<\/span>/);
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
+    // The intro carries both aims and promises no savings.
+    expect(body).toMatch(/<p class="standfirst">\d+ events? i Aarhus lige nu – fra de store scener til de små spillesteder, teatre og foreninger, som flere fortjener at opdage\. Find en flok, der skal det samme som dig, og oplev det sammen med nye mennesker\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
