@@ -181,6 +181,15 @@ export function flockRoom(e: Pick<EventRow, "flock_fill">): { members: number; s
 }
 const hasFlockRoom = (e: Pick<EventRow, "flock_fill">) => flockRoom(e) !== null;
 
+/** "Til dig": the coming two weeks' events to pick from, from two hours from now (time to get there). */
+export async function forYouPool(db: D1Database, regions: string[], now: number): Promise<EventRow[]> {
+  const w = visible(regions, now);
+  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
+  w.params.push(now + 2 * 3600_000, now + 14 * 86400_000);
+  const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 600`).bind(...w.params).all<EventRow>();
+  return results;
+}
+
 /** Every coming event with a position, for the map: from now until `days` days ahead. */
 export async function mapEvents(db: D1Database, regions: string[], now: number, until: number): Promise<EventRow[]> {
   const w = visible(regions, now);

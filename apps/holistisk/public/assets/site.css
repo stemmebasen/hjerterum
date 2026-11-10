@@ -321,6 +321,16 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .row-body { display: flex; flex-direction: column; min-width: 0; }
 .row-body .kicker { margin-bottom: .2em; }
 .row-title { font: 600 1.18rem/1.25 var(--display); margin-bottom: .15em; }
+.row-also { font-size: .86rem; }
+.row-more { border-top: 2px dashed var(--rule); }
+.row-more > details > summary { cursor: pointer; padding: 12px 0 12px 78px; font-weight: 700; color: var(--muted); list-style: none; }
+.row-more > details > summary::-webkit-details-marker { display: none; }
+.row-more > details > summary:hover { color: var(--ink); text-decoration: underline; }
+.row-more > details[open] > summary { color: var(--ink); }
+.row-more .rows .row:first-child a { border-top: 2px dashed var(--rule); }
+@media (max-width: 560px) { .row-more > details > summary { padding-left: 60px; } }
+.for-you .for-you-why { font-size: .86rem; color: var(--muted); margin: -10px 0 16px; }
+.for-you .for-you-why a { color: var(--muted); }
 .row-img { width: 104px; height: 76px; object-fit: cover; border-radius: var(--radius-s); border: 2px solid var(--ink); }
 @media (max-width: 560px) { .day { padding: 2px 14px 4px; } .row a { grid-template-columns: 50px 1fr; gap: 10px; } .row-img { display: none; } .row-time { font-size: .98rem; } }
 

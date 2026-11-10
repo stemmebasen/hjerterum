@@ -5,7 +5,7 @@ import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { purgeOldChats } from "./flokken/chat.js";
-import { gatherAll } from "./flokken/kickoff.js";
+import { gatherAll, readChoices } from "./flokken/kickoff.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -18,6 +18,8 @@ import { eventIcs, robotsTxt, sitemapXml } from "./web/seo.js";
 import { currentMember, sameOrigin, sameSecret } from "./flokken/auth.js";
 import { flokkenRoute } from "./flokken/routes.js";
 import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
+import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters } from "./web/foryou.js";
+import { activityFilters } from "./web/pages.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
 
@@ -198,8 +200,23 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     const pages = await sitemapPages(db, regions, now);
     return respond(env, sitemapXml(pc.origin, pages, await sitemapEvents(db, regions, now)), { type: "application/xml; charset=utf-8", cache: "public, max-age=3600" });
   }
-  if (path === "/") return view(env, await homePage(db, pc, regions));
-  if (path === "/kalender") return view(env, await calendarPage(db, pc, regions, parseFilters(url.searchParams, regions)));
+  // "Til dig" (src/web/foryou.ts): these pages differ per person, so no shared cache may keep them.
+  const personalView = (v: View, cookie: string | null) => respond(env, v.body, { status: v.status, cache: "private, no-cache", headers: { ...v.headers, vary: "Cookie", ...(cookie ? { "set-cookie": cookie } : {}) } });
+  if (path === "/") {
+    const taste = readTaste(request);
+    return personalView(await homePage(db, pc, regions, { taste, member: await currentMember(db, request, now), ticked: readChoices(request) }), null);
+  }
+  if (path === "/kalender") {
+    const f = parseFilters(url.searchParams, regions);
+    const before = readTaste(request);
+    const after = tasteFromFilters(before, f);
+    return personalView(await calendarPage(db, pc, regions, f, { taste: after ?? before, member: await currentMember(db, request, now), ticked: readChoices(request) }), after ? tasteCookie(after) : null);
+  }
+  if (path === RESET_PATH) {
+    const back = url.searchParams.get("tilbage");
+    const location = back && /^\/(?!\/)[a-z0-9/-]{0,60}$/.test(back) ? back : "/";
+    return new Response(null, { status: 303, headers: { location, "cache-control": "no-store", "set-cookie": clearTasteCookie() } });
+  }
   // The calendar moved from /events to /kalender (the word people search for); event pages stay under /events/.
   if (path === "/events") return redirect(`/kalender${url.search}`);
   if (path === "/i-dag") return view(env, await periodPage(db, pc, regions, "idag"));
@@ -235,7 +252,13 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     const firstActivity = activityBySlug(first);
     if (!second) {
       if (firstCity) return view(env, await areaPage(db, pc, regions, firstCity));
-      if (firstActivity) return firstActivity.slug !== first ? redirect(`/${firstActivity.slug}`) : view(env, await activityPage(db, pc, regions, firstActivity, null, pageNo));
+      if (firstActivity) {
+        if (firstActivity.slug !== first) return redirect(`/${firstActivity.slug}`);
+        const v = await activityPage(db, pc, regions, firstActivity, null, pageNo);
+        // Opening an activity from the menu is a choice too: it counts for "Til dig" like a category filter.
+        const after = v.status === 200 ? tasteFromFilters(readTaste(request), activityFilters(firstActivity, { page: pageNo })) : null;
+        return after ? respond(env, v.body, { status: v.status, cache: "private, no-cache", headers: { ...v.headers, vary: "Cookie", "set-cookie": tasteCookie(after) } }) : view(env, v);
+      }
     } else {
       // The earlier city-first addresses (/aarhus/meditation) move to activity-first.
       const secondActivity = activityBySlug(second);
