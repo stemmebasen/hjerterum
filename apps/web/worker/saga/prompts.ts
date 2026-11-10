@@ -24,7 +24,7 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 
 ## Punkter
 ### 1. <emne>
-- Drøftelse: <kort, sagligt>
+- Drøftelse: <højst to korte sætninger: hvad sagen gik ud på, og hvad der talte for og imod>
 - Beslutning: <præcis beslutning, eller "Ingen beslutning">
 
 ## Beslutninger
@@ -39,7 +39,8 @@ Skriv et referat af bestyrelsesmødet ud fra transskriptionen. Brug præcis denn
 ## Næste møde
 <dato og sted, eller "Ikke aftalt">
 
-Regler: kun det, der faktisk blev sagt. Skriv kun noget under Beslutninger, når bestyrelsen har afgjort det: en anbefaling ("der anbefales ..."), et forslag til generalforsamlingen, en opbakning eller noget, der skal undersøges, er ikke afgjort og står under Aftaler. Og "Beslutning:" ved et punkt skal være en afgørelse - er der kun en anbefaling eller en idé, så skriv "Ingen beslutning". Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.`;
+Regler: kun det, der faktisk blev sagt. Skriv kun noget under Beslutninger, når bestyrelsen har afgjort det: en anbefaling ("der anbefales ..."), et forslag til generalforsamlingen, en opbakning eller noget, der skal undersøges, er ikke afgjort og står under Aftaler. Og "Beslutning:" ved et punkt skal være en afgørelse - er der kun en anbefaling eller en idé, så skriv "Ingen beslutning". Ingen citater ordret, ingen småsnak. Er en taler i tvivl om noget, så skriv det. Beløb og datoer præcist som sagt.
+Skarpt og ind til benet (formanden: "Sagas referat rummer alt for mange ligegyldige detaljer og sniksnak"): skriv det, en der ikke var med, skal vide - hvad der blev besluttet, aftalt og skal gøres, og kort hvorfor. Udelad hvem der sagde hvad, eksempler, anekdoter, overvejelser undervejs, gentagelser, tekniske problemer, hilsener, pauser og andet, der ikke ændrer noget. Et emne, der blot blev nævnt uden drøftelse, beslutning eller opgave, kommer ikke med som punkt. Saml småting under ét punkt "Eventuelt" med én linje hver.`;
 
 // Requested: "Vi skal også have indsat de sidste 10 referater ind i det nye system".
 export const IMPORT_SYSTEM = IDENTITY + `
