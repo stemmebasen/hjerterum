@@ -1,5 +1,5 @@
-import { CATEGORIES } from "../categories.js";
-import { TOPICS } from "../activities.js";
+import { categoryBySlug, type Category } from "../categories.js";
+import { BROAD_CATEGORIES } from "../mainstream.js";
 import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
 import { SAMFOLK_MARK } from "../forening/brand.js";
@@ -132,6 +132,9 @@ ${meta.bare ? "" : ctx.edition === "forening" ? foreningFooter(ctx) : portalFoot
 </html>`.value;
 }
 
+/** The menu's and footer's activities: the broad ones (src/mainstream.ts); the rest are one click away on /kategorier. */
+const MENU_CATEGORIES: Category[] = BROAD_CATEGORIES.map(slug => categoryBySlug(slug)).filter((c): c is Category => !!c);
+
 function portalHeader(ctx: PageContext): SafeHtml {
   return html`<header class="masthead">
   <div class="wrap masthead-inner">
@@ -147,8 +150,7 @@ function portalHeader(ctx: PageContext): SafeHtml {
         <div class="menu-panel">
           <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
-          <div><p class="menu-head">Aktiviteter</p><ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></div>
-          <div><p class="menu-head">Emner</p><ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></div>
+          <div><p class="menu-head">Aktiviteter</p><ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></div>
           <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
         </div>
       </details>
@@ -168,9 +170,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
       <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul></nav>
     <nav aria-labelledby="f-cats"><p class="footer-head" id="f-cats">Aktiviteter</p>
-      <ul>${CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}</ul></nav>
-    <nav aria-labelledby="f-topics"><p class="footer-head" id="f-topics">Populære emner</p>
-      <ul>${TOPICS.map(t => html`<li><a href="/${t.slug}">${t.name}</a></li>`)}</ul></nav>
+      <ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></nav>
   </div>
 </footer>`;
 }

@@ -30,6 +30,8 @@ Only sources with a documented basis are enabled. Public availability alone is n
 
 ## Switched off at the project owner's request
 
+**Brahma Kumaris Aarhus**, **Buddhistisk Center Aarhus (Diamantvejen)** and **Vækstcenteret** (2026-11-10): the site should be broad and mainstream, not read as a portal for spirituality and alternative treatment. Their profiles stay in `src/organizers.ts` with `hidden: true` (so their weekly meditations leave the calendar too), as do Center for Selvudvikling, Yoga & Meditation Horsens and Gomde. Hjerterum, Lysets Hus, Favn and Dansk Center for Mindfulness stay in the calendar, but `src/mainstream.ts` puts the broad offer first on the front page and in the interest list, and the menus lead with concerts, theatre, talks and the like.
+
 **Musikhuset Aarhus** and **Train** (2026-11-09): big stages, not what Socialklubben is about. Their entries stay in `registry.ts` with `enabled: () => false`; the collector takes their coming events off the site (status `withdrawn`), and switching them on again brings them back.
 
 ## Ready, switched off until access is in place

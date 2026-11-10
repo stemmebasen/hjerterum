@@ -29,7 +29,7 @@ export const GROUPS: Group[] = [
     icon: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>'
   },
   {
-    slug: "fordybelse", name: "Fordybelse", line: "Meditation, yoga, natur og fællesskab",
+    slug: "fordybelse", name: "Fordybelse", line: "Natur, fællesskab, yoga og ro",
     categories: ["meditation-mindfulness", "yoga", "aandedraet-breathwork", "spiritualitet-bevidsthed", "lydhealing", "kvinde-mandegrupper",
       "samtale-faellesskab", "retraeter", "holistisk-sundhed", "natur", "sociale-faellesskaber"],
     icon: '<path d="M12 21c-4-2-7-5.5-7-10 3 0 5.5 1.5 7 4 1.5-2.5 4-4 7-4 0 4.5-3 8-7 10z"/><path d="M12 15c-1.5-2-2-4.5-2-7 .8-1.6 1.6-2.8 2-3.5.4.7 1.2 1.9 2 3.5 0 2.5-.5 5-2 7z"/>'

@@ -46,9 +46,13 @@ export type OrganizerProfile = {
   offerings: Offering[];
   /** How the portal gets the organiser's events, shown on the profile. */
   eventsNote: string;
+  /** Left out of the directory, the pages and the weekly offerings (Jake 2026-11-10: a broad, mainstream selection –
+   * src/mainstream.ts). The profile is kept so it can be shown again by removing the flag. */
+  hidden?: boolean;
 };
 
-export const ORGANIZERS: OrganizerProfile[] = [
+/** Every profile, hidden ones too. */
+export const ALL_ORGANIZERS: OrganizerProfile[] = [
   {
     slug: "hjerterum",
     name: "Hjerterum",
@@ -75,6 +79,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "brahma-kumaris-aarhus",
+    hidden: true,
     name: "Brahma Kumaris Aarhus",
     about: "Meditationscenter med Raja Yoga-meditation, introaftener, kurser i positiv tænkning og selvindsigt samt stilhedsdage. Tilbuddene er non-profit.",
     area: "aarhus", address: "Ålborggade 22, 3. tv.", postalCode: "8000", city: "Aarhus C", lat: 56.143271, lon: 10.192211,
@@ -90,6 +95,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "buddhistisk-center-aarhus",
+    hidden: true,
     name: "Buddhistisk Center Aarhus",
     about: "Diamantvejens buddhistiske center på Trøjborg med meditation i Karma Kagyü-traditionen. Det er gratis at deltage, og alle er velkomne.",
     area: "aarhus", address: "Peder Skrams Gade 52B, kld.", postalCode: "8200", city: "Aarhus N", lat: 56.173836, lon: 10.21666,
@@ -120,6 +126,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "center-for-selvudvikling",
+    hidden: true,
     name: "Center for Selvudvikling",
     about: "Meditation og selvudvikling ved Jens og Ellen G. Enemark: terapeutisk arbejde med stress og traumer, fortløbende grupper og enneagramgruppe. Grupperne kræver en forsamtale.",
     area: "aarhus", address: "Frederiksgade 74E, 2. tv.", postalCode: "8000", city: "Aarhus C", lat: 56.154046, lon: 10.203462,
@@ -132,6 +139,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "yoga-og-meditation-horsens",
+    hidden: true,
     name: "Yoga & Meditation Horsens",
     about: "Yoga- og meditationsstudie i Horsens med hatha, yin, restorativ yoga, breathwork, meditation, MBSR-forløb og stresscoaching.",
     area: "horsens", address: "Sundvej 35", postalCode: "8700", city: "Horsens", lat: 55.864307, lon: 9.870072,
@@ -146,6 +154,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "vaekstcenteret",
+    hidden: true,
     name: "Vækstcenteret",
     about: "Meditations- og retreatcenter ved Nørre Snede med stilhedsretreats, meditationsdage, kurser og spirituel psykologi. To programmer om året.",
     area: "horsens", address: "Rørbækvej 10", postalCode: "8766", city: "Nørre Snede", lat: 55.963837, lon: 9.390209,
@@ -158,6 +167,7 @@ export const ORGANIZERS: OrganizerProfile[] = [
   },
   {
     slug: "gomde",
+    hidden: true,
     name: "Gomde",
     about: "Buddhistisk retreatcenter og tempel på Helgenæs ved Knebel med daglig praksis, pujas, retreats og meditationskurser. Templet er åbent hver dag.",
     area: "djursland", address: "Smedehalden 3", postalCode: "8420", city: "Knebel", lat: 56.130005, lon: 10.540809,
@@ -211,8 +221,133 @@ export const ORGANIZERS: OrganizerProfile[] = [
       { text: "Events som yoga & poesi – mange er gratis og åbne for alle", source: "https://www.yostudios.dk/dk/events" }
     ],
     eventsNote: "Holdplan og events ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yostudios.dk."
+  },
+  // ——— Spillesteder, scener, biblioteker og kulturhuse (Jake 2026-11-10: a broad selection). Their events are
+  // fetched by the sources in src/sources/registry.ts; the slug is the organizer_id the collector gives them.
+  {
+    slug: "voxhall",
+    name: "VoxHall",
+    about: "Spillested på Vester Allé med koncerter i alle genrer – rock, pop, hiphop, jazz og elektronisk – fra nye navne til store turnéer.",
+    area: "aarhus", address: "Vester Allé 15", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://www.voxhall.dk/",
+    activities: ["koncerter"],
+    offerings: [],
+    eventsNote: "Koncertkalenderen på voxhall.dk hentes automatisk hver nat."
+  },
+  {
+    slug: "radar",
+    name: "Radar",
+    about: "Spillested på Godsbanen for ny og upcoming musik – indie, elektronisk, rock og jazz – med intime koncerter og klubaftener.",
+    area: "aarhus", address: "Karen Wegeners Gade 6", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://radarlive.dk/",
+    activities: ["koncerter", "quiz-og-fest"],
+    offerings: [],
+    eventsNote: "Kalenderen på radarlive.dk hentes automatisk hver nat."
+  },
+  {
+    slug: "resonans-bistro-bar",
+    name: "Resonans Bistro & Bar",
+    about: "Bistro og bar i Jægergårdsgade med livemusik i caféen – jazz, viser og singer-songwriters tæt på publikum.",
+    area: "aarhus", address: "Jægergårdsgade 150", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://resonans.dk/",
+    activities: ["koncerter"],
+    offerings: [],
+    eventsNote: "Koncerterne hentes automatisk hver nat fra Resonans' egen liste."
+  },
+  {
+    slug: "godsbanen",
+    name: "Godsbanen",
+    about: "Kulturproduktionscenter ved banegården med teater, koncerter, debatter, udstillinger, værksteder og markeder.",
+    area: "aarhus", address: "Skovgaardsgade 3", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://godsbanen.dk/",
+    activities: ["koncerter", "scenekunst", "foredrag", "kunst", "workshops"],
+    offerings: [],
+    eventsNote: "Godsbanens kalender hentes automatisk hver nat."
+  },
+  {
+    slug: "dokk1",
+    name: "Dokk1",
+    about: "Hovedbiblioteket på havnen med gratis foredrag, forfattermøder, koncerter, spilaftener, værksteder og masser for børn og familier.",
+    area: "aarhus", address: "Hack Kampmanns Plads 2", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://www.aakb.dk/",
+    activities: ["foredrag", "boern-og-familie", "koncerter", "quiz-og-fest", "kunst"],
+    offerings: [],
+    eventsNote: "Dokk1's arrangementer hentes automatisk hver nat fra bibliotekernes kalender."
+  },
+  {
+    slug: "folkestedet",
+    name: "Folkestedet",
+    about: "Aarhus Kommunes hus for fællesskab og foreninger ved Carl Blochs Gade: koncerter, fællessang, bal, foredrag, biograf og sund mandag.",
+    area: "aarhus", address: "Carl Blochs Gade 28", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://folkestedet.aarhus.dk/",
+    activities: ["koncerter", "faellesskaber", "foredrag", "dans", "quiz-og-fest"],
+    offerings: [],
+    eventsNote: "Folkestedets kalender hentes automatisk hver nat."
+  },
+  {
+    slug: "fof-aarhus",
+    name: "FOF Aarhus",
+    about: "Folkeoplysningsforbundet med foredrag om historie, rejser, sundhed, kultur og samfund – mange steder i byen.",
+    area: "aarhus", address: null, postalCode: null, city: "Aarhus", lat: null, lon: null,
+    website: "https://fof.dk/aarhus",
+    activities: ["foredrag"],
+    offerings: [],
+    eventsNote: "FOF Aarhus' foredrag hentes automatisk hver nat."
+  },
+  {
+    slug: "loeve-s-bog-og-vincafe",
+    name: "Løve's Bog- og VinCafé",
+    about: "Bog- og vincafé i Nørregade med oplæsninger, forfatteraftener, quiz og små koncerter.",
+    area: "aarhus", address: "Nørregade 32", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://loeves.dk/",
+    activities: ["foredrag", "koncerter", "quiz-og-fest"],
+    offerings: [],
+    eventsNote: "Caféens kalender hentes automatisk hver nat."
+  },
+  {
+    slug: "teaterhuset-filuren",
+    name: "Teaterhuset Filuren",
+    about: "Teater for børn og familier i Aarhus med forestillinger for de mindste og for hele familien.",
+    area: "aarhus", address: "Thomas Jensens Allé", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://filuren.dk/",
+    activities: ["scenekunst", "boern-og-familie"],
+    offerings: [],
+    eventsNote: "Filurens spilleplan hentes automatisk hver nat."
+  },
+  {
+    slug: "teater-katapult",
+    name: "Teater Katapult",
+    about: "Teater for ny dansk dramatik på Godsbanen – nye stykker, nye stemmer og læsninger.",
+    area: "aarhus", address: "Karen Wegeners Gade 8", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://katapult.dk/",
+    activities: ["scenekunst"],
+    offerings: [],
+    eventsNote: "Katapults sæsonprogram hentes automatisk hver nat."
+  },
+  {
+    slug: "bora-bora-dans-og-visuelt-teater",
+    name: "Bora Bora – dans og visuelt teater",
+    about: "Scene for dans, performance og visuelt teater i Valdemarsgade med danske og internationale forestillinger.",
+    area: "aarhus", address: "Valdemarsgade 1", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://bora-bora.dk/",
+    activities: ["scenekunst", "dans"],
+    offerings: [],
+    eventsNote: "Bora Boras sæsonprogram hentes automatisk hver nat."
+  },
+  {
+    slug: "aarhus-lindy-hoppers",
+    name: "Aarhus Lindy Hoppers",
+    about: "Forening for swingdans i Aarhus med lindy hop-kurser, sociale danseaftener og workshops – også for begyndere.",
+    area: "aarhus", address: null, postalCode: null, city: "Aarhus", lat: null, lon: null,
+    website: "https://aarhuslindyhoppers.nemtilmeld.dk/",
+    activities: ["dans", "faellesskaber"],
+    offerings: [],
+    eventsNote: "Foreningens arrangementer hentes automatisk hver nat fra NemTilmeld."
   }
 ];
+
+/** The profiles shown on the site. */
+export const ORGANIZERS: OrganizerProfile[] = ALL_ORGANIZERS.filter(o => !o.hidden);
 
 const BY_SLUG = new Map(ORGANIZERS.map(o => [o.slug, o]));
 export const organizerBySlug = (slug: string): OrganizerProfile | undefined => BY_SLUG.get(slug);
