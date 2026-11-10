@@ -9,9 +9,10 @@ import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
 // Saturday 10 October 2026, 14:00 in Aarhus.
 const NOW = Date.parse("2026-10-10T12:00:00Z");
 let env: Env;
+let db: ReturnType<typeof testDb>;
 
 beforeAll(async () => {
-  const db = testDb();
+  db = testDb();
   const { fetcher } = fakeFetch({
     "https://api.membershipworks.com/robots.txt": { body: MW_ROBOTS }, [FEED_URL]: { body: fixture("hjerterum-rss.xml") },
     "https://lysetshus.dk/robots.txt": { status: 404 }, "https://lysetshus.dk/": { body: fixture("lysetshus.html") },
@@ -38,6 +39,26 @@ describe("about page", () => {
     for (const v of ["Fællesskab", "Inddragelse", "Inklusion"]) expect(body).toContain(`<dt>${v}</dt>`);
     expect(body).toContain('<p class="aims-en" lang="en">');
     expect(body).not.toMatch(/registreret socialøkonomisk|RSV/i);
+  });
+});
+
+describe("cancelled events", () => {
+  it("drop out of the front page, the calendar and its count, but their own page still opens and says so", async () => {
+    const before = await text("/kalender");
+    const row = db.raw.prepare("SELECT slug, title FROM events WHERE status = 'scheduled' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW)[0] as { slug: string; title: string };
+    expect(rows(before.body)).toContain(row.title);
+    db.raw.prepare("UPDATE events SET status = 'cancelled' WHERE slug = ?").run(row.slug);
+    try {
+      const after = await text("/kalender");
+      expect(rows(after.body)).not.toContain(row.title);
+      expect(count(after.body)).toBe(count(before.body) - 1);
+      expect((await text("/")).body).not.toContain(`/${row.slug}"`);
+      const own = await text(`/events/${row.slug}`);
+      expect(own.status).toBe(200);
+      expect(own.body).toContain("Arrangøren har meldt dette event aflyst.");
+    } finally {
+      db.raw.prepare("UPDATE events SET status = 'scheduled' WHERE slug = ?").run(row.slug);
+    }
   });
 });
 

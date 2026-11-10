@@ -5,7 +5,8 @@ import { activityBySlug } from "../activities.js";
 import { zoneSql } from "../zones.js";
 import { GROUPS, groupBySlug, type Group } from "../groups.js";
 
-/** Read side of the portal. Visible = scheduled or cancelled, not yet over, and in an active region. */
+/** Read side of the portal. Visible = scheduled (not cancelled), not yet over, and in an active region. A cancelled
+ * event drops out of every list, count and calendar; its own page (eventBySlug) still opens and says it is cancelled. */
 
 export type EventRow = {
   id: string; slug: string; title: string; description: string | null; summary: string | null;
@@ -38,7 +39,7 @@ type Where = { sql: string[]; params: unknown[] };
 
 function visible(regions: string[], now: number): Where {
   return {
-    sql: [`e.status IN ('scheduled', 'cancelled')`, `${ENDS} >= ?`, `e.region IN (${regions.map(() => "?").join(",")})`],
+    sql: [`e.status = 'scheduled'`, `${ENDS} >= ?`, `e.region IN (${regions.map(() => "?").join(",")})`],
     params: [now, ...regions]
   };
 }
