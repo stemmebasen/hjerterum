@@ -234,6 +234,8 @@ const ROLE_LABEL: Record<string, string> = { photo: "Billede", "photo-frame": "B
 export function DesignEditor({ format, start, input, pictures, photoUrl, logo, onUse, onClose, finder }: Props) {
   const { width: W, height: H } = SIZES[format];
   const host = useRef<HTMLDivElement>(null), el = useRef<HTMLCanvasElement>(null), fc = useRef<Canvas | null>(null);
+  // The canvas is made once; its double click reaches the latest addText through this.
+  const addTextRef = useRef<((kind: "title" | "sub" | "small" | "text", at?: { x: number; y: number }) => void) | null>(null);
   const [zoom, setZoom] = useState(0.5);
   const [selected, setSelected] = useState<Tagged | null>(null);
   const [, setTick] = useState(0);
@@ -269,6 +271,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
     const pick = () => { setSelected((c.getActiveObject() as Tagged) ?? null); refresh(); };
     c.on("selection:created", pick); c.on("selection:updated", pick); c.on("selection:cleared", () => setSelected(null));
     c.on("object:modified", () => { snapshot(); refresh(); });
+    // A double click on an empty spot of the page: a text there, to write in.
+    c.on("mouse:dblclick", e => { if (!e.target) { const p = c.getScenePoint(e.e); addTextRef.current?.("text", { x: p.x, y: p.y }); } });
     // Guides: the middle of the page, across and down, when something comes near it.
     let guides: Array<"v" | "h"> = [], drewGuides = false;
     c.on("object:moving", e => {
@@ -367,11 +371,24 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
     img.group?.triggerLayout?.(); changed();
   };
   /** Size a photo: its frame grows or shrinks, the picture filling it as before. */
-  const addText = (kind: "title" | "sub" | "small") => {
-    const size = kind === "title" ? 90 : kind === "sub" ? 48 : 32;
-    const t = new Textbox(kind === "title" ? "Overskrift" : kind === "sub" ? "Undertekst" : "Tekst", { left: W * 0.1, top: H * 0.4, width: W * 0.8, fontSize: size, fontFamily: kind === "small" ? SANS_OF : SERIF_OF,
+  // Requested (the chair, 11 Nov 2026): "I billededitoren skal jeg kunne indsætte tekst" - a text put in where asked (or in the middle), ready to write in.
+  const addText = (kind: "title" | "sub" | "small" | "text", at?: { x: number; y: number }): void => {
+    const size = kind === "title" ? 90 : kind === "sub" ? 48 : kind === "text" ? 56 : 32;
+    const width = W * 0.8, left = at ? Math.max(0, Math.min(W - width, at.x - width / 2)) : W * 0.1, top = at ? Math.max(0, Math.min(H - size * 1.2, at.y - size / 2)) : H * 0.4;
+    const t = new Textbox(kind === "title" ? "Overskrift" : kind === "sub" ? "Undertekst" : kind === "text" ? "Skriv her" : "Tekst", { left, top, width, fontSize: size, fontFamily: kind === "small" ? SANS_OF : SERIF_OF,
       fill: input.colors.ink, fontStyle: kind === "sub" ? "italic" : "normal", textAlign: "center" });
-    (t as Tagged).role = kind; add(t);
+    (t as Tagged).role = kind === "text" ? "text" : kind; add(t);
+    // Straight into writing: the placeholder chosen, so the first key replaces it.
+    t.enterEditing(); t.selectAll(); fc.current?.requestRenderAll();
+  };
+  addTextRef.current = addText;
+  // "jeg skal også kunne centrere, højre- og venstrecentrere": the chosen thing put to the left, the middle or the right of the page (or its top, middle or bottom).
+  const place = (where: "left" | "center" | "right" | "top" | "middle" | "bottom") => {
+    const c = fc.current, o = c?.getActiveObject(); if (!c || !o) return;
+    const box = o.getBoundingRect(), margin = W * 0.06;
+    const dx = where === "left" ? margin - box.left : where === "right" ? W - margin - (box.left + box.width) : where === "center" ? W / 2 - (box.left + box.width / 2) : 0;
+    const dy = where === "top" ? margin - box.top : where === "bottom" ? H - margin - (box.top + box.height) : where === "middle" ? H / 2 - (box.top + box.height / 2) : 0;
+    o.set({ left: (o.left ?? 0) + dx, top: (o.top ?? 0) + dy }); o.setCoords(); changed();
   };
   const addPicture = async (url: string, at?: { x: number; y: number }) => {
     const size = W * 0.5;
@@ -438,6 +455,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
     </header>
     <aside className="ed-add">
       <h3>Tilføj</h3>
+      <p className="ed-row"><button type="button" className="ed-primary" onClick={() => addText("text")}>✎ Indsæt tekst</button></p>
+      <p className="studio-muted ed-hint">Eller dobbeltklik et tomt sted på siden.</p>
       <p className="ed-row"><button type="button" onClick={() => addText("title")}>Overskrift</button><button type="button" onClick={() => addText("sub")}>Undertekst</button><button type="button" onClick={() => addText("small")}>Lille tekst</button></p>
       <p className="ed-row"><button type="button" onClick={() => addShape("rect")}>▭ Firkant</button><button type="button" onClick={() => addShape("circle")}>◯ Cirkel</button><button type="button" onClick={() => addShape("arch")}>⌂ Bue</button><button type="button" onClick={() => addShape("line")}>― Streg</button></p>
       {logo && <p className="ed-row"><button type="button" onClick={() => void addLogo()}>Logo</button></p>}
@@ -465,8 +484,9 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
           <p className="ed-row">
             <button type="button" className={(o as unknown as Textbox).fontWeight === 700 || (o as unknown as Textbox).fontWeight === "bold" ? "is-on" : ""} onClick={() => set({ fontWeight: (o as unknown as Textbox).fontWeight === 700 ? 400 : 700 })}><b>F</b></button>
             <button type="button" className={(o as unknown as Textbox).fontStyle === "italic" ? "is-on" : ""} onClick={() => set({ fontStyle: (o as unknown as Textbox).fontStyle === "italic" ? "normal" : "italic" })}><i>K</i></button>
-            {(["left", "center", "right"] as const).map(a => <button key={a} type="button" className={(o as unknown as Textbox).textAlign === a ? "is-on" : ""} onClick={() => set({ textAlign: a })}>{a === "left" ? "⇤" : a === "center" ? "⇔" : "⇥"}</button>)}
           </p>
+          <div className="ed-field"><span>Justér teksten</span><p className="ed-row">{(["left", "center", "right"] as const).map(a => <button key={a} type="button" className={(o as unknown as Textbox).textAlign === a ? "is-on" : ""}
+            onClick={() => set({ textAlign: a })}>{a === "left" ? "⇤ Venstre" : a === "center" ? "⇔ Midte" : "Højre ⇥"}</button>)}</p></div>
           <label className="ed-field"><span>Afstand mellem bogstaver</span><input type="range" min={-50} max={800} value={(o as unknown as Textbox).charSpacing ?? 0} onChange={e => set({ charSpacing: Number(e.target.value) })} /></label>
           <label className="ed-field"><span>Linjeafstand</span><input type="range" min={0.8} max={2} step={0.02} value={(o as unknown as Textbox).lineHeight ?? 1.16} onChange={e => set({ lineHeight: Number(e.target.value) })} /></label>
           <div className="ed-field"><span>Farve</span><Swatches value={fill} onPick={color => set({ fill: color })} /></div>
@@ -487,6 +507,9 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
         </>}
         {o.role === "logo" && <div className="ed-field"><span>Logoets farve</span><Swatches value={o.tint ?? null} onPick={color => void tintLogo(color)} /></div>}
         {!isText && !photo && o.role !== "logo" && o.role !== "flat" && <div className="ed-field"><span>Farve</span><Swatches value={o.type === "line" ? (o.stroke as string) : fill} onPick={color => set(o.type === "line" ? { stroke: color } : { fill: color })} /></div>}
+        <div className="ed-field"><span>Placér på siden</span><p className="ed-row">
+          <button type="button" onClick={() => place("left")}>⇤ Venstre</button><button type="button" onClick={() => place("center")}>Midt</button><button type="button" onClick={() => place("right")}>Højre ⇥</button></p>
+          <p className="ed-row"><button type="button" onClick={() => place("top")}>⤒ Top</button><button type="button" onClick={() => place("middle")}>Midt</button><button type="button" onClick={() => place("bottom")}>Bund ⤓</button></p></div>
         <label className="ed-field"><span>Drej {Math.round(o.angle ?? 0)}°</span><input type="range" min={-180} max={180} value={Math.round(((o.angle ?? 0) + 540) % 360 - 180)} onChange={e => { o.rotate(Number(e.target.value)); o.setCoords(); changed(); }} /></label>
         <label className="ed-field"><span>Gennemsigtighed</span><input type="range" min={0.05} max={1} step={0.05} value={o.opacity ?? 1} onChange={e => set({ opacity: Number(e.target.value) })} /></label>
         <div className="ed-field"><span>Lag</span><p className="ed-row"><button type="button" onClick={() => layer("top")}>Forrest</button><button type="button" onClick={() => layer("up")}>Frem</button><button type="button" onClick={() => layer("down")}>Tilbage</button><button type="button" onClick={() => layer("bottom")}>Bagerst</button></p></div>
