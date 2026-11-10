@@ -5,7 +5,7 @@ import { SOURCES } from "../src/sources/registry.js";
 import type { Env } from "../src/env.js";
 import { dayList } from "../src/web/components.js";
 import { forYou, readTaste, scoreEvent, tasteFromFilters, TASTE_COOKIE } from "../src/web/foryou.js";
-import type { EventRow } from "../src/web/queries.js";
+import { kickoffEvents, type EventRow } from "../src/web/queries.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
 
@@ -109,5 +109,28 @@ describe("Til dig", () => {
     const kids = ev({ categories: "boern-familie,koncerter-musik" });
     expect(scoreEvent(kids, new Map([["underholdning", 4]]))).toBe(0);
     expect(scoreEvent(kids, new Map([["boern-familie", 2]]))).toBeGreaterThan(0);
+  });
+});
+
+describe("the interest list's variety", () => {
+  it("shows one event per organiser in each ten, and a weekly offering once", async () => {
+    // Ten Dokk1 events tomorrow, five of them the same weekly workshop: copies of a real event under Dokk1.
+    const cols = (db.raw.prepare("PRAGMA table_info(events)").all() as Array<{ name: string }>).map(c => c.name);
+    const src = db.raw.prepare("SELECT id FROM events WHERE starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 86400_000)[0] as { id: string };
+    db.raw.prepare("INSERT OR IGNORE INTO organizers (id, name, created_at, updated_at) VALUES ('dokk1', 'Dokk1', ?1, ?1)").run(NOW);
+    for (let i = 0; i < 10; i++) {
+      const set: Record<string, string> = { id: `'dk${i}'`, slug: `'dokk1-${i}'`, title: i < 5 ? "'Åbent Lab'" : `'Dokk1 værksted ${i}'`, organizer_id: "'dokk1'", starts_at: String(NOW + 13 * 3600_000 + i * 600_000) };
+      db.raw.prepare(`INSERT INTO events (${cols.join(",")}) SELECT ${cols.map(c => set[c] ?? c).join(",")} FROM events WHERE id = ?`).run(src.id);
+    }
+    const list = await kickoffEvents(db, ["ostjylland"], NOW, [], 10);
+    expect(list.length).toBe(10);
+    // Dokk1's first event, then every other organiser's, before Dokk1 gets more (here there are few others, so it does).
+    const first = list.findIndex(e => e.organizer_id === "dokk1");
+    const others = list.map((e, i) => ({ e, i })).filter(x => x.e.organizer_id !== "dokk1");
+    const second = list.findIndex((e, i) => i > first && e.organizer_id === "dokk1");
+    expect(others.length).toBeGreaterThan(0);
+    if (second >= 0) expect(second).toBeGreaterThan(others[others.length - 1]!.i);
+    // The weekly workshop only once among the varied ones.
+    expect(list.slice(0, others.length + 1).filter(e => e.title === "Åbent Lab").length).toBeLessThanOrEqual(1);
   });
 });
