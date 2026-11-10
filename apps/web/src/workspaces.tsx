@@ -763,6 +763,8 @@ export function MemberCalendar({
             {href ? <a className="event-row-photo-link" href={href} {...linkProps} tabIndex={-1} aria-hidden="true"><RowPhoto src={booking?.imageUrl || external?.imageUrl || null} /></a> : <RowPhoto src={booking?.imageUrl || external?.imageUrl || null} />}
             <RowText category={external?.category} title={href ? <a href={href} {...linkProps}>{calendarText(event.title)}</a> : calendarText(event.title)} startsAt={event.startsAt} endsAt={event.endsAt} host={booking?.teacherName || external?.host || null}>
               {booking && <span className="member-row-meta">{price} · {booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte{booking.isAttending ? " · Du er tilmeldt" : ""}</span>}
+              {/* Douglas (10 Nov 2026): "when I first made a test event, it appeared on the event list and it had not been approved" - only its owner sees it here, and now it says so. */}
+              {booking?.isOwner && booking.reviewStatus && booking.reviewStatus !== "approved" && <span className="lys-chip clay">{booking.reviewStatus === "rejected" ? "Ikke godkendt" : "Afventer godkendelse"} · kun du kan se det</span>}
               {booking?.files && booking.files.some((file) => file.kind === "file") && <FileLinks clerk={clerk} files={booking.files} />}
               {booking?.contact && (booking.contact.email || booking.contact.phone) && <span className="member-row-meta">Kontakt {booking.teacherName.split(" ")[0]}:{" "}
                 {booking.contact.email && <a href={`mailto:${booking.contact.email}`}>{booking.contact.email}</a>}

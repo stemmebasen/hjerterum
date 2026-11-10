@@ -117,13 +117,35 @@ function keepPhrases(root: Node): void {
     text.replaceWith(keep);
     keep.appendChild(text);
     text.nodeValue = PHRASES[(text.nodeValue ?? "").trim()]!;
+    keepSpaces(keep);
   }
+  // Douglas (9-10 Nov 2026): "regnskab@holistisk.org does not translate correctly" ("regnsbak@…") - addresses are never translated.
+  const element = root.nodeType === Node.ELEMENT_NODE ? root as Element : root.parentElement;
+  const links = element ? [...(element.matches?.('a[href^="mailto:"]') ? [element] : []), ...element.querySelectorAll('a[href^="mailto:"]:not(.notranslate)')] : [];
+  for (const link of links) {
+    if (link.classList.contains("notranslate")) continue;
+    link.classList.add("notranslate");
+    link.setAttribute("translate", "no");
+    keepSpaces(link);
+  }
+}
+/** Google trims the spaces of the text around what it leaves alone ("at" + "About Hjerterum" became "atAbout Hjerterum"): the spaces are put
+ * beside it, where Google does not reach. */
+function keepSpaces(kept: Element): void {
+  let outer: Element = kept;
+  while (outer.parentElement && outer.parentElement.childNodes.length === 1 && /^(A|B|STRONG|EM|I|SPAN)$/.test(outer.parentElement.tagName)) outer = outer.parentElement;
+  const space = () => { const s = document.createElement("span"); s.className = "notranslate"; s.setAttribute("translate", "no"); s.textContent = " "; return s; };
+  const before = outer.previousSibling, after = outer.nextSibling;
+  if (before?.nodeType === Node.TEXT_NODE && /\s$/.test(before.nodeValue ?? "") && (before.nodeValue ?? "").trim()) { before.nodeValue = (before.nodeValue ?? "").replace(/\s+$/, ""); outer.before(space()); }
+  if (after?.nodeType === Node.TEXT_NODE && /^\s/.test(after.nodeValue ?? "") && (after.nodeValue ?? "").trim()) { after.nodeValue = (after.nodeValue ?? "").replace(/^\s+/, ""); outer.after(space()); }
 }
 
 /** Google turned "Hjerterum" into "Heart Room". The name used to be kept out of the text Google translates, but then Google translated the
  * sentence in pieces - Douglas (8-9 Nov 2026): "put your event in. Hjerterums calendar", "Do you want to use it yourself? Hjerterum?",
  * "CIRKLERSmall". Now Google gets the whole sentence, and the names are put back in its English afterwards. */
-const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"]];
+// Douglas (9 Nov 2026): "2021 – Goldsmith Street" - "Very accurate but not really Goldsmith Street, ha ha!" Street names stay Danish.
+const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"],
+  [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"]];
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }

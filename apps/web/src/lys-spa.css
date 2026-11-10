@@ -68,8 +68,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
   .lys-nav.site-nav.is-open .site-nav-item { display: grid; border-top: 1px solid var(--lys-line); }
   .lys-nav.site-nav.is-open .site-nav-item > a { padding: 13px 2px; font-size: 17px; }
   .lys-nav.site-nav.is-open .site-nav-item > a[aria-current="page"] { color: var(--lys-terra); }
-  /* In the phone's menu, Brug Hjerterum lists its groups under it, indented; the tabs on the pages show the rest. */
-  .lys-nav.site-nav.is-open .site-sub, .lys-nav.site-nav.is-open .site-nav-item:hover .site-sub, .lys-nav.site-nav.is-open .site-nav-item:focus-within .site-sub {
+  /* Douglas (10 Nov 2026): "Check the scrolling function on your mobile when you select the full menu ... I have to scroll a long way to get all the
+     menu items appearing." The phone's menu has the main items only; each section's tabs show its pages. */
+  .lys-nav.site-nav.is-open .site-sub, .lys-nav.site-nav.is-open .site-nav-item:hover .site-sub, .lys-nav.site-nav.is-open .site-nav-item:focus-within .site-sub { display: none !important; }
+  .lys-nav.site-nav.is-open .site-sub.is-never {
     display: grid; position: static; transform: none; width: auto; max-width: none; grid-template-columns: 1fr; gap: 0; padding: 0 0 10px 16px; border: 0; box-shadow: none; background: none; }
   .lys-nav.site-nav.is-open .site-sub > .site-sub-head { border: 0; margin: 0; padding-bottom: 3px; }
   .lys-nav.site-nav.is-open .site-sub a { font-size: 15.5px; padding: 7px 0; }

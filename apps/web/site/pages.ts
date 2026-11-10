@@ -61,8 +61,8 @@ export const LEGAL_LINKS = [
 /** Where people sign up today - the same place hjerterum.info sends them - until payment runs on this platform. */
 /** Requested: "Denne tekst må gerne stå relevante steder på hjemmesiden og i medlemssektionen. Lav gerne alternative formuleringer". */
 export const BENEFITS = {
-  full: "Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre medlemmer, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.",
-  front: "Som betalende medlem får du rabat eller gratis adgang til events, mulighed for selv at skabe events for andre, en plads i CIRKLER og din egen offentlige profil, hvis du er behandler eller underviser.",
+  full: "Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre til reduceret pris eller gratis, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.",
+  front: "Som betalende medlem får du rabat eller gratis adgang til events, mulighed for selv at skabe events for andre til reduceret pris eller gratis, en plads i CIRKLER og din egen offentlige profil, hvis du er behandler eller underviser.",
   member: "Dit medlemskab giver dig rabat eller gratis adgang til events, mulighed for at oprette dine egne events, en plads i CIRKLER og – hvis du underviser eller behandler – din egen offentlige profil.",
   upgrade: "Med et betalende medlemskab får du events med rabat eller gratis, kan oprette dine egne events, være med i CIRKLER og få en offentlig profil som behandler eller underviser."
 } as const;
@@ -251,7 +251,7 @@ Vil du selv undervise i Hjerterum? [Læs om at bruge Hjerterum](/brug-hjerterum)
     lead: "Vælg det medlemskab, der passer til dig – og få adgang til et fællesskab baseret på nærvær og menneskelig varme.",
     description: "Medlemskab af Hjerterum i Aarhus: priser, fordele, reduceret pris, vilkår og muligheden for at støtte huset.",
     card: { title: "Bliv en del af Hjerterum", text: "Medlemskaber, fordele og vilkår." },
-    body: `Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre medlemmer, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.
+    body: `Som betalende medlem af Hjerterum får du adgang til en række særlige fordele. Du får bl.a. rabat eller gratis adgang til events, mulighed for at oprette events for andre til reduceret pris eller gratis, adgang til CIRKLER og mulighed for at oprette en offentlig profil som behandler eller underviser.
 
 {{membership-plans}}
 
@@ -259,9 +259,6 @@ Vil du selv undervise i Hjerterum? [Læs om at bruge Hjerterum](/brug-hjerterum)
 [Meld dig ind her](${SIGNUP_URL}). Er du allerede medlem, kan du [logge ind](/sign-in) og se dit medlemskab, dine tilmeldinger og dine events.
 
 Læs [vilkårene for medlemskab](/medlemskab/vilkaar), før du melder dig ind.
-
-## Reduceret pris {#reduceret}
-Reduceret pris er til dig med en lav indkomst – fx SU eller kontanthjælp, eller en nettoløn under 13.500 kr. om måneden. Medlemskabet koster 111 kr. om måneden eller 1.155 kr. om året. Stiger din indkomst over grænsen, beder vi dig opgradere til standardpris.
 
 ## Fordele ved et medlemskab {#fordele}
 Se [alle fordelene ved et medlemskab](/medlemskab/fordele).
@@ -298,7 +295,7 @@ Skriv til os, hvis du vil vide mere om medlemskaberne, reduceret pris eller dit 
 - Du får tilbud på events hos Hjerterums samarbejdspartnere i Aarhus og Østjylland.
 - Du kan være med i foreningen med bidrag, idéer og ønsker.
 - Du støtter Hjerterum økonomisk, så vi sammen kan blive ved med at udleve visionen om et hjerterum for healing, forbundethed og indre fred.
-- Du kan oprette dine egne events for de andre medlemmer i [medlemsområdet](/sign-in).
+- Du kan oprette dine egne events for andre til reduceret pris eller gratis i [medlemsområdet](/sign-in).
 - Du får en plads i CIRKLER og kan lave en offentlig profil som behandler eller underviser.
 
 [Se medlemskaberne og meld dig ind](/medlemskab) · [Vilkår for medlemskab](/medlemskab/vilkaar)`,
@@ -357,8 +354,8 @@ Medlemskab af foreningen er også beskrevet i [vedtægternes § 4 og § 5](/om-o
 
 ## Sådan gør du – i fem trin {#trin}
 1. **Find dato og pris.** Tjek [kalenderen](/events), og brug [prisberegneren](/brug-hjerterum/lejepriser#beregner).
-2. **Book.** Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga kan hjælpe dig. Ellers sender du en [bookingforespørgsel](/brug-hjerterum/booking#book).
-3. **Del billeder til PR, og tag Hjerterum.** Det giver dit event mest synlighed. Se [PR for dit event](/brug-hjerterum/pr).
+2. **Book.** Er du medlem, opretter du selv dit event på [medlemssiden](https://medlem.hjerterum.info/member-portal/events), og Saga kan hjælpe dig. Er du ikke medlem, kan du sende en [bookingforespørgsel](/brug-hjerterum/booking#book).
+3. **Del billeder til PR, og husk at tagge Hjerterum.** Det giver dit event mest synlighed. Se [PR for dit event](/brug-hjerterum/pr).
 4. **Vi godkender og deler.** Dit event kommer på hjemmesiden og Hjerterums Facebook-side, i Ugens events og i nyhedsbrevet Månedens events.
 5. **Nå længere ud selv,** fx i [relevante Facebook-grupper](/brug-hjerterum/pr#grupper).
 
@@ -387,7 +384,7 @@ Er du i tvivl om datoer, pris eller hvordan dit event passer ind i Hjerterum, s�
   {
     path: "/brug-hjerterum/booking", lang: "da", section: "lej",
     kicker: "Brug Hjerterum", title: "Sådan", em: "booker du",
-    lead: "Fra idé til event i kalenderen – i fem trin. Planlæg gerne 4–8 uger før.",
+    lead: "Fra idé til event i kalenderen – i fem trin. Prøv at planlægge 4–8 uger før.",
     description: "Sådan booker du Hjerterums sal: find dato og pris, book som medlem eller til standardpris, del billeder til PR – og hvad vi gør bagefter.",
     card: { title: "Sådan booker du", text: "Fem trin fra idé til event i kalenderen." },
     menu: "Sådan booker du",
@@ -474,7 +471,7 @@ Hjerterum tager ikke betaling for lokalet. Medlemmer deltager gratis, og ikke-me
 
 ### Regler
 - **Varighed:** mindst 2 og højst 10 timer pr. booking.
-- **Ingen overlap:** med medlemsrabat eller gratis leje må bookingen ikke gå hen over kl. 18.30 på hverdage.
+- **Ingen overlap:** med medlemsrabat eller gratis leje må bookingen ikke krydse kl. 18.30 på hverdage. Den skal ligge helt før eller helt efter.
 - **Forberedelse:** opsætning og oprydning skal ligge inden for den bookede tid – vi anbefaler 30 minutter før og efter.
 
 ## Prisberegner {#beregner}
@@ -505,7 +502,7 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 | 100 % | ved aflysning 4 uger før | ved aflysning 8 uger før |
 | 50 % | ved aflysning 3 uger før | ved aflysning 6 uger før |
 
-**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Sådan gør du: [aflys dit event](/brug-hjerterum/aendr-event#aflys).
+**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Aflyser du selv dit event, slipper du for gebyret – også i sidste øjeblik. Sådan gør du: [aflys dit event](/brug-hjerterum/aendr-event#aflys).
 
 ## Rengøring efter event
 Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
@@ -541,7 +538,7 @@ Det afhænger af, om du lejer til standardpris, med medlemsrabat eller gratis, o
 +++
 
 +++ Hvordan booker jeg?
-Som medlem opretter du selv dit event på medlemssiden, og Saga kan hjælpe dig. Ellers sender du en bookingforespørgsel. Se [sådan booker du](/brug-hjerterum/booking).
+Som medlem opretter du selv dit event på medlemssiden, og Saga kan hjælpe dig. Er du ikke medlem, kan du sende en bookingforespørgsel. Se [sådan booker du](/brug-hjerterum/booking).
 +++
 
 +++ Skal jeg være medlem for at leje?
@@ -659,7 +656,7 @@ Yogamåtter, madrasser, meditationsstole, yogablokke, puder, tæpper, stole og b
 
 ## Oprydning
 - Alt kommer tilbage på plads i salen, køkkenet, på toilettet og i gangen: køkkengrej, puder, tæpper, måtter, stole, yogapøller og så videre. Stole og måtter står bag gardinet, puder og tæpper ligger sammenfoldet på hylden.
-- Opvasken tager du med dig eller sætter i opvaskemaskinen. Er maskinen mere end halvt fuld, så sæt den i gang (tabs står under køkkenvasken). Har du dagens sidste booking, så sæt den altid i gang.
+- Dit eget service tager du med hjem. Husets service sætter du i opvaskemaskinen. Er maskinen mere end halvt fuld, så sæt den i gang (tabs står under køkkenvasken). Har du dagens sidste booking, så sæt den altid i gang.
 
 ## Rengøring
 - Køkkenet skal altid se ud som før – tør bordene over.
@@ -696,7 +693,7 @@ Skriv til [Hjerterums Messenger-side](https://www.facebook.com/share/1BNdSQTGWU/
     description: "Husregler i Hjerterum: høj musik, gården og naboerne, foto og video, og ansvar ved events.",
     card: { title: "Husregler & hensyn", text: "Musik, gården, foto og video, og ansvar." },
     body: `## Høj musik og lyd
-Hold vinduer og dør lukket, hvis du bruger høj musik, trommer og lignende – og luft gerne ud i pauserne. Vi tager hensyn til naboerne.
+Hold vinduer og dør lukket, hvis du bruger høj musik, trommer og lignende – og åbn gerne vinduerne og luft ud i pauserne. Vi tager hensyn til naboerne.
 
 ## Gården
 Vi deler gården med naboerne. Hold derfor dine deltagere nær Hjerterums hoveddør, og undgå længere pauser og høj larm i gården. Korte pauser på 10 minutter til frisk luft eller en smøg er selvfølgelig fint – så er der plads til alle.
@@ -760,10 +757,10 @@ Har du booket til standardpris, så skriv til [[mail]], hvis noget skal ændres.
 
 Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser – se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
 
-**Aflysning i sidste øjeblik** koster et gebyr på 250 kr. Du undgår gebyret ved at aflyse senest dagen før kl. 14.00. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event og dermed spare gebyret. Muligheden må kun bruges ved aflysninger i sidste øjeblik. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
+**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event – så slipper du for gebyret. Kan du se det komme, så aflys gerne i god tid. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
 
 ## Events i medlemssystemet {#tidligere}
-Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se videovejledningen](https://www.youtube.com/watch?v=aKVv_aVjuTA).`,
+Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet.`,
     sources: ["administrer-dine-events", "managing-your-event"]
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)
@@ -820,14 +817,7 @@ Vi har bevidst valgt en flad struktur. Det betyder, at vi alle – ansatte og fr
 ## Sådan arbejder vi i dag
 Hjerterum drives i dag med færre arbejdstimer end tidligere. Derfor står undervisere og arrangører i højere grad selv for forberedelsen. Skriver du til os, kan du forvente svar inden for 3–5 hverdage.
 
-Når du vil booke et event, er det vigtigt, at du
-
-- har konkrete forslag til dato og tidspunkt
-- har tekst og coverbillede klar (eller et godt billede – helst ikke AI)
-- følger de guides, du får tilsendt
-- orienterer dig her på hjemmesiden, hvor mange svar allerede findes
-
-Jo bedre forberedt materialet er, desto nemmere kan vi finde tider og oprette events – og desto flere bookinger kan vi nå.
+Når du vil booke et event, så læs [sådan booker du](/brug-hjerterum/booking). Jo bedre forberedt materialet er, desto flere bookinger kan vi nå.
 
 ## Vores fælles mål
 At Hjerterum ledes professionelt og med hjerte – så Hjerterum trives bedst muligt ♡
@@ -1111,12 +1101,12 @@ Du kan altid slette cookies i din browsers indstillinger. Sletter du login-cooki
     lead: "Har du spørgsmål til medlemskab, events eller mulighederne i Hjerterum, er du velkommen til at række ud.",
     description: "Kontakt Hjerterum, Guldsmedgade 26B, 8000 Aarhus C: mail, betaling, parkering og adgangsforhold.",
     card: { title: "Lad os høre fra dig", text: "Adresse, mail, parkering og betaling." },
-    body: `Mød bestyrelsen og se alt om foreningen på [Om Hjerterum](/om-hjerterum).
+    body: `Mød [teamet bag Hjerterum](/om-os/teamet), og læs om [foreningen](/om-os/foreningen).
 
 ## Adresse
 **Hjerterum**, Guldsmedgade 26B, st., 8000 Aarhus C
 
-Vil du se stedet? Aftal en tid til fremvisning pr. mail.
+Vil du se stedet? Kig forbi caféen torsdag eftermiddag, eller aftal en tid til fremvisning pr. mail.
 
 ## Skriv til os {#skriv}
 Vælg, hvad din henvendelse handler om, så kommer den til de rette i teamet. Du kan forvente svar inden for 3–5 hverdage.
@@ -1166,8 +1156,10 @@ export const HOME_SOURCES = ["test"];
 /** Requested: "en flot Om Hjerterum-side som skal være den samme her /member-portal/kontakt og på hjemmesiden. Her er både kontaktoplysninger
  * og information om bestyrelsen med billede." The board, written once: the website's Teamet and Om Hjerterum and the member area all show it. */
 export type BoardMember = { name: string; role: string; hours: string; tasks: string };
-export const BOARD_PHOTO: Picture & { caption: string } = { src: "/media/2025-12-pcgo-hdy.webp", alt: "Bestyrelsen i Hjerterum",
-  caption: "Fra venstre: Gitta Kaas, Douglas Crawford, Jacob Hauge (formand), Frederik Kærgaard (kasserer) og Lisbeth Jespersen (næstformand)." };
+export const BOARD_PHOTO: Picture & { caption: string; people: Array<{ name: string; x: number }> } = { src: "/media/2025-12-pcgo-hdy.webp", alt: "Bestyrelsen i Hjerterum",
+  caption: "Fra venstre: Gitta Kaas, Douglas Crawford, Jacob Hauge (formand), Frederik Kærgaard (kasserer) og Lisbeth Jespersen (næstformand).",
+  // Douglas (9 Nov 2026): "Maybe have the text under our group photo under the respective person, so people know who is who." x: where each stands, in % of the width.
+  people: [{ name: "Gitta", x: 19 }, { name: "Douglas", x: 36 }, { name: "Jacob", x: 51 }, { name: "Frederik", x: 67 }, { name: "Lisbeth", x: 85 }] };
 export const BOARD: BoardMember[] = [
   { name: "Jacob Hauge", role: "Formand", hours: "Grundlægger og teamleder · frivillig", tasks: "Andre henvendelser og det overordnede." },
   { name: "Lisbeth Jespersen", role: "Næstformand", hours: "Ansat 8 timer om ugen", tasks: "Bookinger med nye undervisere, generelle henvendelser samt ind- og udmeldelser." },

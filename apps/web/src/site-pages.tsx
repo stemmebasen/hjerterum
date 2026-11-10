@@ -58,7 +58,8 @@ function SectionTabs({ page }: { page: SitePage }) {
   // Douglas (9 Nov 2026): under Om Hjerterum the tabs are the pages one can go to; under "Sådan booker du" they were Brug Hjerterum's headings.
   // Inside a group with pages of its own (Booking & leje …), the tabs are that group's pages - the same kind of menu everywhere.
   const group = tree.groups.find(g => g.pages.length && (g.page.path === page.path || g.pages.some(child => child.path === page.path)));
-  const tabs = group ? [group.page, ...group.pages] : [tree.root, ...tree.groups.map(g => g.page)];
+  // Douglas (9 Nov 2026): "Since 'About Using Hjerterum' is very much a part of the booking process, maybe it should also be included on the left".
+  const tabs = group ? [tree.root, group.page, ...group.pages] : [tree.root, ...tree.groups.map(g => g.page)];
   const here = tabs.find(tab => tab.path === page.path) ?? tree.groups.find(g => g.pages.some(child => child.path === page.path))?.page;
   // The legal pages share Om Hjerterum's section without being in its menu.
   if (!here) return null;
@@ -128,7 +129,9 @@ export function Newsletter({ lang = "da" }: { lang?: "da" | "en" }) {
 /** The board, as on Om Hjerterum and Teamet: the photo and a card for each (site/pages.ts BOARD). */
 export function Board() {
   return <div className="site-board">
-    <figure className="site-board-photo"><img src={BOARD_PHOTO.src} alt={BOARD_PHOTO.alt} loading="lazy" /><figcaption>{BOARD_PHOTO.caption}</figcaption></figure>
+    <figure className="site-board-photo"><img src={BOARD_PHOTO.src} alt={BOARD_PHOTO.alt} loading="lazy" />
+      <figcaption><span className="site-board-names notranslate" translate="no" aria-hidden="true">{BOARD_PHOTO.people.map(p => <span key={p.name} style={{ left: `${p.x}%` }}>{p.name}</span>)}</span>
+        <span className="visually-hidden">{BOARD_PHOTO.caption}</span></figcaption></figure>
     <div className="site-board-cards">{BOARD.map(person => <article key={person.name} className="site-board-card">
       <p className="lys-kicker">{person.role}</p><h3>{person.name}</h3><p className="site-board-hours">{person.hours}</p><p>{person.tasks}</p>
     </article>)}</div>
@@ -222,8 +225,25 @@ function body(page: SitePage, parts: string[], widgets: Widgets) {
   </div>;
 }
 
-/** The headline in two parts ("Sådan" / "booker du"). Google translated them one by one ("Such / are you booking"); in English it gets the whole line. */
+/** The headline in two parts ("Sådan" / "booker du"), the second in the house's colour. Google translated them one by one ("Such / are you booking"),
+ * and then whole, which lost the two colours - Douglas (9 Nov 2026): "You have lost the two colours in the main headings. That was the best part!!!"
+ * In English the two parts are said here. */
+const ENGLISH_TITLES: Record<string, [string, string]> = {
+  "Det sker|i Hjerterum": ["What's on", "at Hjerterum"], "Mennesker med|noget på hjerte": ["People with", "something to share"],
+  "Bliv en del|af Hjerterum": ["Become part", "of Hjerterum"], "Fordele|ved et medlemskab": ["Benefits", "of membership"],
+  "Vilkår|for medlemskab": ["Terms", "of membership"], "Et rum til det,|du vil skabe": ["A space for what", "you want to create"],
+  "Sådan|booker du": ["How", "to book"], "Lejepriser|& prisberegner": ["Rental prices", "& price calculator"], "Vilkår|for leje": ["Terms", "of rental"],
+  "Ofte stillede|spørgsmål": ["Frequently asked", "questions"], "Praktisk|information": ["Practical", "information"], "Adgang|& nøgle": ["Access", "& key"],
+  "Køkken|& faciliteter": ["Kitchen", "& facilities"], "Lydanlæg|& udstyr": ["Sound system", "& equipment"], "Rengøring|efter dit event": ["Cleaning", "after your event"],
+  "Wifi|& praktiske detaljer": ["WiFi", "& practical details"], "Husregler|& hensyn": ["House rules", "& consideration"], "PR|for dit event": ["PR", "for your event"],
+  "Ændr|eller aflys": ["Change", "or cancel"], "Mere nærvær.|Mindre støj.": ["More presence.", "Less noise."], "Teamet|bag Hjerterum": ["The team", "behind Hjerterum"],
+  "Formandens beretning|2026": ["The chair's report", "2026"], "Historien|bag Hjerterum": ["The story", "behind Hjerterum"], "Foreningen|Hjerterum": ["The association", "Hjerterum"],
+  "Sådan passer vi på|dine oplysninger": ["How we look after", "your data"], "Handels|betingelser": ["Terms", "of sale"], "Cookies|kun det nødvendige": ["Cookies", "only what is needed"],
+  "Lad os høre|fra dig": ["Let us hear", "from you"], "Huset og|menneskene bag": ["The house and", "the people behind it"]
+};
 function PageTitle({ page }: { page: SitePage }) {
+  const english = page.em && englishOn() ? ENGLISH_TITLES[`${page.title}|${page.em}`] : undefined;
+  if (english) return <h1 className="lys-title notranslate" translate="no">{english[0]}<em>{english[1]}</em></h1>;
   if (page.em && englishOn()) return <h1 className="lys-title">{`${page.title} ${page.em}`}</h1>;
   return <h1 className="lys-title">{page.title}{page.em && <em>{page.em}</em>}</h1>;
 }
@@ -235,7 +255,6 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
   // Requested: the words beside the headline "bør vertikalt centreres mellem h1'erens øverste og nederste kant" - the headline and the words share a row.
   if (!leadUnder) return <>
     <section className="site-intro site-intro-row">
-      {parent && <a className="site-back" href={parent.path}>{"←\u00a0"}{NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
       <p className="lys-kicker">{page.kicker}</p>
       <div className="site-intro-head">
         <PageTitle page={page} />
@@ -247,10 +266,9 @@ export function SitePageInner({ page, widgets, parent }: { page: SitePage; widge
   return <>
     <section className={"lys-intro site-intro" + (page.article ? " is-article" : "")}>
         <div>
-          {parent && <a className="site-back" href={parent.path}>{"←\u00a0"}{NAV.find(item => item.href === parent.path)?.label ?? parent.card.title}</a>}
-          {/* Douglas (9 Nov 2026): "← Brug Hjerterum", then "BRUG HJERTERUM", then "Sådan booker du" - "I am confused on this one". The kicker
-              is left out where the way back already says it. */}
-          {!(parent && page.kicker.toLowerCase() === (NAV.find(item => item.href === parent.path)?.label ?? parent.card.title).toLowerCase()) && <p className="lys-kicker">{page.kicker}</p>}
+          {/* Douglas (9-10 Nov 2026): "the link with the arrow is not needed since it is in the menu above, and is confusing as it says the same
+              underneath" - no "← Brug Hjerterum" over the headline; the menu and the tabs lead back. */}
+          <p className="lys-kicker">{page.kicker}</p>
           <PageTitle page={page} />
           {/* Asked (screenshot of /medlemskab): "Is this layout intended?" - with a picture, the words go under the headline and the picture
               stands alone beside them, so neither column is left half empty. A long text keeps its words under the headline too. */}
