@@ -114,9 +114,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
       <p class="standfirst">${eventsLabel(total)} i Aarhus lige nu: koncerter, teater, foredrag, caféjazz og workshops. Find en flok, der skal det samme som dig – og spar på billetten.</p>
       ${searchForm(areas, {})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
-      <ul class="quick-links" aria-label="Genveje">
-        <li><a href="/find-en-flok">Find en flok</a></li><li><a href="/kort">Kort</a></li><li><a href="/spar-paa-billetten">Spar på billetten</a></li><li><a href="/koncerter">Koncerter</a></li><li><a href="/scenekunst">Teater og comedy</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li>
-      </ul>
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
   </div>

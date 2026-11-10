@@ -122,6 +122,13 @@ function partOfDay(ms: number): string {
   return h < 10 ? "morgen" : h < 12 ? "formiddag" : h < 17 ? "dag" : h < 23 ? "aften" : "nat";
 }
 
+/** The photo at the right end of a front-page ticket, or a patterned panel naming the activity when there is none. */
+function miniPhoto(e: EventRow): SafeHtml {
+  if (e.image_url) return html`<span class="mini-photo"><img src="${e.image_url}" alt="" decoding="async"></span>`;
+  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event";
+  return html`<span class="mini-photo mini-photo-plain" aria-hidden="true"><span>${what}</span></span>`;
+}
+
 /** The front page's tickets, as on the share image: weekday and part of the day on the stub, the activity and the
  * title on the ticket, and the round stamp on a free one. */
 export function ticketStack(events: EventRow[]): SafeHtml {
@@ -133,6 +140,7 @@ export function ticketStack(events: EventRow[]): SafeHtml {
     return html`<a class="mini-ticket mini-ticket-${i + 1}${i === stamped ? " is-stamped" : ""}" href="${eventPath(e)}">
       <span class="mini-stub" aria-hidden="true"><span class="mini-weekday">${weekday}</span><span class="mini-part">${partOfDay(e.starts_at)}</span></span>
       <span class="mini-main"><span class="mini-kicker">${label}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${capitalize(weekday)}. ${day}. ${month}. kl. ${hhmm(e.starts_at)} · ${placeLine(e)}</span></span>
+      ${miniPhoto(e)}
       ${i === stamped ? html`<span class="stamp" aria-hidden="true">Gratis</span>` : ""}
     </a>`;
   })}</div>`;

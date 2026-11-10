@@ -83,6 +83,10 @@ describe("front page", () => {
     const stubs = [...body.matchAll(/<span class="mini-weekday">(\w+)<\/span><span class="mini-part">(\w+)<\/span>/g)].map(m => m[1]);
     expect(stubs.length).toBeGreaterThan(0);
     expect(new Set(stubs).size).toBe(stubs.length);
+    // Each ticket ends in the event's photo, or a patterned panel naming the activity when it has none.
+    expect((body.match(/class="mini-photo( mini-photo-plain)?"/g) ?? []).length).toBe((body.match(/class="mini-ticket mini-ticket-/g) ?? []).length);
+    // No row of shortcut buttons under the calendar button; the pages themselves stay.
+    expect(body).not.toContain('aria-label="Genveje"');
     expect(body).toContain("Spar på billetten");
     expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
