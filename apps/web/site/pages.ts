@@ -502,7 +502,7 @@ Hjerterum beholder altid grundprisen, uanset hvornår du aflyser – den dækker
 | 100 % | ved aflysning 4 uger før | ved aflysning 8 uger før |
 | 50 % | ved aflysning 3 uger før | ved aflysning 6 uger før |
 
-**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Aflyser du selv dit event, slipper du for gebyret – også i sidste øjeblik. Sådan gør du: [aflys dit event](/brug-hjerterum/aendr-event#aflys).
+**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Er du medlem og aflyser selv dit event, slipper du for gebyret – også i sidste øjeblik. Sådan gør du: [aflys dit event](/brug-hjerterum/aendr-event#aflys).
 
 ## Rengøring efter event
 Efterlad salen ren og pæn – se [kravene til rengøring](/brug-hjerterum/rengoering). Ellers opkræver vi et rengøringsgebyr på 250 kr.
@@ -757,10 +757,10 @@ Har du booket til standardpris, så skriv til [[mail]], hvis noget skal ændres.
 
 Hjerterum beholder altid grundprisen. Hvor meget af resten du får tilbage, afhænger af, hvor længe før du aflyser – se [reglerne for aflysning](/brug-hjerterum/vilkaar#aflysning).
 
-**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event – så slipper du for gebyret. Kan du se det komme, så aflys gerne i god tid. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
+**Aflysning i sidste øjeblik:** Skal vi aflyse for dig senere end dagen før kl. 14.00, koster det et gebyr på 250 kr. Bliver du forhindret i sidste øjeblik, kan du selv aflyse dit event, hvis du er medlem – så slipper du for gebyret. Kan du se det komme, så aflys gerne i god tid. [Se guiden til aflysning](https://docs.google.com/document/d/1Z_eatceSFqqgWLqFq0AEqWP2fce0wayFvvHKr3YZWzA/edit?usp=sharing).
 
 ## Events i medlemssystemet {#tidligere}
-Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet.`,
+Er dit event oprettet i vores medlemssystem på holistisk.org, administrerer du det dér: log ind, åbn dit event i kalenderen, vælg **Admin** over eventets billede og derefter **Dashboard** for at se dine deltagere og rette eventet. [Se vejledningen](https://holistisk.org/managing-your-event/).`,
     sources: ["administrer-dine-events", "managing-your-event"]
   },
   // ---------------------------------------------------------------- Om Hjerterum (/om-os)
