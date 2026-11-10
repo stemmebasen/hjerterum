@@ -159,7 +159,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </aside>
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
-    <div class="section-head"><div><p class="section-kicker">Spar på billetten</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
+    <div class="section-head"><div><p class="section-kicker">Gratis og billigt</p><h2 id="h-save">Gratis de næste 7 dage</h2></div><a class="more" href="/spar-paa-billetten">Gratis og billigt →</a></div>
     ${freeCards.length ? cardGrid(freeCards, ctx.now) : html`<p class="empty">Ingen gratis events med kendt pris de næste 7 dage lige nu. <a href="/spar-paa-billetten">Se gratis og billige events</a>.</p>`}
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
@@ -557,12 +557,12 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
     listEvents(db, emptyFilters({ price: "under-100", period: "maaned" }), regions, ctx.now, 80)
   ]);
   const cheapPaid = cheap.events.filter(e => e.is_free !== 1).slice(0, 30);
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Spar på billetten", path: "/spar-paa-billetten" }];
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Gratis og billigt", path: "/spar-paa-billetten" }];
   const body = html`
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <p class="section-kicker">Spar på billetten</p>
+    <p class="section-kicker">Gratis og billigt</p>
     <h1>Det skal ikke koste en formue <span class="marker">at komme ud.</span></h1>
     <p class="standfirst">Gratis og billige events i ${ctx.regionLabel} den næste måned.</p>
     <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis events</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
@@ -571,7 +571,7 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
   ${cheapPaid.length ? section("h-cheap", "Op til 100 kr.", dayList(cheapPaid, ctx.now), { href: "/kalender?pris=under-100", label: "Alle op til 100 kr. →" }) : ""}
   <p class="meta-muted small">Priserne er arrangørernes egne og hentes hver nat. Events uden oplyst pris er ikke med her.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Spar på billetten – gratis og billige events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned.`, canonical: "/spar-paa-billetten", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Gratis og billige events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned.`, canonical: "/spar-paa-billetten", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Index pages

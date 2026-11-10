@@ -92,8 +92,8 @@ describe("Til dig", () => {
   it("for a member, counts the events they ticked and lifts those where people their age are going", async () => {
     // One event from Hjerterum the member ticked, and a later one at another house where someone their age waits.
     const ev1 = [
-      db.raw.prepare("SELECT id FROM events WHERE organizer_id = 'hjerterum' AND starts_at > ? ORDER BY starts_at LIMIT 1").get(NOW + 3 * 86400_000),
-      db.raw.prepare("SELECT id FROM events WHERE organizer_id <> 'hjerterum' AND starts_at BETWEEN ? AND ? ORDER BY starts_at DESC LIMIT 1").get(NOW + 3 * 86400_000, NOW + 13 * 86400_000)
+      db.raw.prepare("SELECT id FROM events WHERE organizer_id = 'hjerterum' AND starts_at > ? ORDER BY starts_at LIMIT 1").all(NOW + 3 * 86400_000)[0],
+      db.raw.prepare("SELECT id FROM events WHERE organizer_id <> 'hjerterum' AND starts_at BETWEEN ? AND ? ORDER BY starts_at DESC LIMIT 1").all(NOW + 3 * 86400_000, NOW + 13 * 86400_000)[0]
     ] as Array<{ id: string }>;
     db.raw.prepare("INSERT INTO members (id, first_name, code_hash, created_at, last_seen_at, age_group) VALUES ('m1', 'Ane', 'h1', ?1, ?1, '30-39'), ('m2', 'Bo', 'h2', ?1, ?1, '30-39')").run(NOW);
     db.raw.prepare("INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES ('m1', ?, 'waiting', ?, ?), ('m2', ?, 'waiting', ?, ?)")
