@@ -18,7 +18,7 @@ import { scheduledRecordingCleanup } from "./recordingRetention.js";
 import { EDIT_DAYS, inEditWindow, removeDuplicateTodos } from "../cockpit/data.js";
 import { mailWatch } from "./connections.js";
 import { readTeamMail } from "./teamMail.js";
-import { completeAs, MINUTES_MAX_TOKENS } from "./ai.js";
+import { complete, completeAs, MINUTES_MAX_TOKENS, type ChatMessage } from "./ai.js";
 import { appendToDoc, createGoogleDoc, downloadDriveFile, driveAccessToken, listRecordings, MAX_RECORDING_BYTES, minutesDocText, minutesDocUrl, plainMinutes } from "./drive.js";
 import { postsToBoard, requireDb, SAGA_NAME, type SagaDeps, type SagaEnv } from "./env.js";
 import { markdownToHtml, section } from "./markdown.js";
@@ -200,6 +200,11 @@ export async function overviewStale(env: SagaEnv, deps: SagaDeps, db: NonNullabl
 
 // ---- Minutes ----
 
+/** The minutes are written and corrected by the best model (AI_MINUTES_MODEL, Opus unless set), never moved to a cheaper one by the day's budget; the
+ * main model takes over if it fails. The chair (10 Nov 2026): "Der er godt nok mange små fejl i det referat - det er ret upræcist" - "Ok". */
+const minutesModel = (purpose: string) => (env: SagaEnv, deps: SagaDeps, messages: ChatMessage[]) =>
+  complete(env, deps, messages, { purpose, model: env.AI_MINUTES_MODEL ?? "vertex/claude-opus-5-5@eu", important: true, maxTokens: MINUTES_MAX_TOKENS });
+
 /** A recording Jacob sent Saga privately. Telegram lets a bot download at most 20 MB. */
 export async function queueTelegramRecording(env: SagaEnv, deps: SagaDeps, file: { fileId: string; fileName: string; mimeType: string | null; size: number }): Promise<string> {
   if (file.size > 20 * 1024 * 1024) return "Filen er over 20 MB, som er Telegrams grænse for bots. Læg optagelsen i Drev-mappen til optagelser, så tager jeg den derfra.";
@@ -242,7 +247,7 @@ export async function processNextMinutes(env: SagaEnv, deps: SagaDeps): Promise<
     else audio = await telegramClient(env, deps).downloadFile(item.source_file_id);
     if (audio.byteLength > MAX_RECORDING_BYTES) throw new Error("recording_too_large");
     const transcript = await transcribe(env, deps, audio, item.file_name, item.mime_type ?? "");
-    const draft = await completeAs("referat", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
+    const draft = await minutesModel("referat")(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${transcript}`
         + await archive(env, deps, 8_000).then(text => text ? `\n\nBAGGRUND - tidligere referater (kun til navne og sammenhæng; referatet skrives ud fra transskriptionen):\n${text}` : "") }]);
     await updateMinutes(db, item.id, { status: "drafted", transcript, draft, error: null }, deps.now());
@@ -303,7 +308,7 @@ export async function redoMinutes(env: SagaEnv, deps: SagaDeps): Promise<boolean
         + `Skriv KUN fortsættelsen, i samme skabelon: begynd med "### ${next}." (eller med "## Beslutninger", hvis alle dagsordenens punkter allerede står), og skriv de manglende punkter, `
         + `og derefter "## Beslutninger", "## Aftaler", "## Opgaver" og "## Næste møde" for HELE mødet - også for de punkter, der allerede står ovenfor. Gentag ikke det, der allerede står.`
       : "Skriv hele referatet efter skabelonen.";
-    const answer = (await completeAs("referat", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
+    const answer = (await minutesModel("referat")(env, deps, [{ role: "system", content: MINUTES_SYSTEM },
       { role: "user", content: `Mødedato: ${danishDate(item.meeting_date) || "ukendt"}${await agendaFor(db, item.meeting_date)}\n\nTRANSSKRIPTION:\n${item.transcript}`
         + (fixes.length ? `\n\nRETTELSER FRA BESTYRELSEN (de gælder frem for transskriptionen og skal stå sådan i hele referatet, også under Beslutninger, Aftaler og Opgaver):\n${fixes.join("\n")}` : "")
         + `\n\n${task}\nSkriv ingen bemærkning om, at referatet er skrevet igen eller rettet.` }])).trim();
@@ -427,7 +432,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
   }
   if (item.status === "approved") {
     // Already up: corrected in place, and the board's sign-offs start over.
-    const draft = await completeAs("referat-ret", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+    const draft = await minutesModel("referat-ret")(env, deps, [{ role: "system", content: REVISE_SYSTEM },
       { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
     await updateMinutes(db, id, { draft }, deps.now());
     await db.prepare("DELETE FROM board_minutes_signoffs WHERE minutes_id = ?").bind(id).run();
@@ -438,7 +443,7 @@ export async function reviseMinutes(env: SagaEnv, deps: SagaDeps, id: number, in
     // Requested: "Ingen skal have en besked når noget rettes i referatet" - the group hears nothing of a correction.
     return;
   }
-  const draft = await completeAs("referat-ret", false, MINUTES_MAX_TOKENS)(env, deps, [{ role: "system", content: REVISE_SYSTEM },
+  const draft = await minutesModel("referat-ret")(env, deps, [{ role: "system", content: REVISE_SYSTEM },
     { role: "user", content: `REFERAT:\n${item.draft_markdown}\n\nTRANSSKRIPTION (til opslag):\n${item.transcript ?? ""}\n\nRETTELSE:\n${instruction}` }]);
   await updateMinutes(db, id, { draft }, deps.now());
   if (item.approval_message_id) await telegramClient(env, deps).editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);

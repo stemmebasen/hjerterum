@@ -32,6 +32,8 @@ export interface SagaEnv {
   AI_MID_MODEL?: string;
   /** Optional: the writer's model for Saga's proposals of a post's words (social/writer.ts); "vertex/claude-opus-5-5@eu" when not set. */
   AI_WRITER_MODEL?: string;
+  /** Optional: the model that writes and corrects the minutes; "vertex/claude-opus-5-5@eu" when not set (the chair, 10 Nov 2026: the minutes were "ret upræcist" - "Ok" to the best model). */
+  AI_MINUTES_MODEL?: string;
   ELEVENLABS_API_KEY?: string;
   GOOGLE_SERVICE_ACCOUNT_JSON?: string;
   GOOGLE_DRIVE_RECORDINGS_FOLDER_ID?: string;

@@ -16,7 +16,9 @@ export type CompleteOptions = { purpose?: string; /** `true`: a simple task (sor
   /** The longest answer the task needs (tokens). Requested: "nedbringe forbruget til cirka en dollar om dagen" - an answer may no longer run to 16 000 tokens by default. */
   maxTokens?: number;
   /** A model of its own for the task (the writer's, social/writer.ts) - tried first, with the usual model behind it when it fails. Not past the day's budget. */
-  model?: string };
+  model?: string;
+  /** Never moved to a cheaper model by the day's budget (the minutes: "Der er godt nok mange små fejl i det referat - det er ret upræcist"). */
+  important?: boolean };
 
 /** Requested: "find en plan for, hvordan vi kan nedbringe forbruget til cirka en dollar om dagen". Dollars per million tokens
  * (input, output) by model family - an estimate from ai_usage, close enough to steer by. */
@@ -84,7 +86,7 @@ export async function complete(env: SagaEnv, deps: SagaDeps, messages: ChatMessa
   };
   let fallback = false;
   // Past the day's budget, what would go to the main model goes to the middle one - the main model stays the last resort.
-  const overBudget = !options.cheap && env.DB && env.AI_MID_MODEL ? await spentToday(env.DB, deps.now()) >= DAILY_BUDGET_USD : false;
+  const overBudget = !options.cheap && !options.important && env.DB && env.AI_MID_MODEL ? await spentToday(env.DB, deps.now()) >= DAILY_BUDGET_USD : false;
   const tier = overBudget ? "mid" : options.cheap;
   const lighter = !overBudget && options.model ? options.model : tier === "mid" ? env.AI_MID_MODEL : tier ? env.AI_CHEAP_MODEL : undefined;
   // An answer cut off at the limit is asked for once more with twice the room; cut off again, it is an error - never a half answer kept as a whole one.
