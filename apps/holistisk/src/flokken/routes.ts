@@ -24,10 +24,23 @@ const MAX_BODY = 20_000;
 const go = (to: string, cookie?: string): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
 const withMessage = (path: string, code: string) => `${path}${path.includes("?") ? "&" : "?"}besked=${encodeURIComponent(code)}`;
 
+/** The posted form, or null when it is too big or cannot be read. A body that is too big is still read to the end (and
+ * thrown away): answering in the middle of a large upload, such as a photo straight from a phone, can make the browser
+ * show a broken page (ERR_INVALID_RESPONSE) instead of the answer. */
 async function formData(request: Request, max = MAX_BODY): Promise<FormData | null> {
   const length = Number(request.headers.get("content-length") ?? "0");
-  if (length > max) return null;
+  if (length > max) { await drain(request); return null; }
   try { return await request.formData(); } catch { return null; }
+}
+
+const DRAIN_MAX = 60_000_000;
+async function drain(request: Request): Promise<void> {
+  const reader = request.body?.getReader();
+  if (!reader) return;
+  try {
+    for (let read = 0; read < DRAIN_MAX;) { const { done, value } = await reader.read(); if (done) return; read += value.byteLength; }
+    await reader.cancel();
+  } catch { /* the browser gave up; nothing to answer */ }
 }
 
 const bearerOk = (request: Request, env: Env): boolean => {
@@ -123,7 +136,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const action = `/profil${url.search}`;
     if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: {} }) };
     const data = await formData(request, PROFILE_MAX_BODY);
-    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: { photo: "Billedet er for stort. Vælg et mindre billede (højst 250 KB)." }, status: 400 }) };
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
     const form = readProfileForm(data);
     const checked = validateProfile(form, { requireEmail: requireEmail && !profile.email });
     const photo = await readPhoto(data);

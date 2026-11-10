@@ -25,7 +25,7 @@ interface ExecutionContextLike { waitUntil(promise: Promise<unknown>): void }
 interface ScheduledControllerLike { cron: string; scheduledTime: number }
 
 const SECURITY_HEADERS: Record<string, string> = {
-  "content-security-policy": "default-src 'self'; img-src 'self' https: data:; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  "content-security-policy": "default-src 'self'; img-src 'self' https: data: blob:; script-src 'self'; style-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   "x-content-type-options": "nosniff",
   "referrer-policy": "strict-origin-when-cross-origin",
   "permissions-policy": "geolocation=(self), camera=(), microphone=()"

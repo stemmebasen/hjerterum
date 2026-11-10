@@ -382,6 +382,8 @@ describe("search engines and safety", () => {
     expect(body).toContain('<meta property="og:image" content="https://portal.example/assets/og.jpg">');
     expect(body).toContain('<link rel="alternate" hreflang="da-DK" href="https://portal.example/meditation/aarhus">');
     expect(r.headers.get("content-security-policy")).toContain("default-src 'self'");
+    // The profile photo is made small in the browser from a blob: picture.
+    expect(r.headers.get("content-security-policy")).toMatch(/img-src [^;]*blob:/);
   });
 
   it("health reports the collector; a manual run needs the token", async () => {
