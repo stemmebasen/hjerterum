@@ -654,6 +654,16 @@ describe("Lad os komme godt i gang", () => {
     expect(m.body).toContain('href="/log-ind?naeste=/kom-godt-i-gang"');
     expect((await call("/log-ind")).body).toContain('<button type="submit">Opret profil</button>');
     expect((await call("/")).body).toContain('<h2 id="h-member">Bliv medlem</h2>');
+    // Støttemedlem: support without a profile or outings; only a name and an e-mail are kept.
+    expect(m.body).toContain('<h2 id="stoet">Støt foreningen – uden at tage med</h2>');
+    expect((await call("/bliv-medlem/stoet", { form: { navn: "A", email: "nope" } })).status).toBe(400);
+    const ok = await call("/bliv-medlem/stoet", { form: { navn: "Birgit", email: "birgit@example.dk" } });
+    expect(ok.status).toBe(303);
+    await call("/bliv-medlem/stoet", { form: { navn: "Birgit", email: "BIRGIT@example.dk" } });
+    expect((await call("/bliv-medlem?besked=tak")).body).toContain("Tak for din støtte!");
+    expect((await call("/api/stoettemedlemmer")).status).toBe(401);
+    const list = JSON.parse((await call("/api/stoettemedlemmer", { headers: { authorization: `Bearer ${"x".repeat(32)}` } })).body) as Array<{ name: string }>;
+    expect(list.map(r => r.name)).toEqual(["Birgit"]);
     expect(r.body).not.toContain("udflugter er gratis");
     expect(r.body).toContain('<input type="checkbox" name="event"');
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
