@@ -5,7 +5,7 @@ import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { purgeOldChats } from "./flokken/chat.js";
-import { gatherAll, readChoices } from "./flokken/kickoff.js";
+import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -166,7 +166,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
     return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/opret-flok$/;
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
@@ -283,7 +283,8 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     const v = await eventPage(db, pc, regions, slug, {
       member, message: url.searchParams.get("besked"),
       flocks: (eventId: string) => flocksForEvent(db, eventId, member?.id ?? null),
-      myFlock: (eventId: string) => member ? memberFlockForEvent(db, eventId, member.id) : Promise.resolve(null)
+      myFlock: (eventId: string) => member ? memberFlockForEvent(db, eventId, member.id) : Promise.resolve(null),
+      interest: (eventId: string) => eventInterest(db, eventId, member?.id ?? null)
     });
     return view(env, v ?? notFoundPage(pc));
   }

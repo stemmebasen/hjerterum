@@ -205,6 +205,29 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     await saveInterests(db, m.id, slugs, shown, regions, now);
     return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
   }
+  // "Jeg er interesseret" on an event page: the interest list's tick for that one event. A newcomer first becomes a
+  // member and fills in the profile with an e-mail; the tick waits in the choice cookie and is saved on the way back.
+  const tick = /^\/events\/([a-z0-9-]{1,90})\/interesse(\/fjern)?$/.exec(path);
+  if (tick) {
+    const [, slug, remove] = tick as unknown as [string, string, string | undefined];
+    const e = await eventFor(db, slug, regions);
+    if (!e) return { view: notFound() };
+    const back = `/events/${e.slug}`;
+    const self = `${back}/interesse`;
+    const m = await member();
+    if (remove) {
+      if (!m || !post) return go(`${back}#flokke`);
+      await removeInterest(db, m.id, e.slug);
+      return go(withMessage(back, "interesse_fjernet") + "#flokke");
+    }
+    // Only a posted tick, or the way back with the tick in the cookie, saves anything.
+    if (!post && !readChoices(request).includes(e.slug)) return go(`${back}#flokke`);
+    if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed") + "#flokke", clearChoiceCookie());
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(self)}`, choiceCookie([e.slug]));
+    if (!(await ready(m.id))) return go(profileForList(self), choiceCookie([e.slug]));
+    await saveInterests(db, m.id, [e.slug], [], regions, now);
+    return go(withMessage(back, "interesse_her") + "#flokke", clearChoiceCookie());
+  }
   const answer = /^\/interesser\/([a-z0-9-]{1,90})\/(bekraeft|nej-tak|fjern)$/.exec(path);
   if (answer) {
     const m = await member();

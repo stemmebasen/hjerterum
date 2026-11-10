@@ -159,7 +159,7 @@ jobs:
           PG "/kalender?omraade=midtbyen&periode=14-dage" 'class="filter-chip is-on"'
           PG /aarhus '<h1>Events i Aarhus</h1>'
           PG /kort 'id="kort-data"'
-          PG /find-en-flok '<h1>Find en flok</h1>'
+          PG /find-en-flok '<h1>Vil du med?</h1>'
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
           PG /samarbejde 'kontakt os'
           PG /tryghed 'offentligt sted'
