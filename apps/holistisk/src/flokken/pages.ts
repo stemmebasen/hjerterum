@@ -7,7 +7,7 @@ import type { Member } from "./auth.js";
 import type { FieldErrors, FlockForm } from "./forms.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
 import { MAX_LENGTH, type ChatMessage } from "./chat.js";
-import type { SupporterErrors, SupporterForm } from "./supporters.js";
+import type { SignupErrors, SignupForm } from "./membership.js";
 import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Opret en flok, Find en flok,
@@ -351,7 +351,7 @@ export function welcomePage(ctx: PageContext, member: Member, code: string, next
 // ————————————————————————————————————————— Membership
 
 /** "Bliv medlem": what membership of the association means. No payment yet; the first outings need none. */
-export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { form?: SupporterForm; errors?: SupporterErrors; sent?: boolean; status?: number } = {}): View {
+export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { form?: SignupForm; errors?: SignupErrors; sent?: boolean; status?: number } = {}): View {
   const f = state.form ?? { name: "", email: "" };
   const errors = state.errors ?? {};
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Bliv medlem", path: "/bliv-medlem" }];
@@ -360,7 +360,7 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Bliv medlem af Flokken</h1>
-    <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. Du kan også <a href="#stoet">støtte foreningen uden selv at tage med</a>.</p>
+    <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. <a href="#meld-ind">Meld dig ind her</a>.</p>
   </header>
   <h2>Prøv det først</h2>
   <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>
@@ -372,15 +372,15 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <li>gør du det lettere for nye i byen at finde en vej ind i fællesskabet.</li>
   </ul>
   <h2>Kontingent</h2>
-  <p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Vi er ved at gøre indmeldelsen klar. Du skal ikke betale noget nu, og vi siger til i god tid, før dine ${FREE_OUTINGS} første udflugter er brugt.</p>
+  <p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Betalingen er ikke åben endnu. Du kan melde dig ind nu, og vi skriver til dig, før du skal betale noget.</p>
   <p class="more-line">${loggedIn
     ? html`<a class="button" href="/kom-godt-i-gang">Find en oplevelse</a> <a class="button-secondary" href="/flokke">Mine flokke</a>`
     : html`<a class="button" href="/log-ind?naeste=/kom-godt-i-gang">Opret profil og kom i gang</a>`}</p>
-  <h2 id="stoet">Støt foreningen – uden at tage med</h2>
-  <p>Måske har du ikke selv tid eller lyst til at tage med, men synes, det er vigtigt, at flere kommer ud og møder nogen – og at byens små scener bliver set. Så kan du blive støttemedlem. Du behøver ingen profil, og du skal ikke deltage i noget.</p>
+  <h2 id="meld-ind">Meld dig ind</h2>
+  <p>Du behøver ingen profil for at være medlem, og du behøver ikke tage med på noget. Mange er medlem for at støtte fællesskabet – også selvom de ikke selv tager med. Skriv dit navn og din e-mail, så skriver vi til dig, når betalingen åbner.</p>
   ${state.sent
-    ? html`<p class="notice" role="status">Tak for din støtte! Vi skriver til dig, når indmeldelsen åbner.</p>`
-    : html`<form class="form-card" method="post" action="/bliv-medlem/stoet#stoet" novalidate>
+    ? html`<p class="notice" role="status">Tak, du er meldt ind! Vi skriver til dig, når betalingen åbner.</p>`
+    : html`<form class="form-card" method="post" action="/bliv-medlem/meld-ind#meld-ind" novalidate>
     <div class="field">
       <label for="s-name">Dit navn</label>
       <input id="s-name" name="navn" type="text" maxlength="80" autocomplete="name" required value="${f.name}"${errors.name ? raw(' aria-invalid="true" aria-describedby="err-s-name"') : ""}>
@@ -389,11 +389,11 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <div class="field">
       <label for="s-email">Din e-mail</label>
       <input id="s-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${f.email}"${errors.email ? raw(' aria-invalid="true" aria-describedby="err-s-email"') : ""}>
-      <span class="hint">Vi bruger den kun til at skrive, når indmeldelsen åbner.</span>
+      <span class="hint">Vi bruger den kun til at skrive til dig om dit medlemskab.</span>
       ${errors.email ? html`<span class="field-error" id="err-s-email">${errors.email}</span>` : ""}
     </div>
     <div class="hp" aria-hidden="true"><label for="s-web">Lad dette felt være tomt</label><input id="s-web" name="website_url" type="text" tabindex="-1" autocomplete="off"></div>
-    <div class="form-actions"><button type="submit">Ja, jeg vil støtte</button></div>
+    <div class="form-actions"><button type="submit">Bliv medlem</button></div>
   </form>`}
 </div>`;
   return { status: state.status ?? 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
