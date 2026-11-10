@@ -166,7 +166,7 @@ jobs:
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
           PG /spiritualitet/aarhus '<h1>Spirituelle arrangementer i Aarhus</h1>'
           PG /klarsyn/aarhus '<h1>Klarsynsaftener i Aarhus</h1>'
-          PG /arrangoerer/buddhistisk-center-aarhus 'Karmapa'
+          PG /arrangoerer/voxhall 'Vester Allé 15'
           PG /sitemap.xml '/meditation/aarhus'
           retry "$URL/robots.txt" | grep -q 'Disallow: /'
           curl --silent --head "$URL/" | grep -qi '^x-robots-tag: noindex'
