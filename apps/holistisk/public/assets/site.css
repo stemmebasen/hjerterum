@@ -208,6 +208,7 @@ strong { font-weight: 800; }
 .standfirst { font-size: 1.14rem; line-height: 1.55; color: var(--ink-2); max-width: 46em; }
 .kicker { display: block; font-size: .8rem; line-height: 1.3; font-weight: 800; color: var(--green-2); margin: 0 0 .3em; text-transform: uppercase; letter-spacing: .04em; }
 .kicker-alert { color: var(--alert); }
+.kicker-weekly { color: var(--green); font-weight: 700; }
 .section-kicker { font: 600 .95rem var(--display); color: var(--berry); margin: 0 0 .3em; }
 .crumbs { font-size: .86rem; color: var(--muted); margin-bottom: 14px; }
 .crumbs a { color: var(--muted); }

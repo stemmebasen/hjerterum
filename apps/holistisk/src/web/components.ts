@@ -7,6 +7,7 @@ import { ZONES, zoneBySlug } from "../zones.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { offersFor } from "../flokken/partners.js";
+import { WEEKLY_FLAG } from "../sources/weekly.js";
 import { GROUPS, groupBySlug, type Group } from "../groups.js";
 
 /** The four main kinds as big tiles: one tap shows that kind, a tap on the chosen one shows everything again. */
@@ -33,14 +34,17 @@ export function placeLine(e: Pick<EventRow, "venue_name" | "city" | "area">): st
   return parts.length ? parts.join(", ") : area ?? "";
 }
 
+/** A meeting of a standing weekly offering (src/sources/weekly.ts). */
+export const isWeekly = (e: { quality_flags?: string }) => (e.quality_flags ?? "").includes(`"${WEEKLY_FLAG}"`);
+
 /** The small label above a title: "Meditation · Aarhus". */
-export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "city">): SafeHtml {
+export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "city"> & { quality_flags?: string }): SafeHtml {
   const category = categoryBySlug(cats(e)[0] ?? "")?.short;
   // The town itself ("Nørre Snede"), not the area it belongs to, when the two differ.
   const town = e.city?.replace(/\s+[A-ZÆØÅ]{1,2}$/, "") ?? null;
   const area = e.area ? areaBySlug(e.area) : null;
   const place = town && area && !area.towns.includes(town.toLowerCase()) && town.toLowerCase() !== area.place.toLowerCase() ? town : area?.place ?? town;
-  return html`<span class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</span>`;
+  return html`<span class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${isWeekly(e) ? html`<span class="kicker-weekly">Fast hver uge</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</span>`;
 }
 
 /** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for

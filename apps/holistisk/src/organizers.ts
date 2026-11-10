@@ -7,6 +7,26 @@ export type Offering = {
   text: string;
   /** Where the organiser states it. */
   source: string;
+  /** When it meets, for offerings that meet at fixed times in person: then each meeting in the coming weeks is put in
+   * the calendar, marked "Fast hver uge" (src/sources/weekly.ts). Leave it out when the times are already fetched
+   * from the organiser's own calendar, or are vague ("de fleste torsdage"). */
+  schedule?: Schedule;
+};
+
+export type Schedule = {
+  /** The calendar title, e.g. "Aftenmeditation". */
+  title: string;
+  /** Weekdays it meets on, 0 = Monday … 6 = Sunday. */
+  days: number[];
+  /** "18:30" */
+  start: string;
+  end?: string;
+  /** Only in even or odd ISO weeks. */
+  weeks?: "lige" | "ulige";
+  free?: boolean;
+  /** Text for the event page; the offering's text when left out. */
+  about?: string;
+  categories?: string[];
 };
 
 export type OrganizerProfile = {
@@ -61,7 +81,8 @@ export const ORGANIZERS: OrganizerProfile[] = [
     website: "https://brahmakumaris.dk/",
     activities: ["meditation", "meditationsgrupper", "meditation-for-begyndere", "selvudvikling", "spiritualitet"],
     offerings: [
-      { text: "Aftenmeditation mandag, tirsdag, torsdag og fredag kl. 18.30–19.20", source: "https://brahmakumaris.dk/events/" },
+      { text: "Aftenmeditation mandag, tirsdag, torsdag og fredag kl. 18.30–19.20", source: "https://brahmakumaris.dk/events/",
+        schedule: { title: "Aftenmeditation", days: [0, 1, 3, 4], start: "18:30", end: "19:20", about: "Fælles aftenmeditation i Raja Yoga hos Brahma Kumaris. Tilbuddene er non-profit." } },
       { text: "Introduktionsaften i Raja Yoga-meditation søndage kl. 18.30–19.30", source: "https://brahmakumaris.dk/events/" },
       { text: "Videregående kursus i Raja Yoga-meditation mandage kl. 19.30–21.00", source: "https://brahmakumaris.dk/events/" }
     ],
@@ -75,7 +96,8 @@ export const ORGANIZERS: OrganizerProfile[] = [
     website: "https://buddha.dk/centres/aarhus/",
     activities: ["meditation", "buddhistisk-meditation", "meditationsgrupper", "meditation-for-begyndere", "spiritualitet"],
     offerings: [
-      { text: "16. Karmapa-meditation hver mandag kl. 17.00", source: "https://buddha.dk/centres/aarhus/" },
+      { text: "16. Karmapa-meditation hver mandag kl. 17.00", source: "https://buddha.dk/centres/aarhus/",
+        schedule: { title: "16. Karmapa-meditation", days: [0], start: "17:00", free: true, about: "Fælles meditation på Buddhistisk Center Aarhus (Diamantvejen). Gratis – alle er velkomne." } },
       { text: "16. Karmapa-meditation hver torsdag kl. 19.30", source: "https://buddha.dk/centres/aarhus/" },
       { text: "Introduktionsforedrag og meditation første torsdag i måneden kl. 18.30", source: "https://buddha.dk/centres/aarhus/" },
       { text: "Gratis – alle er velkomne", source: "https://buddha.dk/centres/aarhus/" }

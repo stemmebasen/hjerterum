@@ -21,6 +21,7 @@ import { loeves } from "./loeves.js";
 import { nemtilmeld } from "./nemtilmeld.js";
 import { fof } from "./fof.js";
 import { borabora, filuren, katapult } from "./theatres.js";
+import { weekly, WEEKLY_SOURCE_ID } from "./weekly.js";
 import { TIMEZONE } from "../time.js";
 
 /** Every source the collector reads. A new source is a new entry here (and, for a new kind of feed, a new adapter).
@@ -51,10 +52,30 @@ export const ADAPTERS: Record<SourceConfig["adapter"], SourceAdapter> = {
   fof,
   filuren,
   katapult,
-  borabora
+  borabora,
+  weekly
 };
 
 export const SOURCES: SourceConfig[] = [
+  {
+    // Standing weekly offerings from the organiser profiles (src/organizers.ts), put in the calendar four weeks ahead.
+    id: WEEKLY_SOURCE_ID,
+    name: "Faste ugentlige tilbud",
+    adapter: "weekly",
+    homepageUrl: null,
+    permissionBasis: "Tiderne står på arrangørernes egne offentlige sider (linket ved hvert tilbud). Der hentes intet automatisk; tilbuddene er skrevet ind i hånden.",
+    attribution: "Fast tilbud – tiderne er fra arrangørens egen side",
+    imagePolicy: "none",
+    descriptionPolicy: "full",
+    priority: 10,
+    requireRelevance: false,
+    completeListing: true,
+    canonicalToSource: false,
+    respectRobots: false,
+    enabled: () => true,
+    defaults: { timezone: TIMEZONE, organizerName: null, organizerUrl: null, venues: [] },
+    options: { days: 28 }
+  },
   {
     id: "hjerterum",
     name: "Hjerterum",
