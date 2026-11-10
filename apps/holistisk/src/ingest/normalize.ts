@@ -6,6 +6,7 @@ import type { SourceConfig, SourceEvent } from "../sources/types.js";
 import { categoryName } from "../categories.js";
 import { classifyTopics } from "../activities.js";
 import { coordinatesFor } from "../places.js";
+import { isSeries } from "../series.js";
 
 /** An event as the portal stores it (the events table), plus its categories. */
 export type EventRecord = {
@@ -51,7 +52,7 @@ export type EventRecord = {
 export type Normalized = { ok: true; record: EventRecord } | { ok: false; reason: string };
 
 /** Raised when the way events are read or categorised changes, so every stored event is processed again once. */
-export const NORMALIZE_VERSION = 7;
+export const NORMALIZE_VERSION = 8;
 
 /** The fields that decide whether a source's record changed (before any enrichment). */
 export async function contentHash(e: SourceEvent): Promise<string> {
@@ -91,6 +92,8 @@ export async function normalize(e: SourceEvent, config: SourceConfig): Promise<N
   if (!title) return { ok: false, reason: "no_title" };
   if (!Number.isFinite(e.startsAt)) return { ok: false, reason: "no_start" };
   const description = e.paragraphs.join("\n");
+  // Single events only: a course over several weeks, a season's group or a subscription is left out.
+  if (isSeries({ title, description, startsAt: e.startsAt, endsAt: e.endsAt })) return { ok: false, reason: "series" };
   if (config.requireRelevance && !isHolisticRelevant(`${title} ${description} ${e.categoryHints.join(" ")}`)) return { ok: false, reason: "not_holistic" };
 
   const area: Area | null = placeEvent({ postalCode: e.postalCode, city: e.city, freeText: [e.locationText, e.venueName].filter(Boolean).join(" ") });

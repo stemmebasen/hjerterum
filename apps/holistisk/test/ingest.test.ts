@@ -126,6 +126,24 @@ describe("collecting Hjerterum's calendar", () => {
     expect(kinds).toEqual(["cancelled", "rescheduled"]);
   });
 
+  it("takes an event off the site when it turns out to be a longer course, and never lists a new one", async () => {
+    const db = testDb();
+    const feed = fixture("hjerterum-rss.xml");
+    const run = (xml: string, at: number) => runIngest({ DB: db }, { trigger: "test", now: at, fetcher: fakeFetch(routes(xml)).fetcher, sleep: noSleep, sources: hjerterum });
+    await run(feed, NOW);
+    const course = feed.replace("<title>Dhyana Yoga</title>", "<title>Dhyana Yoga | 8 ugers forløb</title>");
+    const out = await run(course, NOW + 3600_000);
+    expect(out.sources[0]).toMatchObject({ rejected: 1, withdrawn: 1 });
+    expect(rows(db, "SELECT status FROM events WHERE title = 'Dhyana Yoga'")[0]!.status).toBe("withdrawn");
+    // Seen again: it stays off, and it is not counted as missing from the listing.
+    const again = await run(course, NOW + 7200_000);
+    expect(again.sources[0]).toMatchObject({ rejected: 1, withdrawn: 0 });
+
+    const fresh = testDb();
+    await runIngest({ DB: fresh }, { trigger: "test", now: NOW, fetcher: fakeFetch(routes(course)).fetcher, sleep: noSleep, sources: hjerterum });
+    expect(rows(fresh, "SELECT COUNT(*) AS n FROM events")[0]!.n).toBe(6);
+  });
+
   it("withdraws an event that disappears from the listing for two runs, and brings it back if it returns", async () => {
     const db = testDb();
     const feed = fixture("hjerterum-rss.xml");
