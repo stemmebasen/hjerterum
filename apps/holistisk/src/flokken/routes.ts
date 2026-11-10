@@ -8,6 +8,7 @@ import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage
 import { flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
+import { choiceCookie, clearChoiceCookie, cleanChoices, joinOrStart, KICKOFF_PATH, kickoffJson, kickoffPage, outcomeCode, readChoices } from "./kickoff.js";
 import { createFlock, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
@@ -130,6 +131,30 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
       }
     }
     return go(withMessage(next, "profil_gemt"));
+  }
+
+  // "Lad os komme godt i gang": the pop-up's cards, the page, and joining the chosen flocks in one go.
+  if (path === "/api/kom-godt-i-gang" && !post) {
+    const m = await member();
+    const ready = m ? profileComplete(await profileFor(db, m.id)) : false;
+    return { json: await kickoffJson(db, regions, m, ready, now), status: 200 };
+  }
+  if (path === KICKOFF_PATH) {
+    const m = await member();
+    const ready = m ? profileComplete(await profileFor(db, m.id)) : false;
+    if (!post) {
+      // Coming back from becoming a member: first the profile, then back here (without ?videre, so "Fortryd" there
+      // does not lead back to it).
+      if (m && !ready && url.searchParams.has("videre")) return go(profilePath(KICKOFF_PATH));
+      return { view: await kickoffPage(db, pc, regions, { memberId: m?.id ?? null, ready, chosen: readChoices(request), message }) };
+    }
+    const data = await formData(request);
+    const slugs = cleanChoices((data?.getAll("event") ?? []).map(String));
+    if (!slugs.length) return go(withMessage(KICKOFF_PATH, "intet_valgt"));
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(`${KICKOFF_PATH}?videre=1`)}`, choiceCookie(slugs));
+    if (!ready) return go(profilePath(KICKOFF_PATH), choiceCookie(slugs));
+    const outcome = await joinOrStart(db, slugs, regions, m.id, now);
+    return go(withMessage("/flokke", outcomeCode(outcome)), clearChoiceCookie());
   }
 
   if (path === "/flokke" && !post) {

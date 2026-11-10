@@ -33,7 +33,9 @@ const MESSAGES: Record<string, string> = {
   logget_ud: "Du er logget ud.",
   tak: "Tak for din henvendelse. Vi vender tilbage.",
   meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den.",
-  profil_gemt: "Din profil er gemt."
+  profil_gemt: "Din profil er gemt.",
+  kom_i_gang: "Du er med! Dine flokke står herunder. Kig ind i hver flok og sig hej i chatten.",
+  kom_i_gang_delvis: "Du er med i de flokke, der kunne lade sig gøre. Nogle af dine valg var gået i gang, aflyst eller fulde, eller du har startet mange flokke i dag."
 };
 const ERRORS: Record<string, string> = {
   event_closed: "Eventet er gået i gang, afholdt eller aflyst, så flokken kan ikke ændres.",
@@ -48,7 +50,9 @@ const ERRORS: Record<string, string> = {
   chat_empty: "Skriv en besked først.",
   chat_too_long: `Beskeden er for lang. Højst ${MAX_LENGTH} tegn.`,
   chat_too_fast: "Du har skrevet mange beskeder på kort tid. Vent lidt, og prøv igen.",
-  not_found: "Beskeden findes ikke længere."
+  not_found: "Beskeden findes ikke længere.",
+  kom_i_gang_ingen: "Det lykkedes ikke at komme med i en flok. De valgte events var gået i gang, aflyst eller fulde, eller du har startet mange flokke i dag.",
+  intet_valgt: "Vælg mindst ét event først."
 };
 /** The text for a ?besked= code, for the chat's JSON answers. */
 export const noticeText = (code: string): string => MESSAGES[code] ?? ERRORS[code] ?? "Noget gik galt. Prøv igen.";
@@ -381,7 +385,7 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Find en flok</h1>
-    <p class="standfirst">Flokke, der skal til et event i ${ctx.regionLabel} og har plads til flere. Vælg en, se hvor og hvornår den mødes, og bliv en del af flokken. Er der ingen til dit event, så find eventet i <a href="/kalender">kalenderen</a> og opret en flok.</p>
+    <p class="standfirst">Flokke, der skal til et event i ${ctx.regionLabel} og har plads til flere. Vælg en, se hvor og hvornår den mødes, og bliv en del af flokken. Er der ingen til dit event, så find eventet i <a href="/kalender">kalenderen</a> og opret en flok. Ny her? <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
   </header>
   ${flocks.length ? flockCards(flocks, ctx.now) : html`<p class="empty">Der er ingen åbne flokke lige nu. Find et event i <a href="/kalender">kalenderen</a> og vælg <strong>Opret en flok</strong> – så kan andre finde den her.</p>`}
   <section class="section" aria-labelledby="h-how"><div class="section-head"><h2 id="h-how">Sådan virker en flok</h2></div>${howItWorks}</section>

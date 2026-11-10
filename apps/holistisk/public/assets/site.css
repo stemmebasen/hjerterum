@@ -1031,3 +1031,39 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .my-list h3 { margin: 4px 0 6px; font-size: 1.3rem; }
 [data-edition="forening"] .f-panel-alt .f-letter-form input[type="email"] { background: #fbf3e6; }
 [data-edition="forening"] .f-panel-alt .f-letter-form button { background: var(--sun); color: var(--night); }
+
+/* "Lad os komme godt i gang": the first-visit pop-up (site.js) and the page /kom-godt-i-gang. */
+.kickoff { width: min(460px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); padding: 22px 20px 18px; border: 2px solid var(--ink); border-radius: var(--radius); background: var(--paper); color: var(--ink); box-shadow: 0 6px 0 var(--ink); overflow: auto; }
+.kickoff::backdrop { background: rgba(23, 51, 45, .55); }
+.kickoff-close { position: absolute; top: 10px; right: 10px; min-height: 0; width: 40px; height: 40px; padding: 0; border-radius: 50%; background: var(--card); color: var(--ink); font-size: 1.5rem; line-height: 1; box-shadow: none; }
+.kickoff-close:hover { background: var(--butter); }
+.kickoff-head h2 { font-size: 1.6rem; margin: 0 44px 6px 0; }
+.kickoff-lead { margin: 0 0 14px; color: var(--ink-2); font-size: .95rem; }
+.kickoff-count { margin: 0 0 8px; font-weight: 800; font-size: .85rem; color: var(--muted); }
+.kickoff-card { background: var(--card); border: 2px solid var(--ink); border-radius: 18px; overflow: hidden; box-shadow: 0 4px 0 var(--ink); }
+.kickoff-img { display: block; width: 100%; height: 160px; object-fit: cover; border-bottom: 2px solid var(--ink); }
+.kickoff-body { padding: 14px 16px 16px; display: grid; gap: 4px; }
+.kickoff-body p { margin: 0; }
+.kickoff-when { font-weight: 800; color: var(--berry); font-size: .9rem; }
+.kickoff-title { font-size: 1.3rem; margin: 2px 0; }
+.kickoff-place { color: var(--ink-2); font-size: .92rem; }
+.kickoff-flock { margin-top: 6px !important; padding: 6px 10px; border-radius: 10px; background: var(--butter-soft); font-weight: 700; font-size: .9rem; justify-self: start; }
+.kickoff-flock.has-flock { background: var(--green-soft); color: #17543f; }
+.kickoff-more { font-size: .88rem; font-weight: 700; color: var(--berry); margin-top: 4px; }
+.kickoff-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
+.kickoff-actions .button-secondary { justify-content: center; }
+.kickoff-foot { margin: 12px 0 0; text-align: center; }
+.kickoff-done { font: 600 1.15rem/1.3 var(--display); margin: 0 0 10px; }
+.kickoff-chosen { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+.kickoff-chosen li { background: var(--card); border: 2px solid var(--ink); border-radius: 12px; padding: 8px 12px; display: grid; }
+.kickoff-chosen span { font-size: .86rem; color: var(--ink-2); }
+.kickoff-note { font-size: .9rem; color: var(--ink-2); margin: 0 0 8px; }
+.kickoff-list { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 10px; }
+.kickoff-item { background: var(--card); border: 2px solid var(--ink); border-radius: 16px; padding: 12px 14px; box-shadow: 0 3px 0 var(--ink); display: grid; gap: 4px; }
+.kickoff-item label { display: flex; gap: 12px; align-items: flex-start; cursor: pointer; }
+.kickoff-item input { width: 22px; height: 22px; margin-top: 3px; flex: none; accent-color: var(--green-2); }
+.kickoff-item:has(input:checked) { background: var(--butter-soft); }
+.kickoff-text { display: grid; gap: 2px; }
+.kickoff-item .kickoff-title { font: 600 1.1rem/1.2 var(--display); }
+.kickoff-item .kickoff-flock { margin-top: 4px !important; display: inline-flex; align-items: center; gap: 6px; }
+.kickoff-item .kickoff-more { margin-left: 34px; }
