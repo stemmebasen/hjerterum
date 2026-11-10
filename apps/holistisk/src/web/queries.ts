@@ -3,6 +3,7 @@ import { localDate, nextLocalDate, startOfLocalDay, wallClock } from "../time.js
 import { dateWindow, type Filters } from "./filters.js";
 import { activityBySlug } from "../activities.js";
 import { zoneSql } from "../zones.js";
+import { GROUPS, groupBySlug, type Group } from "../groups.js";
 
 /** Read side of the portal. Visible = scheduled or cancelled, not yet over, and in an active region. */
 
@@ -58,6 +59,11 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
   if (f.categories.length) {
     w.sql.push(`EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category IN (${f.categories.map(() => "?").join(",")}))`);
     w.params.push(...f.categories);
+  }
+  const group = groupBySlug(f.group);
+  if (group) {
+    w.sql.push(`EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category IN (${group.categories.map(() => "?").join(",")}))`);
+    w.params.push(...group.categories);
   }
   if (f.area) { w.sql.push("e.area = ?"); w.params.push(f.area); }
   if (f.zone) { w.sql.push(`${ZONE} = ?`); w.params.push(f.zone); }
@@ -169,6 +175,14 @@ export async function mapEvents(db: D1Database, regions: string[], now: number, 
   w.params.push(until);
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 3000`).bind(...w.params).all<EventRow>();
   return results;
+}
+
+/** How many coming events each of the four main kinds has (an event can count in more than one). */
+export async function groupCounts(db: D1Database, regions: string[], now: number): Promise<Map<Group["slug"], number>> {
+  const w = visible(regions, now);
+  const sums = GROUPS.map((g, i) => `SUM(EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category IN (${g.categories.map(c => `'${c}'`).join(",")}))) AS g${i}`);
+  const row = await db.prepare(`SELECT ${sums.join(", ")} FROM events e WHERE ${w.sql.join(" AND ")}`).bind(...w.params).first<Record<string, number | null>>();
+  return new Map(GROUPS.map((g, i) => [g.slug, row?.[`g${i}`] ?? 0]));
 }
 
 export async function categoryCounts(db: D1Database, regions: string[], now: number, area: string | null = null): Promise<Map<string, number>> {

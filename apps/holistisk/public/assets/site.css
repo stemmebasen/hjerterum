@@ -1062,3 +1062,33 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flock-card .flock-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .cancelled-box { background: var(--berry-soft); border: 2px solid var(--berry); border-radius: var(--radius); padding: 16px 18px; }
 .cancelled-item + .cancelled-item { margin-top: 14px; }
+
+/* The four main kinds (src/groups.ts): big tiles, two by two on a phone, four in a row on a wide screen. */
+.group-tiles ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 760px) { .group-tiles ul { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.group-tile { --tint: var(--paper-2); display: grid; gap: 4px; align-content: start; height: 100%; padding: 16px 16px 14px; border: 2px solid var(--ink); border-radius: 20px; background: var(--tint); color: var(--ink); box-shadow: 0 4px 0 var(--ink); transition: transform .12s ease, box-shadow .12s ease; }
+.group-tile:hover { text-decoration: none; transform: translateY(-2px); box-shadow: 0 6px 0 var(--ink); }
+.group-tile:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.group-tile.is-on { background: var(--ink); color: var(--paper); }
+.group-tile.is-on .group-line, .group-tile.is-on .group-count { color: var(--paper); }
+.group-underholdning { --tint: var(--berry-soft); }
+.group-krea { --tint: var(--butter); }
+.group-oplysning { --tint: var(--lilac); }
+.group-fordybelse { --tint: var(--green-soft); }
+.group-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 50%; background: var(--card); border: 2px solid var(--ink); color: var(--ink); margin-bottom: 4px; }
+.group-name { font: 600 1.3rem/1.1 var(--display); }
+.group-line { font-size: .88rem; color: var(--ink-2); line-height: 1.3; }
+.group-count { font-size: .82rem; font-weight: 800; color: var(--ink-2); margin-top: 4px; }
+.group-tiles.is-compact { margin: 0 0 18px; }
+.group-tiles.is-compact .group-tile { grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; padding: 10px 12px; border-radius: 16px; box-shadow: 0 3px 0 var(--ink); }
+.group-tiles.is-compact .group-icon { width: 38px; height: 38px; margin: 0; grid-row: span 2; }
+.group-tiles.is-compact .group-icon svg { width: 22px; height: 22px; }
+.group-tiles.is-compact .group-name { font-size: 1.08rem; }
+.group-tiles.is-compact .group-line { display: none; }
+.group-tiles.is-compact .group-count { margin: 0; font-size: .78rem; }
+.groups-front { margin-top: 8px; }
+.kickoff-groups { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.kickoff-group { --tint: var(--card); min-height: 36px; padding: 4px 14px; border-radius: 999px; background: var(--tint); color: var(--ink); font-size: .88rem; box-shadow: 0 2px 0 var(--ink); }
+.kickoff-group:hover { background: var(--tint); filter: brightness(.96); }
+.kickoff-group[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+@media (prefers-reduced-motion: reduce) { .group-tile, .group-tile:hover, .group-tile:active { transform: none; } }

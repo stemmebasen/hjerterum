@@ -1,5 +1,6 @@
 import { activeAreas, areaBySlug } from "../geo.js";
 import { categoryBySlug } from "../categories.js";
+import { groupBySlug, type Group } from "../groups.js";
 import { activityBySlug } from "../activities.js";
 import { addDays, localDate, startOfLocalDay, weekdayIndex } from "../time.js";
 import { zoneBySlug, type Zone } from "../zones.js";
@@ -11,6 +12,8 @@ export type Filters = {
   to: string | null;
   period: Period | null;
   categories: string[];
+  /** One of the four main kinds (src/groups.ts): ?gruppe=. */
+  group: Group["slug"] | null;
   area: string | null;
   /** A part of the Aarhus area (src/zones.ts): Midtbyen, Nord, Syd or Vest. Shares ?omraade= with the older areas. */
   zone: Zone | null;
@@ -61,7 +64,8 @@ export function parseFilters(params: URLSearchParams, activeRegions: string[]): 
   const page = Math.min(200, Math.max(1, Number.parseInt(params.get("side") ?? "1", 10) || 1));
   const topicParam = params.get("emne");
   const topic = topicParam && activityBySlug(topicParam)?.groups ? topicParam : null;
-  return { q, from: date(params.get("fra")), to: date(params.get("til")), period, categories, area, zone, city, price, page, topic, organizer: null };
+  const group = groupBySlug(params.get("gruppe"))?.slug ?? null;
+  return { q, from: date(params.get("fra")), to: date(params.get("til")), period, categories, group, area, zone, city, price, page, topic, organizer: null };
 }
 
 /** The date window (local days, inclusive) the filters ask for, or null for "from now on". */
@@ -91,6 +95,7 @@ export function toQuery(f: Partial<Filters>, overrides: Partial<Filters> = {}): 
   if (v.period) p.set("periode", v.period);
   if (!v.period && v.from) p.set("fra", v.from);
   if (!v.period && v.to) p.set("til", v.to);
+  if (v.group) p.set("gruppe", v.group);
   for (const c of v.categories ?? []) p.append("kategori", c);
   if (v.zone) p.set("omraade", v.zone);
   else if (v.area) p.set("omraade", v.area);
@@ -103,6 +108,6 @@ export function toQuery(f: Partial<Filters>, overrides: Partial<Filters> = {}): 
 }
 
 export const hasFilters = (f: Filters): boolean =>
-  !!(f.q || f.from || f.to || f.period || f.categories.length || f.area || f.zone || f.city || f.price || f.topic);
+  !!(f.q || f.from || f.to || f.period || f.group || f.categories.length || f.area || f.zone || f.city || f.price || f.topic);
 
 export const areaName = (slug: string | null): string | null => slug ? areaBySlug(slug)?.name ?? null : null;

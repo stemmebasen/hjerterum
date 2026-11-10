@@ -1,7 +1,8 @@
 import type { D1Database } from "../db.js";
 import { priceLabel } from "../price.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
-import { eventPath, placeLine } from "../web/components.js";
+import { eventPath, groupTiles, placeLine } from "../web/components.js";
+import { groupBySlug, groupsOf, type Group } from "../groups.js";
 import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { eventBySlug, flockRoom, kickoffEvents, type EventRow } from "../web/queries.js";
@@ -243,14 +244,16 @@ export async function kickoffJson(db: D1Database, regions: string[], member: { i
     member: !!member, ready, inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
     events: list.map(({ event: e, interested, mine }) => ({
       slug: e.slug, title: e.title, when: when(e, now), place: [placeLine(e), priceLabel(e)].filter(Boolean).join(" · "),
-      interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
+      groups: groupsOf(e.categories), interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
     }))
   };
 }
 
 /** The page itself: the same list to tick, ten shown at a time with JavaScript (all without). */
-export async function kickoffPage(db: D1Database, ctx: PageContext, regions: string[], state: { memberId: string | null; ready: boolean; chosen: string[]; message: string | null }): Promise<View> {
-  const { list } = await candidates(db, regions, state.memberId, ctx.now);
+export async function kickoffPage(db: D1Database, ctx: PageContext, regions: string[], state: { memberId: string | null; ready: boolean; chosen: string[]; message: string | null; group?: Group["slug"] | null }): Promise<View> {
+  const group = groupBySlug(state.group ?? null)?.slug ?? null;
+  const { list: everything } = await candidates(db, regions, state.memberId, ctx.now);
+  const list = group ? everything.filter(c => groupsOf(c.event.categories).includes(group)) : everything;
   // Chosen events that are no longer among the first ones are still shown, at the top.
   const missing = state.chosen.filter(s => !list.some(c => c.event.slug === s));
   const extra = (await Promise.all(missing.map(s => eventBySlug(db, s))))
@@ -267,6 +270,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
     ${flash(state.message)}
     <p class="standfirst">Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der gerne vil med til det samme, samler vi en flok og giver dig besked – så bekræfter du, om du er med.</p>
   </header>
+  ${groupTiles(group, null, g => g ? `${KICKOFF_PATH}?gruppe=${g}` : KICKOFF_PATH, { compact: true })}
   ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form" data-kickoff-list>
     <ul class="kickoff-list">${all.map(({ event: e, interested, mine }) => {
       const others = Math.max(0, interested - (mine ? 1 : 0));

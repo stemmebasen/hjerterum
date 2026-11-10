@@ -634,3 +634,24 @@ describe("Lad os komme godt i gang", () => {
     expect((await call("/find-en-flok")).body).toContain('<a href="/kom-godt-i-gang">Lad os komme godt i gang</a>');
   });
 });
+
+describe("the four main kinds", () => {
+  it("are four tiles on the front page and the calendar, and filter the calendar and the interest list", async () => {
+    const front = (await call("/")).body;
+    for (const name of ["Underholdning", "Krea", "Oplysning", "Fordybelse"]) expect(front).toContain(`<span class="group-name">${name}</span>`);
+    expect(front).toContain('href="/kalender?gruppe=fordybelse"');
+    const all = (await call("/kalender")).body;
+    const deep = (await call("/kalender?gruppe=fordybelse")).body;
+    const count = (body: string) => Number(/<h2 id="h-results"[^>]*>(\d+)/.exec(body)?.[1] ?? "0");
+    expect(count(deep)).toBeGreaterThan(0);
+    expect(count(deep)).toBeLessThanOrEqual(count(all));
+    expect(deep).toMatch(/class="group-tile group-fordybelse is-on" href="\/kalender#soeg"/);
+    expect(deep).toContain("Fordybelse<span aria-hidden=\"true\"> ×</span>");
+    // Unknown kinds are ignored.
+    expect(count((await call("/kalender?gruppe=noget")).body)).toBe(count(all));
+    const list = JSON.parse((await call("/api/kom-godt-i-gang")).body) as { events: Array<{ groups: string[] }> };
+    expect(list.events.some(e => e.groups.includes("fordybelse"))).toBe(true);
+    const page = (await call("/kom-godt-i-gang?gruppe=underholdning")).body;
+    expect(page).toContain('class="group-tile group-underholdning is-on"');
+  });
+});

@@ -1,4 +1,5 @@
 import type { D1Database } from "../db.js";
+import { groupBySlug } from "../groups.js";
 import type { Env } from "../env.js";
 import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
@@ -157,7 +158,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
         await saveInterests(db, m.id, chosen, [], regions, now);
         return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
       }
-      return { view: await kickoffPage(db, pc, regions, { memberId: m?.id ?? null, ready: isReady, chosen, message }) };
+      return { view: await kickoffPage(db, pc, regions, { memberId: m?.id ?? null, ready: isReady, chosen, message, group: groupBySlug(url.searchParams.get("gruppe"))?.slug ?? null }) };
     }
     const data = await formData(request);
     const slugs = cleanChoices((data?.getAll("event") ?? []).map(String));
