@@ -147,7 +147,7 @@ jobs:
           P / > /tmp/portal.html
           grep -q 'flok at følges med' /tmp/portal.html
           grep -q 'Sådan virker Socialklubben' /tmp/portal.html
-          PG /spar-paa-billetten 'Gratis'
+          PG /gratis-og-billigt 'Gratis'
           P /kalender > /tmp/events.html
           EVENT_PATH="$(grep -o 'href="/socialklubben/events/[a-z0-9-]*"' /tmp/events.html | head -1 | sed 's/href="\/socialklubben//;s/"$//')"
           test -n "$EVENT_PATH"
