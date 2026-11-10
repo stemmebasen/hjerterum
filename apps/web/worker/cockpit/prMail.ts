@@ -82,6 +82,8 @@ export async function filePrMails(env: SagaEnv, deps: SagaDeps & { webmail?: Web
     await labelPrBacklog(env, deps, db).catch(error => console.warn("pr_mail_backlog_failed", error instanceof Error ? error.message : error));
     await db.prepare("UPDATE board_mail SET pr_filed_at_ms = NULL WHERE label = 'PR' AND folder = 'INBOX'").run();
   }
+  if (await claimJob(db, "pr_mail_return_10_nov", 0, now).catch(() => false))
+    await returnFromPr(env, deps, db, RETURN_10_NOV, "Flyttet tilbage: PR er kun en del af mailen").catch(error => console.warn("pr_mail_return_failed", error instanceof Error ? error.message : error));
   if (await claimJob(db, "pr_gitta_transfer", 0, now).catch(() => false)) await takeOverFolder(env, deps, db, /^INBOX\.3\s*-\s*GITTA\.PR$/i).catch(error => console.warn("pr_gitta_transfer_failed", error instanceof Error ? error.message : error));
   await collectMaterial(env, deps, db).catch(error => console.warn("pr_material_failed", error instanceof Error ? error.message : error));
   const found = await db.prepare(`SELECT id, sender, subject, uid, uid_validity, received_at_ms, assigned_to, answered_at_ms, answered_by, handled_at_ms, handled_by FROM board_mail
@@ -254,6 +256,39 @@ export async function moveToPr(env: SagaEnv, deps: SagaDeps & { webmail?: Webmai
   }
 }
 
+/** Reported (the chair, 10 Nov 2026): "Mails må ikke flyttes til JACOB mappen når PR kun en del af topic. Sørg for at disse mails flyttes tilbage hvor de lå."
+ * A mail in the chair's folder goes back to the inbox: its label is read again (with PR now only for mails mainly about it), and it is never moved to the
+ * folder by Saga again. */
+export async function returnFromPr(env: SagaEnv, deps: SagaDeps & { webmail?: WebmailOpener }, db: D1Database, ids: number[], why: string): Promise<number> {
+  const rows = (await db.prepare("SELECT id, uid FROM board_mail WHERE folder = ? AND uid IS NOT NULL AND id IN (SELECT value FROM json_each(?))").bind(PR_FOLDER, JSON.stringify(ids))
+    .all<{ id: number; uid: number }>().then(r => r.results ?? []).catch(() => []));
+  if (!rows.length) return 0;
+  const opened = await openWebmail(env, db, deps);
+  if ("error" in opened || !opened.s.moveMapped) return 0;
+  const { s } = opened;
+  let moved = 0;
+  try {
+    const here = s.present ? new Set(await s.present(PR_FOLDER, rows.map(r => r.uid))) : null;
+    const mine = here ? rows.filter(r => here.has(r.uid)) : rows;
+    if (!mine.length) return 0;
+    const { destValidity, map } = await s.moveMapped!(PR_FOLDER, mine.map(r => r.uid), "INBOX");
+    const to = new Map(map);
+    for (const r of mine) {
+      const uid = to.get(r.uid);
+      if (!uid || !destValidity) continue;
+      const done = await db.prepare("UPDATE OR IGNORE board_mail SET folder = 'INBOX', uid_validity = ?, uid = ?, message_ref = ?, label = NULL, pr_filed_at_ms = ?, pr_left_why = ? WHERE id = ?")
+        .bind(destValidity, uid, refOf("INBOX", destValidity, uid), deps.now(), why, r.id).run();
+      moved += Number(done.meta?.changes ?? 0);
+    }
+  } finally {
+    await s.close().catch(() => undefined);
+  }
+  return moved;
+}
+/** The mails Saga moved on 4-10 Nov 2026 where PR was only part of the topic (the chair, 10 Nov 2026): Luca's on setting up the Facebook events, and Jørgen's
+ * conversation "Nyt arrangement til gennemgang". */
+export const RETURN_10_NOV = [1142, 1127, 1079, 1030];
+
 /** "Skjul": the mail (and its copies) leaves PR og SoMe → Mails; a new mail in the same conversation is a mail of its own and shows. */
 export async function hideMail(db: D1Database, id: number, nowMs: number): Promise<void> {
   await db.prepare("UPDATE board_mail SET pr_hidden_at_ms = ? WHERE id = ? OR (message_id IS NOT NULL AND message_id = (SELECT message_id FROM board_mail WHERE id = ?))").bind(nowMs, id, id).run();
@@ -335,7 +370,7 @@ ${m.pr_left_why ? `<p class="small muted">Bliver i indbakken: ${esc(m.pr_left_wh
 <p class="pr-mail-text">${esc(m.preview.slice(0, 420))}${m.preview.length > 420 ? " …" : ""}</p>
 ${event}
 <div class="pr-acts">${m.uid ? `<a class="button" href="${base}/pr/mails/svar?id=${m.id}">Svar med Sagas udkast</a>` : ""}${link ? `<a class="button ghost" href="${link}">Åbn i Posthus</a>` : ""}
-${m.uid && m.folder !== PR_FOLDER ? action("flyt", m.id, "Flyt til PR") : ""}${action("skjul", m.id, "Skjul")}</div></article>`;
+${m.uid && m.folder !== PR_FOLDER ? action("flyt", m.id, "Flyt til PR") : ""}${m.uid && m.folder === PR_FOLDER ? action("tilbage", m.id, "Ikke PR - tilbage til indbakken", "ghost") : ""}${action("skjul", m.id, "Skjul")}</div></article>`;
   };
   return `<section class="panel" id="mails"><header><h2>Mails om PR${waiting ? ` (${waiting} venter)` : ""}</h2>
 <p>Saga finder de mails i team@, der handler om PR, deling og sociale medier, og lægger dem i mappen ${PR_FOLDER_LABEL}. Saga kobler mailen til sit event og lægger billeder, filer og tekst klar under eventet - "Lav opslaget med materialet" åbner opslaget med dem. "Skjul" fjerner en mail herfra; et nyt svar i samme tråd vises igen. En mail, som en anden i bestyrelsen har - eller har samtalen om - bliver liggende og vises her med hvorfor. Tryk "Svar med Sagas udkast": Saga skriver et forslag, du retter det og sender. Saga sender aldrig selv.</p></header>

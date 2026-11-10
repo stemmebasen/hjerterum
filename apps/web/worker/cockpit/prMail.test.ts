@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleCockpitRequest } from "./handler.js";
 import type { WebFolder, WebmailOpener } from "./webmail.js";
-import { filePrMails, PR_FOLDER, PR_PARENT } from "./prMail.js";
+import { filePrMails, PR_FOLDER, PR_PARENT, returnFromPr } from "./prMail.js";
 import { connectTeamMail, type ImapOpener } from "../saga/teamMail.js";
 import { insertMail, saveBoardMessage } from "../saga/store.js";
 import type { MailSender, Outgoing } from "./webmailCompose.js";
@@ -57,6 +57,19 @@ describe("PR mails", () => {
     expect(await db.prepare("SELECT folder, uid FROM board_mail WHERE id = ?").bind(other).first()).toEqual({ folder: "INBOX", uid: 42 });
     expect(services.telegram("sendMessage").map(c => JSON.stringify(c.body)).join()).toContain("Ny PR-mail fra Maria Dueholm");
     // The next round: nothing to move.
+    expect(await filePrMails(env, allDeps, db)).toBe(0);
+  });
+
+  // Reported (the chair, 10 Nov 2026): "Mails må ikke flyttes til JACOB mappen når PR kun en del af topic. Sørg for at disse mails flyttes tilbage hvor de lå."
+  it("goes back to the inbox when PR is only part of it - its label read again - and is never moved to the folder again", async () => {
+    const { db, env, done, pr, allDeps } = await setup();
+    expect(await filePrMails(env, allDeps, db)).toBe(1);
+    const inFolder: typeof allDeps.webmail = async login => { const s = await allDeps.webmail(login); return { ...s, async present(path, uids) { return path === PR_FOLDER ? uids : s.present!(path, uids); } }; };
+    expect(await returnFromPr(env, { ...allDeps, webmail: inFolder }, db, [pr], "Flyttet tilbage: PR er kun en del af mailen")).toBe(1);
+    expect(done.at(-1)).toBe(`move ${PR_FOLDER} 9 -> INBOX`);
+    expect(await db.prepare("SELECT folder, uid, label, pr_left_why FROM board_mail WHERE id = ?").bind(pr).first()).toEqual({ folder: "INBOX", uid: 109, label: null, pr_left_why: "Flyttet tilbage: PR er kun en del af mailen" });
+    // Labelled PR again by the next look: it stays in the inbox.
+    await db.prepare("UPDATE board_mail SET label = 'PR' WHERE id = ?").bind(pr).run();
     expect(await filePrMails(env, allDeps, db)).toBe(0);
   });
 
