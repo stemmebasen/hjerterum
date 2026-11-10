@@ -315,6 +315,26 @@ function wrap(ctx: Ctx, text: string, maxWidth: number): string[] {
   return lines;
 }
 
+/** Asked (the chair, 11 Nov 2026): "jeg kan ikke rykke rundt på elementerne i skabelonen i editoren" - "Teksterne bliver løse". While a design is drawn for the
+ * editor, its words are taken down instead of drawn: each line with its place (on the page), font, colour, alignment, spacing and turn. */
+export type TextPiece = { text: string; x: number; y: number; font: string; color: string; align: "left" | "center" | "right"; spacing: number; angle: number; opacity: number };
+let CAPTURE: TextPiece[] | null = null;
+/** Taken down (when capturing): true, and nothing drawn. */
+export function takeText(ctx: Ctx, text: string, x: number, y: number, spacing = 0): boolean {
+  if (!CAPTURE) return false;
+  const m = ctx.getTransform(), p = m.transformPoint(new DOMPoint(x, y)), scale = Math.hypot(m.a, m.b) || 1;
+  const size = Number(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? 40) * scale;
+  const align = ctx.textAlign === "center" ? "center" : ctx.textAlign === "right" || ctx.textAlign === "end" ? "right" : "left";
+  CAPTURE.push({ text, x: p.x, y: p.y, font: ctx.font.replace(/(\d+(?:\.\d+)?)px/, `${Math.round(size)}px`), color: typeof ctx.fillStyle === "string" ? ctx.fillStyle : "#2a2622", align, spacing: spacing * scale,
+    angle: Math.atan2(m.b, m.a) * 180 / Math.PI, opacity: ctx.globalAlpha });
+  return true;
+}
+/** A design for the editor: its picture without the words, and the words as pieces to put on it. */
+export function posterWithoutWords(draw: () => void): TextPiece[] {
+  CAPTURE = [];
+  try { draw(); return CAPTURE; } finally { CAPTURE = null; }
+}
+
 /** Letter-spaced capitals, as the site's kickers. */
 export function spaced(ctx: Ctx, text: string, x: number, y: number, font: string, color: string, spacing: number, align: "left" | "right" | "center" = "left") {
   ctx.font = font; ctx.fillStyle = color;
@@ -322,6 +342,7 @@ export function spaced(ctx: Ctx, text: string, x: number, y: number, font: strin
   const width = chars.reduce((w, ch) => w + ctx.measureText(ch).width + spacing, -spacing);
   let at = align === "left" ? x : align === "right" ? x - width : x - width / 2;
   ctx.textAlign = "left";
+  if (takeText(ctx, chars.join(""), at, y, spacing)) return width;
   for (const ch of chars) { ctx.fillText(ch, at, y); at += ctx.measureText(ch).width + spacing; }
   return width;
 }
@@ -450,13 +471,13 @@ function drawTitle(ctx: Ctx, title: string, x: number, bottom: number | null, to
   l.lines.forEach((line, i) => {
     ctx.font = `${line.italic ? "italic " : ""}400 ${l.s}px ${SERIF}`;
     ctx.fillStyle = line.italic ? colors.italic : colors.upright;
-    ctx.fillText(line.text, x, l.y0 + i * l.lead);
+    if (!takeText(ctx, line.text, x, l.y0 + i * l.lead)) ctx.fillText(line.text, x, l.y0 + i * l.lead);
   });
   return { top: l.top, bottom: l.bottom, size: l.s };
 }
 
 export function text(ctx: Ctx, value: string, x: number, y: number, font: string, color: string, align: CanvasTextAlign = "left") {
-  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; ctx.fillText(value, x, y); ctx.textAlign = "left";
+  ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align; if (!takeText(ctx, value, x, y)) ctx.fillText(value, x, y); ctx.textAlign = "left";
 }
 
 export const ADDRESS = "Guldsmedgade 26B, Aarhus";
