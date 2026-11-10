@@ -327,7 +327,7 @@
       var lead = el("p", "kickoff-lead");
       lead.appendChild(document.createTextNode("Sæt kryds ved de oplevelser, du kunne tænke dig. "));
       lead.appendChild(el("strong", null, "Det er helt uforpligtende"));
-      lead.appendChild(document.createTextNode(" – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Dine første 3 udflugter er gratis."));
+      lead.appendChild(document.createTextNode(" – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Du kan deltage i de første 3 udflugter uden at være medlem."));
       head.appendChild(lead);
       var form = el("form", "kickoff-form");
       form.method = "post"; form.action = base + "kom-godt-i-gang";

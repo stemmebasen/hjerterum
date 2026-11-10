@@ -248,10 +248,10 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
 
 // ————————————————————————————————————————— Mine flokke
 
-/** "1 af 3 gratis udflugter brugt", with a dot per free outing. */
+/** "1 af 3 udflugter uden medlemskab brugt", with a dot per free outing. */
 export function freeOutings(used: number): SafeHtml {
   const n = Math.min(used, FREE_OUTINGS);
-  const text = used >= FREE_OUTINGS ? `Du har brugt dine ${FREE_OUTINGS} gratis udflugter` : `${n} af ${FREE_OUTINGS} gratis udflugter brugt`;
+  const text = used >= FREE_OUTINGS ? `Du har brugt dine ${FREE_OUTINGS} udflugter uden medlemskab` : `${n} af ${FREE_OUTINGS} udflugter uden medlemskab brugt`;
   return html`<p class="free-outings"><span class="free-dots" aria-hidden="true">${Array.from({ length: FREE_OUTINGS }, (_, i) => html`<span class="free-dot${i < n ? " is-used" : ""}"></span>`)}</span>
     <span><strong>${text}</strong> <span class="meta-muted">· En udflugt tæller, når du har været afsted med en flok.</span></span></p>`;
 }

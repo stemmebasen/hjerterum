@@ -604,11 +604,11 @@ describe("Lad os komme godt i gang", () => {
   it("counts the free outings: a confirmed flock counts once its event is over", async () => {
     const cookie = await ready("Sif");
     const before = (await call("/flokke", { cookie })).body;
-    expect(before).toContain("0 af 3 gratis udflugter brugt");
+    expect(before).toContain("0 af 3 udflugter uden medlemskab brugt");
     expect((await startFlock(cookie)).status).toBe(303);
-    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 gratis udflugter brugt");
+    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 udflugter uden medlemskab brugt");
     const after = (await call("/flokke", { cookie }, event.starts_at + 6 * 3600_000)).body;
-    expect(after).toContain("1 af 3 gratis udflugter brugt");
+    expect(after).toContain("1 af 3 udflugter uden medlemskab brugt");
     expect(after.match(/free-dot is-used/g)).toHaveLength(1);
   });
 
@@ -645,6 +645,8 @@ describe("Lad os komme godt i gang", () => {
     const r = await call("/kom-godt-i-gang");
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
+    expect(r.body).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
+    expect(r.body).not.toContain("udflugter er gratis");
     expect(r.body).toContain('<input type="checkbox" name="event"');
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
     expect(r.body).toContain("<strong>Det er helt uforpligtende</strong>");
