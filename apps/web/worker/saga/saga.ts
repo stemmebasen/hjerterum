@@ -317,8 +317,12 @@ export async function redoMinutes(env: SagaEnv, deps: SagaDeps): Promise<boolean
     // A new draft: the chair is reminded of it, and the board told when its correction days are over, as for any new minutes.
     await db.prepare("DELETE FROM job_claims WHERE job_key IN ('minutes_draft_reminder', 'minutes_approval_open') AND scheduled_for_ms = ?").bind(row.id).run();
     if (item.approval_message_id) await telegramClient(env, deps).editMessageReplyMarkup(owner(env), item.approval_message_id).catch(() => undefined);
-    await sendMinutesForApproval(env, deps, row.id, draft, item.meeting_date, `Referatet fra ${danishDate(item.meeting_date)} er skrevet færdigt - det første blev klippet af undervejs. `
-      + `Punkterne, der allerede stod, er de samme med jeres rettelser${fixes.length ? ` (${fixes.length} rettelse${fixes.length === 1 ? "" : "r"})` : ""}; resten er skrevet ud fra optagelsen. Læs det igennem, før det kommer op til bestyrelsen igen.`);
+    // Asked (the chair, 10 Nov 2026) after the new rules for minutes: "Skal Saga skrive det om efter de nye regler?" - "Ja". An empty draft is written from
+    // the start (nothing kept), and the chair is told so.
+    await sendMinutesForApproval(env, deps, row.id, draft, item.meeting_date, kept
+      ? `Referatet fra ${danishDate(item.meeting_date)} er skrevet færdigt - det første blev klippet af undervejs. `
+        + `Punkterne, der allerede stod, er de samme med jeres rettelser${fixes.length ? ` (${fixes.length} rettelse${fixes.length === 1 ? "" : "r"})` : ""}; resten er skrevet ud fra optagelsen. Læs det igennem, før det kommer op til bestyrelsen igen.`
+      : `Referatet fra ${danishDate(item.meeting_date)} er skrevet forfra efter de nye regler: emnet, de vigtige polariteter og beslutningerne${fixes.length ? `, med jeres rettelser` : ""}. Læs det igennem, før det kommer op til bestyrelsen.`);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "minutes_redo_failed";
