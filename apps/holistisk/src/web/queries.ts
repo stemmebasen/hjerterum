@@ -144,7 +144,7 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
 
 /** "Lad os komme godt i gang": coming events to flick through and pick some to go to with others, the broad offer
  * first (src/mainstream.ts). Events where a flock
- * already has room come first, then the soonest; at most two per organiser where there are enough others, events that last all day at the back. From
+ * already has room come first, then the soonest; one per organiser in each ten where there are enough others, events that last all day at the back. From
  * twelve hours from now (time to gather a flock) and four weeks ahead. */
 export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20): Promise<EventRow[]> {
   const w = visible(regions, now);
@@ -157,22 +157,39 @@ export async function kickoffEvents(db: D1Database, regions: string[], now: numb
   // The broad offer first (src/mainstream.ts), keeping events whose flock has room at the very front.
   const broad = (e: EventRow) => Number(isAlternativeEvent(e));
   const results = [...rows].sort((a, b) => Number(hasFlockRoom(b)) - Number(hasFlockRoom(a)) || broad(a) - broad(b));
+  // Variety (Jake 2026-11-10: Dokk1 filled three of the first four): one event per organiser in each ten shown, at
+  // most a tenth of the list from one organiser, and a weekly offering only once. Events whose flock has room are
+  // always taken.
+  const owner = (e: EventRow) => e.organizer_id ?? e.venue_name ?? e.id;
+  const title = (e: EventRow) => `${owner(e)}|${e.title.trim().toLowerCase()}`;
   const perOrganizer = new Map<string, number>();
+  const titles = new Set<string>();
   const picked: EventRow[] = [];
-  for (const e of results) {
+  const maxPerOrganizer = Math.max(1, Math.round(limit / 10));
+  const take = (e: EventRow) => { picked.push(e); perOrganizer.set(owner(e), (perOrganizer.get(owner(e)) ?? 0) + 1); titles.add(title(e)); };
+  // The broad offer first, then the rest, both with that rule.
+  for (const alternative of [0, 1]) for (const e of results) {
     if (picked.length >= limit) break;
-    if (skip.includes(e.slug)) continue;
-    const hasRoom = hasFlockRoom(e);
-    const key = e.organizer_id ?? e.venue_name ?? e.id;
-    const n = perOrganizer.get(key) ?? 0;
-    if (!hasRoom && n >= 2) continue;
-    perOrganizer.set(key, n + 1);
-    picked.push(e);
+    if (broad(e) !== alternative || skip.includes(e.slug) || picked.includes(e)) continue;
+    const n = perOrganizer.get(owner(e)) ?? 0;
+    const inThisTen = Math.floor(picked.length / KICKOFF_STEP) + 1;
+    if (!hasFlockRoom(e) && (n >= Math.min(inThisTen, maxPerOrganizer) || titles.has(title(e)))) continue;
+    take(e);
   }
-  // Too few with that rule (a quiet week, few organisers): fill up in the same order.
-  for (const e of results) if (picked.length < limit && !picked.includes(e) && !skip.includes(e.slug)) picked.push(e);
-  return picked.sort((a, b) => Number(hasFlockRoom(b)) - Number(hasFlockRoom(a)) || broad(a) - broad(b) || a.all_day - b.all_day || a.starts_at - b.starts_at);
+  // Too few with that rule (a quiet week, few organisers): fill up, new titles first, then what there is. These go
+  // after the others in their ten.
+  const varied = new Set(picked);
+  for (const e of results) if (picked.length < limit && !picked.includes(e) && !skip.includes(e.slug) && !titles.has(title(e))) take(e);
+  for (const e of results) if (picked.length < limit && !picked.includes(e) && !skip.includes(e.slug)) take(e);
+  // Ten at a time in the order picked (so each ten keeps its variety), and within each ten the usual order.
+  const order = (a: EventRow, b: EventRow) => Number(varied.has(b)) - Number(varied.has(a)) || Number(hasFlockRoom(b)) - Number(hasFlockRoom(a)) || broad(a) - broad(b) || a.all_day - b.all_day || a.starts_at - b.starts_at;
+  const out: EventRow[] = [];
+  for (let i = 0; i < picked.length; i += KICKOFF_STEP) out.push(...picked.slice(i, i + KICKOFF_STEP).sort(order));
+  return out;
 }
+
+/** How many events the interest list shows at a time (as src/flokken/kickoff.ts PAGE_STEP). */
+const KICKOFF_STEP = 10;
 
 /** The open flock furthest along that still has room, from `flock_fill`: members and size, or null. */
 export function flockRoom(e: Pick<EventRow, "flock_fill">): { members: number; size: number } | null {

@@ -89,7 +89,9 @@ describe("front page", () => {
     expect((body.match(/class="mini-photo( mini-photo-plain)?"/g) ?? []).length).toBe((body.match(/class="mini-ticket mini-ticket-/g) ?? []).length);
     // No row of shortcut buttons under the calendar button; the pages themselves stay.
     expect(body).not.toContain('aria-label="Genveje"');
-    expect(body).toContain("Spar på billetten");
+    // No "Spar på billetten" (Jake 2026-11-10): it promised a saving we don't give.
+    expect(body).not.toMatch(/spar på billetten/i);
+    expect(body).toContain('href="/gratis-og-billigt"');
     expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
@@ -119,7 +121,8 @@ describe("front page", () => {
 
 describe("spar på billetten", () => {
   it("lists free and cheap events from their own prices and promises no ticket discount", async () => {
-    const { status, body } = await text("/spar-paa-billetten");
+    expect((await get("/spar-paa-billetten")).headers.get("location")).toBe("/gratis-og-billigt");
+    const { status, body } = await text("/gratis-og-billigt");
     expect(status).toBe(200);
     expect(body).not.toMatch(/medlemsfordel|billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
