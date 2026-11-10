@@ -27,6 +27,20 @@ const text = async (path: string, e?: Env) => { const r = await get(path, e); re
 const rows = (body: string) => [...body.matchAll(/<span class="row-title">([^<]+)<\/span>/g)].map(m => m[1]);
 const count = (body: string) => Number(/class="results-count"[^>]*>(\d+) events?</.exec(body)?.[1] ?? NaN);
 
+describe("about page", () => {
+  it("presents Flokken as a social association: two aims, who it is for, values, an English summary", async () => {
+    const { status, body } = await text("/om");
+    expect(status).toBe(200);
+    expect(body).toContain('<h2 id="formaal">Vores formål</h2>');
+    expect(body).toContain("<strong>Fællesskab.</strong>");
+    expect(body).toContain("<strong>Byens arrangører.</strong>");
+    expect(body).toContain("internationale studerende");
+    for (const v of ["Fællesskab", "Inddragelse", "Inklusion"]) expect(body).toContain(`<dt>${v}</dt>`);
+    expect(body).toContain('<p class="aims-en" lang="en">');
+    expect(body).not.toMatch(/registreret socialøkonomisk|RSV/i);
+  });
+});
+
 describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
     const { status, body } = await text("/");
@@ -35,6 +49,11 @@ describe("front page", () => {
     expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ events? – dag for dag<\/span>/);
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
+    // The association's two aims and a line for newcomers who read English.
+    expect(body).toContain("Flokken er en social forening med to formål");
+    expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
+    // Not yet registered: never claim the protected RSV status.
+    expect(body).not.toMatch(/registreret socialøkonomisk/i);
     // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
     expect(body).toContain("<strong>Find en flok – eller opret en</strong>");
     expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");

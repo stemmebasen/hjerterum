@@ -435,6 +435,11 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .mission { margin-top: 40px; background: var(--butter); border-radius: var(--radius); padding: 24px 30px; }
 .mission h2 { margin-bottom: .3em; }
 .mission p { margin-bottom: 0; max-width: 40em; font-size: 1.14rem; line-height: 1.55; }
+.mission .mission-aims { margin-top: .8em; font-size: 1rem; }
+.mission .mission-en { margin-top: .8em; font-size: .95rem; font-style: italic; opacity: .85; }
+.aims-en { font-style: italic; }
+.values dt { font-weight: 700; margin-top: .8em; }
+.values dd { margin: .2em 0 0; }
 .partner-teaser { margin-top: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--green); color: #e6efe9; border-radius: var(--radius); padding: 26px 30px; }
 .partner-teaser h2 { color: #fff; margin-bottom: .2em; }
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }

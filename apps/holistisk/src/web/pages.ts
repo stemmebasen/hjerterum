@@ -80,6 +80,12 @@ const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 /** Why the site exists, in Jake's words. Shown on the front page and at the top of /om. */
 const MISSION = "Hvis du savner at opleve nye ting og møde nye mennesker, så er du IKKE alene. Vi er rigtig mange, der har det ligesom dig. Derfor lavede vi Flokken!";
 
+/** The two aims, in one breath. Shown under the mission on the front page. */
+const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud af døren, så de møder nye mennesker og oplever noget sammen – og at hjælpe byens mindre spillesteder, teatre og foreninger med at blive set.";
+
+/** One line for newcomers who don't read Danish yet, such as international students. */
+const ENGLISH_LINE = "New in Aarhus? Flokken is for you too. Pick an event, join a small group and go together – plenty of concerts and workshops need no Danish at all.";
+
 /** How many of the coming week's events the front page lists before pointing to the calendar. */
 const FRONT_WEEK_LIMIT = 80;
 
@@ -123,6 +129,8 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   <aside class="mission" aria-labelledby="h-mission">
     <h2 id="h-mission">Derfor findes Flokken</h2>
     <p>${MISSION}</p>
+    <p class="mission-aims">${AIMS} <a href="/om#formaal">Læs om vores formål og værdier</a></p>
+    <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section savings" aria-labelledby="h-save">
@@ -157,7 +165,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
           "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK",
           potentialAction: { "@type": "SearchAction", target: `${ctx.origin}/kalender?q={search_term_string}`, "query-input": "required name=search_term_string" }
         },
-        { "@context": "https://schema.org", "@type": "Organization", name: "Flokken", url: ctx.origin + "/", logo: ctx.origin + "/favicon.svg" }
+        { "@context": "https://schema.org", "@type": "Organization", name: "Flokken", url: ctx.origin + "/", logo: ctx.origin + "/favicon.svg", description: AIMS }
       ]
     }, body)
   };
@@ -564,8 +572,24 @@ export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[])
     <h1>Om Flokken</h1>
     <p class="standfirst">${MISSION}</p>
   </header>
-  <h2>Byens arrangører</h2>
-  <p>Og så vil vi kaste lys over alt det, der sker i byen. Bag hvert event står et spillested, en forening eller en ildsjæl, som flere burde opdage.</p>
+  <h2 id="formaal">Vores formål</h2>
+  <p>Flokken er en social forening i Aarhus. Vi har to formål, og de vejer lige tungt:</p>
+  <ol class="aims">
+    <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen. Det er nemmere at tage afsted, når man ved, at andre venter på en.</li>
+    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at få opmærksomhed om deres arrangementer. Bag hvert event står et sted, en forening eller en ildsjæl, som flere burde opdage.</li>
+  </ol>
+  <h2>For alle – og særligt for dig, der har brug for en håndsrækning</h2>
+  <p>Flokken er for alle. Men vi er her især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i byen, fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene. Hos os mødes man i små flokke, på et offentligt sted og under trygge rammer.</p>
+  <p>Det gælder også internationale studerende og andre nye i Aarhus, som mangler en vej ind i fællesskabet.</p>
+  <p class="aims-en" lang="en"><strong>In English:</strong> Flokken is a non-profit social club in Aarhus. We help people get out, meet new people and share an experience – and we help small venues, theatres and associations get noticed. Everyone is welcome, and especially those who need a little extra help to get out there, such as international students looking for a way in. Many events need no Danish at all, and you can always write in English in your flock.</p>
+  <h2>Vores værdier</h2>
+  <dl class="values">
+    <dt>Fællesskab</dt><dd>Vi tror på, at gode oplevelser bliver bedre, når de deles. Ingen skal stå alene i døren.</dd>
+    <dt>Inddragelse</dt><dd>Flokken bygges sammen med dem, der bruger den. Medlemmer og arrangører er med til at bestemme, hvad vi laver, og hvordan.</dd>
+    <dt>Inklusion</dt><dd>Alle er velkomne, uanset alder, baggrund, sprog og hvor meget man har brug for at blive taget i hånden.</dd>
+  </dl>
+  <h2>Fællesskabet før profitten</h2>
+  <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
   <h2>Hvad er en flok?</h2>
   <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet og går ind sammen. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du events?</h2>
@@ -578,7 +602,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[])
   <h2 id="arrangoerer">For arrangører</h2>
   <p>Vil I samarbejde med Flokken – eller have jeres events med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres events, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres events.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Hvad Flokken er, hvordan en flok virker, hvor eventsene kommer fra, og hvordan arrangører kommer med.", canonical: "/om", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Flokken er en social forening i Aarhus: vi hjælper folk ud og møde nye mennesker – og byens mindre arrangører med at blive set. Læs om vores formål og værdier.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
 
 export function notFoundPage(ctx: PageContext): View {

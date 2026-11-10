@@ -162,7 +162,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
-      <p>Find lokale events i ${ctx.regionLabel} – og nogen at følges med. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
+      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
       <p><a href="/find-en-flok">Find en flok</a> · <a href="/spar-paa-billetten">Spar på billetten</a> · <a href="/tryghed">Tryghed</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
