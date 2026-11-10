@@ -204,10 +204,33 @@
       img.src = src;
     });
   }
-  // "Lad os komme godt i gang": on the first visit to the event portal, a pop-up to flick through the coming events and
-  // mark those you would like to go to with others. At the end the choices are sent to /kom-godt-i-gang, which puts you
-  // in a flock for each (after becoming a member, if needed). It is shown once per browser and closes with the cross,
-  // "Ikke nu", Escape or a click outside. The page /kom-godt-i-gang does the same without JavaScript.
+  // "Lad os komme godt i gang": the interest list. On the first visit to the event portal, a pop-up with the coming
+  // events, ten at a time, to tick the ones you would like to go to with others; the ticks are sent to /kom-godt-i-gang
+  // (after becoming a member, if needed). Shown once per browser, not to people already in a flock or on the list, and
+  // it closes with the cross, "Ikke nu", Escape or a click outside. ?velkommen shows it again. The page
+  // /kom-godt-i-gang is the same list; with this file it too shows ten at a time.
+  var STEP = 10;
+  var pageInList = function (list, more) {
+    var items = list.querySelectorAll("li");
+    var shown = 0;
+    var reveal = function () {
+      shown = Math.min(items.length, shown + STEP);
+      Array.prototype.forEach.call(items, function (li, i) { li.hidden = i >= shown && !li.querySelector("input:checked"); });
+      more.hidden = shown >= items.length;
+      more.textContent = "Vis " + Math.min(STEP, items.length - shown) + " mere";
+    };
+    more.addEventListener("click", reveal);
+    reveal();
+  };
+  var pageList = document.querySelector("[data-kickoff-list]");
+  if (pageList) {
+    var listEl = pageList.querySelector(".kickoff-list");
+    var moreBtn = document.createElement("button");
+    moreBtn.type = "button"; moreBtn.className = "button-secondary kickoff-showmore";
+    listEl.parentNode.insertBefore(moreBtn, listEl.nextSibling);
+    pageInList(listEl, moreBtn);
+  }
+
   (function kickoff() {
     var root = document.documentElement;
     var base = root.getAttribute("data-base") || "/";
@@ -216,7 +239,7 @@
     if (typeof HTMLDialogElement !== "function" || !window.fetch) return;
     var here = location.pathname.slice(base.length - 1) || "/";
     var force = /[?&]velkommen\b/.test(location.search);
-    if (!force && /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|kom-godt-i-gang|tryghed|samarbejde)(\/|$)|\/opret-flok$/.test(here)) return;
+    if (!force && /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|kom-godt-i-gang|interesser|tryghed|samarbejde)(\/|$)|\/opret-flok$/.test(here)) return;
     try { if (!force && localStorage.getItem(KEY)) return; } catch (e) { return; }
 
     var el = function (tag, cls, text) {
@@ -228,105 +251,65 @@
     fetch(base + "api/kom-godt-i-gang", { headers: { accept: "application/json" }, credentials: "same-origin" })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        if (!data || !data.events || !data.events.length || (data.inFlock && !force)) return;
+        if (!data || !data.events || !data.events.length) return;
+        if (!force && (data.inFlock || data.onList)) return;
         setTimeout(function () { open(data); }, force ? 0 : 900);
       })
       .catch(function () {});
 
     function open(data) {
       try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
-      var events = data.events, index = 0, chosen = [];
       var dialog = el("dialog", "kickoff");
       dialog.setAttribute("aria-labelledby", "kickoff-h");
       var close = el("button", "kickoff-close");
       close.type = "button"; close.setAttribute("aria-label", "Luk"); close.textContent = "×";
       var head = el("div", "kickoff-head");
       var h = el("h2", null, "Lad os komme godt i gang"); h.id = "kickoff-h";
-      var lead = el("p", "kickoff-lead", "Bladr gennem de næste events, og sig ja til dem, du gerne vil følges med andre til. Så finder vi en flok til dig – eller starter en, som andre kan hoppe med i.");
-      head.appendChild(h); head.appendChild(lead);
-      var stage = el("div", "kickoff-stage");
-      stage.setAttribute("aria-live", "polite");
-      dialog.appendChild(close); dialog.appendChild(head); dialog.appendChild(stage);
+      head.appendChild(h);
+      head.appendChild(el("p", "kickoff-lead", "Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der vil med til det samme, samler vi en flok og giver dig besked."));
+      var form = el("form", "kickoff-form");
+      form.method = "post"; form.action = base + "kom-godt-i-gang";
+      var list = el("ul", "kickoff-list");
+      data.events.forEach(function (e) {
+        var li = el("li", "kickoff-item");
+        var label = el("label");
+        var box = el("input"); box.type = "checkbox"; box.name = "event"; box.value = e.slug; box.checked = !!e.mine;
+        var text = el("span", "kickoff-text");
+        text.appendChild(el("span", "kickoff-when", e.when));
+        text.appendChild(el("strong", "kickoff-title", e.title));
+        if (e.place) text.appendChild(el("span", "kickoff-place", e.place));
+        text.appendChild(el("span", "kickoff-count" + (e.interested ? " has-people" : ""), e.line));
+        label.appendChild(box); label.appendChild(text); li.appendChild(label);
+        var shown = el("input"); shown.type = "hidden"; shown.name = "vist"; shown.value = e.slug; li.appendChild(shown);
+        list.appendChild(li);
+      });
+      var more = el("button", "button-secondary kickoff-showmore"); more.type = "button";
+      var bar = el("div", "kickoff-bar");
+      var later = el("button", "button-link", "Ikke nu"); later.type = "button";
+      var save = el("button", null, "Gem mine interesser"); save.type = "submit";
+      bar.appendChild(later); bar.appendChild(save);
+      var note = el("p", "kickoff-note", data.member && data.ready ? "Du kan altid rette din liste under Mine flokke."
+        : "Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den.");
+      form.appendChild(list); form.appendChild(more); form.appendChild(note); form.appendChild(bar);
+      dialog.appendChild(close); dialog.appendChild(head); dialog.appendChild(form);
       document.body.appendChild(dialog);
 
+      var count = function () {
+        var n = list.querySelectorAll("input:checked").length;
+        save.textContent = n ? "Gem mine interesser (" + n + ")" : "Gem mine interesser";
+        save.disabled = n === 0 && !data.events.some(function (e) { return e.mine; });
+      };
+      list.addEventListener("change", count);
+      form.addEventListener("submit", function () { save.disabled = true; });
       var shut = function () { dialog.close(); };
       close.addEventListener("click", shut);
+      later.addEventListener("click", shut);
       dialog.addEventListener("click", function (event) { if (event.target === dialog) shut(); });
       dialog.addEventListener("close", function () { dialog.remove(); });
-
-      var card = function () {
-        var e = events[index];
-        stage.textContent = "";
-        var count = el("p", "kickoff-count", (index + 1) + " af " + events.length + (chosen.length ? " · " + chosen.length + " valgt" : ""));
-        var box = el("article", "kickoff-card");
-        if (e.image) {
-          var img = el("img", "kickoff-img"); img.src = e.image; img.alt = ""; img.loading = "lazy";
-          img.addEventListener("error", function () { img.remove(); });
-          box.appendChild(img);
-        }
-        var text = el("div", "kickoff-body");
-        text.appendChild(el("p", "kickoff-when", e.when));
-        text.appendChild(el("h3", "kickoff-title", e.title));
-        var place = [e.place, e.price].filter(Boolean).join(" · ");
-        if (place) text.appendChild(el("p", "kickoff-place", place));
-        text.appendChild(el("p", "kickoff-flock" + (e.flock ? " has-flock" : ""), e.flockLine));
-        var more = el("a", "kickoff-more", "Læs om eventet");
-        more.href = base + e.url.replace(/^\//, ""); more.target = "_blank"; more.rel = "noopener";
-        text.appendChild(more);
-        box.appendChild(text);
-        var actions = el("div", "kickoff-actions");
-        var skip = el("button", "button-secondary", "Spring over"); skip.type = "button";
-        var yes = el("button", null, "Interesseret"); yes.type = "button";
-        skip.addEventListener("click", function () { next(false); });
-        yes.addEventListener("click", function () { next(true); });
-        actions.appendChild(skip); actions.appendChild(yes);
-        stage.appendChild(count); stage.appendChild(box); stage.appendChild(actions);
-        var foot = el("p", "kickoff-foot");
-        var later = el("button", "button-link", chosen.length ? "Jeg er færdig" : "Ikke nu"); later.type = "button";
-        later.addEventListener("click", function () { if (chosen.length) summary(); else shut(); });
-        foot.appendChild(later);
-        stage.appendChild(foot);
-        yes.focus();
-      };
-      var next = function (interested) {
-        var current = events[index];
-        chosen = chosen.filter(function (c) { return c.slug !== current.slug; });
-        if (interested) chosen.push(current);
-        index++;
-        if (index < events.length) card(); else summary();
-      };
-      var summary = function () {
-        stage.textContent = "";
-        if (!chosen.length) {
-          stage.appendChild(el("p", "kickoff-done", "Du valgte ingen denne gang. Det er helt fint – du kan altid finde en flok på et events side."));
-          var ok = el("button", null, "Luk"); ok.type = "button"; ok.addEventListener("click", shut);
-          var again = el("button", "button-secondary", "Se dem igen"); again.type = "button";
-          again.addEventListener("click", function () { index = 0; card(); });
-          var row = el("div", "kickoff-actions"); row.appendChild(again); row.appendChild(ok);
-          stage.appendChild(row); ok.focus();
-          return;
-        }
-        stage.appendChild(el("p", "kickoff-done", chosen.length === 1 ? "Du vil gerne med til:" : "Du vil gerne med til de her " + chosen.length + ":"));
-        var list = el("ul", "kickoff-chosen");
-        chosen.forEach(function (e) {
-          var li = el("li"); li.appendChild(el("strong", null, e.title)); li.appendChild(el("span", null, e.when));
-          list.appendChild(li);
-        });
-        stage.appendChild(list);
-        stage.appendChild(el("p", "kickoff-note", "Er der allerede en flok, kommer du med i den. Ellers starter vi en, der mødes ved indgangen et kvarter før – så kan andre hoppe med. Du kan altid forlade en flok igen."));
-        if (!data.member || !data.ready) stage.appendChild(el("p", "kickoff-note", "Næste skridt: dit fornavn, din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Ingen e-mail eller telefonnummer."));
-        var form = el("form", "kickoff-actions");
-        form.method = "post"; form.action = base + "kom-godt-i-gang";
-        chosen.forEach(function (e) { var input = el("input"); input.type = "hidden"; input.name = "event"; input.value = e.slug; form.appendChild(input); });
-        var back = el("button", "button-secondary", "Tilbage"); back.type = "button";
-        back.addEventListener("click", function () { index = Math.min(index, events.length - 1); card(); });
-        var go = el("button", null, "Find mine flokke"); go.type = "submit";
-        form.appendChild(back); form.appendChild(go);
-        stage.appendChild(form);
-        go.focus();
-      };
       dialog.showModal();
-      card();
+      pageInList(list, more);
+      count();
+      dialog.scrollTop = 0;
     }
   })();
 })();

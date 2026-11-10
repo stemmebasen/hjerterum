@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import type { Env } from "../env.js";
-import { eventBySlug, type EventRow } from "../web/queries.js";
+import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
@@ -8,8 +8,8 @@ import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage
 import { flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
-import { choiceCookie, clearChoiceCookie, cleanChoices, joinOrStart, KICKOFF_PATH, kickoffJson, kickoffPage, outcomeCode, readChoices } from "./kickoff.js";
-import { createFlock, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
+import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
+import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
 
@@ -39,6 +39,9 @@ const bearerOk = (request: Request, env: Env): boolean => {
  * a flock to join once that is done. */
 const profilePath = (next: string, flock?: string) => `/profil?naeste=${encodeURIComponent(next)}${flock ? `&flok=${flock}` : ""}`;
 
+/** The profile, asking for an e-mail too, for the interest list (Socialklubben tells the member when a flock is ready). */
+const profileForList = (next: string) => `/profil?naeste=${encodeURIComponent(next)}&mail=1`;
+
 /** A chat message as the page gets it: first name only, never the member's id. */
 const chatJson = (c: ChatMessage, memberId: string, now: number) =>
   ({ id: c.id, name: c.first_name, body: c.body, at: c.created_at, time: chatTime(c.created_at, now), mine: c.member_id === memberId });
@@ -53,6 +56,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   const post = method === "POST";
   const message = url.searchParams.get("besked");
   const member = (): Promise<Member | null> => currentMember(db, request, now);
+  /** Ready for the interest list: age group, a line about themselves and an e-mail. */
+  const ready = async (id: string): Promise<boolean> => { const p = await profileFor(db, id); return profileComplete(p) && !!p?.email; };
 
   if (path === "/tryghed" && !post) return { view: safetyPage(pc) };
   if (path === "/find-en-flok" && !post) return { view: findFlockPage(pc, await upcomingFlocks(db, regions, now, 60)) };
@@ -112,17 +117,19 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (!profile) return go("/log-ind");
     const next = safeNext(url.searchParams.get("naeste"));
     const joinId = /^[0-9a-f-]{36}$/.test(url.searchParams.get("flok") ?? "") ? url.searchParams.get("flok")! : null;
-    const state = { next, joinId, profile, firstTime: !profileComplete(profile) };
+    const requireEmail = url.searchParams.get("mail") === "1";
+    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail };
     const action = `/profil${url.search}`;
-    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", removePhoto: false }, errors: {} }) };
+    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: {} }) };
     const data = await formData(request, PROFILE_MAX_BODY);
-    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", removePhoto: false }, errors: { photo: "Billedet er for stort. Vælg et mindre billede (højst 250 KB)." }, status: 400 }) };
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: { photo: "Billedet er for stort. Vælg et mindre billede (højst 250 KB)." }, status: 400 }) };
     const form = readProfileForm(data);
-    const checked = validateProfile(form);
+    const checked = validateProfile(form, { requireEmail: requireEmail && !profile.email });
     const photo = await readPhoto(data);
     const errors = { ...("errors" in checked ? checked.errors : {}), ...(photo && "error" in photo ? { photo: photo.error } : {}) };
     if ("errors" in checked || (photo && "error" in photo)) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
-    await saveProfile(db, m.id, checked.values, photo, form.removePhoto, now);
+    const saved = await saveProfile(db, m.id, checked.values, photo, form.removePhoto, now);
+    if ("error" in saved) return { view: profilePage(pc, { ...state, action, form, errors: { email: "Den e-mail bruges allerede af en anden profil. Log ind med koden for den, eller brug en anden e-mail." }, status: 400 }) };
     if (joinId) {
       const f = await flockById(db, joinId, m.id);
       if (f) {
@@ -133,34 +140,69 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return go(withMessage(next, "profil_gemt"));
   }
 
-  // "Lad os komme godt i gang": the pop-up's cards, the page, and joining the chosen flocks in one go.
+  // "Lad os komme godt i gang": the interest list (the pop-up's JSON and the page), and answering an invitation.
   if (path === "/api/kom-godt-i-gang" && !post) {
     const m = await member();
-    const ready = m ? profileComplete(await profileFor(db, m.id)) : false;
-    return { json: await kickoffJson(db, regions, m, ready, now), status: 200 };
+    return { json: await kickoffJson(db, regions, m, m ? await ready(m.id) : false, now), status: 200 };
   }
   if (path === KICKOFF_PATH) {
     const m = await member();
-    const ready = m ? profileComplete(await profileFor(db, m.id)) : false;
+    const isReady = m ? await ready(m.id) : false;
+    const chosen = readChoices(request);
+    // On the way back from becoming a member: first the profile (with e-mail), then the ticks are saved.
+    const afterProfile = `${KICKOFF_PATH}?gem=1`;
     if (!post) {
-      // Coming back from becoming a member: first the profile, then back here (without ?videre, so "Fortryd" there
-      // does not lead back to it).
-      if (m && !ready && url.searchParams.has("videre")) return go(profilePath(KICKOFF_PATH));
-      return { view: await kickoffPage(db, pc, regions, { memberId: m?.id ?? null, ready, chosen: readChoices(request), message }) };
+      if (m && !isReady && url.searchParams.has("videre")) return go(profileForList(afterProfile));
+      if (m && isReady && url.searchParams.has("gem") && chosen.length) {
+        await saveInterests(db, m.id, chosen, [], regions, now);
+        return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
+      }
+      return { view: await kickoffPage(db, pc, regions, { memberId: m?.id ?? null, ready: isReady, chosen, message }) };
     }
     const data = await formData(request);
     const slugs = cleanChoices((data?.getAll("event") ?? []).map(String));
-    if (!slugs.length) return go(withMessage(KICKOFF_PATH, "intet_valgt"));
-    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(`${KICKOFF_PATH}?videre=1`)}`, choiceCookie(slugs));
-    if (!ready) return go(profilePath(KICKOFF_PATH), choiceCookie(slugs));
-    const outcome = await joinOrStart(db, slugs, regions, m.id, now);
-    return go(withMessage("/flokke", outcomeCode(outcome)), clearChoiceCookie());
+    const shown = cleanChoices((data?.getAll("vist") ?? []).map(String));
+    if (!m) {
+      if (!slugs.length) return go(withMessage(KICKOFF_PATH, "intet_valgt"));
+      return go(`/log-ind?naeste=${encodeURIComponent(`${KICKOFF_PATH}?videre=1`)}`, choiceCookie(slugs));
+    }
+    if (!isReady) {
+      if (!slugs.length) return go(withMessage(KICKOFF_PATH, "intet_valgt"));
+      return go(profileForList(afterProfile), choiceCookie(slugs));
+    }
+    // A member may also untick everything to take the events off their list.
+    if (!slugs.length && !(await memberInterests(db, m.id)).some(i => shown.includes(i.slug))) return go(withMessage(KICKOFF_PATH, "intet_valgt"));
+    await saveInterests(db, m.id, slugs, shown, regions, now);
+    return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
+  }
+  const answer = /^\/interesser\/([a-z0-9-]{1,90})\/(bekraeft|nej-tak|fjern)$/.exec(path);
+  if (answer) {
+    const m = await member();
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent("/flokke")}`);
+    if (!post) return go("/flokke#interesser");
+    const [, slug, what] = answer as unknown as [string, string, string];
+    if (what === "fjern") { await removeInterest(db, m.id, slug); return go(withMessage("/flokke", "interesse_fjernet") + "#interesser"); }
+    if (what === "nej-tak") { await declineInterest(db, m.id, slug, now); return go(withMessage("/flokke", "nej_tak") + "#interesser"); }
+    const result = await confirmInterest(db, m.id, slug, now);
+    if ("error" in result) return go(withMessage("/flokke", `invitation_${result.error}`) + "#interesser");
+    return go(withMessage(flockPath(result.flockId), "bekraeftet"));
   }
 
   if (path === "/flokke" && !post) {
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent("/flokke")}`);
-    return { view: myFlocksPage(pc, m, await memberFlocks(db, m.id), message) };
+    const [flocks, interests] = await Promise.all([memberFlocks(db, m.id), memberInterests(db, m.id)]);
+    // Cancelled events the member was going to, with three similar ones to choose instead.
+    const cancelledSlugs = [...new Set([
+      ...flocks.filter(f => f.event_status === "cancelled" && !eventOver(f, now)).map(f => f.event_slug),
+      ...interests.filter(i => i.event_status === "cancelled" && i.status !== "declined" && i.status !== "expired" && (i.ends_at ?? i.starts_at + 3 * 3600_000) >= now).map(i => i.slug)
+    ])].slice(0, 5);
+    const cancelled = (await Promise.all(cancelledSlugs.map(async slug => {
+      const event = await eventBySlug(db, slug);
+      return event ? { event, similar: await relatedEvents(db, event, regions, now, 3) } : null;
+    }))).filter((x): x is NonNullable<typeof x> => !!x);
+    const active = interests.filter(i => i.event_status !== "cancelled");
+    return { view: myFlocksPage(pc, m, flocks, message, { top: cancelledSection(cancelled, now), interests: interestsSection(active, now) }) };
   }
 
   const create = /^\/events\/([a-z0-9-]{1,90})\/opret-flok$/.exec(path)?.[1];
