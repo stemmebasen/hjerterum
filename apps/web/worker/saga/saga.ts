@@ -341,7 +341,7 @@ async function agendaFor(db: ReturnType<typeof requireDb>, day: string | null): 
   const attendees = planned?.attendees?.trim() ? `\nDeltagere (skriv dem præcis sådan under **Til stede:**, og brug navnene om talerne, hvor det fremgår, hvem der taler - skriv aldrig "Taler 1" osv. under Til stede): ${planned.attendees.trim()}` : "";
   if (!points.length) return attendees;
   return `${planned?.start_time ? `\nTidspunkt: kl. ${planned.start_time}` : ""}${planned?.place ? `\nSted: ${planned.place}` : ""}${attendees}`
-    + "\n\nDAGSORDEN (skriv \"## Punkter\" i denne rækkefølge med disse numre og overskrifter; et punkt, der ikke blev drøftet, får \"- Synspunkter: Ikke drøftet\"; "
+    + "\n\nDAGSORDEN (skriv \"## Punkter\" i denne rækkefølge med disse numre og overskrifter; et punkt, der ikke blev drøftet, får \"- Ikke drøftet\" og \"- Beslutning: Ingen beslutning\"; "
     + "drøftes noget uden for dagsordenen, så tag det med til sidst som et ekstra punkt):\n" + points.map((point, i) => `${i + 1}. ${point}`).join("\n");
 }
 
