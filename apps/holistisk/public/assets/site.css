@@ -509,9 +509,12 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .chat-empty { font-weight: 700; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 10px; }
 .choice-row .is-chosen { background: var(--green); color: var(--butter); }
-.form-card { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 22px; display: grid; gap: 16px; box-shadow: 0 5px 0 var(--ink); }
+.form-card { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 20px 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; box-shadow: 0 5px 0 var(--ink); }
 .form-card h2 { margin: 0; font-size: 1.4rem; }
-.field { display: grid; gap: 6px; }
+/* minmax(0, 1fr): a wide control (the file picker with a long file name on a phone) must not push the form past the screen. */
+.field { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; min-width: 0; }
+.field input[type="file"] { max-width: 100%; min-width: 0; font-size: .95rem; }
+.field .hint { overflow-wrap: anywhere; }
 .field > label { font-weight: 800; }
 .field input[type="text"], .field input[type="email"], .field input[type="url"], .field input[type="datetime-local"], .field select, .field textarea { width: 100%; min-height: 48px; border: 2px solid var(--rule); border-radius: var(--radius-s); padding: 8px 12px; background: var(--paper); font: inherit; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--ink); }

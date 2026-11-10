@@ -176,32 +176,72 @@
     schedule();
   }
   // The profile photo: made small (at most 600 px, JPEG) in the browser before it is sent, so a phone photo of several
-  // MB fits. Without this, or in a browser that cannot, the photo is sent as it is and the server says if it is too big.
+  // MB fits. Saving waits for that to finish, and a photo that is still too big is stopped here with a message, so the
+  // big file is never sent. Without this, or in a browser that cannot, the server says if it is too big.
   var photoInput = document.querySelector("[data-photo-input]");
-  if (photoInput && window.DataTransfer && window.URL && document.createElement("canvas").toBlob) {
+  if (photoInput) {
+    var PHOTO_MAX = 250000;
+    var photoForm = photoInput.form;
+    var pending = null;
+    var photoError = function (text) {
+      var box = document.getElementById("err-photo-js");
+      if (!text) { if (box) box.remove(); photoInput.removeAttribute("aria-invalid"); return; }
+      if (!box) { box = document.createElement("span"); box.className = "field-error"; box.id = "err-photo-js"; box.setAttribute("role", "alert"); photoInput.parentNode.appendChild(box); }
+      box.textContent = text;
+      photoInput.setAttribute("aria-invalid", "true");
+    };
+    var canShrink = !!(window.DataTransfer && window.URL && document.createElement("canvas").toBlob);
+    var shrink = function (file) {
+      return new Promise(function (done) {
+        var img = new Image();
+        var src = URL.createObjectURL(file);
+        img.onload = function () {
+          try {
+            var scale = Math.min(1, 600 / Math.max(img.naturalWidth, img.naturalHeight));
+            var canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+            var g = canvas.getContext("2d");
+            g.fillStyle = "#fff"; g.fillRect(0, 0, canvas.width, canvas.height); // a see-through PNG gets white, not black
+            g.drawImage(img, 0, 0, canvas.width, canvas.height);
+            URL.revokeObjectURL(src);
+            canvas.toBlob(function (blob) {
+              if (!blob) return done();
+              try {
+                var name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+                var transfer = new DataTransfer();
+                transfer.items.add(new File([blob], name, { type: "image/jpeg" }));
+                photoInput.files = transfer.files;
+              } catch (e) { /* this browser cannot swap the file; the size check below catches a big one */ }
+              done();
+            }, "image/jpeg", 0.85);
+          } catch (e) { URL.revokeObjectURL(src); done(); }
+        };
+        img.onerror = function () { URL.revokeObjectURL(src); done(); };
+        img.src = src;
+      });
+    };
     photoInput.addEventListener("change", function () {
+      photoError("");
       var file = photoInput.files && photoInput.files[0];
-      if (!file || !/^image\//.test(file.type) || photoInput.getAttribute("data-shrunk") === file.name) return;
-      var img = new Image();
-      var src = URL.createObjectURL(file);
-      img.onload = function () {
-        var scale = Math.min(1, 600 / Math.max(img.naturalWidth, img.naturalHeight));
-        var canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(src);
-        canvas.toBlob(function (blob) {
-          if (!blob) return;
-          var name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
-          var transfer = new DataTransfer();
-          transfer.items.add(new File([blob], name, { type: "image/jpeg" }));
-          photoInput.setAttribute("data-shrunk", name);
-          photoInput.files = transfer.files;
-        }, "image/jpeg", 0.85);
-      };
-      img.onerror = function () { URL.revokeObjectURL(src); };
-      img.src = src;
+      if (!file || !canShrink || !/^image\//.test(file.type)) { pending = null; return; }
+      var mine = pending = shrink(file).then(function () { if (pending === mine) pending = null; });
+    });
+    if (photoForm) photoForm.addEventListener("submit", function (event) {
+      if (pending) {
+        event.preventDefault();
+        var button = photoForm.querySelector("button[type=submit]");
+        if (button) button.disabled = true;
+        pending.then(function () { if (button) button.disabled = false; pending = null; photoForm.requestSubmit ? photoForm.requestSubmit(button || undefined) : photoForm.submit(); });
+        return;
+      }
+      var file = photoInput.files && photoInput.files[0];
+      if (file && file.size > PHOTO_MAX) {
+        event.preventDefault();
+        photoInput.value = "";
+        photoError("Billedet er for stort (højst 250 KB), så det er taget af igen. Vælg et mindre billede, eller gem uden billede.");
+        photoInput.focus();
+      }
     });
   }
   // "Lad os komme godt i gang": the interest list. On the first visit to the event portal, a pop-up with the coming

@@ -458,6 +458,12 @@ describe("profile", () => {
     expect(notImage.body).toContain("Billedet skal være JPG, PNG eller WebP.");
     const tooBig = new Uint8Array(260_000); tooBig.set(JPEG);
     expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, tooBig) })).body).toContain("Billedet er for stort");
+    // A photo straight from a phone (several MB) is read to the end and answered with a page that says so.
+    const phone = new Uint8Array(3_000_000); phone.set(JPEG);
+    const length = String((await new Response(photoForm(fields, phone)).arrayBuffer()).byteLength);
+    const huge = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, phone), headers: { "content-length": length } });
+    expect(huge.status).toBe(400);
+    expect(huge.body).toContain("Billedet var for stort til at blive sendt");
     expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) })).status).toBe(303);
 
     const ole = await join("Ole");
