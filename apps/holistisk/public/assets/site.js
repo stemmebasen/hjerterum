@@ -262,6 +262,19 @@
       })
       .catch(function () {});
 
+    // A picture, a few lines and a link to the event's own page (opens in a new tab, so the list stays).
+    function fill(box, e) {
+      if (e.image) {
+        var img = el("img", "kickoff-img"); img.src = e.image; img.alt = ""; img.loading = "lazy";
+        img.addEventListener("error", function () { img.remove(); });
+        box.appendChild(img);
+      }
+      if (e.blurb) box.appendChild(el("p", "kickoff-blurb", e.blurb));
+      var link = el("a", "kickoff-more", "Åbn eventet");
+      link.href = base + e.url.replace(/^\//, ""); link.target = "_blank"; link.rel = "noopener";
+      box.appendChild(link);
+    }
+
     function open(data) {
       try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
       var dialog = el("dialog", "kickoff");
@@ -271,7 +284,11 @@
       var head = el("div", "kickoff-head");
       var h = el("h2", null, "Lad os komme godt i gang"); h.id = "kickoff-h";
       head.appendChild(h);
-      head.appendChild(el("p", "kickoff-lead", "Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der vil med til det samme, samler vi en flok og giver dig besked. Dine første 3 udflugter er gratis."));
+      var lead = el("p", "kickoff-lead");
+      lead.appendChild(document.createTextNode("Sæt kryds ved de oplevelser, du kunne tænke dig. "));
+      lead.appendChild(el("strong", null, "Det er helt uforpligtende"));
+      lead.appendChild(document.createTextNode(" – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Dine første 3 udflugter er gratis."));
+      head.appendChild(lead);
       var form = el("form", "kickoff-form");
       form.method = "post"; form.action = base + "kom-godt-i-gang";
       var list = el("ul", "kickoff-list");
@@ -287,12 +304,37 @@
         text.appendChild(el("span", "kickoff-count" + (e.interested ? " has-people" : ""), e.line));
         label.appendChild(box); label.appendChild(text); li.appendChild(label);
         var shown = el("input"); shown.type = "hidden"; shown.name = "vist"; shown.value = e.slug; li.appendChild(shown);
+        // "Se mere": the event unfolds in the row (on a wide screen with a mouse, the panel beside the list shows it).
+        var toggle = el("button", "button-link kickoff-toggle", "Se mere om eventet"); toggle.type = "button";
+        toggle.setAttribute("aria-expanded", "false");
+        var unfold = el("div", "kickoff-unfold"); unfold.hidden = true;
+        toggle.addEventListener("click", function () {
+          if (!unfold.firstChild) fill(unfold, e);
+          unfold.hidden = !unfold.hidden;
+          toggle.setAttribute("aria-expanded", unfold.hidden ? "false" : "true");
+          toggle.textContent = unfold.hidden ? "Se mere om eventet" : "Skjul";
+        });
+        li.appendChild(toggle); li.appendChild(unfold);
+        li.addEventListener("mouseenter", function () { show(e); });
+        li.addEventListener("focusin", function () { show(e); });
         list.appendChild(li);
       });
       var more = el("button", "button-secondary kickoff-showmore"); more.type = "button";
+      // The panel beside the list on a wide screen: the event the pointer is over.
+      var preview = el("aside", "kickoff-preview");
+      preview.setAttribute("aria-label", "Om eventet");
+      var shownSlug = null;
+      function show(e) {
+        if (shownSlug === e.slug) return;
+        shownSlug = e.slug; preview.textContent = "";
+        preview.appendChild(el("p", "kickoff-when", e.when));
+        preview.appendChild(el("h3", "kickoff-title", e.title));
+        if (e.place) preview.appendChild(el("p", "kickoff-place", e.place));
+        fill(preview, e);
+      }
       var bar = el("div", "kickoff-bar");
       var later = el("button", "button-link", "Ikke nu"); later.type = "button";
-      var save = el("button", null, "Gem mine interesser"); save.type = "submit";
+      var save = el("button", null, "Vis interesse"); save.type = "submit";
       bar.appendChild(later); bar.appendChild(save);
       var note = el("p", "kickoff-note", data.member && data.ready ? "Du kan altid rette din liste under Mine flokke."
         : "Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den.");
@@ -310,13 +352,19 @@
         seg.appendChild(b);
         return b;
       });
-      form.appendChild(seg); form.appendChild(list); form.appendChild(more); form.appendChild(note); form.appendChild(bar);
+      var cols = el("div", "kickoff-cols");
+      var left = el("div", "kickoff-left");
+      left.appendChild(list); left.appendChild(more);
+      cols.appendChild(left); cols.appendChild(preview);
+      var promise = el("p", "kickoff-promise", "Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.");
+      form.appendChild(seg); form.appendChild(cols); form.appendChild(promise); form.appendChild(note); form.appendChild(bar);
+      if (data.events[0]) show(data.events[0]);
       dialog.appendChild(close); dialog.appendChild(head); dialog.appendChild(form);
       document.body.appendChild(dialog);
 
       var count = function () {
         var n = list.querySelectorAll("input:checked").length;
-        save.textContent = n ? "Gem mine interesser (" + n + ")" : "Gem mine interesser";
+        save.textContent = n ? "Vis interesse (" + n + ")" : "Vis interesse";
         save.disabled = n === 0 && !data.events.some(function (e) { return e.mine; });
       };
       list.addEventListener("change", count);

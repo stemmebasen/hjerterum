@@ -222,6 +222,19 @@ export function interestLine(n: number, e: Pick<EventRow, "flock_fill">): string
 
 type Candidate = { event: EventRow; interested: number; mine: boolean };
 
+/** A few lines about the event, to see what it is without leaving the list: its summary, else the start of its text. */
+export function blurb(e: Pick<EventRow, "summary" | "description">, max = 320): string {
+  const text = (e.summary ?? (e.description ?? "").split(/\n+/).find(p => p.trim().length > 20) ?? "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max).replace(/\s+\S*$/, "")} …` : text;
+}
+const imageOf = (e: Pick<EventRow, "image_url">) => e.image_url && /^https:\/\//.test(e.image_url) ? e.image_url : null;
+/** The unfolded part of a row on /kom-godt-i-gang: picture, a few lines and a link to the event's page. */
+const details = (e: EventRow) => html`<details class="kickoff-details"><summary>Se mere om eventet</summary>
+  ${imageOf(e) ? html`<img class="kickoff-img" src="${imageOf(e)!}" alt="" loading="lazy">` : ""}
+  ${blurb(e) ? html`<p>${blurb(e)}</p>` : ""}
+  <p><a class="kickoff-more" href="${eventPath(e)}">Åbn eventet</a></p>
+</details>`;
+
 /** The events of the coming weeks for the list: those with people already interested or a flock with room first, then
  * the soonest. Events the member already has a flock for are left out; those they are interested in are ticked. */
 async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number): Promise<{ list: Candidate[]; inFlock: boolean; interests: InterestRow[] }> {
@@ -244,7 +257,7 @@ export async function kickoffJson(db: D1Database, regions: string[], member: { i
     member: !!member, ready, inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
     events: list.map(({ event: e, interested, mine }) => ({
       slug: e.slug, title: e.title, when: when(e, now), place: [placeLine(e), priceLabel(e)].filter(Boolean).join(" · "),
-      groups: groupsOf(e.categories), interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
+      image: imageOf(e), blurb: blurb(e), groups: groupsOf(e.categories), interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
     }))
   };
 }
@@ -268,7 +281,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
     ${crumbsNav(crumbs)}
     <h1>Lad os komme godt i gang</h1>
     ${flash(state.message)}
-    <p class="standfirst">Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der gerne vil med til det samme, samler vi en flok og giver dig besked – så bekræfter du, om du er med. Dine første 3 udflugter er gratis.</p>
+    <p class="standfirst">Sæt kryds ved de oplevelser, du kunne tænke dig. <strong>Det er helt uforpligtende</strong> – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Først dér siger du ja. Dine første 3 udflugter er gratis.</p>
   </header>
   ${groupTiles(group, null, g => g ? `${KICKOFF_PATH}?gruppe=${g}` : KICKOFF_PATH, { compact: true })}
   ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form" data-kickoff-list>
@@ -280,9 +293,10 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
           <strong class="kickoff-title">${e.title}</strong>
           <span class="kickoff-place">${[placeLine(e), priceLabel(e)].filter(Boolean).join(" · ")}</span>
           <span class="kickoff-count${others || flockRoom(e) ? " has-people" : ""}">${interestLine(others, e)}</span></span>
-      </label><input type="hidden" name="vist" value="${e.slug}"> <a class="kickoff-more" href="${eventPath(e)}">Om eventet</a></li>`;
+      </label><input type="hidden" name="vist" value="${e.slug}">${details(e)}</li>`;
     })}</ul>
-    <div class="form-actions"><button type="submit">Gem mine interesser</button></div>
+    <p class="kickoff-promise">Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.</p>
+    <div class="form-actions"><button type="submit">Vis interesse</button></div>
     ${state.memberId && state.ready ? "" : html`<p class="small meta-muted">Bagefter fortæller du kort om dig selv (fornavn, aldersgruppe og én linje) og giver os din e-mail, så vi kan give besked, når din flok er klar. Ingen andre ser din e-mail.</p>`}
   </form>` : html`<p class="empty">Der er ingen events de næste uger lige nu. Kig i <a href="/kalender">kalenderen</a>.</p>`}
 </div>`;

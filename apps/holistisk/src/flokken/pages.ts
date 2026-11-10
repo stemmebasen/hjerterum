@@ -34,7 +34,7 @@ const MESSAGES: Record<string, string> = {
   tak: "Tak for din henvendelse. Vi vender tilbage.",
   meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den.",
   profil_gemt: "Din profil er gemt.",
-  interesser_gemt: "Tak! Du står på listen. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og giver dig besked.",
+  interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Eventet er fjernet fra din liste.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."

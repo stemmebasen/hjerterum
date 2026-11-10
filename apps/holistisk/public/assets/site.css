@@ -1103,3 +1103,25 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .free-dots { display: inline-flex; gap: 6px; }
 .free-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); }
 .free-dot.is-used { background: var(--green-2); }
+
+/* The interest list: say plainly it binds you to nothing, and let people see the event without leaving the list. */
+.kickoff-promise { margin: 10px 0 0; padding: 8px 12px; border-radius: 12px; background: var(--green-soft); color: #17543f; font-weight: 800; font-size: .9rem; }
+.kickoff-toggle { justify-self: start; margin-left: 34px; font-size: .84rem; }
+.kickoff-unfold, .kickoff-details { margin-left: 34px; display: grid; gap: 6px; font-size: .9rem; color: var(--ink-2); }
+.kickoff-unfold p, .kickoff-details p { margin: 0; }
+.kickoff-details summary { cursor: pointer; font-size: .84rem; font-weight: 700; color: var(--muted); text-decoration: underline; }
+.kickoff-details[open] summary { margin-bottom: 6px; }
+.kickoff-img { display: block; width: 100%; max-height: 180px; object-fit: cover; border: 2px solid var(--ink); border-radius: 12px; }
+.kickoff-preview { display: none; }
+.kickoff-cols { display: block; }
+@media (min-width: 960px) and (hover: hover) {
+  .kickoff { width: min(940px, calc(100vw - 48px)); }
+  .kickoff-cols { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+  .kickoff-preview { display: grid; gap: 8px; position: sticky; top: 0; padding: 14px 16px; border: 2px solid var(--ink); border-radius: 16px; background: var(--card); box-shadow: 0 4px 0 var(--ink); font-size: .92rem; color: var(--ink-2); }
+  .kickoff-preview p, .kickoff-preview h3 { margin: 0; }
+  .kickoff-preview .kickoff-title { font-size: 1.2rem; color: var(--ink); }
+  .kickoff-preview .kickoff-img { max-height: 200px; }
+  .kickoff .kickoff-toggle, .kickoff .kickoff-unfold { display: none; }
+  .kickoff .kickoff-item:not(:has(input:checked)):hover { background: var(--paper-2); }
+}
+.kickoff-preview .kickoff-more, .kickoff-unfold .kickoff-more, .kickoff-details .kickoff-more { margin-left: 0; }
