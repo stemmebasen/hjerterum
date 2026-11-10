@@ -112,7 +112,7 @@ function keepPhrases(root: Node): void {
   for (let node = walker.nextNode(); node; node = walker.nextNode()) found.push(node as Text);
   for (const text of found) {
     const keep = document.createElement("span");
-    keep.className = "notranslate";
+    keep.className = "notranslate kept";
     keep.setAttribute("translate", "no");
     text.replaceWith(keep);
     keep.appendChild(text);
@@ -149,6 +149,18 @@ const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|s
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }
+/** Douglas (10 Nov 2026): "No space after these two email addresses" - "team@hjerterum.infoif something". The Danish has a comma after the address
+ * (", hvis noget skal ændres"); Google leaves the comma out in English, and the space with it. After Google's work a space is put between an address
+ * (or a kept name) and a word that runs into it. */
+function spaceKept(): void {
+  for (const kept of document.querySelectorAll('a[href^="mailto:"].notranslate, span.notranslate.kept')) {
+    let outer: Element = kept;
+    while (outer.parentElement && outer.parentElement.childNodes.length === 1 && /^(A|B|STRONG|EM|I|SPAN)$/.test(outer.parentElement.tagName)) outer = outer.parentElement;
+    const after = outer.nextSibling, before = outer.previousSibling, text = outer.textContent ?? "";
+    if (after && /^[\p{L}\p{N}]/u.test(after.textContent ?? "") && !/\s$/.test(text)) outer.after(document.createTextNode(" "));
+    if (before && /[\p{L}\p{N}]$/u.test(before.textContent ?? "") && !/^\s/.test(text)) outer.before(document.createTextNode(" "));
+  }
+}
 function fixNames(root: Node): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: node => node.parentElement?.closest("font") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -165,6 +177,7 @@ export function startTranslation(): void {
   style.textContent = STYLE;
   document.head.appendChild(style);
   keepPhrases(document.body);
+  let spacing = false;
   new MutationObserver(changes => {
     for (const change of changes) for (const node of change.addedNodes) {
       if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) continue;
@@ -172,6 +185,7 @@ export function startTranslation(): void {
       keepPhrases(root);
       fixNames(root);
     }
+    if (!spacing) { spacing = true; requestAnimationFrame(() => { spacing = false; spaceKept(); }); }
   }).observe(document.body, { childList: true, subtree: true });
   const holder = document.createElement("div");
   holder.id = "google_translate_element";
