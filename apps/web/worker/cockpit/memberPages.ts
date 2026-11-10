@@ -82,7 +82,7 @@ ${d.members.length ? `<table class="rows m-list"><tr><th>Navn</th><th>Medlemskab
 <label>Medlemskab<select name="tier">${Object.entries(membershipPlans).map(([key, plan]) => `<option value="${key}">${esc(plan.name)}</option>`).join("")}</select></label>
 <label>Note <span class="muted" style="font-weight:400">(valgfri)</span><input name="note" maxlength="300" placeholder="Fx æresmedlem eller frivillig"></label><button>Giv medlemskab</button></form>
 <p class="small muted" style="margin:10px 0 0">Personen skal have logget ind på medlem.hjerterum.info én gang med sin e-mail.</p></section>`;
-  const mw = `<section class="panel"><header><h2>MembershipWorks-eksport</h2><p>Kun til opslag: giver ingen adgang og ændrer intet i MembershipWorks.</p></header>
+  const mw = `<section class="panel"><header><h2>MembershipWorks-eksport</h2><p>Den nyeste eksport giver adgang: den, der står i den med et gyldigt medlemskab, kan logge ind med samme e-mail. Den ændrer intet i MembershipWorks.</p></header>
 ${d.mw.latest ? `<p class="small" style="margin:0 0 8px"><strong>${d.mw.accounts}</strong> konti fra <em>${esc(d.mw.latest.filename)}</em>, ${esc(DATE.format(d.mw.latest.atMs))} (${esc(d.mw.latest.by)}). ${d.mw.linked} er flyttet hertil.</p>` : `<p class="small muted" style="margin:0 0 8px">Ingen eksport endnu.</p>`}
 <p class="small muted" style="margin:0 0 10px">Når en af dem melder sig ind her, kobles medlem siden, telefon og underviser på, og I mindes om at stoppe betalingen i MembershipWorks.</p>
 <form class="stack" method="post" action="${base}/medlemmer/membershipworks" enctype="multipart/form-data"><input type="file" name="fil" accept=".csv,text/csv" required><button class="ghost">Upload eksport (CSV)</button></form>

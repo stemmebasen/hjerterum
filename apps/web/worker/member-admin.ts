@@ -9,7 +9,8 @@ import { parseCsv } from "../src/csv.js";
  * admin → Medlemmer (cockpit/memberPages.ts): the platform's own members, their timeline (written by Stripe's webhooks
  * in members.ts and by the board's actions here), and MembershipWorks' account export kept for reference: "Det er godt
  * at have dette liggende, når og hvis medlemmet vælger at oprette sig i vores nye system. Indtil da fortsætter de blot
- * i MW". The export gives no one access. */
+ * i MW". Since 3 Nov 2026 the newest export also gives access to those in it with a current plan, by their e-mail (membership-access.ts
+ * membershipFromUpload); nothing is changed in MembershipWorks. */
 
 export type AdminMember = {
   id: number; clerkUserId: string; fullName: string; email: string; phone: string | null; streetAddress: string | null; birthday: string | null;
