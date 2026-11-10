@@ -5,13 +5,14 @@ import { isCancelledEvent } from "../external-events.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
 import { claimJob } from "../saga/store.js";
+import { levelDays, type LevelPost } from "./level.js";
 import { telegramClient } from "../saga/telegram.js";
 import { keySecret } from "../saga/teamMail.js";
 import { prReadyNames } from "../cockpit/prMaterial.js";
 import { facebookEvents } from "../cockpit/fbEvents.js";
 import { instagramName } from "../../pr-material.js";
 import { deletePublished, postPhotosToPage, finishReel, followerCounts, isGone, pageEvents, popularity, freshInstagramImages, ownInstagramMedia, pagePosts, permalinkOf, postPhotoToPage, postToPage, postVideoToPage, publishToInstagram, reelStatus, sendMessengerReply, sentInMessenger, messengerThreads, startReel, type MessengerThread, taggedOnFacebook, taggedOnInstagram, type MetaEnv, type TaggedPost } from "./meta.js";
-import { addDays, at, clock, dateOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
+import { addDays, at, clock, dateOf, hourOf, dayName, earlyBy, earlySlot, EVERY_EVENT, eventPostTimes, instagramPostTimes, lastPostMs, longWhen, placeFirsts, SERIES_GAP_MS, shoutWindows, mondayOf, nextMonday, pickWeekEvents, plainEventText, PLAIN_WEEK_INTRO, planDue, SITE, weekKey, weekPostTime, weekStart, weekText, whenLines, withEventDate } from "./plan.js";
 
 /** The PR cockpit (admin → Kommunikation → PR og SoMe), requested by the chair (3 Nov 2026):
  * "1 Videredele opslag som undervisere laver og tagger os i. 2 Dele 7-10 begivenheder pr uge direkte på fb, bare med et lille opslag.
@@ -568,6 +569,8 @@ export async function topUpWeeks(env: SocialEnv, deps: SagaDeps, db: D1Database)
   // Asked: "Hvorfor har du lagt så mange ind?" - once more, now with no day over three (placeFirsts).
   if (await claimJob(db, "social_shouts_v2", 0, now)) await replanForShouts(db, now);
   if (await claimJob(db, "social_shouts_v3", 0, now)) await replanForShouts(db, now);
+  // "Hun må meget gerne fordele dem jævnt fra og med i morgen tidlig" (10 Nov 2026): each morning from 6, once a day.
+  if (now >= LEVEL_FROM_MS && hourOf(now) >= 6 && await claimJob(db, "social_level_days", at(dateOf(now), 0), now)) await levelDrafts(db, now);
   const sharedEvents = await retimeOverdue(db, now, p => eventHook(env, deps, p));
   for (const e of sharedEvents) await tellChair(env, deps, e.at === null
     ? `Opslaget om "${e.title}" blev ikke godkendt i tide, og Saga kender ikke eventets Facebook-begivenhed, så den kan ikke deles. Læg linket ind under Events → Facebook-begivenheder, eller godkend opslaget: ${cockpitUrl(env)}/pr/kalender`
@@ -1093,6 +1096,40 @@ async function retimeUntouched(db: D1Database, nowMs: number): Promise<void> {
     await db.prepare("UPDATE social_posts SET publish_at_ms = ? WHERE id = ? AND status = 'draft' AND updated_at_ms = created_at_ms").bind(times[i], r.id).run();
 }
 
+/** The first morning the posts are levelled: 11 November 2026 at 6 (Danish time). */
+export const LEVEL_FROM_MS = Date.parse("2026-11-11T05:00:00Z");
+/** How far ahead the days are levelled. */
+export const LEVEL_DAYS = 21;
+
+/** Asked (the chair, 10 Nov 2026): "Der er kun ét opslag i morgen, men fem om et par dage" - the event proposals nobody has approved or moved are spread
+ * over the coming days (level.ts), each inside its own window before the event. What the chair has approved, moved or sent stays. */
+export async function levelDrafts(db: D1Database, nowMs: number): Promise<number> {
+  const toMs = nowMs + LEVEL_DAYS * 86_400_000;
+  const all = await socialPosts(db, "status IN ('draft', 'approved', 'publishing', 'published') AND publish_at_ms >= ? AND publish_at_ms < ?", [nowMs - 86_400_000, toMs + 86_400_000], "publish_at_ms, id", 1000);
+  const movable = all.filter(p => p.kind === "event" && p.status === "draft" && !p.source.chairTime && p.source.startsMs && !p.source.removed
+    && (p.publish_at_ms ?? 0) > nowMs + 2 * 3_600_000);
+  if (!movable.length) return 0;
+  const ids = new Set(movable.map(p => p.id));
+  const times = (p: SocialPost) => ({ fb: p.channels.includes("facebook") ? p.publish_at_ms : null,
+    ig: p.channels.includes("instagram") ? (typeof p.source.instagramAtMs === "number" ? p.source.instagramAtMs : p.publish_at_ms) : null });
+  const fixed = all.filter(p => !ids.has(p.id)).flatMap(p => { const t = times(p); return [
+    ...(t.fb !== null ? [{ id: p.id, t: t.fb, channel: "fb" as const }] : []), ...(t.ig !== null ? [{ id: p.id, t: t.ig, channel: "ig" as const }] : [])]; });
+  const posts: LevelPost[] = movable.map(p => {
+    const windows = shoutWindows(p.source.startsMs!, nowMs), window = (p.source.shout === 2 ? windows[windows.length - 1] : windows[0])!;
+    const t = times(p), current = (t.fb ?? t.ig)!;
+    // Its own window, widened to where it already is (a post placed by the rules for a late event); never after the last moment.
+    return { id: p.id, ...t, earliest: Math.min(window.earliest, current), latest: Math.min(Math.max(window.latest, current), lastPostMs(p.source.startsMs!)) };
+  });
+  const moved = levelDays(fixed, posts, nowMs + 2 * 3_600_000, toMs);
+  for (const [id, t] of moved) {
+    const p = movable.find(m => m.id === id)!;
+    const publishAt = t.fb ?? t.ig;
+    const source = { ...p.source, instagramAtMs: t.ig !== null && t.fb !== null && t.ig !== t.fb ? t.ig : null };
+    await db.prepare("UPDATE social_posts SET publish_at_ms = ?, source = ? WHERE id = ? AND status = 'draft'").bind(publishAt, JSON.stringify(source), id).run();
+  }
+  return moved.size;
+}
+
 /** Thursday from 10.00: next week is planned (once), and the chair is told. */
 export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Database): Promise<boolean> {
   const now = deps.now();
@@ -1236,7 +1273,8 @@ export async function movePost(db: D1Database, id: number, channel: MoveChannel,
   if (!["draft", "approved", "failed"].includes(post.status)) return "sent";
   if (!Number.isFinite(atMs) || atMs < nowMs - 60_000 || (post.kind === "event" && post.source.startsMs && atMs > post.source.startsMs - 3_600_000)) return "time";
   const ownIg = typeof post.source.instagramAtMs === "number" && post.source.instagramAtMs !== post.publish_at_ms;
-  const source = { ...post.source };
+  // The chair's own time: the morning's levelling (levelDrafts) leaves it.
+  const source = { ...post.source, chairTime: true };
   let publishAt = post.publish_at_ms;
   // A time the chair chose stays (pullEarlier leaves it).
   source.chairTime = true;
