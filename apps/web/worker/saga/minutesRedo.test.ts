@@ -82,6 +82,20 @@ describe("minutes written again", () => {
     expect(await redoMinutes(sagaEnv(db), deps(services.fetcher, NOW + 3_600_000))).toBe(false);
   });
 
+  // Asked (the chair, 10 Nov 2026) after the new rules: "Skal Saga skrive det om efter de nye regler?" - "Ja".
+  it("writes minutes with an empty draft from the start, and tells the chair they follow the new rules", async () => {
+    const db = testDatabase();
+    let asked = "";
+    const whole = "# Referat - bestyrelsesmøde 10. november 2026\n**Til stede:** Jacob\n**Fraværende:** Ikke nævnt\n\n## Punkter\n### 1. Hjemmeside\n- Synspunkter: Enighed\n- Beslutning: Ingen beslutning\n\n## Beslutninger\n- Ingen\n\n## Aftaler\n- Ingen aftaler\n\n## Opgaver\n- Jacob - Ret siden - ingen frist aftalt\n\n## Næste møde\nIkke aftalt";
+    const services = fakeServices({ ai: (_system, user) => { asked = user; return whole; } });
+    const id = Number((await db.prepare(`INSERT INTO board_minutes (source, source_file_id, file_name, status, meeting_date, transcript, draft_markdown, attempts, created_at_ms, updated_at_ms, redo_requested_at_ms)
+      VALUES ('upload', 'r2-key', 'møde.m4a', 'drafted', '2026-11-10', 'Jacob: hjemmesiden.', '', 2, 1, 1, ?)`).bind(NOW - 60_000).run()).meta!.last_row_id);
+    expect(await redoMinutes(sagaEnv(db), deps(services.fetcher, NOW))).toBe(true);
+    expect(asked).toContain("Skriv hele referatet efter skabelonen.");
+    expect((await db.prepare("SELECT draft_markdown FROM board_minutes WHERE id = ?").bind(id).first<{ draft_markdown: string }>())!.draft_markdown).toBe(whole);
+    expect(String((services.telegram("sendDocument")[0]!.body as Record<string, unknown>).caption)).toContain("skrevet forfra efter de nye regler");
+  });
+
   it("keeps the old text when the new part is not whole, and tries again later", async () => {
     const db = testDatabase();
     const services = fakeServices({ ai: () => "### 3. Hjemmeside\n- Drøftelse: Jacob viste" });
