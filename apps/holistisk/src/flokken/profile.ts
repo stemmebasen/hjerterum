@@ -15,24 +15,27 @@ export const PHOTO_MAX_BYTES = 250_000;
 /** The largest /profil form the Worker reads: the photo plus the text fields. */
 export const PROFILE_MAX_BODY = PHOTO_MAX_BYTES + 50_000;
 
-export type Profile = { first_name: string; age_group: string | null; intro: string | null; photo_id: string | null };
+export type Profile = { first_name: string; age_group: string | null; intro: string | null; photo_id: string | null; email: string | null };
 
 export const profileComplete = (p: Pick<Profile, "age_group" | "intro"> | null): boolean => !!p?.age_group && !!p.intro;
 
 export async function profileFor(db: D1Database, memberId: string): Promise<Profile | null> {
-  return db.prepare(`SELECT m.first_name, m.age_group, m.intro, p.id AS photo_id FROM members m LEFT JOIN member_photos p ON p.member_id = m.id
+  return db.prepare(`SELECT m.first_name, m.age_group, m.intro, m.email, p.id AS photo_id FROM members m LEFT JOIN member_photos p ON p.member_id = m.id
     WHERE m.id = ?`).bind(memberId).first<Profile>();
 }
 
 // ————————————————————————————————————————— The form
 
-export type ProfileForm = { firstName: string; ageGroup: string; intro: string; removePhoto: boolean };
-export type ProfileErrors = Partial<Record<"firstName" | "ageGroup" | "intro" | "photo", string>>;
+export type ProfileValues = { firstName: string; ageGroup: string; intro: string; email: string | null };
+const EMAIL = /^[^\s@<>"(),;:]+@[^\s@<>"(),;:]+\.[a-z]{2,}$/i;
+
+export type ProfileForm = { firstName: string; ageGroup: string; intro: string; email: string; removePhoto: boolean };
+export type ProfileErrors = Partial<Record<"firstName" | "ageGroup" | "intro" | "email" | "photo", string>>;
 export type Photo = { type: "image/jpeg" | "image/png" | "image/webp"; data: Uint8Array<ArrayBuffer> };
 
 export function readProfileForm(data: FormData): ProfileForm {
   const s = (k: string) => String(data.get(k) ?? "");
-  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), removePhoto: data.get("fjern_foto") === "ja" };
+  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), email: s("email"), removePhoto: data.get("fjern_foto") === "ja" };
 }
 
 export const cleanIntro = (raw: string): string => maskContacts(raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim());
@@ -57,22 +60,30 @@ export async function readPhoto(data: FormData): Promise<Photo | { error: string
   return { type, data: bytes };
 }
 
-export function validateProfile(form: ProfileForm): { values: { firstName: string; ageGroup: string; intro: string } } | { errors: ProfileErrors } {
+export function validateProfile(form: ProfileForm, options: { requireEmail?: boolean } = {}): { values: ProfileValues } | { errors: ProfileErrors } {
   const errors: ProfileErrors = {};
   const firstName = cleanFirstName(form.firstName);
   if (!firstName) errors.firstName = "Skriv dit fornavn (højst 30 bogstaver).";
   if (!(AGE_GROUPS as readonly string[]).includes(form.ageGroup)) errors.ageGroup = "Vælg din aldersgruppe.";
   const intro = cleanIntro(form.intro);
   if (intro.length < INTRO_MIN || intro.length > INTRO_MAX) errors.intro = `Skriv en linje om dig selv på ${INTRO_MIN}–${INTRO_MAX} tegn.`;
+  const email = form.email.trim().toLowerCase();
+  if (email && (email.length > 160 || !EMAIL.test(email))) errors.email = "Skriv en gyldig e-mail, fx navn@eksempel.dk.";
+  else if (!email && options.requireEmail) errors.email = "Skriv din e-mail, så vi kan give besked, når din flok er klar.";
   if (Object.keys(errors).length) return { errors };
-  return { values: { firstName: firstName!, ageGroup: form.ageGroup, intro } };
+  return { values: { firstName: firstName!, ageGroup: form.ageGroup, intro, email: email || null } };
 }
 
 /** D1 stores an ArrayBuffer as a BLOB. */
 const toArrayBuffer = (b: Uint8Array): ArrayBuffer => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
 
-export async function saveProfile(db: D1Database, memberId: string, values: { firstName: string; ageGroup: string; intro: string }, photo: Photo | null, removePhoto: boolean, now: number): Promise<void> {
-  const statements = [db.prepare("UPDATE members SET first_name = ?, age_group = ?, intro = ? WHERE id = ?").bind(values.firstName, values.ageGroup, values.intro, memberId)];
+/** Saves the profile. An e-mail left empty keeps the one the member has; one another member already uses is refused. */
+export async function saveProfile(db: D1Database, memberId: string, values: ProfileValues, photo: Photo | null, removePhoto: boolean, now: number): Promise<{ ok: true } | { error: "email_taken" }> {
+  if (values.email) {
+    const taken = await db.prepare("SELECT 1 AS x FROM members WHERE email = ? AND id != ?").bind(values.email, memberId).first<{ x: number }>();
+    if (taken) return { error: "email_taken" };
+  }
+  const statements = [db.prepare("UPDATE members SET first_name = ?, age_group = ?, intro = ?, email = COALESCE(?, email) WHERE id = ?").bind(values.firstName, values.ageGroup, values.intro, values.email, memberId)];
   if (photo) {
     statements.push(db.prepare(`INSERT INTO member_photos (member_id, id, type, data, updated_at) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT (member_id) DO UPDATE SET id = excluded.id, type = excluded.type, data = excluded.data, updated_at = excluded.updated_at`)
@@ -81,6 +92,7 @@ export async function saveProfile(db: D1Database, memberId: string, values: { fi
     statements.push(db.prepare("DELETE FROM member_photos WHERE member_id = ?").bind(memberId));
   }
   await db.batch(statements);
+  return { ok: true };
 }
 
 // ————————————————————————————————————————— In a flock

@@ -28,9 +28,9 @@ const ENDS = "COALESCE(e.ends_at, e.starts_at + 10800000)";
 const SELECT = `SELECT e.*, s.name AS source_name, s.attribution AS source_attribution, s.homepage_url AS source_homepage,
   o.name AS organizer_name, o.website_url AS organizer_url,
   (SELECT group_concat(category, ',') FROM (SELECT category FROM event_categories c WHERE c.event_id = e.id ORDER BY c.rank)) AS categories,
-  (SELECT COUNT(*) FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') AS flock_count,
+  (SELECT COUNT(*) FROM flocks f WHERE f.event_id = e.id AND f.status = 'open' AND EXISTS (SELECT 1 FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL)) AS flock_count,
   (SELECT x.n || '/' || x.max_size FROM (SELECT f.max_size, f.created_at, (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) AS n
-    FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') x ORDER BY (x.n < x.max_size) DESC, x.n DESC, x.created_at LIMIT 1) AS flock_fill
+    FROM flocks f WHERE f.event_id = e.id AND f.status = 'open') x WHERE x.n > 0 ORDER BY (x.n < x.max_size) DESC, x.n DESC, x.created_at LIMIT 1) AS flock_fill
   FROM events e JOIN sources s ON s.id = e.primary_source_id LEFT JOIN organizers o ON o.id = e.organizer_id`;
 
 type Where = { sql: string[]; params: unknown[] };
@@ -129,11 +129,11 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
 
 /** "Lad os komme godt i gang": coming events to flick through and pick some to go to with others. Events where a flock
  * already has room come first, then the soonest; at most two per organiser where there are enough others, events that last all day at the back. From
- * an hour from now and three weeks ahead. */
+ * twelve hours from now (time to gather a flock) and four weeks ahead. */
 export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20): Promise<EventRow[]> {
   const w = visible(regions, now);
   w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
-  w.params.push(now + 3600_000, now + 21 * 86400_000);
+  w.params.push(now + 12 * 3600_000, now + 28 * 86400_000);
   const room = `EXISTS (SELECT 1 FROM flocks f WHERE f.event_id = e.id AND f.status = 'open'
     AND (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) BETWEEN 1 AND f.max_size - 1)`;
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY ${room} DESC, e.all_day, e.starts_at LIMIT 200`)

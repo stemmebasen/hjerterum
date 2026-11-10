@@ -484,97 +484,153 @@ describe("profile", () => {
 });
 
 describe("Lad os komme godt i gang", () => {
-  type Card = { slug: string; title: string; flock: { members: number; size: number } | null; flockLine: string; url: string };
-  type Kickoff = { member: boolean; ready: boolean; inFlock: boolean; events: Card[] };
+  type Item = { slug: string; title: string; interested: number; line: string; mine: boolean; url: string };
+  type Kickoff = { member: boolean; ready: boolean; inFlock: boolean; onList: boolean; events: Item[] };
   const api = async (cookie?: string) => JSON.parse((await call("/api/kom-godt-i-gang", cookie ? { cookie } : {})).body) as Kickoff;
-  const choose = (slugs: string[], cookie?: string) => {
-    const form = new URLSearchParams(slugs.map(s => ["event", s]));
-    return handle(new Request(ORIGIN + "/kom-godt-i-gang", { method: "POST", body: form, headers: { origin: ORIGIN, "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) } }), env, NOW);
+  const choose = (slugs: string[], cookie?: string, shown: string[] = [], now = NOW) => {
+    const form = new URLSearchParams([...slugs.map(s => ["event", s]), ...shown.map(s => ["vist", s])]);
+    return handle(new Request(ORIGIN + "/kom-godt-i-gang", { method: "POST", body: form, headers: { origin: ORIGIN, "content-type": "application/x-www-form-urlencoded", ...(cookie ? { cookie } : {}) } }), env, now);
   };
-  const flockCount = (slug: string) => (db.raw.prepare(`SELECT COUNT(*) AS n FROM flocks f JOIN events e ON e.id = f.event_id WHERE e.slug = ? AND f.status = 'open'`).all(slug)[0] as { n: number }).n;
+  const statusOf = (name: string, slug: string) => (db.raw.prepare(`SELECT i.status FROM event_interests i JOIN members m ON m.id = i.member_id JOIN events e ON e.id = i.event_id
+    WHERE m.first_name = ? AND e.slug = ?`).all(name, slug)[0] as { status: string } | undefined)?.status ?? null;
+  const flocksOf = (slug: string) => (db.raw.prepare(`SELECT COUNT(*) AS n FROM flocks f JOIN events e ON e.id = f.event_id WHERE e.slug = ?`).all(slug)[0] as { n: number }).n;
+  /** A member ready for the list: profile and e-mail. */
+  const ready = async (name: string) => {
+    const r = await join(name);
+    expect((await call("/profil", { cookie: r.cookie, form: { fornavn: name, alder: "40-49", om_mig: `${name} her`, email: `${name.toLowerCase()}@example.dk` } })).status).toBe(303);
+    return r.cookie;
+  };
+  /** Events nobody has shown interest in and that have no flock. */
+  const fresh = async () => (await api()).events.filter(e => e.interested === 0 && flocksOf(e.slug) === 0).map(e => e.slug);
 
-  it("shows the coming weeks' events, those where a flock has room first", async () => {
+  it("lists the coming weeks' events with how many are interested, those with people first", async () => {
     const first = await api();
     expect(first.member).toBe(false);
-    expect(first.events.length).toBeGreaterThan(2);
-    expect(first.events.length).toBeLessThanOrEqual(20);
-    // An event without a flock further down the list gets one: it moves to the top.
-    const target = first.events.find((e, i) => i > 0 && !e.flock && flockCount(e.slug) === 0)!;
-    const eva = await join("Eva");
-    const start = db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(target.slug)[0] as { starts_at: number };
-    expect((await startFlock(eva.cookie, {}, target.slug, start.starts_at)).status).toBe(303);
-    const after = await api();
-    const top = after.events.findIndex(e => e.slug === target.slug);
-    expect(after.events.slice(0, top).every(e => e.flock)).toBe(true);
-    expect(after.events[top]!.flock).toEqual({ members: 1, size: 3 });
-    expect(after.events[top]!.flockLine).toBe("1 er allerede med – bliv nr. 2");
-    // The one who started it is already going: the event is not offered to her, and she is not shown the pop-up.
-    const hers = await api(eva.cookie);
-    expect(hers.inFlock).toBe(true);
-    expect(hers.events.some(e => e.slug === target.slug)).toBe(false);
+    expect(first.events.length).toBeGreaterThan(5);
+    expect(first.events.length).toBeLessThanOrEqual(40);
+    const target = (await fresh()).at(-1)!;
+    await choose([target], await ready("Asta"));
+    const after = (await api()).events;
+    const at = after.findIndex(e => e.slug === target);
+    expect(after[at]!.interested).toBe(1);
+    expect(after[at]!.line).toBe("1 interesseret");
+    expect(after.slice(0, at).every(e => e.interested > 0 || /flok med/i.test(e.line))).toBe(true);
+    expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("Ingen endnu – vær den første");
   });
 
-  it("keeps the choices while a newcomer becomes a member, then joins a flock or starts one", async () => {
-    const list = (await api()).events;
-    const withFlock = list.find(e => e.flock)!;
-    const without = list.find(e => !e.flock && flockCount(e.slug) === 0)!;
-    const before = withFlock.flock!.members;
-
-    const anon = await choose([withFlock.slug, without.slug, "<script>"]);
-    expect(anon.status).toBe(303);
+  it("keeps the ticks while a newcomer becomes a member and gives an e-mail, then puts them on the list", async () => {
+    const [a, b] = await fresh();
+    const anon = await choose([a!, b!, "<script>"]);
     expect(anon.headers.get("location")).toBe(`/log-ind?naeste=${encodeURIComponent("/kom-godt-i-gang?videre=1")}`);
     const choices = /sk_valg=[^;]+/.exec(anon.headers.get("set-cookie") ?? "")?.[0] ?? "";
-    expect(choices).toBe(`sk_valg=${withFlock.slug}.${without.slug}`);
+    expect(choices).toBe(`sk_valg=${a}.${b}`);
 
-    // A new member: first the profile, then back to the list with the choices ticked.
-    const { cookie } = await join("Frida", null);
+    const { cookie } = await join("Bjørk", null);
     const both = `${cookie}; ${choices}`;
-    const next = await call("/kom-godt-i-gang?videre=1", { cookie: both });
-    expect(next.headers.get("location")).toBe(`/profil?naeste=${encodeURIComponent("/kom-godt-i-gang")}`);
-    const notReady = await choose([withFlock.slug, without.slug], both);
-    expect(notReady.headers.get("location")).toBe(`/profil?naeste=${encodeURIComponent("/kom-godt-i-gang")}`);
-    const saved = await call(`/profil?naeste=${encodeURIComponent("/kom-godt-i-gang")}`, { cookie: both, form: { fornavn: "Frida", alder: "30-39", om_mig: "Ny i byen" } });
-    expect(saved.headers.get("location")).toBe("/kom-godt-i-gang?besked=profil_gemt");
-    const pageBody = (await call("/kom-godt-i-gang?besked=profil_gemt", { cookie: both })).body;
-    expect(pageBody).toContain("Du er næsten færdig");
-    expect(pageBody).toContain(`value="${withFlock.slug}" checked`);
-    expect(pageBody).toContain(`value="${without.slug}" checked`);
-
-    const done = await choose([withFlock.slug, without.slug], both);
-    expect(done.headers.get("location")).toBe("/flokke?besked=kom_i_gang");
-    expect(done.headers.get("set-cookie")).toContain("sk_valg=; ");
-    expect(flockCount(without.slug)).toBe(1);
-    const mine = (await call("/flokke?besked=kom_i_gang", { cookie })).body;
-    expect(mine).toContain("Du er med!");
-    expect(mine).toContain(withFlock.title.replace(/&/g, "&amp;"));
-    // She joined the flock that was furthest along.
-    const joined = db.raw.prepare(`SELECT (SELECT COUNT(*) FROM flock_members x WHERE x.flock_id = f.id AND x.left_at IS NULL) AS n FROM flocks f
-      JOIN events e ON e.id = f.event_id JOIN flock_members m ON m.flock_id = f.id JOIN members p ON p.id = m.member_id
-      WHERE e.slug = ? AND p.first_name = 'Frida' AND m.left_at IS NULL`).all(withFlock.slug)[0] as { n: number };
-    expect(joined.n).toBe(before + 1);
-    // The new flock meets at the entrance a quarter of an hour before, and others can join it.
-    const started = db.raw.prepare(`SELECT f.meeting_place, f.meeting_at, f.max_size, e.starts_at FROM flocks f JOIN events e ON e.id = f.event_id WHERE e.slug = ?`).all(without.slug)[0] as { meeting_place: string; meeting_at: number; max_size: number; starts_at: number };
-    expect(started.meeting_place).toMatch(/^Ved indgangen/);
-    expect(started.meeting_at).toBe(started.starts_at - 15 * 60_000);
-    expect(started.max_size).toBe(6);
-    // Choosing again changes nothing.
-    expect((await choose([without.slug], cookie)).headers.get("location")).toBe("/flokke?besked=kom_i_gang");
-    expect(flockCount(without.slug)).toBe(1);
+    const toProfile = `/profil?naeste=${encodeURIComponent("/kom-godt-i-gang?gem=1")}&mail=1`;
+    expect((await call("/kom-godt-i-gang?videre=1", { cookie: both })).headers.get("location")).toBe(toProfile);
+    const noMail = await call(toProfile, { cookie: both, form: { fornavn: "Bjørk", alder: "30-39", om_mig: "Ny i byen" } });
+    expect(noMail.status).toBe(400);
+    expect(noMail.body).toContain("Skriv din e-mail");
+    const saved = await call(toProfile, { cookie: both, form: { fornavn: "Bjørk", alder: "30-39", om_mig: "Ny i byen", email: " Bjoerk@Example.DK " } });
+    expect(saved.headers.get("location")).toBe("/kom-godt-i-gang?gem=1&besked=profil_gemt");
+    const stored = await call("/kom-godt-i-gang?gem=1&besked=profil_gemt", { cookie: both });
+    expect(stored.headers.get("location")).toBe("/flokke?besked=interesser_gemt#interesser");
+    expect(stored.headers.get("set-cookie")).toContain("sk_valg=; ");
+    expect(statusOf("Bjørk", a!)).toBe("waiting");
+    expect(db.raw.prepare("SELECT email FROM members WHERE first_name = 'Bjørk'").all()[0]).toEqual({ email: "bjoerk@example.dk" });
+    const mine = (await call("/flokke?besked=interesser_gemt", { cookie })).body;
+    expect(mine).toContain("Tak! Du står på listen.");
+    expect(mine).toContain("Dine interesser");
+    expect(mine).toContain("Du er den første. Vi samler en flok, når I er 3");
+    // On the list: the pop-up is not shown again, and the ticks show as ticked.
+    const own = await api(cookie);
+    expect(own.onList).toBe(true);
+    expect(own.events.find(e => e.slug === a)?.mine).toBe(true);
+    // Unticking an event that was shown takes it off the list; another member may not reuse the e-mail.
+    await choose([b!], cookie, [a!, b!]);
+    expect(statusOf("Bjørk", a!)).toBe(null);
+    const other = await join("Cille");
+    const taken = await call("/profil", { cookie: other.cookie, form: { fornavn: "Cille", alder: "30-39", om_mig: "Hej med jer", email: "bjoerk@example.dk" } });
+    expect(taken.status).toBe(400);
+    expect(taken.body).toContain("Den e-mail bruges allerede");
   });
 
-  it("says so when nothing is chosen or nothing could be joined", async () => {
-    const { cookie } = await join("Gorm");
-    expect((await choose([], cookie)).headers.get("location")).toBe("/kom-godt-i-gang?besked=intet_valgt");
-    expect((await call("/kom-godt-i-gang?besked=intet_valgt", { cookie })).body).toContain("Vælg mindst ét event først.");
-    expect((await choose(["findes-ikke"], cookie)).headers.get("location")).toBe("/flokke?besked=kom_i_gang_ingen");
+  it("gathers a flock at three, invites them for 48 hours, and passes on places not taken", async () => {
+    const startsAt = (slug: string) => (db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(slug)[0] as { starts_at: number }).starts_at;
+    const slug = (await fresh()).find(s => startsAt(s) > NOW + 4 * 86_400_000)!;
+    const [dan, eja, finn, gry] = [await ready("Dan"), await ready("Eja"), await ready("Finn"), await ready("Gry")];
+    await choose([slug], dan);
+    await choose([slug], eja);
+    expect(flocksOf(slug)).toBe(0);
+    await choose([slug], finn);
+    expect(flocksOf(slug)).toBe(1);
+    expect(["Dan", "Eja", "Finn"].map(n => statusOf(n, slug))).toEqual(["invited", "invited", "invited"]);
+    // The flock is not shown to others until someone has said yes.
+    expect((await api()).events.find(e => e.slug === slug)?.line).toBe("3 interesserede");
+    const invite = (await call("/flokke", { cookie: dan })).body;
+    expect(invite).toContain("Din flok er klar!");
+    expect(invite).toContain("I er 3 inviteret.");
+    expect(invite).toMatch(/Forslag: I mødes kl\. \d\d\.\d\d/);
+
+    const yes = await call(`/interesser/${slug}/bekraeft`, { cookie: dan, form: {} });
+    const flockId = flockIdFrom(yes.headers.get("location"));
+    expect(yes.headers.get("location")).toBe(`/flokke/${flockId}?besked=bekraeftet`);
+    expect(statusOf("Dan", slug)).toBe("confirmed");
+    const flock = db.raw.prepare("SELECT f.meeting_at, f.max_size, e.starts_at FROM flocks f JOIN events e ON e.id = f.event_id WHERE f.id = ?").all(flockId)[0] as { meeting_at: number; max_size: number; starts_at: number };
+    expect(flock.starts_at - flock.meeting_at).toBe(90 * 60_000);
+    expect(flock.max_size).toBe(6);
+    expect((await call(`/flokke/${flockId}?besked=bekraeftet`, { cookie: dan })).body).toContain("Du er med!");
+
+    // A fourth joins the line and is invited to the same flock straight away; no thanks and too late pass places on.
+    await choose([slug], gry);
+    expect(statusOf("Gry", slug)).toBe("invited");
+    expect((await call(`/interesser/${slug}/nej-tak`, { cookie: eja, form: {} })).headers.get("location")).toBe("/flokke?besked=nej_tak#interesser");
+    expect(statusOf("Eja", slug)).toBe("declined");
+    const later = NOW + 49 * 3600_000;
+    const { gatherAll } = await import("../src/flokken/kickoff.js");
+    await gatherAll(db, later);
+    expect(statusOf("Finn", slug)).toBe("expired");
+    expect((await call(`/interesser/${slug}/bekraeft`, { cookie: finn, form: {} }, later)).headers.get("location")).toBe("/flokke?besked=invitation_not_invited#interesser");
+    expect((await call("/flokke", { cookie: finn }, later)).body).toContain("Du nåede ikke at svare");
   });
 
-  it("works without JavaScript and is linked from Find en flok", async () => {
+  it("makes a second flock when more than six want to go", async () => {
+    const slug = (await fresh())[0]!;
+    const names = ["Hans", "Ida", "Jens", "Kaja", "Lars", "Mia", "Nils"];
+    for (const n of names) await choose([slug], await ready(n));
+    expect(flocksOf(slug)).toBe(1);
+    expect(names.map(n => statusOf(n, slug)).filter(s => s === "invited")).toHaveLength(6);
+    expect(statusOf("Nils", slug)).toBe("waiting");
+    await choose([slug], await ready("Otto"));
+    await choose([slug], await ready("Pia"));
+    expect(flocksOf(slug)).toBe(2);
+    expect(["Nils", "Otto", "Pia"].map(n => statusOf(n, slug))).toEqual(["invited", "invited", "invited"]);
+  });
+
+  it("tells those going when an event is cancelled and suggests three similar ones", async () => {
+    const slug = (await fresh())[0]!;
+    const cookie = await ready("Rune");
+    await choose([slug], cookie);
+    db.raw.prepare("UPDATE events SET status = 'cancelled' WHERE slug = ?").run(slug);
+    const body = (await call("/flokke", { cookie })).body;
+    expect(body).toContain("er desværre aflyst af arrangøren");
+    const suggestions = [...body.matchAll(/<input type="hidden" name="event" value="([a-z0-9-]+)"><button type="submit" class="button-secondary">Sæt mig på listen/g)].map(m => m[1]);
+    expect(suggestions.length).toBeGreaterThan(0);
+    expect(suggestions.length).toBeLessThanOrEqual(3);
+    expect(suggestions).not.toContain(slug);
+    expect((await choose([suggestions[0]!], cookie)).headers.get("location")).toBe("/flokke?besked=interesser_gemt#interesser");
+    expect(statusOf("Rune", suggestions[0]!)).not.toBe(null);
+    db.raw.prepare("UPDATE events SET status = 'scheduled' WHERE slug = ?").run(slug);
+  });
+
+  it("works without JavaScript, says so when nothing is ticked, and is linked from Find en flok", async () => {
     const r = await call("/kom-godt-i-gang");
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
     expect(r.body).toContain('<input type="checkbox" name="event"');
-    expect(r.body).toContain('<form method="post" action="/kom-godt-i-gang"');
+    expect((await choose([])).headers.get("location")).toBe("/kom-godt-i-gang?besked=intet_valgt");
+    expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét event først.");
     expect((await call("/find-en-flok")).body).toContain('<a href="/kom-godt-i-gang">Lad os komme godt i gang</a>');
   });
 });

@@ -1,123 +1,338 @@
 import type { D1Database } from "../db.js";
 import { priceLabel } from "../price.js";
-import { capitalize, dayLabel, timeRangeLabel } from "../time.js";
-import { eventPath, placeLine, seats } from "../web/components.js";
-import { html, raw } from "../web/html.js";
+import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
+import { eventPath, placeLine } from "../web/components.js";
+import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { eventBySlug, flockRoom, kickoffEvents, type EventRow } from "../web/queries.js";
-import { defaultFlockForm, validateFlockForm } from "./forms.js";
 import { flash, type View } from "./pages.js";
-import { createFlock, eventOver, flocksForEvent, isFull, joinFlock, memberFlockForEvent, memberFlocks } from "./store.js";
+import { eventOver, flockById, joinFlock, memberFlockForEvent, memberFlocks } from "./store.js";
 
-/** "Lad os komme godt i gang": a newcomer flicks through the coming events (a pop-up on the first visit, site.js, or
- * the page /kom-godt-i-gang without JavaScript), marks the ones they would like to go to with others, and is put in a
- * flock for each: the one furthest along that has room, or a new one that others can join. */
+/** "Lad os komme godt i gang": the interest list. A newcomer ticks the coming events they would like to go to with
+ * others (a pop-up on the first visit, site.js, or the page /kom-godt-i-gang), tells the others a little about
+ * themselves and gives an e-mail. When a handful are interested in the same event, Socialklubben gathers a flock and
+ * invites them; each confirms within 48 hours. The flock gets a suggested meeting time (1½ hours before) near the
+ * venue, and the rest is planned in its chat. */
 
 export const KICKOFF_PATH = "/kom-godt-i-gang";
-/** At most this many events in one go. */
-export const MAX_CHOICES = 20;
+/** A flock is gathered when this many are waiting for the same event … */
+export const GATHER_AT = 3;
+/** … and holds at most this many; more interested people make another flock. */
+export const GATHER_MAX = 6;
+/** How long an invited member has to confirm. */
+export const RESPOND_MS = 48 * 3600_000;
+/** The suggested meeting time: this long before the event starts. */
+export const MEET_BEFORE_MS = 90 * 60_000;
+/** No flock is gathered, and no invitation can be confirmed, this close to the start. */
+const LAST_CALL_MS = 3 * 3600_000;
+/** At most this many events in the list, ten shown at a time. */
+export const LIST_SIZE = 40;
+export const PAGE_STEP = 10;
+export const MAX_CHOICES = 40;
 const SLUG = /^[a-z0-9-]{1,90}$/;
+
+// ————————————————————————————————————————— Choices kept while becoming a member
 
 /** The choices are kept in a short-lived cookie while the newcomer becomes a member and fills in their profile. */
 const CHOICE_COOKIE = "sk_valg";
 export const choiceCookie = (slugs: string[]): string => `${CHOICE_COOKIE}=${slugs.join(".")}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=3600`;
 export const clearChoiceCookie = (): string => `${CHOICE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 export function readChoices(request: Request): string[] {
-  const m = new RegExp(`(?:^|;\\s*)${CHOICE_COOKIE}=([a-z0-9.-]{1,2000})`).exec(request.headers.get("cookie") ?? "");
+  const m = new RegExp(`(?:^|;\\s*)${CHOICE_COOKIE}=([a-z0-9.-]{1,4000})`).exec(request.headers.get("cookie") ?? "");
   return cleanChoices(m?.[1]?.split(".") ?? []);
 }
 export const cleanChoices = (values: string[]): string[] => [...new Set(values.filter(v => SLUG.test(v)))].slice(0, MAX_CHOICES);
 
-const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
-const flockLine = (e: EventRow): string => {
-  const room = flockRoom(e);
-  if (!room) return "Ingen flok endnu – du kan starte den første";
-  return `${room.members} er allerede med – bliv nr. ${room.members + 1}`;
+// ————————————————————————————————————————— Interests
+
+export type InterestStatus = "waiting" | "invited" | "confirmed" | "declined" | "expired";
+export type InterestRow = {
+  event_id: string; status: InterestStatus; flock_id: string | null; created_at: number; invited_at: number | null; respond_by: number | null;
+  slug: string; title: string; starts_at: number; ends_at: number | null; event_status: string; venue_name: string | null; city: string | null; area: string | null;
+  meeting_at: number | null; meeting_place: string | null;
+  /** Everyone else waiting, invited or with a place for the event. */
+  others: number;
+  /** Invited or confirmed for the same flock, the member included. */
+  invited_count: number;
 };
 
-/** The events of the coming weeks, minus those the member is already going to with a flock. */
-async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number): Promise<{ events: EventRow[]; inFlock: boolean }> {
-  const mine = memberId ? (await memberFlocks(db, memberId)).filter(f => !eventOver(f, now)) : [];
-  return { events: await kickoffEvents(db, regions, now, mine.map(f => f.event_slug)), inFlock: mine.length > 0 };
+const ACTIVE = "('waiting', 'invited', 'confirmed')";
+
+/** How many are interested in each event (waiting, invited or confirmed). */
+export async function interestCounts(db: D1Database, eventIds: string[]): Promise<Map<string, number>> {
+  if (!eventIds.length) return new Map();
+  const { results } = await db.prepare(`SELECT event_id, COUNT(*) AS n FROM event_interests WHERE status IN ${ACTIVE}
+    AND event_id IN (${eventIds.map(() => "?").join(",")}) GROUP BY event_id`).bind(...eventIds).all<{ event_id: string; n: number }>();
+  return new Map(results.map(r => [r.event_id, r.n]));
 }
 
-/** For the pop-up: the cards, and whether the visitor is a member and has told the others about themselves. */
+/** The member's interests, soonest event first. */
+export async function memberInterests(db: D1Database, memberId: string): Promise<InterestRow[]> {
+  const { results } = await db.prepare(`SELECT i.event_id, i.status, i.flock_id, i.created_at, i.invited_at, i.respond_by,
+      e.slug, e.title, e.starts_at, e.ends_at, e.status AS event_status, e.venue_name, e.city, e.area, f.meeting_at, f.meeting_place,
+      (SELECT COUNT(*) FROM event_interests o WHERE o.event_id = i.event_id AND o.member_id != i.member_id AND o.status IN ${ACTIVE}) AS others,
+      (SELECT COUNT(*) FROM event_interests o WHERE i.flock_id IS NOT NULL AND o.flock_id = i.flock_id AND o.status IN ('invited', 'confirmed')) AS invited_count
+    FROM event_interests i JOIN events e ON e.id = i.event_id LEFT JOIN flocks f ON f.id = i.flock_id
+    WHERE i.member_id = ? ORDER BY e.starts_at`).bind(memberId).all<InterestRow>();
+  return results;
+}
+
+/** Saves the member's ticks. `shown` are the events the list showed: one that is not ticked any more is taken off the
+ * list while it is still only waiting. Ticking an event again after saying no thanks puts the member back in line. */
+export async function saveInterests(db: D1Database, memberId: string, chosen: string[], shown: string[], regions: string[], now: number): Promise<{ added: number }> {
+  let added = 0;
+  const touched = new Set<string>();
+  for (const slug of cleanChoices(chosen)) {
+    const e = await eventBySlug(db, slug);
+    if (!e || !e.region || !regions.includes(e.region) || e.status !== "scheduled" || e.starts_at <= now) continue;
+    if (await memberFlockForEvent(db, e.id, memberId)) continue;
+    const r = await db.prepare(`INSERT INTO event_interests (member_id, event_id, status, created_at, updated_at) VALUES (?, ?, 'waiting', ?, ?)
+      ON CONFLICT (member_id, event_id) DO UPDATE SET status = 'waiting', flock_id = NULL, invited_at = NULL, respond_by = NULL, created_at = excluded.created_at, updated_at = excluded.updated_at
+      WHERE event_interests.status IN ('declined', 'expired')`).bind(memberId, e.id, now, now).run();
+    if ((r.meta?.changes ?? 0) > 0) { added++; touched.add(e.id); }
+  }
+  const unticked = cleanChoices(shown).filter(s => !chosen.includes(s));
+  if (unticked.length) {
+    await db.prepare(`DELETE FROM event_interests WHERE member_id = ? AND status = 'waiting'
+      AND event_id IN (SELECT id FROM events WHERE slug IN (${unticked.map(() => "?").join(",")}))`).bind(memberId, ...unticked).run();
+  }
+  for (const id of touched) await gather(db, id, now);
+  return { added };
+}
+
+/** Takes a waiting interest off the list. */
+export async function removeInterest(db: D1Database, memberId: string, slug: string): Promise<void> {
+  await db.prepare(`DELETE FROM event_interests WHERE member_id = ? AND status = 'waiting' AND event_id = (SELECT id FROM events WHERE slug = ?)`).bind(memberId, slug).run();
+}
+
+type Answer = { ok: true; flockId: string } | { error: "not_invited" | "too_late" | "full" | "event_closed" };
+
+/** Says yes to an invitation: the member joins the flock. */
+export async function confirmInterest(db: D1Database, memberId: string, slug: string, now: number): Promise<Answer> {
+  const row = await db.prepare(`SELECT i.event_id, i.flock_id, i.respond_by, e.starts_at FROM event_interests i JOIN events e ON e.id = i.event_id
+    WHERE i.member_id = ? AND e.slug = ? AND i.status = 'invited'`).bind(memberId, slug).first<{ event_id: string; flock_id: string | null; respond_by: number; starts_at: number }>();
+  if (!row || !row.flock_id) return { error: "not_invited" };
+  if (row.respond_by < now) { await expireDue(db, now); return { error: "too_late" }; }
+  const f = await flockById(db, row.flock_id, memberId);
+  if (!f) return { error: "not_invited" };
+  const joined = await joinFlock(db, f, memberId, now);
+  if ("error" in joined) {
+    if (joined.error === "already_in_flock") {
+      const mine = await memberFlockForEvent(db, row.event_id, memberId);
+      await setStatus(db, memberId, row.event_id, "confirmed", mine, now);
+      await gather(db, row.event_id, now);
+      return { ok: true, flockId: mine! };
+    }
+    // The place went to someone else meanwhile (the flock is open to others too): back in line.
+    await setStatus(db, memberId, row.event_id, "waiting", null, now);
+    await gather(db, row.event_id, now);
+    return { error: joined.error === "full" ? "full" : "event_closed" };
+  }
+  await setStatus(db, memberId, row.event_id, "confirmed", f.id, now);
+  return { ok: true, flockId: f.id };
+}
+
+/** Says no thanks to an invitation; the place goes to the next one waiting. */
+export async function declineInterest(db: D1Database, memberId: string, slug: string, now: number): Promise<void> {
+  const row = await db.prepare(`SELECT i.event_id FROM event_interests i JOIN events e ON e.id = i.event_id WHERE i.member_id = ? AND e.slug = ? AND i.status = 'invited'`)
+    .bind(memberId, slug).first<{ event_id: string }>();
+  if (!row) return;
+  await setStatus(db, memberId, row.event_id, "declined", null, now);
+  await gather(db, row.event_id, now);
+}
+
+async function setStatus(db: D1Database, memberId: string, eventId: string, status: InterestStatus, flockId: string | null, now: number): Promise<void> {
+  await db.prepare(`UPDATE event_interests SET status = ?, flock_id = ?, updated_at = ?,
+    invited_at = CASE WHEN ? = 'waiting' THEN NULL ELSE invited_at END, respond_by = CASE WHEN ? = 'waiting' THEN NULL ELSE respond_by END
+    WHERE member_id = ? AND event_id = ?`).bind(status, flockId, now, status, status, memberId, eventId).run();
+}
+
+/** Invitations not answered in time lapse, and their places go to the next ones waiting. Returns the events touched. */
+export async function expireDue(db: D1Database, now: number): Promise<string[]> {
+  const { results } = await db.prepare("SELECT DISTINCT event_id FROM event_interests WHERE status = 'invited' AND respond_by < ?").bind(now).all<{ event_id: string }>();
+  if (!results.length) return [];
+  await db.prepare("UPDATE event_interests SET status = 'expired', updated_at = ? WHERE status = 'invited' AND respond_by < ?").bind(now, now).run();
+  return results.map(r => r.event_id);
+}
+
+/** The cron's part: lapse unanswered invitations and gather flocks for every coming event with people waiting. */
+export async function gatherAll(db: D1Database, now: number): Promise<number> {
+  const expired = await expireDue(db, now);
+  const { results } = await db.prepare(`SELECT DISTINCT i.event_id FROM event_interests i JOIN events e ON e.id = i.event_id
+    WHERE i.status = 'waiting' AND e.status = 'scheduled' AND e.starts_at > ? LIMIT 200`).bind(now + LAST_CALL_MS).all<{ event_id: string }>();
+  const ids = new Set([...expired, ...results.map(r => r.event_id)]);
+  let invited = 0;
+  for (const id of ids) invited += await gather(db, id, now);
+  return invited;
+}
+
+/** Gathers flocks for one event: those waiting (first come, first served) are invited into an open flock with room,
+ * else, when at least three are waiting, into a new flock of at most six. Returns how many were invited. */
+export async function gather(db: D1Database, eventId: string, now: number): Promise<number> {
+  const e = await db.prepare("SELECT id, starts_at, ends_at, status, venue_name FROM events WHERE id = ?").bind(eventId)
+    .first<{ id: string; starts_at: number; ends_at: number | null; status: string; venue_name: string | null }>();
+  if (!e || e.status !== "scheduled" || e.starts_at - now < LAST_CALL_MS) return 0;
+  const { results: waiting } = await db.prepare(`SELECT member_id FROM event_interests WHERE event_id = ? AND status = 'waiting'
+    AND member_id NOT IN (SELECT m.member_id FROM flock_members m JOIN flocks f ON f.id = m.flock_id WHERE f.event_id = ? AND f.status = 'open' AND m.left_at IS NULL)
+    ORDER BY created_at, member_id`).bind(eventId, eventId).all<{ member_id: string }>();
+  if (!waiting.length) return 0;
+  const queue = waiting.map(w => w.member_id);
+  const respondBy = Math.min(now + RESPOND_MS, e.starts_at - LAST_CALL_MS);
+  let invited = 0;
+  const invite = async (flockId: string, members: string[]) => {
+    if (!members.length) return;
+    await db.batch(members.map(m => db.prepare(`UPDATE event_interests SET status = 'invited', flock_id = ?, invited_at = ?, respond_by = ?, notified_at = NULL, updated_at = ?
+      WHERE member_id = ? AND event_id = ? AND status = 'waiting'`).bind(flockId, now, respondBy, now, m, eventId)));
+    invited += members.length;
+  };
+  // Open flocks with people in them (or on their way) and room left: members plus open invitations.
+  const { results: open } = await db.prepare(`SELECT f.id, f.max_size,
+      (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) AS members,
+      (SELECT COUNT(*) FROM event_interests i WHERE i.flock_id = f.id AND i.status = 'invited') AS pending
+    FROM flocks f WHERE f.event_id = ? AND f.status = 'open' ORDER BY f.created_at`).bind(eventId).all<{ id: string; max_size: number; members: number; pending: number }>();
+  for (const f of open) {
+    if (!queue.length) break;
+    if (f.members + f.pending === 0) continue;
+    await invite(f.id, queue.splice(0, Math.max(0, Math.min(f.max_size, GATHER_MAX) - f.members - f.pending)));
+  }
+  while (queue.length >= GATHER_AT) {
+    const members = queue.splice(0, GATHER_MAX);
+    const id = crypto.randomUUID();
+    const place = (e.venue_name ? `I nærheden af ${e.venue_name}` : "Aftales i chatten").slice(0, 120);
+    const meetAt = Math.max(e.starts_at - MEET_BEFORE_MS, now + 3600_000);
+    await db.prepare(`INSERT INTO flocks (id, event_id, created_by, meeting_place, meeting_at, note, max_size, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`)
+      .bind(id, eventId, members[0]!, place, Math.min(meetAt, e.starts_at), "Samlet af Socialklubben. Find et godt sted at mødes i chatten – og aftal, om I fortsætter bagefter.", GATHER_MAX, now, now).run();
+    await invite(id, members);
+  }
+  return invited;
+}
+
+// ————————————————————————————————————————— The list
+
+const when = (e: Pick<EventRow, "starts_at" | "ends_at" | "all_day">, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
+/** "Ingen endnu – vær den første", "1 interesseret", "4 interesserede", plus a flock with room. */
+export function interestLine(n: number, e: Pick<EventRow, "flock_fill">): string {
+  const room = flockRoom(e);
+  const people = n === 0 ? (room ? "" : "Ingen endnu – vær den første") : `${n} ${n === 1 ? "interesseret" : "interesserede"}`;
+  const flock = room ? `flok med ${room.members} af ${room.size}` : "";
+  return capitalize([people, flock].filter(Boolean).join(" · "));
+}
+
+type Candidate = { event: EventRow; interested: number; mine: boolean };
+
+/** The events of the coming weeks for the list: those with people already interested or a flock with room first, then
+ * the soonest. Events the member already has a flock for are left out; those they are interested in are ticked. */
+async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number): Promise<{ list: Candidate[]; inFlock: boolean; interests: InterestRow[] }> {
+  const flocks = memberId ? (await memberFlocks(db, memberId)).filter(f => !eventOver(f, now)) : [];
+  const interests = memberId ? await memberInterests(db, memberId) : [];
+  const events = await kickoffEvents(db, regions, now, flocks.map(f => f.event_slug), LIST_SIZE);
+  const counts = await interestCounts(db, events.map(e => e.id));
+  const mine = new Set(interests.filter(i => i.status === "waiting" || i.status === "invited").map(i => i.event_id));
+  const list = events.map(e => ({ event: e, interested: counts.get(e.id) ?? 0, mine: mine.has(e.id) }));
+  const active = (c: Candidate) => c.interested > 0 || !!flockRoom(c.event);
+  list.sort((a, b) => Number(active(b)) - Number(active(a)));
+  return { list, inFlock: flocks.length > 0, interests };
+}
+
+/** For the pop-up: the list, and whether the visitor is a member, has told the others about themselves and has an
+ * e-mail, is in a flock or on the list already (then the pop-up is not shown). */
 export async function kickoffJson(db: D1Database, regions: string[], member: { id: string } | null, ready: boolean, now: number) {
-  const { events, inFlock } = await candidates(db, regions, member?.id ?? null, now);
+  const { list, inFlock, interests } = await candidates(db, regions, member?.id ?? null, now);
   return {
-    member: !!member, ready, inFlock,
-    events: events.map(e => ({
-      slug: e.slug, title: e.title, when: when(e, now), place: placeLine(e), price: priceLabel(e),
-      image: e.image_url && /^https:\/\//.test(e.image_url) ? e.image_url : null,
-      flock: flockRoom(e), flockLine: flockLine(e), url: eventPath(e)
+    member: !!member, ready, inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
+    events: list.map(({ event: e, interested, mine }) => ({
+      slug: e.slug, title: e.title, when: when(e, now), place: [placeLine(e), priceLabel(e)].filter(Boolean).join(" · "),
+      interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
     }))
   };
 }
 
-export type KickoffOutcome = { joined: number; started: number; already: number; failed: number };
-
-/** Puts the member in a flock for each chosen event: the open flock with room that has the most members (closest to
- * five), or else a new flock that meets at the entrance a quarter of an hour before. Events that have started, are
- * cancelled or not shown here count as failed, and so do new flocks over the daily limit. */
-export async function joinOrStart(db: D1Database, slugs: string[], regions: string[], memberId: string, now: number): Promise<KickoffOutcome> {
-  const out: KickoffOutcome = { joined: 0, started: 0, already: 0, failed: 0 };
-  for (const slug of cleanChoices(slugs)) {
-    const e = await eventBySlug(db, slug);
-    if (!e || !e.region || !regions.includes(e.region) || e.status !== "scheduled" || e.starts_at <= now) { out.failed++; continue; }
-    if (await memberFlockForEvent(db, e.id, memberId)) { out.already++; continue; }
-    const open = (await flocksForEvent(db, e.id, memberId)).filter(f => !isFull(f)).sort((a, b) => b.member_count - a.member_count || a.meeting_at - b.meeting_at);
-    let joined = false;
-    for (const f of open) {
-      if (!("error" in await joinFlock(db, f, memberId, now))) { joined = true; break; }
-    }
-    if (joined) { out.joined++; continue; }
-    const checked = validateFlockForm({ ...defaultFlockForm(e, now), publicPlace: true }, e, now, { allowedFollows: [] });
-    if ("errors" in checked) { out.failed++; continue; }
-    const created = await createFlock(db, e, memberId, checked.input, now);
-    if ("error" in created) out.failed++; else out.started++;
-  }
-  return out;
-}
-
-/** The ?besked= code after joining: all went well, some did, or none. */
-export const outcomeCode = (o: KickoffOutcome): string =>
-  !o.failed ? "kom_i_gang" : o.joined + o.started + o.already ? "kom_i_gang_delvis" : "kom_i_gang_ingen";
-
-/** The page itself: the same events as the pop-up, as a list to tick. Works without JavaScript. */
+/** The page itself: the same list to tick, ten shown at a time with JavaScript (all without). */
 export async function kickoffPage(db: D1Database, ctx: PageContext, regions: string[], state: { memberId: string | null; ready: boolean; chosen: string[]; message: string | null }): Promise<View> {
-  const { events } = await candidates(db, regions, state.memberId, ctx.now);
+  const { list } = await candidates(db, regions, state.memberId, ctx.now);
   // Chosen events that are no longer among the first ones are still shown, at the top.
-  const missing = state.chosen.filter(s => !events.some(e => e.slug === s));
+  const missing = state.chosen.filter(s => !list.some(c => c.event.slug === s));
   const extra = (await Promise.all(missing.map(s => eventBySlug(db, s))))
-    .filter((e): e is EventRow => !!e && !!e.region && regions.includes(e.region) && e.status === "scheduled" && e.starts_at > ctx.now);
-  const all = [...extra, ...events];
+    .filter((e): e is EventRow => !!e && !!e.region && regions.includes(e.region) && e.status === "scheduled" && e.starts_at > ctx.now)
+    .map(e => ({ event: e, interested: 0, mine: false }));
+  const all = [...extra, ...list];
   const picked = new Set(state.chosen);
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kom godt i gang", path: KICKOFF_PATH }];
-  const almost = state.memberId && state.ready && state.chosen.length > 0;
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Lad os komme godt i gang</h1>
     ${flash(state.message)}
-    <p class="standfirst">${almost ? "Du er næsten færdig. Se dine valg igennem, og tryk på knappen nederst."
-      : "Sæt flueben ved de events, du gerne vil følges med andre til. Er der allerede en flok, kommer du med i den. Ellers starter vi en, som andre kan hoppe med i."}</p>
+    <p class="standfirst">Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der gerne vil med til det samme, samler vi en flok og giver dig besked – så bekræfter du, om du er med.</p>
   </header>
-  ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form">
-    <ul class="kickoff-list">${all.map(e => {
-      const room = flockRoom(e);
+  ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form" data-kickoff-list>
+    <ul class="kickoff-list">${all.map(({ event: e, interested, mine }) => {
+      const others = Math.max(0, interested - (mine ? 1 : 0));
       return html`<li class="kickoff-item"><label>
-        <input type="checkbox" name="event" value="${e.slug}"${picked.has(e.slug) ? raw(" checked") : ""}>
+        <input type="checkbox" name="event" value="${e.slug}"${picked.has(e.slug) || mine ? raw(" checked") : ""}>
         <span class="kickoff-text"><span class="kickoff-when">${when(e, ctx.now)}</span>
           <strong class="kickoff-title">${e.title}</strong>
           <span class="kickoff-place">${[placeLine(e), priceLabel(e)].filter(Boolean).join(" · ")}</span>
-          <span class="kickoff-flock${room ? " has-flock" : ""}">${room ? seats(room.members, room.size) : ""} ${flockLine(e)}</span></span>
-      </label> <a class="kickoff-more" href="${eventPath(e)}">Om eventet</a></li>`;
+          <span class="kickoff-count${others || flockRoom(e) ? " has-people" : ""}">${interestLine(others, e)}</span></span>
+      </label><input type="hidden" name="vist" value="${e.slug}"> <a class="kickoff-more" href="${eventPath(e)}">Om eventet</a></li>`;
     })}</ul>
-    <p class="small meta-muted">En ny flok mødes ved indgangen et kvarter før, og den, der starter den, kan rette mødested og tidspunkt bagefter. Du kan altid forlade en flok igen.</p>
-    <div class="form-actions"><button type="submit">Find mine flokke</button></div>
-    ${state.memberId ? "" : html`<p class="small meta-muted">Du bliver bedt om dit fornavn, din aldersgruppe og en linje om dig selv – ingen e-mail eller telefonnummer.</p>`}
+    <div class="form-actions"><button type="submit">Gem mine interesser</button></div>
+    ${state.memberId && state.ready ? "" : html`<p class="small meta-muted">Bagefter fortæller du kort om dig selv (fornavn, aldersgruppe og én linje) og giver os din e-mail, så vi kan give besked, når din flok er klar. Ingen andre ser din e-mail.</p>`}
   </form>` : html`<p class="empty">Der er ingen events de næste uger lige nu. Kig i <a href="/kalender">kalenderen</a>.</p>`}
 </div>`;
-  return { status: 200, headers: { "cache-control": "private, no-store" }, body: page(ctx, { title: "Lad os komme godt i gang", description: "Vælg de events, du gerne vil følges med andre til, og kom med i en flok.", canonical: KICKOFF_PATH, noindex: true, breadcrumbs: crumbs }, body) };
+  return { status: 200, headers: { "cache-control": "private, no-store" }, body: page(ctx, { title: "Lad os komme godt i gang", description: "Sæt kryds ved de oplevelser, du er interesseret i, så samler vi en flok.", canonical: KICKOFF_PATH, noindex: true, breadcrumbs: crumbs }, body) };
+}
+
+// ————————————————————————————————————————— On Mine flokke
+
+const deadline = (ms: number, now: number) => `${dayLabel(ms, now)} kl. ${hhmm(ms)}`;
+
+/** The member's interests with what happens next: waiting, invited (confirm or no thanks), confirmed, or not this time. */
+export function interestsSection(interests: InterestRow[], now: number): SafeHtml {
+  const shown = interests.filter(i => i.status !== "confirmed" && i.status !== "declined" && !eventOver({ event_starts_at: i.starts_at, event_ends_at: i.ends_at }, now));
+  if (!shown.length) return html``;
+  const base = (i: InterestRow) => `/interesser/${i.slug}`;
+  const item = (i: InterestRow): SafeHtml => {
+    const head = html`<span class="flock-title"><a href="${eventPath(i)}">${i.title}</a></span><span class="flock-when">${capitalize(dayLabel(i.starts_at, now))} kl. ${hhmm(i.starts_at)}${i.venue_name ? ` · ${i.venue_name}` : ""}</span>`;
+    const tooLate = i.event_status !== "scheduled" || i.starts_at - now < LAST_CALL_MS;
+    if (i.status === "invited" && i.respond_by && i.respond_by > now && !tooLate) {
+      return html`<li class="flock-card is-invite">${head}
+        <p class="interest-state"><strong>Din flok er klar!</strong> I er ${i.invited_count} inviteret. Forslag: I mødes ${i.meeting_at ? `kl. ${hhmm(i.meeting_at)}` : "før eventet"}${i.meeting_place ? ` ${i.meeting_place.charAt(0).toLowerCase()}${i.meeting_place.slice(1)}` : ""}, og planlægger resten i flokkens chat. Husk selv at købe billet.</p>
+        <p class="meta-muted small">Svar senest ${deadline(i.respond_by, now)}.</p>
+        <div class="flock-actions"><form method="post" action="${base(i)}/bekraeft"><button type="submit">Bekræft – jeg er med</button></form>
+        <form method="post" action="${base(i)}/nej-tak"><button type="submit" class="button-secondary">Nej tak</button></form></div></li>`;
+    }
+    if (i.status === "waiting" && !tooLate) {
+      return html`<li class="flock-card">${head}
+        <p class="interest-state">${i.others ? `${i.others} ${i.others === 1 ? "anden" : "andre"} er interesseret.` : "Du er den første."} Vi samler en flok, når I er ${GATHER_AT}, og giver dig besked.</p>
+        <form method="post" action="${base(i)}/fjern"><button type="submit" class="button-link">Fjern fra listen</button></form></li>`;
+    }
+    return html`<li class="flock-card is-past">${head}<p class="interest-state meta-muted">${i.status === "expired" ? "Du nåede ikke at svare, så pladsen gik videre." : "Det blev ikke til en flok denne gang."} <a href="${KICKOFF_PATH}">Find et andet event</a></p></li>`;
+  };
+  return html`<section class="section" aria-labelledby="h-interests">
+    <div class="section-head"><h2 id="h-interests">Dine interesser</h2></div>
+    <ul class="flock-list">${shown.map(item)}</ul>
+    <p class="small"><a href="${KICKOFF_PATH}">Sæt kryds ved flere oplevelser</a></p>
+  </section>`;
+}
+
+// ————————————————————————————————————————— When an event is cancelled
+
+/** Cancelled events the member was going to (in a flock or on the list), each with three similar coming events they
+ * can put themselves on the list for, so a cancellation does not end it. */
+export function cancelledSection(items: Array<{ event: EventRow; similar: EventRow[] }>, now: number): SafeHtml {
+  if (!items.length) return html``;
+  return html`<section class="section cancelled-box" aria-labelledby="h-cancelled">
+    <div class="section-head"><h2 id="h-cancelled">${items.length === 1 ? "Et event er aflyst" : "Nogle events er aflyst"}</h2></div>
+    ${items.map(({ event: e, similar }) => html`<div class="cancelled-item">
+      <p><strong>${e.title}</strong> ${capitalize(dayLabel(e.starts_at, now))} er desværre aflyst af arrangøren.${similar.length ? " Måske er en af de her noget for dig i stedet?" : ""}</p>
+      ${similar.length ? html`<ul class="kickoff-list">${similar.map(o => html`<li class="kickoff-item">
+        <span class="kickoff-text"><span class="kickoff-when">${when(o, now)}</span><strong class="kickoff-title"><a href="${eventPath(o)}">${o.title}</a></strong>
+        <span class="kickoff-place">${[placeLine(o), priceLabel(o)].filter(Boolean).join(" · ")}</span></span>
+        <form method="post" action="${KICKOFF_PATH}"><input type="hidden" name="event" value="${o.slug}"><button type="submit" class="button-secondary">Sæt mig på listen</button></form>
+      </li>`)}</ul>` : html`<p><a href="${KICKOFF_PATH}">Find et andet event</a></p>`}
+    </div>`)}
+  </section>`;
 }
