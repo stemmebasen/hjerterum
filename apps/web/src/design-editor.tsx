@@ -349,7 +349,14 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
   // Keys: delete, undo, redo, duplicate, nudge.
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      const c = fc.current, o = c?.getActiveObject() as (Tagged & { isEditing?: boolean }) | undefined;
+      const c = fc.current, o = c?.getActiveObject() as (Tagged & { isEditing?: boolean; exitEditing?: () => void }) | undefined;
+      // Requested (the chair, 11 Nov 2026): "Når jeg trykker på Escape, skal alle valgte elementer ikke længere vælges." - also out of writing in a text.
+      if (c && e.key === "Escape") {
+        if (e.eventPhase !== Event.CAPTURING_PHASE && !o) return;
+        if (o?.isEditing) o.exitEditing?.();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        c.discardActiveObject(); c.requestRenderAll(); setSelected(null); return;
+      }
       if (!c || (e.target as HTMLElement)?.closest?.("input, textarea, select") || o?.isEditing) return;
       const mod = e.metaKey || e.ctrlKey;
       if (mod && e.key.toLowerCase() === "z") { e.preventDefault(); void restore(history.current.at + (e.shiftKey ? 1 : -1)); return; }
@@ -360,8 +367,11 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
       const step = e.shiftKey ? 10 : 2, move: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
       if (move[e.key]) { e.preventDefault(); o.set({ left: (o.left ?? 0) + move[e.key]![0], top: (o.top ?? 0) + move[e.key]![1] }); o.setCoords(); c.requestRenderAll(); snapshot(); }
     };
+    // Escape is heard first (capture): a text being written in keeps its own keys to itself.
+    const escape = (e: KeyboardEvent) => { if (e.key === "Escape") key(e); };
     window.addEventListener("keydown", key);
-    return () => window.removeEventListener("keydown", key);
+    window.addEventListener("keydown", escape, true);
+    return () => { window.removeEventListener("keydown", key); window.removeEventListener("keydown", escape, true); };
   }, []);
 
   const changed = () => { fc.current?.requestRenderAll(); snapshot(); refresh(); };
