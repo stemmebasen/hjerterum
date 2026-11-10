@@ -109,17 +109,17 @@ export async function listEvents(db: D1Database, f: Filters, regions: string[], 
   return { events: results, total: total?.n ?? 0 };
 }
 
-/** A few upcoming events to show with pictures on the front page: soonest first, at most two per organiser, preferring
- * events with a picture. */
 /** The front page's three tickets: coming events on three different days of the next week, an evening one where the day
- * has one, from different organisers, and a free one among them when the week has one. */
+ * has one, from different organisers, with a picture where there is one, and a free one among them when the week has one. */
 export async function heroEvents(db: D1Database, regions: string[], now: number): Promise<EventRow[]> {
   const w = visible(regions, now);
   w.sql.push("e.status = 'scheduled'", "e.all_day = 0", "e.starts_at >= ?", "e.starts_at < ?");
   w.params.push(now, now + 7 * 86400_000);
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 400`).bind(...w.params).all<EventRow>();
   const evening = (e: EventRow) => wallClock(e.starts_at).hour >= 17;
-  const pool = [...results.filter(evening), ...results.filter(e => !evening(e))];
+  // Events with a picture first, as the tickets show it; evening ones before the rest.
+  const pictured = (e: EventRow) => !!e.image_url;
+  const pool = [true, false].flatMap(p => [...results.filter(e => pictured(e) === p && evening(e)), ...results.filter(e => pictured(e) === p && !evening(e))]);
   const picked: EventRow[] = [];
   const sameDay = (a: EventRow, b: EventRow) => localDate(a.starts_at) === localDate(b.starts_at);
   const sameOrganizer = (a: EventRow, b: EventRow) => (a.organizer_id ?? a.id) === (b.organizer_id ?? b.id);
