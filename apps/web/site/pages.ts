@@ -1057,7 +1057,7 @@ Hjerterum F.M.B.A., CVR 40827692, Guldsmedgade 26B, st., 8000 Aarhus C, [[mail]]
 Alle priser er i danske kroner inkl. eventuel moms. Du betaler med betalingskort gennem vores betalingsleverandør; vi ser og gemmer ikke dine kortoplysninger. Leje af salen til standardpris betales efter faktura.
 
 ## Medlemskab {#medlemskab}
-Medlemskabet løber pr. måned eller pr. år, alt efter hvad du vælger, og fornyes automatisk, til du opsiger det. Betalingen trækkes forud for hver periode. Du kan opsige medlemskabet når som helst under Min profil på medlemssiden eller ved at skrive til os; det gælder så til udgangen af den periode, du har betalt for. Hvad medlemskabet giver, står under [Medlemskab](/medlemskab).
+Medlemskabet løber pr. måned eller pr. år, alt efter hvad du vælger, og fornyes automatisk, til du opsiger det. Betalingen trækkes forud for hver periode. Du kan opsige medlemskabet når som helst under Min profil på medlemssiden eller ved at skrive til os. Opsigelsen gælder fra udgangen af indeværende måned + 1 måned – du betaler altså én gang mere, efter du har opsagt (se [vilkår for medlemskab](/medlemskab/vilkaar#opsigelse)). Et årsmedlemskab løber året ud. Hvad medlemskabet giver, står under [Medlemskab](/medlemskab).
 
 ## Billetter til events {#billetter}
 Køber du billet til et event, er købet bindende. Aflyser Hjerterum eller arrangøren eventet, får du pengene tilbage. Arrangøren er ansvarlig for indholdet af sit event.
