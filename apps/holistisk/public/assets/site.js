@@ -271,7 +271,7 @@
       var head = el("div", "kickoff-head");
       var h = el("h2", null, "Lad os komme godt i gang"); h.id = "kickoff-h";
       head.appendChild(h);
-      head.appendChild(el("p", "kickoff-lead", "Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der vil med til det samme, samler vi en flok og giver dig besked."));
+      head.appendChild(el("p", "kickoff-lead", "Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der vil med til det samme, samler vi en flok og giver dig besked. Dine første 3 udflugter er gratis."));
       var form = el("form", "kickoff-form");
       form.method = "post"; form.action = base + "kom-godt-i-gang";
       var list = el("ul", "kickoff-list");

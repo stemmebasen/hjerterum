@@ -105,6 +105,16 @@ const TIMES = `(SELECT COUNT(*) FROM flock_members x JOIN flocks y ON y.id = x.f
   WHERE x.member_id = m.id AND z.status <> 'cancelled' AND COALESCE(z.ends_at, z.starts_at + 10800000) < ?2
   AND (x.left_at IS NULL OR x.left_at >= COALESCE(z.ends_at, z.starts_at + 10800000)))`;
 
+/** The first outings (flocks whose event has been held) are free; later this many lead to a paid membership. */
+export const FREE_OUTINGS = 3;
+
+/** How many outings the member has been on: flocks whose event is over and not cancelled, which they had not left
+ * before it ended (the same count as "Har været med X gange"). */
+export async function outingsUsed(db: D1Database, memberId: string, now: number): Promise<number> {
+  const row = await db.prepare(`SELECT ${TIMES} AS times FROM members m WHERE m.id = ?1`).bind(memberId, now).first<{ times: number }>();
+  return row?.times ?? 0;
+}
+
 /** The current members, in the order they joined, with what the others see about them. Only shown to members of the
  * flock. */
 export async function flockMembers(db: D1Database, flockId: string, now: number): Promise<FlockMember[]> {

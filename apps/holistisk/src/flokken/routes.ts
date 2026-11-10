@@ -6,7 +6,7 @@ import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
 import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
-import { flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
+import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
@@ -192,7 +192,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   if (path === "/flokke" && !post) {
     const m = await member();
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent("/flokke")}`);
-    const [flocks, interests] = await Promise.all([memberFlocks(db, m.id), memberInterests(db, m.id)]);
+    const [flocks, interests, outings] = await Promise.all([memberFlocks(db, m.id), memberInterests(db, m.id), outingsUsed(db, m.id, now)]);
     // Cancelled events the member was going to, with three similar ones to choose instead.
     const cancelledSlugs = [...new Set([
       ...flocks.filter(f => f.event_status === "cancelled" && !eventOver(f, now)).map(f => f.event_slug),
@@ -203,7 +203,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
       return event ? { event, similar: await relatedEvents(db, event, regions, now, 3) } : null;
     }))).filter((x): x is NonNullable<typeof x> => !!x);
     const active = interests.filter(i => i.event_status !== "cancelled");
-    return { view: myFlocksPage(pc, m, flocks, message, { top: cancelledSection(cancelled, now), interests: interestsSection(active, now) }) };
+    return { view: myFlocksPage(pc, m, flocks, message, { top: cancelledSection(cancelled, now), interests: interestsSection(active, now), outings }) };
   }
 
   const create = /^\/events\/([a-z0-9-]{1,90})\/opret-flok$/.exec(path)?.[1];
