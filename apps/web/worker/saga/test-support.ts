@@ -52,8 +52,10 @@ export function fakeServices(options: { ai?: (system: string, user: string) => s
       { text: "Vi", speaker_id: "s0", type: "word" }, { text: " vedtager", speaker_id: "s0", type: "word" }, { text: " budgettet.", speaker_id: "s0", type: "word" },
       { text: "Enig.", speaker_id: "s1", type: "word" }] });
     if (url.endsWith("/chat/completions")) {
-      const messages = (body as { messages: Array<{ content: string }> }).messages;
-      const text = options.ai?.(messages[0]!.content, messages[1]!.content) ?? "Svar fra Saga.";
+      // A long system message is sent as parts (marked for the prompt cache, ai.ts cached): the fake reads its text either way.
+      const messages = (body as { messages: Array<{ content: string | Array<{ text?: string }> }> }).messages;
+      const text_ = (content: string | Array<{ text?: string }>) => typeof content === "string" ? content : content.map(part => part.text ?? "").join("");
+      const text = options.ai?.(text_(messages[0]!.content), messages[1]!.content as string) ?? "Svar fra Saga.";
       return reply({ choices: [{ message: { content: text } }] });
     }
     if (url === "https://oauth2.googleapis.com/token") return reply({ access_token: "drive-token" });

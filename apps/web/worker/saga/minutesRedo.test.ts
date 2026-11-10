@@ -94,6 +94,9 @@ describe("minutes written again", () => {
     expect(asked).toContain("Skriv hele referatet efter skabelonen.");
     expect((await db.prepare("SELECT draft_markdown FROM board_minutes WHERE id = ?").bind(id).first<{ draft_markdown: string }>())!.draft_markdown).toBe(whole);
     expect(String((services.telegram("sendDocument")[0]!.body as Record<string, unknown>).caption)).toContain("skrevet forfra efter de nye regler");
+    // "det er ret upræcist" - "Ok": the minutes are written by the best model.
+    const asks = services.calls.filter(c => c.url.endsWith("/chat/completions")).map(c => (c.body as { model?: string }).model);
+    expect(asks[0]).toBe("vertex/claude-opus-5-5@eu");
   });
 
   it("keeps the old text when the new part is not whole, and tries again later", async () => {
