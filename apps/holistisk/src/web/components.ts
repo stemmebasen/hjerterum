@@ -122,9 +122,9 @@ function partOfDay(ms: number): string {
   return h < 10 ? "morgen" : h < 12 ? "formiddag" : h < 17 ? "dag" : h < 23 ? "aften" : "nat";
 }
 
-/** The photo at the right end of a front-page ticket, or a patterned panel naming the activity when there is none. */
+/** The whole photo at the right end of a front-page ticket (uncropped, over a blurred copy of itself), or a patterned panel naming the activity when there is none. */
 function miniPhoto(e: EventRow): SafeHtml {
-  if (e.image_url) return html`<span class="mini-photo"><img src="${e.image_url}" alt="" decoding="async"></span>`;
+  if (e.image_url) return html`<span class="mini-photo"><img class="mini-photo-blur" src="${e.image_url}" alt="" decoding="async"><img src="${e.image_url}" alt="" decoding="async"></span>`;
   const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event";
   return html`<span class="mini-photo mini-photo-plain" aria-hidden="true"><span>${what}</span></span>`;
 }
