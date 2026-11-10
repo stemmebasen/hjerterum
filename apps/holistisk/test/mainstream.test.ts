@@ -52,10 +52,9 @@ describe("a broad, mainstream selection (Jake 2026-11-10)", () => {
     const listed = [...body.matchAll(/name="event" value="([^"]+)"/g)].map(m => m[1]!);
     const kinds = listed.map(slug => (db.raw.prepare("SELECT primary_source_id s FROM events WHERE slug = ?").all(slug)[0] as { s: string }).s);
     expect(kinds.length).toBeGreaterThan(0);
-    const firstAlternative = kinds.findIndex(k => k !== "dokk1");
-    const lastBroad = kinds.lastIndexOf("dokk1");
-    expect(lastBroad).toBeGreaterThanOrEqual(0);
-    if (firstAlternative >= 0) expect(firstAlternative).toBeGreaterThan(lastBroad);
+    // The broad offer opens the list. (Variety comes next: one organiser gets one event in each ten while others have
+    // events, so here, where Dokk1 is the only broad organiser, its other events follow the alternative ones.)
+    expect(kinds[0]).toBe("dokk1");
   });
 
   it("menus and /kategorier lead with concerts, theatre and talks; spiritual topics are one click further", async () => {

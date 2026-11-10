@@ -221,7 +221,8 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/events") return redirect(`/kalender${url.search}`);
   if (path === "/i-dag") return view(env, await periodPage(db, pc, regions, "idag"));
   if (path === "/weekend") return view(env, await periodPage(db, pc, regions, "weekend"));
-  if (path === "/spar-paa-billetten") return view(env, await savingsPage(db, pc, regions));
+  if (path === "/gratis-og-billigt") return view(env, await savingsPage(db, pc, regions));
+  if (path === "/spar-paa-billetten") return redirect("/gratis-og-billigt");
   if (path === "/kort") return view(env, await mapPage(db, pc, regions));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
