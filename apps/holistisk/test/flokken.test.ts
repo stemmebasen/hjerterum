@@ -540,7 +540,7 @@ describe("Lad os komme godt i gang", () => {
     expect(statusOf("Bjørk", a!)).toBe("waiting");
     expect(db.raw.prepare("SELECT email FROM members WHERE first_name = 'Bjørk'").all()[0]).toEqual({ email: "bjoerk@example.dk" });
     const mine = (await call("/flokke?besked=interesser_gemt", { cookie })).body;
-    expect(mine).toContain("Tak! Du står på listen.");
+    expect(mine).toContain("Tak! Du står på listen – helt uforpligtende.");
     expect(mine).toContain("Dine interesser");
     expect(mine).toContain("Du er den første. Vi samler en flok, når I er 3");
     // On the list: the pop-up is not shown again, and the ticks show as ticked.
@@ -640,6 +640,12 @@ describe("Lad os komme godt i gang", () => {
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
     expect(r.body).toContain('<input type="checkbox" name="event"');
+    // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
+    expect(r.body).toContain("<strong>Det er helt uforpligtende</strong>");
+    expect(r.body).toContain("Du binder dig ikke til noget.");
+    expect(r.body).toContain('<details class="kickoff-details"><summary>Se mere om eventet</summary>');
+    const items = JSON.parse((await call("/api/kom-godt-i-gang")).body) as { events: Array<{ blurb: string; image: string | null }> };
+    expect(items.events.some(e => e.blurb.length > 20)).toBe(true);
     expect((await choose([])).headers.get("location")).toBe("/kom-godt-i-gang?besked=intet_valgt");
     expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét event først.");
     expect((await call("/find-en-flok")).body).toContain('<a href="/kom-godt-i-gang">Lad os komme godt i gang</a>');
