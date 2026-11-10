@@ -24,6 +24,8 @@ export type Filters = {
   topic: string | null;
   /** An organiser's events only (the organiser's profile page). */
   organizer: string | null;
+  /** Only the broad offer, without spiritual and alternative events (src/mainstream.ts): the front page's lists. */
+  broad?: boolean;
 };
 
 export type Period = "idag" | "imorgen" | "weekend" | "14-dage" | "uge" | "maaned";

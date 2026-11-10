@@ -141,7 +141,8 @@ export const SOURCES: SourceConfig[] = [
     completeListing: true,
     canonicalToSource: false,
     respectRobots: true,
-    enabled: () => true,
+    // Switched off at the project owner's request (2026-11-10): the site should be broad and mainstream (src/mainstream.ts).
+    enabled: () => false,
     defaults: {
       timezone: TIMEZONE,
       organizerName: "Brahma Kumaris Aarhus",
@@ -166,7 +167,8 @@ export const SOURCES: SourceConfig[] = [
     completeListing: true,
     canonicalToSource: false,
     respectRobots: true,
-    enabled: () => true,
+    // Switched off at the project owner's request (2026-11-10): the site should be broad and mainstream (src/mainstream.ts).
+    enabled: () => false,
     defaults: {
       timezone: TIMEZONE,
       organizerName: "Buddhistisk Center Aarhus",
@@ -207,7 +209,8 @@ export const SOURCES: SourceConfig[] = [
     completeListing: true,
     canonicalToSource: false,
     respectRobots: true,
-    enabled: () => true,
+    // Switched off at the project owner's request (2026-11-10): the site should be broad and mainstream (src/mainstream.ts).
+    enabled: () => false,
     defaults: {
       timezone: TIMEZONE,
       organizerName: "Vækstcenteret",

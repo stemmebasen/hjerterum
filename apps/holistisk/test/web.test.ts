@@ -18,7 +18,7 @@ beforeAll(async () => {
     "https://lysetshus.dk/robots.txt": { status: 404 }, "https://lysetshus.dk/": { body: fixture("lysetshus.html") },
     "https://buddha.dk/robots.txt": { status: 404 }, "https://buddha.dk/": { body: fixture("buddha-dk.html") }
   });
-  await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: SOURCES.filter(s => ["hjerterum", "lysetshus", "buddhistisk-center-aarhus"].includes(s.id)) });
+  await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: noSleep, sources: SOURCES.filter(s => ["hjerterum", "lysetshus", "buddhistisk-center-aarhus"].includes(s.id)).map(s => ({ ...s, enabled: () => true })) });
   env = { DB: db, ENVIRONMENT: "staging", ACTIVE_REGIONS: "ostjylland", EDITION: "portal" };
 });
 
@@ -63,7 +63,7 @@ describe("cancelled events", () => {
 });
 
 describe("front page", () => {
-  it("shows a few events with pictures, the whole coming week, cities, activities, topics and standing offerings", async () => {
+  it("shows a few events with pictures, the whole coming week, cities, activities and the city's stages and houses", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
     expect(body).toContain('<h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
@@ -94,10 +94,17 @@ describe("front page", () => {
     expect(body).toContain('class="card ticket');
     expect(body).toContain('action="/kalender"');
     expect(body).toContain('href="/aarhus"');
-    expect(body).toContain('href="/klarsyn"');
-    expect(body).toContain('href="/breathwork"');
-    expect(body).toContain("Faste ugentlige tilbud");
-    expect(body).toContain("16. Karmapa-meditation hver mandag kl. 17.00");
+    // Broad and mainstream (Jake 2026-11-10): no spiritual topics, alternative activities or meditation offerings on
+    // the front page or in its menu; the city's stages, houses and associations instead.
+    expect(body).not.toContain('href="/klarsyn"');
+    expect(body).not.toContain('href="/breathwork"');
+    expect(body).not.toContain("Karmapa");
+    expect(body).toContain('<h2 id="h-venues">Byens scener, huse og foreninger</h2>');
+    expect(body).toContain('href="/arrangoerer/voxhall"');
+    expect(body).toContain('href="/arrangoerer/dokk1"');
+    expect(body).not.toContain('href="/arrangoerer/lysets-hus"');
+    expect(body).toContain('href="/koncerter"');
+    expect(body).toContain('<a href="/kategorier">Alle aktiviteter og emner</a>');
     expect(body).toContain("De næste 7 dage");
   });
 
@@ -224,7 +231,9 @@ describe("landing pages: activity, then city", () => {
     expect(aarhus.body).toContain("<title>Meditation i Aarhus – Flokken</title>");
     expect(aarhus.body).toMatch(/<meta name="description" content="Oplev guidede meditationer, mindfulness og stilhed i Aarhus\. Find ro og nærvær – og find en flok at følges med\.">/);
     expect(aarhus.body).toContain("Faste tilbud i Aarhus");
-    expect(aarhus.body).toContain('href="/arrangoerer/buddhistisk-center-aarhus"');
+    expect(aarhus.body).toContain('href="/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus"');
+    // Switched off with the turn to a broad selection (2026-11-10).
+    expect(aarhus.body).not.toContain('href="/arrangoerer/buddhistisk-center-aarhus"');
     expect(aarhus.body).toContain('href="/meditation/randers"');
     expect(aarhus.body).toContain('"@type":"BreadcrumbList"');
     expect(aarhus.body).toContain('"@type":"ItemList"');
@@ -237,15 +246,17 @@ describe("landing pages: activity, then city", () => {
     expect(rows(klarsyn.body)).not.toContain("Dhyana Yoga");
     const buddhist = await text("/buddhistisk-meditation/aarhus");
     expect(rows(buddhist.body)).toEqual(["Meditation – Julianne Ferenczy", "Compassion and wisdom – Julianne Ferenczy"]);
-    expect(buddhist.body).toContain("16. Karmapa-meditation hver torsdag kl. 19.30");
+    expect(buddhist.body).not.toContain("16. Karmapa-meditation hver torsdag kl. 19.30");
   });
 
   it("an empty page with an organiser still has something to offer; one without is kept from search engines", async () => {
     const prod: Env = { ...env, ENVIRONMENT: "production" };
-    const horsensYoga = await text("/yin-yoga/horsens", prod);
-    expect(horsensYoga.status).toBe(200);
-    expect(horsensYoga.body).toContain("Yoga &amp; Meditation Horsens");
-    expect(horsensYoga.body).toContain('<meta name="robots" content="index, follow');
+    const yinYoga = await text("/yin-yoga/aarhus", prod);
+    expect(yinYoga.status).toBe(200);
+    expect(yinYoga.body).toContain("YO Studios");
+    expect(yinYoga.body).toContain('<meta name="robots" content="index, follow');
+    // Hidden with the turn to a broad selection (2026-11-10), so Horsens' yin yoga page has nothing left.
+    expect((await text("/yin-yoga/horsens", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
     expect((await text("/kakaoceremoni/randers", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
   });
 
@@ -275,7 +286,11 @@ describe("organisers", () => {
   it("a directory and a profile with standing offerings and coming events", async () => {
     const list = await text("/arrangoerer");
     expect(list.body).toContain('href="/arrangoerer/lysets-hus"');
-    expect(list.body).toContain("Peder Skrams Gade 52B");
+    expect(list.body).not.toContain("Peder Skrams Gade 52B");
+    // Stages, libraries and houses first, then yoga, meditation and the like.
+    expect(list.body).toContain("Spillesteder, teatre, biblioteker, kulturhuse og foreninger");
+    expect(list.body.indexOf('href="/arrangoerer/voxhall"')).toBeGreaterThan(0);
+    expect(list.body.indexOf('href="/arrangoerer/voxhall"')).toBeLessThan(list.body.indexOf('href="/arrangoerer/lysets-hus"'));
     const profile = await text("/arrangoerer/lysets-hus");
     expect(profile.body).toContain("<h1>Lysets Hus</h1>");
     expect(profile.body).toContain("Gratis healingsmeditation onsdage i lige uger kl. 17.30–18.30");
@@ -353,7 +368,7 @@ describe("search engines and safety", () => {
     const prod: Env = { ...env, ENVIRONMENT: "production", PUBLIC_BASE_URL: "https://holistisk.org" };
     expect((await text("/robots.txt", prod)).body).toContain("Sitemap: https://holistisk.org/sitemap.xml");
     const sitemap = (await text("/sitemap.xml", prod)).body;
-    for (const p of ["/kalender", "/weekend", "/aarhus", "/meditation", "/meditation/aarhus", "/klarsyn/aarhus", "/buddhistisk-meditation/aarhus", "/arrangoerer/lysets-hus", "/yin-yoga/horsens", "/retreat/djursland"]) {
+    for (const p of ["/kalender", "/weekend", "/aarhus", "/meditation", "/meditation/aarhus", "/klarsyn/aarhus", "/buddhistisk-meditation/aarhus", "/arrangoerer/lysets-hus", "/arrangoerer/voxhall", "/yin-yoga/aarhus"]) {
       expect(sitemap).toContain(`<loc>https://holistisk.org${p}</loc>`);
     }
     expect(sitemap).not.toContain("<loc>https://holistisk.org/kakaoceremoni/randers</loc>");

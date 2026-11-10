@@ -8,7 +8,7 @@ import { SOURCES } from "../src/sources/registry.js";
 import { parseTypo3Events } from "../src/sources/typo3events.js";
 import { parseCourseList, parseCoursePage } from "../src/sources/vaekstcenteret.js";
 import { parseFavnCalendar } from "../src/sources/favn.js";
-import { ORGANIZERS } from "../src/organizers.js";
+import { ALL_ORGANIZERS, ORGANIZERS } from "../src/organizers.js";
 import { slugify } from "../src/text.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, noSleep } from "./helpers.js";
@@ -77,7 +77,7 @@ describe("Vækstcenteret (course list and pages)", () => {
       "https://vaekstcenteret.dk/kursus/meditationsdage": { body: fixture("vaekstcenteret-meditationsdage.html") },
       "https://vaekstcenteret.dk/kursus/": { body: "<html></html>" }
     });
-    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: async ms => { waits.push(ms); }, sources: [source("vaekstcenteret")] });
+    const out = await runIngest({ DB: db }, { trigger: "test", now: NOW, fetcher, sleep: async ms => { waits.push(ms); }, sources: [{ ...source("vaekstcenteret"), enabled: () => true }] });
     expect(out.sources[0]).toMatchObject({ status: "ok", enriched: 8 });
     expect(waits.length).toBeGreaterThanOrEqual(7);
     expect(waits.every(ms => ms > 9000 && ms <= 10000)).toBe(true);
@@ -132,7 +132,7 @@ describe("organiser directory", () => {
       expect(o.offerings.every(x => /^https:\/\//.test(x.source))).toBe(true);
     }
     for (const id of ["brahma-kumaris-aarhus", "buddhistisk-center-aarhus", "dansk-center-for-mindfulness", "vaekstcenteret"]) {
-      expect(ORGANIZERS.some(o => o.slug === slugify(source(id).defaults.organizerName!, 60))).toBe(true);
+      expect(ALL_ORGANIZERS.some(o => o.slug === slugify(source(id).defaults.organizerName!, 60))).toBe(true);
     }
   });
 
