@@ -1,4 +1,4 @@
-import { ADDRESS, SITE_LABEL, blob, stamp, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
+import { ADDRESS, SITE_LABEL, blob, stamp, byline, C, cover, fit, logo, pebbleRect, SANS, SERIF, spaced, takeText, text, titleLines, type Assets, type Ctx, type PosterWords } from "./event-poster";
 
 /** Requested: "Lav gerne flere skabeloner" - "Nej, 8 der vises. Og så kan man få 8 nye." - and "hvad med det aflange facebook cover
  * format?". Sixteen poster designs, each drawn for any shape: post (4:5), story (9:16) and Facebook's event cover (1.91:1). A design
@@ -542,7 +542,7 @@ export const TEMPLATES: Record<string, Template> = {
       ctx.fillStyle = C.sand; ctx.fillRect(0, 0, W, H);
       // The day's number as big as the page allows, a quiet tone on the ground.
       ctx.save(); ctx.fillStyle = C.camel; ctx.globalAlpha = 0.35; ctx.font = `italic 400 ${Math.round((L ? H : W) * 0.95)}px ${SERIF}`; ctx.textBaseline = "alphabetic";
-      ctx.fillText(w.number, -30 * u, L ? H * 0.88 : H * 0.62); ctx.restore();
+      if (!takeText(ctx, w.number, -30 * u, L ? H * 0.88 : H * 0.62)) ctx.fillText(w.number, -30 * u, L ? H * 0.88 : H * 0.62); ctx.restore();
       photoIn(ctx, a.photo, spot);
       const r = L ? { x: 90 * u, y: 120 * u, w: W * 0.5, h: H - 240 * u } : { x: 90 * u, y: H * 0.56, w: W - 180 * u, h: H * 0.44 - 130 * u };
       block(ctx, r, w, { color: C.ink, accent: C.terra, muted: C.muted, size: 96 * u, maxLines: 3 }, "bottom", u);

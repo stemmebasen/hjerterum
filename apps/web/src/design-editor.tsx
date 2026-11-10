@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Canvas, Circle, FabricImage, Gradient, Group, Line, Path, Point, Rect, Shadow, StaticCanvas, Textbox, filters, type FabricObject } from "fabric";
-import { SIZES, type Format } from "./event-poster";
+import { Canvas, Circle, FabricImage, Gradient, Group, IText, Line, Path, Point, Rect, Shadow, StaticCanvas, Textbox, filters, type FabricObject } from "fabric";
+import { SIZES, type Format, type TextPiece } from "./event-poster";
 import { layerDesign, LAYER_DESIGNS, roomBelow, type Colors, type Frame, type Layer, type LayerDesign, type LayerInput } from "./layer-templates";
 
 /** Asked (the chair, 7 Nov 2026): "Vi er nødt til at optimere den grafiske sektion ... flytte rundt på billeder, gøre dem mindre eller større og dreje dem rundt.
@@ -8,7 +8,7 @@ import { layerDesign, LAYER_DESIGNS, roomBelow, type Colors, type Frame, type La
  * sized and turned by its handles, changed in the panel, added or taken away; undo and redo, guides at the middle, and "Brug designet" makes it the post's
  * picture. A design from before (drawn whole) is opened as one picture to build on. */
 
-export type EditorStart = { kind: "layers"; key: string } | { kind: "flat"; image: string };
+export type EditorStart = { kind: "layers"; key: string } | { kind: "flat"; image: string; texts?: TextPiece[] };
 export type EditorPicture = { url: string; label: string };
 type Props = {
   format: Format; start: EditorStart; input: Omit<LayerInput, "W" | "H">; pictures: EditorPicture[]; photoUrl: string | null; logo: HTMLImageElement | null;
@@ -156,6 +156,18 @@ export function slideTone(own: string, c: Colors, i: number): string {
   const dark = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.45;
   const tones = (dark ? [c.dusk, "#3b2a22", "#2c3529", "#3a2530"] : [c.sage, c.sand, c.blush, c.cream]).filter(t => t.toLowerCase() !== own.toLowerCase());
   return i === 0 ? own : tones[(i - 1) % tones.length]!;
+}
+
+/** A word of a drawn design (event-poster.ts takeText) as a text of its own: where the canvas drew it from its baseline, a text placed from its top. */
+function pieceText(p: TextPiece, scale: number): IText {
+  const size = Number(/(\d+(?:\.\d+)?)px/.exec(p.font)?.[1] ?? 40) * scale;
+  const family = (p.font.split(/\d+(?:\.\d+)?px\s+/)[1] ?? "serif").trim();
+  const weight = /\b(bold|[1-9]00)\b/.exec(p.font.split(/\d+(?:\.\d+)?px/)[0] ?? "")?.[1] ?? "400";
+  const t = new IText(p.text, { left: p.x * scale, top: p.y * scale - size * 0.9, originX: p.align, originY: "top", fontSize: size, fontFamily: family,
+    fontStyle: /\bitalic\b/.test(p.font) ? "italic" : "normal", fontWeight: weight, fill: p.color, textAlign: p.align, charSpacing: p.spacing ? (p.spacing * scale / size) * 1000 : 0,
+    angle: p.angle, opacity: p.opacity });
+  (t as Tagged).role = "text";
+  return t;
 }
 
 /** A design at full size, as a jpg (made from the canvas - the admin's rules allow no fetch() of a data: address). */
@@ -324,6 +336,8 @@ export function DesignEditor({ format, start, input, pictures, photoUrl, logo, o
         c.clear(); c.backgroundColor = "#ffffff";
         const img = await loadImage(start.image);
         if (img) { const flat = new FabricImage(img, { left: 0, top: 0 }); flat.scaleToWidth(W); (flat as Tagged).role = "flat"; c.add(flat); }
+        // "Teksterne bliver løse": the design's words, each a text of its own on the picture.
+        for (const piece of start.texts ?? []) c.add(pieceText(piece, W / (img?.naturalWidth || W)));
         c.renderAll();
       }
       if (!live) return;

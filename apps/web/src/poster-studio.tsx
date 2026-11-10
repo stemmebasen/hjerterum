@@ -5,7 +5,7 @@ import type { EditorStart } from "./design-editor";
 const DesignEditor = lazy(() => import("./design-editor").then(m => ({ default: m.DesignEditor })));
 const LayerGallery = lazy(() => import("./design-editor").then(m => ({ default: m.LayerGallery })));
 const QuoteCarousel = lazy(() => import("./design-editor").then(m => ({ default: m.QuoteCarousel })));
-import { C, PALETTES, SITE_LABEL, splitTitle, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
+import { C, PALETTES, SITE_LABEL, splitTitle, posterWithoutWords, EXTRA_FONTS_URL, FONT_PAIRS, LOGO_FILE, PLAIN_STYLE, chooseVariant, drawPoster, styleBatch, styleLabel, type Style, isShaped, markShaped, setPosterSite, OWN_PICTURE, photoFits, SIZES, VARIANTS, wordsOf, type Assets, type Format, type PosterWords, type VariantKey } from "./event-poster";
 
 /** The event's title as the posters read it, where the calendar ran a title in capitals and its subtitle together
  * ("LÆR AT LYTTE TIL DIN INTUITIONKursus i …" → "Lær at lytte til din intuition · Kursus i …"). */
@@ -42,7 +42,7 @@ const slug = (text: string) => text.toLowerCase().normalize("NFKD").replace(/[^\
 const DAY = new Intl.DateTimeFormat("da-DK", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
 function Design({ variant, words, assets, format, chosen, title, big, soft, canvasRef, onPick, onEdit, style = PLAIN_STYLE }: { variant: VariantKey; words: PosterWords; assets: Assets; format: Format;
-  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; onEdit?: (image: string) => void; style?: Style }) {
+  chosen: boolean; title: string; big?: boolean; soft?: boolean; canvasRef?: { current: HTMLCanvasElement | null }; onPick?: () => void; onEdit?: (variant: VariantKey, style: Style) => void; style?: Style }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   // A style's type is loaded first, so the canvas draws with it (the studio's page has the families - EXTRA_FONTS_URL).
   const [ready, setReady] = useState(style.fonts === "klassisk");
@@ -73,7 +73,7 @@ function Design({ variant, words, assets, format, chosen, title, big, soft, canv
         {soft && <p className="studio-soft">Beskæringen er forstørret her, så billedet bliver lidt blødt.</p>}</div>
       <p className="studio-actions">{onPick && <button type="button" className={"lys-btn" + (chosen ? "" : " ghost")} onClick={onPick} aria-pressed={chosen}>{chosen ? "Valgt" : "Vælg"}</button>}
         {/* Reported (the chair, 11 Nov 2026): "Det er ikke alle designs, jeg kan åbne i editoren. Det er kun de øverste." - every design opens there, as one picture to build on. */}
-        {onEdit && <button type="button" className="lys-btn ghost" onClick={() => { try { if (ref.current) onEdit(ref.current.toDataURL("image/png")); } catch { /* a picture from elsewhere: Download instead */ } }}>✏️ Åbn i editoren</button>}
+        {onEdit && <button type="button" className="lys-btn ghost" onClick={() => onEdit(variant, style)}>✏️ Åbn i editoren</button>}
         <button type="button" className="text-button" onClick={save}>Download</button></p>
     </figcaption>}
   </figure>;
@@ -341,6 +341,13 @@ export function PosterStudio({ id }: { id: string }) {
     quote: quotes.length ? quotes[quoteAt % quotes.length]! : null };
   const editorPictures = [...data.eventPictures, ...(t?.pictures ?? [])].filter((p, i, all) => all.findIndex(q => q.url === p.url) === i);
   const openEditor = (start: EditorStart) => { setEditor(start); };
+  // "jeg kan ikke rykke rundt på elementerne i skabelonen i editoren" - "Teksterne bliver løse": the design drawn once more without its words, which come
+  // along as texts of their own to move, change and restyle.
+  const editFlat = (v: VariantKey, st: Style) => {
+    const off = document.createElement("canvas");
+    const texts = posterWithoutWords(() => drawPoster(off, v, words!, assets, format, 1, st));
+    try { openEditor({ kind: "flat", image: off.toDataURL("image/png"), texts }); } catch { /* a picture from elsewhere: Download instead */ }
+  };
   const useEdited = (blob: Blob) => {
     setEditor(null); setSlides(null);
     if (!post) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "hjerterum-design.jpg"; a.click(); return; }
@@ -558,7 +565,7 @@ export function PosterStudio({ id }: { id: string }) {
           {message && <p className="studio-message" role="status">{message}</p>}
           <p className="studio-actions"><button type="button" className="lys-btn" disabled={!logo || !postable || Boolean(picked && !photo)} onClick={next}>Næste →</button>
             <button type="button" className="lys-btn ghost" aria-expanded={editing} onClick={() => setEditing(!editing)}>{editing ? "Luk" : "Ret forslaget"}</button>
-            <button type="button" className="lys-btn ghost" disabled={!logo} onClick={() => proposal.current && openEditor({ kind: "flat", image: proposal.current.toDataURL("image/png") })}>✏️ Åbn i editoren</button></p>
+            <button type="button" className="lys-btn ghost" disabled={!logo} onClick={() => editFlat(chosen, style)}>✏️ Åbn i editoren</button></p>
           <p className="studio-muted">I editoren kan du flytte, skalere og dreje, lægge billeder, tekster, former og logo ind - eller vælge et af de nye designs nedenfor under "Ret forslaget".</p>
           {!postable && <p className="studio-muted">En story kan Saga ikke poste. Vælg formatet Opslag for at gå videre.</p>}
         </> : <>
@@ -619,7 +626,7 @@ export function PosterStudio({ id }: { id: string }) {
         {all.map(key => {
           const fits = photoFits(key, format, size);
           return fits.ok ? <Design key={key} variant={key} words={words} assets={assets} format={format} chosen={key === chosen && JSON.stringify(style) === JSON.stringify(PLAIN_STYLE)} title={event.title} soft={Boolean(fits.soft)}
-            onPick={() => { setVariant(key); setStyle(PLAIN_STYLE); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={image => openEditor({ kind: "flat", image })} />
+            onPick={() => { setVariant(key); setStyle(PLAIN_STYLE); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={editFlat} />
             : <figure key={key} className="poster-card is-refused"><div className="poster-refused" role="note"><b>Passer ikke</b><p>{fits.reason}</p></div>
               <figcaption><div><b>{[...VARIANTS, OWN_PICTURE].find(v => v.key === key)!.label}</b></div></figcaption></figure>;
         })}
@@ -631,7 +638,7 @@ export function PosterStudio({ id }: { id: string }) {
           return <div key={b}><h3 className="studio-mood">Flere forslag {b + 1}</h3><div className="poster-grid">
             {styleBatch(seed, fitting, 9).map((c, i) => <Design key={`${b}-${i}`} variant={c.variant} style={c.style} words={words} assets={assets} format={format}
               chosen={c.variant === chosen && JSON.stringify(c.style) === JSON.stringify(style)} title={event.title}
-              onPick={() => { setVariant(c.variant); setStyle(c.style); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={image => openEditor({ kind: "flat", image })} />)}
+              onPick={() => { setVariant(c.variant); setStyle(c.style); window.scrollTo({ top: 0, behavior: "smooth" }); }} onEdit={editFlat} />)}
           </div></div>;
         })}
         <p className="studio-actions"><button type="button" className="lys-btn" onClick={() => setBatches(batches + 1)}>✨ Vis flere forslag</button>
