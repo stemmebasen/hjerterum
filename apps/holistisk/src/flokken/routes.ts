@@ -5,9 +5,10 @@ import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
 import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
+import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
 import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
@@ -109,6 +110,21 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const found = code ? await memberByCode(db, code) : null;
     if (!found) return { view: loginPage(pc, back, { codeError: "Koden passer ikke. Den har 12 tegn, fx K7QF-29MX-T4HD.", status: 400 }) };
     return go(back, await startSession(db, found.id, now));
+  }
+  if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member()), { sent: message === "tak" }) };
+  if (path === "/bliv-medlem/meld-ind" && post) {
+    const data = await formData(request);
+    if (!data) return { view: membershipPage(pc, false, { status: 400, errors: { name: "Formularen kunne ikke læses. Prøv igen." } }) };
+    if (String(data.get("website_url") ?? "")) return go(withMessage("/bliv-medlem", "tak") + "#meld-ind");
+    const form = readSignup(data);
+    const errors = validateSignup(form);
+    if (Object.keys(errors).length) return { view: membershipPage(pc, !!(await member()), { form, errors, status: 400 }) };
+    await saveSignup(db, form, now);
+    return go(withMessage("/bliv-medlem", "tak") + "#meld-ind");
+  }
+  if (path === "/api/indmeldelser" && !post) {
+    if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
+    return { json: await listSignups(db), status: 200 };
   }
   if (path === "/bliv-medlem" && post) {
     const data = await formData(request);

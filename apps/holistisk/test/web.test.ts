@@ -124,6 +124,7 @@ describe("spar på billetten", () => {
     expect((await get("/spar-paa-billetten")).headers.get("location")).toBe("/gratis-og-billigt");
     const { status, body } = await text("/gratis-og-billigt");
     expect(status).toBe(200);
+    expect(body).not.toMatch(/spar på billetten/i);
     expect(body).not.toMatch(/medlemsfordel|billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
     expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));

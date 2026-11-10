@@ -604,11 +604,11 @@ describe("Lad os komme godt i gang", () => {
   it("counts the free outings: a confirmed flock counts once its event is over", async () => {
     const cookie = await ready("Sif");
     const before = (await call("/flokke", { cookie })).body;
-    expect(before).toContain("0 af 3 gratis udflugter brugt");
+    expect(before).toContain("0 af 3 udflugter uden medlemskab brugt");
     expect((await startFlock(cookie)).status).toBe(303);
-    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 gratis udflugter brugt");
+    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 udflugter uden medlemskab brugt");
     const after = (await call("/flokke", { cookie }, event.starts_at + 6 * 3600_000)).body;
-    expect(after).toContain("1 af 3 gratis udflugter brugt");
+    expect(after).toContain("1 af 3 udflugter uden medlemskab brugt");
     expect(after.match(/free-dot is-used/g)).toHaveLength(1);
   });
 
@@ -645,6 +645,27 @@ describe("Lad os komme godt i gang", () => {
     const r = await call("/kom-godt-i-gang");
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
+    expect(r.body).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
+    // "Bliv medlem" explains membership of the association; signing up is "Opret profil".
+    const m = await call("/bliv-medlem");
+    expect(m.status).toBe(200);
+    expect(m.body).toContain("<h1>Bliv medlem af Flokken</h1>");
+    expect(m.body).toContain("<strong>250 kr. om året</strong>");
+    expect(m.body).toContain('href="/log-ind?naeste=/kom-godt-i-gang"');
+    expect((await call("/log-ind")).body).toContain('<button type="submit">Opret profil</button>');
+    expect((await call("/")).body).toContain('<h2 id="h-member">Bliv medlem</h2>');
+    // Membership without a profile: a name and an e-mail. No "støttemedlem" – you are a member or you are not.
+    expect(m.body).toContain('<h2 id="meld-ind">Meld dig ind</h2>');
+    expect(m.body).not.toMatch(/støttemedlem/i);
+    expect((await call("/bliv-medlem/meld-ind", { form: { navn: "A", email: "nope" } })).status).toBe(400);
+    const ok = await call("/bliv-medlem/meld-ind", { form: { navn: "Birgit", email: "birgit@example.dk" } });
+    expect(ok.status).toBe(303);
+    await call("/bliv-medlem/meld-ind", { form: { navn: "Birgit", email: "BIRGIT@example.dk" } });
+    expect((await call("/bliv-medlem?besked=tak")).body).toContain("Tak, du er meldt ind!");
+    expect((await call("/api/indmeldelser")).status).toBe(401);
+    const list = JSON.parse((await call("/api/indmeldelser", { headers: { authorization: `Bearer ${"x".repeat(32)}` } })).body) as Array<{ name: string }>;
+    expect(list.map(r => r.name)).toEqual(["Birgit"]);
+    expect(r.body).not.toContain("udflugter er gratis");
     expect(r.body).toContain('<input type="checkbox" name="event"');
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
     expect(r.body).toContain("<strong>Det er helt uforpligtende</strong>");

@@ -148,7 +148,7 @@ function portalHeader(ctx: PageContext): SafeHtml {
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Find en flok</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></div>
           <div><p class="menu-head">Byer</p><ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">${a.place}</a></li>`)}</ul></div>
@@ -165,7 +165,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
       <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
-      <p><a href="/find-en-flok">Find en flok</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
+      <p><a href="/find-en-flok">Find en flok</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Events i din by</p>
       <ul>${ctx.areas.map(a => html`<li><a href="/${a.slug}">Events i ${a.place}</a></li>`)}</ul></nav>
