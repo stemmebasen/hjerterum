@@ -64,7 +64,11 @@ describe("Saga's link to approve a post", () => {
   it("shows the post without a login, and approves it with one press - as the chair; then on to the next proposal", async () => {
     const { db, env, dans, yoga, call } = await setup();
     const path = (await quickPath(env, dans, NOW))!;
-    const page = await (await call(path)).text();
+    const shown = await call(path);
+    // Reported (the chair, 10 Nov 2026): "Jeg kan ikke gå ind og godkende video forslag" - with "no-referrer" the browser sent the press with
+    // "Origin: null", and admin refused it. "same-origin" lets the browser name admin as the sender (and still never hands the link to another site).
+    expect(shown.headers.get("referrer-policy")).toBe("same-origin");
+    const page = await shown.text();
     expect(page).toContain("<h1>Dans</h1>");
     expect(page).toContain(`<video class="q-media" src="${VIDEO}"`);
     expect(page).toContain("Skabelon 1: Organisk");

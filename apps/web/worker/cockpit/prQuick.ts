@@ -8,8 +8,9 @@ import { templateName, templatesFor, usedLabel, VIDEO_TEMPLATES, type TemplateUs
 
 export const QUICK_HEADERS = {
   "content-security-policy": "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; media-src https:; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
-  // The link is the key: it is never sent on to another site.
-  "referrer-policy": "no-referrer",
+  // The link is the key: it is never sent on to another site. "same-origin", not "no-referrer" - reported (the chair, 10 Nov 2026): "Jeg kan ikke gå ind og
+  // godkende video forslag" ("Siden blev sendt fra et andet sted"): with no-referrer the browser sends the press with "Origin: null", which admin refuses.
+  "referrer-policy": "same-origin",
 };
 
 const when = (ms: number | null | undefined) => {
