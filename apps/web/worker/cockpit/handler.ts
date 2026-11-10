@@ -52,7 +52,7 @@ import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.j
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
-import { hideMail, linkMail, moveToPr, prMailData, prReplyPage } from "./prMail.js";
+import { hideMail, linkMail, moveToPr, prMailData, prReplyPage, returnFromPr } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
 import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
@@ -980,7 +980,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
         "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", kort: "Opslaget deler nu eventets Facebook-begivenhed med en kort tekst. Læs det, og godkend, når du er klar.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
-        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
+        flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", tilbage_mail: "Mailen ligger igen i indbakken, og Saga flytter den ikke til din mappe igen.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
       const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", "ingen-begivenhed": "Saga kender ikke eventets Facebook-begivenhed endnu. Læg linket ind under Events → Facebook-begivenheder (Saga leder også selv på Facebook-siden hver time).", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt.",
@@ -1035,11 +1035,17 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const form = await request.formData().catch(() => null);
     const field = (name: string) => String(form?.get(name) ?? "");
     // PR og SoMe → Mails (the chair, 5 Nov 2026): "Flyt til PR", "Skjul", and "Kobl til event" with the mail's material (prMail.ts, mailMaterial.ts).
-    if (path === "/pr/mails/flyt" || path === "/pr/mails/skjul" || path === "/pr/mails/kobl") {
+    if (path === "/pr/mails/flyt" || path === "/pr/mails/skjul" || path === "/pr/mails/kobl" || path === "/pr/mails/tilbage") {
       const id = Number(field("id"));
       const toMails = (query: string) => redirect(`${base}/pr/mails?${query}`);
       if (!Number.isSafeInteger(id) || id <= 0) return toMails("fejl=mail");
       if (path === "/pr/mails/skjul") { await hideMail(db, id, now); return toMails("besked=skjult"); }
+      // "Mails må ikke flyttes til JACOB mappen når PR kun en del af topic" (prMail.ts returnFromPr).
+      if (path === "/pr/mails/tilbage") {
+        if (!(await returnFromPr(env as SagaEnv, deps, db, [id], "Flyttet tilbage af formanden: ikke PR").catch(() => 0))) return toMails("fejl=mail");
+        await audit(db, actor, "social.manage", "Flyttede en mail fra 5 - JACOB › PR tilbage til indbakken", now);
+        return toMails("besked=tilbage_mail");
+      }
       if (path === "/pr/mails/flyt") {
         if (!(await moveToPr(env as SagaEnv, deps, db, id).catch(() => false))) return toMails("fejl=mail");
         await audit(db, actor, "social.manage", "Flyttede en mail til 5 - JACOB › PR", now);
