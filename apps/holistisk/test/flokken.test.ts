@@ -595,6 +595,17 @@ describe("Lad os komme godt i gang", () => {
     expect((await call("/flokke", { cookie: finn }, later)).body).toContain("Du nåede ikke at svare");
   });
 
+  it("counts the free outings: a confirmed flock counts once its event is over", async () => {
+    const cookie = await ready("Sif");
+    const before = (await call("/flokke", { cookie })).body;
+    expect(before).toContain("0 af 3 gratis udflugter brugt");
+    expect((await startFlock(cookie)).status).toBe(303);
+    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 gratis udflugter brugt");
+    const after = (await call("/flokke", { cookie }, event.starts_at + 6 * 3600_000)).body;
+    expect(after).toContain("1 af 3 gratis udflugter brugt");
+    expect(after.match(/free-dot is-used/g)).toHaveLength(1);
+  });
+
   it("makes a second flock when more than six want to go", async () => {
     const slug = (await fresh())[0]!;
     const names = ["Hans", "Ida", "Jens", "Kaja", "Lars", "Mia", "Nils"];

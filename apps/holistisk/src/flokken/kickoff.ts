@@ -268,7 +268,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
     ${crumbsNav(crumbs)}
     <h1>Lad os komme godt i gang</h1>
     ${flash(state.message)}
-    <p class="standfirst">Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der gerne vil med til det samme, samler vi en flok og giver dig besked – så bekræfter du, om du er med.</p>
+    <p class="standfirst">Sæt kryds ved de oplevelser, du er interesseret i. Når vi er en håndfuld (3–6), der gerne vil med til det samme, samler vi en flok og giver dig besked – så bekræfter du, om du er med. Dine første 3 udflugter er gratis.</p>
   </header>
   ${groupTiles(group, null, g => g ? `${KICKOFF_PATH}?gruppe=${g}` : KICKOFF_PATH, { compact: true })}
   ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form" data-kickoff-list>

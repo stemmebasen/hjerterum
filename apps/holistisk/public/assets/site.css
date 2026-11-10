@@ -1092,3 +1092,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .kickoff-group:hover { background: var(--tint); filter: brightness(.96); }
 .kickoff-group[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 @media (prefers-reduced-motion: reduce) { .group-tile, .group-tile:hover, .group-tile:active { transform: none; } }
+
+/* "1 af 3 gratis udflugter brugt" on Mine flokke. */
+.free-outings { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 14px; background: var(--butter-soft); }
+.free-dots { display: inline-flex; gap: 6px; }
+.free-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--ink); background: var(--card); }
+.free-dot.is-used { background: var(--green-2); }

@@ -7,7 +7,7 @@ import type { Member } from "./auth.js";
 import type { FieldErrors, FlockForm } from "./forms.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
 import { MAX_LENGTH, type ChatMessage } from "./chat.js";
-import { AGE_GROUPS, AGE_LABELS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
+import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Opret en flok, Find en flok,
  * Bliv en del af flokken. */
@@ -248,7 +248,15 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
 
 // ————————————————————————————————————————— Mine flokke
 
-export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[], message: string | null, extra: { top?: SafeHtml; interests?: SafeHtml } = {}): View {
+/** "1 af 3 gratis udflugter brugt", with a dot per free outing. */
+export function freeOutings(used: number): SafeHtml {
+  const n = Math.min(used, FREE_OUTINGS);
+  const text = used >= FREE_OUTINGS ? `Du har brugt dine ${FREE_OUTINGS} gratis udflugter` : `${n} af ${FREE_OUTINGS} gratis udflugter brugt`;
+  return html`<p class="free-outings"><span class="free-dots" aria-hidden="true">${Array.from({ length: FREE_OUTINGS }, (_, i) => html`<span class="free-dot${i < n ? " is-used" : ""}"></span>`)}</span>
+    <span><strong>${text}</strong> <span class="meta-muted">· En udflugt tæller, når du har været afsted med en flok.</span></span></p>`;
+}
+
+export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[], message: string | null, extra: { top?: SafeHtml; interests?: SafeHtml; outings?: number } = {}): View {
   const upcoming = flocks.filter(f => !eventOver(f, ctx.now)).reverse();
   const past = flocks.filter(f => eventOver(f, ctx.now));
   const row = (f: FlockRow) => html`<li class="flock-card"><a href="${flockPath(f.id)}"><span class="flock-title">${f.event_title}</span>
@@ -261,6 +269,7 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
     <h1>Hej ${member.first_name}</h1>
     ${flash(message)}
     <p class="standfirst">Her er dine flokke. Find et event i <a href="/kalender">kalenderen</a> for at finde eller oprette en flok.</p>
+    ${extra.outings !== undefined ? freeOutings(extra.outings) : ""}
   </header>
   ${extra.top ?? ""}
   ${extra.interests ?? ""}
