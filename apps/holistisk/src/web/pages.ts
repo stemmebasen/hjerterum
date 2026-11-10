@@ -60,7 +60,7 @@ function offeringsBlock(profiles: OrganizerProfile[]): SafeHtml {
   return html`<ul class="offerings">${withOfferings.map(p => html`<li>
     <p class="kicker">${areaBySlug(p.area)?.place ?? ""}</p>
     <h3 class="offering-org"><a href="/arrangoerer/${p.slug}">${p.name}</a></h3>
-    <ul>${p.offerings.map(o => html`<li>${o.text}</li>`)}</ul>
+    <ul>${p.offerings.map(o => html`<li>${o.text}${o.schedule ? html` · <a href="/kalender?q=${encodeURIComponent(o.schedule.title)}">Se datoerne i kalenderen</a>` : ""}</li>`)}</ul>
     <p class="meta meta-muted">${[p.address, [p.postalCode, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>
   </li>`)}</ul>`;
 }
