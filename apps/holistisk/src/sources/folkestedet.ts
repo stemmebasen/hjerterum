@@ -1,11 +1,15 @@
 import { collapse, decodeEntities } from "../text.js";
 import { monthNumber, zonedToUtc } from "../time.js";
+import { parsePrice } from "../price.js";
 import { decodeBody } from "./http.js";
 import type { AdapterContext, FetchResult, SourceAdapter, SourceConfig, SourceEvent } from "./types.js";
 
 /** Folkestedet (folkestedet.aarhus.dk), Aarhus Kommune's house for talks, singing, concerts and get-togethers on
  * Carl Blochs Gade. The calendar page lists every event as a card with date ("25. okt. 2026"), time ("15:00 - 17:00"),
  * address, a teaser and a tag. Events that run over many days or weeks (exhibitions, weekly courses) are left out.
+ * The calendar gives no price; each event's page says it in its text ("Pris: 125,-", "Pris: 50 kr. inkl. kaffe og
+ * kage", "helt gratis") or, for its own free activities, names no price; those pages are read within the enrichment
+ * budget.
  * Options: url. */
 
 const DEFAULT_URL = "https://folkestedet.aarhus.dk/kalender";
@@ -52,6 +56,20 @@ export function parseFolkestedet(html: string, config: SourceConfig, base: strin
   return { events, unreadable };
 }
 
+/** The price in the event's own text (the <article>; the page's sidebar and footer name e.g. "gratishold" for other
+ * things). A "Pris" line gives the amounts; "gratis" counts only in phrases that say the event itself is free. */
+export function folkestedetPrice(html: string): SourceEvent["price"] {
+  const article = /<article\b[^>]*>([\s\S]*?)<\/article>/.exec(html)?.[1] ?? "";
+  const lines = article.replace(/<script[\s\S]*?<\/script>/g, "").split(/<(?:br|\/p|\/li|\/h\d|\/div)[^>]*>/i).map(l => text(l)).filter(Boolean);
+  const priced = lines.filter(l => /^(?:billet)?pris\b/i.test(l) && /\d|gratis/i.test(l));
+  if (priced.length) {
+    const p = parsePrice(priced);
+    if (p.minMinor !== null || p.isFree) return { ...p, currency: "DKK" };
+  }
+  const free = lines.find(l => /\b(?:helt gratis|gratis adgang|gratis entr[ée]|fri entr[ée]|ingen entr[ée]|det er gratis|gratis at deltage|deltagelse er gratis|gratis for alle)\b/i.test(l));
+  return free ? { minMinor: 0, maxMinor: 0, isFree: true, text: "Gratis", currency: "DKK" } : null;
+}
+
 export const folkestedet: SourceAdapter = {
   async fetch(config: SourceConfig, ctx: AdapterContext): Promise<FetchResult> {
     const url = String(config.options.url ?? DEFAULT_URL);
@@ -59,5 +77,14 @@ export const folkestedet: SourceAdapter = {
     const { events, unreadable } = parseFolkestedet(decodeBody(res.body, res.headers.get("content-type")), config, url);
     if (!events.length && !unreadable) throw new Error("folkestedet_no_calendar_found");
     return { events, windowEnd: events.length ? Math.max(...events.map(e => e.startsAt)) : null, unreadable };
+  },
+  async enrich(event: SourceEvent, config: SourceConfig, ctx: AdapterContext): Promise<SourceEvent> {
+    if (!event.sourceUrl) return event;
+    const res = await ctx.http.get(event.sourceUrl, { headers: { accept: "text/html" }, respectRobots: config.respectRobots });
+    const price = folkestedetPrice(decodeBody(res.body, res.headers.get("content-type")));
+    if (price) return { ...event, price };
+    // Folkestedet prints "Pris: …" and a "Køb billet" button whenever an event costs money; its own free activities
+    // (SUND mandag, Byttebørs, fællessang, Værdibørsen) name no price. So a page without one is free.
+    return { ...event, price: { minMinor: 0, maxMinor: 0, isFree: true, text: "Gratis", currency: "DKK" }, qualityFlags: [...event.qualityFlags, "free_inferred"] };
   }
 };
