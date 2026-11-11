@@ -41,4 +41,18 @@ describe("the designs made of layers", () => {
       if (sub) expect(roomBelow(d.layers, title)).toBeLessThanOrEqual(sub.y);
     }
   });
+
+  // Requested (the chair, 11 Nov 2026): "Kan vi lave denne slags designs som skabeloner" - a painting or a photo over the whole page, the words on it.
+  it("lays the painting designs on a picture over the whole page, with the teacher's name and words that take their colour from it", () => {
+    for (const key of ["citat-maleri", "citat-buenavn", "citat-blade", "underviser"]) {
+      const d = layerDesign(key, { W: 1080, H: 1350, words, colors: C, site: "hjerterum.info", quote: "Medfølelse er den, du i virkeligheden er." })!;
+      expect(d.layers[0], key).toMatchObject({ kind: "photo", x: 0, y: 0, w: 1080, h: 1350, ground: true });
+      const texts = d.layers.filter((l): l is Extract<Layer, { kind: "text" }> => l.kind === "text");
+      expect(texts.map(t => t.text).join(" "), key).toMatch(/KASPER HOLM|Kasper Holm/);
+      if (key.startsWith("citat")) expect(texts.find(t => t.role === "quote")?.text, key).toBe("Medfølelse er den, du i virkeligheden er.");
+    }
+    const arc = layerDesign("citat-buenavn", { W: 1080, H: 1350, words, colors: C, site: "x", quote: null })!.layers.find(l => l.kind === "text" && l.arc);
+    expect(arc).toMatchObject({ text: "KASPER HOLM" });
+    expect(layerDesign("citat-maleri", { W: 1080, H: 1350, words, colors: C, site: "x", quote: null })!.layers.filter(l => l.kind === "text" && l.auto).length).toBeGreaterThanOrEqual(3);
+  });
 });

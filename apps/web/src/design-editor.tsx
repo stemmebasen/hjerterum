@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, Circle, FabricImage, Gradient, Group, IText, Line, Path, Point, Rect, Shadow, StaticCanvas, Textbox, filters, type FabricObject } from "fabric";
-import { SIZES, type Format, type TextPiece } from "./event-poster";
+import { EXTRA_FONTS_URL, SIZES, type Format, type TextPiece } from "./event-poster";
 import { layerDesign, LAYER_DESIGNS, roomBelow, type Colors, type Frame, type Layer, type LayerDesign, type LayerInput } from "./layer-templates";
 
 /** Asked (the chair, 7 Nov 2026): "Vi er nødt til at optimere den grafiske sektion ... flytte rundt på billeder, gøre dem mindre eller større og dreje dem rundt.
@@ -82,9 +82,33 @@ async function photoObject(layer: Extract<Layer, { kind: "photo" }>, url: string
   return picture;
 }
 
-function textObject(layer: Extract<Layer, { kind: "text" }>, bottom = Infinity): Textbox {
+/** A soft shadow behind light words, a soft light halo behind dark ones - so words stand out where a picture turns from light to dark. */
+const GLOW = (color: string) => {
+  const m = /^#([0-9a-f]{6})$/i.exec(color), n = m ? parseInt(m[1]!, 16) : 0xffffff;
+  const light = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.5;
+  return new Shadow(light ? { color: "rgba(20,14,10,0.62)", blur: 22, offsetX: 0, offsetY: 2 } : { color: "rgba(255,248,236,0.8)", blur: 22, offsetX: 0, offsetY: 0 });
+};
+
+/** Words along an arc bending up (the name over the hill): radius `arc`, centred in the layer's box, its middle at the box's top. */
+function arcText(layer: Extract<Layer, { kind: "text" }>, color: string): IText {
+  const r = layer.arc!, cx = layer.x + layer.w / 2, half = Math.min(layer.w / 2, r * 0.95), dy = r - Math.sqrt(r * r - half * half);
+  const base = layer.y + layer.size;
+  const t = new IText(layer.text, {
+    fontSize: layer.size, fontFamily: layer.family ?? (layer.font === "serif" ? SERIF_OF : SANS_OF), fill: color, fontWeight: layer.weight ?? 600,
+    charSpacing: layer.spacing ?? 0, textAlign: "center", opacity: layer.opacity ?? 1,
+    path: new Path(`M ${cx - half} ${base + dy} A ${r} ${r} 0 0 1 ${cx + half} ${base + dy}`, { visible: false }), pathAlign: "baseline",
+    ...(layer.glow ? { shadow: GLOW(color) } : {}),
+  });
+  t.set({ left: cx - half, top: layer.y });
+  (t as Tagged).role = layer.role ?? "text";
+  return t;
+}
+
+function textObject(layer: Extract<Layer, { kind: "text" }>, bottom = Infinity, color = layer.color): FabricObject {
+  if (layer.arc) return arcText(layer, color);
   const t = new Textbox(layer.text, {
-    left: layer.x, top: layer.y, width: layer.w, fontSize: layer.size, fontFamily: layer.font === "serif" ? SERIF_OF : SANS_OF, fill: layer.color,
+    left: layer.x, top: layer.y, width: layer.w, fontSize: layer.size, fontFamily: layer.family ?? (layer.font === "serif" ? SERIF_OF : SANS_OF), fill: color,
+    ...(layer.glow ? { shadow: GLOW(color) } : {}),
     fontWeight: layer.weight ?? (layer.font === "serif" ? 400 : 500), fontStyle: layer.italic ? "italic" : "normal", textAlign: layer.align ?? "left",
     lineHeight: layer.lineHeight ?? 1.16, charSpacing: layer.spacing ?? 0, opacity: layer.opacity ?? 1,
   });
@@ -111,13 +135,13 @@ export const PHOTO_EFFECTS: Array<{ key: string; label: string; make: (c: Colors
   { key: "sh", label: "Sort/hvid", make: () => [new filters.Grayscale()] },
 ];
 
-async function logoObject(logo: HTMLImageElement | null, layer: Extract<Layer, { kind: "logo" }>): Promise<FabricObject | null> {
+async function logoObject(logo: HTMLImageElement | null, layer: Extract<Layer, { kind: "logo" }>, color = layer.color): Promise<FabricObject | null> {
   if (!logo) return null;
-  const el = await loadImage(tintedLogo(logo, layer.color));
+  const el = await loadImage(tintedLogo(logo, color));
   if (!el) return null;
   const img = new FabricImage(el, { left: layer.x, top: layer.y });
   img.scaleToWidth(layer.size);
-  Object.assign(img as Tagged, { role: "logo", tint: layer.color });
+  Object.assign(img as Tagged, { role: "logo", tint: color });
   if (layer.angle) img.rotate(layer.angle);
   return img;
 }
@@ -137,14 +161,65 @@ function shapeObject(layer: Layer): FabricObject | null {
   return null;
 }
 
+/** How light (0-1) the picture is where a box of the page lies over it, the picture filling its frame as fillFrame lays it, and how much of it is dark.
+ * Null when it cannot be read. */
+function brightnessAt(el: HTMLImageElement, frame: Extract<Layer, { kind: "photo" }>, x: number, y: number, w: number, h: number): { mean: number; dark: number } | null {
+  try {
+    const iw = el.naturalWidth, ih = el.naturalHeight, [fx, fy] = frame.focus ?? [0.5, 0.5];
+    const scale = Math.max(frame.w / iw, frame.h / ih) * Math.max(1, frame.zoom ?? 1);
+    const cropX = (iw - frame.w / scale) * fx, cropY = (ih - frame.h / scale) * fy;
+    const sx = cropX + (x - frame.x) / scale, sy = cropY + (y - frame.y) / scale, sw = Math.max(1, w / scale), sh = Math.max(1, h / scale);
+    const c = document.createElement("canvas"); c.width = 16; c.height = 16;
+    const t = c.getContext("2d", { willReadFrequently: true })!;
+    t.drawImage(el, Math.max(0, sx), Math.max(0, sy), Math.min(sw, iw), Math.min(sh, ih), 0, 0, 16, 16);
+    const d = t.getImageData(0, 0, 16, 16).data;
+    let sum = 0, dark = 0;
+    for (let i = 0; i < d.length; i += 4) { const l = (0.299 * d[i]! + 0.587 * d[i + 1]! + 0.114 * d[i + 2]!) / 255; sum += l; if (l < 0.5) dark++; }
+    return { mean: sum / (d.length / 4), dark: dark / (d.length / 4) };
+  } catch { return null; }
+}
+
+/** The editor's finer fonts (Cormorant Garamond, Jost, ...) on the page, its stylesheet loaded - so a design is never drawn in a stand-in font. */
+let extraFonts: Promise<void> | null = null;
+function extraFontsReady(): Promise<void> {
+  extraFonts ??= new Promise<void>(resolve => {
+    const had = document.querySelector<HTMLLinkElement>(`link[href="${EXTRA_FONTS_URL}"]`);
+    if (had?.sheet) { resolve(); return; }
+    const link = had ?? Object.assign(document.createElement("link"), { rel: "stylesheet", href: EXTRA_FONTS_URL });
+    link.addEventListener("load", () => resolve(), { once: true }); link.addEventListener("error", () => resolve(), { once: true });
+    if (!had) document.head.appendChild(link);
+    setTimeout(resolve, 4000);
+  });
+  return extraFonts;
+}
+
 /** The layers of a design on a canvas (the editor's, or a still one for the gallery). */
 export async function buildDesign(canvas: Canvas | StaticCanvas, design: LayerDesign, photos: Array<string | null>, logo: HTMLImageElement | null, colors: Colors) {
   canvas.clear();
   canvas.backgroundColor = design.background;
-  await Promise.all(EDITOR_FONTS.slice(0, 2).map(f => document.fonts.load(`40px "${f}"`).catch(() => [])));
+  const families = new Set([...EDITOR_FONTS.slice(0, 2), ...design.layers.flatMap(l => l.kind === "text" && l.family ? [l.family] : [])]);
+  if (families.size > 2) await extraFontsReady();
+  await Promise.all([...families].map(f => Promise.all([document.fonts.load(`40px "${f}"`), document.fonts.load(`600 40px "${f}"`)]).catch(() => [])));
+  // Requested (the chair, 11 Nov 2026): designs on a painting or a photo over the whole page - the words dark on its light parts, light on its dark ones.
+  const groundLayer = design.layers.find((l): l is Extract<Layer, { kind: "photo" }> => l.kind === "photo" && Boolean(l.ground));
+  const groundUrl = groundLayer ? photos[(groundLayer.slot ?? 1) - 1] ?? photos[0] ?? null : null;
+  const ground = groundLayer && groundUrl ? { layer: groundLayer, el: await loadImage(groundUrl) } : null;
+  const tone = (auto: { light: string; dark: string } | undefined, fallback: string, x: number, y: number, w: number, h: number) => {
+    if (!auto) return fallback;
+    const lum = ground?.el ? brightnessAt(ground.el, ground.layer, x, y, w, h) : null;
+    // Dark words only where the picture is light all through: over a picture that is partly dark (trees under a sky), light words with a shadow read best.
+    return lum === null ? fallback : lum.mean > 0.56 && lum.dark < 0.25 ? auto.dark : auto.light;
+  };
   for (const layer of design.layers) {
     const obj = layer.kind === "photo" ? await photoObject(layer, photos[(layer.slot ?? 1) - 1] ?? photos[0] ?? null, colors)
-      : layer.kind === "text" ? textObject(layer, roomBelow(design.layers, layer)) : layer.kind === "logo" ? await logoObject(logo, layer) : shapeObject(layer);
+      : layer.kind === "text" ? (() => {
+        // Words that take their colour from the picture: measured as laid out, then coloured by the picture under all of them, with the shadow (or light
+        // halo) that keeps them readable on it.
+        const laid = textObject({ ...layer, glow: false }, roomBelow(design.layers, layer));
+        const color = tone(layer.auto, layer.color, layer.x, layer.y, layer.w, (laid.height ?? layer.size) * (laid.scaleY ?? 1));
+        return layer.auto || layer.glow ? textObject({ ...layer, glow: true }, roomBelow(design.layers, layer), color) : laid;
+      })()
+      : layer.kind === "logo" ? await logoObject(logo, layer, tone(layer.auto, layer.color, layer.x, layer.y, layer.size, layer.size)) : shapeObject(layer);
     if (obj) canvas.add(obj);
   }
   canvas.renderAll();
