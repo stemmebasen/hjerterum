@@ -131,6 +131,7 @@ ${day === today ? `<ul>${withNow(posts)}</ul>` : posts.length ? `<ul>${posts.map
     return `<section class="cal-week"><h3>Uge ${weekNumber(weekKey(monday))}</h3><div class="cal-grid">${days}</div></section>`;
   }).join("");
   return `<section class="panel" id="kalender"><header><h2>Kalender</h2>
+<p class="pr-new"><a class="button ghost" href="${base}/pr/nyt-opslag">＋ Nyt opslag</a> <span class="small muted">fx en konkurrence, en nyhed eller en hilsen</span></p>
 <p>Alt, der er planlagt, på den dag og det tidspunkt, det går ud. Saga laver et forslag til hvert event, så snart det er i kalenderen, og sætter det til første ledige tid. Tryk på et forslag for at se billedet og det færdige opslag, vælge tidspunkt og publicere. Træk et opslag over på en anden dag for at flytte det (samme klokkeslæt), eller tryk "Flyt" og vælg dag og tid.</p></header>
 ${nav}
 <p class="cal-legend"><span class="cal-item is-draft">Forslag${waiting ? ` (${waiting})` : ""}: venter på dit ja</span><span class="cal-item is-approved"><span class="cal-ok">✓</span> Godkendt og klar</span><span class="cal-item is-sent">Publiceret</span><span class="cal-item is-removed">Slettet igen</span><span class="cal-item is-failed">Fejlet</span></p>

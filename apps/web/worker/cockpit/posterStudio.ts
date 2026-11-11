@@ -43,7 +43,8 @@ export type StudioData = { event: StudioEvent; eventPictures: StudioPicture[]; f
     videoChoices: Array<{ template: number; name: string; video: string }>; videoAsked: number[]; stillAsked: boolean } | null };
 
 /** The event's key in the calendar and PR og SoMe ("mw:SF<hex>", "hr:<n>") and its address here (the hex, "h<n>"). */
-export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : `mw:SF${studioId}`;
+/** A post of the chair's own ("Nyt opslag", prFreePost.ts) keeps the pictures fetched for it under free:<id>. */
+export const eventKeyOf = (studioId: string) => /^h(\d+)$/.test(studioId) ? `hr:${studioId.slice(1)}` : /^frit-\d+$/.test(studioId) ? `free:${studioId.slice(5)}` : `mw:SF${studioId}`;
 export const studioIdOf = (key: string) => /^mw:SF([0-9a-f]{24})$/.exec(key)?.[1] ?? (/^hr:(\d+)$/.test(key) ? `h${key.slice(3)}` : null);
 
 const plain = (html: string | null) => (html ?? "").replace(/<[^>]+>/g, "\n").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").split(/\n+/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);

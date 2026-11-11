@@ -52,6 +52,7 @@ import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.j
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
+import { createFreePost, freePostPage, fromDanish, proposeFreeWords } from "./prFreePost.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage, returnFromPr } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
 import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
@@ -969,6 +970,25 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const back = (query = "", week?: string, where = week ? "/uge" : "") => redirect(`${base}/pr${where}${[week ? `uge=${week}` : "", query].filter(Boolean).length ? `?${[week ? `uge=${week}` : "", query].filter(Boolean).join("&")}` : ""}`);
     const redirectUri = `${url.origin}${base}/pr/forbind/svar`;
     const secure = url.protocol === "https:";
+    // "What if I want to create a post about a contest?" - "Nyt opslag" (prFreePost.ts).
+    if (path === "/pr/nyt-opslag" || path === "/pr/nyt-opslag/forslag") {
+      const account = await socialAccount(db);
+      const ai = Boolean(env.AI_API_KEY && env.AI_MODEL);
+      if (request.method === "GET" && path === "/pr/nyt-opslag") return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai }));
+      if (request.method !== "POST") return html(notFound(base, who), 404);
+      const form = await request.formData().catch(() => null);
+      const get = (name: string) => String(form?.get(name) ?? "").replace(/\r\n?/g, "\n").trim();
+      if (path === "/pr/nyt-opslag/forslag") return new Response(JSON.stringify(await proposeFreeWords(env as SagaEnv, deps, get("kort")) ?? {}), { headers: { "content-type": "application/json" } });
+      const atMs = fromDanish(get("at")), title = get("titel"), text = get("tekst");
+      const channels = (form?.getAll("channel") ?? []).map(String).filter((c): c is Channel => c === "facebook" || (c === "instagram" && Boolean(account?.ig_user_id)));
+      const problem = !title || !text ? "Skriv et navn og teksten." : atMs === null || atMs < now - 60_000 ? "Vælg et tidspunkt fra nu af." : !channels.length ? "Vælg mindst ét sted, opslaget skal ud." : "";
+      if (problem) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: problem,
+        values: { titel: title, kort: get("kort"), tekst: text, instagram: get("instagram"), link: get("link"), at: get("at"), channels } }), 400);
+      const link = /^https?:\/\/\S+$/.test(get("link")) ? get("link").slice(0, 500) : null;
+      const id = await createFreePost(db, { title, text, instagramText: get("instagram"), link, channels, atMs: atMs! }, now);
+      await audit(db, actor, "social.manage", `Lavede et nyt opslag: "${title}"`, now);
+      return get("do") === "billede" ? redirect(`${base}/plakater/frit-${id}`) : redirect(`${base}/pr/uge?uge=${mondayOf(atMs!)}#opslag-${id}`);
+    }
     const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/mails": "mails", "/pr/beskeder": "beskeder", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
     if (tab && request.method === "GET") {
       const thisMonday = mondayOf(now), coming = nextMonday(now);
@@ -1174,7 +1194,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     const download = /^\/plakater\/materiale\/(\d+)$/.exec(path);
     if (download && request.method === "GET") return materialFile(db, media, Number(download[1]), true);
     if (picture && request.method === "GET") return studioPicture(db, media, picture[1]!, picture[2] ?? "", url.searchParams.get("src"), deps.fetcher);
-    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+)(\/data|\/design|\/opslag|\/karrusel|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload|\/billedsoeg|\/billede-hent)?$/.exec(path);
+    const studio = /^\/plakater\/([0-9a-f]{24}|h\d+|frit-\d+)(\/data|\/design|\/opslag|\/karrusel|\/publicer|\/video|\/tekst|\/bevaegelse|\/nyt-opslag|\/billede-upload|\/billedsoeg|\/billede-hent)?$/.exec(path);
     if (!studio) return html(notFound(base, who), 404);
     const [, id, part] = studio;
     if (!part && request.method === "GET") {
@@ -1183,6 +1203,27 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const shell = assets ? await assets.fetch(new Request(`${url.origin}/`)).then(r => r.ok ? r.text() : null).catch(() => null) : null;
       if (!shell) return html(problem(base, who, "Værktøjet kunne ikke åbnes lige nu. Prøv igen om lidt."), 503);
       return new Response(shell, { headers: { ...HEADERS, "content-security-policy": `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: ${STOCK_IMAGE_HOSTS.join(" ")}; media-src https://www.hjerterum.info; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'` } });
+    }
+    // "Nyt opslag" (prFreePost.ts): the post's picture made in the editor - no event behind it.
+    const free = /^frit-(\d+)$/.exec(id!);
+    if (free) {
+      // A post in PR og SoMe: the chair's alone for now, like the rest of it.
+      if (!may("social.manage")) return denied("social.manage");
+      const post = await socialPost(db, Number(free[1]));
+      if (!post?.source.free) return answer({ error: "no_post" }, 404);
+      const backTo = `${base}/pr/uge?uge=${mondayOf(post.publish_at_ms ?? now)}#opslag-${post.id}`;
+      if (part === "/data" && request.method === "GET") return answer({ free: true, post: { id: post.id, title: post.source.title ?? "",
+        // Its picture from here (config-entry.ts serves /api/social-designs on every address), so the editor can draw on it.
+        text: post.text, image: post.images[0]?.replace(/^https:\/\/[^/]+(\/api\/social-designs\/[0-9a-f]{32}\.jpg)$/, "$1") ?? null }, back: backTo });
+      if (part === "/opslag" && request.method === "POST") {
+        if (!media) return answer({ error: "not_possible" }, 400);
+        const stored = await storeSocialDesign(media, await request.arrayBuffer());
+        if (!stored.ok) return answer(stored, 422);
+        await setPostDesign(db, post.id, stored.url, now);
+        await audit(db, actor, "posters.design", `Lagde et billede i opslaget "${post.source.title ?? ""}"`, now);
+        return answer({ ok: true, url: stored.url, back: backTo });
+      }
+      if (part !== "/billedsoeg" && part !== "/billede-hent" && part !== "/billede-upload" && part) return answer({ error: "not_found" }, 404);
     }
     if (part === "/data" && request.method === "GET") {
       const data = await studioData(db, id!, now, deps.fetcher);

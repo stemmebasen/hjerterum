@@ -176,7 +176,7 @@ const STOCK_KINDS: Array<[StockKind, string, string]> = [
   ["foto", "Fotos", "Fotos fra Pexels, Unsplash og Pixabay."],
   ["illustration", "Illustrationer", "Akvareller, tegninger og vektorgrafik fra Pixabay."],
   ["kunst", "Kunst og botanik", "Gamle kunstværker og botaniske tegninger fra The Met, Art Institute of Chicago og Openverse - frie at bruge (CC0)."]];
-function PictureFinder({ id, onChosen }: { id: string; onChosen: (url: string, label: string) => void }) {
+export function PictureFinder({ id, onChosen }: { id: string; onChosen: (url: string, label: string) => void }) {
   const [kind, setKind] = useState<StockKind>("foto");
   const [query, setQuery] = useState("");
   const [ideas, setIdeas] = useState<string[]>([]);
