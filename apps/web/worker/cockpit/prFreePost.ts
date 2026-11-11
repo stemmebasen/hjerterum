@@ -4,7 +4,7 @@ import { completeAs } from "../saga/ai.js";
 import { esc, layout } from "./page.js";
 import { PR_PAGE_STYLE } from "./prPage.js";
 import { mondayOf, weekKey } from "../social/plan.js";
-import type { Channel } from "../social/social.js";
+import type { Channel, SocialPost } from "../social/social.js";
 
 /** Requested (the chair, 11 Nov 2026): "What if I want to create a post about a contest? Can I also do that in the system?" - "Ja" to "Nyt opslag": a post of the
  * chair's own, not about an event - its words written by the chair (or proposed by Saga), its picture made in the editor (/plakater/frit-<id>), its time
@@ -52,6 +52,28 @@ export function jpegSize(b: Uint8Array): { width: number; height: number } | nul
 }
 /** Instagram takes a picture from portrait 4:5 to landscape 1.91:1. */
 export const instagramTakes = (s: { width: number; height: number }) => s.width / s.height >= 0.79 && s.width / s.height <= 1.92;
+/** What is wrong with a finished picture for the post (null when nothing): a jpg (the page makes a png or webp one), at most 8 MB, in a shape Instagram takes
+ * when it goes there. The code is for the card's message (PICTURE_PROBLEMS). */
+export function finishedPictureProblem(bytes: Uint8Array, channels: Channel[]): { code: keyof typeof PICTURE_PROBLEMS; message: string } | null {
+  const size = jpegSize(bytes);
+  if (!size) return { code: "billede-type", message: PICTURE_PROBLEMS["billede-type"] };
+  if (bytes.length > 8 * 1024 * 1024) return { code: "billede-stor", message: PICTURE_PROBLEMS["billede-stor"] };
+  if (channels.includes("instagram") && !instagramTakes(size)) return { code: "billede-ig", message: `Billedet er ${size.width}×${size.height}: ${PICTURE_PROBLEMS["billede-ig"]}` };
+  return null;
+}
+export const PICTURE_PROBLEMS = {
+  "billede-type": "Billedet skal være et jpg- eller png-billede. Vælg det igen.",
+  "billede-stor": "Billedet er for stort (højst 8 MB). Vælg et mindre.",
+  "billede-ig": "Instagram tager kun billeder fra højformat 4:5 til bredformat 1,91:1. Vælg et andet, eller fjern Instagram fra opslaget.",
+  "billede-mangler": "Instagram kræver et billede. Vælg et færdigt billede, eller fjern fluebenet ved Instagram.",
+  "billede-gem": "Billedet kunne ikke gemmes lige nu. Prøv igen."
+} as const;
+
+/** Reported (the chair, 11 Nov 2026): "Der står intet billede, men jeg har lige uploadet det?" - the finished picture can also be laid in on the post's own card
+ * (Ugens opslag), not only when the post is made. */
+export function cardPictureForm(base: string, id: number, has: boolean): string {
+  return `<form method="post" action="${base}/pr/opslag/${id}/billede" enctype="multipart/form-data" class="pr-upload"><label class="button ghost">${has ? "Skift til et andet færdigt billede" : "Upload et færdigt billede"}<input type="file" name="billede" accept="image/jpeg,image/png,image/webp" hidden data-free-picture></label></form>`;
+}
 
 /** The post made: a proposal (draft) to read and approve in Ugens opslag. Its id. */
 export async function createFreePost(db: D1Database, post: FreePost, nowMs: number): Promise<number> {
@@ -82,17 +104,30 @@ export async function proposeFreeWords(env: SagaEnv, deps: SagaDeps, brief: stri
 }
 
 /** The picture made a jpg in the browser before it is sent (a png or webp, or one larger than 2160 px), and Instagram's shape told at once. */
-const PICTURE_SCRIPT = `<script>(()=>{const i=document.getElementById("free-picture"),n=document.getElementById("free-picture-note");if(!i)return;const f=i.form;let ready=true;
-const ig=()=>{const c=f.querySelector('input[name=channel][value=instagram]');return Boolean(c&&c.checked)};
-const load=file=>new Promise((ok,no)=>{const u=URL.createObjectURL(file),m=new Image();m.onload=()=>ok(m);m.onerror=no;m.src=u});
-i.addEventListener("change",async()=>{const file=i.files&&i.files[0];if(!file)return;ready=false;n.textContent="Gør billedet klar …";
-try{const m=await load(file),w=m.naturalWidth,h=m.naturalHeight,r=w/h;
+const TO_JPEG = `const load=file=>new Promise((ok,no)=>{const u=URL.createObjectURL(file),m=new Image();m.onload=()=>ok(m);m.onerror=no;m.src=u});
+const toJpeg=async(i)=>{const file=i.files&&i.files[0];if(!file)return null;const m=await load(file),w=m.naturalWidth,h=m.naturalHeight;
 if(file.type!=="image/jpeg"||Math.max(w,h)>2160||file.size>7e6){const k=Math.min(1,2160/Math.max(w,h)),c=document.createElement("canvas");c.width=Math.round(w*k);c.height=Math.round(h*k);
 const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(m,0,0,c.width,c.height);
 const blob=await new Promise(ok=>c.toBlob(ok,"image/jpeg",0.92));const d=new DataTransfer();d.items.add(new File([blob],file.name.replace(/\\.[^.]*$/,"")+".jpg",{type:"image/jpeg"}));i.files=d.files}
-n.textContent=(r<0.79||r>1.92)&&ig()?"Billedet er "+w+"×"+h+": Instagram tager kun billeder fra højformat 4:5 til bredformat 1,91:1. Vælg et andet, eller fjern fluebenet ved Instagram.":"Billedet er klar ("+w+"×"+h+"). Tryk «Gem opslaget».";
+return {w,h,r:w/h}};`;
+const PICTURE_SCRIPT = `<script>(()=>{const i=document.getElementById("free-picture"),n=document.getElementById("free-picture-note");if(!i)return;const f=i.form;let ready=true;
+const ig=()=>{const c=f.querySelector('input[name=channel][value=instagram]');return Boolean(c&&c.checked)};${TO_JPEG}
+i.addEventListener("change",async()=>{if(!i.files||!i.files[0])return;ready=false;n.textContent="Gør billedet klar …";
+try{const {w,h,r}=await toJpeg(i);
+n.textContent=(r<0.79||r>1.92)&&ig()?"Billedet er "+w+"×"+h+": Instagram tager kun billeder fra højformat 4:5 til bredformat 1,91:1. Vælg et andet, eller fjern fluebenet ved Instagram.":"Billedet er klar ("+w+"×"+h+").";
 }catch(e){i.value="";n.textContent="Billedet kunne ikke læses. Vælg et jpg- eller png-billede."}ready=true});
 f.addEventListener("submit",e=>{if(!ready){e.preventDefault();n.textContent="Vent et øjeblik - billedet gøres klar."}})})()</script>`;
+/** On the post's card: the picture chosen is made a jpg and sent at once. */
+export const CARD_PICTURE_SCRIPT = `<script>(()=>{${TO_JPEG}
+document.addEventListener("change",async e=>{const i=e.target;if(!i.matches||!i.matches("[data-free-picture]"))return;const l=i.closest("label");
+try{if(l)l.firstChild.textContent="Gemmer billedet …";await toJpeg(i);i.form.submit()}catch(x){i.value="";if(l)l.firstChild.textContent="Billedet kunne ikke læses - vælg et jpg- eller png-billede"}})})()</script>`;
+
+/** "✨ Nyt forslag fra Saga" on the card of a post of the chair's own: new words from what the post says now, and the chair's wish. */
+export async function proposeFreeWordsFor(env: SagaEnv, deps: SagaDeps, post: SocialPost, wish: string): Promise<{ text: string; instagramText: string } | null> {
+  const brief = [post.source.title ?? "", wish.trim() ? `Ønske: ${wish.trim().slice(0, 300)}` : "", `Opslaget nu:\n${post.text}`].filter(Boolean).join("\n\n");
+  const words = await proposeFreeWords(env, deps, brief);
+  return words ? { text: words.facebook, instagramText: words.instagram } : null;
+}
 
 export function freePostPage(base: string, who: string | null, nowMs: number, opts: { instagram: boolean; ai: boolean; error?: string;
   values?: { titel: string; kort: string; tekst: string; instagram: string; link: string; at: string; channels: Channel[] } }): string {
@@ -109,10 +144,11 @@ ${opts.ai ? `<label class="pr-field"><span>Hvad handler det om? (til Sagas forsl
 ${opts.instagram ? `<label class="pr-field"><span>Teksten på Instagram (tom: samme som Facebook)</span><textarea name="instagram" rows="8" maxlength="2200">${esc(v?.instagram ?? "")}</textarea></label>` : ""}
 <label class="pr-field"><span>Link (valgfrit, kun Facebook)</span><input name="link" type="url" value="${esc(v?.link ?? "")}" placeholder="https://www.hjerterum.info/…"></label>
 <label class="pr-field"><span>Færdigt billede (valgfrit)</span><input type="file" name="billede" accept="image/jpeg,image/png,image/webp" id="free-picture"></label>
-<p class="small muted" id="free-picture-note" role="status">Har du allerede et færdigt billede, så vælg det her og tryk «Gem opslaget». Til Instagram skal det være fra højformat 4:5 (fx 1080×1350) til bredformat 1,91:1.</p>
+<p class="small muted" id="free-picture-note" role="status">Har du allerede et færdigt billede, så vælg det her. Til Instagram skal det være fra højformat 4:5 (fx 1080×1350) til bredformat 1,91:1.</p>
 <div class="pr-row"><label class="pr-field pr-time"><span>Sendes</span><input type="datetime-local" name="at" required value="${esc(v?.at || localValue(at))}"></label>
 <div class="pr-channels"><label><input type="checkbox" name="channel" value="facebook"${on("facebook")}> Facebook</label>${opts.instagram ? `<label><input type="checkbox" name="channel" value="instagram"${on("instagram")}> Instagram (kræver et billede)</label>` : ""}</div></div>
-<p class="pr-acts"><button name="do" value="gem">Gem opslaget</button><button name="do" value="billede" class="ghost">Gem og lav (eller ret) billedet i editoren →</button></p>
+<p class="pr-acts"><button name="do" value="nu" onclick="return confirm('Publicere opslaget nu?')">Publicér nu</button><button name="do" value="godkend">Godkend til tidspunktet</button><button name="do" value="gem" class="ghost">Gem som forslag</button><button name="do" value="billede" class="ghost">Gem og lav (eller ret) billedet i editoren →</button></p>
+<p class="small muted">«Publicér nu» sender opslaget med det samme. «Godkend til tidspunktet» sender det på det valgte tidspunkt. «Gem som forslag» lægger det i Ugens opslag, så du kan godkende det senere.</p>
 </form></section>
 ${PICTURE_SCRIPT}
 ${opts.ai ? `<script>(()=>{const b=document.getElementById("free-propose"),s=document.getElementById("free-status");if(!b)return;b.addEventListener("click",async()=>{const f=b.form,k=f.elements.kort.value.trim();

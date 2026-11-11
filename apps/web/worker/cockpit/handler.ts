@@ -52,7 +52,7 @@ import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.j
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
-import { createFreePost, freePostPage, fromDanish, instagramTakes, jpegSize, proposeFreeWords } from "./prFreePost.js";
+import { createFreePost, finishedPictureProblem, freePostPage, PICTURE_PROBLEMS, fromDanish, proposeFreeWords, proposeFreeWordsFor } from "./prFreePost.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage, returnFromPr } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
 import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
@@ -979,7 +979,8 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const form = await request.formData().catch(() => null);
       const get = (name: string) => String(form?.get(name) ?? "").replace(/\r\n?/g, "\n").trim();
       if (path === "/pr/nyt-opslag/forslag") return new Response(JSON.stringify(await proposeFreeWords(env as SagaEnv, deps, get("kort")) ?? {}), { headers: { "content-type": "application/json" } });
-      const atMs = fromDanish(get("at")), title = get("titel"), text = get("tekst");
+      // "Jeg skal kunne publicere allerede fra side 1 hvis jeg vil": "Publicér nu" sends it at once, whatever time the field holds.
+      const doing = get("do"), atMs = doing === "nu" ? now : fromDanish(get("at")), title = get("titel"), text = get("tekst");
       const channels = (form?.getAll("channel") ?? []).map(String).filter((c): c is Channel => c === "facebook" || (c === "instagram" && Boolean(account?.ig_user_id)));
       const problem = !title || !text ? "Skriv et navn og teksten." : atMs === null || atMs < now - 60_000 ? "Vælg et tidspunkt fra nu af." : !channels.length ? "Vælg mindst ét sted, opslaget skal ud." : "";
       if (problem) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: problem,
@@ -988,19 +989,26 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       // "uploade et billede, der allerede er færdigt, direkte i et nyt opslag": a jpg (the page makes a png or webp one), kept where Facebook and Instagram fetch it.
       const file = form?.get("billede");
       let image: string | undefined;
-      if (file instanceof File && file.size > 0) {
-        const bytes = new Uint8Array(await file.arrayBuffer()), size = jpegSize(bytes);
-        const wrong = !size ? "Billedet skal være et jpg- eller png-billede. Vælg det igen." : bytes.length > 8 * 1024 * 1024 ? "Billedet er for stort (højst 8 MB). Vælg et mindre." :
-          channels.includes("instagram") && !instagramTakes(size) ? `Billedet er ${size.width}×${size.height}: Instagram tager kun billeder fra højformat 4:5 til bredformat 1,91:1. Vælg et andet, eller fjern fluebenet ved Instagram.` : "";
+      const picked = file instanceof File && file.size > 0;
+      if (picked || ((doing === "nu" || doing === "godkend") && channels.includes("instagram"))) {
+        const bytes = picked ? new Uint8Array(await file.arrayBuffer()) : null;
+        const wrong = bytes ? finishedPictureProblem(bytes, channels)?.message ?? "" : PICTURE_PROBLEMS["billede-mangler"];
         const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
-        const stored = wrong || !media ? null : await storeSocialDesign(media, bytes.buffer as ArrayBuffer);
-        if (!stored?.ok) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: wrong || "Billedet kunne ikke gemmes lige nu. Prøv igen.",
+        const stored = wrong || !media || !bytes ? null : await storeSocialDesign(media, bytes.buffer as ArrayBuffer);
+        if (!stored?.ok) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: wrong || PICTURE_PROBLEMS["billede-gem"],
           values: { titel: title, kort: get("kort"), tekst: text, instagram: get("instagram"), link: get("link"), at: get("at"), channels } }), 400);
         image = stored.url;
       }
       const id = await createFreePost(db, { title, text, instagramText: get("instagram"), link, channels, atMs: atMs!, ...(image ? { image } : {}) }, now);
       await audit(db, actor, "social.manage", `Lavede et nyt opslag: "${title}"`, now);
-      return get("do") === "billede" ? redirect(`${base}/plakater/frit-${id}`) : redirect(`${base}/pr/uge?uge=${mondayOf(atMs!)}#opslag-${id}`);
+      if (doing === "nu" || doing === "godkend") {
+        const decided = await decidePost(db, id, "approve", who, now);
+        if (decided && firstDue(decided) <= now) await publishOne(env as SocialEnv, deps, db, decided);
+        const after = await socialPost(db, id);
+        const said = after?.status === "published" ? "besked=publiceret" : after?.status === "failed" ? "fejl=ikke-ud" : "besked=godkendt";
+        return redirect(`${base}/pr/uge?uge=${mondayOf(atMs!)}&${said}#opslag-${id}`);
+      }
+      return doing === "billede" ? redirect(`${base}/plakater/frit-${id}`) : redirect(`${base}/pr/uge?uge=${mondayOf(atMs!)}#opslag-${id}`);
     }
     const tab = ({ "/pr": "overblik", "/pr/kalender": "kalender", "/pr/events": "events", "/pr/mails": "mails", "/pr/beskeder": "beskeder", "/pr/tagget": "tagget", "/pr/uge": "uge", "/pr/sendt": "sendt" } as Record<string, import("./prPage.js").PrTab | undefined>)[path];
     if (tab && request.method === "GET") {
@@ -1009,12 +1017,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       // Any of the calendar's weeks (an event's post is now proposed weeks ahead), else next week.
       const ahead: string[] = []; for (let i = 0, m = thisMonday; i < CALENDAR_WEEKS; i++, m = nextMonday(Date.parse(`${m}T12:00:00Z`))) ahead.push(m);
       const monday = ahead.includes(asked) ? asked : coming;
-      const notices: Record<string, string> = { forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
+      const notices: Record<string, string> = { publiceret: "Opslaget er publiceret.", billede: "Billedet er lagt i opslaget. Det venter på dit ja igen.", forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
         "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", kort: "Opslaget deler nu eventets Facebook-begivenhed med en kort tekst. Læs det, og godkend, når du er klar.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
         flyttet_mail: "Mailen ligger nu i 5 - JACOB › PR.", tilbage_mail: "Mailen ligger igen i indbakken, og Saga flytter den ikke til din mappe igen.", besvaret: "Svaret er sendt i Messenger.", skjult: "Mailen er skjult. Et nyt svar i samme tråd vises igen.", koblet: "Mailen er koblet til eventet, og materialet ligger klar." };
-      const errors: Record<string, string> = { login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
+      const errors: Record<string, string> = { ...PICTURE_PROBLEMS, "ikke-ud": "Opslaget kunne ikke komme ud. Se fejlen på kortet nedenfor.", login: "Forbindelsen til Facebook lykkedes ikke. Prøv igen.", side: "Vi fandt ikke Hjerterums Facebook-side blandt de sider, du administrerer.",
         afvist: "Du afbrød login hos Facebook.", opsat: "Meta-appen er ikke sat op på serveren endnu.", kanaler: "Vælg mindst ét sted, det skal ud.", "ingen-begivenhed": "Saga kender ikke eventets Facebook-begivenhed endnu. Læg linket ind under Events → Facebook-begivenheder (Saga leder også selv på Facebook-siden hver time).", tom: "Der er ingen events i den uge.",
         sendt: "Opslaget er allerede sendt og kan ikke ændres.", tid: "Det tidspunkt kan opslaget ikke flyttes til: det skal ligge efter nu og senest en time før eventet.", flyt: "Opslaget kunne ikke flyttes.", mail: "Det lykkedes ikke med mailen lige nu. Prøv igen om lidt.",
         "messenger-sent": "Der er gået over 24 timer siden personens seneste besked, så Meta tillader ikke svaret herfra. Svar i Messenger på telefonen.", messenger: "Svaret kunne ikke sendes. Prøv igen om lidt." };
@@ -1101,7 +1109,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
     if (proposal) {
       const post = await socialPost(db, Number(proposal[1]));
       if (!post || post.status === "published" || post.status === "publishing") return answer({ error: "not_found" }, 404);
-      const words = await proposeWords(env as SagaEnv, deps, db, post, field("onske"));
+      const words = post.source.free ? await proposeFreeWordsFor(env as SagaEnv, deps, post, field("onske")) : await proposeWords(env as SagaEnv, deps, db, post, field("onske"));
       return words ? answer(words) : answer({ error: "ai" }, 503);
     }
     // "Vigtigt at vi først bruger den nye url når vi er begyndt at bruge den nye hjemmeside" (public-site.ts).
@@ -1155,6 +1163,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const n = await approveWeek(db, weekKey(monday), who, now);
       if (n) await audit(db, actor, "social.manage", `Godkendte ${n} opslag for uge ${Number(weekKey(monday).slice(6))}`, now);
       return back("besked=uge-godkendt", monday);
+    }
+    // "Der står intet billede, men jeg har lige uploadet det?" - a finished picture laid in on the card of a post of the chair's own (prFreePost.ts).
+    const pictureMatch = /^\/pr\/opslag\/(\d+)\/billede$/.exec(path);
+    if (pictureMatch) {
+      const post = await socialPost(db, Number(pictureMatch[1]));
+      if (!post?.source.free) return html(notFound(base, who), 404);
+      const here = (query: string) => redirect(`${base}/pr/uge?uge=${mondayOf(post.publish_at_ms ?? now)}&${query}#opslag-${post.id}`);
+      if (!["draft", "approved", "failed"].includes(post.status)) return here("fejl=sendt");
+      const file = form?.get("billede");
+      const bytes = file instanceof File && file.size > 0 ? new Uint8Array(await file.arrayBuffer()) : null;
+      const wrong = bytes ? finishedPictureProblem(bytes, post.channels)?.code ?? null : "billede-type";
+      const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
+      const stored = wrong || !media || !bytes ? null : await storeSocialDesign(media, bytes.buffer as ArrayBuffer);
+      if (!stored?.ok) return here(`fejl=${wrong ?? "billede-gem"}`);
+      await setPostDesign(db, post.id, stored.url, now);
+      await audit(db, actor, "social.manage", `Lagde et færdigt billede i opslaget "${post.source.title ?? ""}"`, now);
+      return here("besked=billede");
     }
     const postMatch = /^\/pr\/opslag\/(\d+)$/.exec(path);
     if (postMatch) {
