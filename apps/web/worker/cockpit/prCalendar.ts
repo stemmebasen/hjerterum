@@ -89,13 +89,16 @@ export function prCalendarSection(base: string, d: CalendarData): string {
     return days > 1 ? `<span class="cal-until">${days} dage til eventet</span>` : days === 1 ? `<span class="cal-until">1 dag til eventet</span>` : days === 0 ? `<span class="cal-until is-day">Samme dag som eventet</span>` : "";
   };
   const movable = (p: SocialPost) => ["draft", "approved", "failed"].includes(p.status) && !p.source.removed;
+  // "De skal bare kunne slettes ganske simpelt": one press (and a yes) here, and back to the same day.
+  const remove = (p: SocialPost) => ["draft", "approved", "failed"].includes(p.status) && !p.source.removed
+    ? `<form method="post" action="${base}/pr/kalender/slet" class="cal-delete" onsubmit="return confirm(${esc(JSON.stringify(`Slette »${label(p)}« fra kalenderen?${p.channels.length > 1 || (p.source as { moveChannel?: string }).moveChannel ? " Det gælder både Facebook og Instagram." : ""}${p.source.free ? "" : " Saga foreslår det ikke igen."}`))})"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="dag" value="${dateOf(p.publish_at_ms!)}"><button class="cal-delete-btn" aria-label="Slet ${esc(label(p))}">Slet</button></form>` : "";
   const item = (p: SocialPost) => {
     const [tone, text] = toneOf(p);
     const channel = (p.source as { moveChannel?: string }).moveChannel ?? "both";
     const move = movable(p) ? `<details class="cal-move"><summary>Flyt</summary><form method="post" action="${base}/pr/kalender/flyt"><input type="hidden" name="id" value="${p.id}"><input type="hidden" name="channel" value="${channel}">
 <input type="hidden" name="start" value="${esc(d.mondays[0]!)}"><input type="hidden" name="at" value=""><input type="datetime-local" required value="${localValue(p.publish_at_ms!)}" aria-label="Nyt tidspunkt"><button>Flyt</button></form></details>` : "";
     return `<li${movable(p) ? ` draggable="true" data-id="${p.id}" data-channel="${channel}" data-time="${clock(p.publish_at_ms!)}"` : ""}><a class="cal-item ${tone}" href="${calendarHref(base, p)}"><span class="cal-time">${clock(p.publish_at_ms!)}</span><b>${p.status === "approved" || p.status === "publishing" ? `<span class="cal-ok" title="Godkendt og klar til afsendelse">✓</span> ` : ""}${esc(label(p))}</b>
-<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${cardLink(base, p)}${peek(p)}${move}</li>`;
+<small>${text}${p.channels.length ? ` · ${where(p)}` : ""}${noPicture(p) ? " · IG kræver et billede: lav et design" : ""}</small>${until(p)}</a>${links(p)}${cardLink(base, p)}${peek(p)}${move}${remove(p)}</li>`;
   };
   // Asked (the chair, 6 Nov 2026): "Kan jeg holde mus over et event i kalenderen for at se opslaget/opslagene?" - the post as it goes out, and when the
   // event's other posts go out.
@@ -164,6 +167,7 @@ export const PR_CALENDAR_STYLE = `.cal-legend{display:flex;flex-wrap:wrap;gap:8p
 .cal-item.is-failed{border-left-color:#d93025;background:rgba(217,48,37,.18)}.cal-item.is-removed{border-left-color:var(--faint);background:transparent;color:var(--muted)}.cal-item.is-removed b{text-decoration:line-through}
 .cal-until{display:inline-block;margin-top:4px;font-size:11px;font-weight:600;color:var(--accent);background:var(--tint);border-radius:999px;padding:1px 7px}.cal-until.is-day{color:var(--warn);background:var(--warn-soft)}
 li[draggable]{cursor:grab}li.is-dragging{opacity:.45}.cal-day.is-over{outline:2px dashed var(--accent)}
+.cal-delete{margin:3px 0 0 4px;display:inline}.cal-delete-btn{all:unset;cursor:pointer;font-size:11.5px;color:var(--muted)}.cal-delete-btn::before{content:"✕ "}.cal-delete-btn:hover,.cal-delete-btn:focus-visible{color:#b42318;text-decoration:underline}
 .cal-move{margin:3px 0 0 4px;font-size:11.5px}.cal-move summary{cursor:pointer;color:var(--muted);list-style:none}.cal-move summary::-webkit-details-marker{display:none}.cal-move summary::before{content:"↔ "}
 .cal-move form{display:grid;gap:6px;margin:6px 0 2px}.cal-move input{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:0}.cal-move button{padding:6px 12px;font-size:13px;min-height:0}
 @media (max-width:900px){.cal-grid{grid-template-columns:1fr}.cal-day{min-height:0}.cal-day.is-empty{display:none}}`;

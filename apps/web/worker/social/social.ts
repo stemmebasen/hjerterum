@@ -180,6 +180,21 @@ export async function editPost(db: D1Database, id: number, change: { text?: stri
 }
 
 /** Approved (it goes out at its time - a passed-on post at once), skipped, or back to a draft. Never for what is already out. */
+/** Requested (the chair, 11 Nov 2026): "gør det meget nemmere at slette events fra kalenderen ... De skal bare kunne slettes ganske simpelt." One post taken out
+ * of the PR calendar, before it has gone out: a post of the chair's own (source.free) is deleted; one of Saga's is set aside (skipped) - only this one,
+ * not the event's other posts - so Saga does not propose it again. */
+export async function removeFromCalendar(db: D1Database, id: number, nowMs: number): Promise<"deleted" | "skipped" | "not_found"> {
+  const post = await socialPost(db, id);
+  if (!post || !["draft", "approved", "failed", "skipped"].includes(post.status)) return "not_found";
+  if (post.source.free) {
+    await db.prepare("DELETE FROM social_posts WHERE id = ? AND status IN ('draft', 'approved', 'failed', 'skipped')").bind(id).run();
+    return "deleted";
+  }
+  await db.prepare("UPDATE social_posts SET status = 'skipped', approved_by = NULL, approved_at_ms = NULL, error = NULL, updated_at_ms = ? WHERE id = ? AND status IN ('draft', 'approved', 'failed', 'skipped')")
+    .bind(nowMs, id).run();
+  return "skipped";
+}
+
 export async function decidePost(db: D1Database, id: number, decision: "approve" | "skip" | "undo", who: string, nowMs: number): Promise<SocialPost | null> {
   const post = await socialPost(db, id);
   if (!post || post.status === "published" || post.status === "publishing") return null;
