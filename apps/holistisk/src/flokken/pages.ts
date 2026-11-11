@@ -8,6 +8,7 @@ import type { FieldErrors, FlockForm } from "./forms.js";
 import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js";
 import { MAX_LENGTH, type ChatMessage } from "./chat.js";
 import type { SignupErrors, SignupForm } from "./membership.js";
+import { meetingPointByPlace } from "./meetingPoints.js";
 import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg er interesseret, start selv en flok,
@@ -18,6 +19,13 @@ const PRIVATE = { "cache-control": "private, no-store" };
 
 export const flockPath = (id: string) => `/flokke/${id}`;
 const loginPath = (next: string) => `/log-ind?naeste=${encodeURIComponent(next)}`;
+/** A map link for the meeting place: a pin on a known meeting point, else a search for the place. */
+function mapLink(place: string, city: string | null): string {
+  const p = meetingPointByPlace(place);
+  if (p) return `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=18/${p.lat}/${p.lon}`;
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent([place.replace(/^(ved|foran)\s+(indgangen\s+til\s+)?/i, ""), city].filter(Boolean).join(", "))}`;
+}
+
 const meetingLine = (f: Pick<FlockRow, "meeting_at" | "meeting_place">, now: number) =>
   `${capitalize(dayLabel(f.meeting_at, now))} kl. ${hhmm(f.meeting_at)} · ${f.meeting_place}`;
 const spotsLine = (f: Pick<FlockRow, "member_count" | "max_size">) => {
@@ -195,7 +203,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, peo
     <h2 id="h-meet">Her mødes flokken</h2>
     <dl class="facts-list">
       <dt>Hvornår</dt><dd>${capitalize(dayLabel(f.meeting_at, ctx.now))} kl. ${hhmm(f.meeting_at)}</dd>
-      <dt>Hvor</dt><dd>${f.meeting_place}<br><a href="https://www.openstreetmap.org/search?query=${encodeURIComponent([f.meeting_place.replace(/^ved\s+(indgangen\s+til\s+)?/i, ""), f.event_city].filter(Boolean).join(", "))}" rel="noopener" target="_blank">Find det på kortet</a></dd>
+      <dt>Hvor</dt><dd>${f.meeting_place}<br><a href="${mapLink(f.meeting_place, f.event_city)}" rel="noopener" target="_blank">Find det på kortet</a></dd>
       <dt>Eventet</dt><dd><a href="/events/${f.event_slug}">${f.event_title}</a><br>${capitalize(dayLabel(f.event_starts_at, ctx.now))} · ${timeRangeLabel(f.event_starts_at, f.event_ends_at, false, ctx.now)}${e ? html`<br>${placeLine(e)}` : ""}</dd>
       <dt>Flokken</dt><dd>${seats(f.member_count, f.max_size)} ${spotsLine(f)}</dd>
     </dl>

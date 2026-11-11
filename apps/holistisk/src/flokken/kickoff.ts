@@ -7,13 +7,14 @@ import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { eventBySlug, flockRoom, kickoffEvents, type EventRow } from "../web/queries.js";
 import { flash, type View } from "./pages.js";
+import { suggestedMeetingPlace } from "./meetingPoints.js";
 import { eventOver, flockById, joinFlock, memberFlockForEvent, memberFlocks } from "./store.js";
 
 /** "Lad os komme godt i gang": the interest list. A newcomer ticks the coming events they would like to go to with
  * others (a pop-up on the first visit, site.js, or the page /kom-godt-i-gang), tells the others a little about
  * themselves and gives an e-mail. When a handful are interested in the same event, Socialklubben gathers a flock and
- * invites them; each confirms within 48 hours. The flock gets a suggested meeting time (1½ hours before) near the
- * venue, and the rest is planned in its chat. */
+ * invites them; each confirms within 48 hours. The flock gets a suggested meeting time (1½ hours before) outdoors
+ * at a landmark near the venue (meetingPoints.ts), and the rest is planned in its chat. */
 
 export const KICKOFF_PATH = "/kom-godt-i-gang";
 /** A flock is gathered when this many are waiting for the same event … */
@@ -178,8 +179,8 @@ export async function gatherAll(db: D1Database, now: number): Promise<number> {
 /** Gathers flocks for one event: those waiting (first come, first served) are invited into an open flock with room,
  * else, when at least three are waiting, into a new flock of at most six. Returns how many were invited. */
 export async function gather(db: D1Database, eventId: string, now: number): Promise<number> {
-  const e = await db.prepare("SELECT id, starts_at, ends_at, status, venue_name FROM events WHERE id = ?").bind(eventId)
-    .first<{ id: string; starts_at: number; ends_at: number | null; status: string; venue_name: string | null }>();
+  const e = await db.prepare("SELECT id, starts_at, ends_at, status, venue_name, lat, lon FROM events WHERE id = ?").bind(eventId)
+    .first<{ id: string; starts_at: number; ends_at: number | null; status: string; venue_name: string | null; lat: number | null; lon: number | null }>();
   if (!e || e.status !== "scheduled" || e.starts_at - now < LAST_CALL_MS) return 0;
   const { results: waiting } = await db.prepare(`SELECT member_id FROM event_interests WHERE event_id = ? AND status = 'waiting'
     AND member_id NOT IN (SELECT m.member_id FROM flock_members m JOIN flocks f ON f.id = m.flock_id WHERE f.event_id = ? AND f.status = 'open' AND m.left_at IS NULL)
@@ -207,11 +208,11 @@ export async function gather(db: D1Database, eventId: string, now: number): Prom
   while (queue.length >= GATHER_AT) {
     const members = queue.splice(0, GATHER_MAX);
     const id = crypto.randomUUID();
-    const place = (e.venue_name ? `I nærheden af ${e.venue_name}` : "Aftales i chatten").slice(0, 120);
+    const place = suggestedMeetingPlace(e).slice(0, 120);
     const meetAt = Math.max(e.starts_at - MEET_BEFORE_MS, now + 3600_000);
     await db.prepare(`INSERT INTO flocks (id, event_id, created_by, meeting_place, meeting_at, note, max_size, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`)
-      .bind(id, eventId, members[0]!, place, Math.min(meetAt, e.starts_at), "Samlet af Socialklubben. Find et godt sted at mødes i chatten – og aftal, om I fortsætter bagefter.", GATHER_MAX, now, now).run();
+      .bind(id, eventId, members[0]!, place, Math.min(meetAt, e.starts_at), "Samlet af Socialklubben. Mødestedet er et forslag – vil I hellere et andet sted, så aftal det i chatten. Og aftal, om I fortsætter bagefter.", GATHER_MAX, now, now).run();
     await invite(id, members);
   }
   return invited;
