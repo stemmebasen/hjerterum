@@ -55,7 +55,7 @@ import { templateUses } from "../social/videoTemplates.js";
 import { createFreePost, finishedPictureProblem, freePostPage, PICTURE_PROBLEMS, fromDanish, proposeFreeWords, proposeFreeWordsFor } from "./prFreePost.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage, returnFromPr } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
-import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
+import { answerInMessenger, asEventItself, removeFromCalendar, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
 import { hjerterumPage, loginUrl, metaReady, pagesFromCode } from "../social/meta.js";
 import { fromLocalInput, prPage } from "./prPage.js";
 import { instagramName } from "../../pr-material.js";
@@ -1017,7 +1017,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       // Any of the calendar's weeks (an event's post is now proposed weeks ahead), else next week.
       const ahead: string[] = []; for (let i = 0, m = thisMonday; i < CALENDAR_WEEKS; i++, m = nextMonday(Date.parse(`${m}T12:00:00Z`))) ahead.push(m);
       const monday = ahead.includes(asked) ? asked : coming;
-      const notices: Record<string, string> = { publiceret: "Opslaget er publiceret.", billede: "Billedet er lagt i opslaget. Det venter på dit ja igen.", forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
+      const notices: Record<string, string> = { slettet: "Opslaget er slettet fra kalenderen.", publiceret: "Opslaget er publiceret.", billede: "Billedet er lagt i opslaget. Det venter på dit ja igen.", forbundet: "Facebook og Instagram er forbundet.", afbrudt: "Forbindelsen er afbrudt.", gemt: "Ændringerne er gemt.", delt: "Godkendt. Det deles i løbet af få minutter.",
         godkendt: "Godkendt. Det går ud på sit tidspunkt.", sprunget: "Sprunget over.", fortrudt: "Godkendelsen er fortrudt.", planlagt: "Saga har planlagt ugen.", "uge-godkendt": "Ugen er godkendt.",
         "intet-nyt": "Ingen nye events at tilføje.", sendt: "Svaret er sendt fra team@ og ligger i Sendt.", tags: "Saga har kigget efter nye tags.", fb: "Facebook-begivenheden er markeret som oprettet.",
         "ny-side": "Opslag og nyhedsbrev linker nu til hjerterum.info.", "begivenhed-til": "Slået til: bliver et events opslag ikke godkendt i tide, udgiver Saga eventet selv med billede og fast tekst.", "begivenhed-fra": "Slået fra: eventet udgives ikke af sig selv.", kort: "Opslaget deler nu eventets Facebook-begivenhed med en kort tekst. Læs det, og godkend, når du er klar.", "slet-til": "Slået til: dagen efter et event sletter Saga eventets opslag, så kun det mest populære bliver stående.", "slet-fra": "Slået fra: Saga sletter ikke gamle eventopslag.", flyttet: "Opslaget er flyttet.", "gammel-side": "Opslag og nyhedsbrev linker igen til holistisk.org.",
@@ -1097,6 +1097,12 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       return toMails("besked=koblet");
     }
     // "det skal være muligt at jeg selv kan flytte entries rundt i kalenderen" (social.ts movePost): from the calendar's drag (JSON) or its "Flyt" form.
+    if (path === "/pr/kalender/slet") {
+      const id = Number(field("id")), post = await socialPost(db, id), done = await removeFromCalendar(db, id, now);
+      if (done !== "not_found") await audit(db, actor, "social.manage", `Slettede opslaget "${post?.source.title ?? (post?.kind === "week" ? "Ugens events" : post?.source.author ?? "")}" fra PR-kalenderen`, now);
+      const start = field("start"), day = field("dag");
+      return redirect(`${base}/pr/kalender?${/^\d{4}-\d{2}-\d{2}$/.test(start) ? `start=${start}&` : ""}${done === "not_found" ? "fejl=sendt" : "besked=slettet"}${/^\d{4}-\d{2}-\d{2}$/.test(day) ? `#dag-${day}` : ""}`);
+    }
     if (path === "/pr/kalender/flyt") {
       const channel = field("channel");
       const result = await movePost(db, Number(field("id")), channel === "facebook" || channel === "instagram" ? channel : "both", Number(field("at")), now);
@@ -1191,6 +1197,7 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       const action = field("do");
       if (action === "fortryd") { await decidePost(db, post.id, "undo", who, now); return backHere("besked=fortrudt"); }
       if (action === "spring") { await decidePost(db, post.id, "skip", who, now); return backHere("besked=sprunget"); }
+      if (action === "slet") { if (await removeFromCalendar(db, post.id, now) !== "not_found") await audit(db, actor, "social.manage", `Slettede opslaget "${post.source.title ?? ""}"`, now); return backHere("besked=slettet"); }
       // "omgøre et design så Saga bare viderdeler eventet med en kort tekst" (social.ts asEventItself) - before the form's words, which it replaces.
       if (action === "kort" && post.kind === "event") { const made = await asEventItself(social, deps, db, post.id, now); return backHere(made === "no_event" ? "fejl=ingen-begivenhed" : "besked=kort"); }
       // Saving and approving both keep what is in the form first (a disabled form sends nothing, and then nothing is changed).
