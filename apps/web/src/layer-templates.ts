@@ -7,21 +7,35 @@ import type { PosterWords } from "./event-poster";
 
 export type Frame = "rect" | "round" | "circle" | "arch" | "pebble";
 export type Layer =
-  | { kind: "photo"; slot?: 1 | 2 | 3; x: number; y: number; w: number; h: number; angle?: number; frame?: Frame; zoom?: number; focus?: [number, number]; border?: { width: number; bottom?: number; color: string }; shadow?: boolean; grayscale?: boolean; opacity?: number }
+  | { kind: "photo"; slot?: 1 | 2 | 3; x: number; y: number; w: number; h: number; angle?: number; frame?: Frame; zoom?: number; focus?: [number, number]; border?: { width: number; bottom?: number; color: string }; shadow?: boolean; grayscale?: boolean; opacity?: number;
+      /** The picture the whole page stands on: the words with `auto` take their colour from it. */
+      ground?: boolean }
   | { kind: "text"; role?: "title" | "sub" | "date" | "kicker" | "small" | "quote"; text: string; x: number; y: number; w: number; size: number; font: "serif" | "sans"; color: string;
-      weight?: 400 | 500 | 600 | 700; italic?: boolean; align?: "left" | "center" | "right"; lineHeight?: number; spacing?: number; angle?: number; opacity?: number; maxLines?: number }
+      weight?: 400 | 500 | 600 | 700; italic?: boolean; align?: "left" | "center" | "right"; lineHeight?: number; spacing?: number; angle?: number; opacity?: number; maxLines?: number;
+      /** On a picture that fills the page: its colour by the picture under it - `dark` on a light part, `light` on a dark one (design-editor.tsx). */
+      auto?: { light: string; dark: string };
+      /** A soft shadow, so the words stand out on a picture. */
+      glow?: boolean;
+      /** The words along an arc bending up, this many pixels in radius, centred in the box (the name over a hill). */
+      arc?: number;
+      /** One of the editor's fonts (EDITOR_FONTS) instead of the house's serif or sans. */
+      family?: string }
   | { kind: "rect"; x: number; y: number; w: number; h: number; fill: string; radius?: number; angle?: number; opacity?: number; stroke?: string; strokeWidth?: number; dash?: number[];
       gradient?: Array<[number, string]> }
   | { kind: "circle"; x: number; y: number; r: number; fill: string; opacity?: number; stroke?: string; strokeWidth?: number }
   | { kind: "path"; d: string; x: number; y: number; w: number; h: number; fill: string; angle?: number; opacity?: number }
   | { kind: "line"; x1: number; y1: number; x2: number; y2: number; stroke: string; width: number; dash?: number[] }
-  | { kind: "logo"; x: number; y: number; size: number; color: string; angle?: number };
+  | { kind: "logo"; x: number; y: number; size: number; color: string; angle?: number; auto?: { light: string; dark: string } };
 
 export type LayerDesign = { key: string; label: string; about: string; background: string; layers: Layer[] };
 export type Colors = { cream: string; sand: string; ink: string; muted: string; terra: string; camel: string; sage: string; blush: string; dusk: string };
 export type LayerInput = { W: number; H: number; words: PosterWords; colors: Colors; site: string; quote: string | null };
 
 const upper = (s: string) => s.toLocaleUpperCase("da-DK");
+/** The finer fonts of the designs on a painting (loaded with the editor's fonts, event-poster.ts EXTRA_FONTS_URL). */
+const SERIF_FINE = "Cormorant Garamond", SANS_FINE = "Jost";
+/** About how tall a quote stands in a box `w` wide (Cormorant runs narrow: some 0.42 of the size a letter), to place what follows under it. */
+const quoteHeight = (text: string, size: number, w: number, lineHeight: number) => Math.min(6, Math.max(1, Math.ceil(text.length * size * 0.42 / w))) * size * lineHeight;
 const teacherLine = (w: PosterWords) => w.teacher ? `med ${w.teacher}` : w.rest ?? "";
 const dateLine = (w: PosterWords) => `${w.day} · kl. ${w.time}`;
 
@@ -274,6 +288,63 @@ export const LAYER_DESIGNS: Maker[] = [
       { kind: "text", role: "sub", text: teacherLine(w), x: W * 0.08, y: H * 0.83, w: W * 0.6, size: 42 * u, font: "serif", color: c.terra, italic: true },
       { kind: "text", role: "date", text: dateLine(w), x: W * 0.08, y: H * 0.89, w: W * 0.62, size: 34 * u, font: "sans", color: c.ink, weight: 600 },
       { kind: "logo", x: W * 0.74, y: H * 0.76, size: W * 0.18, color: c.terra },
+    ] };
+  } },
+  // Requested (the chair, 11 Nov 2026), with four quote and event posts from another teacher's Instagram: "Kan vi lave denne slags designs som skabeloner" - "Ja".
+  // A painting or a photo over the whole page (one from Kunst og botanik, Pixabay or the teacher's own), the words on it - dark on its light parts and light on
+  // its dark ones (`auto`, design-editor.tsx brightnessAt), the name in spaced capitals.
+  { key: "citat-maleri", label: "Citat på maleri", about: "Et maleri eller foto over hele siden, citatet stort i en klassisk skrift og navnet med spærrede versaler.", frame: "rect", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080, quote = i.quote ?? w.title, size = 96 * u;
+    const block = quoteHeight(quote, size, W * 0.82, 1.08) + 90 * u, top = H * 0.08 + Math.max(0, (H * 0.6 - block) / 2);
+    const tone = { dark: "#7c4532", light: "#fbf4ea" }, ink = { dark: c.ink, light: "#fbf4ea" };
+    return { key: "citat-maleri", label: "", about: "", background: c.sand, layers: [
+      { kind: "photo", x: 0, y: 0, w: W, h: H, ground: true },
+      { kind: "text", role: "quote", text: quote, x: W * 0.09, y: top, w: W * 0.82, size, font: "serif", family: SERIF_FINE, weight: 600, color: tone.dark, auto: tone, align: "center", maxLines: 6, lineHeight: 1.08 },
+      { kind: "text", role: "small", text: upper(w.teacher ?? "Hjerterum"), x: W * 0.12, y: top + block - 40 * u, w: W * 0.76, size: 30 * u, font: "sans", family: SANS_FINE, weight: 600, spacing: 450, color: tone.dark, auto: tone, align: "center", maxLines: 1 },
+      { kind: "text", role: "title", text: w.title, x: W * 0.07, y: H * 0.845, w: W * 0.64, size: 44 * u, font: "serif", family: SERIF_FINE, weight: 600, color: ink.dark, auto: ink, maxLines: 2, lineHeight: 1.05 },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.07, y: H * 0.935, w: W * 0.64, size: 28 * u, font: "sans", family: SANS_FINE, weight: 500, color: ink.dark, auto: ink, maxLines: 1 },
+      { kind: "logo", x: W * 0.78, y: H * 0.84, size: W * 0.15, color: ink.dark, auto: ink },
+    ] };
+  } },
+  { key: "citat-buenavn", label: "Navnet i en bue", about: "Et maleri over hele siden, citatet stort og navnet i en bue over horisonten.", frame: "rect", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080, quote = i.quote ?? w.title, size = 100 * u;
+    const top = H * 0.12 + Math.max(0, (H * 0.42 - quoteHeight(quote, size, W * 0.66, 1.06)) / 2);
+    const tone = { dark: "#8a5a2b", light: "#fbf4ea" }, ink = { dark: c.ink, light: "#fbf4ea" };
+    return { key: "citat-buenavn", label: "", about: "", background: c.cream, layers: [
+      { kind: "photo", x: 0, y: 0, w: W, h: H, ground: true },
+      { kind: "logo", x: W * 0.06, y: H * 0.035, size: W * 0.14, color: ink.dark, auto: ink },
+      { kind: "text", role: "quote", text: quote, x: W * 0.28, y: top, w: W * 0.66, size, font: "serif", family: SERIF_FINE, weight: 600, color: tone.dark, auto: tone, align: "center", maxLines: 6, lineHeight: 1.06 },
+      { kind: "text", role: "small", text: upper(w.teacher ?? "Hjerterum"), x: W * 0.2, y: H * 0.64, w: W * 0.6, size: 40 * u, font: "sans", family: SANS_FINE, weight: 600, spacing: 300, color: ink.dark, auto: ink, arc: W * 0.5 },
+      { kind: "text", role: "title", text: w.title, x: W * 0.1, y: H * 0.845, w: W * 0.8, size: 44 * u, font: "serif", family: SERIF_FINE, weight: 600, color: ink.dark, auto: ink, align: "center", maxLines: 2, lineHeight: 1.05 },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.1, y: H * 0.935, w: W * 0.8, size: 28 * u, font: "sans", family: SANS_FINE, weight: 500, color: ink.dark, auto: ink, align: "center", maxLines: 1 },
+    ] };
+  } },
+  { key: "citat-blade", label: "Lyse ord på blade", about: "Et mørkt foto af blade eller natur over hele siden, citatet i lyse bogstaver med en blød skygge.", frame: "rect", make: i => {
+    const { W, H, words: w } = i, u = W / 1080, quote = i.quote ?? w.title, size = 92 * u, light = "#fbf4ea";
+    const block = quoteHeight(quote, size, W * 0.84, 1.1) + 100 * u, top = H * 0.16 + Math.max(0, (H * 0.6 - block) / 2);
+    return { key: "citat-blade", label: "", about: "", background: "#1f2a22", layers: [
+      { kind: "photo", x: 0, y: 0, w: W, h: H, ground: true },
+      { kind: "rect", x: 0, y: 0, w: W, h: H, fill: "#000000", gradient: [[0, "rgba(12,20,14,0.35)"], [0.4, "rgba(12,20,14,0.3)"], [0.75, "rgba(12,20,14,0.4)"], [1, "rgba(12,20,14,0.78)"]] },
+      { kind: "logo", x: W * 0.43, y: H * 0.04, size: W * 0.14, color: light },
+      { kind: "text", role: "quote", text: quote, x: W * 0.08, y: top, w: W * 0.84, size, font: "serif", family: SERIF_FINE, weight: 600, color: light, glow: true, align: "center", maxLines: 6, lineHeight: 1.1 },
+      { kind: "text", role: "small", text: upper(w.teacher ?? "Hjerterum"), x: W * 0.12, y: top + block - 44 * u, w: W * 0.76, size: 30 * u, font: "sans", family: SANS_FINE, weight: 600, spacing: 500, color: light, glow: true, align: "center", maxLines: 1 },
+      { kind: "text", role: "title", text: w.title, x: W * 0.1, y: H * 0.855, w: W * 0.8, size: 44 * u, font: "serif", family: SERIF_FINE, weight: 600, color: light, glow: true, align: "center", maxLines: 2, lineHeight: 1.05 },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.1, y: H * 0.94, w: W * 0.8, size: 28 * u, font: "sans", family: SANS_FINE, weight: 500, color: light, align: "center", maxLines: 1 },
+    ] };
+  } },
+  { key: "underviser", label: "Underviseren i fokus", about: "Underviserens foto over hele siden, titlen øverst, navnet på et gyldent bånd og Hjerterum i en bund.", frame: "rect", make: i => {
+    const { W, H, words: w, colors: c } = i, u = W / 1080, light = "#fbf4ea", band = H * 0.74, foot = 112 * u;
+    return { key: "underviser", label: "", about: "", background: c.sage, layers: [
+      { kind: "photo", x: 0, y: 0, w: W, h: H, ground: true },
+      { kind: "rect", x: 0, y: 0, w: W, h: H, fill: "#000000", gradient: [[0, "rgba(30,38,24,0.72)"], [0.4, "rgba(30,38,24,0.3)"], [0.62, "rgba(30,38,24,0.05)"], [0.85, "rgba(30,38,24,0.45)"], [1, "rgba(30,38,24,0.6)"]] },
+      { kind: "text", role: "title", text: w.title, x: W * 0.06, y: H * 0.045, w: W * 0.88, size: 96 * u, font: "serif", family: SERIF_FINE, weight: 600, color: light, glow: true, maxLines: 2, lineHeight: 1.0 },
+      ...(w.rest ? [{ kind: "text" as const, role: "kicker" as const, text: w.rest, x: W * 0.06, y: H * 0.22, w: W * 0.46, size: 62 * u, font: "serif" as const, family: SERIF_FINE, italic: true, color: light, glow: true, maxLines: 5, lineHeight: 1.08 }] : []),
+      { kind: "rect", x: -60 * u, y: band, w: W * 0.6, h: 96 * u, fill: c.camel, radius: 48 * u },
+      { kind: "text", role: "sub", text: w.teacher ?? "Hjerterum", x: W * 0.05, y: band + 18 * u, w: W * 0.48, size: 52 * u, font: "sans", family: SANS_FINE, weight: 600, color: c.ink, maxLines: 1 },
+      { kind: "text", role: "date", text: dateLine(w), x: W * 0.05, y: band + 120 * u, w: W * 0.8, size: 42 * u, font: "sans", family: SANS_FINE, weight: 600, color: light, glow: true, maxLines: 1 },
+      { kind: "rect", x: 0, y: H - foot, w: W, h: foot, fill: "#4a5636", opacity: 0.94 },
+      { kind: "logo", x: W * 0.05, y: H - foot + 14 * u, size: 84 * u, color: light },
+      { kind: "text", role: "small", text: `Læs mere på ${i.site}`, x: W * 0.4, y: H - foot + 38 * u, w: W * 0.55, size: 32 * u, font: "sans", family: SANS_FINE, weight: 600, color: light, align: "right", maxLines: 1 },
     ] };
   } },
 ];
