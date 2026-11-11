@@ -6,6 +6,7 @@ import { normalizeCode } from "../src/flokken/auth.js";
 import { toLocalInput } from "../src/flokken/forms.js";
 import { maskContacts, purgeOldChats } from "../src/flokken/chat.js";
 import { offersFor, type PartnerOffer } from "../src/flokken/partners.js";
+import { MEETING_POINTS, meetingPointByPlace, nearestMeetingPoint, suggestedMeetingPlace } from "../src/flokken/meetingPoints.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
@@ -629,6 +630,9 @@ describe("Lad os komme godt i gang", () => {
     const flock = db.raw.prepare("SELECT f.meeting_at, f.max_size, e.starts_at FROM flocks f JOIN events e ON e.id = f.event_id WHERE f.id = ?").all(flockId)[0] as { meeting_at: number; max_size: number; starts_at: number };
     expect(flock.starts_at - flock.meeting_at).toBe(90 * 60_000);
     expect(flock.max_size).toBe(6);
+    const place = (db.raw.prepare("SELECT meeting_place FROM flocks WHERE id = ?").all(flockId)[0] as { meeting_place: string }).meeting_place;
+    expect(place).not.toMatch(/nærheden/);
+    expect(place).toMatch(/^(Foran|Ved|På|Aftales)/);
     expect((await call(`/flokke/${flockId}?besked=bekraeftet`, { cookie: dan })).body).toContain("Du er med!");
 
     // A fourth joins the line and is invited to the same flock straight away; no thanks and too late pass places on.
@@ -740,5 +744,25 @@ describe("the four main kinds", () => {
     expect(list.events.some(e => e.groups.includes("fordybelse"))).toBe(true);
     const page = (await call("/kom-godt-i-gang?gruppe=underholdning")).body;
     expect(page).toContain('class="group-tile group-underholdning is-on"');
+  });
+});
+
+describe("suggested meeting points", () => {
+  it("picks the nearest landmark outdoors, never inside a place", () => {
+    expect(suggestedMeetingPlace({ lat: 56.1534, lon: 10.2138, venue_name: "Dokk1" })).toBe("På Hack Kampmanns Plads foran Dokk1");
+    expect(suggestedMeetingPlace({ lat: 56.1593, lon: 10.2078, venue_name: "Hjerterum" })).toBe("Ved Klostertorvet");
+    expect(suggestedMeetingPlace({ lat: 56.1567, lon: 10.2105, venue_name: "X" })).toBe("Foran Domkirken");
+    for (const p of MEETING_POINTS) expect(p.place).toMatch(/^(foran|ved|på) /);
+  });
+  it("uses the venue's name when there are no coordinates, else meets in front of the venue", () => {
+    expect(nearestMeetingPoint({ lat: null, lon: null, venue_name: "MUSIKHUSET, Lille Sal" })?.place).toBe("foran Musikhuset");
+    expect(suggestedMeetingPlace({ lat: null, lon: null, venue_name: "Studenterhus Aarhus/Stakladen, Aarhus C" })).toBe("Foran Stakladen i Universitetsparken");
+    expect(suggestedMeetingPlace({ lat: null, lon: null, venue_name: "Teaterhuset Filuren" })).toBe("Foran indgangen til Teaterhuset Filuren");
+    expect(suggestedMeetingPlace({ lat: 56.21, lon: 10.1518, venue_name: "Hjerteland" })).toBe("Foran indgangen til Hjerteland");
+    expect(suggestedMeetingPlace({ lat: null, lon: null, venue_name: null })).toBe("Aftales i chatten");
+  });
+  it("finds the point again from the stored text, for a pin on the map", () => {
+    expect(meetingPointByPlace("Foran Domkirken")?.lat).toBe(56.1566);
+    expect(meetingPointByPlace("Foran indgangen til Hjerteland")).toBeNull();
   });
 });
