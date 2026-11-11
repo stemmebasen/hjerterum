@@ -221,10 +221,11 @@ export async function gather(db: D1Database, eventId: string, now: number): Prom
 // ————————————————————————————————————————— The list
 
 const when = (e: Pick<EventRow, "starts_at" | "ends_at" | "all_day">, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
-/** "Ingen endnu – vær den første", "1 interesseret", "4 interesserede", plus a flock with room. */
+/** "1 interesseret", "4 interesserede", plus a flock with room; nothing when nobody is yet (Jake 2026-11-11: "Ingen
+ * endnu" made the list look empty). */
 export function interestLine(n: number, e: Pick<EventRow, "flock_fill">): string {
   const room = flockRoom(e);
-  const people = n === 0 ? (room ? "" : "Ingen endnu – vær den første") : `${n} ${n === 1 ? "interesseret" : "interesserede"}`;
+  const people = n === 0 ? "" : `${n} ${n === 1 ? "interesseret" : "interesserede"}`;
   const flock = room ? `flok med ${room.members} af ${room.size}` : "";
   return capitalize([people, flock].filter(Boolean).join(" · "));
 }
@@ -246,10 +247,11 @@ const details = (e: EventRow) => html`<details class="kickoff-details"><summary>
 
 /** The events of the coming weeks for the list: those with people already interested or a flock with room first, then
  * the soonest. Events the member already has a flock for are left out; those they are interested in are ticked. */
-async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number): Promise<{ list: Candidate[]; inFlock: boolean; interests: InterestRow[] }> {
+async function candidates(db: D1Database, regions: string[], memberId: string | null, now: number, days?: number): Promise<{ list: Candidate[]; inFlock: boolean; interests: InterestRow[] }> {
   const flocks = memberId ? (await memberFlocks(db, memberId)).filter(f => !eventOver(f, now)) : [];
   const interests = memberId ? await memberInterests(db, memberId) : [];
-  const events = await kickoffEvents(db, regions, now, flocks.map(f => f.event_slug), LIST_SIZE);
+  const window = days ? { from: now + LAST_CALL_MS, to: now + days * 86_400_000 } : undefined;
+  const events = await kickoffEvents(db, regions, now, flocks.map(f => f.event_slug), LIST_SIZE, window);
   const counts = await interestCounts(db, events.map(e => e.id));
   const mine = new Set(interests.filter(i => i.status === "waiting" || i.status === "invited").map(i => i.event_id));
   const list = events.map(e => ({ event: e, interested: counts.get(e.id) ?? 0, mine: mine.has(e.id) }));
@@ -260,8 +262,8 @@ async function candidates(db: D1Database, regions: string[], memberId: string | 
 
 /** For the pop-up: the list, and whether the visitor is a member, has told the others about themselves and has an
  * e-mail, is in a flock or on the list already (then the pop-up is not shown). */
-export async function kickoffJson(db: D1Database, regions: string[], member: { id: string } | null, ready: boolean, now: number) {
-  const { list, inFlock, interests } = await candidates(db, regions, member?.id ?? null, now);
+export async function kickoffJson(db: D1Database, regions: string[], member: { id: string } | null, ready: boolean, now: number, days?: number) {
+  const { list, inFlock, interests } = await candidates(db, regions, member?.id ?? null, now, days);
   return {
     member: !!member, ready, inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
     events: list.map(({ event: e, interested, mine }) => ({
@@ -301,7 +303,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
         <span class="kickoff-text"><span class="kickoff-when">${when(e, ctx.now)}</span>
           <strong class="kickoff-title">${e.title}</strong>
           <span class="kickoff-place">${[placeLine(e), priceLabel(e)].filter(Boolean).join(" · ")}</span>
-          <span class="kickoff-count${others || flockRoom(e) ? " has-people" : ""}">${interestLine(others, e)}</span></span>
+          ${interestLine(others, e) ? html`<span class="kickoff-count has-people">${interestLine(others, e)}</span>` : ""}</span>
       </label><input type="hidden" name="vist" value="${e.slug}">${details(e)}</li>`;
     })}</ul>
     <p class="kickoff-promise">Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.</p>

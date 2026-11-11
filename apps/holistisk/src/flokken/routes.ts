@@ -173,7 +173,9 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   // "Lad os komme godt i gang": the interest list (the pop-up's JSON and the page), and answering an invitation.
   if (path === "/api/kom-godt-i-gang" && !post) {
     const m = await member();
-    return { json: await kickoffJson(db, regions, m, m ? await ready(m.id) : false, now), status: 200 };
+    // ?dage=2: only the events of the next days (the first-visit pop-up, Jake 2026-11-11).
+    const days = Number.parseInt(url.searchParams.get("dage") ?? "", 10);
+    return { json: await kickoffJson(db, regions, m, m ? await ready(m.id) : false, now, days >= 1 && days <= 28 ? days : undefined), status: 200 };
   }
   if (path === KICKOFF_PATH) {
     const m = await member();

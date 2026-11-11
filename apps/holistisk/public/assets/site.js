@@ -293,8 +293,13 @@
       if (text != null) n.textContent = text;
       return n;
     };
-    fetch(base + "api/kom-godt-i-gang", { headers: { accept: "application/json" }, credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+    // The events of the next two days (Jake 2026-11-11); on a quiet stretch with none, the coming weeks instead.
+    var load = function (query) {
+      return fetch(base + "api/kom-godt-i-gang" + query, { headers: { accept: "application/json" }, credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : null; });
+    };
+    load("?dage=2")
+      .then(function (data) { return data && data.events && !data.events.length ? load("") : data; })
       .then(function (data) {
         if (!data || !data.events || !data.events.length) return;
         if (!force && (data.inFlock || data.onList)) return;
@@ -341,7 +346,7 @@
         text.appendChild(el("span", "kickoff-when", e.when));
         text.appendChild(el("strong", "kickoff-title", e.title));
         if (e.place) text.appendChild(el("span", "kickoff-place", e.place));
-        text.appendChild(el("span", "kickoff-count" + (e.interested ? " has-people" : ""), e.line));
+        if (e.line) text.appendChild(el("span", "kickoff-count has-people", e.line));
         label.appendChild(box); label.appendChild(text); li.appendChild(label);
         var shown = el("input"); shown.type = "hidden"; shown.name = "vist"; shown.value = e.slug; li.appendChild(shown);
         // "Se mere": the event unfolds in the row (on a wide screen with a mouse, the panel beside the list shows it).
