@@ -145,11 +145,12 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
 /** "Lad os komme godt i gang": coming events to flick through and pick some to go to with others, the broad offer
  * first (src/mainstream.ts). Events where a flock
  * already has room come first, then the soonest; one per organiser in each ten where there are enough others, events that last all day at the back. From
- * twelve hours from now (time to gather a flock) and four weeks ahead. */
-export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20): Promise<EventRow[]> {
+ * twelve hours from now (time to gather a flock) and four weeks ahead, unless `window` says otherwise (the first-visit
+ * pop-up: the next two days). */
+export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20, window: { from: number; to: number } = { from: now + 12 * 3600_000, to: now + 28 * 86400_000 }): Promise<EventRow[]> {
   const w = visible(regions, now);
   w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
-  w.params.push(now + 12 * 3600_000, now + 28 * 86400_000);
+  w.params.push(window.from, window.to);
   const room = `EXISTS (SELECT 1 FROM flocks f WHERE f.event_id = e.id AND f.status = 'open'
     AND (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) BETWEEN 1 AND f.max_size - 1)`;
   const { results: rows } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY ${room} DESC, e.all_day, e.starts_at LIMIT 300`)

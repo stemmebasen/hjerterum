@@ -523,7 +523,18 @@ describe("Lad os komme godt i gang", () => {
     expect(after[at]!.interested).toBe(1);
     expect(after[at]!.line).toBe("1 interesseret");
     expect(after.slice(0, at).every(e => e.interested > 0 || /flok med/i.test(e.line))).toBe(true);
-    expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("Ingen endnu – vær den første");
+    // Nobody yet: no line at all, so the list does not look empty.
+    expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("");
+    expect((await call("/kom-godt-i-gang")).body).not.toContain("Ingen endnu");
+    // The first-visit pop-up asks for the next two days only.
+    const soon = (await call("/api/kom-godt-i-gang?dage=2")).body;
+    const slugsSoon = (JSON.parse(soon) as Kickoff).events.map(e => e.slug);
+    expect(slugsSoon.length).toBeGreaterThan(0);
+    for (const s of slugsSoon) {
+      const at = (db.raw.prepare("SELECT starts_at FROM events WHERE slug = ?").all(s)[0] as { starts_at: number }).starts_at;
+      expect(at).toBeGreaterThan(NOW + 3 * 3600_000);
+      expect(at).toBeLessThan(NOW + 2 * 86_400_000);
+    }
   });
 
   it("is one tap on the event page: Vil du med? → Jeg er interesseret, the same tick as the list", async () => {
