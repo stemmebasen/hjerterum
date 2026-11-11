@@ -8,7 +8,7 @@ import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockPanel, howItWorks, type EventInterest } from "../flokken/pages.js";
+import { flash, flockCards, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_OUTINGS } from "../flokken/profile.js";
@@ -508,10 +508,10 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     ${notice}
     ${flash(extras?.message ?? null)}
     <div class="event-actions">
-      ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren<span class="visually-hidden"> (åbner i nyt vindue)</span></a>` : ""}
-      ${!over && e.status !== "withdrawn" ? html`<a class="button-secondary" href="${eventPath(e)}.ics" download>Tilføj til kalender</a>` : ""}
-      ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Vil du med?</a>` : ""}
+      ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
+      ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
     </div>
+    ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
   </header>
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}

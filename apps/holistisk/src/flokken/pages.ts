@@ -100,6 +100,8 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   };
   const inFlock = !!(myFlockId && member);
   const count = interest.others > 0 ? html` <span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
+  // The tick itself is the "Jeg er interesseret" button at the top of the event page (interestButton). The panel
+  // explains it, shows how many others are interested and lets you take it back.
   const tick = (): SafeHtml => {
     if (interest.mine === "waiting") return html`<div class="flock-interest is-on">
       <p class="flock-interest-state"><strong>Du er på listen.</strong> Vi skriver, når der er en flok.${count}</p>
@@ -108,14 +110,12 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
     if (interest.mine === "invited") return html`<div class="flock-interest is-on">
       <p class="flock-interest-state"><strong>Din flok er klar!</strong> <a href="/flokke#interesser">Sig ja eller nej tak under Mine flokke</a>.</p>
     </div>`;
-    return html`<form method="post" action="${interestPath}" class="flock-interest">
-      <button type="submit">Jeg er interesseret</button>${count}
-    </form>`;
+    return interest.others > 0 ? html`<p class="flock-interest">${count}</p>` : html``;
   };
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
   <div class="flock-panel-head">
     <h2 id="h-flokke">Vil du med?</h2>
-    ${canStart && !inFlock ? html`<p>Sæt kryds, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
+    ${canStart && !inFlock ? html`<p>Tryk <strong>Jeg er interesseret</strong>, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
   </div>
   ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
@@ -124,9 +124,20 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
     <div class="flock-actions">${action(f)}</div>
   </li>`)}</ul>` : over ? html`<p class="flock-empty">Der var ingen flok til dette event.</p>` : ""}
   ${canStart ? inFlock ? flocks.some(f => f.id === myFlockId) ? "" : html`<p class="flock-mine">Du er med i en flok til eventet. <a href="${flockPath(myFlockId!)}">Se din flok</a></p>`
-    : html`${tick()}<p class="flock-create small">eller <a href="${member ? create : loginPath(create)}">start selv en flok</a></p>` : ""}
+    : html`${tick()}<p class="flock-create">eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> – vælg selv tid og mødested, og lad andre slutte sig til.</p>` : ""}
   ${trustLine}
 </section>`;
+}
+
+/** The "Jeg er interesseret" button beside "Køb billet" at the top of the event page: the interest list's tick for
+ * this one event. Once ticked (or in a flock) it turns into where you stand, linking down to the panel. Nothing when
+ * the event can no longer be joined. */
+export function interestButton(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now) return html``;
+  if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
+  if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
+  if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`;
 }
 
 // ————————————————————————————————————————— A flock's own page

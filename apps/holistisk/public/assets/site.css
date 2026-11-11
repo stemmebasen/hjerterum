@@ -424,7 +424,13 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-head { max-width: 840px; }
 .event-when { font: 600 1.3rem var(--display); margin-bottom: .1em; }
 .event-where { color: var(--ink-2); }
-.event-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 8px; }
+.event-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 230px)); gap: 12px; margin: 18px 0 6px; }
+.event-actions > a, .event-actions button { width: 100%; justify-content: center; text-align: center; }
+.event-actions .inline-form { margin: 0; }
+.event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
+.event-calendar { margin: 0 0 8px; font-size: .9rem; }
+.event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
+@media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
 .event-image { margin: 24px 0 0; }
 .event-image img { width: 100%; max-height: 560px; object-fit: cover; border-radius: var(--radius); border: 2px solid var(--ink); }
 .event-image figcaption { font-size: .8rem; color: var(--muted); padding: 6px 2px; }
@@ -492,8 +498,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flock-actions form { margin: 0; }
 .flock-state { font-weight: 800; color: var(--muted); }
 .flock-empty, .flock-mine { font-weight: 700; }
-.flock-create { margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
-.flock-create a { color: inherit; text-decoration: underline; }
+.flock-create { margin: 14px 0 0; font-size: .95rem; color: var(--ink-2); }
+.flock-create a { color: var(--berry); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .flock-interest { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 0; }
 .flock-interest.is-on { display: block; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 10px 14px; }
 .flock-interest-state { margin: 0 0 4px; }
