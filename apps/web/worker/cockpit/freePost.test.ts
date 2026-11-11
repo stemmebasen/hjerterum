@@ -5,7 +5,7 @@ import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase
 import { saveBoardMessage } from "../saga/store.js";
 import { connectSocial, publishDue, pullEarlier, socialPosts } from "../social/social.js";
 import type { EventMediaBucket } from "../event-files.js";
-import { fromDanish } from "./prFreePost.js";
+import { fromDanish, jpegSize } from "./prFreePost.js";
 
 // Requested (the chair, 11 Nov 2026): "What if I want to create a post about a contest? Can I also do that in the system?" - "Ja" to "Nyt opslag".
 const ORIGIN = "https://admin.hjerterum.example";
@@ -103,5 +103,43 @@ describe("a post of the chair's own (Nyt opslag)", () => {
     const { call, form } = await setup(() => JSON.stringify({ facebook: "🌿 Vind et klippekort!\n\nDel og tag en ven.", instagram: "🌿 Vind! #hjerterum" }));
     const answer = await (await call("/pr/nyt-opslag/forslag", { method: "POST", body: form({ kort: "Konkurrence om et klippekort" }) })).json();
     expect(answer).toEqual({ facebook: "🌿 Vind et klippekort!\n\nDel og tag en ven.", instagram: "🌿 Vind! #hjerterum" });
+  });
+
+  // Requested (the chair, 11 Nov 2026): "Jeg mangler at kunne uploade et billede, der allerede er færdigt, direkte i et nyt opslag."
+  const jpg = (width: number, height: number) => {
+    const b = new Uint8Array(3000);
+    b.set([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00]);
+    b.set([0xff, 0xc0, 0x00, 0x11, 0x08, height >> 8, height & 255, width >> 8, width & 255, 0x03], 20);
+    return b;
+  };
+
+  it("reads a jpg's size", () => {
+    expect(jpegSize(jpg(1080, 1350))).toEqual({ width: 1080, height: 1350 });
+    expect(jpegSize(new Uint8Array(2000).fill(0x89))).toBeNull();
+  });
+
+  it("takes a finished picture straight into the post", async () => {
+    const { db, call, form } = await setup();
+    const fields = (picture: Uint8Array, channel: string[] = ["facebook", "instagram"]) => {
+      const f = form({ titel: "Konkurrence", tekst: "Vind et klippekort", at: "2026-11-13T18:00", channel, do: "gem" });
+      f.append("billede", new File([picture.slice()], "konkurrence.jpg", { type: "image/jpeg" }));
+      return f;
+    };
+    expect(await (await call("/pr/nyt-opslag")).text()).toContain('enctype="multipart/form-data"');
+    // A story-shaped picture: not on Instagram - said, and nothing made.
+    const tall = await call("/pr/nyt-opslag", { method: "POST", body: fields(jpg(1080, 1920)) });
+    expect(tall.status).toBe(400);
+    expect(await tall.text()).toContain("1080×1920");
+    // Not a picture.
+    expect((await call("/pr/nyt-opslag", { method: "POST", body: fields(new Uint8Array(2000).fill(1)) })).status).toBe(400);
+    expect(await socialPosts(db, "kind = 'event'")).toEqual([]);
+    // On Facebook alone, the tall one is fine.
+    expect((await call("/pr/nyt-opslag", { method: "POST", body: fields(jpg(1080, 1920), ["facebook"]) })).status).toBe(303);
+    const saved = await call("/pr/nyt-opslag", { method: "POST", body: fields(jpg(1080, 1350)) });
+    const [, post] = await socialPosts(db, "kind = 'event'", [], "id");
+    expect(saved.headers.get("location")).toBe(`/pr/uge?uge=2026-11-09#opslag-${post!.id}`);
+    expect(post).toMatchObject({ status: "draft", channels: ["facebook", "instagram"], source: { free: true, design: true } });
+    expect(post!.images[0]).toMatch(/^https:\/\/www\.hjerterum\.info\/api\/social-designs\/[0-9a-f]{32}\.jpg$/);
+    expect(await (await call("/pr/uge?uge=2026-11-09")).text()).toContain(`href="/plakater/frit-${post!.id}">Ret billedet i editoren`);
   });
 });

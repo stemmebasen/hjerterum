@@ -52,7 +52,7 @@ import { QUICK_HEADERS, quickGonePage, quickPage, quickTitle } from "./prQuick.j
 import { quickPath, quickPost } from "../social/quickLink.js";
 import { proposeWords } from "../social/writer.js";
 import { templateUses } from "../social/videoTemplates.js";
-import { createFreePost, freePostPage, fromDanish, proposeFreeWords } from "./prFreePost.js";
+import { createFreePost, freePostPage, fromDanish, instagramTakes, jpegSize, proposeFreeWords } from "./prFreePost.js";
 import { hideMail, linkMail, moveToPr, prMailData, prReplyPage, returnFromPr } from "./prMail.js";
 import { deleteMaterial, materialFile, storeFile, storeUpload, upcomingEvents } from "./mailMaterial.js";
 import { answerInMessenger, asEventItself, deleteOldOn, setDeleteOld, messengerInbox, setShareFacebookEvent, shareFacebookEventOn, approveWeek, askStill, proposeEventPost, askVideos, chooseVideoTemplate, pickVideo, connectSocial, decidePost, nextWaiting, videoInTime, movePost, firstDue, publishOne, setPostDesign, setPostCarousel, disconnectSocial, editPost, mondayOf, nextMonday, planWeek, recentPosts, scanTags, socialAccount, socialPost, waitingShares, weekKey, weekPosts, type Channel, type SocialEnv } from "../social/social.js";
@@ -985,7 +985,20 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (problem) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: problem,
         values: { titel: title, kort: get("kort"), tekst: text, instagram: get("instagram"), link: get("link"), at: get("at"), channels } }), 400);
       const link = /^https?:\/\/\S+$/.test(get("link")) ? get("link").slice(0, 500) : null;
-      const id = await createFreePost(db, { title, text, instagramText: get("instagram"), link, channels, atMs: atMs! }, now);
+      // "uploade et billede, der allerede er færdigt, direkte i et nyt opslag": a jpg (the page makes a png or webp one), kept where Facebook and Instagram fetch it.
+      const file = form?.get("billede");
+      let image: string | undefined;
+      if (file instanceof File && file.size > 0) {
+        const bytes = new Uint8Array(await file.arrayBuffer()), size = jpegSize(bytes);
+        const wrong = !size ? "Billedet skal være et jpg- eller png-billede. Vælg det igen." : bytes.length > 8 * 1024 * 1024 ? "Billedet er for stort (højst 8 MB). Vælg et mindre." :
+          channels.includes("instagram") && !instagramTakes(size) ? `Billedet er ${size.width}×${size.height}: Instagram tager kun billeder fra højformat 4:5 til bredformat 1,91:1. Vælg et andet, eller fjern fluebenet ved Instagram.` : "";
+        const media = (env as { EVENT_MEDIA?: import("../event-files.js").EventMediaBucket }).EVENT_MEDIA;
+        const stored = wrong || !media ? null : await storeSocialDesign(media, bytes.buffer as ArrayBuffer);
+        if (!stored?.ok) return html(freePostPage(base, who, now, { instagram: Boolean(account?.ig_user_id), ai, error: wrong || "Billedet kunne ikke gemmes lige nu. Prøv igen.",
+          values: { titel: title, kort: get("kort"), tekst: text, instagram: get("instagram"), link: get("link"), at: get("at"), channels } }), 400);
+        image = stored.url;
+      }
+      const id = await createFreePost(db, { title, text, instagramText: get("instagram"), link, channels, atMs: atMs!, ...(image ? { image } : {}) }, now);
       await audit(db, actor, "social.manage", `Lavede et nyt opslag: "${title}"`, now);
       return get("do") === "billede" ? redirect(`${base}/plakater/frit-${id}`) : redirect(`${base}/pr/uge?uge=${mondayOf(atMs!)}#opslag-${id}`);
     }
