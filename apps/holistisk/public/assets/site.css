@@ -424,10 +424,39 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-head { max-width: 840px; }
 .event-when { font: 600 1.3rem var(--display); margin-bottom: .1em; }
 .event-where { color: var(--ink-2); }
-.event-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 8px; }
-.event-image { margin: 24px 0 0; }
-.event-image img { width: 100%; max-height: 560px; object-fit: cover; border-radius: var(--radius); border: 2px solid var(--ink); }
-.event-image figcaption { font-size: .8rem; color: var(--muted); padding: 6px 2px; }
+.event-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 230px)); gap: 12px; margin: 18px 0 6px; }
+.event-actions > a, .event-actions button { width: 100%; justify-content: center; text-align: center; }
+.event-actions .inline-form { margin: 0; }
+.event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
+.event-calendar { margin: 0 0 8px; font-size: .9rem; }
+.event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
+@media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
+/* The top of the event page is one big ticket like the cards: picture, then the stub torn off from the details.
+   The picture is never cropped (event pictures often carry text) and is kept low on phones so the buttons stay on
+   the first screen. */
+.event-ticket { max-width: 760px; margin: 4px 0 24px; }
+.event-ticket:hover { transform: none; }
+.event-ticket .event-image { margin: 0; display: flex; justify-content: center; background: var(--paper-2); border-bottom: 2px solid var(--ink); }
+.event-ticket .event-image img { display: block; width: auto; max-width: 100%; height: auto; max-height: 420px; }
+.event-ticket .ticket-body { grid-template-columns: 76px 1fr; }
+.event-ticket .ticket-body::before, .event-ticket .ticket-body::after { left: 64px; }
+.event-ticket .ticket-main { padding: 18px 20px 18px; }
+.event-ticket .stub-day { font-size: 2.3rem; }
+.event-ticket h1 { margin: .1em 0 .25em; }
+.event-ticket .event-where { margin-bottom: 0; }
+.event-ticket .event-head { max-width: none; }
+.event-image-credit { font-size: .8rem; color: var(--muted); margin: -16px 2px 20px; }
+@media (max-width: 600px) {
+  .event-ticket .event-image img { max-height: 300px; }
+  .event-ticket .ticket-body { grid-template-columns: 58px 1fr; }
+  .event-ticket .ticket-body::before, .event-ticket .ticket-body::after { left: 46px; }
+  .event-ticket .ticket-main { padding: 14px 14px 16px; }
+  .event-ticket .stub-day { font-size: 1.9rem; }
+  .event-ticket h1 { font-size: 1.9rem; }
+  .event-ticket .event-when { font-size: 1.1rem; }
+  .event-ticket .event-actions { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .event-ticket .event-actions > a, .event-ticket .event-actions button { padding-left: 4px; padding-right: 4px; font-size: .85rem; }
+}
 .event-text { font-size: 1.08rem; line-height: 1.7; max-width: 680px; margin-top: 28px; }
 .event-text p.bullet { margin: 0 0 .35em; }
 .notice { border-radius: var(--radius-s); padding: 10px 14px; background: var(--paper-2); }
@@ -492,8 +521,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flock-actions form { margin: 0; }
 .flock-state { font-weight: 800; color: var(--muted); }
 .flock-empty, .flock-mine { font-weight: 700; }
-.flock-create { margin: 10px 0 0; font-size: .92rem; color: var(--muted); }
-.flock-create a { color: inherit; text-decoration: underline; }
+.flock-create { margin: 14px 0 0; font-size: .95rem; color: var(--ink-2); }
+.flock-create a { color: var(--berry); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .flock-interest { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 0; }
 .flock-interest.is-on { display: block; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 10px 14px; }
 .flock-interest-state { margin: 0 0 4px; }

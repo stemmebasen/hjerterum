@@ -101,7 +101,7 @@ describe("flocks", () => {
     const before = await call(`/events/${event.slug}`);
     expect(before.body).toContain('<h2 id="h-flokke">Vil du med?</h2>');
     expect(before.body).not.toContain("ingen flok");
-    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="flock-interest">`);
+    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`);
     expect(before.body).toContain(`href="/log-ind?naeste=${encodeURIComponent(`/events/${event.slug}/opret-flok`)}"`);
     expect(before.headers.get("cache-control")).toBe("private, no-store");
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flocks").all()[0]).toEqual({ n: 0 });
@@ -550,12 +550,17 @@ describe("Lad os komme godt i gang", () => {
     expect(page).toContain("Tak! Du er på listen – helt uforpligtende.");
     expect(page).toContain("<strong>Du er på listen.</strong> Vi skriver, når der er en flok.");
     expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
-    expect(page).toContain('<a class="button-secondary" href="#flokke">Vil du med?</a>');
+    expect(page).toContain('<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>');
+    expect(page).not.toContain('href="#flokke">Vil du med?</a>');
     expect(page).not.toContain("interesseret.</span>");
     // Others see the count once someone is interested, never "nobody yet".
     const stranger = (await call(`/events/${slug}`)).body;
+    // Two buttons side by side at the top: the tick and the organiser's ticket; the calendar is a small link below.
+    expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`);
+    expect(stranger).toContain('<p class="event-calendar">');
+    expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
     expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');
-    expect(stranger).toContain(`eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a>`);
+    expect(stranger).toContain(`eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> – vælg selv tid og mødested`);
     // Taking it back.
     expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#flokke`);
     expect(statusOf("Tove", slug)).toBe(null);

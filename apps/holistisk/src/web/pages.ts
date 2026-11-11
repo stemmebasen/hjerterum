@@ -8,11 +8,11 @@ import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockPanel, howItWorks, type EventInterest } from "../flokken/pages.js";
+import { flash, flockCards, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_OUTINGS } from "../flokken/profile.js";
-import { activeFilterChips, cardGrid, chipLinks, dayList, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
@@ -500,22 +500,28 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const body = html`
 <article class="event wrap">
   ${crumbsNav(crumbs)}
-  <header class="event-head">
-    <p class="kicker">${[firstCategory?.name, area?.place].filter(Boolean).join(" · ")}</p>
-    <h1>${e.title}</h1>
-    <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
-    <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
-    ${notice}
-    ${flash(extras?.message ?? null)}
-    <div class="event-actions">
-      ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">Tilmeld hos arrangøren<span class="visually-hidden"> (åbner i nyt vindue)</span></a>` : ""}
-      ${!over && e.status !== "withdrawn" ? html`<a class="button-secondary" href="${eventPath(e)}.ics" download>Tilføj til kalender</a>` : ""}
-      ${e.status !== "withdrawn" ? html`<a class="button-secondary" href="#flokke">Vil du med?</a>` : ""}
+  <header class="ticket event-ticket">
+    ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async"></figure>` : ""}
+    <div class="ticket-body">
+      ${stub(e)}
+      <div class="ticket-main event-head">
+        <p class="kicker">${[firstCategory?.name, area?.place].filter(Boolean).join(" · ")}</p>
+        <h1>${e.title}</h1>
+        <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
+        <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
+        ${notice}
+        ${flash(extras?.message ?? null)}
+        <div class="event-actions">
+          ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
+          ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
+        </div>
+        ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
+      </div>
     </div>
   </header>
+  ${e.image_url && e.image_credit ? html`<p class="event-image-credit">Billede: ${e.image_credit}</p>` : ""}
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
-  ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   <div class="main-aside">
     <div class="event-text">
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`

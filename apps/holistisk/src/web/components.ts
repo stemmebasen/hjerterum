@@ -81,7 +81,7 @@ const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, n
 const MONTHS_SHORT = ["jan", "feb", "mar", "apr", "maj", "jun", "jul", "aug", "sep", "okt", "nov", "dec"];
 
 /** The ticket's stub: day, month and time, as on a printed ticket. */
-function stub(e: EventRow): SafeHtml {
+export function stub(e: EventRow): SafeHtml {
   const [, m, day] = localDate(e.starts_at).split("-");
   return html`<span class="ticket-stub" aria-hidden="true"><span class="stub-day">${String(Number(day))}</span><span class="stub-month">${MONTHS_SHORT[Number(m) - 1]}</span><span class="stub-time">${e.all_day ? "hele dagen" : hhmm(e.starts_at)}</span></span>`;
 }
