@@ -506,12 +506,16 @@ function NotFound() {
 
 /** Plakater og opslag: only in admin (worker/cockpit/posterStudio.ts serves this app there, behind the chair's login) - "skal kun bruges i cockpittet". */
 const PosterStudio = lazy(() => import("./poster-studio").then(m => ({ default: m.PosterStudio })));
+const FreePostStudio = lazy(() => import("./free-post").then(m => ({ default: m.FreePostStudio })));
 const isAdminHost = () => /^(?:admin|cockpit)\./i.test(window.location.hostname);
 
 function App() {
   const path = window.location.pathname;
   const studio = isAdminHost() ? /^\/plakater\/([0-9a-f]{24}|h\d+)\/?$/.exec(path) : null;
   if (studio) return <Suspense fallback={<main className="page-shell site-page poster-page"><p className="poster-empty">Åbner værktøjet …</p></main>}><PosterStudio id={studio[1]!} /></Suspense>;
+  // "Nyt opslag" (worker/cockpit/prFreePost.ts): a post's picture, no event behind it.
+  const free = isAdminHost() ? /^\/plakater\/(frit-\d+)\/?$/.exec(path) : null;
+  if (free) return <Suspense fallback={<main className="page-shell site-page poster-page"><p className="poster-empty">Åbner editoren …</p></main>}><FreePostStudio id={free[1]!} /></Suspense>;
   const { clerk, user, loaded } = useClerk(CLERK_PATHS.test(path));
 
   if (path === "/sign-in" || path.startsWith("/sign-in/") || path === "/login" || path.startsWith("/login/")) {

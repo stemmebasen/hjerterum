@@ -168,7 +168,8 @@ function weekCard(base: string, p: SocialPost, account: SocialAccount | null, mo
 ${timeLine(p, nowMs)}
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 ${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
-  return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.design ? "Dit design" : "Eventets billede"}</span>
+  return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.free ? (p.images[0] ? "Dit billede" : "") : p.source.design ? "Dit design" : "Eventets billede"}</span>
+${p.source.free && open(p) ? `<a class="button ghost" href="${base}/plakater/frit-${p.id}">${p.images[0] ? "Ret billedet i editoren" : "Lav billedet i editoren"}</a>` : ""}
 ${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(studio)}?fra=${encodeURIComponent(`/pr/uge?uge=${monday}#opslag-${p.id}`)}">${p.source.design ? "Skift design" : "Lav design"}</a>` : ""}</div>`; })() : ""}
 ${p.kind === "event" && p.source.video ? `<div class="pr-video"><video src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video><span class="small muted">Videoen til Instagram (reel)</span></div>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
@@ -258,7 +259,7 @@ ${deleteOldCard(base, Boolean(d.deleteOld))}`,
     events: prEventsSection(base, d.events ?? [], d.nowMs),
     beskeder: messengerSection(base, { threads: d.messenger?.threads ?? [], error: d.messenger?.error ?? null, nowMs: d.nowMs }),
     tagget: `<section class="panel" id="tagget"><header><h2>Tagget i${d.shares.length ? ` (${d.shares.length})` : ""}</h2><p>Opslag, som undervisere og andre har tagget Hjerterum i. Del dem videre med et par ord fra Hjerterum.</p></header>${shares}</section>`,
-    uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,
+    uge: `<section class="panel" id="uge"><header><h2>Ugens opslag</h2><p class="pr-new"><a class="button ghost" href="${base}/pr/nyt-opslag">＋ Nyt opslag</a></p><p>${d.aiReady ? "Saga skriver ordene; du kan rette dem." : "Saga er ikke sat op, så teksterne er simple skabeloner, du kan rette."}</p></header><nav class="pr-tabs">${tabs}</nav>${week}</section>`,
     sendt: `<section class="panel" id="sendt"><header><h2>Publiceret og fejlet</h2></header>${recent}</section>
 ${insightSection(d.insight)}`
   };
@@ -267,10 +268,10 @@ ${tab === "overblik" ? `<p>Saga gør alle opslag klar - delinger af det, Hjerter
 ${nav}
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
 ${sections[tab]}</main>${tab === "uge" || tab === "tagget" ? WRITER_SCRIPT(base) : ""}`;
-  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE + PR_MAIL_STYLE + PR_MESSENGER_STYLE });
+  return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: PR_PAGE_STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE + PR_MAIL_STYLE + PR_MESSENGER_STYLE });
 }
 
-const STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
+export const PR_PAGE_STYLE = `.pr{display:grid;gap:20px}.pr-nav{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 12px}.pr-nav a{padding:8px 16px;border-radius:999px;text-decoration:none;font-weight:600;font-size:14.5px;color:var(--ink);background:var(--card);box-shadow:var(--shadow)}.pr-nav a.on{background:var(--ink);color:var(--card)}.pr-count{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-size:12px;text-align:center}.pr-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.pr-tabs a{padding:6px 14px;border-radius:999px;border:1px solid var(--line);text-decoration:none;font-size:14px}.pr-tabs a.on{background:var(--ink);color:var(--card)}
 /* "Her mangler jeg en klar adskillelse mellem eventsene. Det kan være en svag forskel i baggrundsfarven." */.pr-post{background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin:0 0 14px;scroll-margin-top:90px}.pr-post:nth-of-type(even){background:var(--card)}.pr-post header{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin:0 0 10px}
 .pr-week-pair{border:2px solid var(--line);border-radius:18px;padding:14px 14px 2px;margin:0 0 14px}.pr-week-pair>h3{margin:0 0 4px}.pr-standin>summary{cursor:pointer;font-weight:600;margin:6px 0 12px}
 .pr-orig{display:flex;gap:14px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px;margin:0 0 12px}.pr-orig img{width:96px;height:96px;object-fit:cover;border-radius:10px;flex:none}.pr-orig p{margin:0;font-size:14px;white-space:pre-line}

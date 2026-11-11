@@ -55,6 +55,8 @@ export type SocialPost = { id: number; kind: SocialKind; source_key: string; wee
     /** Gone out as the event itself (shareEventInstead): its picture or video with the short fixed words (eventItselfText) - not Saga's, not a link card.
      * (`fbEventShare`/`pageShare`: the link card of the first version, 8 Nov 2026.) */
     eventItself?: boolean; fbEventShare?: boolean; pageShare?: boolean; noFbEventTold?: 1;
+    /** "Nyt opslag" (cockpit/prFreePost.ts): a post of the chair's own, about no event. */
+    free?: boolean;
     /** Posted by the chair directly on Facebook or Instagram (findOwnPosts): in the calendar, never deleted by Saga. */
     own?: boolean;
     /** The event's own picture, kept when the chair's design takes its place (setPostDesign) - for the post made the event itself again (asEventItself). */
