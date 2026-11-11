@@ -513,9 +513,9 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     </div>
     ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
   </header>
+  ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
-  ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async">${e.image_credit ? html`<figcaption>Billede: ${e.image_credit}</figcaption>` : ""}</figure>` : ""}
   <div class="main-aside">
     <div class="event-text">
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`

@@ -431,8 +431,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-calendar { margin: 0 0 8px; font-size: .9rem; }
 .event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
 @media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
-.event-image { margin: 24px 0 0; }
-.event-image img { width: 100%; max-height: 560px; object-fit: cover; border-radius: var(--radius); border: 2px solid var(--ink); }
+.event-image { margin: 18px 0 24px; }
+.event-image img { display: block; width: auto; max-width: 100%; height: auto; max-height: 520px; border-radius: var(--radius); border: 2px solid var(--ink); }
 .event-image figcaption { font-size: .8rem; color: var(--muted); padding: 6px 2px; }
 .event-text { font-size: 1.08rem; line-height: 1.7; max-width: 680px; margin-top: 28px; }
 .event-text p.bullet { margin: 0 0 .35em; }
