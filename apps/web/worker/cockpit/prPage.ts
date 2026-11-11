@@ -7,6 +7,7 @@ import { PR_EVENTS_STYLE, prEventsSection, type PrEventRow } from "./prEvents.js
 import { messengerSection, PR_MESSENGER_STYLE, replyLeft } from "./prMessenger.js";
 import type { MessengerThread } from "../social/meta.js";
 import { studioIdOf } from "./posterStudio.js";
+import { CARD_PICTURE_SCRIPT, cardPictureForm } from "./prFreePost.js";
 import { PR_CALENDAR_STYLE, prCalendarSection, type CalendarData } from "./prCalendar.js";
 import { PR_MAIL_STYLE, prMailSection, type PrMail } from "./prMail.js";
 
@@ -75,7 +76,7 @@ function actions(base: string, p: SocialPost, approveLabel: string): string {
   if (!open(p)) return `<p class="small muted">${p.status === "published" ? `Publiceret ${esc(when(p.published_at_ms))}. ${sentLinks(p)}` : "Publiceres nu."}</p>`;
   const buttons = p.status === "approved"
     ? `<button name="do" value="fortryd" class="ghost">Fortryd godkendelsen</button>`
-    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}${p.kind === "event" && !p.source.eventItself ? `<button name="do" value="kort" class="ghost" onclick="return confirm('Dele eventets Facebook-begivenhed i stedet, med en kort tekst? Designet, videoen og teksten her bliver erstattet, og det sker kun på Facebook.')" title="Eventets Facebook-begivenhed med en kort tekst - i stedet for designet og teksten">Del begivenheden med kort tekst</button>` : ""}`;
+    : `<button name="do" value="godkend">${approveLabel}</button><button name="do" value="gem" class="ghost">Gem ændringer</button>${p.status === "skipped" ? "" : `<button name="do" value="spring" class="ghost">Spring over</button>`}${p.kind === "event" && !p.source.eventItself && !p.source.free ? `<button name="do" value="kort" class="ghost" onclick="return confirm('Dele eventets Facebook-begivenhed i stedet, med en kort tekst? Designet, videoen og teksten her bliver erstattet, og det sker kun på Facebook.')" title="Eventets Facebook-begivenhed med en kort tekst - i stedet for designet og teksten">Del begivenheden med kort tekst</button>` : ""}`;
   return `<p class="pr-acts">${buttons}</p>${p.error ? `<p class="small warn">${esc(p.error)}</p>` : ""}${p.approved_by && p.status === "approved" ? `<p class="small muted">Godkendt af ${esc(p.approved_by)}.</p>` : ""}`;
 }
 
@@ -139,7 +140,7 @@ function timeLine(p: SocialPost, nowMs: number): string {
   const parts = [fb ? `Facebook ${when(fb)}` : "", ig ? `Instagram ${when(ig)}` : ""].filter(Boolean);
   if (!parts.length) return "";
   const passed = [fb, ig].some(t => t && t < nowMs);
-  const lead = p.status === "approved" ? "Planlagt" : "Saga foreslår";
+  const lead = p.status === "approved" ? "Planlagt" : p.source.free ? "Dit tidspunkt" : "Saga foreslår";
   return `<p class="pr-when${passed ? " is-late" : ""}"><b>${lead}:</b> ${esc(fb && ig && fb === ig ? `Facebook og Instagram ${when(fb)}` : parts.join(" · "))}${passed
     ? `<span> Tidspunktet er passeret. ${p.status === "approved" ? "Saga sender det i næste runde." : "Godkender du, sendes det med det samme - eller vælg et nyt tidspunkt nedenfor."}</span>` : p.status === "approved" ? "" : `<span> Sendes først, når du har godkendt.${p.kind === "event" && p.source.shouts === 2 ? " Du godkender begge eventets opslag på én gang." : ""}</span>`}</p>`;
 }
@@ -169,7 +170,7 @@ ${timeLine(p, nowMs)}
 ${p.kind === "week" && p.images.length ? `<div class="pr-strip">${p.images.map(src => `<img src="${esc(src)}" alt="" loading="lazy">`).join("")}</div>` : ""}
 ${p.kind === "event" ? (() => { const studio = p.source.key ? studioIdOf(p.source.key) : null;
   return `<div class="pr-design">${p.images[0] ? `<img src="${esc(p.images[0])}" alt="" loading="lazy">` : `<span class="small muted">Intet billede</span>`}<span class="small muted">${p.source.free ? (p.images[0] ? "Dit billede" : "") : p.source.design ? "Dit design" : "Eventets billede"}</span>
-${p.source.free && open(p) ? `<a class="button ghost" href="${base}/plakater/frit-${p.id}">${p.images[0] ? "Ret billedet i editoren" : "Lav billedet i editoren"}</a>` : ""}
+${p.source.free && open(p) ? `${cardPictureForm(base, p.id, Boolean(p.images[0]))}<a class="button ghost" href="${base}/plakater/frit-${p.id}">${p.images[0] ? "Ret billedet i editoren" : "Lav billedet i editoren"}</a>` : ""}
 ${studio && open(p) ? `<a class="button ghost" href="${base}/plakater/${esc(studio)}?fra=${encodeURIComponent(`/pr/uge?uge=${monday}#opslag-${p.id}`)}">${p.source.design ? "Skift design" : "Lav design"}</a>` : ""}</div>`; })() : ""}
 ${p.kind === "event" && p.source.video ? `<div class="pr-video"><video src="${esc(p.source.video)}" controls muted playsinline preload="metadata"></video><span class="small muted">Videoen til Instagram (reel)</span></div>` : ""}
 <form method="post" action="${base}/pr/opslag/${p.id}">
@@ -181,7 +182,7 @@ ${p.kind === "week" && allowed.includes("instagram") ? `<label class="pr-field">
 <div class="pr-row"><label class="pr-field pr-time"><span>${p.kind === "event" && allowed.includes("instagram") ? "Facebook sendes" : "Sendes"}</span><input type="datetime-local" name="at" value="${localInput(p.publish_at_ms)}"${locked ? " disabled" : ""}></label>
 ${p.kind === "event" && allowed.includes("instagram") ? `<label class="pr-field pr-time"><span>Instagram sendes (tomt: samtidig)</span><input type="datetime-local" name="instagram_at" value="${p.source.instagramAtMs ? localInput(p.source.instagramAtMs) : ""}"${locked ? " disabled" : ""}></label>` : ""}
 ${channelBoxes(p, allowed, locked)}</div>
-${p.kind === "event" && p.source.video ? `<div class="pr-channels"><input type="hidden" name="video_box" value="1"><label><input type="checkbox" name="facebook_video" value="1"${p.source.noFacebookVideo ? "" : " checked"}${locked ? " disabled" : ""}> Video på Facebook (ellers billedet)</label><label><input type="checkbox" name="video" value="1"${p.source.noVideo ? "" : " checked"}${locked ? " disabled" : ""}> Video på Instagram (ellers billedet)</label></div>` : p.kind === "event" && p.channels.includes("instagram") ? `<div class="pr-channels"><input type="hidden" name="novideo_box" value="1"><label><input type="checkbox" name="no_video" value="1"${p.source.noVideo ? " checked" : ""}${locked ? " disabled" : ""}> Uden video - brug billedet (Saga laver ellers en video)</label></div>` : ""}
+${p.kind === "event" && p.source.video ? `<div class="pr-channels"><input type="hidden" name="video_box" value="1"><label><input type="checkbox" name="facebook_video" value="1"${p.source.noFacebookVideo ? "" : " checked"}${locked ? " disabled" : ""}> Video på Facebook (ellers billedet)</label><label><input type="checkbox" name="video" value="1"${p.source.noVideo ? "" : " checked"}${locked ? " disabled" : ""}> Video på Instagram (ellers billedet)</label></div>` : p.kind === "event" && !p.source.free && p.channels.includes("instagram") ? `<div class="pr-channels"><input type="hidden" name="novideo_box" value="1"><label><input type="checkbox" name="no_video" value="1"${p.source.noVideo ? " checked" : ""}${locked ? " disabled" : ""}> Uden video - brug billedet (Saga laver ellers en video)</label></div>` : ""}
 ${actions(base, p, "Godkend")}</form></article>`;
 }
 
@@ -267,7 +268,7 @@ ${insightSection(d.insight)}`
 ${tab === "overblik" ? `<p>Saga gør alle opslag klar - delinger af det, Hjerterum er tagget i, et opslag for hvert event, Ugens events og ugens reel - og du godkender. Intet sendes uden dit ja. Kun for formanden indtil videre.</p>` : ""}</div>
 ${nav}
 ${d.notice ? `<p class="notice good">${esc(d.notice)}</p>` : ""}${d.error ? `<p class="notice warn">${esc(d.error)}</p>` : ""}
-${sections[tab]}</main>${tab === "uge" || tab === "tagget" ? WRITER_SCRIPT(base) : ""}`;
+${sections[tab]}</main>${tab === "uge" || tab === "tagget" ? WRITER_SCRIPT(base) : ""}${tab === "uge" ? CARD_PICTURE_SCRIPT : ""}`;
   return layout(base, "PR og sociale medier", body, { section: "/pr", who, style: PR_PAGE_STYLE + PLAN_STYLE + INSIGHT_STYLE + PR_EVENTS_STYLE + PR_CALENDAR_STYLE + PR_MAIL_STYLE + PR_MESSENGER_STYLE });
 }
 

@@ -26,9 +26,17 @@ describe("a post of the chair's own (Nyt opslag)", () => {
     await saveBoardMessage(db, { chatId: BOARD, messageId: 1, author: "Jacob Hauge", authorId: OWNER, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
     await connectSocial(env, db, { id: "755", name: "Hjerterum", token: "t", igUserId: "17841", igUsername: "hjerterum_aarhus" }, "Jacob Hauge", NOW);
     const cookie = await personalCookie("Jacob Hauge", NOW);
-    const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(services.fetcher, NOW));
+    // Facebook and Instagram, for what goes out from the cockpit at once.
+    const graph: Array<{ path: string; params: Record<string, string> }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      const url = String(input);
+      if (!url.startsWith(GRAPH)) return services.fetcher(input, init);
+      graph.push({ path: url.slice(GRAPH.length).split("?")[0]!, params: Object.fromEntries(new URLSearchParams(String(init?.body ?? ""))) });
+      return new Response(JSON.stringify(init?.method === "POST" ? { id: `id-${graph.length}` } : { status_code: "FINISHED", data: [] }));
+    };
+    const call = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN } : {}) } }), env, deps(fetcher, NOW));
     const form = (fields: Record<string, string | string[]>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) for (const x of [v].flat()) f.append(k, x); return f; };
-    return { db, env, services, call, form };
+    return { db, env, services, call, form, graph };
   }
 
   it("reads Danish time", () => {
@@ -141,5 +149,54 @@ describe("a post of the chair's own (Nyt opslag)", () => {
     expect(post).toMatchObject({ status: "draft", channels: ["facebook", "instagram"], source: { free: true, design: true } });
     expect(post!.images[0]).toMatch(/^https:\/\/www\.hjerterum\.info\/api\/social-designs\/[0-9a-f]{32}\.jpg$/);
     expect(await (await call("/pr/uge?uge=2026-11-09")).text()).toContain(`href="/plakater/frit-${post!.id}">Ret billedet i editoren`);
+  });
+
+  // Requested (the chair, 11 Nov 2026): "Jeg skal kunne publicere allerede fra side 1 hvis jeg vil".
+  it("is published at once from the first page, or approved for its time", async () => {
+    const { db, call, form, graph } = await setup();
+    const fields = (doing: string, channel: string[], picture?: Uint8Array) => {
+      const f = form({ titel: "Konkurrence", tekst: "Vind et klippekort", at: "2026-11-13T18:00", channel, do: doing });
+      if (picture) f.append("billede", new File([picture.slice()], "konkurrence.jpg", { type: "image/jpeg" }));
+      return f;
+    };
+    // Instagram needs a picture.
+    const bare = await call("/pr/nyt-opslag", { method: "POST", body: fields("nu", ["facebook", "instagram"]) });
+    expect(bare.status).toBe(400);
+    expect(await bare.text()).toContain("Instagram kræver et billede");
+    expect(await socialPosts(db, "kind = 'event'")).toEqual([]);
+    // "Publicér nu": out now on both, whatever the time field said.
+    const now = await call("/pr/nyt-opslag", { method: "POST", body: fields("nu", ["facebook", "instagram"], jpg(1080, 1350)) });
+    const [sent] = await socialPosts(db, "kind = 'event'");
+    expect(now.headers.get("location")).toBe(`/pr/uge?uge=2026-11-09&besked=publiceret#opslag-${sent!.id}`);
+    expect(sent).toMatchObject({ status: "published", publish_at_ms: NOW, approved_by: "Jacob Hauge" });
+    expect(graph.some(c => c.path === "/755/photos")).toBe(true);
+    expect(graph.some(c => c.path === "/17841/media_publish")).toBe(true);
+    // "Godkend til tidspunktet": approved, out on Friday.
+    graph.length = 0;
+    const later = await call("/pr/nyt-opslag", { method: "POST", body: fields("godkend", ["facebook"]) });
+    const [, approved] = await socialPosts(db, "kind = 'event'", [], "id");
+    expect(later.headers.get("location")).toBe(`/pr/uge?uge=2026-11-09&besked=godkendt#opslag-${approved!.id}`);
+    expect(approved).toMatchObject({ status: "approved", publish_at_ms: Date.parse("2026-11-13T17:00:00Z") });
+    expect(graph).toEqual([]);
+  });
+
+  // Reported (the chair, 11 Nov 2026): "Der står intet billede, men jeg har lige uploadet det?"
+  it("takes a finished picture on the post's card, and shows no event buttons there", async () => {
+    const { db, call, form } = await setup();
+    await call("/pr/nyt-opslag", { method: "POST", body: form({ titel: "Konkurrence", tekst: "Vind", at: "2026-11-13T18:00", channel: ["facebook", "instagram"], do: "gem" }) });
+    const [post] = await socialPosts(db, "kind = 'event'");
+    const card = await (await call("/pr/uge?uge=2026-11-09")).text();
+    expect(card).toContain(`action="/pr/opslag/${post!.id}/billede"`);
+    expect(card).toContain("Dit tidspunkt:");
+    expect(card).not.toContain("Uden video");
+    expect(card).not.toContain('value="kort"');
+    const upload = (picture: Uint8Array) => { const f = new FormData(); f.append("billede", new File([picture.slice()], "a.jpg", { type: "image/jpeg" })); return call(`/pr/opslag/${post!.id}/billede`, { method: "POST", body: f }); };
+    expect((await upload(jpg(1080, 1920))).headers.get("location")).toBe(`/pr/uge?uge=2026-11-09&fejl=billede-ig#opslag-${post!.id}`);
+    expect((await socialPosts(db, "kind = 'event'"))[0]!.images).toEqual([]);
+    expect((await upload(jpg(1080, 1350))).headers.get("location")).toBe(`/pr/uge?uge=2026-11-09&besked=billede#opslag-${post!.id}`);
+    const [after] = await socialPosts(db, "kind = 'event'");
+    expect(after).toMatchObject({ status: "draft", source: { free: true, design: true } });
+    expect(after!.images[0]).toMatch(/\/api\/social-designs\/[0-9a-f]{32}\.jpg$/);
+    expect(await (await call("/pr/uge?uge=2026-11-09&fejl=billede-ig")).text()).toContain("Instagram tager kun billeder");
   });
 });
