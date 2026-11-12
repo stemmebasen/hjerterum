@@ -14,6 +14,8 @@ const Line: React.FC<{ text: string | null; color: string; delay: number; style?
   return text ? <div style={{ fontFamily: sans, fontSize: 38, lineHeight: 1.4, color, maxWidth: 880, opacity: rise(f, delay), ...style }}>{text}</div> : null;
 };
 const away = (f: number) => rise(f, FAREWELL_AT, 30);
+/** "Fredag aften" only in the evening (the chair's "Jordens visdom" at 15.00 said "FREDAG AFTEN"): the part of the day by its time, "15.00" or "9.45". */
+const partOfDay = (time: string) => { const h = Number(/^(\d{1,2})/.exec(time)?.[1] ?? 18); return h < 12 ? "formiddag" : h < 17 ? "eftermiddag" : "aften"; };
 
 /** 1. Organisk: soft shapes, the picture in a pebble frame, the title, the date as a pebble. */
 const Organisk: React.FC<{ p: EventProps }> = ({ p }) => {
@@ -79,9 +81,11 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
     <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: w, background: C.camel }} />
     <div style={{ position: "absolute", left: 50, top: SAFE_TOP + 30, width: 250, opacity: rise(f, 14), color: C.ink }}>
       <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.2em" }}>{p.dayName.toUpperCase()}</div>
-      <div style={{ fontFamily: serif, fontSize: 220, lineHeight: 1, marginTop: 40 }}>{p.dayNo}.</div>
-      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 24, letterSpacing: "0.1em" }}>{p.month.toUpperCase()}</div>
-      <div style={{ fontFamily: "monospace", fontSize: 30, marginTop: 30 }}>kl. {p.timeRange}</div>
+      {/* Reported (the chair, 12 Nov 2026, of "Jordens visdom som ledetråd i livet"): "Denne skal rettes til på flere punkter" - the day's number ran
+          into the month and out of the band, and the time was in a typewriter's letters. */}
+      <div style={{ fontFamily: serif, fontSize: p.dayNo.length > 1 ? 168 : 200, lineHeight: 0.9, marginTop: 40 }}>{p.dayNo}.</div>
+      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 24, letterSpacing: "0.1em", marginTop: 26 }}>{p.month.toUpperCase()}</div>
+      <div style={{ fontFamily: sans, fontWeight: 500, fontSize: 30, marginTop: 26 }}>kl. {p.timeRange}</div>
     </div>
     <div style={{ position: "absolute", left: 390, right: 80, top: SAFE_TOP, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.32em", color: C.ink, opacity: rise(f, 10, 12) }}>HJERTERUM</div>
@@ -91,8 +95,9 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
       <Rise text={p.title} delay={22} step={4} style={{ fontFamily: serif, fontSize: fit(p.title, 630, 96, 4), color: C.ink, lineHeight: 1.04 }} />
       {p.host && <Rise text={`med ${p.host}`} delay={46} step={3} style={{ fontFamily: serif, fontStyle: "italic", fontSize: 44, color: C.muted, marginTop: 22 }} />}
     </div>
-    {p.picture && <div style={{ position: "absolute", left: 150, top: SAFE_BOTTOM - 500, opacity: rise(f, 40), transform: `translateX(${(1 - rise(f, 40, 40)) * 300}px)`, boxShadow: "0 30px 70px rgba(60,35,20,.35)", borderRadius: "30px 0 0 30px" }}>
-      <PanPic p={p.picture} width={930} height={500} radius="30px 0 0 30px" /></div>}
+    {/* The teacher's whole picture inside the page (its words were cut off at the right edge). */}
+    {p.picture && <div style={{ position: "absolute", left: 80, right: 80, bottom: 1920 - SAFE_BOTTOM, opacity: rise(f, 40), transform: `translateX(${(1 - rise(f, 40, 40)) * 300}px)`, boxShadow: "0 30px 70px rgba(60,35,20,.35)", borderRadius: 30 }}>
+      <Pic p={p.picture} width={920} maxHeight={480} radius={30} /></div>}
     <End p={p} bg={C.camel} ink={C.ink} accent={C.ink} />
   </AbsoluteFill>;
 };
@@ -125,7 +130,7 @@ const Nat: React.FC<{ p: EventProps }> = ({ p }) => {
     <Stars color={C.sand} />
     <div style={{ position: "absolute", left: 140, top: 470, width: 800, height: 800, borderRadius: 400, background: "radial-gradient(circle, rgba(201,151,111,.85) 0%, rgba(201,151,111,.25) 55%, rgba(201,151,111,0) 70%)",
       transform: `scale(${0.6 + 0.4 * rise(f, 0, 50) + 0.03 * Math.sin(f / 18)})` }} />
-    <Head kicker={`${p.dayName.toUpperCase()} AFTEN`} color={C.camel} stamp={C.camel} />
+    <Head kicker={`${p.dayName} ${partOfDay(p.time)}`.toUpperCase()} color={C.camel} stamp={C.camel} />
     {p.picture && <div style={{ position: "absolute", left: 130, top: SAFE_TOP + 240, opacity: rise(f, 12, 40), boxShadow: "0 0 80px rgba(201,151,111,.5)", borderRadius: 26 }}>
       <Pic p={p.picture} width={820} maxHeight={460} /></div>}
     <div style={{ ...CENTER, position: "absolute", left: 90, right: 90, top: SAFE_TOP + 790, opacity: 1 - away(f) }}>
