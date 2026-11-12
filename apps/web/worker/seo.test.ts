@@ -72,6 +72,13 @@ describe("the website for search engines", () => {
     expect(await (await get("/kvittering")).text()).toBe("<!doctype html><p>Tak</p>");
   });
 
+  it("sends the address without www on to www, path and all", async () => {
+    const { get } = await setUp();
+    const moved = await get("/medlemskab?x=1", "hjerterum.info");
+    expect(moved.status).toBe(301);
+    expect(moved.headers.get("location")).toBe("https://www.hjerterum.info/medlemskab?x=1");
+  });
+
   it("has a robots.txt and a sitemap with the pages and the coming events", async () => {
     const { id, get } = await setUp();
     const robots = await (await get("/robots.txt")).text();
