@@ -110,7 +110,9 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="theme-color" content="#f6efe2">
 ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/svg+xml">
 <link rel="preload" href="/assets/fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/assets/fonts/lexend-latin.woff2" as="font" type="font/woff2" crossorigin>` : html`<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/assets/fonts/lexend-latin.woff2" as="font" type="font/woff2" crossorigin>` : html`<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/favicon-96.png" type="image/png" sizes="96x96">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
