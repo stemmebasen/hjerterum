@@ -10,6 +10,7 @@ import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
 import { sitemapPages } from "./web/sitemap.js";
+import { meetPeoplePage, newInTownPage, thingsToDoPage } from "./web/guides.js";
 import { mapPage } from "./web/map.js";
 import { foreningRoute } from "./forening/routes.js";
 import { notFound as foreningNotFound } from "./forening/pages.js";
@@ -123,7 +124,10 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   if (bare !== url.hostname && DOMAINS[bare]) return redirect(`https://${bare}${url.pathname}${url.search}`);
   if (DOMAINS[url.hostname] && /^\/socialklubben(\/|$)/.test(url.pathname)) return redirect(`https://${url.hostname}${url.pathname.replace(/^\/socialklubben/, "") || "/"}${url.search}`);
   const mount = mountOf(request, env);
-  const response = await route(request, env, now, mount);
+  // An own domain is the real, public address: search engines may index it, also when the Worker is the staging one.
+  // The Worker's workers.dev address and the proxied addresses stay hidden from them (noindex), so Google sees one copy.
+  const live = DOMAINS[url.hostname] ? { ...env, ENVIRONMENT: "production" } : env;
+  const response = await route(request, live, now, mount);
   return mount ? underMount(response, mount) : response;
 }
 
@@ -227,6 +231,9 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
   if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));
+  if (path === "/moed-nye-mennesker") return view(env, await meetPeoplePage(db, pc, regions));
+  if (path === "/ny-i-aarhus") return view(env, await newInTownPage(db, pc, regions));
+  if (path === "/ting-at-lave-i-aarhus") return view(env, await thingsToDoPage(db, pc, regions));
   const organizerSlug = /^\/arrangoerer\/([a-z0-9-]+)$/.exec(path)?.[1];
   if (organizerSlug) {
     const profile = organizerBySlug(organizerSlug);

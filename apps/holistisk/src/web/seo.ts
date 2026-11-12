@@ -5,7 +5,7 @@ import type { EventRow } from "./queries.js";
 import { eventPath } from "./components.js";
 
 /** schema.org Event for an event page (https://schema.org/Event, as search engines read it). */
-export function eventJsonLd(e: EventRow, origin: string): Record<string, unknown> {
+export function eventJsonLd(e: EventRow, origin: string, fallbackImage?: string): Record<string, unknown> {
   const status = e.status === "cancelled" ? "https://schema.org/EventCancelled" : "https://schema.org/EventScheduled";
   const offers = e.signup_url && (e.price_min_minor !== null || e.is_free === 1) ? {
     "@type": "Offer",
@@ -24,7 +24,10 @@ export function eventJsonLd(e: EventRow, origin: string): Record<string, unknown
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     url: origin + eventPath(e),
     ...(e.summary ? { description: e.summary } : {}),
-    ...(e.image_url ? { image: [e.image_url] } : {}),
+    // Google wants a picture for an event's rich result: the event's own, else the site's share image.
+    ...(e.image_url ? { image: [e.image_url] } : fallbackImage ? { image: [fallbackImage] } : {}),
+    ...(e.is_free === 1 ? { isAccessibleForFree: true } : {}),
+    inLanguage: "da",
     location: {
       "@type": "Place",
       name: e.venue_name ?? e.city ?? "Se arrangørens side",
@@ -55,7 +58,18 @@ export function sitemapXml(origin: string, pages: string[], events: Array<{ slug
 
 /** Only production may be indexed; staging and local answer "stay away". */
 export function robotsTxt(origin: string, production: boolean): string {
-  return production ? `User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${origin}/sitemap.xml\n` : "User-agent: *\nDisallow: /\n";
+  if (!production) return "User-agent: *\nDisallow: /\n";
+  // Private pages (log-in, profile, own flocks, forms) and the endless filter combinations are kept out of the crawl:
+  // they are noindex anyway, and every crawled page costs database reads. Plain pagination (?side=) stays open.
+  return [
+    "User-agent: *",
+    "Allow: /",
+    ...["/api/", "/log-ind", "/log-ud", "/profil", "/flokke/", "/interesser/", "/til-dig/", "/kom-godt-i-gang", "/events/*/opret-flok", "/events/*/interesse", "/*.ics$", "/kalender?", "/kort?"].map(p => `Disallow: ${p}`),
+    "Allow: /kalender?side=",
+    "",
+    `Sitemap: ${origin}/sitemap.xml`,
+    ""
+  ].join("\n");
 }
 
 const icsText = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");

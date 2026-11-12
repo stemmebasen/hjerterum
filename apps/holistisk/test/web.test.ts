@@ -381,6 +381,49 @@ describe("search engines and safety", () => {
     expect((await text("/", prod)).body).toContain('<link rel="canonical" href="https://holistisk.org/">');
   });
 
+  it("socialklubben.dk is open to search engines, while the Worker's own address stays hidden", async () => {
+    const own = (path: string) => handle(new Request(`https://socialklubben.dk${path}`), env, NOW);
+    const home = await own("/");
+    expect(home.headers.get("x-robots-tag")).toBeNull();
+    const body = await home.text();
+    expect(body).toContain('<meta name="robots" content="index, follow, max-image-preview:large">');
+    expect(body).toContain('<link rel="canonical" href="https://socialklubben.dk/">');
+    expect(body).toContain('"logo":{"@type":"ImageObject","url":"https://socialklubben.dk/assets/logo.png"');
+    expect(body).toContain('<link rel="manifest" href="/assets/site.webmanifest">');
+    const robots = await (await own("/robots.txt")).text();
+    expect(robots).toContain("Sitemap: https://socialklubben.dk/sitemap.xml");
+    expect(robots).toContain("Disallow: /profil");
+    expect(robots).toContain("Disallow: /kalender?");
+    expect(robots).toContain("Allow: /kalender?side=");
+    const sitemap = await (await own("/sitemap.xml")).text();
+    for (const p of ["/moed-nye-mennesker", "/ny-i-aarhus", "/ting-at-lave-i-aarhus", "/gratis-og-billigt", "/find-en-flok", "/tryghed"]) expect(sitemap).toContain(`<loc>https://socialklubben.dk${p}</loc>`);
+    // Private pages stay out of the index on the own domain too.
+    expect(await (await own("/log-ind")).text()).toContain('<meta name="robots" content="noindex, nofollow">');
+    // The staging address itself still says "stay away".
+    expect((await get("/")).headers.get("x-robots-tag")).toBe("noindex, nofollow");
+  });
+
+  it("guide pages answer what people search for, with live events and the association's tone", async () => {
+    for (const [path, h1] of [["/moed-nye-mennesker", "Mød nye mennesker i Aarhus"], ["/ny-i-aarhus", "Ny i Aarhus?"], ["/ting-at-lave-i-aarhus", "Ting at lave i Aarhus"]] as const) {
+      const r = await text(path);
+      expect(r.status).toBe(200);
+      expect(r.body).toContain(`<h1>${h1}`);
+      expect(r.body).toContain(`<link rel="canonical" href="https://portal.example${path}">`);
+      expect(r.body).toContain('"@type":"BreadcrumbList"');
+      expect(r.body).not.toMatch(/rabat|halv pris|spar på billetten/i);
+    }
+    expect((await text("/moed-nye-mennesker")).body).toContain("uden at være medlem");
+    expect((await text("/ny-i-aarhus")).body).toContain('lang="en"');
+  });
+
+  it("an event page names its picture and is a complete schema.org Event", async () => {
+    const slug = (db.raw.prepare("SELECT slug FROM events WHERE image_url IS NOT NULL AND starts_at > ? AND status = 'scheduled' LIMIT 1").all(NOW)[0] as { slug: string }).slug;
+    const body = (await text(`/events/${slug}`)).body;
+    expect(body).toMatch(/<figure class="event-image"><img src="[^"]+" alt="[^"]+"/);
+    const noImage = db.raw.prepare("SELECT slug FROM events WHERE image_url IS NULL AND starts_at > ? AND status = 'scheduled' LIMIT 1").all(NOW)[0] as { slug: string } | undefined;
+    if (noImage) expect((await text(`/events/${noImage.slug}`)).body).toMatch(/"@type":"Event".*"image":\["https:\/\/portal\.example\/assets\/og\.jpg"\]/);
+  });
+
   it("share cards, language and security headers", async () => {
     const r = await get("/meditation/aarhus");
     const body = await r.text();
