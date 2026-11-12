@@ -187,7 +187,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (request.method !== "GET" && request.method !== "HEAD") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
 
   // Static files (public/): stylesheet, script, icon.
-  if (path.startsWith("/assets/") || path === "/favicon.svg") {
+  if (path.startsWith("/assets/") || path === "/favicon.svg" || path === "/favicon.ico") {
     if (!env.ASSETS) return respond(env, "Not found", { status: 404, type: "text/plain" });
     const asset = await env.ASSETS.fetch(request);
     const headers = new Headers(asset.headers);
