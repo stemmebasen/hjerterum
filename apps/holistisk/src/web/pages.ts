@@ -15,7 +15,7 @@ import { FREE_OUTINGS } from "../flokken/profile.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
-import { crumbsNav, page, type Crumb, type PageContext } from "./layout.js";
+import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageContext } from "./layout.js";
 import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 import { forYou, whyNote, type Taste } from "./foryou.js";
@@ -189,14 +189,16 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     status: 200,
     body: page(ctx, {
       title: `Flokken – find events i Aarhus og nogen at følges med`,
-      description: `Find lokale events i ${ctx.regionLabel} – og en flok at følges med. ${total} kommende events fra mange arrangører. Opret en flok eller bliv en del af en.`,
+      description: `Koncerter, teater, foredrag og meget mere – ${total} kommende events i Aarhus og omegn. Vis interesse, så samler vi en lille flok, du kan følges med.`,
       canonical: "/",
       jsonLd: [
+        { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK", publisher: { "@id": ctx.origin + "/#organisation" } },
         {
-          "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK",
-          potentialAction: { "@type": "SearchAction", target: `${ctx.origin}/kalender?q={search_term_string}`, "query-input": "required name=search_term_string" }
-        },
-        { "@context": "https://schema.org", "@type": "Organization", name: "Flokken", url: ctx.origin + "/", logo: ctx.origin + "/favicon.svg", description: AIMS }
+          "@context": "https://schema.org", "@type": "Organization", "@id": ctx.origin + "/#organisation", name: "Flokken", url: ctx.origin + "/",
+          // A raster logo: search engines do not take an SVG as an organisation's logo.
+          logo: { "@type": "ImageObject", url: ctx.origin + "/assets/logo.png", width: 600, height: 600 },
+          description: AIMS, areaServed: { "@type": "City", name: "Aarhus" }, email: organiserEmail(ctx)
+        }
       ]
     }, body)
   };
@@ -501,7 +503,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
 <article class="event wrap">
   ${crumbsNav(crumbs)}
   <header class="ticket event-ticket">
-    ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="" decoding="async"></figure>` : ""}
+    ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="${e.title}" decoding="async" fetchpriority="high"></figure>` : ""}
     <div class="ticket-body">
       ${stub(e)}
       <div class="ticket-main event-head">
@@ -555,7 +557,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
       image: e.image_url,
       type: "article",
       noindex: e.status === "withdrawn" || over,
-      jsonLd: [eventJsonLd(e, ctx.origin)]
+      jsonLd: [eventJsonLd(e, ctx.origin, ctx.origin + SHARE_IMAGE)]
     }, body),
     // The flocks and the viewer's own place in them change all the time, so the page is never cached.
     headers: { "cache-control": "private, no-store", ...(source?.canonicalToSource && e.source_url ? { link: `<${e.source_url}>; rel="canonical"` } : {}) }
