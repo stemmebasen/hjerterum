@@ -26,7 +26,8 @@ export const POWERS = {
   // Requested: "Disse nye funktionaliteter skal kun være tilgængelige for mig som super admin" - "Nej kun nyhedsbrevet delen" (2 Nov 2026).
   "newsletter.manage": { label: "Se, rette og godkende nyhedsbrevet Månedens events", needs: "personal" },
   // Requested: "Vi skal udvikle et membership cockpit i admin ..." (2 Nov 2026) - new, so the chair's first (docs/decisions/0007).
-  "members.cockpit": { label: "Medlemsoverblik: se, rette og eksportere medlemmer, medlemskaber og abonnementer", needs: "personal" },
+  // Asked (the chair, 12 Nov 2026), on Douglas' "Do you have access for me to an admin section for the membership system yet?": "YES!" - Douglas too, with his own login.
+  "members.cockpit": { label: "Medlemsoverblik: se, rette og eksportere medlemmer, medlemskaber og abonnementer", needs: "personal", also: ["Douglas"] },
   // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja" (2 Nov 2026) - new, so the chair's first.
   "listmail.send": { label: "Skrive og sende en mail til nyhedsbrevslisten i Mailchimp", needs: "personal" },
   // Requested: "Og så skal der i admin være et form for filarkiv" (3 Nov 2026) - new, so the chair's first.
@@ -39,7 +40,7 @@ export const POWERS = {
   "posters.design": { label: "Plakater og opslag: lave opslag med Hjerterums skabeloner af eventets og underviserens materiale, og sætte eventets design på hjemmesiden", needs: "personal" },
   // Requested: "Gør mig i stand til at slette CIRKLER-møder som formand" (3 Nov 2026) - new, so the chair's first.
   "cirkler.delete": { label: "Slette et CIRKLER-møde i salen, så salen bliver ledig", needs: "personal" }
-} as const satisfies Record<string, { label: string; needs: "named" | "personal" }>;
+} as const satisfies Record<string, { label: string; needs: "named" | "personal"; also?: readonly string[] }>;
 
 export type Power = keyof typeof POWERS;
 
@@ -56,17 +57,19 @@ export function actorOf(who: string | null, personal: string | null, chairName: 
   return { member: who, personal: personal !== null && who === personal, chair: Boolean(who && chairName && who === chairName) };
 }
 
-/** Whether the person may use the power. */
+/** Whether the person may use the power: the chair, and for a power the chair has opened to someone by name (`also`, first names), that person -
+ * always with their own login. */
 export function can(actor: Actor, power: Power): boolean {
-  if (!actor.chair) return false;
-  return POWERS[power].needs === "named" || actor.personal;
+  const spec: { needs: "named" | "personal"; also?: readonly string[] } = POWERS[power];
+  if (!actor.chair) return Boolean(actor.personal && actor.member && spec.also?.includes(actor.member.split(/\s+/)[0]!));
+  return spec.needs === "named" || actor.personal;
 }
 
 /** What to say to someone who may not: the chair is told how to get in, anyone else that it is the chair's. */
 export function denial(actor: Actor, power: Power): string {
   return actor.chair && POWERS[power].needs === "personal"
     ? "Siden er kun for formanden og kræver dit personlige login: skriv /login til Saga på Telegram, og åbn linket."
-    : "Siden er kun for formanden.";
+    : (POWERS[power] as { also?: readonly string[] }).also?.length ? "Siden kræver dit personlige login: skriv /login til Saga på Telegram, og åbn linket." : "Siden er kun for formanden.";
 }
 
 /** Writes down that the chair used a power that concerns other people. */

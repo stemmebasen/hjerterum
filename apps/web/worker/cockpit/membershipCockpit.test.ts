@@ -11,7 +11,7 @@ const NOW = Date.parse("2026-11-02T10:00:00Z");
 
 async function setup() {
   const db = testDatabase();
-  for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth", "201"]] as const).entries())
+  for (const [i, [name, tid]] of ([["Jacob Hauge", OWNER], ["Lisbeth", "201"], ["Douglas Crawford", "202"]] as const).entries())
     await saveBoardMessage(db, { chatId: BOARD, messageId: 10 + i, author: name, authorId: tid, text: "Hej", sentAtMs: NOW - 86_400_000, fromAssistant: false });
   await db.prepare(`INSERT INTO members (id, clerk_user_id, stripe_customer_id, tier, interval, status, full_name, email, phone, created_at_ms, updated_at_ms, billing, joined_on)
     VALUES (1, 'user_1', 'cus_1', 'standard', 'month', 'active', 'Anna Jensen', 'anna@example.dk', '11111111', ?, ?, 'stripe', '2024-03-01')`).bind(NOW, NOW).run();
@@ -28,7 +28,8 @@ async function setup() {
     ...init, redirect: "manual", headers: { ...(init.method === "POST" ? { origin: ORIGIN } : {}), ...(init.cookie ? { cookie: init.cookie } : {}) } }), env, deps(fakeServices().fetcher, NOW));
   const form = (fields: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return f; };
   const session = ((await call("/login", { method: "POST", body: form({ password: "hjerte-2026" }) })).headers.get("set-cookie") ?? "").split(";")[0]!;
-  return { db, call, form, lisbeth: await memberCookie(session, "Lisbeth"), chair: await personalCookie("Jacob Hauge", NOW) };
+  return { db, call, form, lisbeth: await memberCookie(session, "Lisbeth"), chair: await personalCookie("Jacob Hauge", NOW),
+    douglas: await personalCookie("Douglas Crawford", NOW), douglasShared: await memberCookie(session, "Douglas Crawford"), lisbethOwn: await personalCookie("Lisbeth", NOW) };
 }
 
 describe("the membership cockpit", () => {
@@ -38,6 +39,15 @@ describe("the membership cockpit", () => {
     expect((await call("/medlemskab/eksport.csv", { cookie: lisbeth })).status).toBe(403);
     expect(await (await call("/medlemmer", { cookie: lisbeth })).text()).not.toContain("/medlemskab");
     expect(await (await call("/medlemmer", { cookie: chair })).text()).toContain("Åbn medlemsoverblikket");
+  });
+
+  // Asked (the chair, 12 Nov 2026), on Douglas' "Do you have access for me to an admin section for the membership system yet?": "YES!".
+  it("is open to Douglas too, with his own login - and to no one else on the board", async () => {
+    const { call, douglas, douglasShared, lisbethOwn } = await setup();
+    expect((await call("/medlemskab", { cookie: douglas })).status).toBe(200);
+    expect(await (await call("/medlemmer", { cookie: douglas })).text()).toContain("Åbn medlemsoverblikket");
+    expect((await call("/medlemskab", { cookie: douglasShared })).status).toBe(403);
+    expect((await call("/medlemskab", { cookie: lisbethOwn })).status).toBe(403);
   });
 
   it("shows everyone once - the platform's members first - with figures, filters and an export", async () => {
