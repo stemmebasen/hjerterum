@@ -35,6 +35,7 @@ describe("the website for search engines", () => {
     expect(html).toContain(`<a href="/events/h${id}">Lydbad &lt;/script&gt;</a>`);
     const types = ld(html)["@graph"].map(n => n["@type"]);
     expect(types).toEqual(expect.arrayContaining(["WebSite", "Organization", "Place"]));
+    expect(ld(html)["@graph"].find(n => n["@type"] === "Organization")!.sameAs).toEqual(["https://www.facebook.com/hjerterumaarhus", "https://www.instagram.com/hjerterum_aarhus/"]);
     expect(page.headers.get("etag")).toBeNull();
   });
 
