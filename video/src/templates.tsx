@@ -83,9 +83,11 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
       <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.2em" }}>{p.dayName.toUpperCase()}</div>
       {/* Reported (the chair, 12 Nov 2026, of "Jordens visdom som ledetråd i livet"): "Denne skal rettes til på flere punkter" - the day's number ran
           into the month and out of the band, and the time was in a typewriter's letters. */}
-      <div style={{ fontFamily: serif, fontSize: p.dayNo.length > 1 ? 168 : 200, lineHeight: 0.9, marginTop: 40 }}>{p.dayNo}.</div>
-      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 24, letterSpacing: "0.1em", marginTop: 26 }}>{p.month.toUpperCase()}</div>
-      <div style={{ fontFamily: sans, fontWeight: 500, fontSize: 30, marginTop: 26 }}>kl. {p.timeRange}</div>
+      {/* "Denne markeret del bør samles bedre" - the day, the date, the month and the time as one block. */}
+      <div style={{ fontFamily: serif, fontSize: p.dayNo.length > 1 ? 168 : 200, lineHeight: 0.8, marginTop: 14, fontVariantNumeric: "lining-nums", fontFeatureSettings: "\"lnum\" 1" }}>{p.dayNo}.</div>
+      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 26, letterSpacing: "0.12em", marginTop: 22 }}>{p.month.toUpperCase()}</div>
+      <div style={{ width: 60, height: 2, background: C.ink, opacity: 0.5, margin: "18px 0 16px" }} />
+      <div style={{ fontFamily: sans, fontWeight: 500, fontSize: 32 }}>kl. {p.timeRange}</div>
     </div>
     <div style={{ position: "absolute", left: 390, right: 80, top: SAFE_TOP, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.32em", color: C.ink, opacity: rise(f, 10, 12) }}>HJERTERUM</div>
