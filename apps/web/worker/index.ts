@@ -1,6 +1,7 @@
 import { tooMany } from "./beregner/handler.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
+import { CURRENT_SITE } from "./site-knowledge.js";
 import { queueContact } from "./mailchimp-sync.js";
 import { isPartnerEvent } from "../partner-events.js";
 import {
@@ -17,7 +18,7 @@ import {
   parseCheckoutInput,
   processMemberStripeEvent
 } from "./members.js";
-import { resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
+import { isMemberAttendee, resolveActiveMembership, type ActiveMembership } from "./membership-access.js";
 import { clerkPerson, clerkPrimaryEmail } from "./admin-auth.js";
 import {
   createEventCheckout,
@@ -398,14 +399,16 @@ async function bookingAttendees(
 
   try {
     const attendees = await listBookingAttendees(env.DB, user.userId, bookingId);
+    const db = env.DB;
     return json(
-      attendees.map((attendee) => ({
+      await Promise.all(attendees.map(async (attendee) => ({
         id: attendee.id,
         clerkUserId: attendee.clerk_user_id,
         memberName: attendee.member_name,
         memberEmail: attendee.member_email,
+        member: await isMemberAttendee(db, attendee.clerk_user_id, attendee.member_email),
         createdAt: new Date(attendee.created_at_ms).toISOString()
-      }))
+      })))
     );
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendee_list_failed";
@@ -429,6 +432,9 @@ async function attendBooking(
       memberName: membership.fullName,
       memberEmail: membership.email
     }, !membership.member);
+    // Douglas (12 Nov 2026): "Does a participant get an email when they sign up for an event?" - a guest did; now one who signs up logged in too.
+    const row = await publicEvent(env.DB, bookingId).catch(() => null);
+    if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase() }, `${CURRENT_SITE}/events/h${bookingId}`);
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
