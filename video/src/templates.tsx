@@ -14,6 +14,8 @@ const Line: React.FC<{ text: string | null; color: string; delay: number; style?
   return text ? <div style={{ fontFamily: sans, fontSize: 38, lineHeight: 1.4, color, maxWidth: 880, opacity: rise(f, delay), ...style }}>{text}</div> : null;
 };
 const away = (f: number) => rise(f, FAREWELL_AT, 30);
+/** The height of the line of HJERTERUM and the weekday in "Stribe". */
+const HEAD_LINE = 36;
 /** "Fredag aften" only in the evening (the chair's "Jordens visdom" at 15.00 said "FREDAG AFTEN"): the part of the day by its time, "15.00" or "9.45". */
 const partOfDay = (time: string) => { const h = Number(/^(\d{1,2})/.exec(time)?.[1] ?? 18); return h < 12 ? "formiddag" : h < 17 ? "eftermiddag" : "aften"; };
 
@@ -79,8 +81,10 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
   const w = interpolate(spring({ frame: f, fps, config: { damping: 200 } }), [0, 1], [0, 330]);
   return <AbsoluteFill style={{ background: C.cream }}>
     <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: w, background: C.camel }} />
-    <div style={{ position: "absolute", left: 50, top: SAFE_TOP + 30, width: 250, opacity: rise(f, 14), color: C.ink }}>
-      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.2em" }}>{p.dayName.toUpperCase()}</div>
+    {/* "Det ser fjollet ud at ugedag og HJERTERUM står så forskudt af hinanden": the weekday on the same line as HJERTERUM (the middle of the 200 px
+        stamp), in the same letters. */}
+    <div style={{ position: "absolute", left: 50, top: SAFE_TOP + 100 - HEAD_LINE / 2, width: 270, opacity: rise(f, 14), color: C.ink }}>
+      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, lineHeight: `${HEAD_LINE}px`, letterSpacing: "0.32em", whiteSpace: "nowrap" }}>{p.dayName.toUpperCase()}</div>
       {/* Reported (the chair, 12 Nov 2026, of "Jordens visdom som ledetråd i livet"): "Denne skal rettes til på flere punkter" - the day's number ran
           into the month and out of the band, and the time was in a typewriter's letters. */}
       {/* "Denne markeret del bør samles bedre" - the day, the date, the month and the time as one block. */}
@@ -90,7 +94,7 @@ const Stribe: React.FC<{ p: EventProps }> = ({ p }) => {
       <div style={{ fontFamily: sans, fontWeight: 500, fontSize: 32 }}>kl. {p.timeRange}</div>
     </div>
     <div style={{ position: "absolute", left: 390, right: 80, top: SAFE_TOP, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, letterSpacing: "0.32em", color: C.ink, opacity: rise(f, 10, 12) }}>HJERTERUM</div>
+      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 30, lineHeight: `${HEAD_LINE}px`, letterSpacing: "0.32em", color: C.ink, opacity: rise(f, 10, 12) }}>HJERTERUM</div>
       <Stamp size={200} color={C.ink} />
     </div>
     <div style={{ ...CENTER, position: "absolute", left: 390, right: 60, top: SAFE_TOP + 240, opacity: 1 - away(f) }}>
