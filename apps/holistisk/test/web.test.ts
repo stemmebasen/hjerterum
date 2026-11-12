@@ -71,7 +71,7 @@ describe("front page", () => {
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ events? i Aarhus – fra de store scener til de små spillesteder og foreninger, som flere fortjener at opdage – og tryk (&quot;|")Jeg er interesseret(&quot;|")\. Så samler vi en lille flok, du kan følges med\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ events? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg er interesseret(&quot;|")\. Så samler vi en lille flok, du kan følges med\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
