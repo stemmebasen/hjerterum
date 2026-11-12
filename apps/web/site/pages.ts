@@ -959,6 +959,7 @@ Hjerterum er ikke bare et center. Det er et sted, der lever af de mennesker, der
     body: `## Generalforsamling og møder {#generalforsamling}
 Generalforsamlingen er foreningens højeste myndighed. Den holdes én gang om året inden udgangen af september, og alle betalende medlemmer kan deltage, stemme og stille op.
 
+- [Referat af generalforsamling 14. oktober 2026](/dokumenter/2026-11-referat-generalforsamling-14-oktober-2026.pdf)
 - [Referat af ekstraordinær generalforsamling 30. oktober 2025](/dokumenter/2025-11-referat-af-ekstraordinaer-generalforsamling-30-oktober-2025.pdf)
 - [Dagsordener og referater 2025–26](/dokumenter/2025-10-dagsordener-referater-2025-26-1.pdf)
 - [Resultatopgørelse 2024](/dokumenter/2025-10-resultatopgorelse-2024.pdf)
