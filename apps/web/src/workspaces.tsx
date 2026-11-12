@@ -31,7 +31,7 @@ import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
 import { LanguageSwitch } from "./site-pages";
 
-const membershipPlansSupportText = membershipPlan("support")!.description;
+const membershipPlansSupportText = () => membershipPlan("support")!.description;
 
 type Member = {
   id: number;
@@ -311,7 +311,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
             <article className="lys-card sage">
               <p className="lys-kicker">Støttemedlem</p>
               <h2>Tak fordi du støtter Hjerterum</h2>
-              <p className="lys-sub">{membershipPlansSupportText}</p>
+              <p className="lys-sub">{membershipPlansSupportText()}</p>
               <p className="lys-sub">{BENEFITS.upgrade}</p>
             </article>
             <article className="lys-card">
@@ -1190,7 +1190,7 @@ export function MemberWorkspace({
         normalized === "/member-portal/medlemskab" ? (
           <><MemberProfile clerk={clerk} member={member} onSaved={setMember} /><div id="medlemskab"><MemberBilling clerk={clerk} member={member} /></div><MemberNewsletter clerk={clerk} /></>
         ) : !includesMemberBenefits(member?.tier ?? null) && (onEventsPage || normalized === "/member-portal/kalender") ? (
-          <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText}</p></section>
+          <section className="workspace-section member-page workspace-narrow"><h1>Support medlemskab</h1><p>{membershipPlansSupportText()}</p></section>
         ) : trial && onEventsPage ? (
           <section className="workspace-section member-page"><div className="workspace-title-row"><div><p className="kicker">Events</p><h1>Mine events</h1></div></div>
             <div className="workspace-card"><h2>Opret event og reservér salen</h2><p>Når du er medlem, kan du oprette dine egne events her og reservere salen til dem.</p></div>

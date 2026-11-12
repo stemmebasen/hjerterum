@@ -65,6 +65,8 @@ import { archivePlace, eventFolder, eventFolderBody, teacherBody, teacherFolder,
 import { fetchStockPicture, pictureIdeas, searchStock, sourcesOf, STOCK_IMAGE_HOSTS, type StockKeys, type StockKind } from "./stockPictures.js";
 import { prEventsData } from "./prEvents.js";
 import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvents, studioListPage, studioPicture } from "./posterStudio.js";
+import { levelsPage } from "./membershipLevels.js";
+import { membershipLevelChanges, saveMembershipLevel } from "../membership-levels.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -661,10 +663,24 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
   if (path === "/medlemskab" || path.startsWith("/medlemskab/")) {
     if (!who) return redirect(`${base}/hvem`);
     if (!may("members.cockpit")) return denied("members.cockpit");
+    if (path === "/medlemskab/niveauer") {
+      if (!may("members.levels")) return denied("members.levels");
+      if (request.method === "POST") {
+        const form = await request.formData().catch(() => null);
+        const tier = String(form?.get("tier") ?? "");
+        const saved = await saveMembershipLevel(db, tier, { name: String(form?.get("name") ?? ""), description: String(form?.get("description") ?? ""),
+          month: String(form?.get("month") ?? ""), year: String(form?.get("year") ?? "") }, who, now);
+        if ("error" in saved) return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice: "", error: saved.error, errorTier: tier }), 400);
+        if (saved.changed.length) await audit(db, actor, "members.levels", `Rettede medlemskabet ${tier}: ${saved.changed.join(", ")}`, now);
+        return redirect(`${base}/medlemskab/niveauer?besked=${saved.changed.length ? "gemt" : "uaendret"}#niveau-${tier}`);
+      }
+      const notice = ({ gemt: "Medlemskabet er gemt.", uaendret: "Intet blev ændret." } as Record<string, string>)[url.searchParams.get("besked") ?? ""] ?? "";
+      return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice, error: "" }));
+    }
     const data = await cockpitMembers(db);
     if (path === "/medlemskab" && request.method === "GET") {
       const notices: Record<string, string> = { gemt: "Oplysningerne er gemt.", note: "Noten er tilføjet." };
-      return html(cockpitPage(base, who, { data, filter: readFilter(url.searchParams), today, notice: notices[url.searchParams.get("besked") ?? ""] ?? "" }));
+      return html(cockpitPage(base, who, { data, filter: readFilter(url.searchParams), today, levels: may("members.levels"), notice: notices[url.searchParams.get("besked") ?? ""] ?? "" }));
     }
     if (path === "/medlemskab/eksport.csv" && request.method === "GET") {
       const list = applyFilter(data.members, readFilter(url.searchParams));
