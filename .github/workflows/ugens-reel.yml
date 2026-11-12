@@ -2,12 +2,12 @@ name: Ugens reel
 
 # Requested (the chair, 3 Nov 2026): "Alt der kan automatiseres skal automatiseres" - "Ugens events" as a reel every week. After Saga has planned next
 # week (Thursday from 10.00), this makes the reel of the week's events (video/, the chair's Ugens events from 4 Nov 2026), puts it in R2 (hjerterum-event-media,
-# social/reels/) and lays it in admin → PR og SoMe as a draft for the chair. It goes out on Instagram only when the chair has approved it. Every hour
+# social/reels/) and lays it in admin → PR og SoMe as a draft for the chair. It goes out only when the chair has approved it. Every half hour
 # Thursday-Sunday until the week has its reel; a week that has one is left alone.
 
 on:
   schedule:
-    - cron: "41 * * * 4,5,6,0"
+    - cron: "11,41 * * * 4,5,6,0"
   workflow_dispatch:
 
 permissions:

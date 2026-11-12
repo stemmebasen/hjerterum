@@ -223,9 +223,11 @@ describe("the PR cockpit", () => {
     expect(weekly.text).toContain("En uge med dans, stilhed og healing.");
     expect(weekly.text).not.toContain("Hjerteland");
     expect(weekly.source.instagramText).toContain("via linket i bio");
-    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T14:30:00.000Z");
+    // "ugens events skal sendes tidligt mandag morgen": 7.30.
+    expect(new Date(weekly.publish_at_ms!).toISOString()).toBe("2026-11-09T06:30:00.000Z");
     expect(week.filter(p => p.kind === "event").map(p => p.text)).toContain("Kasper guider os gennem en aften med indre ro. Mandag kl. 19.00.");
-    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(1);
+    // The chair is told when the film is there (weekReady.test.ts), not when the week is planned.
+    expect(services.telegram("sendMessage").filter(c => JSON.stringify(c.body).includes("uge 46"))).toHaveLength(0);
     // Planned once: Saga's next round does not plan it again.
     await run(NOW + 125 * 60_000);
     expect(await socialPosts(db, "week = '2026-W46'")).toHaveLength(13);
