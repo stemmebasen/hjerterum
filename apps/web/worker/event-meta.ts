@@ -9,7 +9,10 @@ import { eventDetail } from "./event-detail.js";
 
 const SITE = "https://www.hjerterum.info";
 export const EVENT_PAGE = /^\/events\/([0-9a-f]{24}|h\d+)\/?$/;
-export type EventMeta = { title: string; description: string; image: string; url: string };
+export type EventMeta = { title: string; description: string; image: string; url: string;
+  /** For the page's own words and its schema.org Event (seo.ts): when, with whom, what it says, and - for the house's own events - the prices. */
+  startsAt?: string; endsAt?: string | null; host?: string | null; paragraphs?: string[];
+  prices?: { memberKr: number; nonMemberKr: number; full: boolean } };
 
 const WHEN = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 /** "Fredag den 20. november kl. 19.00" - built from the parts, so it reads the same whatever the runtime's own pattern. */
@@ -23,20 +26,26 @@ export async function eventMeta(db: D1Database | undefined, id: string, fetcher:
   const own = /^h(\d+)$/.exec(id);
   if (own) {
     if (!db) return null;
-    const row = await db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.starts_at_ms,
+    const row = await db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.starts_at_ms, b.ends_at_ms, b.ticket_price_minor, b.non_member_price_minor, b.max_attendees,
+        (SELECT COUNT(*) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS taken,
         (SELECT f.id FROM room_booking_files f WHERE f.room_booking_id = b.id AND f.kind = 'cover' LIMIT 1) AS cover_id,
         (SELECT d.created_at_ms FROM room_booking_designs d WHERE d.room_booking_id = b.id) AS design_at
       FROM room_bookings b WHERE b.id = ? AND b.status = 'scheduled' AND COALESCE(b.review_status, 'approved') = 'approved'`).bind(Number(own[1]))
-      .first<{ id: number; title: string; description: string | null; teacher_name: string; starts_at_ms: number; cover_id: number | null; design_at: number | null }>().catch(() => null);
+      .first<{ id: number; title: string; description: string | null; teacher_name: string; starts_at_ms: number; ends_at_ms: number; ticket_price_minor: number; non_member_price_minor: number | null;
+        max_attendees: number | null; taken: number; cover_id: number | null; design_at: number | null }>().catch(() => null);
     if (!row) return null;
     const image = row.design_at ? designUrl(row.id, row.design_at) : row.cover_id ? `/api/event-files/${row.cover_id}` : "/media/hjerterum-deling.jpg";
     return { title: row.title, url: `${SITE}/events/h${row.id}`, image: `${SITE}${image}`,
-      description: short(`${when(new Date(row.starts_at_ms).toISOString())} i Hjerterum, Aarhus · med ${row.teacher_name}. ${row.description ?? ""}`, 300) };
+      description: short(`${when(new Date(row.starts_at_ms).toISOString())} i Hjerterum, Aarhus · med ${row.teacher_name}. ${row.description ?? ""}`, 300),
+      startsAt: new Date(row.starts_at_ms).toISOString(), endsAt: new Date(row.ends_at_ms).toISOString(), host: row.teacher_name,
+      paragraphs: (row.description ?? "").split(/\n+/).map(l => l.trim()).filter(Boolean),
+      prices: { memberKr: row.ticket_price_minor / 100, nonMemberKr: (row.non_member_price_minor ?? row.ticket_price_minor) / 100, full: row.max_attendees !== null && row.taken >= row.max_attendees } };
   }
   const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);
   if (!detail) return null;
   return { title: detail.title, url: `${SITE}/events/${id}`, image: detail.imageUrl && /^https:\/\//.test(detail.imageUrl) ? detail.imageUrl : `${SITE}/media/hjerterum-deling.jpg`,
-    description: short(`${when(detail.startsAt)} i Hjerterum, Aarhus${detail.host ? ` · med ${detail.host}` : ""}. ${detail.paragraphs.map(plainLine).join(" ")}`, 300) };
+    description: short(`${when(detail.startsAt)} i Hjerterum, Aarhus${detail.host ? ` · med ${detail.host}` : ""}. ${detail.paragraphs.map(plainLine).join(" ")}`, 300),
+    startsAt: detail.startsAt, endsAt: detail.endsAt, host: detail.host, paragraphs: detail.paragraphs.map(plainLine) };
 }
 
 const attr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");

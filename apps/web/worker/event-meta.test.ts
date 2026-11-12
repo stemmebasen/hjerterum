@@ -13,7 +13,7 @@ describe("a shared event page", () => {
     const id = Number((await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, description, starts_at_ms, ends_at_ms, review_status, status, created_at_ms, updated_at_ms)
       VALUES ('t', 'Anna Ananda', 'a@x.dk', 'Lydbad med "gongs"', 'En rolig aften med gongs og krystalskåle.', ?, ?, 'approved', 'scheduled', 1, 1)`).bind(Date.parse("2026-11-20T18:00:00Z"), Date.parse("2026-11-20T20:00:00Z")).run()).meta!.last_row_id);
     const meta = (await eventMeta(db, `h${id}`, fetch, 0))!;
-    expect(meta).toEqual({ title: 'Lydbad med "gongs"', url: `https://www.hjerterum.info/events/h${id}`, image: "https://www.hjerterum.info/media/hjerterum-deling.jpg",
+    expect(meta).toMatchObject({ title: 'Lydbad med "gongs"', url: `https://www.hjerterum.info/events/h${id}`, image: "https://www.hjerterum.info/media/hjerterum-deling.jpg",
       description: "Fredag den 20. november kl. 19.00 i Hjerterum, Aarhus · med Anna Ananda. En rolig aften med gongs og krystalskåle." });
     const html = withEventMeta(INDEX, meta);
     expect(html).toContain("<title>Lydbad med &quot;gongs&quot; · Hjerterum</title>");
@@ -27,7 +27,9 @@ describe("a shared event page", () => {
     const env = { ...sagaEnv(db), ASSETS: { fetch: async () => new Response(INDEX, { headers: { "content-type": "text/html; charset=utf-8" } }) } } as never;
     const page = await (await config.fetch(new Request(`https://www.hjerterum.info/events/h${id}`), env)).text();
     expect(page).toContain('og:description" content="Fredag den 20. november kl. 19.00 i Hjerterum');
-    // An event that is not there: the app's page as it is.
-    expect(await (await config.fetch(new Request("https://www.hjerterum.info/events/h999999"), env)).text()).toBe(INDEX);
+    // An event of the house's own that is not there: a 404, kept out of search (seo.ts).
+    const gone = await config.fetch(new Request("https://www.hjerterum.info/events/h999999"), env);
+    expect(gone.status).toBe(404);
+    expect(await gone.text()).toContain('<meta name="robots" content="noindex" />');
   });
 });
