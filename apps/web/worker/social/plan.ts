@@ -33,8 +33,9 @@ export const BALANCE_DAYS = 4;
 /** Three hours apart on a medium (the chair, 5 Nov 2026: "Det er muligt at skabe meget mere luft imellem tidspunkterne") - so a day's three are 9, 12 and 15, or
  * 12, 15 and 19.30, never 15 and 17. */
 export const POST_GAP_MS = 3 * 3_600_000;
-/** "Ugens events" goes out on the Monday afternoon of its week. */
-export const WEEK_POST_AT: [number, number] = [15, 30];
+/** "Ugens events" goes out early on the Monday morning of its week - the chair, 9 Nov 2026: "sikr der køres én gang på IG og en gang på FB kl. 7.30", and
+ * 12 Nov 2026: "Husk i øvrigt, at ugens events skal sendes tidligt mandag morgen." The reel (ugens-reel.yml) takes the same time. */
+export const WEEK_POST_AT: [number, number] = [7, 30];
 /** The plan for next week is made on Thursday from 10.00, so the chair has days to read and approve it. */
 export const PLAN_WEEKDAY = 4;
 export const PLAN_FROM_HOUR = 10;

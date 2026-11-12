@@ -1156,9 +1156,36 @@ export async function scheduledWeekPlan(env: SocialEnv, deps: SagaDeps, db: D1Da
   if (await db.prepare("SELECT 1 AS yes FROM social_posts WHERE source_key = ?").bind(`week:${week}`).first().catch(() => null)) return false;
   // Tried at most once an hour - a week with nothing in the calendar yet is tried again later.
   if (!(await claimJob(db, `social_week_plan:${week}`, Math.floor(now / 3_600_000) * 3_600_000, now))) return false;
-  const { made, events } = await planWeek(env, deps, db, monday);
-  if (made) await tellChair(env, deps, `"Ugens events" for uge ${Number(week.slice(6))} er klar (ugens ${events} events har hvert sit opslag). Læs det, ret det og godkend her: ${cockpitUrl(env)}/pr/uge`);
+  const { made } = await planWeek(env, deps, db, monday);
+  // Reported (the chair, 12 Nov 2026): "Jeg bliver bedt om at godkende ugens events-film, men når jeg klikker ind på linket, så er filmen ikke lavet endnu" -
+  // the chair is told when the film is there (tellWeekReady), not when the week is planned.
   return made > 0;
+}
+
+/** How long after the week is planned Saga waits for the film before she tells the chair about the picture post alone. */
+const WEEK_FILM_WAIT_MS = 26 * 3_600_000;
+
+/** "Ugens events" for next week, told once: with a link straight to the film when the weekly job has made it (ugens-reel.yml), or - when it has not come
+ * by the day after the planning - the picture post alone, saying the film is not made. */
+export async function tellWeekReady(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<"film" | "picture" | null> {
+  const now = deps.now(), week = weekKey(nextMonday(now));
+  const picture = await socialPosts(db, "source_key = ?", [`week:${week}`], "id", 1).then(r => r[0]);
+  if (!picture || picture.status === "published") return null;
+  const reel = await socialPosts(db, "source_key = ? AND json_extract(source, '$.video') IS NOT NULL", [`reel:${week}`], "id", 1).then(r => r[0]);
+  if (!reel && now < picture.created_at_ms + WEEK_FILM_WAIT_MS) return null;
+  if (!(await claimJob(db, `social_week_told:${week}`, 0, now))) return null;
+  // Told already about the film (by the message for a made video): nothing more.
+  if (reel && typeof (reel.source as { videoNotifiedAtMs?: unknown }).videoNotifiedAtMs === "number") return null;
+  const n = Number(week.slice(6));
+  if (reel) {
+    await db.prepare("UPDATE social_posts SET source = json_set(source, '$.videoNotifiedAtMs', ?) WHERE id = ?").bind(now, reel.id).run();
+    const { quickLink } = await import("./quickLink.js");
+    const link = await quickLink(env, reel.id, now) ?? `${cockpitUrl(env)}/pr/uge`;
+    await tellChair(env, deps, `Filmen med "Ugens events" for uge ${n} er klar. Se den og godkend den her: ${link}\nDen går ud på Facebook og Instagram mandag kl. ${clock(reel.publish_at_ms ?? picture.publish_at_ms ?? now)}.`);
+    return "film";
+  }
+  await tellChair(env, deps, `"Ugens events" for uge ${n} er klar som billedopslag - filmen er ikke lavet endnu. Læs det, ret det og godkend her: ${cockpitUrl(env)}/pr/uge`);
+  return "picture";
 }
 
 // ---- Publishing ----
@@ -1469,6 +1496,7 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
   if (await claimJob(db, "social_tags", Math.floor(now / TAG_EVERY_MS) * TAG_EVERY_MS, now).catch(() => false))
     await scanTags(env, deps, db).catch(error => console.warn("social_tags_failed", error instanceof Error ? error.message : error));
   await scheduledWeekPlan(env, deps, db).catch(error => console.warn("social_week_plan_failed", error instanceof Error ? error.message : error));
+  await tellWeekReady(env as SagaEnv, deps, db).catch(error => console.warn("social_week_told_failed", error instanceof Error ? error.message : error));
   await topUpWeeks(env, deps, db).catch(error => console.warn("social_top_up_failed", error instanceof Error ? error.message : error));
   await countFollowers(env, deps, db).catch(error => console.warn("social_stats_failed", error instanceof Error ? error.message : error));
   await notifyVideos(env, deps, db).catch(error => console.warn("social_video_notice_failed", error instanceof Error ? error.message : error));
@@ -1483,7 +1511,8 @@ export async function runSocialJob(env: SocialEnv, deps: SagaDeps): Promise<void
 export async function notifyVideos(env: SagaEnv, deps: SagaDeps, db: D1Database): Promise<number> {
   if (!env.SAGA_TELEGRAM_BOT_TOKEN || !env.SAGA_OWNER_TELEGRAM_ID) return 0;
   const now = deps.now();
-  const fresh = await socialPosts(db, `status = 'draft' AND kind IN ('event', 'week') AND json_extract(source, '$.video') IS NOT NULL AND json_extract(source, '$.videoNotifiedAtMs') IS NULL
+  // "Ugens events" as a film is told by tellWeekReady.
+  const fresh = await socialPosts(db, `status = 'draft' AND kind = 'event' AND json_extract(source, '$.video') IS NOT NULL AND json_extract(source, '$.videoNotifiedAtMs') IS NULL
     AND coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms, ?) > ?`, [now + 1, now], "coalesce(json_extract(source, '$.instagramAtMs'), publish_at_ms), id", 10);
   const choices = await notifyChoices(env, deps, db);
   if (!fresh.length) return choices;
