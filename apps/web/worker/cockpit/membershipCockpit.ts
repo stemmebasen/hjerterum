@@ -186,7 +186,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <input name="q" value="${esc(f.q)}" placeholder="Søg navn, e-mail eller telefon" aria-label="Søg">
 <select name="status" aria-label="Status">${opt("", "Alle statusser", f.status)}${(["aktiv", "restance", "opsagt", "uden"] as const).map(s => opt(s, STATUS_LABEL[s], f.status)).join("")}</select>
 <select name="type" aria-label="Medlemskab">${opt("", "Alle medlemskaber", f.tier)}${tiers.map(t => opt(t, planName(t), f.tier)).join("")}</select>
-<select name="betaling" aria-label="Betaling">${opt("", "Alle betalingsformer", f.billing)}${(["kort", "manuel", "gratis"] as const).map(b => opt(b, BILLING_LABEL[b], f.billing)).join("")}</select>
+<select name="betaling" aria-label="Betaling">${opt("", "Al betaling", f.billing)}${(["kort", "manuel", "gratis"] as const).map(b => opt(b, BILLING_LABEL[b], f.billing)).join("")}</select>
 <select name="sort" aria-label="Sortering">${opt("navn", "Sortér: navn", f.sort)}${opt("siden", "Sortér: medlem siden", f.sort)}${opt("betaling", "Sortér: næste betaling", f.sort)}</select>
 <label class="mc-check"><input type="checkbox" name="underviser" value="1"${f.teacher ? " checked" : ""}> Undervisere</label>
 <button>Vis</button><a class="button ghost" href="${base}/medlemskab/eksport.csv${query(f)}">Eksportér (${shown.length})</a></form>

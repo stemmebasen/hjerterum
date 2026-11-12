@@ -66,14 +66,14 @@ export async function memberFacts(db: D1Database, membership: ActiveMembership, 
   const day = (iso: string | number) => new Intl.DateTimeFormat("da-DK", { timeZone: TZ, day: "numeric", month: "long", year: "numeric" }).format(new Date(iso));
   const lines: string[] = [`Navn: ${membership.fullName}`];
   if (membership.source === "membershipworks") {
-    lines.push(`Medlemskab: ${membership.membershipLevel ?? "aktivt"}, i det tidligere medlemssystem, hvor betalingen også kører (nævn ikke systemets navn for medlemmet). Betalingsdatoer kan du ikke se - henvis til team@hjerterum.info.`);
+    lines.push(`Medlemskab: ${membership.membershipLevel ?? "aktivt"}, i det tidligere medlemssystem (MembershipWorks), hvor betalingen også kører. Betalingsdatoer kan du ikke se - henvis til team@hjerterum.info.`);
   } else {
     const m = membership.member;
     const plan = membershipPlan(m.tier);
     lines.push(`Medlemskab: ${membershipName(m.tier)}, ${m.status === "active" ? "aktivt" : m.status}, betales ${m.interval === "year" ? "årligt" : "månedligt"}${plan ? ` (listepris ${membershipPrice(plan[m.interval === "year" ? "year" : "month"])})` : ""}.`);
     if (m.billing === "manual" && m.paysInMembershipworks) {
       const next = await db.prepare("SELECT next_charge_on FROM members WHERE id = ?").bind(m.id).first<{ next_charge_on: string | null }>().catch(() => null);
-      lines.push(`Betaling: kører indtil videre uændret i det tidligere system (nævn ikke dets navn).${next?.next_charge_on ? ` Næste træk: ${day(`${next.next_charge_on}T12:00:00Z`)}.` : ""}`);
+      lines.push(`Betaling: kører indtil videre uændret i MembershipWorks.${next?.next_charge_on ? ` Næste træk: ${day(`${next.next_charge_on}T12:00:00Z`)}.` : ""}`);
     } else if (m.billing === "manual") {
       lines.push("Betaling: medlemskabet er givet af Hjerterum - der trækkes ingen betaling.");
     } else if (stripeSecretKey && m.stripeSubscriptionId) {
