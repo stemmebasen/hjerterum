@@ -82,3 +82,17 @@ export async function membershipFromUpload(db: D1Database, email: string, requir
   if (requireBenefits && !includesMemberBenefits(row.tier)) return null;
   return { source: "membershipworks", fullName: row.full_name, email: row.email, externalId: UPLOAD_ID_OFFSET + row.n, membershipLevel: row.tier };
 }
+
+/** Douglas (12 Nov 2026): "Is it possible for a teacher to be able to see the email addresses of the people who have signed up for their workshop
+ * and whether they are members or non-members." Whether the person behind a sign-up is a member with the member benefits, from what is stored
+ * here (no call to the login service): the member behind the login, else a member here with that e-mail, else the old system's records. */
+export async function isMemberAttendee(db: D1Database, clerkUserId: string, email: string, nowMs = Date.now()): Promise<boolean> {
+  const local = clerkUserId.startsWith("guest:") ? null : await getMemberByClerkUserId(db, clerkUserId);
+  const byEmail = local ? null : await db.prepare("SELECT tier, status, access_blocked FROM members WHERE LOWER(email) = ? ORDER BY updated_at_ms DESC LIMIT 1")
+    .bind(email.trim().toLowerCase()).first<{ tier: string; status: string; access_blocked: number | null }>();
+  if (local) return local.status === "active" && !local.accessBlocked && includesMemberBenefits(local.tier);
+  if (byEmail) return byEmail.status === "active" && !byEmail.access_blocked && includesMemberBenefits(byEmail.tier);
+  const external = await findMembershipWorksMemberByEmail(db, email);
+  if (external) return external.status === "active" && external.accessBlocked !== 1 && includesMemberBenefits(external.membershipLevel);
+  return Boolean(await membershipFromUpload(db, email, true, nowMs));
+}
