@@ -1085,3 +1085,8 @@ h3 { font-size: 25px; line-height: 1.2; }
 .cirkel-invite-form label { font-weight: 600; }
 .cirkel-invite-error { color: var(--lys-terra, #b3261e); }
 @media (max-width: 520px) { .cirkel-invite-event { grid-template-columns: 1fr; } .cirkel-invite-event img { width: 100%; height: 160px; } }
+/* Asked: "Er siden SEO optimeret efter nyeste og bedste standarder". The page let no one zoom (maximum-scale=1, against Saga's zoom above); now people
+   may zoom again, and on iPhone and iPad every field writes in at least 16 px, so Safari does not zoom in by itself when one is tapped. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { font-size: 16px !important; }
+}

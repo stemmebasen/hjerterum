@@ -160,4 +160,4 @@ jobs:
             grep -q '"stripePublishableKey":"pk_' /tmp/client-config.json
           fi
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$STAGING_URL/" >/tmp/index.html
-          grep -q '<div id="root"></div>' /tmp/index.html
+          grep -q '<div id="root">' /tmp/index.html

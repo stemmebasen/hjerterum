@@ -18,7 +18,8 @@ import { redirectFor } from "../site/redirects.js";
 import { handleStatsApi, handleVisit, pruneVisits, STATS_API_PATH, VISIT_PATH, type StatsEnv } from "./site-stats.js";
 import { ENQUIRY_PATH, handleEnquiry } from "./enquiries.js";
 import { handleNewsletterSignup, NEWSLETTER_PATH } from "./newsletter-subscribe.js";
-import { EVENT_PAGE, eventMeta, withEventMeta } from "./event-meta.js";
+import { ROBOTS, seoFor, sitemap, withSeo } from "./seo.js";
+import { SITE_PAGES } from "../site/pages.js";
 import { runMailchimpSync } from "./mailchimp-sync.js";
 import { posterImage } from "./poster-image.js";
 import { runSocialJob, type SocialEnv } from "./social/social.js";
@@ -218,17 +219,28 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
         { headers: { "cache-control": "public, max-age=300" } }
       );
     }
-    // A shared event shows the event - its title, picture and words - not just "Hjerterum" (event-meta.ts).
-    const eventPage = (request.method === "GET" || request.method === "HEAD") ? EVENT_PAGE.exec(url.pathname) : null;
-    if (eventPage) {
+    // Asked: "Er siden SEO optimeret efter nyeste og bedste standarder" - "Ja" (seo.ts): robots.txt and the sitemap of our own, and every page of the
+    // website with its own head, schema.org and words from the server (a shared event shows the event, as before); a page that does not exist is a 404.
+    if ((request.method === "GET" || request.method === "HEAD") && !isCockpitHost(url.hostname)) {
+      const head = request.method === "HEAD";
+      if (url.pathname === "/robots.txt") return new Response(head ? null : ROBOTS, { headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=3600" } });
+      if (url.pathname === "/sitemap.xml") {
+        const xml = await sitemap((env as SagaEnv).DB, (input, init) => fetch(input, init), Date.now(), SITE_PAGES.map(p => p.path));
+        return new Response(head ? null : xml, { headers: { "content-type": "application/xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
+      }
       const page = await app.fetch(request, env);
-      if (!page.ok || !(page.headers.get("content-type") ?? "").includes("text/html")) return page;
-      const meta = await eventMeta((env as SagaEnv).DB, eventPage[1]!, (input, init) => fetch(input, init), Date.now()).catch(() => null);
-      if (!meta) return page;
+      if (page.status !== 200 || !(page.headers.get("content-type") ?? "").includes("text/html")) return page;
+      const html = head ? "" : await page.text();
+      // Only the app's own page (index.html); pages the worker writes itself are left as they are.
+      if (!head && !(html.includes('<div id="root"></div>') && html.includes("og:start"))) return new Response(html, page);
+      const seo = await seoFor(url.pathname, { db: (env as SagaEnv).DB, fetcher: (input, init) => fetch(input, init), nowMs: Date.now() }).catch(() => null);
+      if (!seo) return head ? page : new Response(html, page);
       const headers = new Headers(page.headers);
       headers.delete("content-length");
-      headers.set("cache-control", "public, max-age=300");
-      return new Response(withEventMeta(await page.text(), meta), { status: page.status, headers });
+      headers.delete("etag");
+      headers.set("cache-control", "public, max-age=0, must-revalidate");
+      if (seo.noindex) headers.set("x-robots-tag", "noindex");
+      return new Response(head ? null : withSeo(html, seo), { status: seo.status, headers });
     }
     return app.fetch(request, env);
 }

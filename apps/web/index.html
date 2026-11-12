@@ -2,7 +2,7 @@
 <html lang="da">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="Hjerterum i Aarhus - et varmt fællesskab for nærvær, oplevelser og fordybelse. Events, medlemskab og en sal til leje." />
     <title>Hjerterum</title>
     <!-- og:start (the event pages get their own: worker/event-meta.ts) -->
@@ -20,7 +20,9 @@
     <meta name="theme-color" content="#1f1d1a" media="(prefers-color-scheme: dark)" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&amp;display=swap" />
+    <!-- The fonts load beside the page instead of holding it back (seo.ts: "nyeste og bedste standarder"); the text shows in a system font for a moment if they are slow. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Lato:ital,wght@0,400;0,700;0,900;1,400&amp;family=Playfair+Display:ital,wght@0,400;0,500;1,400;1,500&amp;display=swap" /></noscript>
   </head>
   <body>
     <div id="root"></div>

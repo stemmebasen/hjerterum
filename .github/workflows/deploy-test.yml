@@ -106,6 +106,6 @@ jobs:
           grep -q '"environment":"test"' /tmp/health.json
           curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/api/readiness" | tee /tmp/readiness.json
           grep -q '"database":"ready"' /tmp/readiness.json
-          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/" | grep -q '<div id="root"></div>'
+          curl --fail --silent --show-error --retry 12 --retry-delay 2 --retry-all-errors --retry-max-time 45 "$WORKER_URL/" | grep -q '<div id="root">'
           # The custom domain may take a few minutes to get its certificate the first time; warn, don't fail.
           curl --fail --silent --show-error --max-time 20 "$TEST_URL/api/health" || echo "::warning::$TEST_URL is not answering yet"
