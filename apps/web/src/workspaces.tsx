@@ -265,7 +265,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
         <div className="lys-tiles">
           {/* Requested: "På mobil bør kun de to øverste counts vises og de skal sidde side om side" - Tilmeldt and Mine events (lys-spa.css). */}
           <div className={"lys-tile" + (benefits ? " tile-desktop" : "")}><span>Medlemskab</span><b>{membershipName(member.tier)}</b>
-            <small>{member.managedExternally ? "aktivt · betaling som hidtil" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/profil#medlemskab">betaling →</a></>}</small></div>
+            <small>{member.managedExternally ? "via MembershipWorks" : <>{member.status === "active" || member.status === "card_saved" ? "aktivt" : member.status.replaceAll("_", " ")} · <a href="/member-portal/profil#medlemskab">betaling →</a></>}</small></div>
           {benefits && <div className="lys-tile"><span>Tilmeldt</span><b>{registrations.length}</b>
             <small>{registrations[0] ? "næste: " + formatDate(registrations[0].startsAt) : "ingen tilmeldinger endnu"}</small></div>}
           {benefits && <div className="lys-tile"><span>Mine events</span><b>{owned.length}</b>
@@ -317,7 +317,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
             <article className="lys-card">
               <p className="lys-kicker">Medlemskab</p>
               <h2>{member ? membershipName(member.tier) : "Dit medlemskab"}</h2>
-              <p className="lys-sub">{member?.managedExternally ? "Dit medlemskab og din betaling fortsætter uændret, som du er vant til." : "Betaling, kort og opsigelse finder du samlet ét sted."}</p>
+              <p className="lys-sub">{member?.managedExternally ? "Dit eksisterende medlemskab via MembershipWorks fortsætter uændret." : "Betaling, kort og opsigelse finder du samlet ét sted."}</p>
               {!member?.managedExternally && <a className="lys-link" href="/member-portal/profil#medlemskab">Betaling og medlemskab →</a>}
             </article>
           </>
@@ -654,7 +654,6 @@ function MemberEvents({
                   <strong>{booking.title}</strong>
                   <span className={"member-event-review is-" + (booking.reviewStatus ?? "approved")}>{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
                   <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
-                  {(booking.attendeeCount ?? 0) > 0 && <AttendeeList clerk={clerk} bookingId={booking.id} count={booking.attendeeCount ?? 0} />}
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => { setEditing(booking); show("create"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Redigér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
@@ -668,31 +667,6 @@ function MemberEvents({
       </div>
     </section>
   );
-}
-
-/** Douglas (12 Nov 2026): "Is it possible for a teacher to be able to see the email addresses of the people who have signed up for their workshop
- * and whether they are members or non-members." The organiser's own list, opened from the event under Mine events. */
-type Attendee = { id: number; memberName: string; memberEmail: string; member: boolean };
-function AttendeeList({ clerk, bookingId, count }: { clerk: ClerkBrowser; bookingId: number; count: number }) {
-  const [list, setList] = useState<Attendee[] | null>(null);
-  const [state, setState] = useState<"closed" | "loading" | "open" | "error">("closed");
-  async function open() {
-    if (state === "open") { setState("closed"); return; }
-    setState("loading");
-    const response = await apiFetch(clerk, `/api/room-bookings/${bookingId}/attendees`).catch(() => null);
-    if (!response?.ok) { setState("error"); return; }
-    setList(await response.json() as Attendee[]);
-    setState("open");
-  }
-  return <div className="attendee-list">
-    <button type="button" className="text-button" aria-expanded={state === "open"} onClick={() => void open()}>
-      {state === "open" ? "Skjul tilmeldte" : state === "loading" ? "Henter …" : `Se de tilmeldte (${count})`}</button>
-    {state === "error" && <p className="small muted" role="status">Listen kunne ikke hentes. Prøv igen om lidt.</p>}
-    {state === "open" && list && (list.length ? <ol>
-      {list.map(a => <li key={a.id}><span>{a.memberName}</span> <a className="notranslate" href={`mailto:${a.memberEmail}`}>{a.memberEmail}</a>{" "}
-        <span className={"lys-chip " + (a.member ? "sage" : "clay")}>{a.member ? "Medlem" : "Ikke-medlem"}</span></li>)}
-    </ol> : <p className="small muted">Ingen bekræftede tilmeldinger endnu.</p>)}
-  </div>;
 }
 
 /** The rule for the non-member price, shown at the field (the chair, 4 Nov 2026: the form refuses a price that breaks the rent rules "med en klar
@@ -934,7 +908,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <Status value={member.status} />
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
-          <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret, som du er vant til." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
+          <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret via MembershipWorks." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
           {cancelBlock}
         </div>
       </section>
@@ -950,7 +924,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <Status value={member.status} />
           <h2>{membershipName(member.tier)}</h2>
           <p>{membershipPlan(member.tier)?.description}</p>
-          <p>Dit medlemskab og din betaling fortsætter uændret, som du er vant til.</p>
+          <p>Dit nuværende medlemskab og din betaling fortsætter uændret i MembershipWorks.</p>
           {cancelBlock}
         </div>
         <MembershipPlans />
@@ -1025,7 +999,7 @@ function MembershipHero({ clerk, member }: { clerk: ClerkBrowser; member: Member
   const per = (interval: string | null) => interval === "year" ? "pr. år" : "pr. måned";
   const price = subscription?.amountMinor != null ? `${membershipPrice(subscription.amountMinor)} ${per(subscription.interval)}`
     : plan && member.billing !== "manual" ? `${membershipPrice(plan[member.interval === "year" ? "year" : "month"])} ${per(member.interval)}` : null;
-  const payment = member.managedExternally || member.paysInMembershipworks ? "Uændret, som du er vant til"
+  const payment = member.managedExternally || member.paysInMembershipworks ? "Betales indtil videre via MembershipWorks"
     : member.billing === "manual" ? "Givet af Hjerterum - ingen betaling"
     : subscription?.cancelAtPeriodEnd ? `Ophører ${subscription.endsAt ? longDate(subscription.endsAt) : "ved periodens udløb"}`
     : subscription?.nextChargeAt ? `Næste træk ${longDate(subscription.nextChargeAt)}` : null;
@@ -1091,7 +1065,7 @@ function MemberProfile({
         </summary>
         {member?.managedExternally ? <div className="profile-basics-content">
           <h2>{member.fullName}</h2><p>{member.email}</p>
-          <p>Dine oplysninger kan ikke ændres her endnu. Skal noget rettes, så skriv til <a className="text-link" href={"mailto:" + TEAM_MAIL}>{TEAM_MAIL}</a>.</p>
+          <p>Dit medlemskab administreres fortsat i MembershipWorks og ændres ikke her.</p>
         </div> : !member ? <p>Der er endnu ikke en medlemsprofil at redigere.</p> :
           <form className="workspace-form profile-basics-content" onSubmit={save}>
             <div className="workspace-form-row">
