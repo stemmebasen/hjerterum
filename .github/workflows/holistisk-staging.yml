@@ -145,7 +145,7 @@ jobs:
           P() { retry -H "$MOUNT" "$URL$1"; }
           PG() { P "$1" > /tmp/page.html; grep -q "$2" /tmp/page.html; }
           P / > /tmp/portal.html
-          grep -q 'flok at følges med' /tmp/portal.html
+          grep -q 'flok, du kan følges med' /tmp/portal.html
           grep -q 'Sådan virker Socialklubben' /tmp/portal.html
           PG /gratis-og-billigt 'Gratis'
           P /kalender > /tmp/events.html
@@ -163,6 +163,7 @@ jobs:
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
           PG /samarbejde 'kontakt os'
           PG /tryghed 'offentligt sted'
+          PG /moed-nye-mennesker '<h1>Mød nye mennesker i Aarhus</h1>'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
           PG /spiritualitet/aarhus '<h1>Spirituelle arrangementer i Aarhus</h1>'
           PG /klarsyn/aarhus '<h1>Klarsynsaftener i Aarhus</h1>'
