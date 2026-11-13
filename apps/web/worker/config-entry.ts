@@ -1,6 +1,7 @@
 import { runNewsletterJob, type NewsletterEnv } from "./newsletter-send.js";
 import appWorker from "./entry.js";
 import { getExternalEvents } from "./external-events.js";
+import { currentLevels, refreshMembershipLevels } from "./membership-levels.js";
 import { eventDetail } from "./event-detail.js";
 import { program, programCandidates, upcomingFeed } from "./program.js";
 import type { D1Database } from "./db.js";
@@ -78,12 +79,18 @@ export default {
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env): Promise<void> {
+    await refreshMembershipLevels(env.DB as D1Database | undefined);
     return scheduledRun(controller, env);
   }
 };
 
 async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     const url = new URL(request.url);
+    // The membership levels as saved in admin (membership-levels.ts), for everything below that reads the plans.
+    await refreshMembershipLevels(env.DB as D1Database | undefined);
+    if (request.method === "GET" && url.pathname === "/api/membership-levels") {
+      return Response.json(currentLevels(), { headers: { "cache-control": "public, max-age=60" } });
+    }
 
     // Requested: the price calculator "i systemet - den skal også bruges som iframe" (beregner/handler.ts): /beregner and
     // /ny-beregner-2026 on every address (before the cockpit, which otherwise takes every path on its own address).

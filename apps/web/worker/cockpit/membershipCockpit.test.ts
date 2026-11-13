@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { membershipPlans } from "../../membership.js";
+import { currentLevels, forgetMembershipLevels, kroner, refreshMembershipLevels } from "../membership-levels.js";
 import { handleCockpitRequest } from "./handler.js";
 import { figures, monthlyMinor } from "./membershipCockpit.js";
 import { BOARD, deps, fakeServices, OWNER, personalCookie, sagaEnv, testDatabase, memberCookie } from "../saga/test-support.js";
@@ -91,5 +93,49 @@ describe("the membership cockpit", () => {
     expect(monthlyMinor("standard", "year")).toBe(19_250);
     expect(monthlyMinor("gratis", "month")).toBe(0);
     expect(figures([], "2026-11-02").active).toBe(0);
+  });
+
+  // Asked (the chair, 12 Nov 2026), on Douglas' "The membership levels must be in the 'Membership Overview' page and editable": "Af mig og Douglas" -
+  // "Douglas bliver Ansvarlig (admin) for medlemssystemet".
+  describe("the membership levels", () => {
+    afterEach(() => forgetMembershipLevels());
+
+    it("are edited by the chair and Douglas, each with their own login, and no one else", async () => {
+      const { call, chair, douglas, douglasShared, lisbethOwn } = await setup();
+      expect(await (await call("/medlemskab", { cookie: chair })).text()).toContain("/medlemskab/niveauer");
+      const page = await (await call("/medlemskab/niveauer", { cookie: douglas })).text();
+      expect(page).toContain('value="222"');
+      expect(page).toContain("medlemskaber, der allerede kører");
+      expect((await call("/medlemskab/niveauer", { cookie: douglasShared })).status).toBe(403);
+      expect((await call("/medlemskab/niveauer", { cookie: lisbethOwn })).status).toBe(403);
+    });
+
+    it("save a level, lay it over the one written in the code, and keep who changed what", async () => {
+      const { db, call, form, douglas } = await setup();
+      const saved = await call("/medlemskab/niveauer", { method: "POST", cookie: douglas,
+        body: form({ tier: "standard", name: "Standard medlemskab", description: "Ny tekst.", month: "230", year: "2.400" }) });
+      expect(saved.status).toBe(303);
+      expect(membershipPlans.standard).toMatchObject({ name: "Standard medlemskab", description: "Ny tekst.", month: 23_000, year: 240_000, benefits: true });
+      expect(currentLevels().find(l => l.tier === "standard")).toMatchObject({ month: 23_000 });
+      const page = await (await call("/medlemskab/niveauer", { cookie: douglas })).text();
+      expect(page).toContain("pr. måned: 222 → 230 kr.");
+      expect(page).toContain("Douglas Crawford");
+      // Another worker reads it from the database.
+      forgetMembershipLevels();
+      expect(membershipPlans.standard.month).toBe(22_200);
+      await refreshMembershipLevels(db, NOW);
+      expect(membershipPlans.standard.month).toBe(23_000);
+      // A price that is not a price, or none, is refused; nothing changes.
+      const bad = await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "standard", name: "Standard medlemskab", description: "", month: "gratis", year: "0" }) });
+      expect(bad.status).toBe(400);
+      expect(membershipPlans.standard.month).toBe(23_000);
+    });
+
+    it("reads prices as written in Danish", () => {
+      expect(kroner("222")).toBe(22_200);
+      expect(kroner("2.310")).toBe(231_000);
+      expect(kroner("111,50 kr.")).toBe(11_150);
+      expect(kroner("abc")).toBeNull();
+    });
   });
 });

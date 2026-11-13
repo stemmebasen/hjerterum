@@ -28,6 +28,9 @@ export const POWERS = {
   // Requested: "Vi skal udvikle et membership cockpit i admin ..." (2 Nov 2026) - new, so the chair's first (docs/decisions/0007).
   // Asked (the chair, 12 Nov 2026), on Douglas' "Do you have access for me to an admin section for the membership system yet?": "YES!" - Douglas too, with his own login.
   "members.cockpit": { label: "Medlemsoverblik: se, rette og eksportere medlemmer, medlemskaber og abonnementer", needs: "personal", also: ["Douglas"] },
+  // Asked (the chair, 12 Nov 2026), on Douglas' "The membership levels must be in the 'Membership Overview' page and editable": "Af mig og Douglas" -
+  // "Douglas bliver Ansvarlig (admin) for medlemssystemet".
+  "members.levels": { label: "Medlemskaber: rette navne, beskrivelser og priser på medlemskaberne", needs: "personal", also: ["Douglas"] },
   // Requested: "Så jeg bliver i stand til at sende mails ud fra Board Admin til modtagerne?" - "Ja" (2 Nov 2026) - new, so the chair's first.
   "listmail.send": { label: "Skrive og sende en mail til nyhedsbrevslisten i Mailchimp", needs: "personal" },
   // Requested: "Og så skal der i admin være et form for filarkiv" (3 Nov 2026) - new, so the chair's first.

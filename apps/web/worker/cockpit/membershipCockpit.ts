@@ -156,7 +156,7 @@ const statusBadge = (m: CockpitMember, today: string) => {
   return `<span class="mc-badge ${m.status}">${STATUS_LABEL[m.status]}${days ? ` ${days} dage` : ""}${ends}</span>`;
 };
 
-export function cockpitPage(base: string, who: string | null, d: { data: CockpitData; filter: CockpitFilter; today: string; notice: string }): string {
+export function cockpitPage(base: string, who: string | null, d: { data: CockpitData; filter: CockpitFilter; today: string; notice: string; levels?: boolean }): string {
   const all = d.data.members, f = d.filter;
   const fig = figures(all, d.today);
   const shown = applyFilter(all, f);
@@ -167,7 +167,7 @@ export function cockpitPage(base: string, who: string | null, d: { data: Cockpit
 <td>${esc(m.plan)}${m.interval ? `<span>${m.interval === "year" ? "årligt" : "månedligt"}</span>` : ""}</td><td>${statusBadge(m, d.today)}</td><td>${esc(BILLING_LABEL[m.billing])}${m.source === "membershipworks" ? `<span>MembershipWorks</span>` : ""}</td>
 <td>${shortDate(m.nextPayment)}</td><td>${shortDate(m.joinedOn)}</td><td>${m.labels.filter(l => !/^Active /i.test(l)).map(l => `<i class="mc-label">${esc(l)}</i>`).join("")}${m.teacher && !m.labels.length ? `<i class="mc-label">Underviser</i>` : ""}</td></tr>`;
   const body = `<main class="mc"><p class="small"><a href="${base}/medlemmer">← Medlemmer</a></p><h1>Medlemsoverblik</h1>
-<p class="muted small">Kun for dig som formand (indtil du åbner det for bestyrelsen). ${d.data.export ? `Medlemmerne fra MembershipWorks er fra eksporten ${esc(shortDate(d.data.export.day))} - <a href="${base}/medlemmer#membershipworks">upload en nyere</a>.` : "Ingen MembershipWorks-eksport endnu."}</p>
+<p class="muted small">Kun for formanden og Douglas, der er ansvarlig for medlemssystemet. ${d.data.export ? `Medlemmerne fra MembershipWorks er fra eksporten ${esc(shortDate(d.data.export.day))} - <a href="${base}/medlemmer#membershipworks">upload en nyere</a>.` : "Ingen MembershipWorks-eksport endnu."}</p>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <section class="mc-figs">
 <div><b>${fig.active}</b><span>aktive medlemmer</span></div>
@@ -178,7 +178,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <div><b>${fig.teachers}</b><span>undervisere</span></div>
 </section>
 <section class="mc-grid">
-<div class="card"><h2>Medlemskaber</h2><table class="mc-small">${fig.byTier.map(t => `<tr><td>${esc(t.name)}</td><td>${t.count}</td><td>${kr(t.monthlyMinor)}/md.</td></tr>`).join("")}</table></div>
+<div class="card"><h2>Medlemskaber</h2><table class="mc-small">${fig.byTier.map(t => `<tr><td>${esc(t.name)}</td><td>${t.count}</td><td>${kr(t.monthlyMinor)}/md.</td></tr>`).join("")}</table>${d.levels ? `<p class="small"><a href="${base}/medlemskab/niveauer">Navne, beskrivelser og priser →</a></p>` : ""}</div>
 <div class="card"><h2>Betaling</h2><table class="mc-small">${(["kort", "manuel", "gratis"] as const).map(b => `<tr><td>${BILLING_LABEL[b]}</td><td>${fig.byBilling[b]}</td></tr>`).join("")}<tr><td>Uden medlemskab / opsagt</td><td>${fig.without}</td></tr></table></div>
 <div class="card"><h2>Nuværende medlemmer efter indmeldelsesår</h2><div class="mc-bars">${fig.joinedByYear.map(y => `<div><span>${y.year}</span><i style="width:${Math.round(y.count / max * 100)}%"></i><b>${y.count}</b></div>`).join("")}</div></div>
 </section>
@@ -186,7 +186,7 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}
 <input name="q" value="${esc(f.q)}" placeholder="Søg navn, e-mail eller telefon" aria-label="Søg">
 <select name="status" aria-label="Status">${opt("", "Alle statusser", f.status)}${(["aktiv", "restance", "opsagt", "uden"] as const).map(s => opt(s, STATUS_LABEL[s], f.status)).join("")}</select>
 <select name="type" aria-label="Medlemskab">${opt("", "Alle medlemskaber", f.tier)}${tiers.map(t => opt(t, planName(t), f.tier)).join("")}</select>
-<select name="betaling" aria-label="Betaling">${opt("", "Al betaling", f.billing)}${(["kort", "manuel", "gratis"] as const).map(b => opt(b, BILLING_LABEL[b], f.billing)).join("")}</select>
+<select name="betaling" aria-label="Betaling">${opt("", "Alle betalingsformer", f.billing)}${(["kort", "manuel", "gratis"] as const).map(b => opt(b, BILLING_LABEL[b], f.billing)).join("")}</select>
 <select name="sort" aria-label="Sortering">${opt("navn", "Sortér: navn", f.sort)}${opt("siden", "Sortér: medlem siden", f.sort)}${opt("betaling", "Sortér: næste betaling", f.sort)}</select>
 <label class="mc-check"><input type="checkbox" name="underviser" value="1"${f.teacher ? " checked" : ""}> Undervisere</label>
 <button>Vis</button><a class="button ghost" href="${base}/medlemskab/eksport.csv${query(f)}">Eksportér (${shown.length})</a></form>

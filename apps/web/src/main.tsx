@@ -11,6 +11,7 @@ import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
 import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
+import { loadMembershipLevels } from "./membership-levels";
 import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { englishOn, startTranslation } from "./translate-in-place";
@@ -556,6 +557,10 @@ try {
     window.addEventListener("load", () => { if (window.scrollY > 0 && !window.location.hash) window.scrollTo(0, 0); }, { once: true });
   }
 } catch { /* an old browser: nothing to do */ }
-createRoot(root).render(<StrictMode><App /></StrictMode>);
+const app = createRoot(root);
+const draw = () => app.render(<StrictMode><App /></StrictMode>);
+draw();
+// The membership levels as saved in admin (Medlemsoverblik → Medlemskaber): drawn again when they differ from the ones written in the code.
+void loadMembershipLevels().then(changed => { if (changed) draw(); });
 // Douglas: "When I click 'EN', I am no longer logged in" - English is now Google translating the page where it is.
 startTranslation();

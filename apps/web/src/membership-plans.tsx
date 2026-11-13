@@ -1,4 +1,4 @@
-import { membershipPlans, membershipPrice } from "../membership";
+import { DEFAULT_MEMBERSHIP_PLANS, membershipPlans, membershipPrice, type MembershipTier } from "../membership";
 import { SIGNUP_URL } from "../site/pages";
 
 /** The four memberships as on holistisk.org/bliv-medlem/ and hjerterum.info, in Hjerterum Lys. Signing up still
@@ -17,7 +17,9 @@ export function MembershipPlans({ lang = "da" }: { lang?: "da" | "en" }) {
   const signup = en ? "https://holistisk.org/become-a-member/" : SIGNUP_URL;
   return <div className="site-plans" aria-label={en ? "Memberships" : "Medlemskaber"}>
     {Object.entries(membershipPlans).map(([id, plan]) => {
-      const text = en ? EN[id]! : plan;
+      // The English words while the Danish are as written; words saved in admin since are shown as saved (and translated with the page).
+      const first = DEFAULT_MEMBERSHIP_PLANS[id as MembershipTier];
+      const text = en ? { name: plan.name === first.name ? EN[id]!.name : plan.name, description: plan.description === first.description ? EN[id]!.description : plan.description } : plan;
       const saving = plan.month * 12 - plan.year;
       return <article className={`site-plan plan-${id}` + (id === "standard" ? " featured" : "")} key={id}>
         {id === "standard" && <span className="site-plan-badge">{en ? "Most popular" : "Mest populær"}</span>}

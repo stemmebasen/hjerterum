@@ -38,6 +38,9 @@ function SignUp({ event }: { event: EventDetail }) {
   const [opened] = useState(() => Date.now());
   const [state, setState] = useState<{ busy?: boolean; done?: boolean; error?: string }>({});
   const own = event.own;
+  // Douglas (12 Nov 2026): "Some events, like the cafe, are not bookable, so we need to drop the 'Book' buttons in these cases." An event
+  // from the old calendar with no tickets has no sign-up there either.
+  if (!own && !event.tickets.length) return <p className="event-signup lys-sub">Der er ingen tilmelding til dette event.</p>;
   if (!own) {
     const external = Boolean(event.signUpUrl);
     return <p className="event-signup"><a className="lys-btn" href={event.signUpUrl ?? "/member-portal/kalender"} {...(external ? { target: "_blank", rel: "noreferrer" } : {})}>Tilmeld dig{external ? " ↗" : ""}</a></p>;
@@ -192,7 +195,7 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
             <ul className="event-tickets">{event.tickets.map((t) => <li key={t}>{t}</li>)}</ul>
           </>}
           {/* Douglas' notes: "'Tilmeld dig' maybe at the bottom as well". */}
-          {!past && <div className="event-signup-end"><SignUp event={event} /></div>}
+          {!past && (event.own || event.tickets.length > 0) && <div className="event-signup-end"><SignUp event={event} /></div>}
           {/* Requested: "Under hvert Hjerterum event skal der diskret stå: Inviter din CIRKEL med" (cirkel-invite.tsx, in the member area). */}
           {!past && <p className="event-cirkel"><a href={`/member-portal/cirkel?event=${encodeURIComponent(event.id)}`}><span className="event-cirkel-mark" aria-hidden="true" />Inviter din CIRKEL med</a>
             <small>Del eventet i din cirkels chat i CIRKLER</small></p>}
