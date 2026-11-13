@@ -941,6 +941,8 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 /* "Må interesserede kontakte dig?" - four calm choices in a row; the contact line on the calendar card. */
 .event-contact-options { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .event-contact-options label { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+.event-check { display: inline-flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-weight: 500; }
+.event-check input { width: auto; margin: 0; }
 .event-contact small { color: var(--lys-muted); }
 .member-event-contact { margin: 0; font-size: 14px; color: var(--lys-muted); overflow-wrap: anywhere; }
 .member-event-contact a { color: inherit; }
@@ -1146,3 +1148,10 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .ed-thumb img, .ed-thumb-wait { display: block; width: 100%; border-radius: 14px; box-shadow: 0 10px 30px rgba(40, 25, 15, .15); }
 .ed-thumb-wait { display: grid; place-items: center; background: var(--lys-soft, #efe9df); color: var(--lys-muted); }
 @media (max-width: 1000px) { .ed { grid-template-columns: 1fr; grid-template-rows: auto minmax(55vh, 1fr) auto auto; overflow: auto; } .ed-add, .ed-props { border: 0; } }
+/* The event form's text buttons (text-tools.tsx). */
+.text-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 2px; font-weight: 400; }
+.text-tools button { width: auto; min-height: 0; padding: 4px 10px; border: 1px solid var(--lys-line); border-radius: 8px; background: transparent; color: inherit; font: 500 13.5px var(--lys-sans); cursor: pointer; }
+.text-tools button:hover { border-color: var(--lys-ink); }
+.text-tools-emojis { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
+.text-tools-emojis button { padding: 2px 6px; font-size: 17px; border-color: transparent; }
+.text-tools small { flex-basis: 100%; color: var(--lys-muted); font-size: 12.5px; }

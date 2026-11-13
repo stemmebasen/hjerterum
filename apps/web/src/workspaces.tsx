@@ -4,6 +4,7 @@ import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, R
 import { EventPrMaterial } from "./pr-material-editor";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
+import { TextTools } from "./text-tools";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
@@ -73,6 +74,8 @@ type Booking = {
   feeKr: number;
   ticketPriceKr: number;
   nonMemberPriceKr?: number | null;
+  notifySignups?: boolean;
+  confirmationNote?: string | null;
   setupMinutes?: number;
   cleanupMinutes?: number;
   bookingType?: "standard" | "reduced" | "free";
@@ -391,7 +394,8 @@ function MemberEvents({
     const from = planFromBooking(booking.startsAt, booking.endsAt, booking.bookingType ?? "standard");
     setEditing(null); show("create"); setCreateMode("form");
     setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft: { title: booking.title, description: booking.description ?? "", date: "", start: from.start, end: from.end, booking_type: booking.bookingType ?? "standard",
-      max_attendees: booking.maxAttendees ?? null, member_price_kr: booking.ticketPriceKr, non_member_price_kr: booking.nonMemberPriceKr ?? null, contact_share: booking.contactShare ?? null } }));
+      max_attendees: booking.maxAttendees ?? null, member_price_kr: booking.ticketPriceKr, non_member_price_kr: booking.nonMemberPriceKr ?? null, contact_share: booking.contactShare ?? null,
+      notify_signups: booking.notifySignups ?? true, confirmation_note: booking.confirmationNote ?? null } }));
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   useEffect(() => {
@@ -504,7 +508,9 @@ function MemberEvents({
             nonMemberPriceKr: String(form.get("nonMemberPriceKr") ?? "").trim() === "" ? null : Number(form.get("nonMemberPriceKr")),
             bookingType: plan.type,
             setupMinutes: plan.setup,
-            cleanupMinutes: plan.cleanup
+            cleanupMinutes: plan.cleanup,
+            notifySignups: form.get("notifySignups") === "on",
+            confirmationNote: String(form.get("confirmationNote") ?? "")
           })
         }
       );
@@ -592,7 +598,8 @@ function MemberEvents({
             <>
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required onChange={(e) => setLiveTitle(e.target.value)} /></label>
-              <label>Beskrivelse<textarea ref={descriptionField} name="description" rows={6} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
+              {/* htmlFor: the label belongs to the text, not to the first of the text buttons inside it. */}
+              <label htmlFor="event-description">Beskrivelse<TextTools field={descriptionField} /><textarea id="event-description" ref={descriptionField} name="description" rows={6} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
                 {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
                 <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum. Beskrivelsen skal have mindst {MIN_EVENT_WORDS} ord.</small></label>
               <EventTextHelp clerk={clerk} field={descriptionField} title={liveTitle} />
@@ -625,6 +632,15 @@ function MemberEvents({
                   </label>)}
                 </div>
                 <small>E-mail og telefonnummer hentes fra din profil og vises kun for medlemmer, der er logget ind.</small>
+              </fieldset>
+              {/* Douglas (13 Nov 2026): a mail to the teacher when people book, and "a confirmation email" in the teacher's words - the chair: "Ja" (worker/event-signup-mail.ts). */}
+              <fieldset className="event-section event-signups">
+                <legend>Tilmeldinger</legend>
+                <label className="event-check"><input type="checkbox" name="notifySignups" defaultChecked={editing?.notifySignups ?? prefill?.draft.notify_signups ?? true} /> Send mig en mail, hver gang nogen tilmelder sig</label>
+                <label>Din besked i bekræftelsesmailen (valgfri)
+                  <textarea name="confirmationNote" rows={3} maxLength={1500} placeholder="Fx: Tag gerne en yogamåtte og en vandflaske med. Dørene åbner 15 minutter før." defaultValue={editing?.confirmationNote ?? prefill?.draft.confirmation_note ?? ""} />
+                  <small>Står i den mail, deltagerne får, når de tilmelder sig - under "Besked fra" og dit navn.</small>
+                </label>
               </fieldset>
               <EventFilesField clerk={clerk} enabled={payout?.uploads === true} existing={existingFiles} cover={cover} extra={extraFiles}
                 onCover={setCover} onExtra={setExtraFiles} onRemoveExisting={(file) => void removeExistingFile(file)} />

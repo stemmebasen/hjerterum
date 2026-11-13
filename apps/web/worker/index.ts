@@ -1,6 +1,7 @@
 import { tooMany } from "./beregner/handler.js";
 import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
+import { notifyOrganiser, readSignupSettings, saveSignupSettings, signupSettingsByBooking } from "./event-signup-mail.js";
 import { CURRENT_SITE } from "./site-knowledge.js";
 import { queueContact } from "./mailchimp-sync.js";
 import { isPartnerEvent } from "../partner-events.js";
@@ -256,7 +257,9 @@ async function guestSignup(request: Request, env: Env, id: number): Promise<Resp
   if ("error" in result) return json({ error: result.error }, { status: result.status });
   if ("confirmed" in result) {
     const row = await publicEvent(env.DB, id).catch(() => null);
-    if (row) await guestReceipt(env, fetch, row, { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase() }, `${url.origin}/events/h${id}`);
+    const guest = { name: String(sent.name ?? "").trim(), email: String(sent.email ?? "").trim().toLowerCase() };
+    if (row) await guestReceipt(env, fetch, row, guest, `${url.origin}/events/h${id}`);
+    await notifyOrganiser(env, fetch, id, { ...guest, clerkUserId: `guest:${guest.email}` }, CURRENT_SITE);
     // Requested: "alle modtagere gemmes samlet i vores Mailchimp konto" - a guest who ticked the newsletter goes to the list, confirming by mail first.
     if (sent.newsletter === true) await queueContact(env.DB, { email: String(sent.email ?? ""), name: String(sent.name ?? ""), source: "event", member: false, doubleOptIn: true }, Date.now()).catch(() => undefined);
   }
@@ -273,7 +276,9 @@ async function ownedRoomBookings(request: Request, env: Env): Promise<Response> 
   try {
     const rows = await listOwnedRoomBookings(env.DB, user.userId);
     const contacts = await contactsByBooking(env.DB, rows.map((row) => row.id));
-    return json(rows.map((row) => ({ ...roomBookingView(row), contactShare: contacts.get(row.id)?.share ?? null })));
+    const signup = await signupSettingsByBooking(env.DB, rows.map((row) => row.id));
+    return json(rows.map((row) => ({ ...roomBookingView(row), contactShare: contacts.get(row.id)?.share ?? null,
+      notifySignups: signup.get(row.id)?.notifySignups ?? true, confirmationNote: signup.get(row.id)?.confirmationNote ?? null })));
   } catch {
     return json({ error: "database_query_failed" }, { status: 503 });
   }
@@ -310,6 +315,7 @@ async function postRoomBooking(request: Request, env: Env): Promise<Response> {
       memberName: membership.fullName,
       memberEmail: membership.email
     });
+    await saveSignupSettings(env.DB, result.id, user.userId, readSignupSettings(body)).catch(error => console.warn("signup_settings_not_saved", error instanceof Error ? error.message : error));
     return json(result, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "booking_failed";
@@ -353,6 +359,7 @@ async function putRoomBooking(
       bookingId,
       { ...input, preApproved: await fixedTeacherByAccount(env.DB, user.userId, env.CLERK_SECRET_KEY, clerkPrimaryEmail) }
     );
+    await saveSignupSettings(env.DB, bookingId, user.userId, readSignupSettings(body)).catch(error => console.warn("signup_settings_not_saved", error instanceof Error ? error.message : error));
     return json({ status: "updated", ...result });
   } catch (error) {
     const code = error instanceof Error ? error.message : "booking_update_failed";
@@ -435,6 +442,7 @@ async function attendBooking(
     // Douglas (12 Nov 2026): "Does a participant get an email when they sign up for an event?" - a guest did; now one who signs up logged in too.
     const row = await publicEvent(env.DB, bookingId).catch(() => null);
     if (row) await guestReceipt(env, fetch, row, { name: membership.fullName, email: membership.email.trim().toLowerCase() }, `${CURRENT_SITE}/events/h${bookingId}`);
+    await notifyOrganiser(env, fetch, bookingId, { name: membership.fullName, email: membership.email.trim().toLowerCase(), clerkUserId: user.userId }, CURRENT_SITE);
     return json({ status: "attending" }, { status: 201 });
   } catch (error) {
     const code = error instanceof Error ? error.message : "attendance_failed";
