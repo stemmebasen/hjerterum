@@ -289,7 +289,7 @@ function MemberOverview({ member, calendar, clerk }: { member: Member | null; ca
                   ))}
                 </ul>
               ) : <p className="lys-sub">Du er ikke tilmeldt et kommende event.</p>}
-              <p className="member-overview-more"><a className="lys-link" href="/member-portal/kalender">{registrations.length ? "Se kalenderen og afmeld →" : "Find et event i kalenderen →"}</a></p>
+              <p className="member-overview-more"><a className="lys-link" href="/member-portal/kalender">{registrations.length ? "Se kalenderen, eller annullér en tilmelding →" : "Find et event i kalenderen →"}</a></p>
             </article>
             <article className="lys-card sage">
               <p className="lys-kicker">Salen</p>
@@ -386,6 +386,14 @@ function MemberEvents({
   const [editing, setEditing] = useState<Booking | null>(null);
   // A draft from Saga fills the form (saga-widget.tsx); the member still checks it and presses the button.
   const [prefill, setPrefill] = useState<{ n: number; draft: SagaDraft } | null>(() => { const d = takePendingDraft(); return d ? { n: 1, draft: d } : null; });
+  // Douglas (13 Nov 2026): "Can there be an ability to duplicate events?" - the form filled in as the event, with no date, for a new one.
+  const copyEvent = (booking: Booking) => {
+    const from = planFromBooking(booking.startsAt, booking.endsAt, booking.bookingType ?? "standard");
+    setEditing(null); show("create"); setCreateMode("form");
+    setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft: { title: booking.title, description: booking.description ?? "", date: "", start: from.start, end: from.end, booking_type: booking.bookingType ?? "standard",
+      max_attendees: booking.maxAttendees ?? null, member_price_kr: booking.ticketPriceKr, non_member_price_kr: booking.nonMemberPriceKr ?? null, contact_share: booking.contactShare ?? null } }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   useEffect(() => {
     const take = (event: Event) => { const draft = (event as CustomEvent<SagaDraft>).detail; setEditing(null); show("create"); setCreateMode("form"); setPrefill((p) => ({ n: (p?.n ?? 0) + 1, draft })); };
     window.addEventListener(DRAFT_EVENT, take);
@@ -599,7 +607,7 @@ function MemberEvents({
                   <label>Maks. deltagere<input name="maxAttendees" type="number" min="1" placeholder={attendeeHint} defaultValue={editing?.maxAttendees ?? prefill?.draft.max_attendees ?? ""} />
                     <small>Tomt felt: ingen grænse.</small></label>
                   <label>Pris for medlemmer (kr.)
-                    <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? 0} readOnly={payout?.configured === false} />
+                    <input name="ticketPriceKr" type="number" min="0" step="0.01" defaultValue={editing?.ticketPriceKr ?? prefill?.draft.member_price_kr ?? 0} readOnly={payout?.configured === false} />
                     <small>{payout?.configured === false ? "0 kr. = gratis. Betalte events åbner, når betalingen er koblet til." : "0 kr. = gratis. Gebyret lægges oveni ved betaling."}</small>
                   </label>
                   <label>Pris for ikke-medlemmer (kr.)
@@ -653,10 +661,11 @@ function MemberEvents({
                   <time>{formatDate(booking.startsAt)}</time>
                   <strong>{booking.title}</strong>
                   <span className={"member-event-review is-" + (booking.reviewStatus ?? "approved")}>{booking.reviewStatus === "approved" || !booking.reviewStatus ? "Godkendt og offentligt" : booking.reviewStatus === "rejected" ? "Ikke godkendt" + (booking.reviewNote ? ": " + booking.reviewNote : "") : "Afventer godkendelse - vises først offentligt, når det er godkendt"}</span>
-                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {booking.ticketPriceKr > 0 ? booking.ticketPriceKr.toLocaleString("da-DK") + " kr. pr. billet" : "Gratis adgang"}</span>
+                  <span>{booking.attendeeCount ?? 0}{booking.maxAttendees ? " / " + booking.maxAttendees : ""} tilmeldte · {booking.feeKr.toLocaleString("da-DK")} kr. i lokaleleje{booking.bookingType === "reduced" ? " (reduceret pris)" : booking.bookingType === "free" ? " (gratis leje)" : ""} · {eventPrices(booking)}</span>
                   {(booking.attendeeCount ?? 0) > 0 && <AttendeeList clerk={clerk} bookingId={booking.id} count={booking.attendeeCount ?? 0} />}
                   <div className="workspace-actions">
                     <button type="button" className="text-button" onClick={() => { setEditing(booking); show("create"); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Redigér</button>
+                    <button type="button" className="text-button" onClick={() => copyEvent(booking)}>Kopiér</button>
                     <button type="button" className="text-button is-danger" onClick={() => void cancelEvent(booking)}>Annullér event</button>
                   </div>
                   </div>
@@ -668,6 +677,14 @@ function MemberEvents({
       </div>
     </section>
   );
+}
+
+/** Douglas (13 Nov 2026): "it says 'Free admission'. It is free for members, but I said 100kr for non-members. Should we include both?" - both, when they differ. */
+function eventPrices(booking: Pick<Booking, "ticketPriceKr" | "nonMemberPriceKr">): string {
+  const kr = (n: number) => n > 0 ? n.toLocaleString("da-DK") + " kr." : "gratis";
+  const member = booking.ticketPriceKr, other = booking.nonMemberPriceKr ?? booking.ticketPriceKr;
+  if (member === other) return member > 0 ? kr(member) + " pr. billet" : "Gratis adgang";
+  return `Medlemmer: ${kr(member)} · Ikke-medlemmer: ${kr(other)}`;
 }
 
 /** Douglas (12 Nov 2026): "Is it possible for a teacher to be able to see the email addresses of the people who have signed up for their workshop
@@ -799,11 +816,12 @@ export function MemberCalendar({
               </span>}
             </RowText>
             <span className="event-row-more">
-              {booking ? booking.isOwner ? <a className="text-link" href="/member-portal/events">Administrér →</a> : (
+              {/* Douglas (13 Nov 2026), signed up for his own test event: "Where it says 'unsubscribe', how can we do that?" - the organiser who is signed up can cancel it too. */}
+              {booking ? booking.isOwner && !booking.isAttending ? <a className="text-link" href="/member-portal/events">Administrér →</a> : (
                 <button type="button" className={booking.isAttending ? "pill-button subtle" : "pill-button dark"}
                   disabled={busyId === booking.id || booking.registrationStatus === "pending" || (!booking.isAttending && full)}
                   onClick={() => void toggleAttendance(booking)}>
-                  {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Afmeld" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
+                  {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Annullér tilmelding" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>)
                 : href ? <a className="text-link" href={href} {...linkProps}>Læs mere{away ? " ↗" : " →"}</a> : <span className="member-row-meta">Kontakt arrangøren</span>}
             </span>
