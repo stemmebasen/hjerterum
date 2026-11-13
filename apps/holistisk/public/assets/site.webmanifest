@@ -1,7 +1,7 @@
 {
   "name": "Socialklubben",
   "short_name": "Socialklubben",
-  "description": "Find events i Aarhus – og en lille flok at følges med.",
+  "description": "Find arrangementer i Aarhus – og en lille flok at følges med.",
   "lang": "da",
   "start_url": "/",
   "display": "browser",

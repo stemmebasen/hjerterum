@@ -18,7 +18,7 @@ export function groupTiles(active: Group["slug"] | null, counts: Map<Group["slug
       <span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${raw(g.icon)}</svg></span>
       <span class="group-name">${g.name}</span>
       <span class="group-line">${g.line}</span>
-      ${counts ? html`<span class="group-count">${counts.get(g.slug) ?? 0} events</span>` : ""}
+      ${counts ? html`<span class="group-count">${counts.get(g.slug) ?? 0} arrangementer</span>` : ""}
       ${on ? html`<span class="visually-hidden"> (valgt – tryk for at vise alle)</span>` : ""}
     </a></li>`;
   })}</ul></nav>`;
@@ -90,7 +90,7 @@ export function stub(e: EventRow): SafeHtml {
 function media(e: EventRow): SafeHtml {
   const stamp = e.is_free === 1 ? html`<span class="stamp" aria-hidden="true">Gratis</span>` : "";
   if (e.image_url) return html`<span class="media"><img src="${e.image_url}" alt="" loading="lazy" decoding="async">${stamp}</span>`;
-  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event";
+  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Arrangement";
   return html`<span class="media media-plain" aria-hidden="true"><span class="plain-word">${what}</span>${stamp}</span>`;
 }
 
@@ -125,7 +125,7 @@ function partOfDay(ms: number): string {
 /** The whole photo at the right end of a front-page ticket (uncropped, over a blurred copy of itself), or a patterned panel naming the activity when there is none. */
 function miniPhoto(e: EventRow): SafeHtml {
   if (e.image_url) return html`<span class="mini-photo"><img class="mini-photo-blur" src="${e.image_url}" alt="" decoding="async"><img src="${e.image_url}" alt="" decoding="async"></span>`;
-  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event";
+  const what = categoryBySlug(cats(e)[0] ?? "")?.short ?? "Arrangement";
   return html`<span class="mini-photo mini-photo-plain" aria-hidden="true"><span>${what}</span></span>`;
 }
 
@@ -136,7 +136,7 @@ export function ticketStack(events: EventRow[]): SafeHtml {
   const stamped = events.findIndex(e => e.is_free === 1);
   return html`<div class="ticket-stack">${events.slice(0, 3).map((e, i) => {
     const { weekday, day, month } = dateBadge(e.starts_at);
-    const label = [categoryBySlug(cats(e)[0] ?? "")?.short ?? "Event", e.is_free === 1 ? "gratis" : null].filter(Boolean).join(" · ");
+    const label = [categoryBySlug(cats(e)[0] ?? "")?.short ?? "Arrangement", e.is_free === 1 ? "gratis" : null].filter(Boolean).join(" · ");
     return html`<a class="mini-ticket mini-ticket-${i + 1}${i === stamped ? " is-stamped" : ""}" href="${eventPath(e)}">
       <span class="mini-stub" aria-hidden="true"><span class="mini-weekday">${weekday}</span><span class="mini-part">${partOfDay(e.starts_at)}</span></span>
       <span class="mini-main"><span class="mini-kicker">${label}</span><span class="mini-title">${e.title}</span><span class="mini-meta">${capitalize(weekday)}. ${day}. ${month}. kl. ${hhmm(e.starts_at)} · ${placeLine(e)}</span></span>
