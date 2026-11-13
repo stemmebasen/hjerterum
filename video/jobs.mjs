@@ -65,15 +65,16 @@ async function picture(url) {
   } catch { return null; }
 }
 
-/** Saga's choice of template - the chair kept 1, 2, 3, 4, 5, 7, 8 and 10. The chair's own choice (source.videoTemplate) wins. */
+/** Saga's choice of template - the chair kept 1, 2, 3, 4, 5, 7, 8 and 10, and asked for 11 (13 Nov 2026). The chair's own choice (source.videoTemplate)
+ * wins. An evening event gets 11, "Billedets farver", in the colours of its own picture - not 7, "Nat" (the chair: "this is a terrible template"). */
 export function chooseTemplate(post, hasPicture, startsMs) {
   const own = Number(post.source?.videoTemplate);
-  if ([1, 2, 3, 4, 5, 7, 8, 10].includes(own) && (own === 2 || hasPicture)) return own;
+  if ([1, 2, 3, 4, 5, 7, 8, 10, 11].includes(own) && (own === 2 || hasPicture)) return own;
   if (post.source?.quote && hasPicture) return 8;
   if (post.source?.portrait) return 10;
   if (!hasPicture) return 2;
-  if (hourOf(startsMs) >= 18) return 7;
-  return [1, 3, 4, 5][Number(post.id) % 4];
+  if (hourOf(startsMs) >= 18) return 11;
+  return [1, 3, 4, 5, 11][Number(post.id) % 5];
 }
 
 /** The props of an event's video in a template (null when the template needs a picture the event does not have). */

@@ -11,6 +11,8 @@ export const VIDEO_TEMPLATES: ReadonlyArray<{ no: number; name: string; needs: "
   { no: 7, name: "Nat", needs: "picture" },
   { no: 8, name: "Citat", needs: "quote" },
   { no: 10, name: "Mød underviseren", needs: "portrait" },
+  // Requested (the chair, 13 Nov 2026): "Can you create something else which is much better and more fitting to the event photo?"
+  { no: 11, name: "Billedets farver", needs: "picture" },
 ];
 
 export const templateName = (no: number | undefined) => VIDEO_TEMPLATES.find(t => t.no === no)?.name ?? null;

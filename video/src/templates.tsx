@@ -186,10 +186,47 @@ const MoedUnderviseren: React.FC<{ p: EventProps }> = ({ p }) => {
   </AbsoluteFill>;
 };
 
+/** 11. Billedets farver. Requested (the chair, 13 Nov 2026, of "Nat" on "Healing tilbud i Hjerterum"): "this is a terrible template. Can you create
+ * something else which is much better and more fitting to the event photo?" The event's own picture, softly blurred, is the ground - so the colours are
+ * always the picture's own; the picture itself whole and large, like a print; the words on a light, frosted card under it. */
+const PhotoGround: React.FC<{ p: EventProps; veil: number }> = ({ p, veil }) => {
+  const f = useCurrentFrame();
+  if (!p.picture) return <AbsoluteFill style={{ background: C.sand }} />;
+  return <AbsoluteFill style={{ overflow: "hidden", background: C.sand }}>
+    <Img src={staticFile(p.picture.file)} style={{ position: "absolute", inset: -160, width: "calc(100% + 320px)", height: "calc(100% + 320px)", objectFit: "cover",
+      filter: "blur(70px) saturate(1.15)", transform: `scale(${1.1 + 0.04 * Math.sin(f / 70)}) translateY(${-20 * Math.sin(f / 90)}px)` }} />
+    <AbsoluteFill style={{ background: `linear-gradient(180deg, rgba(246,241,231,${veil * 0.75}) 0%, rgba(246,241,231,${veil * 0.45}) 45%, rgba(246,241,231,${veil}) 100%)` }} />
+  </AbsoluteFill>;
+};
+const BilledetsFarver: React.FC<{ p: EventProps }> = ({ p }) => {
+  const f = useCurrentFrame(), { fps } = useVideoConfig();
+  const lift = spring({ frame: f - 6, fps, config: { damping: 200 } });
+  const card = spring({ frame: f - 30, fps, config: { damping: 200 } });
+  const zoom = interpolate(f, [0, 220], [1.05, 1], { extrapolateRight: "clamp" });
+  const wide = (p.picture?.ratio ?? 1) >= 1;
+  return <AbsoluteFill>
+    <PhotoGround p={p} veil={0.55} />
+    <Head kicker={p.kicker} color={C.ink} stamp={C.ink} />
+    {p.picture && <div style={{ position: "absolute", left: 0, right: 0, top: SAFE_TOP + 230, display: "flex", justifyContent: "center",
+      opacity: lift, transform: `translateY(${(1 - lift) * 60}px)` }}>
+      <div style={{ padding: 14, background: "#fffdf8", borderRadius: 34, boxShadow: "0 40px 90px rgba(60,35,20,.28)", transform: `scale(${zoom})` }}>
+        <Pic p={p.picture} width={wide ? 860 : 700} maxHeight={wide ? 600 : 720} radius={24} /></div>
+    </div>}
+    <div style={{ position: "absolute", left: 80, right: 80, top: SAFE_TOP + (wide ? 900 : 1040), opacity: card * (1 - away(f)), transform: `translateY(${(1 - card) * 50}px)`,
+      padding: "46px 56px 50px", borderRadius: 40, background: "rgba(255,252,246,.8)", backdropFilter: "blur(24px)", boxShadow: "0 24px 60px rgba(60,35,20,.14)", textAlign: "center" }}>
+      <div style={{ fontFamily: serif, fontSize: fit(p.title, 800, wide ? 84 : 72, 3), color: C.ink, lineHeight: 1.08 }}>{p.title}</div>
+      {p.host && <div style={{ fontFamily: serif, fontStyle: "italic", fontSize: 44, color: C.terra, marginTop: 14 }}>med {p.host}</div>}
+      <div style={{ width: 70, height: 2, background: C.camel, margin: "28px auto 24px" }} />
+      <div style={{ fontFamily: sans, fontWeight: 600, fontSize: 36, color: C.ink, letterSpacing: "0.04em" }}>{p.dayName} {p.dayNo}. {p.month} · kl. {p.timeRange}</div>
+    </div>
+    <End p={p} bg={C.cream} ink={C.ink} accent={C.terra} backdrop={<PhotoGround p={p} veil={0.72} />} />
+  </AbsoluteFill>;
+};
+
 const MONTHS = ["januar", "februar", "marts", "april", "maj", "juni", "juli", "august", "september", "oktober", "november", "december"];
 const monthNo = (month: string) => MONTHS.indexOf(month.toLowerCase()) + 1;
 
-const BY_NO = { 1: Organisk, 2: OrganiskTypografi, 3: Plakat, 4: Stribe, 5: Polaroid, 7: Nat, 8: Citat, 10: MoedUnderviseren } as const;
+const BY_NO = { 1: Organisk, 2: OrganiskTypografi, 3: Plakat, 4: Stribe, 5: Polaroid, 7: Nat, 8: Citat, 10: MoedUnderviseren, 11: BilledetsFarver } as const;
 export const EventVideo: React.FC<EventProps> = p => {
   const T = BY_NO[p.template] ?? Organisk;
   return <Camera><T p={p} /></Camera>;
