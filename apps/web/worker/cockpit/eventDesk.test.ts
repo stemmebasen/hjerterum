@@ -52,6 +52,18 @@ describe("Saga's event desk", () => {
     expect((await listUpcomingPublicRoomBookings(db, NOW)).map(e => e.title)).toEqual(["Yin yoga"]);
   });
 
+  // Douglas (13 Nov 2026): "Saga says it is under 75 words, but it is actually 75 words".
+  it("never sends a text that is long enough back for its length - she is given the count and her length remarks are dropped", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
+    const db = testDatabase();
+    const event = await memberEvent(db, "Test", "Et roligt forløb.");
+    const seen: string[] = [];
+    const services = fakeServices({ ai: (_system, user) => { seen.push(user); return '{"criteria":{"formaal":true,"vaerdier":true,"aabent":true,"redeligt":true,"sprog":false,"tekst":true},"verdict":"board","note":"Beskrivelsen har kun 74 ord. Teksten gentager sig selv."}'; } });
+    await reviewPendingEvents(sagaEnv(db), deps(services.fetcher, NOW), db);
+    expect(seen[0]).toContain('"antal_ord":');
+    expect(await statusOf(db, event.id)).toMatchObject({ review_status: "needs_board", review_note: "Teksten gentager sig selv." });
+  });
+
   it("leaves the event pending when Saga cannot be reached, and does nothing at the weekend", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     const db = testDatabase();
