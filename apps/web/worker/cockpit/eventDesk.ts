@@ -1,6 +1,7 @@
 import { COVER_HEIGHT, COVER_WIDTH, checkUpload, coverSizeOk, type EventFileView, type EventMediaBucket } from "../event-files.js";
 import { checkVariety } from "../event-variety.js";
 import { MIN_EVENT_WORDS, wordCount } from "../../site/event-text.js";
+import { LENGTH_NOTE } from "../event-text.js";
 import type { D1Database } from "../db.js";
 import { completeAs } from "../saga/ai.js";
 import type { SagaDeps, SagaEnv } from "../saga/env.js";
@@ -36,7 +37,7 @@ export const EVENT_CRITERIA: ReadonlyArray<{ key: string; text: string }> = [
   // "vi har egentlig aftalt at hvis Saga godkender eventet så ryger det direkte på hjemmesiden". An event that names no audience is for everyone.
   // Requested: "Saga skal gå ind og vurdere eventet både i forhold til indhold og sprog, men ikke mindst i forhold til, at vi får en flot
   // eventtekst med et minimumsantal på 75 ord" (site/event-text.ts; the word count is also checked in the code below).
-  { key: "sprog", text: `Beskrivelsen er en flot eventtekst: klart og korrekt sprog (dansk eller engelsk), indbydende og konkret om forløbet, og mindst ${MIN_EVENT_WORDS} ord.` },
+  { key: "sprog", text: `Beskrivelsen er en flot eventtekst: klart og korrekt sprog (dansk eller engelsk), indbydende og konkret om forløbet. Længden tælles af systemet (antal_ord) - vurder den ikke, og nævn den ikke.` },
   { key: "tekst", text: "Titel og beskrivelse siger kort, hvad der sker. Arrangøren står i feltet arrangoer. Nævner teksten ikke, hvem eventet er for, så er det for alle - det er ikke en grund til at sende det til bestyrelsen. Kun en tom eller uforståelig beskrivelse opfylder ikke kriteriet." }
 ];
 
@@ -93,7 +94,7 @@ async function reviewOne(env: SagaEnv, deps: SagaDeps, db: D1Database, row: Pend
   try {
     verdict = readVerdict(await completeAs("event-review", "mid")(env, deps, [{ role: "system", content: REVIEW_SYSTEM }, { role: "user", content: JSON.stringify({
       titel: row.title, beskrivelse: (row.description ?? "").slice(0, 4000), arrangoer: row.teacher_name, start: WHEN.format(row.starts_at_ms), slut: WHEN.format(row.ends_at_ms),
-      lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees }) }]));
+      lejetype: row.booking_type, billetpris_kr: row.ticket_price_minor / 100, max_deltagere: row.max_attendees, antal_ord: wordCount(row.description) }) }]));
   } catch (error) {
     console.warn("saga_event_review_failed", error instanceof Error ? error.message : error);
     return "pending";
@@ -101,6 +102,11 @@ async function reviewOne(env: SagaEnv, deps: SagaDeps, db: D1Database, row: Pend
   // The minimum is counted, not judged: a text under it is not approved, whatever the model said.
   const words = wordCount(row.description);
   if (words < MIN_EVENT_WORDS && verdict.approve) verdict = { approve: false, note: `Beskrivelsen har ${words} ord - en eventtekst skal have mindst ${MIN_EVENT_WORDS}.` };
+  // Douglas (13 Nov 2026): "Saga says it is under 75 words, but it is actually 75 words" - a text long enough is never sent back for its length.
+  if (words >= MIN_EVENT_WORDS && !verdict.approve && LENGTH_NOTE.test(verdict.note)) {
+    const rest = verdict.note.split(/(?<=[.!?])\s+/).filter(sentence => !LENGTH_NOTE.test(sentence)).join(" ").trim();
+    verdict = { approve: false, note: rest || `Saga var i tvivl om teksten (den har ${words} ord, så længden er i orden).` };
+  }
   // Requested: "Saga løbende vurderer, at der ikke kommer for mange af samme type events i kalenderen" - a member who keeps a date
   // with too much of the same type is not refused; the board looks at it (event-variety.ts).
   if (verdict.approve) {
