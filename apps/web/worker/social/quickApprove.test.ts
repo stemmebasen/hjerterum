@@ -110,7 +110,7 @@ describe("Saga's link to approve a post", () => {
     expect(await chooseVideoTemplate(db, dans, 2, NOW + 2 * 86_400_000)).toBe("late");
     expect((await at(NOW + 2 * 86_400_000)(path, { method: "POST", body: form({ handling: "skabelon", skabelon: "2" }) })).headers.get("location")).toBe(`${path}?fejl=tid`);
     expect(templatesFor({ images: [], source: {} })).toEqual([2]);
-    expect(templatesFor({ images: ["a.jpg"], source: { quote: "Mod", portrait: "p.jpg" } })).toEqual([1, 2, 3, 4, 5, 7, 8, 10]);
+    expect(templatesFor({ images: ["a.jpg"], source: { quote: "Mod", portrait: "p.jpg" } })).toEqual([1, 2, 3, 4, 5, 7, 8, 10, 11]);
     const yogaPath = (await quickPath(env, yoga, NOW))!;
     await call(yogaPath, { method: "POST", body: form({ handling: "spring" }) });
     expect((await socialPost(db, yoga))!.status).toBe("skipped");
@@ -181,7 +181,7 @@ describe("Saga's link to approve a post", () => {
     const studio = (path: string, init: RequestInit = {}) => handleCockpitRequest(new Request(ORIGIN + path, { ...init, headers: { cookie, ...(init.method === "POST" ? { origin: ORIGIN, "content-type": "application/json" } : {}) } }), env, deps(fetch, NOW));
     const data = await (await studio(`/plakater/${HEX}/data`)).json() as { post: { videoTemplate: number; videoTemplates: Array<{ no: number; name: string; used: string }>; videoRemake: boolean } };
     expect(data.post).toMatchObject({ videoTemplate: 1, videoRemake: true });
-    expect(data.post.videoTemplates.map(t => t.no)).toEqual([1, 2, 3, 4, 5, 7]);
+    expect(data.post.videoTemplates.map(t => t.no)).toEqual([1, 2, 3, 4, 5, 7, 11]);
     expect(data.post.videoTemplates[0]).toMatchObject({ used: expect.stringMatching(/^sidst 4\. nov\.: Dans$/) });
     expect(data.post.videoTemplates[1]).toMatchObject({ used: "ikke brugt endnu" });
     expect((await studio(`/plakater/${HEX}/video`, { method: "POST", body: JSON.stringify({ template: 5 }) })).status).toBe(200);

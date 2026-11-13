@@ -1,9 +1,9 @@
 /** What a video is made from. The jobs (video/jobs.mjs) build these from the posts Saga has proposed, so a video says what the post says. */
 
 /** The templates the chair chose (4 Nov 2026), by their numbers in the preview: "6eren kan ikke bruges", "9eren kan ikke bruges". */
-export type TemplateNo = 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10;
+export type TemplateNo = 1 | 2 | 3 | 4 | 5 | 7 | 8 | 10 | 11;
 export const TEMPLATES: Record<TemplateNo, string> = {
-  1: "Organisk", 2: "Organisk uden foto", 3: "Plakat", 4: "Stribe", 5: "Polaroid", 7: "Nat", 8: "Citat", 10: "Mød underviseren",
+  1: "Organisk", 2: "Organisk uden foto", 3: "Plakat", 4: "Stribe", 5: "Polaroid", 7: "Nat", 8: "Citat", 10: "Mød underviseren", 11: "Billedets farver",
 };
 
 /** A picture copied in for the render (public/jobs/...), with its shape, so it is always shown whole. */
