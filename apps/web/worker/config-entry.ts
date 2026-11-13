@@ -106,6 +106,11 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
 
     const member = (request.method === "GET" || request.method === "HEAD") ? memberAddress(url) : null;
     if (member) return new Response(null, { status: 302, headers: { location: member, "cache-control": "no-store" } });
+    // Reported (the chair, 12 Nov 2026, a screenshot of "hjerterum.info - This site can't be reached"): the address without www sends on to the one
+    // the pages name as theirs (seo.ts) - once the bare domain is attached to the worker in Cloudflare.
+    if (url.hostname === "hjerterum.info" && (request.method === "GET" || request.method === "HEAD") && !url.pathname.startsWith("/api/")) {
+      return new Response(null, { status: 301, headers: { location: `https://www.hjerterum.info${url.pathname}${url.search}`, "cache-control": "public, max-age=86400" } });
+    }
 
     // Hjerterum Lys (apps/web/lys.ts): one top on every page, so the hands are served on every address, not only the cockpit's.
     if (url.pathname === "/logo.png" && (request.method === "GET" || request.method === "HEAD")) return logoResponse();

@@ -19,11 +19,13 @@ export const SITE = "https://www.hjerterum.info";
 const ADDRESS = { "@type": "PostalAddress", streetAddress: "Guldsmedgade 26B", postalCode: "8000", addressLocality: "Aarhus C", addressCountry: "DK" };
 const GEO = { "@type": "GeoCoordinates", latitude: 56.1593182, longitude: 10.2078481 };
 const FACEBOOK = "https://www.facebook.com/hjerterumaarhus";
+/** The account connected under PR og SoMe (social_account.ig_username). */
+const INSTAGRAM = "https://www.instagram.com/hjerterum_aarhus/";
 const ORG_ID = `${SITE}/#organisation`, PLACE_ID = `${SITE}/#huset`, SITE_ID = `${SITE}/#site`;
 const SHARE_IMAGE = `${SITE}/media/hjerterum-deling.jpg`;
 
 export const ORGANISATION = { "@type": "Organization", "@id": ORG_ID, name: "Hjerterum", legalName: "Hjerterum F.M.B.A.", url: SITE, logo: `${SITE}/logo.png`,
-  email: TEAM_MAIL, address: ADDRESS, location: { "@id": PLACE_ID }, sameAs: [FACEBOOK] };
+  email: TEAM_MAIL, address: ADDRESS, location: { "@id": PLACE_ID }, sameAs: [FACEBOOK, INSTAGRAM] };
 export const PLACE = { "@type": "Place", "@id": PLACE_ID, name: "Hjerterum", address: ADDRESS, geo: GEO, url: SITE };
 const WEBSITE = { "@type": "WebSite", "@id": SITE_ID, url: SITE, name: "Hjerterum", inLanguage: "da-DK", publisher: { "@id": ORG_ID } };
 
