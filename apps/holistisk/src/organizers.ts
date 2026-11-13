@@ -343,6 +343,60 @@ export const ALL_ORGANIZERS: OrganizerProfile[] = [
     activities: ["dans", "faellesskaber"],
     offerings: [],
     eventsNote: "Foreningens arrangementer hentes automatisk hver nat fra NemTilmeld."
+  },
+  // Added 2026-11-13 (Jake), found through migogaarhus.dk, aarhusguiden.dk and aarhusinside.dk.
+  {
+    slug: "tivoli-friheden",
+    name: "Tivoli Friheden",
+    about: "Forlystelsespark i Aarhus med foredrag og comedy i Hermans og koncerter på scenen året rundt.",
+    area: "aarhus", address: "Skovbrynet 5", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://friheden.dk/",
+    activities: ["foredrag", "koncerter", "scenekunst"],
+    offerings: [],
+    eventsNote: "Arrangementerne i Hermans og på scenen hentes automatisk hver nat fra friheden.dk."
+  },
+  {
+    slug: "aarhus-teater",
+    name: "Aarhus Teater",
+    about: "Byens store teater på Bispetorv med klassikere, ny dramatik, musicals og forestillinger for børn på fire scener.",
+    area: "aarhus", address: "Teatergaden", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://www.aarhusteater.dk/",
+    activities: ["scenekunst"],
+    offerings: [],
+    eventsNote: "Teatrets spilleplan hentes automatisk hver nat."
+  },
+  {
+    slug: "moesgaard-museum",
+    name: "Moesgaard Museum",
+    about: "Museum for arkæologi og etnografi syd for Aarhus med foredrag, naturvandringer og særlige dage ud over udstillingerne.",
+    area: "aarhus", address: "Moesgård Allé 15", postalCode: "8270", city: "Højbjerg", lat: null, lon: null,
+    website: "https://moesgaardmuseum.dk/",
+    activities: ["foredrag", "kunst"],
+    offerings: [],
+    eventsNote: "Museets kalender hentes automatisk hver nat. De daglige omvisninger er ikke med."
+  },
+  {
+    slug: "oest-for-paradis",
+    name: "Øst for Paradis",
+    about: "Art cinema i Paradisgade med premierer med oplæg, filmklubber, festivaler og et glas vin efter filmen.",
+    area: "aarhus", address: "Paradisgade 7-9", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://www.paradisbio.dk/",
+    activities: ["kunst", "foredrag"],
+    offerings: [],
+    eventsNote: "Biografens events hentes automatisk hver nat. Almindelige visninger er ikke med."
+  },
+  {
+    slug: "tir-na-nog",
+    name: "Tir na nÓg",
+    about: "Irsk pub i Frederiksgade med pubquiz hver torsdag, livemusik torsdag til lørdag og sport på skærmene.",
+    area: "aarhus", address: "Frederiksgade 38-42", postalCode: "8000", city: "Aarhus C", lat: null, lon: null,
+    website: "https://www.tirnanog.dk/",
+    activities: ["quiz-og-fest", "koncerter"],
+    offerings: [
+      { text: "Pubquiz i The Tap Room hver torsdag kl. 19 (kom senest 18 for at få bord)", source: "https://www.tirnanog.dk/sport-og-events/",
+        schedule: { title: "Pubquiz på Tir na nÓg", days: [3], start: "19:00", about: "Pubquiz i The Tap Room på Tir na nÓg hver torsdag kl. 19. Kom senest kl. 18, hvis I vil være sikre på et bord.", categories: ["quiz-fest"] } }
+    ],
+    eventsNote: "Pubquizzen står fast hver torsdag. Pubbens øvrige program ligger kun som plakat, så det hentes ikke."
   }
 ];
 
