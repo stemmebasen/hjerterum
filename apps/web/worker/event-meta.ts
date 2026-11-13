@@ -36,9 +36,9 @@ export async function eventMeta(db: D1Database | undefined, id: string, fetcher:
     if (!row) return null;
     const image = row.design_at ? designUrl(row.id, row.design_at) : row.cover_id ? `/api/event-files/${row.cover_id}` : "/media/hjerterum-deling.jpg";
     return { title: row.title, url: `${SITE}/events/h${row.id}`, image: `${SITE}${image}`,
-      description: short(`${when(new Date(row.starts_at_ms).toISOString())} i Hjerterum, Aarhus · med ${row.teacher_name}. ${row.description ?? ""}`, 300),
+      description: short(`${when(new Date(row.starts_at_ms).toISOString())} i Hjerterum, Aarhus · med ${row.teacher_name}. ${(row.description ?? "").split("\n").map(plainLine).join(" ")}`, 300),
       startsAt: new Date(row.starts_at_ms).toISOString(), endsAt: new Date(row.ends_at_ms).toISOString(), host: row.teacher_name,
-      paragraphs: (row.description ?? "").split(/\n+/).map(l => l.trim()).filter(Boolean),
+      paragraphs: (row.description ?? "").split(/\n+/).map(l => plainLine(l.trim())).filter(Boolean),
       prices: { memberKr: row.ticket_price_minor / 100, nonMemberKr: (row.non_member_price_minor ?? row.ticket_price_minor) / 100, full: row.max_attendees !== null && row.taken >= row.max_attendees } };
   }
   const detail = await eventDetail(id, fetcher, nowMs).catch(() => null);

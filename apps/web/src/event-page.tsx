@@ -85,8 +85,11 @@ function Line({ text }: { text: string }) {
   if (/^[-–—_*\s]{3,}$/.test(text)) return <hr className="event-rule" />;
   if (text.length <= 48 && /:$/.test(text)) return <h3 className="event-subhead">{text.slice(0, -1)}</h3>;
   // Links from the old system keep their address (site/event-links.ts); bare addresses become links as before.
-  return <p className={text.startsWith("• ") ? "event-bullet" : undefined}>
-    {linkParts(text).map((part, i) => part.href ? <a key={i} href={part.href} {...(part.href.startsWith("mailto:") ? {} : { target: "_blank", rel: "noreferrer nofollow" })}>{part.text}</a> : part.text)}
+  // A list line from the event form ("- " or "* ") reads as the old calendar's "• " (site/event-links.ts: fed, kursiv, lister og links).
+  const line = /^[-*]\s+/.test(text) ? text.replace(/^[-*]\s+/, "• ") : text;
+  return <p className={line.startsWith("• ") ? "event-bullet" : undefined}>
+    {linkParts(line).map((part, i) => part.href ? <a key={i} href={part.href} {...(part.href.startsWith("mailto:") ? {} : { target: "_blank", rel: "noreferrer nofollow" })}>{part.text}</a>
+      : part.strong ? <strong key={i}>{part.text}</strong> : part.em ? <em key={i}>{part.text}</em> : part.text)}
   </p>;
 }
 

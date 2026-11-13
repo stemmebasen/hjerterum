@@ -7,10 +7,12 @@ import { attendRoomBooking } from "./room-bookings.js";
  * non-members waits for the payment, as it does for a signed-in non-member (non_member_payment_unavailable). */
 
 export type PublicEventRow = { id: number; title: string; description: string | null; teacher_name: string; starts_at_ms: number; ends_at_ms: number;
-  max_attendees: number | null; ticket_price_minor: number; non_member_price_minor: number | null; taken: number };
+  max_attendees: number | null; ticket_price_minor: number; non_member_price_minor: number | null; taken: number;
+  /** The organiser's own words to those who sign up (event-signup-mail.ts). */
+  confirmation_note?: string | null };
 
 export async function publicEvent(db: D1Database, id: number): Promise<PublicEventRow | null> {
-  return db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.ticket_price_minor, b.non_member_price_minor,
+  return db.prepare(`SELECT b.id, b.title, b.description, b.teacher_name, b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.ticket_price_minor, b.non_member_price_minor, b.confirmation_note,
       (SELECT COUNT(*) FROM room_booking_attendees a WHERE a.room_booking_id = b.id AND a.registration_status IN ('pending', 'confirmed')) AS taken
     FROM room_bookings b WHERE b.id = ? AND b.status = 'scheduled' AND COALESCE(b.review_status, 'approved') = 'approved'`).bind(id).first<PublicEventRow>();
 }
@@ -44,9 +46,11 @@ export async function signUpGuest(db: D1Database, id: number, sent: Record<strin
 /** The guest's receipt, through the same sender as the login mails (Resend). Nothing is sent when it is not set up; the page has said it already. */
 export async function guestReceipt(env: { RESEND_API_KEY?: string; RESEND_FROM_EMAIL?: string }, fetcher: typeof fetch, event: PublicEventRow, guest: { name: string; email: string }, pageUrl: string): Promise<void> {
   if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) return;
+  const note = event.confirmation_note?.trim() || null;
   const when = new Intl.DateTimeFormat("da-DK", { timeZone: "Europe/Copenhagen", weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).format(event.starts_at_ms);
-  const text = `Kære ${guest.name}\n\nDu er tilmeldt "${event.title}" ${when.replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2")} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.\n\nLæs om eventet: ${pageUrl}\n\nKan du ikke komme alligevel, så skriv til team@hjerterum.info, så en anden kan få pladsen.\n\nVarme hilsner\nHjerterum`;
+  const text = `Kære ${guest.name}\n\nDu er tilmeldt "${event.title}" ${when.replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2")} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.\n\n${note ? `Besked fra ${event.teacher_name}:\n${note}\n\n` : ""}Læs om eventet: ${pageUrl}\n\nKan du ikke komme alligevel, så skriv til team@hjerterum.info, så en anden kan få pladsen.\n\nVarme hilsner\nHjerterum`;
   const html = `<p>Kære ${escapeHtml(guest.name)}</p><p>Du er tilmeldt <b>${escapeHtml(event.title)}</b> ${escapeHtml(when.replace(/(\d{2})[.:](\d{2})$/, "kl. $1.$2"))} i Hjerterum, Guldsmedgade 26B, 8000 Aarhus C.</p>`
+    + (note ? `<p><b>Besked fra ${escapeHtml(event.teacher_name)}:</b><br>${escapeHtml(note).replace(/\n/g, "<br>")}</p>` : "")
     + `<p><a href="${escapeHtml(pageUrl)}">Læs om eventet</a></p><p>Kan du ikke komme alligevel, så skriv til <a href="mailto:team@hjerterum.info">team@hjerterum.info</a>, så en anden kan få pladsen.</p><p>Varme hilsner<br>Hjerterum</p>`;
   const sent = await fetcher("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json",
     "idempotency-key": `guest-signup/${event.id}/${guest.email}` }, body: JSON.stringify({ from: env.RESEND_FROM_EMAIL, to: [guest.email], reply_to: "team@hjerterum.info", subject: `Du er tilmeldt: ${event.title}`, text, html }) }).catch(() => null);
