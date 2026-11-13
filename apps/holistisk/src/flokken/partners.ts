@@ -27,7 +27,7 @@ export type PartnerOffer = {
 
 export const KIND_LABELS: Record<OfferKind, string> = {
   reserved_seats: "Reserverede pladser",
-  meeting_point: "Mødested før eventet",
+  meeting_point: "Mødested før arrangementet",
   welcome_drink: "Kaffe eller velkomstdrink",
   other: "Ekstra for flokke"
 };
@@ -92,22 +92,22 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
     ${crumbsNav(crumbs)}
     <p class="kicker">For foreninger og kultursteder</p>
     <h1>Få flere med – sammen med Flokken</h1>
-    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde events og nogen at følges med. Det er lettere at tage af sted, når man har nogen at følges med – og en flok kan blive til flere besøg hos jer.</p>
+    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde arrangementer og nogen at følges med. Det er lettere at tage af sted, når man har nogen at følges med – og en flok kan blive til flere besøg hos jer.</p>
   </header>
   <h2>Sådan er modellen tænkt</h2>
   <ol class="steps">
-    <li><strong>Vil I være med på siden, så <a href="mailto:${organiserEmail(ctx)}">kontakt os</a></strong> på ${organiserEmail(ctx)} eller via formularen herunder – så viser vi jeres events i kalenderen, på kortet og på eventsiderne, hvor flokkene bliver dannet.</li>
+    <li><strong>Vil I være med på siden, så <a href="mailto:${organiserEmail(ctx)}">kontakt os</a></strong> på ${organiserEmail(ctx)} eller via formularen herunder – så viser vi jeres arrangementer i kalenderen, på kortet og på arrangementernes egne sider, hvor flokkene bliver dannet.</li>
     <li><strong>Mulighed for radioomtale og anden promovering</strong> – vi er ved at bygge samarbejder op og aftaler det konkret med hver enkelt.</li>
   </ol>
   <h2>Valgfrie oplevelser for flokke</h2>
   <p>I kan også vælge at gøre det lettere at komme som flok. Vi viser kun det, som I har bekræftet:</p>
   <ul>
     <li>Reserverede pladser til flokke</li>
-    <li>Et fast mødested før eventet</li>
+    <li>Et fast mødested før arrangementet</li>
     <li>Kaffe eller en velkomstdrink</li>
   </ul>
-  <h2>Sådan kommer jeres events med</h2>
-  <p>Flokken henter hver nat events fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede eventdata på jeres hjemmeside, kan vi tage den med – så I ikke skal skrive noget to steder.</p>
+  <h2>Sådan kommer jeres arrangementer med</h2>
+  <p>Flokken henter hver nat arrangementer fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede data om jeres arrangementer på jeres hjemmeside, kan vi tage den med – så I ikke skal skrive noget to steder.</p>
   <h2 id="kontakt">Skriv til os</h2>
   ${state.sent ? html`<p class="flash" role="status">Tak for jeres henvendelse. Vi vender tilbage.</p>` : html`
   ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
@@ -122,5 +122,5 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
     <p class="small meta-muted">Vi gemmer kun det, I skriver her, for at kunne svare jer.</p>
   </form>`}
 </div>`;
-  return { status: state.status ?? 200, ...(state.sent || state.errors ? { headers: { "cache-control": "no-store" } } : {}), body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Vil I have jeres events med på Flokken? Kontakt os – og hør om mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, ...(state.sent || state.errors ? { headers: { "cache-control": "no-store" } } : {}), body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Vil I have jeres arrangementer med på Flokken? Kontakt os – og hør om mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
 }

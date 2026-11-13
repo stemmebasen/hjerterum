@@ -26,7 +26,7 @@ const get = (path: string, e: Env = env) => handle(new Request(`https://portal.e
 const text = async (path: string, e?: Env) => { const r = await get(path, e); return { status: r.status, body: await r.text(), headers: r.headers }; };
 /** Titles in the calendar's rows. */
 const rows = (body: string) => [...body.matchAll(/<span class="row-title">([^<]+)<\/span>/g)].map(m => m[1]);
-const count = (body: string) => Number(/class="results-count"[^>]*>(\d+) events?</.exec(body)?.[1] ?? NaN);
+const count = (body: string) => Number(/class="results-count"[^>]*>(\d+) arrangement(?:er)?</.exec(body)?.[1] ?? NaN);
 
 describe("about page", () => {
   it("presents Flokken as a social association: two aims, who it is for, values, an English summary", async () => {
@@ -55,7 +55,7 @@ describe("cancelled events", () => {
       expect((await text("/")).body).not.toContain(`/${row.slug}"`);
       const own = await text(`/events/${row.slug}`);
       expect(own.status).toBe(200);
-      expect(own.body).toContain("Arrangøren har meldt dette event aflyst.");
+      expect(own.body).toContain("Arrangøren har meldt dette arrangement aflyst.");
     } finally {
       db.raw.prepare("UPDATE events SET status = 'scheduled' WHERE slug = ?").run(row.slug);
     }
@@ -67,11 +67,11 @@ describe("front page", () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
     expect(body).toContain('<h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
-    expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ events? – dag for dag<\/span>/);
+    expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ arrangement(er)? – dag for dag<\/span>/);
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ events? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg er interesseret(&quot;|")\. Så samler vi en lille flok, du kan følges med\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ arrangement(er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg er interesseret(&quot;|")\. Så samler vi en lille flok, du kan følges med\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
@@ -92,7 +92,7 @@ describe("front page", () => {
     // No "Spar på billetten" (Jake 2026-11-10): it promised a saving we don't give.
     expect(body).not.toMatch(/spar på billetten/i);
     expect(body).toContain('href="/gratis-og-billigt"');
-    expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
+    expect(body).toContain("<title>Flokken – find arrangementer i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
     expect(body).toContain('class="card ticket');
@@ -155,7 +155,7 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20event%20p%C3%A5%20Socialklubben">klik her</a>');
+    expect(body).toContain('Mangler dit arrangement på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20arrangement%20p%C3%A5%20Socialklubben">klik her</a>');
     expect(body).not.toContain("Testversion");
   });
 
@@ -223,7 +223,7 @@ describe("the calendar", () => {
     const weekend = await text("/weekend");
     expect(weekend.body).toContain("<h1>Det sker i weekenden i Østjylland</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Events i Østjylland – Flokken</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Arrangementer i Østjylland – Flokken</title>");
   });
 });
 
@@ -268,8 +268,8 @@ describe("landing pages: activity, then city", () => {
 
   it("a city's page", async () => {
     const { body } = await text("/aarhus");
-    expect(body).toContain("<h1>Events i Aarhus</h1>");
-    expect(body).toContain("<title>Hvad sker der i Aarhus? Events og flokke – Flokken</title>");
+    expect(body).toContain("<h1>Arrangementer i Aarhus</h1>");
+    expect(body).toContain("<title>Hvad sker der i Aarhus? Arrangementer og flokke – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
     expect(body).toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");

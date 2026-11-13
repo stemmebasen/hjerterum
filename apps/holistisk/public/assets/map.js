@@ -80,7 +80,7 @@
       var events = [].concat.apply([], c.places.map(function (p) { return p.events; }));
       var flocks = events.reduce(function (n, e) { return n + e.n; }, 0);
       var lead = c.places[0];
-      var label = c.places.length > 1 ? c.places.length + " steder, " + events.length + " events" : (lead.name || "Sted") + ", " + events.length + (events.length === 1 ? " event" : " events");
+      var label = c.places.length > 1 ? c.places.length + " steder, " + events.length + " arrangementer" : (lead.name || "Sted") + ", " + events.length + (events.length === 1 ? " arrangement" : " arrangementer");
       var icon = L.divIcon({
         className: "pin-wrap",
         html: '<span class="pin ' + (flocks ? "pin-flock" : "pin-event") + '">' + (flocks ? ICONS.flock : ICONS.event) + (events.length > 1 ? "<b>" + events.length + "</b>" : "") + "</span>",
@@ -120,7 +120,7 @@
       b.type = "button";
       b.className = "day-bar" + (state.day === d.d ? " is-selected" : "") + (i === 0 ? " is-today" : "");
       b.setAttribute("aria-pressed", state.day === d.d ? "true" : "false");
-      b.setAttribute("aria-label", d.label + ": " + n + (n === 1 ? " event" : " events"));
+      b.setAttribute("aria-label", d.label + ": " + n + (n === 1 ? " arrangement" : " arrangementer"));
       var col = document.createElement("span"); col.className = "bar-col";
       var fill = document.createElement("span"); fill.className = "bar-fill"; fill.style.height = Math.max(n ? 8 : 3, Math.round(n / max * 100)) + "%";
       col.appendChild(fill);
@@ -133,7 +133,7 @@
     var day = data.days.filter(function (d) { return d.d === state.day; })[0];
     var total = data.events.filter(function (e) { return matches(e, false) && inView(e); }).length;
     $("[data-day-label]").textContent = day ? day.label : "De næste " + data.days.length + " dage";
-    $("[data-count]").textContent = total + (total === 1 ? " event" : " events") + (state.kind === "flokke" ? " med en flok" : state.kind === "gratis" ? " gratis" : "") + " her";
+    $("[data-count]").textContent = total + (total === 1 ? " arrangement" : " arrangementer") + (state.kind === "flokke" ? " med en flok" : state.kind === "gratis" ? " gratis" : "") + " her";
     $("[data-all-days]").hidden = !state.day;
   }
   var chips = $("[data-chips]");

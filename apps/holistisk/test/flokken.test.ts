@@ -348,7 +348,7 @@ describe("served under www.jacobhauge.com", () => {
     const home = await call("/", { headers: sk });
     expect(home.body).toContain("<span>Socialklubben</span>");
     expect(home.body).toContain("Sådan virker Socialklubben");
-    expect(home.body).toContain("<title>Socialklubben – find events");
+    expect(home.body).toContain("<title>Socialklubben – find arrangementer");
     expect(home.body).toContain('content="https://www.jacobhauge.com/socialklubben/assets/og-socialklubben.jpg"');
     expect(home.body).toContain('href="/socialklubben/find-en-flok"');
     expect(home.body).not.toContain("Flokken");
@@ -728,11 +728,11 @@ describe("Lad os komme godt i gang", () => {
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
     expect(r.body).toContain("<strong>Det er helt uforpligtende</strong>");
     expect(r.body).toContain("Du binder dig ikke til noget.");
-    expect(r.body).toContain('<details class="kickoff-details"><summary>Se mere om eventet</summary>');
+    expect(r.body).toContain('<details class="kickoff-details"><summary>Se mere om arrangementet</summary>');
     const items = JSON.parse((await call("/api/kom-godt-i-gang")).body) as { events: Array<{ blurb: string; image: string | null }> };
     expect(items.events.some(e => e.blurb.length > 20)).toBe(true);
     expect((await choose([])).headers.get("location")).toBe("/kom-godt-i-gang?besked=intet_valgt");
-    expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét event først.");
+    expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét arrangement først.");
     expect((await call("/find-en-flok")).body).toContain('<a href="/kom-godt-i-gang">Lad os komme godt i gang</a>');
   });
 });

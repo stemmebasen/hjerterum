@@ -62,7 +62,7 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kort", path: "/kort" }];
   const body = html`
 <div class="map-page" data-map-page>
-  <div class="map" data-map role="region" aria-label="Kort over kommende events"></div>
+  <div class="map" data-map role="region" aria-label="Kort over kommende arrangementer"></div>
   <button class="map-locate" type="button" data-locate hidden aria-label="Vis hvor jeg er"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4l7 2.1 2 7 7.7-16Z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
   <section class="map-sheet" data-sheet aria-labelledby="map-title">
     <div class="sheet-overview" data-overview>
@@ -75,21 +75,21 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
         </div>
       </div>
       <div class="day-bars" data-days role="group" aria-label="Vælg en dag"></div>
-      <p class="sheet-count"><strong data-day-label>De næste ${MAP_DAYS} dage</strong> · <span data-count>${data.events.length} events</span> <button class="link-button" type="button" data-all-days hidden>Alle ${MAP_DAYS} dage</button></p>
+      <p class="sheet-count"><strong data-day-label>De næste ${MAP_DAYS} dage</strong> · <span data-count>${data.events.length} arrangementer</span> <button class="link-button" type="button" data-all-days hidden>Alle ${MAP_DAYS} dage</button></p>
       <div class="map-chips" data-chips role="group" aria-label="Aktivitet"></div>
     </div>
     <div class="sheet-place" data-place-view hidden>
       <div class="sheet-head"><button class="back-button" type="button" data-back aria-label="Tilbage til oversigten">←</button><h2 class="sheet-title" data-place-name></h2></div>
       <ol class="sheet-list" data-list></ol>
     </div>
-    <noscript><p>Kortet kræver JavaScript. <a href="/kalender">Se alle events i kalenderen</a>.</p></noscript>
+    <noscript><p>Kortet kræver JavaScript. <a href="/kalender">Se alle arrangementer i kalenderen</a>.</p></noscript>
   </section>
 </div>
 <script type="application/json" id="kort-data">${jsonScript(data)}</script>`;
   return {
     status: 200,
     body: page(ctx, {
-      title: `Kort over events i ${ctx.regionLabel}`,
+      title: `Kort over arrangementer i ${ctx.regionLabel}`,
       description: `Se de næste ${MAP_DAYS} dages koncerter, foredrag, workshops og flokke i ${ctx.regionLabel} på et kort – dag for dag, gratis eller med en flok.`,
       canonical: "/kort", breadcrumbs: crumbs, bare: true,
       styles: ["/assets/vendor/leaflet/leaflet.css?v=1.9.4"],
