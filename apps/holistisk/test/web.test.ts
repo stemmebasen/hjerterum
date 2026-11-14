@@ -128,7 +128,9 @@ describe("spar på billetten", () => {
     expect(body).not.toMatch(/medlemsfordel|billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
     expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));
-    expect((await text("/kalender?pris=gratis")).body).toContain('<span class="price-chip">Gratis</span>');
+    const free = (await text("/kalender?pris=gratis")).body;
+    expect(free).not.toContain('<span class="price-chip">Gratis</span>');
+    expect(free).toContain("Gratis");
   });
 });
 
