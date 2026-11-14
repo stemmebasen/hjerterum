@@ -173,9 +173,9 @@
       var title = document.createElement("span"); title.className = "item-title"; title.textContent = e.t;
       var meta = document.createElement("span"); meta.className = "item-meta";
       meta.textContent = [group.length > 1 ? e.v : "", e.k].filter(Boolean).join(" · ");
-      var flock = document.createElement("span"); flock.className = "item-flock" + (e.n ? " has-flock" : "");
-      flock.textContent = e.n ? e.n + (e.n === 1 ? " flok" : " flokke") : "Opret en flok";
-      a.appendChild(when); a.appendChild(title); if (meta.textContent) a.appendChild(meta); a.appendChild(flock);
+      var flock = document.createElement("span"); flock.className = "item-flock has-flock";
+      flock.textContent = e.n + (e.n === 1 ? " flok" : " flokke");
+      a.appendChild(when); a.appendChild(title); if (meta.textContent) a.appendChild(meta); if (e.n) a.appendChild(flock);
       li.appendChild(a);
       list.appendChild(li);
     });
