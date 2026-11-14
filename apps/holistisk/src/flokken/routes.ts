@@ -207,7 +207,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     await saveInterests(db, m.id, slugs, shown, regions, now);
     return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
   }
-  // "Jeg er interesseret" on an event page: the interest list's tick for that one event. A newcomer first becomes a
+  // "Jeg vil gerne med!" on an event page: the interest list's tick for that one event. A newcomer first becomes a
   // member and fills in the profile with an e-mail; the tick waits in the choice cookie and is saved on the way back.
   const tick = /^\/events\/([a-z0-9-]{1,90})\/interesse(\/fjern)?$/.exec(path);
   if (tick) {

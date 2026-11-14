@@ -106,7 +106,7 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
     <h2>Fem gode første skridt</h2>
     <ol>
       <li><strong>Se, hvad der sker.</strong> <a href="/kalender">Kalenderen</a> samler events fra byens scener, spillesteder, biblioteker og foreninger – opdateret hver nat. Start med <a href="/i-dag">det sker i dag</a> eller <a href="/weekend">i weekenden</a>.</li>
-      <li><strong>Vælg det, du har lyst til.</strong> Tryk <strong>Jeg er interesseret</strong> ved et event, så samler vi en lille flok, du kan følges med.</li>
+      <li><strong>Vælg det, du har lyst til.</strong> Tryk <strong>Jeg vil gerne med!</strong> ved et event, så samler vi en lille flok, du kan følges med.</li>
       <li><strong>Find noget fast.</strong> En ugentlig aktivitet giver de samme ansigter igen og igen – og så kommer venskaberne lettere. Se <a href="/arrangoerer">byens arrangører</a> og deres faste tilbud.</li>
       <li><strong>Det skal ikke koste en formue.</strong> Der sker meget i Aarhus, som er <a href="/gratis-og-billigt">gratis eller billigt</a>.</li>
       <li><strong>Kig ud over midtbyen.</strong> Der sker også meget uden for centrum – se listen over byer nedenfor.</li>
@@ -116,7 +116,7 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <section class="section prose guide-text" aria-labelledby="h-en" lang="en">
     <h2 id="h-en">New in Aarhus?</h2>
-    <p>Welcome! Flokken is a social club for anyone who wants to get out, meet new people and share an experience. Pick an event, tap <strong>Jeg er interesseret</strong> (I'm interested), and we gather a small group you can go with. You meet outside in front of a well-known spot and walk in together. Plenty of concerts, workshops and walks need no Danish at all, and you are always welcome to write in English in your group.</p>
+    <p>Welcome! Flokken is a social club for anyone who wants to get out, meet new people and share an experience. Pick an event, tap <strong>Jeg vil gerne med!</strong> (I'd like to come along), and we gather a small group you can go with. You meet outside in front of a well-known spot and walk in together. Plenty of concerts, workshops and walks need no Danish at all, and you are always welcome to write in English in your group.</p>
   </section>
   ${section("h-cities", "Events i din by", chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place }))))}
   ${otherGuides(path)}
@@ -153,7 +153,7 @@ export async function thingsToDoPage(db: D1Database, ctx: PageContext, regions: 
   })}
   <div class="prose guide-text">
     <h2>Mere sjovt sammen</h2>
-    <p>Det er nemmere at tage afsted, når man ved, at andre venter på en. Tryk <strong>Jeg er interesseret</strong> ved et event, så samler vi en lille flok, der mødes udenfor og går ind sammen. <a href="/moed-nye-mennesker">Læs, hvordan det virker</a>.</p>
+    <p>Det er nemmere at tage afsted, når man ved, at andre venter på en. Tryk <strong>Jeg vil gerne med!</strong> ved et event, så samler vi en lille flok, der mødes udenfor og går ind sammen. <a href="/moed-nye-mennesker">Læs, hvordan det virker</a>.</p>
   </div>
   ${otherGuides(path)}
 </div>`;
