@@ -139,7 +139,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   <div class="wrap hero-inner">
     <div class="hero-text">
       <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
-      <p class="standfirst">Vi vil have flere ud at opleve byen sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg er interesseret". Så samler vi en lille flok, du kan følges med.</p>
+      <p class="standfirst">Vi vil have flere ud at opleve byen sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
       ${searchForm(areas, {})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>
@@ -517,7 +517,6 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
-        ${e.status === "scheduled" && e.starts_at > ctx.now && !myFlockId && !interest?.mine ? html`<p class="interest-explain"><strong>Jeg er interesseret</strong> i at deltage i en flok: når I er nogle stykker, samler vi en lille flok, du kan følges med.</p>` : ""}
         ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
       </div>
     </div>

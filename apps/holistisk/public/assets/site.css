@@ -333,11 +333,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .for-you .for-you-why { font-size: .86rem; color: var(--muted); margin: -10px 0 16px; }
 .for-you .for-you-why a { color: var(--muted); }
 .row-img { width: 104px; height: 76px; object-fit: contain; background: var(--paper-2); border-radius: var(--radius-s); border: 2px solid var(--ink); }
-/* "Jeg er interesseret" under a row, in line with the text column, and at the foot of a card. */
-/* The button and "i at deltage i en flok" read as one sentence: the line sits centred under the button. */
+/* "Jeg vil gerne med!" under a row, in line with the text column, and at the foot of a card. */
+/* The button with "(Klik for at blive talt med i flokken)" centred under it. */
 .interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: center; }
-.interest-hint { font-size: .86rem; font-weight: 700; color: var(--green-2); }
-.interest-explain { font-size: .92rem; color: var(--ink-2); margin: 4px 0 8px; max-width: 520px; }
+.interest-hint { font-size: .84rem; font-weight: 700; color: var(--green-2); }
 .interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
 .row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
 .card.ticket { display: flex; flex-direction: column; }
@@ -437,6 +436,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 230px)); gap: 12px; margin: 18px 0 6px; }
 .event-actions > a, .event-actions button { width: 100%; justify-content: center; text-align: center; }
 .event-actions .inline-form { margin: 0; }
+.event-actions { align-items: start; }
+.event-actions .interest-form { display: flex; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
 .event-calendar { margin: 0 0 8px; font-size: .9rem; }
 .event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }

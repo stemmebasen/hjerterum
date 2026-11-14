@@ -1,5 +1,5 @@
 import type { EventRow } from "../web/queries.js";
-import { eventPath, placeLine, seats } from "../web/components.js";
+import { eventPath, INTEREST_HINT, placeLine, seats } from "../web/components.js";
 import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
@@ -11,7 +11,7 @@ import type { SignupErrors, SignupForm } from "./membership.js";
 import { meetingPointByPlace } from "./meetingPoints.js";
 import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
-/** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg er interesseret, start selv en flok,
+/** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg vil gerne med!, start selv en flok,
  * Bliv en del af flokken. */
 
 export type View = { status: number; body: string; headers?: Record<string, string> };
@@ -45,7 +45,7 @@ const MESSAGES: Record<string, string> = {
   profil_gemt: "Din profil er gemt.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Eventet er fjernet fra din liste.",
-  interesse_her: "Tak! Du er på listen – helt uforpligtende. Når vi er en håndfuld, samler vi en flok og skriver til dig.",
+  interesse_her: "Tak! Du har nu vist interesse for at deltage til eventet – helt uforpligtende. Når vi har samlet ml. 4-6 mennesker, får du en mail og 48 timer til at sige ja. Husk, du selv skal købe billetten.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."
 };
@@ -108,7 +108,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   };
   const inFlock = !!(myFlockId && member);
   const count = interest.others > 0 ? html` <span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
-  // The tick itself is the "Jeg er interesseret" button at the top of the event page (interestButton). The panel
+  // The tick itself is the "Jeg vil gerne med!" button at the top of the event page (interestButton). The panel
   // explains it, shows how many others are interested and lets you take it back.
   const tick = (): SafeHtml => {
     if (interest.mine === "waiting") return html`<div class="flock-interest is-on">
@@ -123,7 +123,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
   <div class="flock-panel-head">
     <h2 id="h-flokke">Vil du med?</h2>
-    ${canStart && !inFlock ? html`<p>Tryk <strong>Jeg er interesseret</strong>, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
+    ${canStart && !inFlock ? html`<p>Tryk <strong>Jeg vil gerne med!</strong>, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
   </div>
   ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
@@ -137,7 +137,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 </section>`;
 }
 
-/** The "Jeg er interesseret" button beside "Køb billet" at the top of the event page: the interest list's tick for
+/** The "Jeg vil gerne med!" button beside "Køb billet" at the top of the event page: the interest list's tick for
  * this one event. Once ticked (or in a flock) it turns into where you stand, linking down to the panel. Nothing when
  * the event can no longer be joined. */
 export function interestButton(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
@@ -145,7 +145,7 @@ export function interestButton(e: EventRow, member: Member | null, myFlockId: st
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
   if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
   if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>`;
-  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
 }
 
 // ————————————————————————————————————————— A flock's own page
@@ -319,7 +319,7 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
   ${extra.interests ?? ""}
   <section class="section" aria-labelledby="h-up">
     <div class="section-head"><h2 id="h-up">Kommende</h2></div>
-    ${upcoming.length ? html`<ul class="flock-list">${upcoming.map(row)}</ul>` : html`<p class="empty">Du er ikke i nogen flok endnu. <a href="/kalender">Find et event</a>, og tryk <strong>Jeg er interesseret</strong> under <strong>Vil du med?</strong>.</p>`}
+    ${upcoming.length ? html`<ul class="flock-list">${upcoming.map(row)}</ul>` : html`<p class="empty">Du er ikke i nogen flok endnu. <a href="/kalender">Find et event</a>, og tryk <strong>Jeg vil gerne med!</strong> under <strong>Vil du med?</strong>.</p>`}
   </section>
   ${past.length ? html`<section class="section" aria-labelledby="h-past">
     <div class="section-head"><h2 id="h-past">Tidligere</h2></div>
@@ -496,7 +496,7 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Vil du med?</h1>
-    <p class="standfirst">Sæt kryds ved de events, du har lyst til at opleve sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig – først dér siger du ja. Find eventet i <a href="/kalender">kalenderen</a> og tryk <strong>Jeg er interesseret</strong>, eller vælg flere på én gang: <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
+    <p class="standfirst">Sæt kryds ved de events, du har lyst til at opleve sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig – først dér siger du ja. Find eventet i <a href="/kalender">kalenderen</a> og tryk <strong>Jeg vil gerne med!</strong>, eller vælg flere på én gang: <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
   </header>
   ${flocks.length ? html`<section class="section" aria-labelledby="h-open"><div class="section-head"><h2 id="h-open">Flokke med plads lige nu</h2></div>${flockCards(flocks, ctx.now)}</section>` : ""}
   <section class="section" aria-labelledby="h-how"><div class="section-head"><h2 id="h-how">Sådan virker en flok</h2></div>${howItWorks}</section>
