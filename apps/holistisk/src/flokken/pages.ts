@@ -80,7 +80,7 @@ export const flash = (code: string | null): SafeHtml => {
   return ok ? html`<p class="flash" role="status">${ok}</p>` : err ? html`<p class="flash flash-error" role="alert">${err}</p>` : html``;
 };
 
-const trustLine = html`<p class="trust-line">Flokke mødes et offentligt sted. Kun dem i flokken ser dit fornavn, din alder og din linje om dig selv, og du kan altid forlade en flok. <a href="/tryghed">Sådan holder vi det trygt</a></p>`;
+const trustLine = html`<p class="trust-line">I mødes et offentligt sted, og kun flokken ser, hvem du er. <a href="/tryghed">Sådan holder vi det trygt</a></p>`;
 
 // ————————————————————————————————————————— On the event page
 
@@ -112,7 +112,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   // explains it, shows how many others are interested and lets you take it back.
   const tick = (): SafeHtml => {
     if (interest.mine === "waiting") return html`<div class="flock-interest is-on">
-      <p class="flock-interest-state"><strong>Du er på listen.</strong> Vi skriver, når der er en flok.${count}</p>
+      <p class="flock-interest-state"><strong>Du er på listen.</strong> Vi giver besked, når flokken er samlet.${count}</p>
       <form method="post" action="${interestPath}/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>
     </div>`;
     if (interest.mine === "invited") return html`<div class="flock-interest is-on">
@@ -123,7 +123,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
   <div class="flock-panel-head">
     <h2 id="h-flokke">Vil du med?</h2>
-    ${canStart && !inFlock ? html`<p>Tryk <strong>Jeg vil gerne med!</strong>, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
+    ${canStart && !inFlock && !interest.mine ? html`<p>Tryk <strong>Jeg vil gerne med!</strong>, så samler vi en lille flok, du kan følges med.</p>` : ""}
   </div>
   ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
@@ -132,7 +132,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
     <div class="flock-actions">${action(f)}</div>
   </li>`)}</ul>` : over ? html`<p class="flock-empty">Der var ingen flok til dette event.</p>` : ""}
   ${canStart ? inFlock ? flocks.some(f => f.id === myFlockId) ? "" : html`<p class="flock-mine">Du er med i en flok til eventet. <a href="${flockPath(myFlockId!)}">Se din flok</a></p>`
-    : html`${tick()}<p class="flock-create">eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> – vælg selv tid og mødested, og lad andre slutte sig til.</p>` : ""}
+    : html`${tick()}<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>` : ""}
   ${trustLine}
 </section>`;
 }
@@ -144,7 +144,7 @@ export function interestButton(e: EventRow, member: Member | null, myFlockId: st
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
   if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
-  if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>`;
+  if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er på listen</a>`;
   return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
 }
 

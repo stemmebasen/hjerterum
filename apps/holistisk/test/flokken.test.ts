@@ -560,9 +560,9 @@ describe("Lad os komme godt i gang", () => {
 
     const page = (await call(`/events/${slug}?besked=interesse_her`, { cookie })).body;
     expect(page).toContain("Tak! Du har nu vist interesse for at deltage til eventet – helt uforpligtende.");
-    expect(page).toContain("<strong>Du er på listen.</strong> Vi skriver, når der er en flok.");
+    expect(page).toContain("<strong>Du er på listen.</strong> Vi giver besked, når flokken er samlet.");
     expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
-    expect(page).toContain('<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>');
+    expect(page).toContain('<a class="button-secondary is-on" href="#flokke">✓ Du er på listen</a>');
     expect(page).not.toContain('href="#flokke">Vil du med?</a>');
     expect(page).not.toContain("interesseret.</span>");
     // Others see the count once someone is interested, never "nobody yet".
@@ -572,7 +572,7 @@ describe("Lad os komme godt i gang", () => {
     expect(stranger).toContain('<p class="event-calendar">');
     expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
     expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');
-    expect(stranger).toContain(`eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> – vælg selv tid og mødested`);
+    expect(stranger).toContain(`Eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> med din egen tid og dit eget mødested.`);
     // Taking it back.
     expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#flokke`);
     expect(statusOf("Tove", slug)).toBe(null);
