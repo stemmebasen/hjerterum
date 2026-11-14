@@ -76,12 +76,16 @@ export function eventChips(e: EventRow, now: number): SafeHtml {
   return html`<span class="chip-row">${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flock}</span>`;
 }
 
+/** What "Jeg er interesseret" means, beside the button: not interest in the event as such, but in going there in a
+ * flock (Jake 2026-11-14). */
+export const INTEREST_HINT = "– og vil gerne afsted i en lille flok";
+
 /** "Jeg er interesseret" under an event in a list or on a card: the same tick as the button on the event page (one
  * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
  * longer be joined. */
 export function interestAction(e: EventRow, now: number): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
-  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg er interesseret</button></form>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg er interesseret</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;

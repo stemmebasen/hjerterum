@@ -334,7 +334,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .for-you .for-you-why a { color: var(--muted); }
 .row-img { width: 104px; height: 76px; object-fit: contain; background: var(--paper-2); border-radius: var(--radius-s); border: 2px solid var(--ink); }
 /* "Jeg er interesseret" under a row, in line with the text column, and at the foot of a card. */
-.interest-form { margin: 0; }
+.interest-form { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.interest-hint { font-size: .86rem; font-weight: 700; color: var(--green-2); }
+.interest-explain { font-size: .92rem; color: var(--ink-2); margin: 4px 0 8px; max-width: 520px; }
 .interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
 .row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
 .card.ticket { display: flex; flex-direction: column; }

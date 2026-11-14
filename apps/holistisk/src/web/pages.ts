@@ -517,6 +517,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
+        ${e.status === "scheduled" && e.starts_at > ctx.now && !myFlockId && !interest?.mine ? html`<p class="interest-explain"><strong>Jeg er interesseret</strong> betyder, at du gerne vil afsted sammen med andre. Når I er nogle stykker, samler vi en lille flok, du kan følges med.</p>` : ""}
         ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
       </div>
     </div>
