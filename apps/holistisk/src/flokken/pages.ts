@@ -45,7 +45,7 @@ const MESSAGES: Record<string, string> = {
   profil_gemt: "Din profil er gemt.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Eventet er fjernet fra din liste.",
-  interesse_her: "Tak! Du har nu vist interesse for at deltage til eventet – helt uforpligtende. Når vi har samlet ml. 4-6 mennesker, får du en mail og 48 timer til at sige ja. Husk, du selv skal købe billetten.",
+  interesse_her: "Tak! Du har nu vist interesse for at deltage til eventet – helt uforpligtende. Når vi har samlet 3-6 mennesker, får du besked under Mine flokke og op til 48 timer til at sige ja. Husk, du selv skal købe billetten.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."
 };
