@@ -78,7 +78,7 @@ export function eventChips(e: EventRow, now: number): SafeHtml {
 
 /** What "Jeg er interesseret" means, beside the button: not interest in the event as such, but in going there in a
  * flock (Jake 2026-11-14). */
-export const INTEREST_HINT = "– og vil gerne afsted i en lille flok";
+export const INTEREST_HINT = "i at deltage i en flok";
 
 /** "Jeg er interesseret" under an event in a list or on a card: the same tick as the button on the event page (one
  * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
