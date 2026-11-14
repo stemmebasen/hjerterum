@@ -47,13 +47,13 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
   return html`<span class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${isWeekly(e) ? html`<span class="kicker-weekly">Fast hver uge</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</span>`;
 }
 
-/** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for
- * events that have started or are cancelled. */
+/** The flock line on cards and calendar rows: how many are in the flocks already going. Nothing when there is no flock
+ * yet (the "Jeg er interesseret" button under the event is the way in), or when the event has started or is cancelled. */
 export function flockBadge(e: Pick<EventRow, "flock_count" | "flock_fill" | "status" | "starts_at">, now: number): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   const n = e.flock_count ?? 0;
   const [members, size] = (e.flock_fill ?? "").split("/").map(Number);
-  if (!n || !size) return html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
+  if (!n || !size) return html``;
   const more = n > 1 ? ` · ${n} flokke` : "";
   return html`<span class="flock-badge">${seats(members ?? 0, size)}<span class="flock-badge-text">${members} af ${size}${more} · Vil du med?</span></span>`;
 }
@@ -67,12 +67,25 @@ export function seats(members: number, size: number): SafeHtml {
     html`<svg class="seat${i < taken ? " is-taken" : ""}" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">${PERSON}</svg>`)}</span>`;
 }
 
-/** The chips under a card or row: free, a confirmed extra for flocks, and the flock line. */
-export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
-  // A card with a picture panel already carries the round "Gratis" stamp.
-  const free = e.is_free === 1 && !options.freeStamped;
+/** The chips under a card or row: a confirmed extra for flocks, and the flock line. The price is already in the line
+ * above (and a card has the round "Gratis" stamp), so there is no separate price chip. Nothing when there is neither. */
+export function eventChips(e: EventRow, now: number): SafeHtml {
   const benefit = offersFor(e).length > 0;
-  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flockBadge(e, now)}</span>`;
+  const flock = flockBadge(e, now);
+  if (!benefit && !String(flock)) return html``;
+  return html`<span class="chip-row">${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flock}</span>`;
+}
+
+/** What "Jeg er interesseret" means, beside the button: not interest in the event as such, but in going there in a
+ * flock (Jake 2026-11-14). */
+export const INTEREST_HINT = "i at deltage i en flok";
+
+/** "Jeg er interesseret" under an event in a list or on a card: the same tick as the button on the event page (one
+ * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
+ * longer be joined. */
+export function interestAction(e: EventRow, now: number): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now) return html``;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg er interesseret</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
@@ -108,10 +121,11 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
         ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
         <span class="visually-hidden">Tid: ${when(e, now)}. </span>
         <span class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? html` · <strong class="price">${price}</strong>` : ""}</span>
-        ${eventChips(e, now, { freeStamped: true })}
+        ${eventChips(e, now)}
       </span>
     </span>
   </a>
+  ${interestAction(e, now)}
 </article>`;
 }
 
@@ -169,7 +183,7 @@ function row(e: EventRow, date: string, now: number, also: number[] = []): SafeH
       <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
       <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${also.length ? html`<span class="row-also meta-muted">Også ${also.slice(0, 4).map(shortDay).join(", ")}${also.length > 4 ? " …" : ""}</span>` : ""}${eventChips(e, now)}</span>
       ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
-    </a></li>`;
+    </a>${interestAction(e, now)}</li>`;
 }
 
 /** The calendar: events grouped under their day, one line each. With `spread` (the default) a day shows at most

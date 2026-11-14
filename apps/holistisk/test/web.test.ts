@@ -128,7 +128,9 @@ describe("spar på billetten", () => {
     expect(body).not.toMatch(/medlemsfordel|billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
     expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));
-    expect((await text("/kalender?pris=gratis")).body).toContain('<span class="price-chip">Gratis</span>');
+    const free = (await text("/kalender?pris=gratis")).body;
+    expect(free).not.toContain('<span class="price-chip">Gratis</span>');
+    expect(free).toContain("Gratis");
   });
 });
 
@@ -322,7 +324,7 @@ describe("the map", () => {
     expect(status).toBe(200);
     expect(body).toContain('class="map" data-map');
     expect(body).toContain('src="/assets/vendor/leaflet/leaflet.js?v=1.9.4"');
-    expect(body).toContain('src="/assets/map.js?v=2"');
+    expect(body).toContain('src="/assets/map.js?v=3"');
     expect(body).not.toContain('class="site-footer"');
     const data = JSON.parse(/<script type="application\/json" id="kort-data">([\s\S]*?)<\/script>/.exec(body)![1]!);
     expect(data.days).toHaveLength(14);

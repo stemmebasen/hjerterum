@@ -289,7 +289,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .card-link:hover { text-decoration: none; }
 .card-link:hover .card-title { text-decoration: underline; text-decoration-thickness: 2px; }
 .media { position: relative; display: block; aspect-ratio: 16 / 10; background: var(--paper-2); overflow: hidden; border-bottom: 2px solid var(--ink); }
-.media img { width: 100%; height: 100%; object-fit: cover; }
+/* Event pictures often carry text, so they are shown whole (never cropped), on a quiet panel. */
+.media img { width: 100%; height: 100%; object-fit: contain; }
 .media-plain { display: flex; align-items: center; justify-content: center; background-color: var(--lilac); background-image: repeating-linear-gradient(-45deg, rgba(23, 51, 45, .07) 0 10px, transparent 10px 20px); }
 .plain-word { font: 700 1.4rem var(--display); color: var(--ink); background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 16px; }
 .stamp { position: absolute; top: 10px; right: 10px; width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--butter); color: var(--ink); border: 2px dashed var(--ink); outline: 3px solid var(--butter); font: 700 .95rem var(--display); text-transform: uppercase; letter-spacing: .04em; transform: rotate(-12deg); }
@@ -331,8 +332,18 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 @media (max-width: 560px) { .row-more > details > summary { padding-left: 60px; } }
 .for-you .for-you-why { font-size: .86rem; color: var(--muted); margin: -10px 0 16px; }
 .for-you .for-you-why a { color: var(--muted); }
-.row-img { width: 104px; height: 76px; object-fit: cover; border-radius: var(--radius-s); border: 2px solid var(--ink); }
-@media (max-width: 560px) { .day { padding: 2px 14px 4px; } .row a { grid-template-columns: 50px 1fr; gap: 10px; } .row-img { display: none; } .row-time { font-size: .98rem; } }
+.row-img { width: 104px; height: 76px; object-fit: contain; background: var(--paper-2); border-radius: var(--radius-s); border: 2px solid var(--ink); }
+/* "Jeg er interesseret" under a row, in line with the text column, and at the foot of a card. */
+/* The button and "i at deltage i en flok" read as one sentence: the line sits centred under the button. */
+.interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: center; }
+.interest-hint { font-size: .86rem; font-weight: 700; color: var(--green-2); }
+.interest-explain { font-size: .92rem; color: var(--ink-2); margin: 4px 0 8px; max-width: 520px; }
+.interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
+.row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
+.card.ticket { display: flex; flex-direction: column; }
+.card.ticket .card-link { height: auto; flex: 1; }
+.card.ticket .interest-form { display: flex; align-items: center; padding: 12px 16px 14px; border-top: 2px dashed var(--ink); background: var(--card); }
+@media (max-width: 560px) { .day { padding: 2px 14px 4px; } .row a { grid-template-columns: 50px 1fr; gap: 10px; } .row-img { display: none; } .row-time { font-size: .98rem; } .row .interest-form { margin-left: 60px; } }
 
 /* Chips */
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -342,7 +353,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .seats { display: inline-flex; gap: 1px; vertical-align: -2px; }
 .seat { fill: none; stroke: currentColor; stroke-width: 1.3; color: var(--green-2); }
 .seat.is-taken { fill: currentColor; }
-.flock-badge-new { background: var(--card); color: var(--green-2); border-style: dashed; }
 .chip-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; }
 .chip-links a { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 16px; border-radius: 999px; background: var(--card); border: 2px solid var(--ink); font-size: .98rem; font-weight: 700; box-shadow: 0 3px 0 var(--ink); }
 .chip-links a:hover { background: var(--butter); text-decoration: none; }
