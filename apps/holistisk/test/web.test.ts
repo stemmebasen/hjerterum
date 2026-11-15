@@ -149,7 +149,8 @@ describe("the calendar", () => {
     expect(count((await text("/kalender?fra=2026-10-13&til=2026-10-13")).body)).toBe(3);
     expect(count((await text("/kalender?periode=idag")).body)).toBe(0);
     expect(rows((await text("/kalender?periode=weekend")).body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect(count((await text("/kalender?omraade=randers")).body)).toBe(0);
+    // The towns around Aarhus no longer have their own filter: an old ?omraade=randers shows everything.
+    expect(count((await text("/kalender?omraade=randers")).body)).toBe(count((await text("/kalender")).body));
     expect(rows((await text("/kalender?by=Lisbjerg")).body)).toEqual(["You Can Sing! / Aarhus"]);
     expect(count((await text("/kalender?pris=gratis")).body)).toBeGreaterThan(5);
     expect(rows((await text("/kalender?emne=klarsyn")).body)).toContain("Klarsyn med Karina Graabæk");
@@ -223,16 +224,16 @@ describe("the calendar", () => {
 
   it("today and the weekend have their own pages", async () => {
     const weekend = await text("/weekend");
-    expect(weekend.body).toContain("<h1>Det sker i weekenden i Østjylland</h1>");
+    expect(weekend.body).toContain("<h1>Det sker i weekenden i Aarhus</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Events i Østjylland – Flokken</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Events i Aarhus – Flokken</title>");
   });
 });
 
 describe("landing pages: activity, then city", () => {
   it("an activity across the region and in one city", async () => {
     const meditation = await text("/meditation");
-    expect(meditation.body).toContain("<h1>Meditation i Østjylland</h1>");
+    expect(meditation.body).toContain("<h1>Meditation i Aarhus</h1>");
     const aarhus = await text("/meditation/aarhus");
     expect(aarhus.status).toBe(200);
     expect(aarhus.body).toContain("<h1>Meditation i Aarhus</h1>");
@@ -242,7 +243,7 @@ describe("landing pages: activity, then city", () => {
     expect(aarhus.body).toContain('href="/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus"');
     // Switched off with the turn to a broad selection (2026-11-10).
     expect(aarhus.body).not.toContain('href="/arrangoerer/buddhistisk-center-aarhus"');
-    expect(aarhus.body).toContain('href="/meditation/randers"');
+    expect(aarhus.body).not.toContain('href="/meditation/randers"');
     expect(aarhus.body).toContain('"@type":"BreadcrumbList"');
     expect(aarhus.body).toContain('"@type":"ItemList"');
   });
@@ -263,9 +264,19 @@ describe("landing pages: activity, then city", () => {
     expect(yinYoga.status).toBe(200);
     expect(yinYoga.body).toContain("YO Studios");
     expect(yinYoga.body).toContain('<meta name="robots" content="index, follow');
-    // Hidden with the turn to a broad selection (2026-11-10), so Horsens' yin yoga page has nothing left.
-    expect((await text("/yin-yoga/horsens", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
-    expect((await text("/kakaoceremoni/randers", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
+  });
+
+  it("the towns around Aarhus have no pages of their own: their old addresses move", async () => {
+    const moved = async (path: string) => { const r = await get(path); return [r.status, r.headers.get("location")]; };
+    expect(await moved("/randers")).toEqual([301, "/aarhus"]);
+    expect(await moved("/omraade/horsens")).toEqual([301, "/aarhus"]);
+    expect(await moved("/yin-yoga/horsens")).toEqual([301, "/yin-yoga"]);
+    expect(await moved("/silkeborg/meditation")).toEqual([301, "/meditation"]);
+    expect(await moved("/omraade/aarhus")).toEqual([301, "/aarhus"]);
+    const home = (await text("/")).body;
+    for (const town of ["randers", "djursland", "silkeborg", "skanderborg", "horsens"]) expect(home).not.toContain(`href="/${town}"`);
+    expect(home).not.toContain("Events i din by");
+    expect(home).not.toContain("Hele Østjylland");
   });
 
   it("a city's page", async () => {
@@ -380,6 +391,7 @@ describe("search engines and safety", () => {
       expect(sitemap).toContain(`<loc>https://holistisk.org${p}</loc>`);
     }
     expect(sitemap).not.toContain("<loc>https://holistisk.org/kakaoceremoni/randers</loc>");
+    expect(sitemap).not.toContain("<loc>https://holistisk.org/horsens</loc>");
     expect((await text("/", prod)).body).toContain('<link rel="canonical" href="https://holistisk.org/">');
   });
 

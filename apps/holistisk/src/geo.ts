@@ -116,6 +116,12 @@ export function activeRegions(config: string | undefined): string[] {
 
 export const activeAreas = (regions: string[]): Area[] => AREAS.filter(a => regions.includes(a.region));
 
+/** The cities with their own pages, links and pickers on the portal: only Aarhus. The towns around it (Randers,
+ * Djursland, Silkeborg, Skanderborg, Horsens) had too little of their own, so their events are listed under Aarhus'
+ * parts (src/zones.ts) and their old addresses move to Aarhus. Their areas stay above for placing events and organisers. */
+export const CITY_PAGES = ["aarhus"];
+export const cityAreas = (regions: string[]): Area[] => activeAreas(regions).filter(a => CITY_PAGES.includes(a.slug));
+
 /** Distance in km, for "near me". */
 export function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   const rad = Math.PI / 180;
