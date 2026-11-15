@@ -1,7 +1,7 @@
 import { ACTIVITIES, TOPICS, activityBySlug, headingFor, type Activity } from "../activities.js";
 import { categoryBySlug } from "../categories.js";
 import type { D1Database } from "../db.js";
-import { activeAreas, areaBySlug, type Area } from "../geo.js";
+import { activeAreas, areaBySlug, CITY_PAGES, type Area } from "../geo.js";
 import { ORGANIZERS, organizerBySlug, organizersFor, type OrganizerProfile } from "../organizers.js";
 import { BROAD_CATEGORIES, isAlternativeOrganizer } from "../mainstream.js";
 import { priceLabel } from "../price.js";
@@ -16,7 +16,7 @@ import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eve
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 import { forYou, whyNote, type Taste } from "./foryou.js";
 
@@ -128,7 +128,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   const broadActivities = BROAD_CATEGORIES.map(slug => ACTIVITIES.find(a => a.category === slug)).filter((a): a is Activity => !!a);
   const activityCounts = await Promise.all(broadActivities.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
-  const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: countOf(a) })));
   const countOf = (a: Activity) => activityCounts[broadActivities.indexOf(a)] ?? 0;
   // The city's stages, houses and associations (the second aim: help them be seen).
@@ -140,7 +139,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <div class="hero-text">
       <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
       <p class="standfirst">Vi vil have flere ud at opleve byen sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
-      ${searchForm(areas, {})}
+      ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
@@ -175,8 +174,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
   ${section("h-activities", "Find din aktivitet", activityChips(byCount(broadActivities.filter(a => countOf(a) > 0))), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
-  ${section("h-cities", "Events i din by", html`${chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place, count: byArea.get(a.slug) ?? 0 })))}
-    <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
   <aside class="partner-teaser" aria-labelledby="h-partner">
     <div><p class="hero-kicker">For foreninger og kultursteder</p><h2 id="h-partner">Vil I have flere med?</h2>
     <p>Vil I have jeres events med på Flokken? Kontakt os – og hør om mulighed for radioomtale.</p></div>
@@ -207,7 +204,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 // ————————————————————————————————————————— The calendar, today, the weekend
 
 export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters, personal?: Personal): Promise<View> {
-  const areas = activeAreas(regions);
   // "Til dig" on the calendar's first page, also right after a tile was picked (the page the front page's tiles lead to); not on a search.
   const showForYou = f.page === 1 && !f.q;
   const [{ events, total }, cats, groups, forYouBlock] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now),
@@ -292,7 +288,7 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
   const areas = activeAreas(regions);
   const place = area?.place ?? ctx.regionLabel;
   const f = activityFilters(activity, { area: area?.slug ?? null, page: pageNo });
-  const [{ events, total }, byArea] = await Promise.all([listEvents(db, f, regions, ctx.now), countByArea(db, activityFilters(activity), regions, ctx.now)]);
+  const { events, total } = await listEvents(db, f, regions, ctx.now);
   const profiles = organizersFor(activity.slug, area?.slug ?? null).filter(o => areas.some(a => a.slug === o.area));
   const basePath = area ? `/${activity.slug}/${area.slug}` : `/${activity.slug}`;
   const heading = headingFor(activity, place);
@@ -314,7 +310,6 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
       ${profiles.some(p => p.offerings.length) ? section("h-regular", `Faste tilbud${area ? ` i ${area.place}` : ""}`, offeringsBlock(profiles)) : html``}
     </div>
     <aside class="aside">
-      ${section("h-cities", `${activity.name} i din by`, linkList(areas.map(a => ({ href: `/${activity.slug}/${a.slug}`, label: `${activity.name} i ${a.place}`, count: byArea.get(a.slug) ?? 0 })), { columns: false }))}
       ${profiles.length ? section("h-orgs", "Arrangører", organizerList(profiles)) : html``}
       ${related.length ? section("h-related", "Relaterede emner", linkList(related.map(r => ({ href: area ? `/${r.slug}/${area.slug}` : `/${r.slug}`, label: area ? `${r.name} i ${area.place}` : r.name })), { columns: false })) : html``}
     </aside>
@@ -337,11 +332,10 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
 // ————————————————————————————————————————— Cities: /aarhus
 
 export async function areaPage(db: D1Database, ctx: PageContext, regions: string[], area: Area): Promise<View> {
-  const areas = activeAreas(regions);
   const base = emptyFilters({ area: area.slug });
-  const [today, weekend, upcoming, byArea] = await Promise.all([
+  const [today, weekend, upcoming] = await Promise.all([
     listEvents(db, { ...base, period: "idag" }, regions, ctx.now), listEvents(db, { ...base, period: "weekend" }, regions, ctx.now),
-    listEvents(db, base, regions, ctx.now), areaCounts(db, regions, ctx.now)
+    listEvents(db, base, regions, ctx.now)
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a, { area: area.slug }), regions, ctx.now)));
   const profiles = ORGANIZERS.filter(o => o.area === area.slug);
@@ -366,7 +360,6 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
     <aside class="aside">
       ${activityLinks.length ? section("h-acts", `Aktiviteter i ${area.place}`, linkList(activityLinks.map(x => ({ href: `/${x.a.slug}/${area.slug}`, label: `${x.a.name} i ${area.place}`, count: x.n })), { columns: false })) : html``}
       ${profiles.length ? section("h-orgs", `Arrangører i ${area.place}`, organizerList(profiles)) : html``}
-      ${section("h-other", "Andre byer", linkList(areas.filter(a => a.slug !== area.slug).map(a => ({ href: `/${a.slug}`, label: `Events i ${a.place}`, count: byArea.get(a.slug) ?? 0 })), { columns: false }))}
     </aside>
   </div>
 </div>`;
@@ -486,7 +479,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     : e.address || e.city ? `https://www.openstreetmap.org/search?query=${encodeURIComponent([e.address, e.postal_code, e.city].filter(Boolean).join(" "))}` : null;
   const firstCategory = categories[0] ? categoryBySlug(categories[0]) : null;
   const firstActivity = firstCategory ? activityBySlug(firstCategory.path) : undefined;
-  const area = e.area ? areaBySlug(e.area) ?? null : null;
+  const area = e.area && CITY_PAGES.includes(e.area) ? areaBySlug(e.area) ?? null : null;
   const profile = e.organizer_id ? organizerBySlug(e.organizer_id) : undefined;
   const crumbs: Crumb[] = [
     { name: "Forside", path: "/" },
@@ -603,7 +596,7 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Aktiviteter og emner</h1>
-    <p class="standfirst">Koncerter, teater og comedy, foredrag, quiz, udstillinger, dans og meget mere. Vælg en aktivitet for at se, hvad der sker i ${ctx.regionLabel} – eller i din by.</p>
+    <p class="standfirst">Koncerter, teater og comedy, foredrag, quiz, udstillinger, dans og meget mere. Vælg en aktivitet for at se, hvad der sker i ${ctx.regionLabel}.</p>
   </header>
   ${section("h-acts", "Aktiviteter", list(broad))}
   ${section("h-calm", "Ro og fordybelse", list(calm))}
@@ -612,7 +605,7 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
   return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – events i ${ctx.regionLabel}`, description: `Koncerter, teater, comedy, foredrag, quiz, udstillinger, dans, natur og fællesskaber i ${ctx.regionLabel}.`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
 }
 
-export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[]): Promise<View> {
+export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View> {
   const sources = (await sourcesForAbout(db)).filter(s => s.enabled === 1);
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Om Flokken", path: "/om" }];
   const body = html`
@@ -643,7 +636,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[])
   <h2>Hvad er en flok?</h2>
   <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet og går ind sammen. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du events?</h2>
-  <p>Vi starter i ${ctx.regionLabel} (${areas.map(a => a.place).join(", ")}). Hver nat henter Flokken events fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig events eller oplysninger, og hvert event viser, hvor det kommer fra.</p>
+  <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken events fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig events eller oplysninger, og hvert event viser, hvor det kommer fra.</p>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
   </ul>

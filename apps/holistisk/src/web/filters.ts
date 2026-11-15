@@ -1,4 +1,4 @@
-import { activeAreas, areaBySlug } from "../geo.js";
+import { areaBySlug, cityAreas } from "../geo.js";
 import { categoryBySlug } from "../categories.js";
 import { groupBySlug, type Group } from "../groups.js";
 import { activityBySlug } from "../activities.js";
@@ -53,7 +53,7 @@ export const PERIOD_CHIPS: Period[] = ["idag", "imorgen", "weekend", "14-dage"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parseFilters(params: URLSearchParams, activeRegions: string[]): Filters {
-  const areas = activeAreas(activeRegions);
+  const areas = cityAreas(activeRegions);
   const q = (params.get("q") ?? "").replace(/[\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
   const date = (v: string | null) => v && DATE.test(v) && startOfLocalDay(v) !== null ? v : null;
   const period = PERIODS.find(p => p.value === params.get("periode"))?.value ?? null;

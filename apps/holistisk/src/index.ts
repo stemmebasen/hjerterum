@@ -1,6 +1,6 @@
 import type { Env } from "./env.js";
 import { isProduction } from "./env.js";
-import { activeAreas, activeRegions, areaBySlug, regionBySlug } from "./geo.js";
+import { activeAreas, activeRegions, areaBySlug, cityAreas, regionBySlug } from "./geo.js";
 import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
@@ -45,17 +45,23 @@ const json = (env: Env, data: unknown, status = 200, cache = "no-store") => resp
 const redirect = (location: string) => new Response(null, { status: 301, headers: { location, "cache-control": "public, max-age=86400" } });
 const view = (env: Env, v: View) => respond(env, v.body, { status: v.status, ...(v.headers ? { headers: v.headers } : {}), ...(v.status !== 200 ? { cache: "no-store" } : {}) });
 
+/** The portal (Socialklubben) is about Aarhus alone; the association (Samfolk) keeps the whole region and its areas. */
+function places(edition: "forening" | "portal", regions: string[]): Pick<PageContext, "areas" | "regionLabel"> {
+  return edition === "portal"
+    ? { areas: cityAreas(regions), regionLabel: "Aarhus" }
+    : { areas: activeAreas(regions), regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og ") };
+}
+
 function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null): PageContext {
-  if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition };
+  if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
     origin: configured ?? url.origin,
     environment: env.ENVIRONMENT ?? "local",
     path: url.pathname,
     now,
-    regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og "),
+    ...places(env.EDITION === "portal" ? "portal" : "forening", regions),
     contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
-    areas: activeAreas(regions),
     base: "",
     // Without a mount: EDITION, else Flokken as an association.
     edition: env.EDITION === "portal" ? "portal" : "forening"
@@ -230,7 +236,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/kort") return view(env, await mapPage(db, pc, regions));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
-  if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));
+  if (path === "/om") return view(env, await aboutPage(db, pc));
   if (path === "/moed-nye-mennesker") return view(env, await meetPeoplePage(db, pc, regions));
   if (path === "/ny-i-aarhus") return view(env, await newInTownPage(db, pc, regions));
   if (path === "/ting-at-lave-i-aarhus") return view(env, await thingsToDoPage(db, pc, regions));
@@ -241,24 +247,27 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     return view(env, v ?? notFoundPage(pc));
   }
 
-  // Old addresses move permanently: /kategori/<x> -> /<activity>, /omraade/<city> -> /<city>.
+  // Old addresses move permanently: /kategori/<x> -> /<activity>, /omraade/<city> -> /<city> (a retired town -> /aarhus).
   const oldCategory = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
   if (oldCategory) {
     const activity = activityBySlug(oldCategory);
     return activity ? redirect(`/${activity.slug}${url.search}`) : view(env, notFoundPage(pc));
   }
   const oldArea = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
-  if (oldArea && areaBySlug(oldArea)) return redirect(`/${oldArea}${url.search}`);
+  if (oldArea && areaBySlug(oldArea)) return redirect(cityAreas(regions).some(a => a.slug === oldArea) ? `/${oldArea}${url.search}` : "/aarhus");
 
   // Landing pages, activity first as people search: /meditation, /meditation/aarhus, and the city's own /aarhus.
   const two = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
   if (two) {
     const [, first, second] = two as unknown as [string, string, string | undefined];
     const pageNo = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("side") ?? "1", 10) || 1));
-    const cityOf = (slug: string) => { const a = areaBySlug(slug); return a && regions.includes(a.region) ? a : undefined; };
+    const cityOf = (slug: string) => cityAreas(regions).find(a => a.slug === slug);
+    // The towns around Aarhus no longer have pages of their own: /randers -> /aarhus, /meditation/randers -> /meditation.
+    const retired = (slug: string) => { const a = areaBySlug(slug); return !!a && regions.includes(a.region) && !cityOf(slug); };
     const firstCity = cityOf(first);
     const firstActivity = activityBySlug(first);
     if (!second) {
+      if (retired(first)) return redirect("/aarhus");
       if (firstCity) return view(env, await areaPage(db, pc, regions, firstCity));
       if (firstActivity) {
         if (firstActivity.slug !== first) return redirect(`/${firstActivity.slug}`);
@@ -270,6 +279,8 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     } else {
       // The earlier city-first addresses (/aarhus/meditation) move to activity-first.
       const secondActivity = activityBySlug(second);
+      if (retired(first) && secondActivity) return redirect(`/${secondActivity.slug}`);
+      if (firstActivity && retired(second)) return redirect(`/${firstActivity.slug}`);
       if (firstCity && secondActivity) return redirect(`/${secondActivity.slug}/${firstCity.slug}`);
       const secondCity = cityOf(second);
       if (firstActivity && secondCity) {

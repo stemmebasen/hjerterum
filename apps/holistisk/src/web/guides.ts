@@ -1,5 +1,4 @@
 import type { D1Database } from "../db.js";
-import { activeAreas } from "../geo.js";
 import { GROUPS } from "../groups.js";
 import { FREE_OUTINGS } from "../flokken/profile.js";
 import { flockCards, howItWorks } from "../flokken/pages.js";
@@ -93,7 +92,6 @@ export async function meetPeoplePage(db: D1Database, ctx: PageContext, regions: 
 export async function newInTownPage(db: D1Database, ctx: PageContext, regions: string[]): Promise<View> {
   const path = "/ny-i-aarhus";
   const weekend = await aarhusEvents(db, ctx, regions, { period: "weekend" }, 6);
-  const areas = activeAreas(regions);
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Ny i Aarhus", path }];
   const body = html`
 <div class="wrap">
@@ -109,7 +107,7 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
       <li><strong>Vælg det, du har lyst til.</strong> Tryk <strong>Jeg vil gerne med!</strong> ved et event, så samler vi en lille flok, du kan følges med.</li>
       <li><strong>Find noget fast.</strong> En ugentlig aktivitet giver de samme ansigter igen og igen – og så kommer venskaberne lettere. Se <a href="/arrangoerer">byens arrangører</a> og deres faste tilbud.</li>
       <li><strong>Det skal ikke koste en formue.</strong> Der sker meget i Aarhus, som er <a href="/gratis-og-billigt">gratis eller billigt</a>.</li>
-      <li><strong>Kig ud over midtbyen.</strong> Der sker også meget uden for centrum – se listen over byer nedenfor.</li>
+      <li><strong>Kig ud over midtbyen.</strong> Der sker også meget uden for centrum – i <a href="/kalender">kalenderen</a> kan du vælge område: nord, syd eller vest for Aarhus.</li>
     </ol>
   </div>
   ${weekend.events.length ? section("h-weekend", "Det sker i weekenden", cardGrid(weekend.events, ctx.now), { href: "/weekend", label: "Hele weekenden →" }) : ""}
@@ -118,7 +116,6 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
     <h2 id="h-en">New in Aarhus?</h2>
     <p>Welcome! Flokken is a social club for anyone who wants to get out, meet new people and share an experience. Pick an event, tap <strong>Jeg vil gerne med!</strong> (I'd like to come along), and we gather a small group you can go with. You meet outside in front of a well-known spot and walk in together. Plenty of concerts, workshops and walks need no Danish at all, and you are always welcome to write in English in your group.</p>
   </section>
-  ${section("h-cities", "Events i din by", chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place }))))}
   ${otherGuides(path)}
 </div>`;
   return {

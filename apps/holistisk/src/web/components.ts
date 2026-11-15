@@ -1,5 +1,5 @@
 import { CATEGORIES, categoryBySlug } from "../categories.js";
-import { areaBySlug, type Area } from "../geo.js";
+import { areaBySlug } from "../geo.js";
 import { priceLabel } from "../price.js";
 import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallClock } from "../time.js";
 import { hasFilters, PERIOD_CHIPS, PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
@@ -230,15 +230,10 @@ export function dayList(events: EventRow[], now: number, options: { spread?: boo
   })}</div>`;
 }
 
-export function searchForm(areas: Area[], selected: { q?: string; area?: string | null }, options: { compact?: boolean } = {}): SafeHtml {
+export function searchForm(selected: { q?: string }, options: { compact?: boolean } = {}): SafeHtml {
   return html`<form class="search${options.compact ? " search-compact" : ""}" action="/kalender" method="get" role="search">
   <label class="visually-hidden" for="s-q">Søg i kalenderen</label>
   <input id="s-q" name="q" type="search" value="${selected.q ?? ""}" placeholder="Søg: workshop, yoga, foredrag …" autocomplete="off" maxlength="80">
-  <label class="visually-hidden" for="s-area">By</label>
-  <select id="s-area" name="omraade">
-    <option value="">Hele Østjylland</option>
-    ${areas.map(a => html`<option value="${a.slug}"${selected.area === a.slug ? raw(" selected") : ""}>${a.place}</option>`)}
-  </select>
   <button type="submit">Søg</button>
 </form>`;
 }
