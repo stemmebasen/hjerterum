@@ -503,6 +503,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const body = html`
 <article class="event wrap">
   ${crumbsNav(crumbs)}
+  <div class="event-layout">
+  <div class="event-main">
   <header class="ticket event-ticket">
     ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="${e.title}" decoding="async" fetchpriority="high"></figure>` : ""}
     <div class="ticket-body">
@@ -525,13 +527,13 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   ${e.image_url && e.image_credit ? html`<p class="event-image-credit">Billede: ${e.image_credit}</p>` : ""}
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
-  <div class="main-aside">
     <div class="event-text">
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
         : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
       ${source?.descriptionPolicy === "excerpt" && e.source_url ? html`<p><a href="${e.source_url}" rel="noopener">Læs hele beskrivelsen hos ${e.source_name} →</a></p>` : ""}
     </div>
-    <aside class="aside facts" aria-label="Fakta">
+  </div>
+    <aside class="aside facts event-facts" aria-label="Fakta">
       <dl class="facts-list">
         <dt>Hvornår</dt><dd>${capitalize(dayLabel(e.starts_at, ctx.now))}<br>${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</dd>
         <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.venue_name || e.address ? html`<br><a href="#stedet">Mere om stedet</a>` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere events i ${area.place}</a>` : ""}</dd>

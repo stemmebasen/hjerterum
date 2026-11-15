@@ -1217,3 +1217,13 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .venue-map figcaption { position: absolute; right: 0; bottom: 0; padding: 2px 8px; font-size: .7rem; line-height: 1.5; background: rgba(255, 253, 248, .85); border-top-left-radius: 8px; color: var(--muted); }
 .venue-map figcaption a { color: inherit; }
 @media (max-width: 759px) { .venue-map { order: -1; } .venue-map-svg { aspect-ratio: 2 / 1; } }
+
+/* Event page: the facts sit beside the ticket from the top on wide screens (Jake 2026-11-15: no empty space to the
+   right of the picture), and come after the description on phones. */
+.event-layout { display: grid; gap: 0 40px; grid-template-columns: 1fr; align-items: start; }
+.event-main { min-width: 0; }
+.event-main .event-ticket { max-width: none; }
+@media (min-width: 940px) {
+  .event-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .event-layout .event-facts { margin-top: 4px; }
+}
