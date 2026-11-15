@@ -433,12 +433,20 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-when { font: 600 1.3rem var(--display); margin-bottom: .1em; }
 .event-where { color: var(--ink-2); }
 .event-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 230px)); gap: 12px; margin: 18px 0 6px; }
-.event-actions > a, .event-actions button { width: 100%; justify-content: center; text-align: center; }
+.event-actions > a, .event-actions > span, .event-actions button { width: 100%; justify-content: center; text-align: center; }
 .event-actions .inline-form { margin: 0; }
 .event-actions { align-items: start; }
 .event-actions .interest-form { display: flex; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
+.event-actions span.button-secondary.is-on { box-shadow: none; cursor: default; }
 .event-calendar { margin: 0 0 8px; font-size: .9rem; }
+/* Under the buttons: others interested, "Fjern mig fra listen", and starting a flock yourself (Jake 2026-11-15: no separate box). */
+.event-head .flash { font-weight: 600; font-size: .95rem; line-height: 1.45; }
+.event-flock { margin: 0 0 8px; font-size: .9rem; color: var(--ink-2); }
+.event-flock-state { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-bottom: 4px; }
+.event-flock-state .inline-form { margin: 0; }
+.event-flock .flock-create { margin: 0; font-size: inherit; }
+.event-flock .trust-link { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
 .event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
 @media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
 /* The top of the event page is one big ticket like the cards: picture, then the stub torn off from the details.
@@ -514,8 +522,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flash-error { background: #fdeceb; color: var(--alert); border-color: var(--alert); }
 .trust-line { font-size: .9rem; color: var(--muted); margin-top: 14px; }
 .flock-panel { margin-top: 28px; background: var(--green-soft); border: 2px solid var(--ink); border-radius: var(--radius); padding: 24px 24px 18px; box-shadow: 0 5px 0 var(--ink); }
-.flock-panel-head h2 { margin-bottom: .2em; }
-.flock-panel-head p { max-width: 46em; color: var(--ink-2); }
+.flock-panel h2 { margin-bottom: .4em; }
 .flock-list, .flock-grid { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 12px; }
 .flock-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
 .flock-card { background: var(--card); border-radius: 16px; border: 2px solid var(--ink); padding: 14px 16px; box-shadow: 0 4px 0 var(--ink); }
@@ -533,10 +540,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flock-empty, .flock-mine { font-weight: 700; }
 .flock-create { margin: 14px 0 0; font-size: .95rem; color: var(--ink-2); }
 .flock-create a { color: var(--berry); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.flock-interest { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 0; }
-.flock-interest.is-on { display: block; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 10px 14px; }
-.flock-interest-state { margin: 0 0 4px; }
-.flock-interest .inline-form { margin: 0; }
 .interest-count { font-weight: 700; color: var(--ink-2); }
 .meet-box { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 8px 22px 18px; box-shadow: 0 5px 0 var(--ink); }
 .member-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }

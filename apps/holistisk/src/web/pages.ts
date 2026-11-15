@@ -8,7 +8,7 @@ import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
+import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_OUTINGS } from "../flokken/profile.js";
@@ -513,13 +513,14 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
+        ${flockLine(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
         ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
       </div>
     </div>
   </header>
   ${e.image_url && e.image_credit ? html`<p class="event-image-credit">Billede: ${e.image_credit}</p>` : ""}
   ${offersBlock(offers)}
-  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
+  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
     <div class="event-text">
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
         : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
