@@ -102,7 +102,7 @@ describe("flocks", () => {
     const before = await call(`/events/${event.slug}`);
     expect(before.body).toContain('<h2 id="h-flokke">Vil du med?</h2>');
     expect(before.body).not.toContain("ingen flok");
-    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="inline-form interest-form"><span class="interest-stack"><button type="submit" class="button-alt">Jeg vil gerne med!</button><span class="interest-hint">(Klik for at blive talt med i flokken)</span></span></form>`);
+    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`);
     expect(before.body).toContain(`href="/log-ind?naeste=${encodeURIComponent(`/events/${event.slug}/opret-flok`)}"`);
     expect(before.headers.get("cache-control")).toBe("private, no-store");
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flocks").all()[0]).toEqual({ n: 0 });
@@ -568,7 +568,7 @@ describe("Lad os komme godt i gang", () => {
     // Others see the count once someone is interested, never "nobody yet".
     const stranger = (await call(`/events/${slug}`)).body;
     // Two buttons side by side at the top: the tick and the organiser's ticket; the calendar is a small link below.
-    expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form interest-form"><span class="interest-stack"><button type="submit" class="button-alt">Jeg vil gerne med!</button><span class="interest-hint">(Klik for at blive talt med i flokken)</span></span></form>`);
+    expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`);
     expect(stranger).toContain('<p class="event-calendar">');
     expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
     expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');

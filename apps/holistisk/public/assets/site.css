@@ -335,11 +335,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .for-you .for-you-why a { color: var(--muted); }
 .row-img { width: 104px; height: 76px; object-fit: contain; background: var(--paper-2); border-radius: var(--radius-s); border: 2px solid var(--ink); }
 /* "Jeg vil gerne med!" under a row, in line with the text column, and at the foot of a card. */
-/* The button with "(Klik for at blive talt med i flokken)" centred under it. */
-.interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: center; }
-.interest-stack { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; }
-/* The hint never makes the stack wider than the button: it takes the button's width and wraps (Jake 2026-11-15). */
-.interest-hint { width: 0; min-width: 100%; font-size: .74rem; line-height: 1.25; text-wrap: balance; font-weight: 700; color: var(--green-2); }
+.interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; text-align: center; }
 .interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
 .row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
 .card.ticket { display: flex; flex-direction: column; }
@@ -441,7 +437,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-actions .inline-form { margin: 0; }
 .event-actions { align-items: start; }
 .event-actions .interest-form { display: flex; }
-.event-actions .interest-stack { display: flex; width: 100%; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
 .event-calendar { margin: 0 0 8px; font-size: .9rem; }
 .event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
