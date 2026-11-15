@@ -75,14 +75,14 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
         </div>
       </div>
       <div class="day-bars" data-days role="group" aria-label="Vælg en dag"></div>
-      <p class="sheet-count"><strong data-day-label>De næste ${MAP_DAYS} dage</strong> · <span data-count>${data.events.length} events</span> <button class="link-button" type="button" data-all-days hidden>Alle ${MAP_DAYS} dage</button></p>
+      <p class="sheet-count"><strong data-day-label>De næste ${MAP_DAYS} dage</strong> · <span data-count>${data.events.length} arrangementer</span> <button class="link-button" type="button" data-all-days hidden>Alle ${MAP_DAYS} dage</button></p>
       <div class="map-chips" data-chips role="group" aria-label="Aktivitet"></div>
     </div>
     <div class="sheet-place" data-place-view hidden>
       <div class="sheet-head"><button class="back-button" type="button" data-back aria-label="Tilbage til oversigten">←</button><h2 class="sheet-title" data-place-name></h2></div>
       <ol class="sheet-list" data-list></ol>
     </div>
-    <noscript><p>Kortet kræver JavaScript. <a href="/kalender">Se alle events i kalenderen</a>.</p></noscript>
+    <noscript><p>Kortet kræver JavaScript. <a href="/kalender">Se alle arrangementer i kalenderen</a>.</p></noscript>
   </section>
 </div>
 <script type="application/json" id="kort-data">${jsonScript(data)}</script>`;

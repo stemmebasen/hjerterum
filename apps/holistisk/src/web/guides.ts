@@ -103,7 +103,7 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
   <div class="prose guide-text">
     <h2>Fem gode første skridt</h2>
     <ol>
-      <li><strong>Se, hvad der sker.</strong> <a href="/kalender">Kalenderen</a> samler events fra byens scener, spillesteder, biblioteker og foreninger – opdateret hver nat. Start med <a href="/i-dag">det sker i dag</a> eller <a href="/weekend">i weekenden</a>.</li>
+      <li><strong>Se, hvad der sker.</strong> <a href="/kalender">Kalenderen</a> samler arrangementer fra byens scener, spillesteder, biblioteker og foreninger – opdateret hver nat. Start med <a href="/i-dag">det sker i dag</a> eller <a href="/weekend">i weekenden</a>.</li>
       <li><strong>Vælg det, du har lyst til.</strong> Tryk <strong>Jeg vil gerne med!</strong> ved et event, så samler vi en lille flok, du kan følges med.</li>
       <li><strong>Find noget fast.</strong> En ugentlig aktivitet giver de samme ansigter igen og igen – og så kommer venskaberne lettere. Se <a href="/arrangoerer">byens arrangører</a> og deres faste tilbud.</li>
       <li><strong>Det skal ikke koste en formue.</strong> Der sker meget i Aarhus, som er <a href="/gratis-og-billigt">gratis eller billigt</a>.</li>

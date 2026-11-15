@@ -282,7 +282,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .how span:not(.how-n) { color: var(--ink-2); font-size: .96rem; }
 
 /* Tickets: the event cards */
-.card-grid { display: grid; gap: 26px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+/* At most three cards a row (Jake 2026-11-15): a column is never narrower than a third of the row. */
+.card-grid { display: grid; gap: 26px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(250px, calc((100% - 44px) / 3))), 1fr)); }
 .ticket { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 5px 0 var(--ink); overflow: hidden; transition: transform .15s ease; }
 .ticket:hover { transform: translateY(-3px); }
 .card-link { display: flex; flex-direction: column; height: 100%; }
@@ -336,7 +337,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 /* "Jeg vil gerne med!" under a row, in line with the text column, and at the foot of a card. */
 /* The button with "(Klik for at blive talt med i flokken)" centred under it. */
 .interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; gap: 6px; text-align: center; }
-.interest-hint { font-size: .84rem; font-weight: 700; color: var(--green-2); }
+.interest-stack { display: inline-flex; flex-direction: column; align-items: stretch; gap: 5px; }
+/* The hint never makes the stack wider than the button: it takes the button's width and wraps (Jake 2026-11-15). */
+.interest-hint { width: 0; min-width: 100%; font-size: .74rem; line-height: 1.25; text-wrap: balance; font-weight: 700; color: var(--green-2); }
 .interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
 .row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
 .card.ticket { display: flex; flex-direction: column; }
@@ -438,6 +441,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-actions .inline-form { margin: 0; }
 .event-actions { align-items: start; }
 .event-actions .interest-form { display: flex; }
+.event-actions .interest-stack { display: flex; width: 100%; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
 .event-calendar { margin: 0 0 8px; font-size: .9rem; }
 .event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
