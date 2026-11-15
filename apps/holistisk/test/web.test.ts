@@ -438,6 +438,20 @@ describe("search engines and safety", () => {
     if (noImage) expect((await text(`/events/${noImage.slug}`)).body).toMatch(/"@type":"Event".*"image":\["https:\/\/portal\.example\/assets\/og\.jpg"\]/);
   });
 
+  it("an event page has a small section about the place: name, description, address, map and the way there", async () => {
+    const row = db.raw.prepare("SELECT slug FROM events WHERE venue_name = 'Hjerterum' AND lat IS NOT NULL AND starts_at > ? AND status = 'scheduled' LIMIT 1").all(NOW)[0] as { slug: string };
+    const body = (await text(`/events/${row.slug}`)).body;
+    const venue = /<section class="venue" id="stedet"[\s\S]*?<\/section>/.exec(body)?.[0] ?? "";
+    expect(venue).toContain('<h2 id="h-venue">Hjerterum</h2>');
+    expect(venue).toContain("Holistisk hus og forening midt i Aarhus");
+    expect(venue).toContain("Guldsmedgade 26B, 8000 Aarhus C");
+    expect(venue).toMatch(/<image href="https:\/\/tile\.openstreetmap\.org\/16\/\d+\/\d+\.png"/);
+    expect(venue).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=");
+    expect(venue).toContain('href="/arrangoerer/hjerterum">Flere arrangementer her</a>');
+    expect(venue).not.toContain("style=");
+    expect(body).toContain('<a href="#stedet">Mere om stedet</a>');
+  });
+
   it("share cards, language and security headers", async () => {
     const r = await get("/meditation/aarhus");
     const body = await r.text();

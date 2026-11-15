@@ -1198,3 +1198,32 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
   .kickoff .kickoff-item:not(:has(input:checked)):hover { background: var(--paper-2); }
 }
 .kickoff-preview .kickoff-more, .kickoff-unfold .kickoff-more, .kickoff-details .kickoff-more { margin-left: 0; }
+
+/* "Om stedet" on an event page (src/web/venue.ts): the place's name, a line about it, the address and a little map. */
+.venue { margin-top: 48px; display: grid; gap: 20px; grid-template-columns: 1fr; align-items: center; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 22px 22px; box-shadow: 0 4px 0 var(--ink); scroll-margin-top: 24px; }
+@media (min-width: 760px) { .venue { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 32px; padding: 28px 32px; } }
+.venue h2 { margin: 0 0 .35em; font-size: 1.6rem; }
+.venue-about { margin: 0 0 .7em; font-size: 1.04rem; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+.venue-address { margin: 0 0 .9em; font-weight: 700; }
+.venue-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.venue-links a { color: var(--berry); font-weight: 700; }
+.venue-map { margin: 0; position: relative; border-radius: var(--radius-s); overflow: hidden; border: 2px solid var(--ink); background: var(--paper-2); }
+.venue-map > a { display: block; line-height: 0; }
+.venue-map-svg { display: block; width: 100%; height: auto; aspect-ratio: 7 / 3; }
+.venue-map-tiles { filter: saturate(.55) contrast(.95); }
+.venue-map-pin path { fill: var(--berry); stroke: #fff; stroke-width: 2.5; }
+.venue-map-dot { fill: #fff; }
+.venue-map-shadow { fill: rgba(23, 51, 45, .28); }
+.venue-map figcaption { position: absolute; right: 0; bottom: 0; padding: 2px 8px; font-size: .7rem; line-height: 1.5; background: rgba(255, 253, 248, .85); border-top-left-radius: 8px; color: var(--muted); }
+.venue-map figcaption a { color: inherit; }
+@media (max-width: 759px) { .venue-map { order: -1; } .venue-map-svg { aspect-ratio: 2 / 1; } }
+
+/* Event page: the facts sit beside the ticket from the top on wide screens (Jake 2026-11-15: no empty space to the
+   right of the picture), and come after the description on phones. */
+.event-layout { display: grid; gap: 0 40px; grid-template-columns: 1fr; align-items: start; }
+.event-main { min-width: 0; }
+.event-main .event-ticket { max-width: none; }
+@media (min-width: 940px) {
+  .event-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .event-layout .event-facts { margin-top: 4px; }
+}

@@ -19,6 +19,7 @@ import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageCont
 import { areaCounts, categoryCounts, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 import { forYou, whyNote, type Taste } from "./foryou.js";
+import { venueSection } from "./venue.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
 export function linkify(text: string): SafeHtml[] {
@@ -495,6 +496,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const body = html`
 <article class="event wrap">
   ${crumbsNav(crumbs)}
+  <div class="event-layout">
+  <div class="event-main">
   <header class="ticket event-ticket">
     ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="${e.title}" decoding="async" fetchpriority="high"></figure>` : ""}
     <div class="ticket-body">
@@ -517,16 +520,16 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   ${e.image_url && e.image_credit ? html`<p class="event-image-credit">Billede: ${e.image_credit}</p>` : ""}
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
-  <div class="main-aside">
     <div class="event-text">
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
         : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
       ${source?.descriptionPolicy === "excerpt" && e.source_url ? html`<p><a href="${e.source_url}" rel="noopener">Læs hele beskrivelsen hos ${e.source_name} →</a></p>` : ""}
     </div>
-    <aside class="aside facts" aria-label="Fakta">
+  </div>
+    <aside class="aside facts event-facts" aria-label="Fakta">
       <dl class="facts-list">
         <dt>Hvornår</dt><dd>${capitalize(dayLabel(e.starts_at, ctx.now))}<br>${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</dd>
-        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.lat !== null && e.lon !== null && !over ? html`<br><a href="/kort?event=${e.slug}">Vis på kortet</a>${mapUrl ? html` · <a href="${mapUrl}" rel="noopener" target="_blank">OpenStreetMap</a>` : ""}` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere events i ${area.place}</a>` : ""}</dd>
+        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.venue_name || e.address ? html`<br><a href="#stedet">Mere om stedet</a>` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere events i ${area.place}</a>` : ""}</dd>
         ${e.organizer_name ? html`<dt>Arrangør</dt><dd>${profile ? html`<a href="/arrangoerer/${profile.slug}">${e.organizer_name}</a>` : e.organizer_url ? html`<a href="${e.organizer_url}" rel="noopener">${e.organizer_name}</a>` : e.organizer_name}</dd>` : ""}
         ${e.host_name ? html`<dt>Underviser / vært</dt><dd>${e.host_name}</dd>` : ""}
         <dt>Pris</dt><dd>${price ?? "Se arrangørens side"}${e.price_text ? html`<br><span class="meta-muted small">Ifølge beskrivelsen: ${e.price_text}</span>` : ""}</dd>
@@ -536,6 +539,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
       <span class="meta-muted small">Sidst kontrolleret ${dayLabel(e.last_checked_at, ctx.now)}. Ret eller aflys altid hos arrangøren.</span></p>
     </aside>
   </div>
+  ${venueSection(e, over)}
   ${related.length ? section("h-related", "Måske også", cardGrid(related, ctx.now)) : ""}
 </article>`;
   // A source whose terms require it (Billetto) is named as the canonical home of the event.
