@@ -3,6 +3,7 @@ import { runIngest } from "../src/ingest/run.js";
 import { SOURCES } from "../src/sources/registry.js";
 import { parseVoxList, splitLocation, voxEvents, type VoxDetail } from "../src/sources/voxhall.js";
 import { classify } from "../src/categories.js";
+import { venueProfile } from "../src/web/venue.js";
 import { trainEvents, type TrainEvent } from "../src/sources/train.js";
 import { musikhusetEvents, type MhEvent, type MhShowing } from "../src/sources/musikhuset.js";
 import { aakbEvents, type AakbEvent } from "../src/sources/aakb.js";
@@ -251,5 +252,16 @@ describe("positions for the map", () => {
     // A VoxHall concert at Radar is at Radar.
     expect(coordinatesFor(at("Radar", "Karen Wegeners Gade 6"), voxhall)).toEqual({ lat: 56.153242, lon: 10.194083 });
     expect(coordinatesFor(at("Et tredje sted", "Østergade 1"), voxhall)).toBeNull();
+  });
+});
+
+describe("the place on an event page (src/web/venue.ts)", () => {
+  it("is found by the event's own venue or address, never by the organiser alone", () => {
+    expect(venueProfile({ venue_name: "Dokk1", address: "Hack Kampmanns Plads 2", postal_code: "8000", city: "Aarhus C" })?.slug).toBe("dokk1");
+    expect(venueProfile({ venue_name: null, address: "Karen Wegeners Gade 6", postal_code: "8000", city: "Aarhus C" })?.slug).toBe("radar");
+    expect(venueProfile({ venue_name: "Godsbanen, Store Sal", address: null, postal_code: null, city: "Aarhus C" })?.slug).toBe("godsbanen");
+    // Same name, other address: not the same place.
+    expect(venueProfile({ venue_name: "Radar", address: "Vestergade 1", postal_code: "8000", city: "Aarhus C" })).toBeUndefined();
+    expect(venueProfile({ venue_name: "Café Ukendt", address: "Mejlgade 1", postal_code: "8000", city: "Aarhus C" })).toBeUndefined();
   });
 });
