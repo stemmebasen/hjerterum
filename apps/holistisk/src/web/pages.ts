@@ -90,6 +90,32 @@ const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud a
 /** One line for newcomers who don't read Danish yet, such as international students. */
 const ENGLISH_LINE = "New in Aarhus? Flokken is for you too. Pick an event, join a small group and go together – plenty of concerts and workshops need no Danish at all.";
 
+/**
+ * A member's own words on the front page (Jake 2026-11-15, from a real member). No photo: show a face only
+ * when it is the member's own picture. To add one later, set `name` (e.g. "Mette, 34") and/or `photo`
+ * (a path under /assets/, square, at least 160×160); the card then shows them instead of the quote-mark badge.
+ * `highlight` is the part of the quote that gets the yellow marker stroke.
+ */
+const TESTIMONIAL: { quote: string; highlight?: string; name?: string; photo?: string; role: string } = {
+  quote: "Flokken hjælper mig med to ting, jeg altid har haft pissesvært ved: At prøve nye ting og at møde nye mennesker. Det er blevet 200% nemmere at være mig!",
+  highlight: "Det er blevet 200% nemmere at være mig!",
+  role: "Medlem af Flokken"
+};
+
+function testimonialCard(t: typeof TESTIMONIAL): SafeHtml {
+  const [before, after] = t.highlight && t.quote.includes(t.highlight) ? t.quote.split(t.highlight) : [t.quote, undefined];
+  const text = after === undefined ? html`${before}` : html`${before}<span class="marker">${t.highlight}</span>${after}`;
+  return html`<figure class="testimonial" aria-labelledby="h-testimonial">
+  <h2 id="h-testimonial" class="visually-hidden">Det siger et medlem</h2>
+  <span class="testimonial-mark" aria-hidden="true">“</span>
+  <blockquote class="testimonial-quote"><p>${text}</p></blockquote>
+  <figcaption class="testimonial-by">
+    ${t.photo ? html`<img class="testimonial-photo" src="${t.photo}" alt="" width="56" height="56" loading="lazy">` : html`<span class="testimonial-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.5 2.4c0 5.5-7.5 10.1-7.5 10.1Z" fill="currentColor"/></svg></span>`}
+    <span>${t.name ? html`<strong>${t.name}</strong><br>` : ""}<span class="testimonial-role">${t.role}</span></span>
+  </figcaption>
+</figure>`;
+}
+
 /** How many of the coming week's events the front page lists before pointing to the calendar. */
 const FRONT_WEEK_LIMIT = 80;
 
@@ -158,6 +184,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p class="mission-aims">${AIMS} <a href="/om#formaal">Læs om vores formål og værdier</a></p>
     <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
+  ${testimonialCard(TESTIMONIAL)}
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
     <div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>

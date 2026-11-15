@@ -75,6 +75,11 @@ describe("front page", () => {
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
+    // A member's own words, right after the mission: no photo until the member gives us one.
+    expect(body).toMatch(/<\/aside>\s*<figure class="testimonial"/);
+    expect(body).toContain('<span class="marker">Det er blevet 200% nemmere at være mig!</span>');
+    expect(body).toContain('<span class="testimonial-role">Medlem af Flokken</span>');
+    expect(body).not.toContain('class="testimonial-photo"');
     // Not yet registered: never claim the protected RSV status.
     expect(body).not.toMatch(/registreret socialøkonomisk/i);
     // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
