@@ -18,7 +18,7 @@ export function groupTiles(active: Group["slug"] | null, counts: Map<Group["slug
       <span class="group-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${raw(g.icon)}</svg></span>
       <span class="group-name">${g.name}</span>
       <span class="group-line">${g.line}</span>
-      ${counts ? html`<span class="group-count">${counts.get(g.slug) ?? 0} events</span>` : ""}
+      ${counts ? html`<span class="group-count">${counts.get(g.slug) ?? 0} arrangementer</span>` : ""}
       ${on ? html`<span class="visually-hidden"> (valgt – tryk for at vise alle)</span>` : ""}
     </a></li>`;
   })}</ul></nav>`;
@@ -76,15 +76,12 @@ export function eventChips(e: EventRow, now: number): SafeHtml {
   return html`<span class="chip-row">${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flock}</span>`;
 }
 
-/** The line centred under "Jeg vil gerne med!" (Jake 2026-11-14). */
-export const INTEREST_HINT = "(Klik for at blive talt med i flokken)";
-
 /** "Jeg vil gerne med!" under an event in a list or on a card: the same tick as the button on the event page (one
  * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
  * longer be joined. */
 export function interestAction(e: EventRow, now: number): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
-  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg vil gerne med!</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg vil gerne med!</button></form>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;

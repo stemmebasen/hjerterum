@@ -220,15 +220,16 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (remove) {
       if (!m || !post) return go(`${back}#flokke`);
       await removeInterest(db, m.id, e.slug);
-      return go(withMessage(back, "interesse_fjernet") + "#flokke");
+      return go(withMessage(back, "interesse_fjernet"));
     }
     // Only a posted tick, or the way back with the tick in the cookie, saves anything.
     if (!post && !readChoices(request).includes(e.slug)) return go(`${back}#flokke`);
-    if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed") + "#flokke", clearChoiceCookie());
+    if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed"), clearChoiceCookie());
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(self)}`, choiceCookie([e.slug]));
     if (!(await ready(m.id))) return go(profileForList(self), choiceCookie([e.slug]));
     await saveInterests(db, m.id, [e.slug], [], regions, now);
-    return go(withMessage(back, "interesse_her") + "#flokke", clearChoiceCookie());
+    // Back at the top of the event page (Jake 2026-11-15): the thank-you sits above the buttons, beside the title and details.
+    return go(withMessage(back, "interesse_her"), clearChoiceCookie());
   }
   const answer = /^\/interesser\/([a-z0-9-]{1,90})\/(bekraeft|nej-tak|fjern)$/.exec(path);
   if (answer) {

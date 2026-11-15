@@ -1,5 +1,5 @@
 import type { EventRow } from "../web/queries.js";
-import { eventPath, INTEREST_HINT, placeLine, seats } from "../web/components.js";
+import { eventPath, placeLine, seats } from "../web/components.js";
 import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
@@ -45,7 +45,7 @@ const MESSAGES: Record<string, string> = {
   profil_gemt: "Din profil er gemt.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Eventet er fjernet fra din liste.",
-  interesse_her: "Tak! Du har nu vist interesse for at deltage til eventet – helt uforpligtende. Når vi har samlet 3-6 mennesker, får du besked under Mine flokke og op til 48 timer til at sige ja. Husk, du selv skal købe billetten.",
+  interesse_her: "Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken. Du får besked under Mine flokke og har 48 timer til at sige ja. Billetten køber du selv.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."
 };
@@ -93,11 +93,8 @@ const othersLine = (n: number, also: boolean): string => n === 1 ? `1 anden er $
 
 /** "Vil du med?" on the event page. The interest list's tick for this one event comes first: Socialklubben gathers a
  * flock when a handful are interested. Flocks with room are still shown, and starting one yourself is a small link. */
-export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
-  const over = (e.ends_at ?? e.starts_at + 3 * 3600_000) < now;
+export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | null, myFlockId: string | null, now: number): SafeHtml {
   const canStart = e.status === "scheduled" && e.starts_at > now;
-  const create = `${eventPath(e)}/opret-flok`;
-  const interestPath = `${eventPath(e)}/interesse`;
   const action = (f: FlockRow): SafeHtml => {
     if (f.is_member) return html`<a class="button" href="${flockPath(f.id)}">Du er en del af flokken – se den</a>`;
     if (!canStart) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
@@ -106,35 +103,33 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
     if (myFlockId) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
     return html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
   };
-  const inFlock = !!(myFlockId && member);
-  const count = interest.others > 0 ? html` <span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
-  // The tick itself is the "Jeg vil gerne med!" button at the top of the event page (interestButton). The panel
-  // explains it, shows how many others are interested and lets you take it back.
-  const tick = (): SafeHtml => {
-    if (interest.mine === "waiting") return html`<div class="flock-interest is-on">
-      <p class="flock-interest-state"><strong>Du er på listen.</strong> Vi giver besked, når flokken er samlet.${count}</p>
-      <form method="post" action="${interestPath}/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>
-    </div>`;
-    if (interest.mine === "invited") return html`<div class="flock-interest is-on">
-      <p class="flock-interest-state"><strong>Din flok er klar!</strong> <a href="/flokke#interesser">Sig ja eller nej tak under Mine flokke</a>.</p>
-    </div>`;
-    return interest.others > 0 ? html`<p class="flock-interest">${count}</p>` : html``;
-  };
+  // Only flocks that already exist get a box of their own (Jake 2026-11-15: the old "Vil du med?" box repeated the
+  // button at the top). Showing interest, taking it back and starting a flock yourself sit under the buttons (flockLine).
+  if (!flocks.length) return html``;
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
-  <div class="flock-panel-head">
-    <h2 id="h-flokke">Vil du med?</h2>
-    ${canStart && !inFlock && !interest.mine ? html`<p>Tryk <strong>Jeg vil gerne med!</strong>, så samler vi en lille flok, du kan følges med.</p>` : ""}
-  </div>
-  ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
+  <h2 id="h-flokke">${flocks.length === 1 ? "Der er en flok til arrangementet" : "Der er flokke til arrangementet"}</h2>
+  <ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
     <p class="flock-meta">${seats(f.member_count, f.max_size)} ${spotsLine(f)}</p>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
     <div class="flock-actions">${action(f)}</div>
-  </li>`)}</ul>` : over ? html`<p class="flock-empty">Der var ingen flok til dette event.</p>` : ""}
-  ${canStart ? inFlock ? flocks.some(f => f.id === myFlockId) ? "" : html`<p class="flock-mine">Du er med i en flok til eventet. <a href="${flockPath(myFlockId!)}">Se din flok</a></p>`
-    : html`${tick()}<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>` : ""}
+  </li>`)}</ul>
   ${trustLine}
 </section>`;
+}
+
+/** The small lines under "Jeg vil gerne med!" at the top of the event page: how many others are interested, taking
+ * your interest back, and starting a flock yourself (with the safety link). Nothing once you are in a flock or the
+ * event can no longer be joined. */
+export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now || (myFlockId && member)) return html``;
+  const create = `${eventPath(e)}/opret-flok`;
+  const count = interest.others > 0 ? html`<span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
+  const undo = interest.mine === "waiting" ? html`<form method="post" action="${eventPath(e)}/interesse/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>` : "";
+  return html`<div class="event-flock">
+  ${count || undo ? html`<div class="event-flock-state">${count}${undo}</div>` : ""}
+  ${interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested. <a class="trust-link" href="/tryghed">Sådan holder vi det trygt</a></p>`}
+</div>`;
 }
 
 /** The "Jeg vil gerne med!" button beside "Køb billet" at the top of the event page: the interest list's tick for
@@ -144,8 +139,8 @@ export function interestButton(e: EventRow, member: Member | null, myFlockId: st
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
   if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
-  if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er på listen</a>`;
-  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button><span class="interest-hint">${INTEREST_HINT}</span></form>`;
+  if (interest.mine === "waiting") return html`<span class="button-secondary is-on">✓ Du er på listen</span>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`;
 }
 
 // ————————————————————————————————————————— A flock's own page
