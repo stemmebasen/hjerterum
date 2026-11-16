@@ -9,7 +9,7 @@ import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js
 import { MAX_LENGTH, type ChatMessage } from "./chat.js";
 import type { SignupErrors, SignupForm } from "./membership.js";
 import { meetingPointByPlace } from "./meetingPoints.js";
-import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
+import { AGE_GROUPS, AGE_LABELS, FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership, INTRO_MAX, membershipLine, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
 /** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg vil gerne med!, start selv en flok,
  * Bliv en del af flokken. */
@@ -321,7 +321,7 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
     <h1>Hej ${member.first_name}</h1>
     ${flash(message)}
     <p class="standfirst">Her er dine flokke. Find et event i <a href="/kalender">kalenderen</a> for at finde eller oprette en flok.</p>
-    ${extra.outings !== undefined ? freeOutings(extra.outings) : ""}
+    ${extra.outings !== undefined && !freeMembership(ctx.now) ? freeOutings(extra.outings) : ""}
   </header>
   ${extra.top ?? ""}
   ${extra.interests ?? ""}
@@ -428,7 +428,7 @@ export function welcomePage(ctx: PageContext, member: Member, code: string, next
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Velkommen, ${member.first_name}!</h1>
-    <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem.</p>
+    <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. ${membershipLine(ctx.now)}</p>
   </header>
   <section class="code-box" aria-labelledby="h-code">
     <h2 id="h-code">Din personlige kode</h2>
@@ -447,6 +447,7 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
   const f = state.form ?? { name: "", email: "" };
   const errors = state.errors ?? {};
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Bliv medlem", path: "/bliv-medlem" }];
+  const free = freeMembership(ctx.now);
   const body = html`
 <div class="wrap narrow prose">
   <header class="page-head">
@@ -454,8 +455,12 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <h1>Bliv medlem af Flokken</h1>
     <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. <a href="#meld-ind">Meld dig ind her</a>.</p>
   </header>
-  <h2>Prøv det først</h2>
-  <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>
+  ${free
+    ? html`<p class="notice"><strong>Gratis i opstarten:</strong> Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}.</p>
+  <h2>Kom med fra start</h2>
+  <p>Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Du kan tage med, så tit du vil.</p>`
+    : html`<h2>Prøv det først</h2>
+  <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>`}
   <h2>Som medlem</h2>
   <ul>
     <li>kan du blive ved med at tage med i flokke, så ofte du vil,</li>
@@ -464,14 +469,16 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <li>gør du det lettere for nye i byen at finde en vej ind i fællesskabet.</li>
   </ul>
   <h2>Kontingent</h2>
-  <p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Betalingen er ikke åben endnu. Du kan melde dig ind nu, og vi skriver til dig, før du skal betale noget.</p>
+  ${free
+    ? html`<p>Medlemskab er <strong>gratis til ${FREE_MEMBERSHIP_DATE}</strong>. Hvad kontingentet bliver derefter, fortæller vi i god tid, og du bestemmer selv, om du vil fortsætte. Du skal ikke betale noget nu.</p>`
+    : html`<p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Betalingen er ikke åben endnu. Du kan melde dig ind nu, og vi skriver til dig, før du skal betale noget.</p>`}
   <p class="more-line">${loggedIn
     ? html`<a class="button" href="/kom-godt-i-gang">Find en oplevelse</a> <a class="button-secondary" href="/flokke">Mine flokke</a>`
     : html`<a class="button" href="/log-ind?naeste=/kom-godt-i-gang">Opret profil og kom i gang</a>`}</p>
   <h2 id="meld-ind">Meld dig ind</h2>
-  <p>Du behøver ingen profil for at være medlem, og du behøver ikke tage med på noget. Mange er medlem for at støtte fællesskabet – også selvom de ikke selv tager med. Skriv dit navn og din e-mail, så skriver vi til dig, når betalingen åbner.</p>
+  <p>Du behøver ingen profil for at være medlem, og du behøver ikke tage med på noget. Mange er medlem for at støtte fællesskabet – også selvom de ikke selv tager med. ${free ? "Skriv dit navn og din e-mail, så er du med." : "Skriv dit navn og din e-mail, så skriver vi til dig, når betalingen åbner."}</p>
   ${state.sent
-    ? html`<p class="notice" role="status">Tak, du er meldt ind! Vi skriver til dig, når betalingen åbner.</p>`
+    ? html`<p class="notice" role="status">${free ? `Tak, du er meldt ind! Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}, og vi skriver til dig i god tid, før noget ændrer sig.` : "Tak, du er meldt ind! Vi skriver til dig, når betalingen åbner."}</p>`
     : html`<form class="form-card" method="post" action="/bliv-medlem/meld-ind#meld-ind" novalidate>
     <div class="field">
       <label for="s-name">Dit navn</label>
@@ -488,7 +495,7 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <div class="form-actions"><button type="submit">Bliv medlem</button></div>
   </form>`}
 </div>`;
-  return { status: state.status ?? 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: free ? `Flokken er en forening. Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE} – og som medlem holder du fællesskabet i gang.` : `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Safety

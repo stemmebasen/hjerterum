@@ -37,7 +37,12 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 function respond(env: Env, body: string, init: { status?: number; type?: string; cache?: string; headers?: Record<string, string> } = {}): Response {
-  const headers = new Headers({ "content-type": init.type ?? "text/html; charset=utf-8", "cache-control": init.cache ?? "public, max-age=300", ...SECURITY_HEADERS, ...init.headers });
+  const type = init.type ?? "text/html; charset=utf-8";
+  // A page's header depends on whether the visitor is logged in ("Log ind" or "Mine flokke"), so no shared cache may
+  // keep one, and the browser keeps one copy per login state.
+  const html = type.startsWith("text/html");
+  const cache = (init.cache ?? "public, max-age=300").replace(html ? /^public\b/ : /^$/, "private");
+  const headers = new Headers({ "content-type": type, "cache-control": cache, ...(html ? { vary: "Cookie" } : {}), ...SECURITY_HEADERS, ...init.headers });
   // Nothing outside production may end up in a search index.
   if (!isProduction(env)) headers.set("x-robots-tag", "noindex, nofollow");
   return new Response(body, { status: init.status ?? 200, headers });
@@ -54,8 +59,8 @@ function places(edition: "forening" | "portal", regions: string[]): Pick<PageCon
     : { areas: activeAreas(regions), regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og ") };
 }
 
-function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null): PageContext {
-  if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
+function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null, signedIn = false): PageContext {
+  if (mount) return { ...context(env, url, now, regions, null, signedIn), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
     origin: configured ?? url.origin,
@@ -65,6 +70,7 @@ function context(env: Env, url: URL, now: number, regions: string[], mount: Moun
     ...places(env.EDITION === "portal" ? "portal" : "forening", regions),
     contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
     base: "",
+    signedIn,
     // Without a mount: EDITION, else Flokken as an association.
     edition: env.EDITION === "portal" ? "portal" : "forening"
   };
@@ -143,7 +149,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const regions = activeRegions(env.ACTIVE_REGIONS);
-  const pc = context(env, url, now, regions, mount);
+  const pc = context(env, url, now, regions, mount, /(?:^|;\s*)flok_session=[A-Za-z0-9_-]{20,}/.test(request.headers.get("cookie") ?? ""));
 
   if (path === "/api/health") {
     const db = env.DB;
