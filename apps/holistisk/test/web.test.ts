@@ -431,7 +431,7 @@ describe("search engines and safety", () => {
       expect(r.body).toContain('"@type":"BreadcrumbList"');
       expect(r.body).not.toMatch(/rabat|halv pris|spar på billetten/i);
     }
-    expect((await text("/moed-nye-mennesker")).body).toContain("uden at være medlem");
+    expect((await text("/moed-nye-mennesker")).body).toContain("Medlemskab af foreningen er gratis til");
     expect((await text("/ny-i-aarhus")).body).toContain('lang="en"');
   });
 

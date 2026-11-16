@@ -108,6 +108,25 @@ const TIMES = `(SELECT COUNT(*) FROM flock_members x JOIN flocks y ON y.id = x.f
 /** The first outings (flocks whose event has been held) are free; later this many lead to a paid membership. */
 export const FREE_OUTINGS = 3;
 
+/** Start-up period (Jake 2026-11-16): membership is free until this moment (midnight, Danish time). Until then the
+ * FREE_OUTINGS rule is paused and no price is named. To turn the rule back on, move or remove this date; the texts
+ * about the 3 outings and the counter on Mine flokke come back by themselves. */
+export const FREE_MEMBERSHIP_UNTIL = Date.parse("2027-03-01T00:00:00+01:00");
+/** The same date, as written on the site. */
+export const FREE_MEMBERSHIP_DATE = "1. marts 2027";
+
+/** True while membership is free in the start-up period. */
+export function freeMembership(now: number): boolean {
+  return now < FREE_MEMBERSHIP_UNTIL;
+}
+
+/** One sentence about what it costs to come along: free membership now, else the outings without membership. */
+export function membershipLine(now: number): string {
+  return freeMembership(now)
+    ? `Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}, så du kan tage med, så tit du vil.`
+    : `Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem.`;
+}
+
 /** How many outings the member has been on: flocks whose event is over and not cancelled, which they had not left
  * before it ended (the same count as "Har været med X gange"). */
 export async function outingsUsed(db: D1Database, memberId: string, now: number): Promise<number> {

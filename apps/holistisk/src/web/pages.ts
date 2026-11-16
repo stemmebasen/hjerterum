@@ -11,7 +11,7 @@ import type { Member } from "../flokken/auth.js";
 import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
-import { FREE_OUTINGS } from "../flokken/profile.js";
+import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
@@ -188,7 +188,9 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
     <div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>
-    <p>Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.</p></div>
+    <p>${freeMembership(ctx.now)
+      ? `Flokken er en forening, der findes, fordi folk er med. Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}. Meld dig ind, og vær med til at holde fællesskabet i gang.`
+      : `Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.`}</p></div>
     <p><a class="button button-alt" href="/bliv-medlem">Læs om medlemskab</a></p>
   </aside>
   <section class="section savings" aria-labelledby="h-save">
