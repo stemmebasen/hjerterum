@@ -7,6 +7,7 @@ import { html, raw, type SafeHtml } from "../web/html.js";
 import { crumbsNav, page, type Crumb, type PageContext } from "../web/layout.js";
 import { eventBySlug, flockRoom, kickoffEvents, type EventRow } from "../web/queries.js";
 import { flash, type View } from "./pages.js";
+import { membershipLine } from "./profile.js";
 import { suggestedMeetingPlace } from "./meetingPoints.js";
 import { eventOver, flockById, joinFlock, memberFlockForEvent, memberFlocks } from "./store.js";
 
@@ -265,7 +266,7 @@ async function candidates(db: D1Database, regions: string[], memberId: string | 
 export async function kickoffJson(db: D1Database, regions: string[], member: { id: string } | null, ready: boolean, now: number, days?: number) {
   const { list, inFlock, interests } = await candidates(db, regions, member?.id ?? null, now, days);
   return {
-    member: !!member, ready, inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
+    member: !!member, ready, membershipLine: membershipLine(now), inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
     events: list.map(({ event: e, interested, mine }) => ({
       slug: e.slug, title: e.title, when: when(e, now), place: [placeLine(e), priceLabel(e)].filter(Boolean).join(" · "),
       image: imageOf(e), blurb: blurb(e), groups: groupsOf(e.categories), interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
@@ -292,7 +293,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
     ${crumbsNav(crumbs)}
     <h1>Lad os komme godt i gang</h1>
     ${flash(state.message)}
-    <p class="standfirst">Sæt kryds ved de oplevelser, du kunne tænke dig. <strong>Det er helt uforpligtende</strong> – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Først dér siger du ja. Du kan deltage i de første 3 udflugter uden at være medlem.</p>
+    <p class="standfirst">Sæt kryds ved de oplevelser, du kunne tænke dig. <strong>Det er helt uforpligtende</strong> – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med. Først dér siger du ja. ${membershipLine(ctx.now)}</p>
   </header>
   ${groupTiles(group, null, g => g ? `${KICKOFF_PATH}?gruppe=${g}` : KICKOFF_PATH, { compact: true })}
   ${all.length ? html`<form method="post" action="${KICKOFF_PATH}" class="kickoff-form" data-kickoff-list>
