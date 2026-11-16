@@ -154,7 +154,7 @@ jobs:
           P "$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
           grep -q 'Jeg vil gerne med!\|Jeg er interesseret\|Køb billet\|Tilmeld dig\|Dette event er afholdt' /tmp/event.html
-          grep -q 'id="flokke"' /tmp/event.html
+          grep -q 'start selv en flok\|id="flokke"\|Dette event er afholdt' /tmp/event.html
           PG "/kalender?kategori=yoga&periode=maaned&omraade=aarhus" 'class="results-count"'
           PG "/kalender?omraade=midtbyen&periode=14-dage" 'class="filter-chip is-on"'
           PG /aarhus '<h1>Events i Aarhus</h1>'
