@@ -193,6 +193,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
     const result = await adminRoute(request, env, env.DB, pc, path, url, now);
     if (!result) return view(env, notFoundPage(pc));
+    if (result.image) return new Response(result.image.body, { headers: { ...SECURITY_HEADERS, "content-type": result.image.type, "cache-control": "private, no-store", "x-robots-tag": "noindex" } });
     const cookie = result.cookie ? { "set-cookie": result.cookie } : {};
     if (result.redirect) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
     return respond(env, result.body, { status: result.status, cache: "private, no-store", headers: { ...result.headers, "x-robots-tag": "noindex, nofollow", ...cookie } });

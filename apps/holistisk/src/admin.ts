@@ -6,19 +6,20 @@ import { ADMIN_COOKIE, visitSummary, type VisitSummary } from "./stats.js";
 import { capitalize, dayLabel, hhmm, localDate, addDays } from "./time.js";
 import { html, raw, type SafeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL, page, type PageContext } from "./web/layout.js";
+import { adminMembersRoute } from "./adminMembers.js";
 
 /** Socialklubben's admin overview at /admin: visits, members, interest per arrangement, flocks, recent activity and
  * mails, on one page that reads well on a phone. Only the admin gets in: a login link is sent to the admin address
  * (ADMIN_EMAIL, else the organisers' address) and nowhere else, and the session it starts is an HttpOnly cookie
  * kept apart from the members' login. */
 
-export type AdminView = { status: number; body: string; headers?: Record<string, string>; cookie?: string; redirect?: string };
+export type AdminView = { status: number; body: string; headers?: Record<string, string>; cookie?: string; redirect?: string; image?: { type: string; body: Uint8Array<ArrayBuffer> } };
 
 const LINK_MINUTES = 60;
 const SESSION_DAYS = 30;
 const LINKS_PER_HOUR = 3;
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i;
-const NO_STORE = { "cache-control": "private, no-store", "x-robots-tag": "noindex, nofollow" };
+export const NO_STORE = { "cache-control": "private, no-store", "x-robots-tag": "noindex, nofollow" };
 
 export const adminEmail = (env: Env): string => env.ADMIN_EMAIL && EMAIL.test(env.ADMIN_EMAIL.trim()) ? env.ADMIN_EMAIL.trim().toLowerCase() : ORGANISER_EMAIL;
 
@@ -98,7 +99,9 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
     if (!(await isAdmin(db, request, now))) return loginView(pc, env, null);
     return overviewView(pc, await overview(db, now, mailConfigured(env)), now);
   }
-  return null;
+  // Everything else under /admin is for the admin only.
+  if (!(await isAdmin(db, request, now))) return { status: 303, body: "", redirect: "/admin" };
+  return adminMembersRoute(request, db, pc, path, url, now);
 }
 
 // ————————————————————————————————————————— Data
@@ -106,7 +109,7 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
 export type Overview = {
   visits: VisitSummary;
   members: { profiles: number; profilesWeek: number; withEmail: number; signups: number; signupsWeek: number; activeWeek: number };
-  newestPeople: Array<{ name: string; email: string | null; kind: "profil" | "indmelding"; at: number; age_group: string | null }>;
+  newestPeople: Array<{ id: string; name: string; email: string | null; kind: "profil" | "indmelding"; at: number; age_group: string | null }>;
   interests: Array<{ slug: string; title: string; starts_at: number; waiting: number; invited: number; confirmed: number }>;
   interestTotals: { people: number; ticks: number; events: number };
   flocks: Array<{ id: string; slug: string; title: string; starts_at: number; meeting_at: number; meeting_place: string; members: number; pending: number; max_size: number; gathered: boolean }>;
@@ -133,8 +136,8 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     n(`SELECT COUNT(DISTINCT s.member_id) AS n FROM member_sessions s JOIN members m ON m.id = s.member_id WHERE ${SK_MEMBER} AND s.created_at > ?`, week)
   ]);
   const [people, signupRows, interestRows, interestTotals, flockRows, ticks, joins, inquiries, mailKinds, mailRecent, reports] = await Promise.all([
-    db.prepare(`SELECT m.first_name AS name, m.email, m.created_at AS at, m.age_group FROM members m WHERE ${SK_MEMBER} ORDER BY m.created_at DESC LIMIT 12`).all<{ name: string; email: string | null; at: number; age_group: string | null }>(),
-    db.prepare("SELECT name, email, created_at AS at FROM membership_signups ORDER BY created_at DESC LIMIT 12").all<{ name: string; email: string; at: number }>(),
+    db.prepare(`SELECT m.id, m.first_name AS name, m.email, m.created_at AS at, m.age_group FROM members m WHERE ${SK_MEMBER} ORDER BY m.created_at DESC LIMIT 12`).all<{ id: string; name: string; email: string | null; at: number; age_group: string | null }>(),
+    db.prepare("SELECT id, name, email, created_at AS at FROM membership_signups ORDER BY created_at DESC LIMIT 12").all<{ id: string; name: string; email: string; at: number }>(),
     db.prepare(`SELECT e.slug, e.title, e.starts_at,
         SUM(i.status = 'waiting') AS waiting, SUM(i.status = 'invited') AS invited, SUM(i.status = 'confirmed') AS confirmed
       FROM event_interests i JOIN events e ON e.id = i.event_id
@@ -183,8 +186,8 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
 
 // ————————————————————————————————————————— Pages
 
-const STYLE = ["/assets/admin.css?v=1"];
-const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
+const STYLE = ["/assets/admin.css?v=2"];
+export const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
 /** "for 5 min. siden", "i går kl. 14.05" – how long ago, as a person would say it. */
 export function ago(at: number, now: number): string {
   const min = Math.floor((now - at) / 60_000);
@@ -196,9 +199,9 @@ export function ago(at: number, now: number): string {
   if (day === addDays(today, -1)) return `i går kl. ${hhmm(at)}`;
   return capitalize(when(at, now));
 }
-const num = (n: number) => n.toLocaleString("da-DK");
+export const num = (n: number) => n.toLocaleString("da-DK");
 
-function shell(pc: PageContext, title: string, body: SafeHtml, status = 200, extra: Partial<AdminView> = {}): AdminView {
+export function shell(pc: PageContext, title: string, body: SafeHtml, status = 200, extra: Partial<AdminView> = {}): AdminView {
   return { status, headers: NO_STORE, ...extra, body: page(pc, { title, description: "Socialklubbens overblik.", canonical: "/admin", noindex: true, styles: STYLE }, html`<div class="wrap sk-admin">${body}</div>`) };
 }
 
@@ -293,7 +296,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
   </section>
 
   <section class="sk-card" aria-labelledby="medlemmer">
-    <h2 id="medlemmer">Medlemmer</h2>
+    <div class="sk-head"><h2 id="medlemmer">Medlemmer</h2><a class="sk-more" href="/admin/medlemmer">Alle medlemmer</a></div>
     <div class="sk-tiles">
       ${tile(o.members.profiles, "profiler", `${num(o.members.profilesWeek)} nye på 7 dage`)}
       ${tile(o.members.signups, "indmeldelser", `${num(o.members.signupsWeek)} nye på 7 dage`)}
@@ -301,13 +304,13 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
       ${tile(o.members.activeWeek, "loggede ind", "seneste 7 dage")}
     </div>
     <h3>Nyeste</h3>
-    ${o.newestPeople.length ? html`<ul class="sk-rows">${o.newestPeople.map(p => html`<li><div><strong>${p.name}</strong> ${p.kind === "indmelding" ? html`<span class="sk-tag">indmeldt</span>` : html`<span class="sk-tag sk-tag-green">profil</span>`}${p.age_group ? html` <span class="sk-muted">${p.age_group} år</span>` : null}${p.email ? html`<br><a class="sk-muted" href="mailto:${p.email}">${p.email}</a>` : null}</div><time>${ago(p.at, now)}</time></li>`)}</ul>` : html`<p class="sk-empty">Ingen endnu.</p>`}
+    ${o.newestPeople.length ? html`<ul class="sk-rows">${o.newestPeople.map(p => html`<li><div><a href="${p.kind === "profil" ? `/admin/medlemmer/${p.id}` : "/admin/medlemmer#indmeldelser"}"><strong>${p.name}</strong></a> ${p.kind === "indmelding" ? html`<span class="sk-tag">indmeldt</span>` : html`<span class="sk-tag sk-tag-green">profil</span>`}${p.age_group ? html` <span class="sk-muted">${p.age_group} år</span>` : null}${p.email ? html`<br><a class="sk-muted" href="mailto:${p.email}">${p.email}</a>` : null}</div><time>${ago(p.at, now)}</time></li>`)}</ul>` : html`<p class="sk-empty">Ingen endnu.</p>`}
   </section>
 
   <section class="sk-card" aria-labelledby="interesse">
     <h2 id="interesse">“Jeg vil gerne med!”</h2>
-    <p class="sk-lead">${num(o.interestTotals.people)} personer har sagt ja til ${num(o.interestTotals.events)} kommende arrangementer (${num(o.interestTotals.ticks)} i alt).</p>
-    ${o.interests.length ? html`<ul class="sk-rows">${o.interests.map(i => html`<li><div><a href="/events/${i.slug}">${i.title}</a><br><span class="sk-muted">${capitalize(dayLabel(i.starts_at, now))} kl. ${hhmm(i.starts_at)}</span></div><div class="sk-counts">${i.waiting ? html`<span class="sk-tag">${i.waiting} venter</span>` : null}${i.invited ? html`<span class="sk-tag sk-tag-butter">${i.invited} inviteret</span>` : null}${i.confirmed ? html`<span class="sk-tag sk-tag-green">${i.confirmed} bekræftet</span>` : null}</div></li>`)}</ul>` : html`<p class="sk-empty">Ingen har trykket “Jeg vil gerne med!” til kommende arrangementer endnu.</p>`}
+    <p class="sk-lead">${num(o.interestTotals.people)} personer har sagt ja til ${num(o.interestTotals.events)} kommende arrangementer (${num(o.interestTotals.ticks)} i alt). Tryk på et arrangement for at se, hvem der vil med.</p>
+    ${o.interests.length ? html`<ul class="sk-rows">${o.interests.map(i => html`<li><div><a href="/admin/interesse/${i.slug}">${i.title}</a><br><span class="sk-muted">${capitalize(dayLabel(i.starts_at, now))} kl. ${hhmm(i.starts_at)}</span></div><div class="sk-counts">${i.waiting ? html`<span class="sk-tag">${i.waiting} venter</span>` : null}${i.invited ? html`<span class="sk-tag sk-tag-butter">${i.invited} inviteret</span>` : null}${i.confirmed ? html`<span class="sk-tag sk-tag-green">${i.confirmed} bekræftet</span>` : null}</div></li>`)}</ul>` : html`<p class="sk-empty">Ingen har trykket “Jeg vil gerne med!” til kommende arrangementer endnu.</p>`}
   </section>
 
   <section class="sk-card" aria-labelledby="flokke">
