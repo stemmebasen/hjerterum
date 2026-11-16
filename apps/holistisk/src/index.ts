@@ -23,6 +23,8 @@ import { flokkenRoute } from "./flokken/routes.js";
 import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
 import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters } from "./web/foryou.js";
 import { activityFilters } from "./web/pages.js";
+import { adminRoute } from "./admin.js";
+import { countable, recordVisit, rollUpVisits } from "./stats.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
 
@@ -184,6 +186,17 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
     return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
+  // Socialklubben's admin overview (src/admin.ts): only for the admin, never cached.
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra sidens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
+    const result = await adminRoute(request, env, env.DB, pc, path, url, now);
+    if (!result) return view(env, notFoundPage(pc));
+    const cookie = result.cookie ? { "set-cookie": result.cookie } : {};
+    if (result.redirect) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
+    return respond(env, result.body, { status: result.status, cache: "private, no-store", headers: { ...result.headers, "x-robots-tag": "noindex, nofollow", ...cookie } });
+  }
   const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
@@ -317,6 +330,15 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   return view(env, notFoundPage(pc));
 }
 
+/** Visits to Socialklubben itself: its own domain, or the portal mount on www.jacobhauge.com (not Samfolk, not the
+ * workers.dev test address). */
+function isSocialklubben(request: Request): boolean {
+  const host = new URL(request.url).hostname;
+  if (DOMAINS[host]) return true;
+  const given = request.headers.get("x-flokken-mount");
+  return !!given && MOUNTS[given]?.edition === "portal";
+}
+
 /** Requests after which someone may have been offered a flock place. */
 const MAY_INVITE = /\/(kom-godt-i-gang|interesser\/[a-z0-9-]+\/(bekraeft|nej-tak)|events\/[a-z0-9-]+\/interesse|flokke\/[0-9a-f-]+\/forlad|profil)$/;
 
@@ -324,6 +346,11 @@ export default {
   async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     try {
       const response = await handle(request, env, Date.now());
+      // Visitor statistics (src/stats.ts): counted after the answer is sent, so no one waits for it.
+      if (ctx && env.DB && isSocialklubben(request) && countable(request, response)) {
+        const db = env.DB;
+        ctx.waitUntil(recordVisit(db, request, Date.now()).catch(error => console.error(JSON.stringify({ event: "visit_failed", error: error instanceof Error ? error.message : String(error) }))));
+      }
       // A tick, an answer or a "no thanks" can offer someone a place in a flock: mail them now, not at the next cron.
       if (ctx && env.DB && request.method === "POST" && mailConfigured(env) && MAY_INVITE.test(new URL(request.url).pathname)) {
         const db = env.DB;
@@ -358,8 +385,9 @@ export default {
         .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
         .catch(error => console.error(JSON.stringify({ event: "mail_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
+    const visits = controller.cron === DAILY_CRON && env.DB ? rollUpVisits(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
     const purgeMail = controller.cron === DAILY_CRON && env.DB ? purgeMailData(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
-    const all = Promise.all([work, purge, gather, mail, purgeMail]);
+    const all = Promise.all([work, purge, gather, mail, purgeMail, visits]);
     if (ctx) ctx.waitUntil(all);
     await all;
   }
