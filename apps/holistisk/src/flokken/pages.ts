@@ -40,12 +40,14 @@ const MESSAGES: Record<string, string> = {
   forladt: "Du har forladt flokken.",
   rettet: "Mødested og tidspunkt er opdateret.",
   logget_ud: "Du er logget ud.",
+  logget_ind: "Du er logget ind.",
+  velkommen_mail: "Velkommen! Du er logget ind. Når du vil med i en flok, beder vi om din aldersgruppe og en linje om dig selv.",
   tak: "Tak for din henvendelse. Vi vender tilbage.",
   meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den.",
   profil_gemt: "Din profil er gemt.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Eventet er fjernet fra din liste.",
-  interesse_her: "Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken. Du får besked under Mine flokke og har 48 timer til at sige ja. Billetten køber du selv.",
+  interesse_her: "Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken. Du får en e-mail og kan også se det under Mine flokke. Du har 48 timer til at sige ja. Billetten køber du selv.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."
 };
@@ -332,7 +334,7 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
 
 // ————————————————————————————————————————— Joining and logging in
 
-export function loginPage(ctx: PageContext, next: string, state: { nameError?: string; codeError?: string; name?: string; status?: number } = {}): View {
+export function loginPage(ctx: PageContext, next: string, state: { nameError?: string; codeError?: string; name?: string; email?: string; emailError?: string; sentTo?: string; status?: number } = {}): View {
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Log ind", path: "/log-ind" }];
   const body = html`
 <div class="wrap narrow">
@@ -352,21 +354,62 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
         ${state.nameError ? html`<span class="field-error" id="err-name">${state.nameError}</span>` : ""}
       </div>
       <div class="form-actions"><button type="submit">Opret profil</button></div>
-      <p class="small meta-muted">Du får en personlig kode, som du bruger til at logge ind på andre enheder. Læs <a href="/tryghed">sådan holder vi det trygt</a>.</p>
+      <p class="small meta-muted">Du får en personlig kode til at logge ind på andre enheder. Giver du os din e-mail, kan du også logge ind med et link på e-mail. Læs <a href="/tryghed">sådan holder vi det trygt</a>.</p>
     </form>
-    <form class="form-card" method="post" action="/log-ind" novalidate>
-      <h2>Har du en kode?</h2>
-      <input type="hidden" name="naeste" value="${next}">
-      <div class="field">
-        <label for="m-code">Din personlige kode</label>
-        <input id="m-code" name="kode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required${state.codeError ? raw(' aria-invalid="true" aria-describedby="err-code"') : ""}>
-        ${state.codeError ? html`<span class="field-error" id="err-code">${state.codeError}</span>` : ""}
-      </div>
-      <div class="form-actions"><button type="submit" class="button-alt">Log ind</button></div>
-    </form>
+    <div class="form-card login-card">
+      <h2>Har du allerede en profil?</h2>
+      ${state.sentTo
+        ? html`<p class="notice" role="status">Tjek din indbakke. Hører <strong>${state.sentTo}</strong> til en profil eller et medlemskab, har vi sendt dig et link, som du logger ind med. Det virker i en time. Kan du ikke finde mailen, så kig også i spam.</p>`
+        : html`<form method="post" action="/log-ind/mail" class="login-form" novalidate>
+        <input type="hidden" name="naeste" value="${next}">
+        <div class="field">
+          <label for="m-email">Din e-mail</label>
+          <input id="m-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${state.email ?? ""}"${state.emailError ? raw(' aria-invalid="true" aria-describedby="err-email"') : ""}>
+          <span class="hint">Vi sender dig et link, som du logger ind med.</span>
+          ${state.emailError ? html`<span class="field-error" id="err-email">${state.emailError}</span>` : ""}
+        </div>
+        <div class="form-actions"><button type="submit" class="button-alt">Send mig et login-link</button></div>
+      </form>`}
+      <details class="login-code"${state.codeError ? raw(" open") : ""}>
+        <summary>Log ind med din personlige kode</summary>
+        <form method="post" action="/log-ind" class="login-form" novalidate>
+          <input type="hidden" name="naeste" value="${next}">
+          <div class="field">
+            <label for="m-code">Din personlige kode</label>
+            <input id="m-code" name="kode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required${state.codeError ? raw(' aria-invalid="true" aria-describedby="err-code"') : ""}>
+            ${state.codeError ? html`<span class="field-error" id="err-code">${state.codeError}</span>` : ""}
+          </div>
+          <div class="form-actions"><button type="submit" class="button-secondary">Log ind</button></div>
+        </form>
+      </details>
+    </div>
   </div>
 </div>`;
   return { status: state.status ?? 200, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Opret en profil på Flokken eller log ind.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
+}
+
+/** The page a login link opens: a button that logs in (so a mail program checking the link does not use it up). */
+export function linkPage(ctx: PageContext, state: { token?: string; error?: "used" | "expired" | "unknown"; loggedIn?: boolean }): View {
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Log ind", path: "/log-ind" }];
+  const problem = state.error === "used" ? "Linket er allerede brugt." : state.error === "expired" ? "Linket er udløbet." : "Linket virker ikke.";
+  const body = html`
+<div class="wrap narrow">
+  <header class="page-head">
+    ${crumbsNav(crumbs)}
+    <h1>${state.token ? "Log ind" : problem}</h1>
+  </header>
+  ${state.token
+    ? html`<form class="form-card" method="post" action="/log-ind/link">
+      <input type="hidden" name="t" value="${state.token}">
+      <p>Tryk på knappen for at logge ind på denne enhed.</p>
+      <div class="form-actions"><button type="submit">Log ind</button></div>
+    </form>`
+    : state.loggedIn
+      ? html`<p>Du er allerede logget ind. <a href="/flokke">Gå til Mine flokke</a></p>`
+      : html`<p>Et login-link virker kun én gang og i en begrænset tid. Du kan nemt få et nyt.</p>
+    <p class="more-line"><a class="button" href="/log-ind">Send mig et nyt link</a></p>`}
+</div>`;
+  return { status: state.token ? 200 : 400, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Log ind med et link fra din e-mail.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
 }
 
 export function welcomePage(ctx: PageContext, member: Member, code: string, next: string): View {
@@ -379,7 +422,7 @@ export function welcomePage(ctx: PageContext, member: Member, code: string, next
   <section class="code-box" aria-labelledby="h-code">
     <h2 id="h-code">Din personlige kode</h2>
     <p class="code">${code}</p>
-    <p>Gem koden et sikkert sted, fx som en note på din telefon. Du skal bruge den for at logge ind på en anden enhed. Vi viser den ikke igen og kan ikke finde den frem for dig.</p>
+    <p>Gem koden et sikkert sted, fx som en note på din telefon. Du skal bruge den for at logge ind på en anden enhed. Vi viser den ikke igen. Giver du os din e-mail på din profil, kan du også logge ind med et link på e-mail.</p>
   </section>
   <p class="more-line"><a class="button" href="${next}">Fortsæt</a></p>
 </div>`;
@@ -538,7 +581,7 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
     <div class="field">
       <label for="p-email">E-mail${state.requireEmail ? "" : html` <span class="meta-muted">(frivilligt)</span>`}</label>
       <input id="p-email" name="email" type="email" maxlength="160" autocomplete="email"${state.requireEmail ? raw(" required") : ""} value="${form.email}"${describedBy("email", "hint-email")}>
-      <span class="hint" id="hint-email">Kun til at give dig besked, når en flok er klar til dig, eller hvis et event bliver aflyst. Ingen andre ser den.</span>
+      <span class="hint" id="hint-email">Til at give dig besked, når en flok er klar til dig, og så du kan logge ind med et link på e-mail. Ingen andre ser den.</span>
       ${err("email")}
     </div>
     <div class="field">
