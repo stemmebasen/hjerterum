@@ -228,6 +228,15 @@
       var mine = pending = shrink(file).then(function () { if (pending === mine) pending = null; });
     });
     if (photoForm) photoForm.addEventListener("submit", function (event) {
+      // A new photo needs the yes to the others in the flocks seeing it; asked here so the chosen photo is not lost.
+      var consent = photoForm.querySelector("[data-photo-consent]");
+      var chosen = photoInput.files && photoInput.files[0];
+      if (chosen && consent && !consent.checked) {
+        event.preventDefault();
+        photoError("Sæt flueben, hvis dit billede må ses af andre i dine flokke. Ellers gemmer vi det ikke.");
+        consent.focus();
+        return;
+      }
       if (pending) {
         event.preventDefault();
         var button = photoForm.querySelector("button[type=submit]");

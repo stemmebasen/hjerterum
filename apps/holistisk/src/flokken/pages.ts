@@ -175,6 +175,16 @@ export function chatSection(f: Pick<FlockRow, "id">, chat: { messages: ChatMessa
 
 /** "Har været med 3 gange", or "Første flok" for someone new. */
 export const timesLine = (n: number): string => n === 0 ? "Første flok" : `Har været med ${n} ${n === 1 ? "gang" : "gange"}`;
+/** The light marks on a profile. There is no ID check: they show that the e-mail is the member's own (they have logged
+ * in with a link sent to it) and that they have turned up with a flock before. */
+export function badges(p: { email_verified_at: number | null; times: number }): SafeHtml {
+  const marks = [
+    p.email_verified_at ? html`<span class="badge" title="Har logget ind med et link sendt til sin e-mail">Bekræftet e-mail</span>` : "",
+    p.times > 0 ? html`<span class="badge" title="Har været med til et arrangement med en flok">${timesLine(p.times)}</span>` : ""
+  ].filter(Boolean);
+  return marks.length ? html`<p class="badges">${marks}</p>` : html``;
+}
+
 /** "30–39, 40–49" */
 const ageList = (ages: string[]) => ages.map(a => (AGE_LABELS[a] ?? a).replace(/ år$/, "")).join(", ");
 
@@ -185,7 +195,8 @@ function memberCard(n: FlockMember, flockId: string, member: Member | null, host
     <div class="member-text">
       <p class="member-name"><strong>${n.first_name}</strong>${n.age_group ? html` <span class="meta-muted">· ${AGE_LABELS[n.age_group] ?? n.age_group}</span>` : ""}${member && n.id === member.id ? html` <span class="meta-muted">(dig)</span>` : ""}${n.id === hostId ? html` <span class="pill-small">står for flokken</span>` : ""}</p>
       ${n.intro ? html`<p class="member-intro">${n.intro}</p>` : ""}
-      <p class="member-times small meta-muted">${timesLine(n.times)}</p>
+      ${n.times === 0 ? html`<p class="member-times small meta-muted">${timesLine(0)}</p>` : ""}
+      ${badges(n)}
     </div>
   </li>`;
 }
@@ -552,7 +563,31 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
 
 // ————————————————————————————————————————— Profile: age group, one line and an optional photo
 
-export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
+/** On the member's own profile page: how the others in a flock see them, and the two marks and how to get them. */
+function ownCard(p: Profile, outings: number): SafeHtml {
+  const initial = [...p.first_name][0]?.toUpperCase() ?? "?";
+  const mark = (on: boolean, title: string, text: string) =>
+    html`<li class="${on ? "mark-on" : "mark-off"}"><span class="mark-icon" aria-hidden="true">${on ? "✓" : "○"}</span><span><strong>${title}</strong>${on ? "" : html` <span class="meta-muted">(ikke endnu)</span>`}<br><span class="small">${text}</span></span></li>`;
+  return html`<section class="own-card" aria-labelledby="own-card-h">
+    <h2 id="own-card-h" class="small-heading">Sådan ser dem i dine flokke dig</h2>
+    <div class="member-card">
+      ${p.photo_id ? html`<img class="avatar" src="/profil/foto/${p.photo_id}" alt="" width="56" height="56">` : html`<span class="avatar avatar-initial" aria-hidden="true">${initial}</span>`}
+      <div class="member-text">
+        <p class="member-name"><strong>${p.first_name}</strong>${p.age_group ? html` <span class="meta-muted">· ${AGE_LABELS[p.age_group] ?? p.age_group}</span>` : ""}</p>
+        ${p.intro ? html`<p class="member-intro">${p.intro}</p>` : ""}
+        ${badges({ email_verified_at: p.email_verified_at, times: outings })}
+      </div>
+    </div>
+    <h2 class="small-heading">Dine mærker</h2>
+    <ul class="marks">
+      ${mark(!!p.email_verified_at, "Bekræftet e-mail", p.email_verified_at ? "Du har logget ind med et link sendt til din e-mail." : p.email ? "Du får det, næste gang du logger ind med et link sendt til din e-mail." : "Skriv din e-mail herunder, og log ind med et link sendt til den.")}
+      ${mark(outings > 0, "Har været med til et arrangement", outings > 0 ? `Du har været med en flok ${outings} ${outings === 1 ? "gang" : "gange"}.` : "Du får det, når du har været med til et arrangement med en flok.")}
+    </ul>
+    <p class="small meta-muted">Vi tjekker ikke ID. Mærkerne viser bare, at e-mailen er din, og at du er dukket op før.</p>
+  </section>`;
+}
+
+export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; outings: number; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
   const { form, errors } = state;
   const err = (k: keyof ProfileErrors) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
   const describedBy = (k: keyof ProfileErrors, hint?: string) => errors[k] ? raw(` aria-describedby="err-${k}${hint ? ` ${hint}` : ""}" aria-invalid="true"`) : hint ? raw(` aria-describedby="${hint}"`) : "";
@@ -562,8 +597,9 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${state.firstTime ? "Sig hej til flokken" : "Din profil"}</h1>
-    <p class="standfirst">${state.firstTime ? "Før du er med i en flok, så fortæl de andre lidt om dig selv. Det tager 20 sekunder, og det gør det lettere at møde nogen, man ikke kender." : "Det her ser dem i dine flokke."}</p>
+    <p class="standfirst">${state.firstTime ? "Før du er med i en flok, så fortæl de andre lidt om dig selv. Det tager 20 sekunder, og det gør det lettere at møde nogen, man ikke kender." : "Her kan du rette det, dem i dine flokke ser om dig."}</p>
   </header>
+  ${state.firstTime ? "" : ownCard(state.profile, state.outings)}
   ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
   <form class="form-card" method="post" action="${state.action}" enctype="multipart/form-data" novalidate data-profile-form>
     <div class="field">
@@ -591,14 +627,21 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
       <span class="hint" id="hint-email">Til at give dig besked, når en flok er klar til dig, og så du kan logge ind med et link på e-mail. Ingen andre ser den.</span>
       ${err("email")}
     </div>
-    <div class="field">
-      <label for="p-photo">Billede <span class="meta-muted">(frivilligt)</span></label>
-      ${state.profile.photo_id ? html`<p class="small">Du har et billede. Vælg et nyt for at skifte det.</p>` : ""}
+    <fieldset class="field photo-field">
+      <legend>Billede <span class="meta-muted">(frivilligt)</span></legend>
+      ${state.profile.photo_id ? html`<div class="photo-now">
+        <img class="avatar avatar-large" src="/profil/foto/${state.profile.photo_id}" alt="Dit billede" width="96" height="96">
+        <div>
+          <p class="small">Dem i dine flokke kan se dit billede. Vælg et nyt for at skifte det.</p>
+          <div class="field-check"><label><input type="checkbox" name="fjern_foto" value="ja"${form.removePhoto ? raw(" checked") : ""}> Fjern mit billede</label></div>
+        </div>
+      </div>` : ""}
+      <label class="small-label" for="p-photo">${state.profile.photo_id ? "Nyt billede" : "Vælg et billede"}</label>
       <input id="p-photo" name="foto" type="file" accept="image/jpeg,image/png,image/webp" data-photo-input${describedBy("photo", "hint-photo")}>
-      <span class="hint" id="hint-photo">Kun dem i dine flokke kan se det, og først når du er med. Det gør det lettere at finde hinanden ved mødestedet.</span>
+      <span class="hint" id="hint-photo">Et billede gør det lettere at finde hinanden ved mødestedet. Det vises aldrig offentligt på siden.</span>
+      <div class="field-check consent"><label><input type="checkbox" name="foto_samtykke" value="ja" data-photo-consent${form.photoConsent ? raw(" checked") : ""}> Mit billede må ses af andre i mine flokke</label></div>
       ${err("photo")}
-    </div>
-    ${state.profile.photo_id ? html`<div class="field field-check"><label><input type="checkbox" name="fjern_foto" value="ja"${form.removePhoto ? raw(" checked") : ""}> Fjern mit billede</label></div>` : ""}
+    </fieldset>
     <div class="form-actions">
       <button type="submit">${state.joinId ? "Gem og bliv en del af flokken" : state.requireEmail ? "Gem og sæt mig på listen" : "Gem"}</button>
       <a href="${state.next}">Fortryd</a>

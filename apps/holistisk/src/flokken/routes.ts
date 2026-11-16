@@ -6,7 +6,7 @@ import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
 import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, linkPage, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
-import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
+import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, ownPhoto, PHOTO_CONSENT_ERROR, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
@@ -182,17 +182,18 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const next = safeNext(url.searchParams.get("naeste"));
     const joinId = /^[0-9a-f-]{36}$/.test(url.searchParams.get("flok") ?? "") ? url.searchParams.get("flok")! : null;
     const requireEmail = url.searchParams.get("mail") === "1";
-    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail };
+    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail, outings: await outingsUsed(db, m.id, now) };
     const action = `/profil${url.search}`;
-    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: {} }) };
+    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: {} }) };
     const data = await formData(request, PROFILE_MAX_BODY);
-    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
     const form = readProfileForm(data);
     const checked = validateProfile(form, { requireEmail: requireEmail && !profile.email });
     const photo = await readPhoto(data);
-    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photo && "error" in photo ? { photo: photo.error } : {}) };
-    if ("errors" in checked || (photo && "error" in photo)) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
-    const saved = await saveProfile(db, m.id, checked.values, photo, form.removePhoto, now);
+    const photoError = photo && "error" in photo ? photo.error : photo && !form.photoConsent ? PHOTO_CONSENT_ERROR : null;
+    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photoError ? { photo: photoError } : {}) };
+    if ("errors" in checked || photoError) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
+    const saved = await saveProfile(db, m.id, checked.values, photo && !("error" in photo) ? photo : null, form.removePhoto, now);
     if ("error" in saved) return { view: profilePage(pc, { ...state, action, form, errors: { email: "Den e-mail bruges allerede af en anden profil. Log ind med koden for den, eller brug en anden e-mail." }, status: 400 }) };
     if (joinId) {
       const f = await flockById(db, joinId, m.id);
@@ -344,6 +345,15 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const result = await postMessage(db, access, m.id, String(data?.get("tekst") ?? ""), now);
     if ("error" in result) return fail(result.error, result.error === "chat_too_fast" ? 429 : 400);
     return wantsJson ? { json: { message: chatJson(result.message, m.id, now) }, status: 200 } : go(`${here}#chat`);
+  }
+
+  // The member's own photo, on their profile page.
+  const mine = /^\/profil\/foto\/([0-9a-f-]{36})$/.exec(path);
+  if (mine && !post) {
+    const m = await member();
+    const found = m ? await ownPhoto(db, m.id, mine[1]!) : null;
+    if (!found) return { view: notFound() };
+    return { image: { type: found.type, body: found.data } };
   }
 
   // A member's photo, for the others in the flock only.
