@@ -111,6 +111,10 @@ People search for an activity in a place ("meditation aarhus", "klarsyn randers"
 | `INGEST_REQUEST_BUDGET` | var | Requests one collection run may send (default 45, under Workers Free's 50 per invocation; can be raised on a paid plan). |
 | `BILLETTO_API_KEYPAIR` | secret | Turns the Billetto source on (GitHub secret `HOLISTISK_BILLETTO_API_KEYPAIR`). |
 | `CONTACT_EMAIL` | var | Shown on the safety page for concerns (GitHub variable `HOLISTISK_CONTACT_EMAIL`). |
+| `RESEND_API_KEY` | secret | Resend's API key: the portal sends e-mail (login links, flock places). Set it on the Worker in the Cloudflare dashboard as a Secret; deploys keep it. Without it, nothing is mailed. |
+| `EMAIL` | binding | Optional Cloudflare Email Service `send_email` binding (Workers Paid); used instead of Resend when present. |
+| `MAIL_FROM` | var | Sender address (default `besked@socialklubben.dk`); its domain must be verified with the mail service. Replies go to `CONTACT_EMAIL`. |
+| `MAIL_SITE_URL` | var | Address used in links in mails from the cron (default `https://socialklubben.dk`). |
 | `EDITION` | var | `portal` shows the event portal at the Worker's own address; otherwise Flokken as an association. Under a mount, the mount decides. |
 | `PUBLIC_MOUNTS` | var | More addresses the portal may be shown under through a proxy, comma-separated, each optionally with a name (`https://example.dk/klub=Klubben`; www.jacobhauge.com/flokken and /socialklubben are built in). |
 

@@ -6,6 +6,8 @@ import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { purgeOldChats } from "./flokken/chat.js";
 import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
+import { sendDueMails } from "./flokken/notify.js";
+import { mailConfigured, purgeMailData } from "./mail.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -309,10 +311,19 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   return view(env, notFoundPage(pc));
 }
 
+/** Requests after which someone may have been offered a flock place. */
+const MAY_INVITE = /\/(kom-godt-i-gang|interesser\/[a-z0-9-]+\/(bekraeft|nej-tak)|events\/[a-z0-9-]+\/interesse|flokke\/[0-9a-f-]+\/forlad|profil)$/;
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     try {
-      return await handle(request, env, Date.now());
+      const response = await handle(request, env, Date.now());
+      // A tick, an answer or a "no thanks" can offer someone a place in a flock: mail them now, not at the next cron.
+      if (ctx && env.DB && request.method === "POST" && mailConfigured(env) && MAY_INVITE.test(new URL(request.url).pathname)) {
+        const db = env.DB;
+        ctx.waitUntil(sendDueMails(db, env, Date.now()).catch(error => console.error(JSON.stringify({ event: "mail_run_failed", error: error instanceof Error ? error.message : String(error) }))));
+      }
+      return response;
     } catch (error) {
       console.error(JSON.stringify({ event: "request_failed", path: new URL(request.url).pathname, error: error instanceof Error ? error.message : String(error) }));
       return new Response("Der skete en fejl. Prøv igen om lidt.", { status: 500, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
@@ -335,7 +346,14 @@ export default {
         .then(invited => console.log(JSON.stringify({ event: "gather", invited })))
         .catch(error => console.error(JSON.stringify({ event: "gather_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
-    const all = Promise.all([work, purge, gather]);
+    // Mails about flock places, after the gathering above (which may have offered new ones).
+    const mail = env.DB && mailConfigured(env)
+      ? gather.then(() => sendDueMails(env.DB!, env, Date.now()))
+        .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
+        .catch(error => console.error(JSON.stringify({ event: "mail_failed", error: error instanceof Error ? error.message : String(error) })))
+      : Promise.resolve();
+    const purgeMail = controller.cron === DAILY_CRON && env.DB ? purgeMailData(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
+    const all = Promise.all([work, purge, gather, mail, purgeMail]);
     if (ctx) ctx.waitUntil(all);
     await all;
   }

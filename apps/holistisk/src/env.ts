@@ -1,4 +1,5 @@
 import type { D1Database } from "./db.js";
+import type { EmailBinding } from "./mail.js";
 
 export interface AssetsBinding {
   fetch(request: Request): Promise<Response>;
@@ -26,6 +27,14 @@ export interface Env {
   EDITION?: string;
   /** Optional address shown on the about page for organisers and corrections. */
   CONTACT_EMAIL?: string;
+  /** Secret. Resend's API key (resend.com); with it the portal sends e-mail (src/mail.ts). */
+  RESEND_API_KEY?: string;
+  /** Cloudflare Email Service's send_email binding; used instead of Resend when present (needs Workers Paid). */
+  EMAIL?: EmailBinding;
+  /** The sender address (default besked@socialklubben.dk). Its domain must be verified with the mail service. */
+  MAIL_FROM?: string;
+  /** The address used in links in mails from the cron (default https://socialklubben.dk). */
+  MAIL_SITE_URL?: string;
 }
 
 export const isProduction = (env: Env): boolean => env.ENVIRONMENT === "production";

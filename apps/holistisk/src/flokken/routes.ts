@@ -5,9 +5,10 @@ import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
 import type { PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, linkPage, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
 import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
+import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
 import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
@@ -98,6 +99,39 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return { json: await reportedMessages(db), status: 200 };
   }
 
+  // Login with a link on e-mail: ask for it, open it (a page with a button), use it.
+  if (path === "/log-ind/mail" && post) {
+    const data = await formData(request);
+    const back = safeNext(String(data?.get("naeste") ?? ""));
+    const email = String(data?.get("email") ?? "").trim().slice(0, 160);
+    const result = await requestLoginLink(db, env, email, back, pc.origin, now);
+    if ("error" in result) {
+      const text = result.error === "invalid" ? "Skriv den e-mail, du har givet os, fx navn@eksempel.dk."
+        : result.error === "off" ? "Vi kan ikke sende e-mails lige nu. Log ind med din personlige kode, eller prøv igen senere."
+        : "Mailen kunne ikke sendes lige nu. Prøv igen om lidt.";
+      return { view: loginPage(pc, back, { email, emailError: text, status: result.error === "invalid" ? 400 : 503 }) };
+    }
+    return { view: loginPage(pc, back, { sentTo: email }) };
+  }
+  if (path === "/log-ind/link") {
+    const data = post ? await formData(request) : null;
+    const token = String((post ? data?.get("t") : url.searchParams.get("t")) ?? "");
+    if (!validToken(token)) return { view: linkPage(pc, { error: "unknown" }) };
+    if (!post) {
+      const state = await linkState(db, token, now);
+      const m = await member();
+      // Already logged in as that person on this device: straight on.
+      if (m && "ok" in state && state.memberId === m.id) return go(safeNext(state.next));
+      if ("error" in state) return { view: linkPage(pc, { error: state.error, loggedIn: !!m }) };
+      return { view: linkPage(pc, { token }) };
+    }
+    const used = await useLoginLink(db, token, now);
+    if ("error" in used) {
+      const m = await member();
+      return { view: linkPage(pc, { error: used.error, loggedIn: !!m }) };
+    }
+    return go(withMessage(safeNext(used.next), used.created ? "velkommen_mail" : "logget_ind"), await startSession(db, used.memberId, now));
+  }
   if (path === "/log-ind") {
     const next = safeNext(post ? null : url.searchParams.get("naeste"));
     if (!post) {

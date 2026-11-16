@@ -605,6 +605,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .form-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .two-forms { display: grid; gap: 22px; grid-template-columns: 1fr; }
 @media (min-width: 760px) { .two-forms { grid-template-columns: 1fr 1fr; } }
+.login-card .login-form { display: grid; gap: 16px; }
+.login-code summary { cursor: pointer; font-weight: 600; }
+.login-code[open] summary { margin-bottom: 14px; }
 .code-box { background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 8px 22px 16px; box-shadow: 0 5px 0 var(--ink); }
 .code { font: 700 clamp(1.6rem, 1.2rem + 2vw, 2.4rem)/1.2 var(--display); letter-spacing: .08em; color: var(--ink); user-select: all; margin: .2em 0 .4em; }
 .offer-box { margin-top: 24px; background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 6px 22px 12px; }
