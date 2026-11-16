@@ -20,6 +20,9 @@ export type PageContext = {
   edition: "forening" | "portal";
   /** Samfolk: the signed-in member, if any (the header then offers "Mine ture"). */
   member?: { firstName: string; admin: boolean } | null;
+  /** Socialklubben: the visitor has a login cookie (not checked against the database, to save reads). The header then
+   * shows "Mine flokke" instead of "Log ind". */
+  signedIn?: boolean;
 };
 
 /** Where organisers write to be on the site (Jake's address for now). CONTACT_EMAIL, when set, takes its place. */
@@ -117,7 +120,7 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=45">
+<link rel="stylesheet" href="/assets/site.css?v=46">
 <script src="/assets/site.js?v=16" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -147,12 +150,14 @@ function portalHeader(ctx: PageContext): SafeHtml {
       <ul>${NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
     </nav>
     <div class="masthead-tools">
-      <a class="my-flocks" href="/flokke"${ctx.path === "/flokke" ? raw(' aria-current="page"') : ""}>Mine flokke</a>
+      ${ctx.signedIn
+        ? html`<a class="my-flocks" href="/flokke"${ctx.path === "/flokke" ? raw(' aria-current="page"') : ""}>Mine flokke</a>`
+        : html`<a class="my-flocks" href="/log-ind"${ctx.path === "/log-ind" ? raw(' aria-current="page"') : ""}>Log ind</a>`}
       <a class="icon-button" href="/kalender#soeg" aria-label="Søg i kalenderen"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></a>
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li><li><a href="/flokke">Mine flokke</a></li><li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li>${ctx.signedIn ? html`<li><a href="/flokke">Mine flokke</a></li><li><a href="/profil">Min profil</a></li>` : html`<li><a href="/log-ind">Log ind</a></li>`}<li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></div>
         </div>
