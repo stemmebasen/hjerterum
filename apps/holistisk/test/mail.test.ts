@@ -181,3 +181,17 @@ describe("Resend", () => {
     expect(await sendMail({ RESEND_API_KEY: "re_bad" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "t" }, bad)).toEqual({ ok: false, error: "resend 401: invalid key" });
   });
 });
+
+describe("the header's login button", () => {
+  it("shows Log ind to guests and Mine flokke to the logged in, and pages vary by cookie", async () => {
+    const guest = await call("/");
+    expect(guest.body).toContain('<a class="my-flocks" href="/log-ind">Log ind</a>');
+    expect(guest.headers.get("vary")).toBe("Cookie");
+    expect(guest.headers.get("cache-control")).toMatch(/^private/);
+    const cookie = await member("Nora", "nora@example.dk");
+    const inside = await call("/om", { cookie });
+    expect(inside.body).toContain('<a class="my-flocks" href="/flokke">Mine flokke</a>');
+    expect(inside.body).toContain('<a href="/profil">Min profil</a>');
+    expect(inside.body).not.toContain('class="my-flocks" href="/log-ind"');
+  });
+});
