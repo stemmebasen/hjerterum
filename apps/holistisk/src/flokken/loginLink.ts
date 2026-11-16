@@ -2,6 +2,7 @@ import type { D1Database } from "../db.js";
 import type { Env } from "../env.js";
 import { letter, mailConfigured, sendLogged } from "../mail.js";
 import { cleanFirstName, createMember, sha256 } from "./auth.js";
+import { confirmEmail } from "./profile.js";
 
 /** Login by a link sent on e-mail, beside the personal code. Anyone with an e-mail on their profile, or who signed up
  * as a member with name and e-mail (/bliv-medlem), can ask for a link on /log-ind. The link works once, for an hour.
@@ -72,22 +73,29 @@ export async function linkState(db: D1Database, token: string, now: number): Pro
   return { ok: true, memberId: row.member_id, email: row.email, next: row.next };
 }
 
-/** Uses a link: returns the member to log in (making a profile for a member sign-up that has none). */
+/** Uses a link: returns the member to log in (making a profile for a member sign-up that has none). The link reached
+ * the address, so the e-mail on the profile counts as confirmed. */
 export async function useLoginLink(db: D1Database, token: string, now: number): Promise<{ memberId: string; next: string | null; created: boolean } | { error: "used" | "expired" | "unknown" }> {
+  const used = await takeLink(db, token, now);
+  if (!("error" in used)) await confirmEmail(db, used.memberId, used.email, now);
+  return used;
+}
+
+async function takeLink(db: D1Database, token: string, now: number): Promise<{ memberId: string; email: string; next: string | null; created: boolean } | { error: "used" | "expired" | "unknown" }> {
   const state = await linkState(db, token, now);
   if ("error" in state) return state;
   const taken = await db.prepare("UPDATE login_links SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at >= ?").bind(now, await sha256(token), now).run();
   if ((taken.meta?.changes ?? 0) !== 1) return { error: "used" };
   if (state.memberId) {
     const still = await db.prepare("SELECT id FROM members WHERE id = ?").bind(state.memberId).first<{ id: string }>();
-    if (still) return { memberId: still.id, next: state.next, created: false };
+    if (still) return { memberId: still.id, email: state.email, next: state.next, created: false };
   }
   const existing = await db.prepare("SELECT id FROM members WHERE lower(email) = ? LIMIT 1").bind(state.email).first<{ id: string }>();
-  if (existing) return { memberId: existing.id, next: state.next, created: false };
+  if (existing) return { memberId: existing.id, email: state.email, next: state.next, created: false };
   const signup = await db.prepare("SELECT name FROM membership_signups WHERE lower(email) = ? LIMIT 1").bind(state.email).first<{ name: string }>();
   if (!signup) return { error: "unknown" };
   const first = cleanFirstName(signup.name.split(/\s+/)[0] ?? "") ?? cleanFirstName(signup.name.slice(0, 30)) ?? "Medlem";
   const { member } = await createMember(db, first, now);
   await db.prepare("UPDATE members SET email = ? WHERE id = ?").bind(state.email, member.id).run();
-  return { memberId: member.id, next: state.next, created: true };
+  return { memberId: member.id, email: state.email, next: state.next, created: true };
 }

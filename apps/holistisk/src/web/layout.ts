@@ -117,8 +117,8 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=45">
-<script src="/assets/site.js?v=16" defer></script>
+<link rel="stylesheet" href="/assets/site.css?v=47">
+<script src="/assets/site.js?v=17" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}

@@ -15,12 +15,12 @@ export const PHOTO_MAX_BYTES = 250_000;
 /** The largest /profil form the Worker reads: the photo plus the text fields. */
 export const PROFILE_MAX_BODY = PHOTO_MAX_BYTES + 50_000;
 
-export type Profile = { first_name: string; age_group: string | null; intro: string | null; photo_id: string | null; email: string | null };
+export type Profile = { first_name: string; age_group: string | null; intro: string | null; photo_id: string | null; email: string | null; email_verified_at: number | null };
 
 export const profileComplete = (p: Pick<Profile, "age_group" | "intro"> | null): boolean => !!p?.age_group && !!p.intro;
 
 export async function profileFor(db: D1Database, memberId: string): Promise<Profile | null> {
-  return db.prepare(`SELECT m.first_name, m.age_group, m.intro, m.email, p.id AS photo_id FROM members m LEFT JOIN member_photos p ON p.member_id = m.id
+  return db.prepare(`SELECT m.first_name, m.age_group, m.intro, m.email, m.email_verified_at, p.id AS photo_id FROM members m LEFT JOIN member_photos p ON p.member_id = m.id
     WHERE m.id = ?`).bind(memberId).first<Profile>();
 }
 
@@ -29,13 +29,13 @@ export async function profileFor(db: D1Database, memberId: string): Promise<Prof
 export type ProfileValues = { firstName: string; ageGroup: string; intro: string; email: string | null };
 const EMAIL = /^[^\s@<>"(),;:]+@[^\s@<>"(),;:]+\.[a-z]{2,}$/i;
 
-export type ProfileForm = { firstName: string; ageGroup: string; intro: string; email: string; removePhoto: boolean };
+export type ProfileForm = { firstName: string; ageGroup: string; intro: string; email: string; removePhoto: boolean; photoConsent: boolean };
 export type ProfileErrors = Partial<Record<"firstName" | "ageGroup" | "intro" | "email" | "photo", string>>;
 export type Photo = { type: "image/jpeg" | "image/png" | "image/webp"; data: Uint8Array<ArrayBuffer> };
 
 export function readProfileForm(data: FormData): ProfileForm {
   const s = (k: string) => String(data.get(k) ?? "");
-  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), email: s("email"), removePhoto: data.get("fjern_foto") === "ja" };
+  return { firstName: s("fornavn"), ageGroup: s("alder"), intro: s("om_mig"), email: s("email"), removePhoto: data.get("fjern_foto") === "ja", photoConsent: data.get("foto_samtykke") === "ja" };
 }
 
 export const cleanIntro = (raw: string): string => maskContacts(raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim());
@@ -74,6 +74,9 @@ export function validateProfile(form: ProfileForm, options: { requireEmail?: boo
   return { values: { firstName: firstName!, ageGroup: form.ageGroup, intro, email: email || null } };
 }
 
+/** A new photo is only saved when the member has said yes to the others in their flocks seeing it. */
+export const PHOTO_CONSENT_ERROR = "Sæt flueben, hvis dit billede må ses af andre i dine flokke. Ellers gemmer vi det ikke.";
+
 /** D1 stores an ArrayBuffer as a BLOB. */
 const toArrayBuffer = (b: Uint8Array): ArrayBuffer => b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
 
@@ -83,11 +86,14 @@ export async function saveProfile(db: D1Database, memberId: string, values: Prof
     const taken = await db.prepare("SELECT 1 AS x FROM members WHERE email = ? AND id != ?").bind(values.email, memberId).first<{ x: number }>();
     if (taken) return { error: "email_taken" };
   }
-  const statements = [db.prepare("UPDATE members SET first_name = ?, age_group = ?, intro = ?, email = COALESCE(?, email) WHERE id = ?").bind(values.firstName, values.ageGroup, values.intro, values.email, memberId)];
+  // A new e-mail is not confirmed until the member logs in with a link sent to it.
+  const statements = [db.prepare(`UPDATE members SET first_name = ?1, age_group = ?2, intro = ?3,
+      email_verified_at = CASE WHEN ?4 IS NOT NULL AND ?4 IS NOT lower(email) THEN NULL ELSE email_verified_at END,
+      email = COALESCE(?4, email) WHERE id = ?5`).bind(values.firstName, values.ageGroup, values.intro, values.email, memberId)];
   if (photo) {
-    statements.push(db.prepare(`INSERT INTO member_photos (member_id, id, type, data, updated_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT (member_id) DO UPDATE SET id = excluded.id, type = excluded.type, data = excluded.data, updated_at = excluded.updated_at`)
-      .bind(memberId, crypto.randomUUID(), photo.type, toArrayBuffer(photo.data), now));
+    statements.push(db.prepare(`INSERT INTO member_photos (member_id, id, type, data, updated_at, consent_at) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT (member_id) DO UPDATE SET id = excluded.id, type = excluded.type, data = excluded.data, updated_at = excluded.updated_at, consent_at = excluded.consent_at`)
+      .bind(memberId, crypto.randomUUID(), photo.type, toArrayBuffer(photo.data), now, now));
   } else if (removePhoto) {
     statements.push(db.prepare("DELETE FROM member_photos WHERE member_id = ?").bind(memberId));
   }
@@ -97,7 +103,7 @@ export async function saveProfile(db: D1Database, memberId: string, values: Prof
 
 // ————————————————————————————————————————— In a flock
 
-export type FlockMember = { id: string; first_name: string; again: number | null; age_group: string | null; intro: string | null; photo_id: string | null; times: number };
+export type FlockMember = { id: string; first_name: string; again: number | null; age_group: string | null; intro: string | null; photo_id: string | null; times: number; email_verified_at: number | null };
 
 /** How many earlier flocks a member has been with: flocks whose event is over, and which they had not left before it
  * ended. Cancelled events do not count. */
@@ -118,7 +124,7 @@ export async function outingsUsed(db: D1Database, memberId: string, now: number)
 /** The current members, in the order they joined, with what the others see about them. Only shown to members of the
  * flock. */
 export async function flockMembers(db: D1Database, flockId: string, now: number): Promise<FlockMember[]> {
-  const { results } = await db.prepare(`SELECT m.id, m.first_name, fm.again, m.age_group, m.intro, p.id AS photo_id, ${TIMES} AS times
+  const { results } = await db.prepare(`SELECT m.id, m.first_name, fm.again, m.age_group, m.intro, m.email_verified_at, p.id AS photo_id, ${TIMES} AS times
     FROM flock_members fm JOIN members m ON m.id = fm.member_id LEFT JOIN member_photos p ON p.member_id = m.id
     WHERE fm.flock_id = ?1 AND fm.left_at IS NULL ORDER BY fm.joined_at`).bind(flockId, now).all<FlockMember>();
   return results;
@@ -140,4 +146,17 @@ export async function flockPhoto(db: D1Database, flockId: string, photoId: strin
   if (!row) return null;
   // D1 hands a BLOB back as an array of numbers; SQLite in the tests as a Uint8Array.
   return { type: row.type, data: new Uint8Array(row.data as ArrayLike<number>) };
+}
+
+/** The member's own photo, for their profile page. */
+export async function ownPhoto(db: D1Database, memberId: string, photoId: string): Promise<Photo | null> {
+  const row = await db.prepare("SELECT type, data FROM member_photos WHERE member_id = ? AND id = ?").bind(memberId, photoId)
+    .first<{ type: Photo["type"]; data: ArrayBuffer | Uint8Array | number[] }>();
+  return row ? { type: row.type, data: new Uint8Array(row.data as ArrayLike<number>) } : null;
+}
+
+/** Marks the e-mail as confirmed: the member has logged in with a link sent to it. Only while it is still the e-mail on
+ * their profile. */
+export async function confirmEmail(db: D1Database, memberId: string, email: string, now: number): Promise<void> {
+  await db.prepare("UPDATE members SET email_verified_at = ? WHERE id = ? AND lower(email) = lower(?)").bind(now, memberId, email).run();
 }

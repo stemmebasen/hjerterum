@@ -181,3 +181,24 @@ describe("Resend", () => {
     expect(await sendMail({ RESEND_API_KEY: "re_bad" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "t" }, bad)).toEqual({ ok: false, error: "resend 401: invalid key" });
   });
 });
+
+describe("the 'Bekræftet e-mail' mark", () => {
+  it("comes with logging in by a link to the profile's e-mail, and goes when the e-mail is changed", async () => {
+    const cookie = await member("Vera", "vera@example.dk");
+    const verified = () => (db.raw.prepare("SELECT email_verified_at FROM members WHERE id = ?").all(idOf("Vera"))[0] as { email_verified_at: number | null }).email_verified_at;
+    expect(verified()).toBeNull();
+    sent.length = 0;
+    await call("/log-ind/mail", { form: { email: "vera@example.dk", naeste: "/profil" } });
+    const [, token] = linkIn(sent[0]!) as unknown as [string, string];
+    const used = await call("/log-ind/link", { form: { t: token } });
+    expect(used.status).toBe(303);
+    expect(verified()).toBe(NOW);
+    const page = (await call("/profil", { cookie })).body;
+    expect(page).toContain('<span class="badge" title="Har logget ind med et link sendt til sin e-mail">Bekræftet e-mail</span>');
+    // Saving the profile with the same address (any case) keeps it; a new address clears it.
+    await call("/profil", { cookie, form: { fornavn: "Vera", alder: "30-39", om_mig: "Vera her", email: "Vera@Example.dk" } });
+    expect(verified()).toBe(NOW);
+    await call("/profil", { cookie, form: { fornavn: "Vera", alder: "30-39", om_mig: "Vera her", email: "vera2@example.dk" } });
+    expect(verified()).toBeNull();
+  });
+});

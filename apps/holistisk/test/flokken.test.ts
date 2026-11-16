@@ -437,6 +437,19 @@ describe("profile", () => {
     expect((await call(`/flokke/${id}`)).body).not.toContain("40–49");
   });
 
+  it("shows the marks on the profile page: not yet, then 'Har været med' after an event", async () => {
+    const kaj = await join("Kaj");
+    const page = (await call("/profil", { cookie: kaj.cookie })).body;
+    expect(page).toContain("Dine mærker");
+    expect(page).toContain("Bekræftet e-mail</strong> <span class=\"meta-muted\">(ikke endnu)");
+    expect(page).toContain("Har været med til et arrangement</strong> <span class=\"meta-muted\">(ikke endnu)");
+    expect(page).not.toContain('class="badge"');
+    await startFlock(kaj.cookie);
+    const after = (await call("/profil", { cookie: kaj.cookie }, event.starts_at + 6 * 3600_000)).body;
+    expect(after).toContain("Du har været med en flok 1 gang.");
+    expect(after).toContain('<span class="badge" title="Har været med til et arrangement med en flok">Har været med 1 gang</span>');
+  });
+
   it("counts the flocks someone has been with, once the event is over", async () => {
     const lis = await join("Lis");
     await startFlock(lis.cookie);
@@ -466,7 +479,20 @@ describe("profile", () => {
     const huge = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, phone), headers: { "content-length": length } });
     expect(huge.status).toBe(400);
     expect(huge.body).toContain("Billedet var for stort til at blive sendt");
-    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) })).status).toBe(303);
+    // A photo is only saved with a clear yes to the others in the flock seeing it.
+    const noYes = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) });
+    expect(noYes.status).toBe(400);
+    expect(noYes.body).toContain("Sæt flueben, hvis dit billede må ses af andre i dine flokke");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM member_photos").all()[0]).toEqual({ n: 0 });
+    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm({ ...fields, foto_samtykke: "ja" }, JPEG) })).status).toBe(303);
+    expect((db.raw.prepare("SELECT consent_at FROM member_photos").all()[0] as { consent_at: number }).consent_at).toBe(NOW);
+    // Nina sees her own photo and how the others see her on her profile page; nobody else can open it there.
+    const own = (await call("/profil", { cookie: nina.cookie })).body;
+    expect(own).toContain("Sådan ser dem i dine flokke dig");
+    const ownSrc = /<img class="avatar avatar-large" src="([^"]+)"/.exec(own)?.[1] ?? "";
+    expect(ownSrc).toMatch(/^\/profil\/foto\/[0-9a-f-]{36}$/);
+    expect((await call(ownSrc, { cookie: nina.cookie })).bytes).toEqual(JPEG);
+    expect((await call(ownSrc)).status).toBe(404);
 
     const ole = await join("Ole");
     await call(`/flokke/${id}/bliv-del-af`, { cookie: ole.cookie, form: {} });
