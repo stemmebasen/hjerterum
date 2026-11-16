@@ -33,6 +33,8 @@ export interface Env {
   EMAIL?: EmailBinding;
   /** The sender address (default besked@socialklubben.dk). Its domain must be verified with the mail service. */
   MAIL_FROM?: string;
+  /** The only address Socialklubben's admin overview (/admin) sends its login link to (default: the organisers' address). */
+  ADMIN_EMAIL?: string;
   /** The address used in links in mails from the cron (default https://socialklubben.dk). */
   MAIL_SITE_URL?: string;
 }
