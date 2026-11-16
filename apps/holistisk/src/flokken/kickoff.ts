@@ -213,7 +213,7 @@ export async function gather(db: D1Database, eventId: string, now: number): Prom
     const meetAt = Math.max(e.starts_at - MEET_BEFORE_MS, now + 3600_000);
     await db.prepare(`INSERT INTO flocks (id, event_id, created_by, meeting_place, meeting_at, note, max_size, status, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)`)
-      .bind(id, eventId, members[0]!, place, Math.min(meetAt, e.starts_at), "Samlet af Socialklubben. Mødestedet er et forslag – vil I hellere et andet sted, så aftal det i chatten. Og aftal, om I fortsætter bagefter.", GATHER_MAX, now, now).run();
+      .bind(id, eventId, members[0]!, place, Math.min(meetAt, e.starts_at), "Samlet af Socialklubben. Mødestedet er et forslag – vil I hellere et andet sted, så aftal det i chatten. Find gerne en café i nærheden og tag en kop kaffe sammen, inden I går til arrangementet. Og aftal, om I fortsætter bagefter.", GATHER_MAX, now, now).run();
     await invite(id, members);
   }
   return invited;

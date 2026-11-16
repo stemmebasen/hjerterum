@@ -668,7 +668,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <h2>Fællesskabet før profitten</h2>
   <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
   <h2>Hvad er en flok?</h2>
-  <p>En flok er en lille, uformel gruppe, der følges til et bestemt event. I mødes et offentligt sted før eventet og går ind sammen. Deltagelse er frivillig fra event til event. <a href="/tryghed">Læs om tryghed</a>.</p>
+  <p>En flok er en lille, uformel gruppe, der følges til et bestemt arrangement. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Deltagelse er frivillig fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du events?</h2>
   <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra.</p>
   <ul class="source-list">

@@ -510,7 +510,7 @@ export function safetyPage(ctx: PageContext): View {
     <p class="standfirst">En flok er nogle få mennesker, der følges til det samme event. Det skal føles trygt at sige ja.</p>
   </header>
   <h2>Mød altid et offentligt sted</h2>
-  <p>En flok mødes ved indgangen til eventet, på en café eller et andet offentligt sted – aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
+  <p>En flok mødes altid udenfor foran et kendt sted i byen og sætter sig gerne på en café i nærheden med en kop kaffe, inden den går til arrangementet. Aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
   <h2>I ved, hvem I skal møde</h2>
   <p>Når du vil være med i en flok, beder vi om dit fornavn, din aldersgruppe og én linje om dig selv, fx “Glæder mig til jazz, er lidt genert i starten”. Et billede er frivilligt. Det hele kan kun ses af dem, der er med i flokken. Andre kan kun se, hvilke aldersgrupper der er med, før de siger ja. Vi beder aldrig om telefonnummer eller adresse, og telefonnumre og e-mails bliver skjult, hvis de står i en præsentation. Din e-mail, hvis du giver den, bruger vi kun til at give dig besked om dine flokke – ingen andre ser den.</p>
   <p>Ved hver person står, hvor mange flokke de har været med i før. Det giver en idé om, hvem der har prøvet det før, og hvem der er ny.</p>
@@ -542,7 +542,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et arrangement</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
   <li><span class="how-n" aria-hidden="true">2</span><strong>Vis interesse – så samler vi flokken</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
-  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>I mødes udenfor foran et kendt sted, fx Domkirken, i god tid før arrangementet. Så er der tid til at hilse, snakke og lære hinanden lidt at kende, inden I går ind sammen.</span></li>
+  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>I mødes udenfor foran et kendt sted, fx Domkirken, og sætter jer et sted i nærheden med en kop kaffe eller noget andet at drikke. Så kan I hilse og snakke lidt, inden I går til arrangementet sammen.</span></li>
 </ol>`;
 
 export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {

@@ -46,7 +46,7 @@ function faq(id: string, title: string, items: Array<[string, SafeHtml | string]
 const otherGuides = (current: string): SafeHtml => section("h-guides", "Læs også", chipLinks(GUIDES.filter(g => g.path !== current).map(g => ({ href: g.path, label: g.name }))));
 
 const meetFaq = (now: number): Array<[string, SafeHtml | string]> => [
-  ["Er det mærkeligt at gå alene til et event?", "Slet ikke – og med Flokken behøver du ikke. Du viser interesse for et event, og når I er nogle stykker, samler vi en lille flok. I mødes udenfor før eventet og går ind sammen."],
+  ["Er det mærkeligt at gå alene til et arrangement?", "Slet ikke – og med Flokken behøver du ikke. Du viser interesse for et arrangement, og når I er nogle stykker, samler vi en lille flok. I mødes udenfor, tager en kop kaffe sammen og går så til arrangementet."],
   ["Hvor mødes flokken?", "Altid udenfor, foran et kendt sted i byen – fx foran Domkirken, på Klostertorvet eller på Lille Torv. Aldrig hjemme hos nogen."],
   ["Hvem er med i en flok?", "Folk i alle aldre, som har lyst til det samme event som dig. Når du er med i en flok, kan du se de andres aldersgruppe og en kort linje om dem."],
   ["Hvad koster det?", html`Billet eller tilmelding klarer du selv hos arrangøren. ${freeMembership(now) ? `Medlemskab af foreningen er gratis til ${FREE_MEMBERSHIP_DATE}.` : `Du kan være med de første ${FREE_OUTINGS} gange uden at være medlem af foreningen.`} <a href="/bliv-medlem">Læs om medlemskab</a>.`],
@@ -150,7 +150,7 @@ export async function thingsToDoPage(db: D1Database, ctx: PageContext, regions: 
   })}
   <div class="prose guide-text">
     <h2>Mere sjovt sammen</h2>
-    <p>Det er nemmere at tage afsted, når man ved, at andre venter på en. Tryk <strong>Jeg vil gerne med!</strong> ved et event, så samler vi en lille flok, der mødes udenfor og går ind sammen. <a href="/moed-nye-mennesker">Læs, hvordan det virker</a>.</p>
+    <p>Det er nemmere at tage afsted, når man ved, at andre venter på en. Tryk <strong>Jeg vil gerne med!</strong> ved et arrangement, så samler vi en lille flok, der mødes udenfor, tager en kop kaffe og går ind sammen. <a href="/moed-nye-mennesker">Læs, hvordan det virker</a>.</p>
   </div>
   ${otherGuides(path)}
 </div>`;
