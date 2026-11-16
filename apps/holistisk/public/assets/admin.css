@@ -41,6 +41,31 @@
 .sk-ok { background: var(--green-soft); border-radius: var(--radius-s); padding: 10px 14px; }
 .sk-warn { background: #fdeceb; color: var(--alert); border-radius: var(--radius-s); padding: 10px 14px; }
 .sk-login { margin-top: 16px; }
+a.sk-more { color: var(--berry); font-weight: 700; font-size: .9rem; }
+.sk-card .sk-head { margin-bottom: 12px; }
+.sk-card .sk-head h2 { margin: 0; }
+.sk-crumbs { font-size: .9rem; color: var(--muted); margin-bottom: 8px; }
+.sk-crumbs a { color: var(--berry); font-weight: 700; }
+.sk-search { display: flex; gap: 8px; margin: 12px 0 16px; }
+.sk-search input { flex: 1; min-width: 0; min-height: 46px; padding: 8px 14px; border: 2px solid var(--ink); border-radius: 14px; font: inherit; background: var(--card); }
+.sk-profile { display: flex; gap: 16px; align-items: flex-start; }
+.sk-profile h1 { font-size: 1.8rem; }
+.sk-profile p { margin: 4px 0; }
+.sk-photo { width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 2px solid var(--ink); }
+.sk-photo-none { display: flex; align-items: center; justify-content: center; background: var(--butter); font: 600 2.4rem var(--display); }
+.sk-intro { font-style: italic; }
+.sk-facts { display: grid; grid-template-columns: minmax(0, 9em) minmax(0, 1fr); gap: 6px 12px; margin: 0; font-size: .95rem; }
+.sk-facts dt { color: var(--muted); }
+.sk-facts dd { margin: 0; overflow-wrap: anywhere; }
+.sk-facts a { color: var(--ink); font-weight: 700; }
+.sk-danger { border-color: var(--alert); box-shadow: 0 3px 0 var(--alert); }
+.sk-danger h2 { color: var(--alert); }
+.sk-danger form, .sk-delete-small form { display: grid; gap: 10px; justify-items: start; }
+.sk-confirm, .sk-delete-small label { display: flex; gap: 8px; align-items: flex-start; font-weight: 700; }
+.sk-confirm input, .sk-delete-small input { width: 20px; height: 20px; margin-top: 3px; flex-shrink: 0; }
+.sk-delete-small { margin-top: 6px; }
+.sk-delete-small summary { cursor: pointer; color: var(--alert); font-size: .85rem; font-weight: 700; }
+.sk-delete-small form { margin-top: 8px; }
 @media (min-width: 760px) {
   .sk-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .sk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
