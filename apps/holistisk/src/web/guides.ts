@@ -1,6 +1,6 @@
 import type { D1Database } from "../db.js";
 import { GROUPS } from "../groups.js";
-import { FREE_OUTINGS } from "../flokken/profile.js";
+import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
 import { flockCards, howItWorks } from "../flokken/pages.js";
 import { upcomingFlocks } from "../flokken/store.js";
 import { cardGrid, chipLinks, eventPath, section } from "./components.js";
@@ -45,11 +45,11 @@ function faq(id: string, title: string, items: Array<[string, SafeHtml | string]
 /** The other guides, for the bottom of each. */
 const otherGuides = (current: string): SafeHtml => section("h-guides", "Læs også", chipLinks(GUIDES.filter(g => g.path !== current).map(g => ({ href: g.path, label: g.name }))));
 
-const MEET_FAQ: Array<[string, SafeHtml | string]> = [
+const meetFaq = (now: number): Array<[string, SafeHtml | string]> => [
   ["Er det mærkeligt at gå alene til et event?", "Slet ikke – og med Flokken behøver du ikke. Du viser interesse for et event, og når I er nogle stykker, samler vi en lille flok. I mødes udenfor før eventet og går ind sammen."],
   ["Hvor mødes flokken?", "Altid udenfor, foran et kendt sted i byen – fx foran Domkirken, på Klostertorvet eller på Lille Torv. Aldrig hjemme hos nogen."],
   ["Hvem er med i en flok?", "Folk i alle aldre, som har lyst til det samme event som dig. Når du er med i en flok, kan du se de andres aldersgruppe og en kort linje om dem."],
-  ["Hvad koster det?", html`Billet eller tilmelding klarer du selv hos arrangøren. Du kan være med de første ${FREE_OUTINGS} gange uden at være medlem af foreningen. <a href="/bliv-medlem">Læs om medlemskab</a>.`],
+  ["Hvad koster det?", html`Billet eller tilmelding klarer du selv hos arrangøren. ${freeMembership(now) ? `Medlemskab af foreningen er gratis til ${FREE_MEMBERSHIP_DATE}.` : `Du kan være med de første ${FREE_OUTINGS} gange uden at være medlem af foreningen.`} <a href="/bliv-medlem">Læs om medlemskab</a>.`],
   ["Hvad hvis jeg fortryder?", html`Det er helt i orden. Du siger først ja, når flokken er samlet, og du kan altid forlade en flok igen. <a href="/tryghed">Læs om tryghed</a>.`]
 ];
 
@@ -73,7 +73,7 @@ export async function meetPeoplePage(db: D1Database, ctx: PageContext, regions: 
   ${section("h-how", "Sådan virker Flokken", howItWorks, { href: "/find-en-flok", label: "Vil du med? →" })}
   ${flocks.length ? section("h-flocks", "Flokke med plads lige nu", flockCards(flocks, ctx.now)) : ""}
   ${week.events.length ? section("h-week", "Gode steder at starte de næste 7 dage", cardGrid(week.events, ctx.now), { href: "/kalender?periode=uge", label: "Hele ugen →" }) : ""}
-  ${faq("h-faq", "Spørgsmål og svar", MEET_FAQ)}
+  ${faq("h-faq", "Spørgsmål og svar", meetFaq(ctx.now))}
   ${otherGuides(path)}
 </div>`;
   return {
