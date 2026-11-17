@@ -490,6 +490,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .prose p, .prose li { font-size: 1.05rem; }
 .source-list { padding-left: 1.1em; }
 .source-list li { margin-bottom: .8em; }
+.source-details { margin: .6em 0 1.4em; }
+.source-details > summary { cursor: pointer; font-weight: 600; color: var(--green); text-decoration: underline; }
+.source-details[open] > summary { margin-bottom: .8em; }
 
 /* Spar på billetten */
 .savings { background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 24px 24px 20px; box-shadow: 0 5px 0 var(--ink); }
