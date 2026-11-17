@@ -583,13 +583,14 @@ describe("Lad os komme godt i gang", () => {
     const saved = await call(toProfile, { cookie: both, form: { fornavn: "Tove", alder: "50-59", om_mig: "Glad for musik", email: "tove@example.dk" } });
     expect(saved.headers.get("location")).toBe(`${tick}?besked=profil_gemt`);
     const back = await call(`${tick}?besked=profil_gemt`, { cookie: both });
-    expect(back.headers.get("location")).toBe(`/events/${slug}?besked=interesse_her`);
+    expect(back.headers.get("location")).toBe(`/events/${slug}?besked=interesse_her#besked`);
     expect(statusOf("Tove", slug)).toBe("waiting");
     // Without the cookie a plain visit to the address saves nothing.
     expect((await call(tick, { cookie: await ready("Ulla") })).headers.get("location")).toBe(`/events/${slug}#flokke`);
     expect(statusOf("Ulla", slug)).toBe(null);
 
     const page = (await call(`/events/${slug}?besked=interesse_her`, { cookie })).body;
+    expect(page).toContain('<div id="besked" class="event-message"><p class="flash" role="status">Tak! Du har vist interesse');
     expect(page).toContain("Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken.");
     expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
     expect(page).toContain('<span class="button-secondary is-on">✓ Du er på listen</span>');
@@ -597,14 +598,16 @@ describe("Lad os komme godt i gang", () => {
     expect(page).not.toContain("interesseret.</span>");
     // Others see the count once someone is interested, never "nobody yet".
     const stranger = (await call(`/events/${slug}`)).body;
-    // Two buttons side by side at the top: the tick and the organiser's ticket; the calendar is a small link below.
+    // Two buttons side by side at the top: the tick and the organiser's ticket; below them a framed calendar button.
     expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`);
-    expect(stranger).toContain('<p class="event-calendar">');
+    expect(stranger).toContain(`<a class="calendar-button" href="/events/${slug}.ics" download>`);
+    expect(stranger).not.toContain('id="besked"');
     expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
-    expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');
-    expect(stranger).toContain(`Eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> med din egen tid og dit eget mødested. <a class="trust-link" href="/tryghed">Sådan holder vi det trygt</a>`);
+    expect(stranger).toContain('<p class="interest-count">1 anden er interesseret.</p>');
+    expect(stranger).toContain(`Eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`);
+    expect(stranger).not.toContain('class="trust-link"');
     // Taking it back.
-    expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet`);
+    expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#besked`);
     expect(statusOf("Tove", slug)).toBe(null);
     expect((await call(`/events/${slug}`)).body).not.toContain('class="interest-count"');
   });

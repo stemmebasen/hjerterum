@@ -8,7 +8,7 @@ import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
+import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, interestUndo, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
@@ -543,13 +543,13 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
         <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
         <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
         ${notice}
-        ${flash(extras?.message ?? null)}
+        ${extras?.message ? html`<div id="besked" class="event-message">${flash(extras.message)}</div>` : ""}
         <div class="event-actions">
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
+        ${!over && e.status !== "withdrawn" ? html`<div class="event-extras"><a class="calendar-button" href="${eventPath(e)}.ics" download><svg class="calendar-button-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Tilføj til kalender</a>${interestUndo(e, ctx.now, interest)}</div>` : ""}
         ${flockLine(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
-        ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
       </div>
     </div>
   </header>
