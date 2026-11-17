@@ -427,18 +427,18 @@ export function linkPage(ctx: PageContext, state: { token?: string; error?: "use
   return { status: state.token ? 200 : 400, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Log ind med et link fra din e-mail.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
 }
 
-export function welcomePage(ctx: PageContext, member: Member, code: string, next: string): View {
+export function welcomePage(ctx: PageContext, member: Member, code: string | null, next: string): View {
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Velkommen, ${member.first_name}!</h1>
     <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. ${membershipLine(ctx.now)}</p>
   </header>
-  <section class="code-box" aria-labelledby="h-code">
+  ${code ? html`<section class="code-box" aria-labelledby="h-code">
     <h2 id="h-code">Din personlige kode</h2>
     <p class="code">${code}</p>
     <p>Gem koden et sikkert sted, fx som en note på din telefon. Du skal bruge den for at logge ind på en anden enhed. Vi viser den ikke igen. Giver du os din e-mail på din profil, kan du også logge ind med et link på e-mail.</p>
-  </section>
+  </section>` : html`<p>Giver du os din e-mail på <a href="/profil">din profil</a>, kan du logge ind med et link på e-mail på andre enheder.</p>`}
   <p class="more-line"><a class="button" href="${next}">Fortsæt</a></p>
 </div>`;
   return { status: 200, headers: PRIVATE, body: page(ctx, { title: "Velkommen til Flokken", description: "Din personlige kode.", canonical: "/log-ind", noindex: true }, body) };

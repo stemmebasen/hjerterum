@@ -19,13 +19,28 @@ import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, me
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
 
 export type FlokkenResult =
-  | { view: View; cookie?: string }
-  | { redirect: string; cookie?: string }
+  | { view: View; cookie?: string | string[] }
+  | { redirect: string; cookie?: string | string[] }
   | { json: unknown; status: number }
   | { image: { type: string; body: Uint8Array<ArrayBuffer> } };
 
 const MAX_BODY = 20_000;
-const go = (to: string, cookie?: string): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
+const go = (to: string, cookie?: string | string[]): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
+
+/** A short-lived note to the page a form sends people on to (Post/Redirect/Get). A form's answer is always a redirect to
+ * a normal page, so going back or reloading never asks to send the form again ("Confirm Form Resubmission"). What that
+ * page must show and should not be in its address (the new personal code, an e-mail address) goes in this cookie. */
+const NOTE_MAX_AGE = 15 * 60;
+const noteCookie = (name: string, value: string, path: string) =>
+  `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=${NOTE_MAX_AGE}`;
+const readNote = (request: Request, name: string): string | null => {
+  const m = new RegExp(`(?:^|;\\s*)${name}=([^;]*)`).exec(request.headers.get("cookie") ?? "");
+  if (!m?.[1]) return null;
+  try { return decodeURIComponent(m[1]); } catch { return null; }
+};
+const WELCOME_PATH = "/bliv-medlem/velkommen";
+const WELCOME_NOTE = "flok_ny_kode";
+const MAIL_NOTE = "flok_mail_sendt";
 const withMessage = (path: string, code: string) => `${path}${path.includes("?") ? "&" : "?"}besked=${encodeURIComponent(code)}`;
 
 /** The posted form, or null when it is too big or cannot be read. A body that is too big is still read to the end (and
@@ -124,7 +139,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
         : "Mailen kunne ikke sendes lige nu. Prøv igen om lidt.";
       return { view: loginPage(pc, back, { email, emailError: text, status: result.error === "invalid" ? 400 : 503 }) };
     }
-    return { view: loginPage(pc, back, { sentTo: email }) };
+    return go(`/log-ind?naeste=${encodeURIComponent(back)}&besked=mail_sendt`, noteCookie(MAIL_NOTE, email, "/log-ind"));
   }
   if (path === "/log-ind/link") {
     const data = post ? await formData(request) : null;
@@ -149,7 +164,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const next = safeNext(post ? null : url.searchParams.get("naeste"));
     if (!post) {
       if (await member()) return go(next);
-      return { view: loginPage(pc, next) };
+      const sentTo = message === "mail_sendt" ? readNote(request, MAIL_NOTE) : null;
+      return { view: loginPage(pc, next, sentTo ? { sentTo } : {}) };
     }
     const data = await formData(request);
     const back = safeNext(String(data?.get("naeste") ?? ""));
@@ -180,7 +196,17 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const name = cleanFirstName(raw);
     if (!name) return { view: loginPage(pc, back, { name: raw.slice(0, 30), nameError: "Skriv dit fornavn (højst 30 bogstaver).", status: 400 }) };
     const { member: created, code } = await createMember(db, name, now);
-    return { view: welcomePage(pc, created, code, back), cookie: await startSession(db, created.id, now) };
+    return go(`${WELCOME_PATH}?naeste=${encodeURIComponent(back)}`, [await startSession(db, created.id, now), noteCookie(WELCOME_NOTE, code, WELCOME_PATH)]);
+  }
+  // The welcome page after "Opret profil", with the new personal code (from the note, for 15 minutes; reloading is fine).
+  if (path === WELCOME_PATH && !post) {
+    const m = await member();
+    const next = safeNext(url.searchParams.get("naeste"));
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(next)}`);
+    const code = normalizeCode(readNote(request, WELCOME_NOTE) ?? "");
+    // Only this member's own code: someone else may have made a profile on the same device a moment ago.
+    const own = code && (await memberByCode(db, code))?.id === m.id ? code : null;
+    return { view: welcomePage(pc, m, own, next) };
   }
   if (path === "/log-ud" && post) {
     await endSession(db, request);
