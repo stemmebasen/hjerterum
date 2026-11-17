@@ -78,7 +78,7 @@ describe("membership", () => {
     expect(String(stored.code_hash)).not.toContain(code);
     const login = await call("/log-ind", { form: { kode: code.toLowerCase().replace(/-/g, " "), naeste: "/flokke" } });
     expect(login.status).toBe(303);
-    expect(login.headers.get("location")).toBe("/flokke");
+    expect(login.headers.get("location")).toBe("/flokke?besked=logget_ind");
     expect(cookieOf(login)).toMatch(/^flok_session=/);
     const wrong = await call("/log-ind", { form: { kode: "AAAA-BBBB-CCCC" } });
     expect(wrong.status).toBe(400);

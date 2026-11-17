@@ -156,7 +156,8 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const code = normalizeCode(String(data?.get("kode") ?? ""));
     const found = code ? await memberByCode(db, code) : null;
     if (!found) return { view: loginPage(pc, back, { codeError: "Koden passer ikke. Den har 12 tegn, fx K7QF-29MX-T4HD.", status: 400 }) };
-    return go(back, await startSession(db, found.id, now));
+    // The same way back as with the link from the e-mail: to the page the person came from, with "Du er logget ind".
+    return go(withMessage(back, "logget_ind"), await startSession(db, found.id, now));
   }
   if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member()), { sent: message === "tak" }) };
   if (path === "/bliv-medlem/meld-ind" && post) {

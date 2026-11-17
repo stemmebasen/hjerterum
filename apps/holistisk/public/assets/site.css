@@ -100,6 +100,10 @@ p { margin: 0 0 1em; }
 strong { font-weight: 800; }
 .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
 .wrap.narrow { max-width: 820px; }
+/* Socialklubben: every page has the same outer margins as the header (Jake 2026-11-18). The text pages keep a
+ * readable line length, but start at the same left edge as the logo instead of being centred in a narrower column. */
+[data-edition="portal"] .wrap.narrow, [data-edition="portal"] .wrap.sk-admin { max-width: 1140px; }
+[data-edition="portal"] .wrap.narrow > * { max-width: 820px; }
 @media (min-width: 760px) { .wrap { padding: 0 28px; } }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--card); padding: 8px 12px; z-index: 10; border-radius: var(--radius-s); }
@@ -650,7 +654,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .field-error { color: var(--alert); font-size: .88rem; font-weight: 800; }
 .form-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .two-forms { display: grid; gap: 22px; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .two-forms { grid-template-columns: 1fr 1fr; } }
+/* Side by side only when both headings fit on one line, so label, field, hint and button line up in the two cards.
+ * align-content: start keeps the shorter card from spreading its rows out to match the taller one. */
+.two-forms > .form-card { align-content: start; }
+@media (min-width: 860px) { .two-forms { grid-template-columns: 1fr 1fr; } }
 .login-card .login-form { display: grid; gap: 16px; }
 .login-code summary { cursor: pointer; font-weight: 600; }
 .login-code[open] summary { margin-bottom: 14px; }
