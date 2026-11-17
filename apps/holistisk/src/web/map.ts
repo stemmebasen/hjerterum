@@ -11,7 +11,8 @@ import { mapEvents } from "./queries.js";
 
 /** The map (/kort): every coming event with a place, as pins on a map of the city, two weeks ahead. The page carries
  * the data; public/assets/map.js draws the map (Leaflet, public/assets/vendor/leaflet) and the panel below it: the
- * area in view, a bar per day, all / with a flock / free, and the activities. Without JavaScript it points to the
+ * area in view, a bar per day, all / with a flock / free, and the activities. Each pin carries a small label with what is on
+ * there (time and title), placed beside the pin where it does not cover another pin, label or the panel. Without JavaScript it points to the
  * calendar. */
 
 export const MAP_DAYS = 14;
@@ -23,8 +24,8 @@ export type MapData = {
   areas: Array<{ name: string; lat: number; lon: number }>;
   days: Array<{ d: string; letter: string; num: number; label: string }>;
   categories: Array<{ slug: string; name: string }>;
-  /** p path, t title, d day, h time ("" all day), y/x position, v place, c activity, g free, k price, n flocks */
-  events: Array<{ p: string; t: string; d: string; h: string; y: number; x: number; v: string; c: string; g: 0 | 1; k: string; n: number }>;
+  /** p path, t title, d day, h time ("" all day), y/x position, v place, c activity, g free, k price, n flocks, i image ("" none) */
+  events: Array<{ p: string; t: string; d: string; h: string; y: number; x: number; v: string; c: string; g: 0 | 1; k: string; n: number; i: string }>;
 };
 
 export async function mapData(db: D1Database, ctx: PageContext, regions: string[]): Promise<MapData> {
@@ -40,7 +41,8 @@ export async function mapData(db: D1Database, ctx: PageContext, regions: string[
     const day = localDate(e.starts_at) < today ? today : localDate(e.starts_at);
     return {
       p: eventPath(e), t: e.title, d: day, h: e.all_day ? "" : hhmm(e.starts_at), y: e.lat!, x: e.lon!,
-      v: e.venue_name ?? e.city ?? "", c, g: e.is_free === 1 ? 1 as const : 0 as const, k: priceLabel(e) ?? "", n: e.flock_count ?? 0
+      v: e.venue_name ?? e.city ?? "", c, g: e.is_free === 1 ? 1 as const : 0 as const, k: priceLabel(e) ?? "", n: e.flock_count ?? 0,
+      i: e.image_url ?? ""
     };
   });
   return {
@@ -93,7 +95,7 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
       description: `Se de næste ${MAP_DAYS} dages koncerter, foredrag, workshops og flokke i ${ctx.regionLabel} på et kort – dag for dag, gratis eller med en flok.`,
       canonical: "/kort", breadcrumbs: crumbs, bare: true,
       styles: ["/assets/vendor/leaflet/leaflet.css?v=1.9.4"],
-      scripts: ["/assets/vendor/leaflet/leaflet.js?v=1.9.4", "/assets/map.js?v=3"]
+      scripts: ["/assets/vendor/leaflet/leaflet.js?v=1.9.4", "/assets/map.js?v=4"]
     }, body)
   };
 }

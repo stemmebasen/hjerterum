@@ -694,6 +694,26 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .pin-wrap:hover .pin, .pin-wrap:focus-visible .pin { transform: translate(-50%, calc(-100% - 11px)); }
 .pin-wrap:focus-visible { outline: none; }
 .pin-wrap:focus-visible .pin { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Pin labels: a small card beside each pin with time, place and title; map.js picks the side that is free. */
+.pin-measure { position: absolute; left: 0; top: 0; width: 400px; height: 400px; visibility: hidden; pointer-events: none; z-index: -1; }
+.pin-label { position: absolute; display: flex; align-items: center; gap: 8px; box-sizing: border-box; max-width: 220px; padding: 6px 10px 6px 6px; background: var(--card); color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink); font: 600 .8rem/1.2 var(--sans); text-align: left; white-space: normal; cursor: pointer; }
+.pin-label:not(.pin-label-one) { flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 10px; max-width: 210px; }
+.map .pin-label, .map .pin-label:hover { color: var(--ink); text-decoration: none; }
+.pin-label:hover { background: var(--butter-soft); }
+.pin-wrap:hover .pin-label, .pin-label:focus-visible { border-color: var(--berry); }
+.pin-label:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.pin-label-img { position: relative; flex: none; width: 42px; height: 42px; border-radius: 8px; overflow: hidden; background: var(--paper-2); }
+.pin-label-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pin-label-img .pin-label-blur { inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); object-fit: cover; filter: blur(6px); opacity: .6; }
+.pin-label-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.pin-label-when { font-size: .72rem; font-weight: 800; color: var(--berry); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-label-place { color: var(--muted); font-weight: 700; }
+.pin-label-title { font: 600 .86rem/1.18 var(--display); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.pin-label-head { font-size: .7rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-label-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.pin-label-row .pin-label-when { flex: none; }
+.pin-label-row .pin-label-title { -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; min-width: 0; }
+.pin-label-more { font-size: .72rem; font-weight: 800; color: var(--ink-2); }
 
 .map-sheet { position: absolute; z-index: 1000; left: 16px; bottom: 16px; width: min(540px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; box-sizing: border-box; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 6px 0 var(--ink); padding: 16px 18px 14px; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -754,6 +774,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
   .bar-num { font-size: .8rem; }
   .day-bars { gap: 1px; margin-top: 10px; }
   .sheet-list { max-height: 40vh; }
+  .pin-label { max-width: 168px; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 10px; }
+  .pin-label:not(.pin-label-one) { max-width: 160px; padding: 4px 8px; }
+  .pin-label-img { width: 34px; height: 34px; border-radius: 7px; }
+  .pin-label-title { font-size: .8rem; }
 }
 
 /* ————————————————————————————————————————— Flokk, the association
