@@ -62,7 +62,7 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kort", path: "/kort" }];
   const body = html`
 <div class="map-page" data-map-page>
-  <div class="map" data-map role="region" aria-label="Kort over kommende events"></div>
+  <div class="map" data-map role="region" aria-label="Kort over kommende arrangementer"></div>
   <button class="map-locate" type="button" data-locate hidden aria-label="Vis hvor jeg er"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M20.5 3.5 3.8 10.4l7 2.1 2 7 7.7-16Z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
   <section class="map-sheet" data-sheet aria-labelledby="map-title">
     <div class="sheet-overview" data-overview>
@@ -89,7 +89,7 @@ export async function mapPage(db: D1Database, ctx: PageContext, regions: string[
   return {
     status: 200,
     body: page(ctx, {
-      title: `Kort over events i ${ctx.regionLabel}`,
+      title: `Kort over arrangementer i ${ctx.regionLabel}`,
       description: `Se de næste ${MAP_DAYS} dages koncerter, foredrag, workshops og flokke i ${ctx.regionLabel} på et kort – dag for dag, gratis eller med en flok.`,
       canonical: "/kort", breadcrumbs: crumbs, bare: true,
       styles: ["/assets/vendor/leaflet/leaflet.css?v=1.9.4"],

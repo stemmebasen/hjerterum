@@ -8,6 +8,7 @@ import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { offersFor } from "../flokken/partners.js";
 import { WEEKLY_FLAG } from "../sources/weekly.js";
+import { isAlternativeCategory } from "../mainstream.js";
 import { GROUPS, groupBySlug, type Group } from "../groups.js";
 
 /** The four main kinds as big tiles: one tap shows that kind, a tap on the chosen one shows everything again. */
@@ -268,7 +269,9 @@ export function filterPanel(f: Filters, categoryCounts: Map<string, number>): Sa
   ${group("fl-zone", "Område", ZONES.map(z => chip(z.label, f.zone === z.slug, { zone: f.zone === z.slug ? null : z.slug, area: null, city: null })))}
   ${group("fl-price", "Pris", PRICES.map(p => chip(p.label, f.price === p.value, { price: f.price === p.value ? null : p.value })))}
   ${group("fl-when", "Hvornår", PERIOD_CHIPS.map(v => chip(PERIODS.find(p => p.value === v)!.label, f.period === v, { period: f.period === v ? null : v, from: null, to: null })))}
-  ${group("fl-cat", "Kategori", CATEGORIES.filter(c => f.categories.includes(c.slug) || (categoryCounts.get(c.slug) ?? 0) > 0).map(c => {
+  ${group("fl-cat", "Kategori", CATEGORIES.filter(c => f.categories.includes(c.slug) || (categoryCounts.get(c.slug) ?? 0) > 0)
+    // The broad activities first, the quieter ones (meditation, breathwork …) after them.
+    .sort((a, b) => Number(isAlternativeCategory(a.slug)) - Number(isAlternativeCategory(b.slug))).map(c => {
     const on = f.categories.includes(c.slug);
     return chip(c.name, on, { categories: on ? f.categories.filter(x => x !== c.slug) : [...f.categories, c.slug] }, categoryCounts.get(c.slug) ?? 0);
   }))}

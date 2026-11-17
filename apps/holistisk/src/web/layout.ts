@@ -128,7 +128,7 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:${organiserEmail(ctx)}?subject=${encodeURIComponent("Mit event på Socialklubben")}">klik her</a></div>`
+${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit arrangement på siden? Skynd dig og tag fat i os – <a href="mailto:${organiserEmail(ctx)}?subject=${encodeURIComponent("Mit arrangement på Socialklubben")}">klik her</a></div>`
   : ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">
@@ -172,7 +172,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
-      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
+      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Arrangementer fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
       <p><a href="/find-en-flok">Vil du med?</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
       <p><a href="/moed-nye-mennesker">Mød nye mennesker i Aarhus</a> · <a href="/ny-i-aarhus">Ny i Aarhus</a> · <a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></p>
     </div>

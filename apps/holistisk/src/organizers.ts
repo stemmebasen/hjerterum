@@ -108,7 +108,7 @@ export const ALL_ORGANIZERS: OrganizerProfile[] = [
       { text: "Introduktionsforedrag og meditation første torsdag i måneden kl. 18.30", source: "https://buddha.dk/centres/aarhus/" },
       { text: "Gratis – alle er velkomne", source: "https://buddha.dk/centres/aarhus/" }
     ],
-    eventsNote: "Foredrag og særlige events hentes automatisk hver nat fra buddha.dk."
+    eventsNote: "Foredrag og særlige arrangementer hentes automatisk hver nat fra buddha.dk."
   },
   {
     slug: "dansk-center-for-mindfulness",
@@ -207,7 +207,7 @@ export const ALL_ORGANIZERS: OrganizerProfile[] = [
       { text: "3-timers søndagsyoga, jule- og påskekursus som gå-hjem-retreat, yoga-detox og kirtan", source: "https://yogaskolen.dk/events" },
       { text: "Yogaretreats på 3 og 5 dage på Mors", source: "https://yogaskolen.dk/yogaferier" }
     ],
-    eventsNote: "Skolens ugeskema og events ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yogaskolen.dk."
+    eventsNote: "Skolens ugeskema og arrangementer ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yogaskolen.dk."
   },
   {
     slug: "yo-studios",
@@ -218,9 +218,9 @@ export const ALL_ORGANIZERS: OrganizerProfile[] = [
     activities: ["yoga", "yin-yoga"],
     offerings: [
       { text: "Yogahold fra yin til vinyasa i Scandinavian Center (Margrethepladsen 4) og i Højbjerg (Oddervej 157)", source: "https://www.yostudios.dk/dk/find-studio" },
-      { text: "Events som yoga & poesi – mange er gratis og åbne for alle", source: "https://www.yostudios.dk/dk/events" }
+      { text: "Arrangementer som yoga & poesi – mange er gratis og åbne for alle", source: "https://www.yostudios.dk/dk/events" }
     ],
-    eventsNote: "Holdplan og events ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yostudios.dk."
+    eventsNote: "Holdplan og arrangementer ligger i bookingsystemet YOGO, som ikke tillader automatisk hentning; se dem på yostudios.dk."
   },
   // ——— Spillesteder, scener, biblioteker og kulturhuse (Jake 2026-11-10: a broad selection). Their events are
   // fetched by the sources in src/sources/registry.ts; the slug is the organizer_id the collector gives them.

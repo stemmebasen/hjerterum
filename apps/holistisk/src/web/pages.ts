@@ -215,8 +215,8 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   return {
     status: 200,
     body: page(ctx, {
-      title: `Flokken – find events i Aarhus og nogen at følges med`,
-      description: `Koncerter, teater, foredrag og meget mere – ${total} kommende events i Aarhus og omegn. Vis interesse, så samler vi en lille flok, du kan følges med.`,
+      title: `Flokken – find arrangementer i Aarhus og nogen at følges med`,
+      description: `Koncerter, teater, foredrag og meget mere – ${total} kommende arrangementer i Aarhus og omegn. Vis interesse, så samler vi en lille flok, du kan følges med.`,
       canonical: "/",
       jsonLd: [
         { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK", publisher: { "@id": ctx.origin + "/#organisation" } },
@@ -263,7 +263,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
         <a class="map-link" href="/kort${f.price === "gratis" ? "?vis=gratis" : ""}">${MAP_PIN} Se på kort</a>
         ${activeFilterChips(f)}
       </div>
-      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen events matcher.</strong> Prøv et bredere tidsrum, et andet område eller færre filtre.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
+      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p><strong>Ingen arrangementer matcher.</strong> Prøv et bredere tidsrum, et andet område eller færre filtre.</p><p><a class="button-secondary" href="/kalender">Nulstil filtre</a></p></div>`}
       ${pagination(f, total, PAGE_SIZE, "/kalender")}
     </section>
   </div>
@@ -272,8 +272,8 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   return {
     status: 200,
     body: page(ctx, {
-      title: f.page > 1 ? `Kalender – side ${f.page}` : `Kalender – events i ${ctx.regionLabel}`,
-      description: `Kalender for ${ctx.regionLabel}: ${total} kommende events fra lokale arrangører – dag for dag. Find en flok at følges med.`,
+      title: f.page > 1 ? `Kalender – side ${f.page}` : `Kalender – arrangementer i ${ctx.regionLabel}`,
+      description: `Kalender for ${ctx.regionLabel}: ${total} kommende arrangementer fra lokale arrangører – dag for dag. Find en flok at følges med.`,
       canonical: "/kalender" + (f.page > 1 ? toQuery({ page: f.page }) : ""),
       breadcrumbs: crumbs,
       noindex: filtered || total === 0,
@@ -303,8 +303,8 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
   return {
     status: 200,
     body: page(ctx, {
-      title: period === "idag" ? `Hvad sker der i dag? Events i ${ctx.regionLabel}` : `Hvad sker der i weekenden? Events i ${ctx.regionLabel}`,
-      description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: ${total} events. Find en flok at følges med.` : `Det sker i weekenden i ${ctx.regionLabel}: ${total} events. Find en flok at følges med.`,
+      title: period === "idag" ? `Hvad sker der i dag? Arrangementer i ${ctx.regionLabel}` : `Hvad sker der i weekenden? Arrangementer i ${ctx.regionLabel}`,
+      description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.` : `Det sker i weekenden i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.`,
       canonical: path,
       breadcrumbs: crumbs,
       jsonLd: events.length ? [itemList(events, ctx)] : []
@@ -334,7 +334,7 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
   <div class="main-aside">
     <div>
       <h2 class="results-count">${eventsLabel(total)}</h2>
-      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p>Der er ingen kommende events i ${activity.name.toLowerCase()} i ${place} lige nu. Kalenderen opdateres hver nat.</p>
+      ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p>Der er ingen kommende arrangementer i ${activity.name.toLowerCase()} i ${place} lige nu. Kalenderen opdateres hver nat.</p>
         <p>${area ? html`<a class="button-secondary" href="/${activity.slug}">${activity.name} i hele ${ctx.regionLabel}</a> ` : ""}<a class="button-secondary" href="/kalender">Hele kalenderen</a></p></div>`}
       ${pagination(emptyFilters({ page: pageNo }), total, PAGE_SIZE, basePath)}
       ${profiles.some(p => p.offerings.length) ? section("h-regular", `Faste tilbud${area ? ` i ${area.place}` : ""}`, offeringsBlock(profiles)) : html``}
@@ -369,20 +369,20 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a, { area: area.slug }), regions, ctx.now)));
   const profiles = ORGANIZERS.filter(o => o.area === area.slug);
-  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: `Events i ${area.place}`, path: `/${area.slug}` }];
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: `Arrangementer i ${area.place}`, path: `/${area.slug}` }];
   const activityLinks = ACTIVITIES.map((a, i) => ({ a, n: activityCounts[i] ?? 0 })).filter(x => x.n > 0 || profiles.some(p => p.activities.includes(x.a.slug)));
   const body = html`
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Events i ${area.place}</h1>
-    <p class="standfirst">Hvad sker der i ${area.place}? Events fra lokale arrangører, opdateret hver nat – find en flok at følges med, eller opret din egen.</p>
+    <h1>Arrangementer i ${area.place}</h1>
+    <p class="standfirst">Hvad sker der i ${area.place}? Arrangementer fra lokale arrangører, opdateret hver nat – find en flok at følges med, eller opret din egen.</p>
   </header>
   <div class="main-aside">
     <div>
       ${today.events.length ? section("h-today", `I dag i ${area.place}`, dayList(today.events.slice(0, 8), ctx.now)) : html``}
       ${weekend.events.length && weekend.total !== today.total ? section("h-weekend", `I weekenden i ${area.place}`, dayList(weekend.events.slice(0, 8), ctx.now)) : html``}
-      ${section("h-upcoming", `Kommende events i ${area.place}`, upcoming.events.length ? dayList(upcoming.events.slice(0, 20), ctx.now)
+      ${section("h-upcoming", `Kommende arrangementer i ${area.place}`, upcoming.events.length ? dayList(upcoming.events.slice(0, 20), ctx.now)
         : html`<div class="empty"><p>Der er ingen kommende arrangementer i ${area.place} lige nu. Kalenderen opdateres hver nat.</p></div>`,
         upcoming.total > 20 ? { href: `/kalender?omraade=${area.slug}`, label: `Alle ${upcoming.total} →` } : undefined)}
       ${profiles.some(p => p.offerings.length && !isAlternativeOrganizer(p.slug)) ? section("h-regular", `Faste tilbud i ${area.place}`, offeringsBlock(profiles.filter(p => !isAlternativeOrganizer(p.slug)))) : html``}
@@ -396,8 +396,8 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
   return {
     status: 200,
     body: page(ctx, {
-      title: `Hvad sker der i ${area.place}? Events og flokke`,
-      description: `Det sker i ${area.place}: ${upcoming.total} kommende events fra lokale arrangører. Find en flok at følges med.`,
+      title: `Hvad sker der i ${area.place}? Arrangementer og flokke`,
+      description: `Det sker i ${area.place}: ${upcoming.total} kommende arrangementer fra lokale arrangører. Find en flok at følges med.`,
       canonical: `/${area.slug}`,
       breadcrumbs: crumbs,
       noindex: upcoming.total === 0 && profiles.length === 0,
@@ -419,7 +419,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>Arrangører</h1>
-    <p class="standfirst">Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel}, hvis events du finder på Flokken – med deres faste tilbud og kommende events. <a href="/samarbejde">Vil I være med?</a></p>
+    <p class="standfirst">Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel}, hvis arrangementer du finder på Flokken – med deres faste tilbud og kommende arrangementer. <a href="/samarbejde">Vil I være med?</a></p>
   </header>
   ${byArea.map(x => section(`h-${x.a.slug}`, x.a.place, html`<ul class="org-list">${x.list.map(o => html`<li>
     <h3><a href="/arrangoerer/${o.slug}">${o.name}</a></h3>
@@ -427,7 +427,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
     <p class="meta meta-muted">${[o.address, [o.postalCode, o.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>
   </li>`)}</ul>`))}
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Arrangører i ${ctx.regionLabel}`, description: `Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel} – med kommende events.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Arrangører i ${ctx.regionLabel}`, description: `Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel} – med kommende arrangementer.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
 }
 
 export async function organizerPage(db: D1Database, ctx: PageContext, regions: string[], profile: OrganizerProfile): Promise<View | null> {
@@ -463,8 +463,8 @@ export async function organizerPage(db: D1Database, ctx: PageContext, regions: s
   return {
     status: 200,
     body: page(ctx, {
-      title: `${profile.name} – ${area.place} · events og faste tilbud`,
-      description: clip(`${profile.about} Se kommende events og faste tilbud hos ${profile.name} i ${area.place}.`, 158),
+      title: `${profile.name} – ${area.place} · arrangementer og faste tilbud`,
+      description: clip(`${profile.about} Se kommende arrangementer og faste tilbud hos ${profile.name} i ${area.place}.`, 158),
       canonical: `/arrangoerer/${profile.slug}`,
       breadcrumbs: crumbs,
       jsonLd: [{
@@ -501,9 +501,9 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const price = priceLabel(e);
   const paragraphs = (e.description ?? "").split(/\n+/).filter(Boolean);
   const over = (e.ends_at ?? e.starts_at + 3 * 3600_000) < ctx.now;
-  const notice = e.status === "cancelled" ? html`<p class="notice notice-cancelled" role="status"><strong>Aflyst.</strong> Arrangøren har meldt dette event aflyst.</p>`
-    : e.status === "withdrawn" ? html`<p class="notice" role="status">Dette event er ikke længere annonceret hos arrangøren. Tjek arrangørens egen side.</p>`
-    : over ? html`<p class="notice" role="status">Dette event er afholdt.</p>` : "";
+  const notice = e.status === "cancelled" ? html`<p class="notice notice-cancelled" role="status"><strong>Aflyst.</strong> Arrangøren har meldt dette arrangement aflyst.</p>`
+    : e.status === "withdrawn" ? html`<p class="notice" role="status">Dette arrangement er ikke længere annonceret hos arrangøren. Tjek arrangørens egen side.</p>`
+    : over ? html`<p class="notice" role="status">Dette arrangement er afholdt.</p>` : "";
   const mapUrl = e.lat !== null && e.lon !== null
     ? `https://www.openstreetmap.org/?mlat=${e.lat}&mlon=${e.lon}#map=16/${e.lat}/${e.lon}`
     : e.address || e.city ? `https://www.openstreetmap.org/search?query=${encodeURIComponent([e.address, e.postal_code, e.city].filter(Boolean).join(" "))}` : null;
@@ -612,9 +612,9 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
   </header>
   ${section("h-free", `Gratis – ${eventsLabel(free.total)} den næste måned`, free.events.length ? html`${dayList(free.events, ctx.now)}${free.total > free.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?pris=gratis&periode=maaned">Se alle ${free.total}</a></p>` : ""}` : html`<p class="empty">Ingen gratis arrangementer med kendt pris den næste måned lige nu.</p>`, { href: "/kalender?pris=gratis", label: "Alle gratis →" })}
   ${cheapPaid.length ? section("h-cheap", "Op til 100 kr.", dayList(cheapPaid, ctx.now), { href: "/kalender?pris=under-100", label: "Alle op til 100 kr. →" }) : ""}
-  <p class="meta-muted small">Priserne er arrangørernes egne og hentes hver nat. Events uden oplyst pris er ikke med her.</p>
+  <p class="meta-muted small">Priserne er arrangørernes egne og hentes hver nat. Arrangementer uden oplyst pris er ikke med her.</p>
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Gratis og billigt – events i ${ctx.regionLabel}`, description: `Gratis og billige events i ${ctx.regionLabel} den næste måned.`, canonical: "/gratis-og-billigt", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Gratis og billigt – arrangementer i ${ctx.regionLabel}`, description: `Gratis og billige arrangementer i ${ctx.regionLabel} den næste måned.`, canonical: "/gratis-og-billigt", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Index pages
@@ -636,7 +636,7 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
   ${section("h-calm", "Ro og fordybelse", list(calm))}
   ${section("h-topics", "Flere emner", list(TOPICS))}
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – events i ${ctx.regionLabel}`, description: `Koncerter, teater, comedy, foredrag, quiz, udstillinger, dans, natur og fællesskaber i ${ctx.regionLabel}.`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – arrangementer i ${ctx.regionLabel}`, description: `Koncerter, teater, comedy, foredrag, quiz, udstillinger, dans, natur og fællesskaber i ${ctx.regionLabel}.`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
 }
 
 export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View> {
@@ -653,7 +653,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <p>Flokken er en social forening i Aarhus. Vi har to formål, og de vejer lige tungt:</p>
   <ol class="aims">
     <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen. Det er nemmere at tage afsted, når man ved, at andre venter på en.</li>
-    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at få opmærksomhed om deres arrangementer. Bag hvert event står et sted, en forening eller en ildsjæl, som flere burde opdage.</li>
+    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at få opmærksomhed om deres arrangementer. Bag hvert arrangement står et sted, en forening eller en ildsjæl, som flere burde opdage.</li>
   </ol>
   <h2>For alle – og særligt for dig, der har brug for en håndsrækning</h2>
   <p>Flokken er for alle. Men vi er her især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i byen, fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene. Hos os mødes man i små flokke, på et offentligt sted og under trygge rammer.</p>
@@ -669,7 +669,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
   <h2>Hvad er en flok?</h2>
   <p>En flok er en lille, uformel gruppe, der følges til et bestemt arrangement. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Deltagelse er frivillig fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
-  <h2>Hvor finder du events?</h2>
+  <h2>Hvor finder du arrangementerne?</h2>
   <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra.</p>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
@@ -677,7 +677,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <h2>Billet og tilmelding</h2>
   <p>Du køber billet eller tilmelder dig altid hos arrangøren. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
   <h2 id="arrangoerer">For arrangører</h2>
-  <p>Vil I samarbejde med Flokken – eller have jeres events med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres events, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres events.</p>
+  <p>Vil I samarbejde med Flokken – eller have jeres arrangementer med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres arrangementer, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres events.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Flokken er en social forening i Aarhus: vi hjælper folk ud og møde nye mennesker – og byens mindre arrangører med at blive set. Læs om vores formål og værdier.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
@@ -687,7 +687,7 @@ export function notFoundPage(ctx: PageContext): View {
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Siden findes ikke</h1>
-    <p class="standfirst">Eventet kan være afholdt eller fjernet af arrangøren.</p>
+    <p class="standfirst">Arrangementet kan være afholdt eller fjernet af arrangøren.</p>
     <p><a class="button" href="/kalender">Se kalenderen</a></p>
   </header>
 </div>`;
