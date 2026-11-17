@@ -209,6 +209,54 @@ Hjerterum Open er events, som Hjerterum selv skaber og arrangerer – koncerter,
 
 Har du ønsker eller idéer til indhold, så skriv til [[mail]].
 
+## Ofte stillede spørgsmål {#faq}
++++ Skal jeg være medlem for at deltage?
+Nej. De fleste events er åbne for alle. Som medlem deltager du til rabatpris og ofte helt gratis.
++++
+
++++ Hvordan tilmelder jeg mig?
+Klik på eventet i kalenderen, og tryk "Tilmeld dig". Til mange events kan du tilmelde dig med navn og e-mail uden at logge ind. Er du medlem, så log ind for at få medlemsprisen.
++++
+
++++ Får jeg en bekræftelse?
+Ja. Du får en mail, når du har tilmeldt dig. Har arrangøren skrevet en besked til deltagerne, står den i mailen.
++++
+
++++ Hvordan annullerer jeg min tilmelding?
+Er du medlem, så log ind, gå til Kalender, og tryk "Annullér tilmelding" ved eventet. Har du tilmeldt dig uden login, så skriv til [[mail]], så en anden kan få pladsen.
++++
+
++++ Hvorfor kan jeg ikke tilmelde mig et event?
+Der er tre mulige grunde:
+- Eventet er fuldt booket.
+- Der er ingen tilmelding, og du møder bare op, som i caféen om torsdagen.
+- Tilmeldingen sker hos arrangøren. Det står i så fald i beskrivelsen.
++++
+
++++ Hvad koster det?
+Prisen står på eventet, ofte med én pris for medlemmer og én for ikke-medlemmer. Nogle events er gratis for alle.
++++
+
++++ Hvad er Hjerterum Open?
+Events, som Hjerterum selv arrangerer: koncerter, foredrag, fællesspisning, dans og meget mere. De er åbne for alle, og medlemmer deltager ofte gratis. [Læs mere](/events#hjerterum-open).
++++
+
++++ Hvor ligger Hjerterum?
+Guldsmedgade 26B, 8000 Aarhus C. Se [parkering og adgang](/kontakt#parkering).
++++
+
++++ Hvordan hører jeg om nye events?
+Tilmeld dig nyhedsbrevet Månedens events, når du tilmelder dig et event, eller under Min profil, hvis du er medlem. Du kan også følge Hjerterum på Facebook.
++++
+
++++ Bliver der taget billeder til events?
+Se vores politik om fotografering og video nederst på denne side.
++++
+
++++ Kan jeg selv holde et event i Hjerterum?
+Ja. Undervisere og arrangører kan leje salen. [Læs om at bruge Hjerterum](/brug-hjerterum).
++++
+
 ## Spørgsmål til et event? {#skriv}
 Har du spørgsmål om tilmelding, pladser eller et bestemt event, så skriv til os her.
 
@@ -270,6 +318,59 @@ Donationer er – sammen med medlemskontingent og leje af salen – det, der få
 - **Bankoverførsel** (fx ved beløb over 1.000 kr.): Djursland Bank, reg.nr. 7268, kontonr. 1211404
 
 Vil du støtte fast uden medlemsfordele, kan du vælge Support-medlemskabet. På forhånd tak fra teamet bag ♡
+
+## Ofte stillede spørgsmål {#faq}
++++ Hvilke medlemskaber findes der, og hvad koster de?
+- **Standard:** 222 kr. pr. måned eller 2.310 kr. pr. år.
+- **Generøst:** 333 kr. pr. måned eller 3.465 kr. pr. år. Du støtter lidt ekstra og hjælper andre til et medlemskab til reduceret pris.
+- **Reduceret pris:** 111 kr. pr. måned eller 1.155 kr. pr. år.
+- **Support:** 50 kr. pr. måned eller 540 kr. pr. år. Du støtter huset uden medlemsfordele.
+
+Betaler du for et år ad gangen, sparer du penge.
++++
+
++++ Hvem kan få reduceret pris?
+Du kan vælge reduceret pris, hvis din nettoløn (efter skat) er under 13.500 kr. om måneden, fx hvis du er på SU. Stiger din indkomst over grænsen, beder vi dig skifte til det almindelige medlemskab.
++++
+
++++ Hvad får jeg som medlem?
+- rabat eller gratis adgang til events
+- tilbud på Hjerterums egne events
+- rabat i caféen om torsdagen
+- mulighed for at oprette dine egne events
+- en plads i CIRKLER
+- en offentlig profil, hvis du er behandler eller underviser
+
+Se [alle fordelene](/medlemskab/fordele). Support-medlemskabet giver ikke medlemsfordelene.
++++
+
++++ Hvordan melder jeg mig ind?
+Vælg et medlemskab under [Sådan melder du dig ind](/medlemskab#tilmelding). Læs gerne [vilkårene](/medlemskab/vilkaar) først.
++++
+
++++ Hvordan betaler jeg?
+Med betalingskort. Første betaling trækkes, når du melder dig ind. Derefter trækkes beløbet automatisk hver måned eller hvert år.
++++
+
++++ Hvordan opsiger jeg mit medlemskab?
+Log ind, og gå til Min profil → Medlemskab → Opsig medlemskab. Bindingsperioden er løbende måned + 1 måned, så du betaler én gang mere, efter du har opsagt. Et årsmedlemskab løber året ud.
++++
+
++++ Kan jeg holde pause eller skifte medlemskab?
+Ja. Skriv til [[mail]], så hjælper vi dig.
++++
+
++++ Kan jeg fortryde?
+Ja. Du har 14 dages fortrydelsesret fra købet af et medlemskab. Skriv til [[mail]] inden fristen.
++++
+
++++ Kan jeg dele mit medlemskab med andre?
+Nej. Medlemskabet er personligt.
++++
+
++++ Kan jeg støtte Hjerterum uden at være medlem?
+Ja. Med MobilePay på 734388 eller med en bankoverførsel, se [Støt Hjerterum](/medlemskab#stoet). Vil du støtte fast, kan du vælge Support-medlemskabet.
++++
 
 ## Spørgsmål om medlemskab? {#skriv}
 Skriv til os, hvis du vil vide mere om medlemskaberne, reduceret pris eller dit eget medlemskab.
