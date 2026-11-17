@@ -161,7 +161,7 @@ jobs:
           PG /kort 'id="kort-data"'
           PG /find-en-flok '<h1>Vil du med?</h1>'
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
-          PG /samarbejde 'kontakt os'
+          PG /samarbejde 'Skriv til os'
           PG /tryghed 'offentligt sted'
           PG /moed-nye-mennesker '<h1>Mød nye mennesker i Aarhus</h1>'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403
