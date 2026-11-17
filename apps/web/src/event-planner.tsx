@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch, type ClerkBrowser } from "./clerk";
+import { englishOn } from "./translate-in-place";
 import {
   FIRST_HOUR, LAST_HOUR, MIN_MINUTES, EVENING_FROM, PROBLEM_TEXT, RENT_TYPES, BUFFER_CHOICES,
   bufferText, busyDuring, pricedSpan, clockOf, clockOrMidnight, danishClock, endMinutes, endOptions, endRange, entryMinutes, firstFreeStart, hoursText, longDay, minutesOf,
@@ -13,6 +14,7 @@ import {
 const HOUR_PX = 38;
 const TRACK_HEIGHT = (LAST_HOUR - FIRST_HOUR) * HOUR_PX;
 const WEEKDAYS = ["ma", "ti", "on", "to", "fr", "lø", "sø"];
+const WEEKDAYS_EN = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const topOf = (minutes: number) => Math.max(0, Math.min(TRACK_HEIGHT, ((minutes - FIRST_HOUR * 60) / 60) * HOUR_PX));
 
 /** Events at the same time side by side: each gets a lane, and every event in an overlapping group knows how many lanes it has. */
@@ -164,7 +166,9 @@ export function EventPlanner({ clerk, plan, onChange, markedDates, ignoreId, onP
             <strong>{monthTitle(view.year, view.month)}</strong>
             <button type="button" className="planner-nav" onClick={() => move(1)} aria-label="Næste måned">›</button>
           </div>
-          <div className="planner-weekdays" aria-hidden="true">{WEEKDAYS.map((d) => <span key={d}>{d}</span>)}</div>
+          {/* Douglas (17 Nov 2026): "Translation on calendar is strange for the 'days'" - Google made "ma ti on to fr lø sø" into "must ten on thaw from Sat lake";
+              the short names are not translated, and in English they are English. */}
+          <div className="planner-weekdays notranslate" translate="no" aria-hidden="true">{(englishOn() ? WEEKDAYS_EN : WEEKDAYS).map((d) => <span key={d}>{d}</span>)}</div>
           {monthGrid(view.year, view.month).map((week) => (
             <div className="planner-week" key={week[0]!.date}>
               {week.map((cell) => {

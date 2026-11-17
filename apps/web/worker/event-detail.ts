@@ -94,7 +94,8 @@ export async function eventDetail(id: string, fetcher: typeof fetch = fetch, now
     address: address || feed?.location || null,
     ...coordinates(mw?.adr?.loc),
     paragraphs: mw?.dtl ? htmlParagraphs(mw.dtl) : (feed?.description ?? "").split(/\n/).map((l) => l.trim()).filter(Boolean),
-    tickets: (mw?.tkt ?? []).map((t) => decode(t.lbl ?? "").trim()).filter(Boolean),
+    // Douglas (17 Nov 2026): "Tickets: 'Reach' when there are no tickets" - MembershipWorks writes "n/a" for a closed ticket (Google reads it as "reach"): no ticket.
+    tickets: (mw?.tkt ?? []).map((t) => decode(t.lbl ?? "").trim()).filter(label => label && !/^(n\/?a|-+|–|ingen)$/i.test(label)),
     capacity: typeof mw?.cap === "number" && mw.cap > 0 ? mw.cap : null,
     signUpUrl: feed?.link ?? null
   };

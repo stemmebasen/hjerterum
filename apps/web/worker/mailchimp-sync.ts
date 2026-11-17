@@ -71,7 +71,12 @@ export async function memberNewsletter(env: NewsletterEnv, deps: SagaDeps, membe
     return { subscribed: true };
   }
   if (want === false) {
-    if (!env.MAILCHIMP_API_KEY) throw new Error("mailchimp_not_configured");
+    // Douglas (17 Nov 2026): the switch in Min profil was "not working at present" - without the Mailchimp key it could not be turned off. The member's
+    // choice now holds here: off takes them out of the queue, so nothing goes to Mailchimp later.
+    if (!env.MAILCHIMP_API_KEY) {
+      await db.prepare("DELETE FROM mailchimp_contacts WHERE email = ?").bind(email).run();
+      return { subscribed: false };
+    }
     await mailchimp(env.MAILCHIMP_API_KEY, deps.fetcher).unsubscribe(MAILCHIMP_LIST_ID, email).catch(error => { if (!(error instanceof Error && error.message.startsWith("mailchimp_404"))) throw error; });
     await db.prepare("DELETE FROM mailchimp_contacts WHERE email = ?").bind(email).run();
     return { subscribed: false };

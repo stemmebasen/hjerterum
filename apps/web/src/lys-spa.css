@@ -1058,6 +1058,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-row-text strong { font: 500 19px/1.25 var(--lys-serif, Georgia, serif); overflow-wrap: anywhere; }
 .event-row-text span { font-size: 14.5px; color: var(--lys-muted); }
 .event-row-more { font: 600 14px/1 var(--lys-sans); white-space: nowrap; }
+.member-row-note { display: block; margin-top: 6px; white-space: normal; font: 400 12.5px/1.35 var(--lys-sans); color: var(--lys-muted); }
 .event-pages { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 28px 0 8px; }
 .event-pages button { min-width: 42px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--lys-line); background: transparent; color: inherit; font: 600 14px/1 var(--lys-sans); cursor: pointer; }
 .event-pages button[aria-current="page"] { background: var(--lys-ink); border-color: var(--lys-ink); color: var(--lys-bg, #fff); }
