@@ -45,7 +45,7 @@ export function validateFlockForm(form: FlockForm, event: { starts_at: number; e
   const ends = event.ends_at ?? event.starts_at + 3 * 3600_000;
   if (at === null) errors.meetingAt = "Vælg dato og klokkeslæt.";
   else if (at < now) errors.meetingAt = "Tidspunktet er allerede gået.";
-  else if (at < event.starts_at - 6 * 3600_000 || at > ends) errors.meetingAt = "Mød højst 6 timer før eventet starter og senest når det slutter.";
+  else if (at < event.starts_at - 6 * 3600_000 || at > ends) errors.meetingAt = "Mød højst 6 timer før arrangementet starter og senest når det slutter.";
   const note = form.note.replace(/\r\n/g, "\n").trim();
   if (note.length > 280) errors.note = "Højst 280 tegn.";
   const size = Number.parseInt(form.maxSize, 10);

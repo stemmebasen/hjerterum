@@ -153,11 +153,11 @@ jobs:
           test -n "$EVENT_PATH"
           P "$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
-          grep -q 'Jeg vil gerne med!\|Jeg er interesseret\|Køb billet\|Tilmeld dig\|Dette event er afholdt' /tmp/event.html
+          grep -q 'Jeg vil gerne med!\|Jeg er interesseret\|Køb billet\|Tilmeld dig\|Dette event er afholdt\|Dette arrangement er afholdt' /tmp/event.html
           grep -q 'class="event-actions"' /tmp/event.html
           PG "/kalender?kategori=yoga&periode=maaned&omraade=aarhus" 'class="results-count"'
           PG "/kalender?omraade=midtbyen&periode=14-dage" 'class="filter-chip is-on"'
-          PG /aarhus '<h1>Events i Aarhus</h1>'
+          PG /aarhus '<h1>Arrangementer i Aarhus</h1>'
           PG /kort 'id="kort-data"'
           PG /find-en-flok '<h1>Vil du med?</h1>'
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
