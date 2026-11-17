@@ -321,10 +321,7 @@ Vil du støtte fast uden medlemsfordele, kan du vælge Support-medlemskabet. På
 
 ## Ofte stillede spørgsmål {#faq}
 +++ Hvilke medlemskaber findes der, og hvad koster de?
-- **Standard:** 222 kr. pr. måned eller 2.310 kr. pr. år.
-- **Generøst:** 333 kr. pr. måned eller 3.465 kr. pr. år. Du støtter lidt ekstra og hjælper andre til et medlemskab til reduceret pris.
-- **Reduceret pris:** 111 kr. pr. måned eller 1.155 kr. pr. år.
-- **Support:** 50 kr. pr. måned eller 540 kr. pr. år. Du støtter huset uden medlemsfordele.
+[[medlemspriser]]
 
 Betaler du for et år ad gangen, sparer du penge.
 +++
