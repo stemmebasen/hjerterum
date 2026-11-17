@@ -1,3 +1,4 @@
+import { withPrices } from "../site/prices.js";
 import { SITE_PAGES, type SitePage } from "../site/pages.js";
 import { withMail } from "../site/mail.js";
 
@@ -9,7 +10,7 @@ export const CURRENT_SITE = "https://www.hjerterum.info";
 
 /** One Danish page as Saga reads it: title, address, lead and text, without image and block markers. */
 export function sitePageText(page: SitePage): string {
-  const body = withMail(page.body, false).replace(/^\{\{[^}]+\}\}\s*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const body = withPrices(withMail(page.body, false)).replace(/^\{\{[^}]+\}\}\s*$/gm, "").replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\n{3,}/g, "\n\n").trim();
   return `### ${[page.title, page.em].filter(Boolean).join(" ")} (${CURRENT_SITE}${page.path})\n${page.lead ?? ""}\n${body}`;
 }
 
