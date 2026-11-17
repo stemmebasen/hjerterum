@@ -36,7 +36,7 @@ export function invitationMail(d: Due, url: string, now: number): Mail {
     greeting: `Hej ${d.first_name}`,
     paragraphs: [
       `Godt nyt! ${others ? `Du og ${others} ${others === 1 ? "anden" : "andre"} vil gerne med til ${d.title}` : `Der er nu en flok til ${d.title}`} ${when(d.starts_at, now)}, og vi har en plads til dig i flokken.`,
-      `Forslag: I mødes ${d.meeting_at ? `kl. ${hhmm(d.meeting_at)}` : "før arrangementet"}${d.meeting_place ? ` ${lowerFirst(d.meeting_place)}` : ""}. Resten aftaler I i flokkens lille chat.`,
+      `Forslag: I mødes ${d.meeting_at ? `kl. ${hhmm(d.meeting_at)}` : "før arrangementet"}${d.meeting_place ? ` ${lowerFirst(d.meeting_place)}` : ""}. Herfra kan I finde en café i nærheden og tage en kop kaffe sammen, inden I går til arrangementet. Resten aftaler I i flokkens lille chat.`,
       `Svar senest ${when(d.respond_by, now)}. Siger du ikke ja inden da, går pladsen videre til den næste.`
     ],
     button: { label: "Se pladsen og svar", url },

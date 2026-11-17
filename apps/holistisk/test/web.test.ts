@@ -55,7 +55,7 @@ describe("cancelled events", () => {
       expect((await text("/")).body).not.toContain(`/${row.slug}"`);
       const own = await text(`/events/${row.slug}`);
       expect(own.status).toBe(200);
-      expect(own.body).toContain("Arrangøren har meldt dette event aflyst.");
+      expect(own.body).toContain("Arrangøren har meldt dette arrangement aflyst.");
     } finally {
       db.raw.prepare("UPDATE events SET status = 'scheduled' WHERE slug = ?").run(row.slug);
     }
@@ -97,7 +97,7 @@ describe("front page", () => {
     // No "Spar på billetten" (Jake 2026-11-10): it promised a saving we don't give.
     expect(body).not.toMatch(/spar på billetten/i);
     expect(body).toContain('href="/gratis-og-billigt"');
-    expect(body).toContain("<title>Flokken – find events i Aarhus og nogen at følges med</title>");
+    expect(body).toContain("<title>Flokken – find arrangementer i Aarhus og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
     expect(body).toContain('class="card ticket');
@@ -163,7 +163,10 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20event%20p%C3%A5%20Socialklubben">klik her</a>');
+    expect(body).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    // No private address anywhere on the site (Jake 2026-11-17): only kontakt@socialklubben.dk.
+    expect(body).not.toContain("jacobhauge.com\"");
+    expect(body).not.toMatch(/mailto:(?!kontakt@socialklubben\.dk)/);
     expect(body).not.toContain("Testversion");
   });
 
@@ -231,7 +234,7 @@ describe("the calendar", () => {
     const weekend = await text("/weekend");
     expect(weekend.body).toContain("<h1>Det sker i weekenden i Aarhus</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Events i Aarhus – Flokken</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Arrangementer i Aarhus – Flokken</title>");
   });
 });
 
@@ -286,8 +289,8 @@ describe("landing pages: activity, then city", () => {
 
   it("a city's page", async () => {
     const { body } = await text("/aarhus");
-    expect(body).toContain("<h1>Events i Aarhus</h1>");
-    expect(body).toContain("<title>Hvad sker der i Aarhus? Events og flokke – Flokken</title>");
+    expect(body).toContain("<h1>Arrangementer i Aarhus</h1>");
+    expect(body).toContain("<title>Hvad sker der i Aarhus? Arrangementer og flokke – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
     expect(body).toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");

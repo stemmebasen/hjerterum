@@ -7,7 +7,7 @@ import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.
 import { purgeOldChats } from "./flokken/chat.js";
 import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
 import { sendDueMails } from "./flokken/notify.js";
-import { mailConfigured, purgeMailData } from "./mail.js";
+import { mailConfigured, publicContactEmail, purgeMailData } from "./mail.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -70,7 +70,7 @@ function context(env: Env, url: URL, now: number, regions: string[], mount: Moun
     path: url.pathname,
     now,
     ...places(env.EDITION === "portal" ? "portal" : "forening", regions),
-    contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
+    contactEmail: publicContactEmail(env),
     base: "",
     signedIn,
     // Without a mount: EDITION, else Flokken as an association.
@@ -198,7 +198,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (result.redirect) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
     return respond(env, result.body, { status: result.status, cache: "private, no-store", headers: { ...result.headers, "x-robots-tag": "noindex, nofollow", ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|kontakt|api\/kontakt|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });

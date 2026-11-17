@@ -25,8 +25,9 @@ export type PageContext = {
   signedIn?: boolean;
 };
 
-/** Where organisers write to be on the site (Jake's address for now). CONTACT_EMAIL, when set, takes its place. */
-export const ORGANISER_EMAIL = "jh@jacobhauge.com";
+/** The public address for everyone who writes to Socialklubben (forwarded by Cloudflare Email Routing). No private
+ * address is ever shown on the site. CONTACT_EMAIL, when set to another @socialklubben.dk address, takes its place. */
+export const ORGANISER_EMAIL = "kontakt@socialklubben.dk";
 export const organiserEmail = (ctx: Pick<PageContext, "contactEmail">): string => ctx.contactEmail ?? ORGANISER_EMAIL;
 
 export type Crumb = { name: string; path: string };
@@ -128,7 +129,7 @@ ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}
 </head>
 <body${meta.bare ? raw(' class="is-bare"') : ""}>
 <a class="skip" href="#indhold">Spring til indhold</a>
-${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:${organiserEmail(ctx)}?subject=${encodeURIComponent("Mit event på Socialklubben")}">klik her</a></div>`
+${ctx.edition === "portal" ? html`<div class="env-banner" role="note">Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a></div>`
   : ctx.environment !== "production" ? html`<div class="env-banner" role="note">Testversion – ${name} er under udvikling</div>` : ""}
 ${ctx.edition === "forening" ? foreningHeader(ctx) : portalHeader(ctx)}
 <main id="indhold">
@@ -157,7 +158,7 @@ function portalHeader(ctx: PageContext): SafeHtml {
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li>${ctx.signedIn ? html`<li><a href="/flokke">Mine flokke</a></li><li><a href="/profil">Min profil</a></li>` : html`<li><a href="/log-ind">Log ind</a></li>`}<li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li>${ctx.signedIn ? html`<li><a href="/flokke">Mine flokke</a></li><li><a href="/profil">Min profil</a></li>` : html`<li><a href="/log-ind">Log ind</a></li>`}<li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li><li><a href="/kontakt">Kontakt</a></li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></div>
         </div>
@@ -172,8 +173,8 @@ function portalFooter(ctx: PageContext): SafeHtml {
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
-      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
-      <p><a href="/find-en-flok">Vil du med?</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a></p>
+      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Arrangementer fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
+      <p><a href="/find-en-flok">Vil du med?</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a> · <a href="/kontakt">Kontakt</a></p>
       <p><a href="/moed-nye-mennesker">Mød nye mennesker i Aarhus</a> · <a href="/ny-i-aarhus">Ny i Aarhus</a> · <a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Det sker i Aarhus</p>

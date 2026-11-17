@@ -286,18 +286,23 @@ describe("the flock's chat", () => {
 });
 
 describe("partners", () => {
-  it("explains the model and stores an inquiry, readable only with the token", async () => {
+  it("explains the model and has the contact form, set to organisers", async () => {
     const page = await call("/samarbejde");
-    expect(page.body).toContain("kontakt os");
+    expect(page.body).toContain("skriv til os");
     expect(page.body).not.toMatch(/rabat|billetfordel/i);
     expect(page.body).toContain("radioomtale");
-    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej" } });
+    expect(page.body).toContain('action="/kontakt"');
+    expect(page.body).toContain('<option value="arrangoer" selected>');
+    expect(page.body).toContain("kontakt@socialklubben.dk");
+    // An older copy of the page posts to /samarbejde: it is taken as a message from an organiser.
+    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej", besked: "Hej" } });
     expect(bad.status).toBe(400);
-    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej" } });
-    expect(ok.headers.get("location")).toBe("/samarbejde?besked=tak#kontakt");
+    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej", t: String(NOW - 60_000) }, headers: { "cf-connecting-ip": "10.0.0.1" } });
+    expect(ok.headers.get("location")).toBe("/kontakt?besked=tak#formular");
+    expect((await call("/api/kontakt")).status).toBe(401);
+    const list = await call("/api/kontakt", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
+    expect(JSON.parse(list.body)[0]).toMatchObject({ topic: "arrangoer", organisation: "Musikhuset", email: "sofie@example.dk", mail: "off" });
     expect((await call("/api/samarbejde")).status).toBe(401);
-    const list = await call("/api/samarbejde", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
-    expect(JSON.parse(list.body)[0]).toMatchObject({ organisation: "Musikhuset", email: "sofie@example.dk" });
   });
 
   it("shows an offer only when the organiser has confirmed it", () => {
@@ -348,7 +353,7 @@ describe("served under www.jacobhauge.com", () => {
     const home = await call("/", { headers: sk });
     expect(home.body).toContain("<span>Socialklubben</span>");
     expect(home.body).toContain("Sådan virker Socialklubben");
-    expect(home.body).toContain("<title>Socialklubben – find events");
+    expect(home.body).toContain("<title>Socialklubben – find arrangementer");
     expect(home.body).toContain('content="https://www.jacobhauge.com/socialklubben/assets/og-socialklubben.jpg"');
     expect(home.body).toContain('href="/socialklubben/find-en-flok"');
     expect(home.body).not.toContain("Flokken");
@@ -766,11 +771,11 @@ describe("Lad os komme godt i gang", () => {
     // It says plainly that it binds you to nothing, and each event unfolds without leaving the list.
     expect(r.body).toContain("<strong>Det er helt uforpligtende</strong>");
     expect(r.body).toContain("Du binder dig ikke til noget.");
-    expect(r.body).toContain('<details class="kickoff-details"><summary>Se mere om eventet</summary>');
+    expect(r.body).toContain('<details class="kickoff-details"><summary>Se mere om arrangementet</summary>');
     const items = JSON.parse((await call("/api/kom-godt-i-gang")).body) as { events: Array<{ blurb: string; image: string | null }> };
     expect(items.events.some(e => e.blurb.length > 20)).toBe(true);
     expect((await choose([])).headers.get("location")).toBe("/kom-godt-i-gang?besked=intet_valgt");
-    expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét event først.");
+    expect((await call("/kom-godt-i-gang?besked=intet_valgt")).body).toContain("Vælg mindst ét arrangement først.");
     expect((await call("/find-en-flok")).body).toContain('<a href="/kom-godt-i-gang">Lad os komme godt i gang</a>');
   });
 });

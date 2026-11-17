@@ -1,13 +1,15 @@
 import type { D1Database } from "./db.js";
 import type { Env } from "./env.js";
 import { escapeHtml } from "./web/html.js";
+import { ORGANISER_EMAIL } from "./web/layout.js";
 
 /** Sending e-mail. Two ways, whichever is set up on the Worker:
  * - Resend (resend.com): the secret RESEND_API_KEY. Works on the Workers Free plan.
  * - Cloudflare Email Service: a `send_email` binding named EMAIL (needs Workers Paid).
  * Without either, nothing is sent and the site works as before (the notices stay under Mine flokke). */
 
-export type Mail = { to: string; subject: string; text: string; html: string };
+/** `replyTo` takes the place of the contact address as the mail's reply-to (the contact form: the sender). */
+export type Mail = { to: string; subject: string; text: string; html: string; replyTo?: string };
 export type MailKind = "login" | "invitation" | "reminder";
 export type SendResult = { ok: true } | { ok: false; error: string };
 
@@ -20,6 +22,20 @@ const DEFAULT_FROM = "besked@socialklubben.dk";
 const FROM_NAME = "Socialklubben";
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i;
 
+/** CONTACT_EMAIL when it is a Socialklubben address; anything else (a private address) is never shown or used as
+ * reply-to. */
+export const publicContactEmail = (env: Pick<Env, "CONTACT_EMAIL">): string | null => {
+  const e = env.CONTACT_EMAIL?.trim().toLowerCase();
+  return e && EMAIL.test(e) && e.endsWith("@socialklubben.dk") ? e : null;
+};
+
+/** Where the contact form's messages are delivered: the secret CONTACT_INBOX, else the public address (which Cloudflare
+ * Email Routing forwards). Kept out of the code so no private address is in the public repository. */
+export const contactInbox = (env: Pick<Env, "CONTACT_INBOX" | "CONTACT_EMAIL">): string => {
+  const e = env.CONTACT_INBOX?.trim();
+  return e && EMAIL.test(e) ? e : publicContactEmail(env) ?? ORGANISER_EMAIL;
+};
+
 /** The public address used in links in mails sent by the cron (no request to take it from). */
 export const mailSiteUrl = (env: Env): string => {
   const u = (env.MAIL_SITE_URL ?? "").replace(/\/$/, "");
@@ -30,7 +46,7 @@ export const mailConfigured = (env: Env): boolean => !!env.EMAIL || !!env.RESEND
 
 export async function sendMail(env: Env, mail: Mail, fetcher: typeof fetch = fetch): Promise<SendResult> {
   const fromEmail = env.MAIL_FROM && EMAIL.test(env.MAIL_FROM) ? env.MAIL_FROM : DEFAULT_FROM;
-  const replyTo = env.CONTACT_EMAIL && EMAIL.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : undefined;
+  const replyTo = mail.replyTo && EMAIL.test(mail.replyTo) ? mail.replyTo : publicContactEmail(env) ?? ORGANISER_EMAIL;
   try {
     if (env.EMAIL) {
       await env.EMAIL.send({ to: mail.to, from: { email: fromEmail, name: FROM_NAME }, subject: mail.subject, html: mail.html, text: mail.text, ...(replyTo ? { replyTo } : {}) });
@@ -80,10 +96,12 @@ ${after.map(p).join("\n")}
   return { to: opts.to, subject: opts.subject, html, text };
 }
 
-/** Keeps the tables small: login links after a day, the log after 90 days. */
+/** Keeps the tables small: login links after a day, the log after 90 days. Clears the contact form's sender hashes
+ * after a day. */
 export async function purgeMailData(db: D1Database, now: number): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM login_links WHERE expires_at < ?").bind(now - 86_400_000),
-    db.prepare("DELETE FROM mail_log WHERE created_at < ?").bind(now - 90 * 86_400_000)
+    db.prepare("DELETE FROM mail_log WHERE created_at < ?").bind(now - 90 * 86_400_000),
+    db.prepare("UPDATE contact_messages SET sender = NULL WHERE sender IS NOT NULL AND created_at < ?").bind(now - 86_400_000)
   ]);
 }

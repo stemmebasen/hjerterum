@@ -5,15 +5,16 @@ import { SOURCES } from "../src/sources/registry.js";
 import { saveInterests } from "../src/flokken/kickoff.js";
 import { sendDueMails } from "../src/flokken/notify.js";
 import { sendMail, type EmailBinding } from "../src/mail.js";
+import { MAILS_PER_DAY } from "../src/flokken/contact.js";
 import type { Env } from "../src/env.js";
 import { testDb } from "./d1.js";
 import { fakeFetch, fixture, FEED_URL, MW_ROBOTS, noSleep } from "./helpers.js";
 
 const NOW = Date.parse("2026-10-10T12:00:00Z");
 const ORIGIN = "https://portal.example";
-type Sent = { to: string; subject: string; html: string; text: string };
+type Sent = { to: string; subject: string; html: string; text: string; replyTo?: string };
 const sent: Sent[] = [];
-const binding: EmailBinding = { send: async m => { sent.push({ to: m.to, subject: m.subject, html: m.html, text: m.text }); return { messageId: "x" }; } };
+const binding: EmailBinding = { send: async m => { sent.push({ to: m.to, subject: m.subject, html: m.html, text: m.text, ...(m.replyTo ? { replyTo: m.replyTo } : {}) }); return { messageId: "x" }; } };
 let env: Env;
 let db: ReturnType<typeof testDb>;
 let event: { id: string; slug: string; title: string; starts_at: number };
@@ -172,11 +173,14 @@ describe("Resend", () => {
   it("posts the mail to Resend's API with the key", async () => {
     let seen: { url: string; init: RequestInit } | null = null;
     const fetcher = (async (url: string, init: RequestInit) => { seen = { url, init }; return new Response("{\"id\":\"1\"}", { status: 200 }); }) as unknown as typeof fetch;
-    const r = await sendMail({ RESEND_API_KEY: "re_test", CONTACT_EMAIL: "kontakt@example.dk" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "<p>t</p>" }, fetcher);
+    const r = await sendMail({ RESEND_API_KEY: "re_test", CONTACT_EMAIL: "privat@example.dk" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "<p>t</p>" }, fetcher);
     expect(r).toEqual({ ok: true });
     expect(seen!.url).toBe("https://api.resend.com/emails");
     expect((seen!.init.headers as Record<string, string>).authorization).toBe("Bearer re_test");
-    expect(JSON.parse(String(seen!.init.body))).toMatchObject({ from: "Socialklubben <besked@socialklubben.dk>", to: ["a@example.dk"], reply_to: "kontakt@example.dk" });
+    expect(JSON.parse(String(seen!.init.body))).toMatchObject({ from: "Socialklubben <besked@socialklubben.dk>", to: ["a@example.dk"], reply_to: "kontakt@socialklubben.dk" });
+    // The contact form: the reply goes to the sender.
+    await sendMail({ RESEND_API_KEY: "re_test" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "t", replyTo: "sofie@example.dk" }, fetcher);
+    expect(JSON.parse(String(seen!.init.body)).reply_to).toBe("sofie@example.dk");
     const bad = (async () => new Response("invalid key", { status: 401 })) as unknown as typeof fetch;
     expect(await sendMail({ RESEND_API_KEY: "re_bad" }, { to: "a@example.dk", subject: "Hej", text: "t", html: "t" }, bad)).toEqual({ ok: false, error: "resend 401: invalid key" });
   });
@@ -214,5 +218,68 @@ describe("the header's login button", () => {
     expect(inside.body).toContain('<a class="my-flocks" href="/flokke">Mine flokke</a>');
     expect(inside.body).toContain('<a href="/profil">Min profil</a>');
     expect(inside.body).not.toContain('class="my-flocks" href="/log-ind"');
+  });
+});
+
+describe("the contact form", () => {
+  const form = (extra: Record<string, string> = {}) => ({ emne: "spoergsmaal", navn: "Sofie Holm", email: "sofie@example.dk", besked: "Hej! Hvordan kommer jeg med i en flok?", t: String(NOW - 30_000), ...extra });
+  const count = () => (db.raw.prepare("SELECT COUNT(*) AS n FROM contact_messages").all()[0] as { n: number }).n;
+
+  it("mails the message to the contact address with the sender as reply-to, and sends nothing to the sender", async () => {
+    const page = await call("/kontakt?emne=arrangoer");
+    expect(page.status).toBe(200);
+    expect(page.body).toContain("<h1>Skriv til os</h1>");
+    expect(page.body).toContain('<option value="arrangoer" selected>');
+    expect(page.body).toContain('name="website_url"');
+    expect(page.body).not.toContain("jacobhauge");
+    sent.length = 0;
+    const r = await call("/kontakt", { form: form({ besked: "Hej <b>der</b>\nTo linjer" }) });
+    expect(r.headers.get("location")).toBe("/kontakt?besked=tak#formular");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({ to: "kontakt@socialklubben.dk", replyTo: "sofie@example.dk", subject: "Kontakt: Sofie Holm" });
+    expect(sent[0]!.text).toContain("Emne: Et spørgsmål");
+    expect(sent[0]!.html).toContain("Hej &lt;b&gt;der&lt;/b&gt;");
+    expect((await call("/kontakt?besked=tak")).body).toContain("Tak for din besked");
+    // The inbox can be a secret, never in the code.
+    sent.length = 0;
+    await call("/kontakt", { form: form({ navn: "Ib", emne: "arrangoer", organisation: "Voxhall" }), env: { ...env, CONTACT_INBOX: "indbakke@example.dk" } });
+    expect(sent[0]).toMatchObject({ to: "indbakke@example.dk", subject: "Arrangør: Ib (Voxhall)" });
+  });
+
+  it("asks for what is missing, and an organiser for the name of the place", async () => {
+    const r = await call("/kontakt", { form: form({ emne: "arrangoer", navn: "", email: "nej", besked: "" }) });
+    expect(r.status).toBe(400);
+    for (const t of ["Skriv dit navn.", "Skriv din e-mail", "Skriv foreningens eller stedets navn.", "Skriv din besked."]) expect(r.body).toContain(t);
+    const links = await call("/kontakt", { form: form({ besked: "https://a.dk https://b.dk www.c.dk http://d.dk" }) });
+    expect(links.body).toContain("Højst 3 links");
+  });
+
+  it("stops robots: the hidden field, sending too fast, and too many messages", async () => {
+    sent.length = 0;
+    const before = count();
+    expect((await call("/kontakt", { form: form({ website_url: "x" }) })).headers.get("location")).toBe("/kontakt?besked=tak#formular");
+    const fast = await call("/kontakt", { form: form({ t: String(NOW - 500) }) });
+    expect(fast.status).toBe(400);
+    expect(fast.body).toContain("Det gik lidt for hurtigt");
+    expect(fast.body).toContain("Sofie Holm");
+    expect(count()).toBe(before);
+    expect(sent).toHaveLength(0);
+    // Three an hour from one sender (two were sent above, from the same address).
+    expect((await call("/kontakt", { form: form() })).status).toBe(303);
+    const fourth = await call("/kontakt", { form: form() });
+    expect(fourth.status).toBe(429);
+    expect(fourth.body).toContain("flere beskeder på kort tid");
+    expect(fourth.body).toContain("kontakt@socialklubben.dk");
+    // An hour later it works again.
+    expect((await call("/kontakt", { form: form() }, NOW + 3601_000)).status).toBe(303);
+  });
+
+  it("keeps messages beyond the day's mail budget without mailing them", async () => {
+    const insert = db.raw.prepare("INSERT INTO contact_messages (id, topic, name, email, message, sender, mail, created_at) VALUES (?, 'andet', 'Robot', 'r@example.dk', 'x', 'other', 'sent', ?)");
+    for (let i = 0; i < MAILS_PER_DAY; i++) insert.run(`budget-${i}`, NOW + 7200_000);
+    sent.length = 0;
+    expect((await call("/kontakt", { form: form({ navn: "Sen Besked" }) }, NOW + 7300_000)).status).toBe(303);
+    expect(sent).toHaveLength(0);
+    expect((db.raw.prepare("SELECT mail FROM contact_messages WHERE name = 'Sen Besked'").all()[0] as { mail: string }).mail).toBe("held");
   });
 });
