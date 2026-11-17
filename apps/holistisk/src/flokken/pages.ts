@@ -355,7 +355,7 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Bliv en del af Flokken</h1>
+    <h1>${ctx.edition === "portal" ? "Opret dig på et øjeblik - og kom med i klubben!" : "Bliv en del af Flokken"}</h1>
     <p class="standfirst">For at oprette eller blive en del af en flok skal du have en profil. Det kræver kun dit fornavn – intet telefonnummer. Når du vil være med i en flok, beder vi om din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Vil du have besked, når vi har samlet en flok til dig, beder vi også om din e-mail.</p>
   </header>
   <div class="two-forms">
