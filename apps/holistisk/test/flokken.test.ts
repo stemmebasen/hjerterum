@@ -590,10 +590,10 @@ describe("Lad os komme godt i gang", () => {
     expect(statusOf("Ulla", slug)).toBe(null);
 
     const page = (await call(`/events/${slug}?besked=interesse_her`, { cookie })).body;
-    expect(page).toContain('<div id="besked" class="event-message"><p class="flash" role="status">Tak! Du har vist interesse');
+    expect(page).toContain('<div id="besked" class="event-message is-new"><p class="flash" role="status">Tak! Du har vist interesse');
     expect(page).toContain("Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken.");
     expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
-    expect(page).toContain('<span class="button-secondary is-on">✓ Du er på listen</span>');
+    expect(page).toContain('<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>');
     expect(page).not.toContain('href="#flokke">Vil du med?</a>');
     expect(page).not.toContain("interesseret.</span>");
     // Others see the count once someone is interested, never "nobody yet".

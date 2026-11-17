@@ -543,7 +543,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
         <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
         <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
         ${notice}
-        ${extras?.message ? html`<div id="besked" class="event-message">${flash(extras.message)}</div>` : ""}
+        ${extras?.message ? html`<div id="besked" class="event-message${extras.message === "interesse_her" ? " is-new" : ""}">${flash(extras.message)}</div>` : ""}
         <div class="event-actions">
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}

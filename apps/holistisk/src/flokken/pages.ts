@@ -145,7 +145,7 @@ export function interestButton(e: EventRow, member: Member | null, myFlockId: st
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
   if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
-  if (interest.mine === "waiting") return html`<span class="button-secondary is-on">✓ Du er på listen</span>`;
+  if (interest.mine === "waiting") return html`<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>`;
   return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`;
 }
 
