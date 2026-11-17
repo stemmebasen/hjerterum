@@ -120,18 +120,22 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 </section>`;
 }
 
-/** The small lines under "Jeg vil gerne med!" at the top of the event page: how many others are interested, taking
- * your interest back, and starting a flock yourself (with the safety link). Nothing once you are in a flock or the
- * event can no longer be joined. */
+/** The lines under "Jeg vil gerne med!" at the top of the event page: how many others are interested and starting a
+ * flock yourself. Nothing once you are in a flock or the event can no longer be joined. Kept to one underlined link
+ * (Jake 2026-11-18: too many underlined lines); the safety page is linked from the flock panel, the menu and the footer. */
 export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now || (myFlockId && member)) return html``;
   const create = `${eventPath(e)}/opret-flok`;
-  const count = interest.others > 0 ? html`<span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
-  const undo = interest.mine === "waiting" ? html`<form method="post" action="${eventPath(e)}/interesse/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>` : "";
-  return html`<div class="event-flock">
-  ${count || undo ? html`<div class="event-flock-state">${count}${undo}</div>` : ""}
-  ${interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested. <a class="trust-link" href="/tryghed">Sådan holder vi det trygt</a></p>`}
-</div>`;
+  const count = interest.others > 0 ? html`<p class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</p>` : "";
+  const start = interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`;
+  return count || start ? html`<div class="event-flock">${count}${start}</div>` : html``;
+}
+
+/** "Fjern mig fra listen" beside the calendar button, once you are on the interest list for an event that can still
+ * be joined. A quiet grey text button, not underlined. */
+export function interestUndo(e: EventRow, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+  if (interest.mine !== "waiting" || e.status !== "scheduled" || e.starts_at <= now) return html``;
+  return html`<form method="post" action="${eventPath(e)}/interesse/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>`;
 }
 
 /** The "Jeg vil gerne med!" button beside "Køb billet" at the top of the event page: the interest list's tick for

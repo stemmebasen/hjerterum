@@ -439,15 +439,23 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-actions .interest-form { display: flex; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
 .event-actions span.button-secondary.is-on { box-shadow: none; cursor: default; }
-.event-calendar { margin: 0 0 8px; font-size: .9rem; }
 /* Under the buttons: others interested, "Fjern mig fra listen", and starting a flock yourself (Jake 2026-11-15: no separate box). */
 .event-head .flash { font-weight: 600; font-size: .95rem; line-height: 1.45; }
 .event-flock { margin: 0 0 8px; font-size: .9rem; color: var(--ink-2); }
-.event-flock-state { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; margin-bottom: 4px; }
-.event-flock-state .inline-form { margin: 0; }
 .event-flock .flock-create { margin: 0; font-size: inherit; }
-.event-flock .trust-link { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
-.event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
+/* Under the two big buttons: one framed calendar button and a quiet "Fjern mig fra listen", then one sentence with a
+   single underlined link (Jake 2026-11-18: too many underlined lines). */
+.event-extras { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 6px 0 12px; }
+.calendar-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px; border: 2px solid var(--ink); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 700; font-size: .9rem; text-decoration: none; }
+.calendar-button:hover, .calendar-button:focus-visible { background: var(--butter); text-decoration: none; }
+.calendar-button-icon { flex: none; }
+.event-extras .inline-form { margin: 0; }
+.event-extras .button-link { font-size: .85rem; text-decoration: none; }
+.event-extras .button-link:hover, .event-extras .button-link:focus-visible { text-decoration: underline; }
+.event-flock .interest-count { margin: 0 0 4px; }
+/* After "Jeg vil gerne med!" the page opens at the thank-you (#besked), with the date and place still in view above it. */
+.event-message { scroll-margin-top: 96px; }
+.event-message:empty { display: none; }
 @media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
 /* The top of the event page is one big ticket like the cards: picture, then the stub torn off from the details.
    The picture is never cropped (event pictures often carry text) and is kept low on phones so the buttons stay on
