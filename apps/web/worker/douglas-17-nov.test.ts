@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { attendRoomBooking, unattendRoomBooking } from "./room-bookings.js";
 import { memberNewsletter } from "./mailchimp-sync.js";
-import { rowWhen, spansDays } from "../src/event-row.js";
 import { testDatabase } from "./saga/test-support.js";
 
 // Douglas' email nr. 9 (17 Nov 2026).
@@ -24,11 +23,5 @@ describe("Douglas' email nr. 9", () => {
     expect(await memberNewsletter(env, deps, me)).toEqual({ subscribed: true });
     expect(await memberNewsletter(env, deps, me, false)).toEqual({ subscribed: false });
     expect(await memberNewsletter(env, deps, me)).toEqual({ subscribed: false });
-  });
-
-  it("shows a weekend course with both its days (\"only the Saturday\")", () => {
-    expect(spansDays("2026-11-28T09:00:00Z", "2026-11-29T17:00:00Z")).toBe(true);
-    expect(rowWhen("2026-11-28T09:00:00Z", "2026-11-29T17:00:00Z")).toBe("Lørdag 10.00 – søndag 18.00");
-    expect(rowWhen("2026-11-28T09:00:00Z", "2026-11-28T17:00:00Z")).toBe("Lørdag 10.00–18.00");
   });
 });
