@@ -58,6 +58,9 @@ function itemList(events: EventRow[], ctx: PageContext, offset = 0) {
 const eventsLabel = (n: number) => n === 1 ? "1 arrangement" : `${n} arrangementer`;
 
 /** The regular offerings of a set of organisers. */
+/** Yoga schools: shown after the stages and houses on the front page, and their weekly classes are not on it. */
+const YOGA_SCHOOLS = new Set(["skandinavisk-yoga-og-meditationsskole-aarhus", "yo-studios"]);
+
 function offeringsBlock(profiles: OrganizerProfile[]): SafeHtml {
   const withOfferings = profiles.filter(p => p.offerings.length);
   if (!withOfferings.length) return html``;
@@ -158,7 +161,9 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: countOf(a) })));
   const countOf = (a: Activity) => activityCounts[broadActivities.indexOf(a)] ?? 0;
   // The city's stages, houses and associations (the second aim: help them be seen).
-  const venues = ORGANIZERS.filter(o => areas.some(a => a.slug === o.area) && !isAlternativeOrganizer(o.slug));
+  // Stages, music venues, libraries and houses first; the yoga schools last (Jake 2026-11-17).
+  const venues = ORGANIZERS.filter(o => areas.some(a => a.slug === o.area) && !isAlternativeOrganizer(o.slug))
+    .sort((a, b) => Number(YOGA_SCHOOLS.has(a.slug)) - Number(YOGA_SCHOOLS.has(b.slug)));
   const byCount = (list: Activity[]) => [...list].sort((a, b) => countOf(b) - countOf(a));
   const body = html`
 <div class="hero">
@@ -210,7 +215,6 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p><a class="button button-alt" href="/samarbejde">Læs om samarbejde</a></p>
   </aside>
   ${venues.length ? section("h-venues", "Byens scener, huse og foreninger", chipLinks(venues.map(o => ({ href: `/arrangoerer/${o.slug}`, label: o.name }))), { href: "/arrangoerer", label: "Alle arrangører →" }) : ""}
-  ${venues.some(o => o.offerings.length) ? section("h-regular", "Faste ugentlige tilbud", offeringsBlock(venues)) : ""}
 </div>`;
   return {
     status: 200,
@@ -673,9 +677,12 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <p>En flok er en lille, uformel gruppe, der følges til et bestemt arrangement. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Deltagelse er frivillig fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2>Hvor finder du arrangementerne?</h2>
   <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra.</p>
+  <details class="source-details">
+  <summary>Se alle kilder, og hvordan vi bruger dem</summary>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
   </ul>
+  </details>
   <h2>Billet og tilmelding</h2>
   <p>Du køber billet eller tilmelder dig altid hos arrangøren. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
   <h2 id="arrangoerer">For arrangører</h2>
