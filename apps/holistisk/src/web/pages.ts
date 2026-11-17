@@ -655,7 +655,10 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
     <h1>Om Flokken</h1>
     <p class="standfirst">${MISSION}</p>
   </header>
-  <section class="founder" id="jacob" aria-label="Hvem står bag Flokken">
+  <h2 id="saadan">Sådan virker det</h2>
+  <p>Find et arrangement i kalenderen, og tryk "Jeg vil gerne med!". Når nok vil med til det samme, samler vi jer i en lille flok. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Du køber selv billet hos arrangøren, og det er frivilligt fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
+  <section class="founder" aria-labelledby="jacob">
+  <h2 id="jacob">Hvem står bag?</h2>
   <figure class="founder-photo">
     <img src="/assets/jacob-hauge-480.jpg" srcset="/assets/jacob-hauge-480.jpg 480w, /assets/jacob-hauge-900.jpg 900w" sizes="(min-width: 700px) 280px, 82vw" width="480" height="588" alt="Jacob Hauge, der har skabt Flokken, sidder ved et cafébord bag et vindue om aftenen med et tændt stearinlys foran sig og smiler let." loading="eager" decoding="async">
     <figcaption>Jacob Hauge, der har skabt Flokken</figcaption>
@@ -669,37 +672,31 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   <p>Flokken er grundlæggende skabt ud fra troen på, at vi får et rigere liv, når vi oplever mere sammen.</p>
   </section>
   <h2 id="formaal">Vores formål</h2>
-  <p>Flokken er en social forening i Aarhus. Vi har to formål, og de vejer lige tungt:</p>
+  <p>Kort sagt har Flokken to formål, og de vejer lige tungt:</p>
   <ol class="aims">
-    <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen. Det er nemmere at tage afsted, når man ved, at andre venter på en.</li>
-    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at få opmærksomhed om deres arrangementer. Bag hvert arrangement står et sted, en forening eller en ildsjæl, som flere burde opdage.</li>
+    <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen.</li>
+    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at blive opdaget.</li>
   </ol>
-  <h2>For alle – og særligt for dig, der har brug for en håndsrækning</h2>
-  <p>Flokken er for alle. Men vi er her især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i byen, fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene. Hos os mødes man i små flokke, på et offentligt sted og under trygge rammer.</p>
-  <p>Det gælder også internationale studerende og andre nye i Aarhus, som mangler en vej ind i fællesskabet.</p>
+  <p>Flokken er for alle, men især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i Aarhus (det gælder også internationale studerende), fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene.</p>
   <p class="aims-en" lang="en"><strong>In English:</strong> Flokken is a non-profit social club in Aarhus. We help people get out, meet new people and share an experience – and we help small venues, theatres and associations get noticed. Everyone is welcome, and especially those who need a little extra help to get out there, such as international students looking for a way in. Many events need no Danish at all, and you can always write in English in your flock.</p>
   <h2>Vores værdier</h2>
   <dl class="values">
-    <dt>Fællesskab</dt><dd>Vi tror på, at gode oplevelser bliver bedre, når de deles. Ingen skal stå alene i døren.</dd>
+    <dt>Fællesskab</dt><dd>Ingen skal stå alene i døren.</dd>
     <dt>Inddragelse</dt><dd>Flokken bygges sammen med dem, der bruger den. Medlemmer og arrangører er med til at bestemme, hvad vi laver, og hvordan.</dd>
-    <dt>Inklusion</dt><dd>Alle er velkomne, uanset alder, baggrund, sprog og hvor meget man har brug for at blive taget i hånden.</dd>
+    <dt>Inklusion</dt><dd>Alle er velkomne, uanset sprog og hvor meget man har brug for at blive taget i hånden.</dd>
   </dl>
   <h2>Fællesskabet før profitten</h2>
   <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
-  <h2>Hvad er en flok?</h2>
-  <p>En flok er en lille, uformel gruppe, der følges til et bestemt arrangement. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Deltagelse er frivillig fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
-  <h2>Hvor finder du arrangementerne?</h2>
-  <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra.</p>
+  <h2>Hvor kommer arrangementerne fra?</h2>
+  <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig, og arrangørens egen side er den gældende.</p>
   <details class="source-details">
   <summary>Se alle kilder, og hvordan vi bruger dem</summary>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
   </ul>
   </details>
-  <h2>Billet og tilmelding</h2>
-  <p>Du køber billet eller tilmelder dig altid hos arrangøren. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
   <h2 id="arrangoerer">For arrangører</h2>
-  <p>Vil I samarbejde med Flokken – eller have jeres arrangementer med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres arrangementer, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres events.</p>
+  <p>Vil I samarbejde med Flokken – eller have jeres arrangementer med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres arrangementer, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres arrangementer.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Flokken er en social forening i Aarhus: vi hjælper folk ud og møde nye mennesker – og byens mindre arrangører med at blive set. Læs om vores formål og værdier.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
