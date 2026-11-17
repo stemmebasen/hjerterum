@@ -5,9 +5,12 @@ import { activityBySlug } from "../activities.js";
 import { zoneSql } from "../zones.js";
 import { GROUPS, groupBySlug, type Group } from "../groups.js";
 import { broadOnly, isAlternativeEvent } from "../mainstream.js";
+import { NOT_HIDDEN_SQL, PICKED_SQL } from "../curation.js";
+import { isSearch } from "./filters.js";
 
-/** Read side of the portal. Visible = scheduled (not cancelled), not yet over, and in an active region. A cancelled
- * event drops out of every list, count and calendar; its own page (eventBySlug) still opens and says it is cancelled. */
+/** Read side of the portal. Visible = scheduled (not cancelled), not yet over, in an active region and not hidden by the
+ * admin. A cancelled or hidden event drops out of every list, count and calendar; its own page (eventBySlug) still
+ * opens (and says when it is cancelled). The lists that are not a search show only "Dagens fem" (src/curation.ts). */
 
 export type EventRow = {
   id: string; slug: string; title: string; description: string | null; summary: string | null;
@@ -40,7 +43,7 @@ type Where = { sql: string[]; params: unknown[] };
 
 function visible(regions: string[], now: number): Where {
   return {
-    sql: [`e.status = 'scheduled'`, `${ENDS} >= ?`, `e.region IN (${regions.map(() => "?").join(",")})`],
+    sql: [`e.status = 'scheduled'`, `${ENDS} >= ?`, `e.region IN (${regions.map(() => "?").join(",")})`, NOT_HIDDEN_SQL],
     params: [now, ...regions]
   };
 }
@@ -79,6 +82,7 @@ export function filterWhere(f: Filters, regions: string[], now: number): Where {
     w.params.push(f.topic);
   }
   if (f.organizer) { w.sql.push("e.organizer_id = ?"); w.params.push(f.organizer); }
+  if (!f.everything && !isSearch(f)) w.sql.push(PICKED_SQL);
   if (f.broad) { const b = broadOnly(); w.sql.push(b.sql); w.params.push(...b.params); }
   for (const term of f.q.toLowerCase().split(" ").filter(t => t.length > 1).slice(0, 6)) {
     w.sql.push("e.search_text LIKE ? ESCAPE '\\'");
@@ -115,7 +119,7 @@ export async function listEvents(db: D1Database, f: Filters, regions: string[], 
  * has one, from different organisers, with a picture where there is one, and a free one among them when the week has one. */
 export async function heroEvents(db: D1Database, regions: string[], now: number): Promise<EventRow[]> {
   const w = visible(regions, now);
-  w.sql.push("e.status = 'scheduled'", "e.all_day = 0", "e.starts_at >= ?", "e.starts_at < ?");
+  w.sql.push("e.status = 'scheduled'", "e.all_day = 0", "e.starts_at >= ?", "e.starts_at < ?", PICKED_SQL);
   w.params.push(now, now + 7 * 86400_000);
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 400`).bind(...w.params).all<EventRow>();
   const evening = (e: EventRow) => wallClock(e.starts_at).hour >= 17;
@@ -149,7 +153,7 @@ export async function heroEvents(db: D1Database, regions: string[], now: number)
  * pop-up: the next two days). */
 export async function kickoffEvents(db: D1Database, regions: string[], now: number, skip: string[] = [], limit = 20, window: { from: number; to: number } = { from: now + 12 * 3600_000, to: now + 28 * 86400_000 }): Promise<EventRow[]> {
   const w = visible(regions, now);
-  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
+  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?", PICKED_SQL);
   w.params.push(window.from, window.to);
   const room = `EXISTS (SELECT 1 FROM flocks f WHERE f.event_id = e.id AND f.status = 'open'
     AND (SELECT COUNT(*) FROM flock_members m WHERE m.flock_id = f.id AND m.left_at IS NULL) BETWEEN 1 AND f.max_size - 1)`;
@@ -202,7 +206,7 @@ const hasFlockRoom = (e: Pick<EventRow, "flock_fill">) => flockRoom(e) !== null;
 /** "Til dig": the coming two weeks' events to pick from, from two hours from now (time to get there). */
 export async function forYouPool(db: D1Database, regions: string[], now: number): Promise<EventRow[]> {
   const w = visible(regions, now);
-  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?");
+  w.sql.push("e.status = 'scheduled'", "e.starts_at > ?", "e.starts_at < ?", PICKED_SQL);
   w.params.push(now + 2 * 3600_000, now + 14 * 86400_000);
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 600`).bind(...w.params).all<EventRow>();
   return results;
@@ -211,7 +215,7 @@ export async function forYouPool(db: D1Database, regions: string[], now: number)
 /** Every coming event with a position, for the map: from now until `days` days ahead. */
 export async function mapEvents(db: D1Database, regions: string[], now: number, until: number): Promise<EventRow[]> {
   const w = visible(regions, now);
-  w.sql.push("e.status = 'scheduled'", "e.lat IS NOT NULL", "e.lon IS NOT NULL", "e.starts_at < ?");
+  w.sql.push("e.status = 'scheduled'", "e.lat IS NOT NULL", "e.lon IS NOT NULL", "e.starts_at < ?", PICKED_SQL);
   w.params.push(until);
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY e.starts_at LIMIT 3000`).bind(...w.params).all<EventRow>();
   return results;
@@ -262,7 +266,7 @@ export async function eventBySlug(db: D1Database, slug: string): Promise<EventRo
 export async function relatedEvents(db: D1Database, event: EventRow, regions: string[], now: number, count = 3): Promise<EventRow[]> {
   const category = event.categories?.split(",")[0];
   const w = visible(regions, now);
-  w.sql.push("e.id != ?", "e.status = 'scheduled'");
+  w.sql.push("e.id != ?", "e.status = 'scheduled'", PICKED_SQL);
   w.params.push(event.id);
   if (category) { w.sql.push("EXISTS (SELECT 1 FROM event_categories c WHERE c.event_id = e.id AND c.category = ?)"); w.params.push(category); }
   const { results } = await db.prepare(`${SELECT} WHERE ${w.sql.join(" AND ")} ORDER BY (e.area = ?) DESC, e.starts_at LIMIT ?`)
@@ -280,5 +284,17 @@ export async function sitemapEvents(db: D1Database, regions: string[], now: numb
 
 export async function sourcesForAbout(db: D1Database): Promise<Array<{ id: string; name: string; homepage_url: string | null; permission_basis: string; attribution: string; enabled: number }>> {
   const { results } = await db.prepare("SELECT id, name, homepage_url, permission_basis, attribution, enabled FROM sources ORDER BY priority DESC, name").all<{ id: string; name: string; homepage_url: string | null; permission_basis: string; attribution: string; enabled: number }>();
+  return results;
+}
+
+/** Every arrangement starting from `from` until `until`, with how many want to go and the admin's choice, for making
+ * "Dagens fem" (src/curation.ts). All regions: the pick is per day, not per region. */
+export type PoolRow = EventRow & { interest: number; curation: "pin" | "hide" | null };
+export async function curationPool(db: D1Database, from: number, until: number): Promise<PoolRow[]> {
+  const { results } = await db.prepare(`SELECT x.*,
+      (SELECT COUNT(*) FROM event_interests i WHERE i.event_id = x.id AND i.status IN ('waiting', 'invited', 'confirmed')) AS interest,
+      (SELECT c.mode FROM event_curation c WHERE c.event_id = x.id) AS curation
+    FROM (${SELECT} WHERE e.status = 'scheduled' AND e.starts_at >= ? AND e.starts_at < ?) x ORDER BY x.starts_at LIMIT 5000`)
+    .bind(from, until).all<PoolRow>();
   return results;
 }
