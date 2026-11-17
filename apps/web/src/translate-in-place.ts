@@ -145,7 +145,9 @@ function keepSpaces(kept: Element): void {
  * "CIRKLERSmall". Now Google gets the whole sentence, and the names are put back in its English afterwards. */
 // Douglas (9 Nov 2026): "2021 – Goldsmith Street" - "Very accurate but not really Goldsmith Street, ha ha!" Street names stay Danish.
 const NAMES: Array<[RegExp, string]> = [[/\b(?:the )?Heart ?(?:Room|room|Space|space|Rum|rum)\b/g, "Hjerterum"], [/\bCIRCLES\b/g, "CIRKLER"],
-  [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"]];
+  [/\bGoldsmith(?:'s)? ?(?:Street|Lane|street|lane)\b/g, "Guldsmedgade"],
+  // Douglas (17 Nov 2026): "It says 'Courses and courses' in English instead of 'Forløb'" - the calendar's category "Kurser & Forløb".
+  [/\bCOURSES (?:&|AND) COURSES\b/g, "COURSES & PROGRAMMES"], [/\bCourses (?:&|and) [Cc]ourses\b/g, "Courses & Programmes"]];
 export function englishNames(text: string): string {
   return NAMES.reduce((out, [pattern, name]) => out.replace(pattern, name), text);
 }

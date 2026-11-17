@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { teacherFor, type SiteProfile } from "./public-profiles";
 import { journeyUrl, mapUrl } from "./event-way";
 import { EventPhoto } from "./event-photo";
+import { spansDays } from "./event-row";
 
 /** Requested: "Prøv at fetche event detaljer automatisk så vi ikke sender folk til en anden hjemmeside." /events/<id>: an event
  * from the membership system's calendar on hjerterum.info (worker/event-detail.ts). Signing up happens in Hjerterum's own system. */
@@ -47,7 +48,9 @@ function SignUp({ event }: { event: EventDetail }) {
   }
   const memberLink = <a className="lys-link" href="/member-portal/kalender">Medlem? Log ind og tilmeld →</a>;
   if (own.seatsLeft === 0) return <div className="event-signup"><p className="lys-sub">Eventet er fuldt booket.</p></div>;
-  if (own.nonMemberPriceKr > 0) return <div className="event-signup"><small>{GUEST_ERRORS.non_member_payment_unavailable}</small>{memberLink}</div>;
+  // Douglas (17 Nov 2026): "Very small sign up link for events made on new system" - until non-members can pay here, members sign up with a real button.
+  if (own.nonMemberPriceKr > 0) return <div className="event-signup"><a className="lys-btn" href="/member-portal/kalender">Medlem? Log ind og tilmeld dig</a>
+    <small>Tilmelding med betaling for ikke-medlemmer åbner snart.</small></div>;
   if (state.done) return <div className="event-signup" role="status"><b>Tak – du er tilmeldt.</b><small>Vi har sendt en bekræftelse til din e-mail.</small></div>;
   if (!open) return <div className="event-signup"><button type="button" className="lys-btn" onClick={() => setOpen(true)}>Tilmeld dig</button>
     <small>Du behøver ikke være medlem.{own.seatsLeft !== null ? ` ${own.seatsLeft} ${own.seatsLeft === 1 ? "plads" : "pladser"} tilbage.` : ""}</small>{memberLink}</div>;
@@ -180,7 +183,8 @@ export function EventPage({ id, header, footer }: { id: string; header: ReactNod
           </div>
           <div className="site-intro-side">
             <dl className="event-facts">
-              <div><dt>Hvornår</dt><dd>{capital(DAY.format(new Date(event.startsAt)))}<br />kl. {clock(event.startsAt)}{event.endsAt ? `–${clock(event.endsAt)}` : ""}</dd></div>
+              <div><dt>Hvornår</dt><dd>{capital(DAY.format(new Date(event.startsAt)))}<br />kl. {clock(event.startsAt)}{event.endsAt && spansDays(event.startsAt, event.endsAt)
+                ? <><br />til {DAY.format(new Date(event.endsAt))}<br />kl. {clock(event.endsAt)}</> : event.endsAt ? `–${clock(event.endsAt)}` : ""}</dd></div>
               {event.host && <div><dt>Med</dt><dd>{teacher ? <a href={teacher.href}>{event.host}</a> : event.host}</dd></div>}
               <div><dt>Hvor</dt><dd>Hjerterum{event.address ? `, ${event.address}` : ""}</dd></div>
               {event.capacity && <div><dt>Pladser</dt><dd>{event.capacity}</dd></div>}

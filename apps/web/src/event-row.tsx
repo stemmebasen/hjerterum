@@ -11,9 +11,15 @@ const ROW_WHEN = new Intl.DateTimeFormat("da-DK", { weekday: "long", hour: "2-di
 const ROW_END = new Intl.DateTimeFormat("da-DK", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
 /** "Tirsdag 19.00–22.00". */
+const ROW_DAY_KEY = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Copenhagen" });
+/** Whether an event ends on a later day than it begins (a weekend course). */
+export const spansDays = (startsAt: string, endsAt: string | null | undefined) => Boolean(endsAt) && ROW_DAY_KEY.format(new Date(startsAt)) !== ROW_DAY_KEY.format(new Date(endsAt!));
+
+/** "Tirsdag 19.00–22.00"; over more days "Lørdag 11.00 – søndag 18.00" (Douglas, 17 Nov 2026: "Not picking up weekend course in new system, only the Saturday"). */
 export function rowWhen(startsAt: string, endsAt: string | null | undefined): string {
   const start = new Date(startsAt);
-  return `${ROW_WHEN.format(start).replace(/^\p{L}/u, c => c.toLocaleUpperCase("da-DK"))}${endsAt ? `–${ROW_END.format(new Date(endsAt))}` : ""}`.replace(/(\d{2}):(\d{2})/g, "$1.$2");
+  const end = !endsAt ? "" : spansDays(startsAt, endsAt) ? ` – ${ROW_WHEN.format(new Date(endsAt))}` : `–${ROW_END.format(new Date(endsAt))}`;
+  return `${ROW_WHEN.format(start).replace(/^\p{L}/u, c => c.toLocaleUpperCase("da-DK"))}${end}`.replace(/(\d{2}):(\d{2})/g, "$1.$2");
 }
 
 export function RowDate({ startsAt }: { startsAt: string }) {

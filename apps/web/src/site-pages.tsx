@@ -320,10 +320,10 @@ const CATEGORIES = [
 /** The kinds of evenings as round icons. Requested: "Knappelayoutet bør være det samme på forsiden som på /events?vis=koncerter - på
  * undersiderne bare lidt mindre. Husk at markere den kategori der er valgt." On the front page nothing is chosen; in the calendar the chosen
  * kind is marked (current: its key, or null for all events). */
-export function CategoryNav({ current }: { current?: string | null }) {
+export function CategoryNav({ current, base = "/events" }: { current?: string | null; base?: string }) {
   const inCalendar = current !== undefined;
   return <nav className={"site-categories" + (inCalendar ? " is-compact" : "")} aria-label={inCalendar ? "Vis kun" : "Det sker i Hjerterum"}>
-    {CATEGORIES.map(category => <a key={category.label} href={category.href} aria-current={inCalendar && category.key === current ? "page" : undefined}>
+    {CATEGORIES.map(category => <a key={category.label} href={category.href.replace(/^\/events/, base)} aria-current={inCalendar && category.key === current ? "page" : undefined}>
       <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d={category.icon} /></svg></span>{inCalendar && category.key === null ? "Alle" : category.label}</a>)}
   </nav>;
 }

@@ -597,7 +597,7 @@ export async function unattendRoomBooking(
   ).bind(bookingId).first<{ clerk_user_id: string; starts_at_ms: number }>();
   if (!booking) throw new Error("booking_not_found");
   if (booking.starts_at_ms <= now) throw new Error("booking_started");
-  if (booking.clerk_user_id === clerkUserId) throw new Error("event_owner_cannot_unregister");
+  // Douglas (17 Nov 2026): "When I click 'Cancel Registration', nothing seems to happen" - an organiser may sign up for their own event, and so take it back.
 
   const result = await db.prepare(
     `UPDATE room_booking_attendees

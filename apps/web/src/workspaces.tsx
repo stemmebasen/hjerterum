@@ -30,7 +30,8 @@ import { isPartnerEvent, PARTNER_HEADING } from "../partner-events";
 import { SitePageInner } from "./site-pages";
 import { BENEFITS, SITE_PAGES } from "../site/pages";
 import { LysArt, LysTop } from "./lys";
-import { LanguageSwitch } from "./site-pages";
+import { CategoryNav, LanguageSwitch } from "./site-pages";
+import { isKind, kindOf } from "./event-kinds";
 
 const membershipPlansSupportText = () => membershipPlan("support")!.description;
 
@@ -762,6 +763,8 @@ export function MemberCalendar({
       payment === "cancelled" ? "Betalingen blev afbrudt, og pladsen frigives automatisk." : "";
   });
 
+  // Douglas (17 Nov 2026): "When I click 'Cancel Registration', nothing seems to happen" - the answer stands by the button too, not only at the top of the page.
+  const [rowNote, setRowNote] = useState<{ id: number; text: string } | null>(null);
   async function toggleAttendance(booking: Booking) {
     if (booking.isAttending && booking.ticketPriceKr > 0 &&
         !window.confirm("Vil du afmelde dig? En betalt billet refunderes ikke automatisk.")) return;
@@ -772,22 +775,27 @@ export function MemberCalendar({
     });
     const body = await response.json().catch(() => ({})) as { error?: string; checkoutUrl?: string };
     if (!response.ok) {
-      setMessage(body.error === "booking_full" ? "Eventet er desværre fyldt." : body.error === "non_member_payment_unavailable"
-        ? "Tilmelding med betaling for ikke-medlemmer åbner snart. Indtil da kan du skrive til arrangøren eller blive medlem." : "Tilmeldingen kunne ikke ændres.");
+      const text = body.error === "booking_full" ? "Eventet er desværre fyldt." : body.error === "non_member_payment_unavailable"
+        ? "Tilmelding med betaling for ikke-medlemmer åbner snart. Indtil da kan du skrive til arrangøren eller blive medlem." : body.error === "booking_started" ? "Eventet er begyndt." : "Tilmeldingen kunne ikke ændres. Prøv igen om lidt.";
+      setMessage(text); setRowNote({ id: booking.id, text });
     } else if (body.checkoutUrl) {
       window.location.assign(body.checkoutUrl);
       return;
     } else {
-      setMessage(booking.isAttending ? "Du er nu afmeldt." : "Du er nu tilmeldt.");
+      const text = booking.isAttending ? "Din tilmelding er annulleret." : "Du er nu tilmeldt.";
+      setMessage(text); setRowNote({ id: booking.id, text });
       await reload();
     }
     setBusyId(null);
   }
 
+  // Douglas (17 Nov 2026): "We need to have the list [Alle, Foredrag, Koncerter, Café …] on the calendar in the 'My Side' section" - as on /events.
+  const kind = kindOf(new URLSearchParams(window.location.search).get("vis"));
   const entries = [
     ...bookings.map(booking => ({ key: "native-" + booking.id, startsAt: booking.startsAt, booking, external: null })),
     ...externalEvents.filter(external => !isPartnerEvent(external)).map(external => ({ key: "external-" + external.id, startsAt: external.startsAt, booking: null, external }))
-  ].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+  ].filter(e => !kind || isKind({ title: (e.booking ?? e.external!).title, category: e.external?.category ?? null }, kind.key))
+    .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   const partnerEvents = externalEvents.filter(external => isPartnerEvent(external)).sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
   // "In case you did not know, you have not changed the calendar within the member's portal" - the same list as the website's calendar
   // (event-row.tsx): a row per event with its picture, 15 to a page with the pages below; signing up and off stays on each row.
@@ -803,8 +811,9 @@ export function MemberCalendar({
         <h1>Find dit næste pusterum</h1>
         <p>Bevægelse, fordybelse og fællesskab. Se, hvad der sker i Hjerterum.</p>
       </div><a className="pill-button subtle" href="/member-portal/events">Opret dit eget event →</a></div>
+      <CategoryNav current={kind?.key ?? null} base="/member-portal/kalender" />
       {message && <p className="workspace-message" role="status">{message}</p>}
-      {!entries.length && <div className="calendar-empty"><h2>Plads til nye oplevelser</h2><p>Der er ingen kommende events at vise lige nu.</p></div>}
+      {!entries.length && <div className="calendar-empty"><h2>Plads til nye oplevelser</h2><p>{kind ? `Der er ingen kommende ${kind.label.toLocaleLowerCase("da-DK")} lige nu.` : "Der er ingen kommende events at vise lige nu."}</p></div>}
       {shown.length > 0 && <ol className="event-rows member-event-rows">
         {shown.map(({ key, booking, external }) => {
           const event = booking ?? external!;
@@ -840,6 +849,7 @@ export function MemberCalendar({
                   {busyId === booking.id ? "Arbejder …" : booking.registrationStatus === "pending" ? "Betaling afventer" : booking.isAttending ? "Annullér tilmelding" : full ? "Fuldt booket" : priceKr > 0 ? "Tilmeld og betal" : "Tilmeld"}
                 </button>)
                 : href ? <a className="text-link" href={href} {...linkProps}>Læs mere{away ? " ↗" : " →"}</a> : <span className="member-row-meta">Kontakt arrangøren</span>}
+              {booking && rowNote?.id === booking.id && <small className="member-row-note" role="status">{rowNote.text}</small>}
             </span>
           </div></li>;
         })}
