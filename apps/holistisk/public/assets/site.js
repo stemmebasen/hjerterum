@@ -131,7 +131,7 @@
     var closeChat = function () {
       stopped = true; clearTimeout(timer);
       if (chatForm) {
-        var note = document.createElement("p"); note.className = "notice"; note.textContent = "Chatten er lukket. Den lukker en uge efter eventet.";
+        var note = document.createElement("p"); note.className = "notice"; note.textContent = "Chatten er lukket. Den lukker en uge efter arrangementet.";
         chatForm.replaceWith(note); chatForm = null;
       }
     };
@@ -324,7 +324,7 @@
         box.appendChild(img);
       }
       if (e.blurb) box.appendChild(el("p", "kickoff-blurb", e.blurb));
-      var link = el("a", "kickoff-more", "Åbn eventet");
+      var link = el("a", "kickoff-more", "Åbn arrangementet");
       link.href = base + e.url.replace(/^\//, ""); link.target = "_blank"; link.rel = "noopener";
       box.appendChild(link);
     }
@@ -359,14 +359,14 @@
         label.appendChild(box); label.appendChild(text); li.appendChild(label);
         var shown = el("input"); shown.type = "hidden"; shown.name = "vist"; shown.value = e.slug; li.appendChild(shown);
         // "Se mere": the event unfolds in the row (on a wide screen with a mouse, the panel beside the list shows it).
-        var toggle = el("button", "button-link kickoff-toggle", "Se mere om eventet"); toggle.type = "button";
+        var toggle = el("button", "button-link kickoff-toggle", "Se mere om arrangementet"); toggle.type = "button";
         toggle.setAttribute("aria-expanded", "false");
         var unfold = el("div", "kickoff-unfold"); unfold.hidden = true;
         toggle.addEventListener("click", function () {
           if (!unfold.firstChild) fill(unfold, e);
           unfold.hidden = !unfold.hidden;
           toggle.setAttribute("aria-expanded", unfold.hidden ? "false" : "true");
-          toggle.textContent = unfold.hidden ? "Se mere om eventet" : "Skjul";
+          toggle.textContent = unfold.hidden ? "Se mere om arrangementet" : "Skjul";
         });
         li.appendChild(toggle); li.appendChild(unfold);
         li.addEventListener("mouseenter", function () { show(e); });
@@ -376,7 +376,7 @@
       var more = el("button", "button-secondary kickoff-showmore"); more.type = "button";
       // The panel beside the list on a wide screen: the event the pointer is over.
       var preview = el("aside", "kickoff-preview");
-      preview.setAttribute("aria-label", "Om eventet");
+      preview.setAttribute("aria-label", "Om arrangementet");
       var shownSlug = null;
       function show(e) {
         if (shownSlug === e.slug) return;

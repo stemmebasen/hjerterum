@@ -240,10 +240,10 @@ export function blurb(e: Pick<EventRow, "summary" | "description">, max = 320): 
 }
 const imageOf = (e: Pick<EventRow, "image_url">) => e.image_url && /^https:\/\//.test(e.image_url) ? e.image_url : null;
 /** The unfolded part of a row on /kom-godt-i-gang: picture, a few lines and a link to the event's page. */
-const details = (e: EventRow) => html`<details class="kickoff-details"><summary>Se mere om eventet</summary>
+const details = (e: EventRow) => html`<details class="kickoff-details"><summary>Se mere om arrangementet</summary>
   ${imageOf(e) ? html`<img class="kickoff-img" src="${imageOf(e)!}" alt="" loading="lazy">` : ""}
   ${blurb(e) ? html`<p>${blurb(e)}</p>` : ""}
-  <p><a class="kickoff-more" href="${eventPath(e)}">Åbn eventet</a></p>
+  <p><a class="kickoff-more" href="${eventPath(e)}">Åbn arrangementet</a></p>
 </details>`;
 
 /** The events of the coming weeks for the list: those with people already interested or a flock with room first, then
@@ -310,7 +310,7 @@ export async function kickoffPage(db: D1Database, ctx: PageContext, regions: str
     <p class="kickoff-promise">Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.</p>
     <div class="form-actions"><button type="submit">Vis interesse</button></div>
     ${state.memberId && state.ready ? "" : html`<p class="small meta-muted">Bagefter fortæller du kort om dig selv (fornavn, aldersgruppe og én linje) og giver os din e-mail, så vi kan give besked, når din flok er klar. Ingen andre ser din e-mail.</p>`}
-  </form>` : html`<p class="empty">Der er ingen events de næste uger lige nu. Kig i <a href="/kalender">kalenderen</a>.</p>`}
+  </form>` : html`<p class="empty">Der er ingen arrangementer de næste uger lige nu. Kig i <a href="/kalender">kalenderen</a>.</p>`}
 </div>`;
   return { status: 200, headers: { "cache-control": "private, no-store" }, body: page(ctx, { title: "Lad os komme godt i gang", description: "Sæt kryds ved de oplevelser, du er interesseret i, så samler vi en flok.", canonical: KICKOFF_PATH, noindex: true, breadcrumbs: crumbs }, body) };
 }
@@ -329,7 +329,7 @@ export function interestsSection(interests: InterestRow[], now: number): SafeHtm
     const tooLate = i.event_status !== "scheduled" || i.starts_at - now < LAST_CALL_MS;
     if (i.status === "invited" && i.respond_by && i.respond_by > now && !tooLate) {
       return html`<li class="flock-card is-invite">${head}
-        <p class="interest-state"><strong>Din flok er klar!</strong> I er ${i.invited_count} inviteret. Forslag: I mødes ${i.meeting_at ? `kl. ${hhmm(i.meeting_at)}` : "før eventet"}${i.meeting_place ? ` ${i.meeting_place.charAt(0).toLowerCase()}${i.meeting_place.slice(1)}` : ""}, og planlægger resten i flokkens chat. Husk selv at købe billet.</p>
+        <p class="interest-state"><strong>Din flok er klar!</strong> I er ${i.invited_count} inviteret. Forslag: I mødes ${i.meeting_at ? `kl. ${hhmm(i.meeting_at)}` : "før arrangementet"}${i.meeting_place ? ` ${i.meeting_place.charAt(0).toLowerCase()}${i.meeting_place.slice(1)}` : ""}, og planlægger resten i flokkens chat. Husk selv at købe billet.</p>
         <p class="meta-muted small">Svar senest ${deadline(i.respond_by, now)}.</p>
         <div class="flock-actions"><form method="post" action="${base(i)}/bekraeft"><button type="submit">Bekræft – jeg er med</button></form>
         <form method="post" action="${base(i)}/nej-tak"><button type="submit" class="button-secondary">Nej tak</button></form></div></li>`;

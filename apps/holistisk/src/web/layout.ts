@@ -173,7 +173,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
   <div class="wrap footer-inner">
     <div class="footer-about">
       <p class="footer-brand">${MARK}<span>Flokken</span></p>
-      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Events fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
+      <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Arrangementer fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
       <p><a href="/find-en-flok">Vil du med?</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a> · <a href="/kontakt">Kontakt</a></p>
       <p><a href="/moed-nye-mennesker">Mød nye mennesker i Aarhus</a> · <a href="/ny-i-aarhus">Ny i Aarhus</a> · <a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></p>
     </div>
