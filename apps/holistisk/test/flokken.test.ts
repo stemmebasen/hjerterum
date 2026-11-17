@@ -52,9 +52,14 @@ const meetAt = (ms: number) => toLocalInput(ms - 30 * 60_000);
  * everyone must before starting or joining a flock. */
 async function join(name: string, profile: { alder: string; om_mig: string } | null = { alder: "30-39", om_mig: `${name} her, glæder mig` }): Promise<{ cookie: string; code: string }> {
   const r = await call("/bliv-medlem", { form: { fornavn: name, naeste: "/flokke" } });
-  expect(r.status).toBe(200);
-  const code = /<p class="code">([A-Z0-9-]+)<\/p>/.exec(r.body)?.[1] ?? "";
+  // Post/Redirect/Get: the form's answer is a redirect, so reloading the welcome page never sends the form again.
+  expect(r.status).toBe(303);
+  expect(r.headers.get("location")).toBe("/bliv-medlem/velkommen?naeste=%2Fflokke");
   const cookie = cookieOf(r);
+  const note = /flok_ny_kode=[^;]+/.exec(r.headers.get("set-cookie") ?? "")?.[0] ?? "";
+  const welcome = await call("/bliv-medlem/velkommen?naeste=%2Fflokke", { cookie: `${cookie}; ${note}` });
+  expect(welcome.status).toBe(200);
+  const code = /<p class="code">([A-Z0-9-]+)<\/p>/.exec(welcome.body)?.[1] ?? "";
   if (profile) expect((await call("/profil", { cookie, form: { fornavn: name, ...profile } })).status).toBe(303);
   return { cookie, code };
 }
@@ -76,6 +81,13 @@ describe("membership", () => {
     // Nothing else is stored for an event-portal member (the other columns are Flokk's).
     expect(Object.entries(stored).filter(([, v]) => v !== null).map(([k]) => k).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "is_admin", "last_seen_at"]);
     expect(String(stored.code_hash)).not.toContain(code);
+    // The welcome page shows the code only with the short-lived note, and only to the member it belongs to.
+    expect((await call("/bliv-medlem/velkommen", { cookie })).body).not.toContain('class="code"');
+    const other = await call("/bliv-medlem", { form: { fornavn: "Oda" } });
+    const odaNote = /flok_ny_kode=[^;]+/.exec(other.headers.get("set-cookie") ?? "")?.[0] ?? "";
+    expect(other.headers.get("set-cookie")).toContain("Path=/bliv-medlem/velkommen; HttpOnly");
+    expect((await call("/bliv-medlem/velkommen", { cookie: `${cookie}; ${odaNote}` })).body).not.toContain('class="code"');
+    expect((await call("/bliv-medlem/velkommen")).headers.get("location")).toMatch(/^\/log-ind\?naeste=/);
     const login = await call("/log-ind", { form: { kode: code.toLowerCase().replace(/-/g, " "), naeste: "/flokke" } });
     expect(login.status).toBe(303);
     expect(login.headers.get("location")).toBe("/flokke?besked=logget_ind");
@@ -326,9 +338,14 @@ describe("served under www.jacobhauge.com", () => {
     expect(home.body).toContain('<link rel="canonical" href="https://www.jacobhauge.com/socialklubben/">');
     expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!socialklubben\/|\/)/);
     const r = await call("/bliv-medlem", { form: { fornavn: "Kim", naeste: "/flokke" }, headers: sk, origin: "https://www.jacobhauge.com" });
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe("/socialklubben/bliv-medlem/velkommen?naeste=%2Fflokke");
     expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben;");
-    expect(r.body).toContain('href="/socialklubben/flokke"');
+    expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben/bliv-medlem/velkommen;");
+    const kim = `${cookieOf(r)}; ${/flok_ny_kode=[^;]+/.exec(r.headers.get("set-cookie") ?? "")?.[0]}`;
+    const welcome = await call("/bliv-medlem/velkommen?naeste=%2Fflokke", { headers: sk, cookie: kim });
+    expect(welcome.body).toContain('href="/socialklubben/flokke"');
+    expect(welcome.body).toContain('class="code"');
     expect((await call("/flokke", { headers: sk })).headers.get("location")).toBe("/socialklubben/log-ind?naeste=%2Fflokke");
     expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).status).toBe(403);
     // Any other value of the header is ignored.
@@ -380,7 +397,7 @@ describe("served on its own domain socialklubben.dk", () => {
     expect(home.body).not.toContain("Flokken");
     expect(home.body).not.toContain('data-edition="forening"');
     const r = await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" } });
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(303);
     expect(r.headers.get("set-cookie")).toMatch(/Path=\/(;|$)/);
     expect((await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" }, origin: "https://www.jacobhauge.com" })).status).toBe(403);
     // The proxy header cannot turn the own domain into Samfolk.

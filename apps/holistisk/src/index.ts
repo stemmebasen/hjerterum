@@ -121,7 +121,7 @@ async function underMount(response: Response, { base, name }: Mount): Promise<Re
   const cookies = headers.getSetCookie?.() ?? [];
   if (cookies.length) {
     headers.delete("set-cookie");
-    for (const c of cookies) headers.append("set-cookie", base ? c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`) : c);
+    for (const c of cookies) headers.append("set-cookie", base ? c.replace(/; Path=(\/[^;]*)/, (_, p: string) => `; Path=${base}${p === "/" ? "" : p}`) : c);
   }
   const type = headers.get("content-type") ?? "";
   const rename = name !== SITE && type.startsWith("text/");
@@ -208,11 +208,17 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
     const result = await flokkenRoute(request, env, env.DB, pc, regions, path, url, now, () => notFoundPage(pc));
     if (result) {
-      const cookie = "cookie" in result && result.cookie ? { "set-cookie": result.cookie } : {};
+      const cookies = "cookie" in result && result.cookie ? [result.cookie].flat() : [];
       if ("json" in result) return json(env, result.json, result.status);
       if ("image" in result) return new Response(result.image.body, { headers: { ...SECURITY_HEADERS, "content-type": result.image.type, "cache-control": "private, max-age=3600", "x-robots-tag": "noindex" } });
-      if ("redirect" in result) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
-      return respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers, ...cookie } });
+      if ("redirect" in result) {
+        const headers = new Headers({ location: result.redirect, "cache-control": "no-store" });
+        for (const c of cookies) headers.append("set-cookie", c);
+        return new Response(null, { status: 303, headers });
+      }
+      const response = respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers } });
+      for (const c of cookies) response.headers.append("set-cookie", c);
+      return response;
     }
   }
   if (request.method !== "GET" && request.method !== "HEAD") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });

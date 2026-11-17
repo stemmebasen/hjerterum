@@ -58,8 +58,13 @@ describe("login with a link on e-mail", () => {
     expect(page.body).toContain("Send mig et login-link");
     expect(page.body).toContain("Log ind med din personlige kode");
     const asked = await call("/log-ind/mail", { form: { email: " Lone@Example.dk ", naeste: "/kom-godt-i-gang" } });
-    expect(asked.status).toBe(200);
-    expect(asked.body).toContain("Tjek din indbakke");
+    // Post/Redirect/Get: going back or reloading never asks to send the form again.
+    expect(asked.status).toBe(303);
+    expect(asked.headers.get("location")).toBe("/log-ind?naeste=%2Fkom-godt-i-gang&besked=mail_sendt");
+    const note = /flok_mail_sendt=[^;]+/.exec(asked.headers.get("set-cookie") ?? "")?.[0] ?? "";
+    const shown = await call("/log-ind?naeste=%2Fkom-godt-i-gang&besked=mail_sendt", { cookie: note });
+    expect(shown.body).toContain("Tjek din indbakke");
+    expect(shown.body).toContain("Lone@Example.dk");
     expect(sent).toHaveLength(1);
     expect(sent[0]!.to).toBe("lone@example.dk");
     expect(sent[0]!.subject).toBe("Dit login-link til Socialklubben");
@@ -86,7 +91,7 @@ describe("login with a link on e-mail", () => {
   it("answers the same for an unknown address and sends nothing, and limits links per hour", async () => {
     sent.length = 0;
     const r = await call("/log-ind/mail", { form: { email: "ukendt@example.dk" } });
-    expect(r.body).toContain("Tjek din indbakke");
+    expect(r.headers.get("location")).toMatch(/besked=mail_sendt$/);
     expect(sent).toHaveLength(0);
     await member("Mads", "mads@example.dk");
     for (let i = 0; i < 5; i++) await call("/log-ind/mail", { form: { email: "mads@example.dk" } });
