@@ -13,7 +13,7 @@ import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
 import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
-import { hasFilters, toQuery, type Filters } from "./filters.js";
+import { hasFilters, isSearch, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageContext } from "./layout.js";
 import { areaCounts, categoryCounts, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
@@ -246,7 +246,9 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
-    <p class="standfirst">Alle kommende arrangementer i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    <p class="standfirst">${isSearch(f)
+      ? html`Alle kommende arrangementer i ${ctx.regionLabel}, der passer på din søgning, dag for dag.`
+      : html`Dagens fem: hver dag udvælger vi op til fem arrangementer i ${ctx.regionLabel}, som er gode at tage til sammen med andre. Søg eller vælg en aktivitet for at se alle.`} Find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
   </header>
   ${groupTiles(f.group, groups, g => "/kalender" + toQuery({ ...f, page: 1 }, { group: g }) + "#soeg", { compact: true })}
   ${forYouBlock}

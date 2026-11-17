@@ -25,6 +25,7 @@ import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters 
 import { activityFilters } from "./web/pages.js";
 import { adminRoute } from "./admin.js";
 import { countable, recordVisit, rollUpVisits } from "./stats.js";
+import { refreshPicks } from "./curation.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
 
@@ -170,7 +171,9 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
     // The sources that are due, a failed one included; ?alle=1 takes every source (stalest first, as far as the budget goes).
     const outcome = await runIngest(env, { trigger: "manual", now, onlyDue: url.searchParams.get("alle") !== "1", retryFailed: true });
-    return json(env, outcome, outcome.status === "failed" ? 502 : 200);
+    // "Dagens fem" (src/curation.ts) from what is in the calendar now.
+    const picks = env.DB ? await refreshPicks(env.DB, Date.now()).catch(() => null) : null;
+    return json(env, { ...outcome, picks }, outcome.status === "failed" ? 502 : 200);
   }
   // Foreningen Samfolk has its own pages; the event portal's are not shown there.
   if (pc.edition === "forening" && !path.startsWith("/assets/") && path !== "/favicon.svg" && path !== "/robots.txt") {
@@ -386,9 +389,15 @@ export default {
         .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
         .catch(error => console.error(JSON.stringify({ event: "mail_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
+    // "Dagens fem" (src/curation.ts): picked again after every collector run, so new arrangements are considered.
+    const picks = env.DB
+      ? work.then(() => refreshPicks(env.DB!, Date.now()))
+        .then(result => console.log(JSON.stringify({ event: "picks", ...result })))
+        .catch(error => console.error(JSON.stringify({ event: "picks_failed", error: error instanceof Error ? error.message : String(error) })))
+      : Promise.resolve();
     const visits = controller.cron === DAILY_CRON && env.DB ? rollUpVisits(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
     const purgeMail = controller.cron === DAILY_CRON && env.DB ? purgeMailData(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
-    const all = Promise.all([work, purge, gather, mail, purgeMail, visits]);
+    const all = Promise.all([work, picks, purge, gather, mail, purgeMail, visits]);
     if (ctx) ctx.waitUntil(all);
     await all;
   }

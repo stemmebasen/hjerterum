@@ -8,6 +8,7 @@ import { html, raw, type SafeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL, page, type PageContext } from "./web/layout.js";
 import { TOPICS, type Topic } from "./flokken/contact.js";
 import { adminMembersRoute } from "./adminMembers.js";
+import { adminPicksRoute } from "./adminPicks.js";
 
 /** Socialklubben's admin overview at /admin: visits, members, interest per arrangement, flocks, recent activity and
  * mails, on one page that reads well on a phone. Only the admin gets in: a login link is sent to the admin address
@@ -102,6 +103,7 @@ export async function adminRoute(request: Request, env: Env, db: D1Database, pc:
   }
   // Everything else under /admin is for the admin only.
   if (!(await isAdmin(db, request, now))) return { status: 303, body: "", redirect: "/admin" };
+  if (path === "/admin/udvalg" || path.startsWith("/admin/udvalg/")) return adminPicksRoute(request, db, pc, path, url, now);
   return adminMembersRoute(request, db, pc, path, url, now);
 }
 
@@ -192,7 +194,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
 
 // ————————————————————————————————————————— Pages
 
-const STYLE = ["/assets/admin.css?v=2"];
+const STYLE = ["/assets/admin.css?v=3"];
 export const when = (at: number, now: number) => `${dayLabel(at, now)} kl. ${hhmm(at)}`;
 /** "for 5 min. siden", "i går kl. 14.05" – how long ago, as a person would say it. */
 export function ago(at: number, now: number): string {
@@ -278,7 +280,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
     <h1>Overblik</h1>
     <form method="post" action="/admin/log-ud"><button type="submit" class="button-link">Log ud</button></form>
   </div>
-  <p class="sk-updated">Opdateret ${when(now, now)}. Genindlæs siden for de nyeste tal.</p>
+  <p class="sk-updated">Opdateret ${when(now, now)}. Genindlæs siden for de nyeste tal. <a class="sk-more" href="/admin/udvalg">Dagens fem i kalenderen</a></p>
 
   <section class="sk-card" aria-labelledby="besog">
     <h2 id="besog">Besøg</h2>
