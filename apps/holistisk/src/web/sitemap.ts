@@ -14,7 +14,7 @@ export async function sitemapPages(db: D1Database, regions: string[], now: numbe
   const byArea = await areaCounts(db, regions, now);
   const perActivity = await Promise.all(ACTIVITIES.map(a => countByArea(db, activityFilters(a), regions, now)));
   const pages = ["/", "/kalender", "/i-dag", "/weekend", "/kort", "/kategorier", "/arrangoerer", "/om",
-    ...GUIDES.map(g => g.path), "/gratis-og-billigt", "/find-en-flok", "/bliv-medlem", "/tryghed", "/samarbejde", ...inRegions.map(o => `/arrangoerer/${o.slug}`)];
+    ...GUIDES.map(g => g.path), "/gratis-og-billigt", "/find-en-flok", "/bliv-medlem", "/tryghed", "/samarbejde", "/kontakt", ...inRegions.map(o => `/arrangoerer/${o.slug}`)];
   for (const area of areas) if ((byArea.get(area.slug) ?? 0) > 0 || inRegions.some(o => o.area === area.slug)) pages.push(`/${area.slug}`);
   ACTIVITIES.forEach((activity, i) => {
     const counts = perActivity[i]!;

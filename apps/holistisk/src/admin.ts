@@ -6,6 +6,7 @@ import { ADMIN_COOKIE, visitSummary, type VisitSummary } from "./stats.js";
 import { capitalize, dayLabel, hhmm, localDate, addDays } from "./time.js";
 import { html, raw, type SafeHtml } from "./web/html.js";
 import { ORGANISER_EMAIL, page, type PageContext } from "./web/layout.js";
+import { TOPICS, type Topic } from "./flokken/contact.js";
 import { adminMembersRoute } from "./adminMembers.js";
 
 /** Socialklubben's admin overview at /admin: visits, members, interest per arrangement, flocks, recent activity and
@@ -116,6 +117,8 @@ export type Overview = {
   activity: Array<{ at: number; text: string; href: string | null }>;
   mail: { configured: boolean; byKind: Array<{ kind: string; sent: number; failed: number }>; recent: Array<{ kind: string; status: string; error: string | null; created_at: number }> };
   inquiries: Array<{ organisation: string; contact_name: string; email: string; created_at: number }>;
+  /** The contact form's newest messages (src/flokken/contact.ts). */
+  contacts: Array<{ topic: string; name: string; email: string; organisation: string | null; message: string; mail: string; created_at: number }>;
   reports: number;
 };
 
@@ -135,7 +138,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     n("SELECT COUNT(*) AS n FROM membership_signups WHERE created_at > ?", week),
     n(`SELECT COUNT(DISTINCT s.member_id) AS n FROM member_sessions s JOIN members m ON m.id = s.member_id WHERE ${SK_MEMBER} AND s.created_at > ?`, week)
   ]);
-  const [people, signupRows, interestRows, interestTotals, flockRows, ticks, joins, inquiries, mailKinds, mailRecent, reports] = await Promise.all([
+  const [people, signupRows, interestRows, interestTotals, flockRows, ticks, joins, inquiries, mailKinds, mailRecent, reports, contacts] = await Promise.all([
     db.prepare(`SELECT m.id, m.first_name AS name, m.email, m.created_at AS at, m.age_group FROM members m WHERE ${SK_MEMBER} ORDER BY m.created_at DESC LIMIT 12`).all<{ id: string; name: string; email: string | null; at: number; age_group: string | null }>(),
     db.prepare("SELECT id, name, email, created_at AS at FROM membership_signups ORDER BY created_at DESC LIMIT 12").all<{ id: string; name: string; email: string; at: number }>(),
     db.prepare(`SELECT e.slug, e.title, e.starts_at,
@@ -157,7 +160,8 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     db.prepare("SELECT organisation, contact_name, email, created_at FROM partner_inquiries ORDER BY created_at DESC LIMIT 5").all<Overview["inquiries"][number]>(),
     db.prepare(`SELECT kind, SUM(status = 'sent') AS sent, SUM(status = 'failed') AS failed FROM mail_log WHERE created_at > ? GROUP BY kind ORDER BY kind`).bind(week).all<{ kind: string; sent: number; failed: number }>(),
     db.prepare("SELECT kind, status, error, created_at FROM mail_log ORDER BY created_at DESC LIMIT 8").all<Overview["mail"]["recent"][number]>(),
-    n("SELECT COUNT(DISTINCT r.message_id) AS n FROM flock_message_reports r JOIN flock_messages c ON c.id = r.message_id WHERE c.hidden_at IS NULL OR r.created_at > ?", week)
+    n("SELECT COUNT(DISTINCT r.message_id) AS n FROM flock_message_reports r JOIN flock_messages c ON c.id = r.message_id WHERE c.hidden_at IS NULL OR r.created_at > ?", week),
+    db.prepare("SELECT topic, name, email, organisation, message, mail, created_at FROM contact_messages ORDER BY created_at DESC LIMIT 10").all<Overview["contacts"][number]>()
   ]);
   const newestPeople = [
     ...people.results.map(p => ({ ...p, kind: "profil" as const })),
@@ -168,7 +172,8 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     ...signupRows.results.map(s => ({ at: s.at, text: `${s.name} meldte sig ind`, href: null })),
     ...ticks.results.map(t => ({ at: t.at, text: `${t.who} vil gerne med til ${t.title}`, href: `/events/${t.slug}` })),
     ...joins.results.map(j => ({ at: j.at, text: `${j.who} kom med i en flok til ${j.title}`, href: `/flokke/${j.id}` })),
-    ...inquiries.results.map(q => ({ at: q.created_at, text: `${q.organisation} skrev om samarbejde`, href: null }))
+    ...inquiries.results.map(q => ({ at: q.created_at, text: `${q.organisation} skrev om samarbejde`, href: null })),
+    ...contacts.results.map(c => ({ at: c.created_at, text: `${c.organisation ?? c.name} skrev via kontaktformularen`, href: null }))
   ].sort((a, b) => b.at - a.at).slice(0, 20);
   return {
     visits,
@@ -180,6 +185,7 @@ export async function overview(db: D1Database, now: number, mailOn = true): Prom
     activity,
     mail: { configured: mailOn, byKind: mailKinds.results, recent: mailRecent.results },
     inquiries: inquiries.results,
+    contacts: contacts.results,
     reports
   };
 }
@@ -254,6 +260,7 @@ function visitChart(days: VisitSummary["days"]): SafeHtml {
 
 const tile = (value: number, label: string, sub?: string) => html`<div class="sk-tile"><strong>${num(value)}</strong><span>${label}</span>${sub ? html`<small>${sub}</small>` : null}</div>`;
 const sum = (days: VisitSummary["days"], key: "views" | "visitors") => days.reduce((s, d) => s + d[key], 0);
+const CONTACT_MAIL: Record<string, string> = { failed: "Mail fejlede", off: "Ikke mailet", held: "Ikke mailet (dagens grænse)" };
 const MAIL_KIND: Record<string, string> = { login: "Login-links", invitation: "Invitationer til flokke", reminder: "Påmindelser" };
 
 function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
@@ -331,8 +338,13 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
     ${o.mail.recent.some(m => m.status === "failed") ? html`<h3>Seneste fejl</h3><ul class="sk-rows">${o.mail.recent.filter(m => m.status === "failed").map(m => html`<li><div>${MAIL_KIND[m.kind] ?? m.kind}<br><span class="sk-muted">${m.error ?? ""}</span></div><time>${ago(m.created_at, now)}</time></li>`)}</ul>` : null}
   </section>
 
+  <section class="sk-card" aria-labelledby="kontakt">
+    <h2 id="kontakt">Beskeder fra kontaktformularen</h2>
+    ${o.contacts.length ? html`<ul class="sk-rows">${o.contacts.map(c => html`<li><div><strong>${c.organisation ? `${c.name}, ${c.organisation}` : c.name}</strong> <span class="sk-tag">${TOPICS[c.topic as Topic] ?? c.topic}</span>${c.mail === "sent" ? null : html` <span class="sk-tag sk-tag-berry">${CONTACT_MAIL[c.mail] ?? c.mail}</span>`}<br><a class="sk-muted" href="mailto:${c.email}">${c.email}</a><br><span class="sk-muted">${c.message.length > 240 ? c.message.slice(0, 240) + "…" : c.message}</span></div><time>${ago(c.created_at, now)}</time></li>`)}</ul><p class="sk-note">Beskederne sendes også til jeres indbakke. Svar på mailen, så går svaret direkte til afsenderen.</p>` : html`<p class="sk-empty">Ingen beskeder endnu.</p>`}
+  </section>
+
   ${o.inquiries.length ? html`<section class="sk-card" aria-labelledby="henvendelser">
-    <h2 id="henvendelser">Henvendelser fra arrangører</h2>
+    <h2 id="henvendelser">Ældre henvendelser fra arrangører</h2>
     <ul class="sk-rows">${o.inquiries.map(q => html`<li><div><strong>${q.organisation}</strong><br><span class="sk-muted">${q.contact_name} · </span><a class="sk-muted" href="mailto:${q.email}">${q.email}</a></div><time>${ago(q.created_at, now)}</time></li>`)}</ul>
   </section>` : null}`);
 }

@@ -25,8 +25,10 @@ export interface Env {
   /** "portal" shows the event portal at the Worker's own address; anything else (the default) Flokken as an association.
    * Under a mount, the mount decides (src/index.ts). */
   EDITION?: string;
-  /** Optional address shown on the about page for organisers and corrections. */
+  /** Optional public contact address (default kontakt@socialklubben.dk); only a @socialklubben.dk address is used. */
   CONTACT_EMAIL?: string;
+  /** Secret. Where the contact form's messages are delivered (default: the public contact address). */
+  CONTACT_INBOX?: string;
   /** Secret. Resend's API key (resend.com); with it the portal sends e-mail (src/mail.ts). */
   RESEND_API_KEY?: string;
   /** Cloudflare Email Service's send_email binding; used instead of Resend when present (needs Workers Paid). */

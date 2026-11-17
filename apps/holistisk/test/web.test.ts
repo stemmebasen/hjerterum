@@ -163,7 +163,10 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler dit event på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20event%20p%C3%A5%20Socialklubben">klik her</a>');
+    expect(body).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    // No private address anywhere on the site (Jake 2026-11-17): only kontakt@socialklubben.dk.
+    expect(body).not.toContain("jacobhauge.com\"");
+    expect(body).not.toMatch(/mailto:(?!kontakt@socialklubben\.dk)/);
     expect(body).not.toContain("Testversion");
   });
 

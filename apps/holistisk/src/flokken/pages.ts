@@ -522,7 +522,7 @@ export function safetyPage(ctx: PageContext): View {
   <h2>Billet og tilmelding</h2>
   <p>Hver person køber selv billet eller tilmelder sig hos arrangøren. Flokken håndterer ikke betaling.</p>
   <h2>Det har vi ikke endnu</h2>
-  <p>Vi har endnu ikke blokering eller verificerede profiler.${ctx.contactEmail ? html` Oplever du noget ubehageligt, så skriv til <a href="mailto:${ctx.contactEmail}">${ctx.contactEmail}</a>.` : ""} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
+  <p>Vi har endnu ikke blokering eller verificerede profiler.${html` Oplever du noget ubehageligt, så <a href="/kontakt">skriv til os</a>.`} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Tryghed i Flokken", description: "Offentlige mødesteder, en kort præsentation kun for flokken, og du kan altid forlade en flok.", canonical: "/tryghed", breadcrumbs: crumbs }, body) };
 }

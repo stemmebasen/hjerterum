@@ -2,7 +2,7 @@ import type { D1Database } from "../db.js";
 import { groupBySlug } from "../groups.js";
 import type { Env } from "../env.js";
 import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
-import type { PageContext } from "../web/layout.js";
+import { organiserEmail, type PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
 import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, linkPage, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
@@ -10,7 +10,9 @@ import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, ownPhoto, PHOTO_
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
 import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
-import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
+import { listInquiries, partnerPage } from "./partners.js";
+import { contactInbox } from "../mail.js";
+import { contactPage, emptyContact, filledByPerson, listContacts, readContact, senderOf, sendContact, tooMany, topicFrom, validateContact } from "./contact.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
 import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
@@ -78,17 +80,28 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   if (path === "/tryghed" && !post) return { view: safetyPage(pc) };
   if (path === "/find-en-flok" && !post) return { view: findFlockPage(pc, await upcomingFlocks(db, regions, now, 60)) };
 
-  if (path === "/samarbejde") {
-    if (!post) return { view: partnerPage(pc, { sent: message === "tak" }) };
+  if (path === "/samarbejde" && !post) return { view: partnerPage(pc, { now }) };
+  if (path === "/kontakt" && !post) return { view: contactPage(pc, { sent: message === "tak", now, form: emptyContact(topicFrom(url.searchParams.get("emne"))) }) };
+  // The contact form, also on /samarbejde (an older copy of that page may still post there).
+  if ((path === "/kontakt" || path === "/samarbejde") && post) {
+    const thanks = go(withMessage("/kontakt", "tak") + "#formular");
     const data = await formData(request);
-    if (!data) return { view: partnerPage(pc, { status: 400, errors: { organisation: "Formularen kunne ikke læses. Prøv igen." } }) };
+    if (!data) return { view: contactPage(pc, { status: 400, errors: { form: "Formularen kunne ikke læses. Prøv igen." }, now }) };
     // A field people do not see; forms that fill it in are from robots.
-    if (String(data.get("website_url") ?? "")) return go(withMessage("/samarbejde", "tak") + "#kontakt");
-    const form = readInquiry(data);
-    const errors = validateInquiry(form);
-    if (Object.keys(errors).length) return { view: partnerPage(pc, { form, errors, status: 400 }) };
-    await saveInquiry(db, form, now);
-    return go(withMessage("/samarbejde", "tak") + "#kontakt");
+    if (String(data.get("website_url") ?? "")) return thanks;
+    const form = readContact(data);
+    if (path === "/samarbejde" && !data.get("emne")) form.topic = "arrangoer";
+    const errors = validateContact(form);
+    if (Object.keys(errors).length) return { view: contactPage(pc, { form, errors, status: 400, now }) };
+    if (data.has("t") && !filledByPerson(String(data.get("t")), now)) return { view: contactPage(pc, { form, errors: { form: "Det gik lidt for hurtigt. Tjek din besked, og tryk på „Send besked“ igen." }, status: 400, now }) };
+    const sender = await senderOf(request);
+    if (await tooMany(db, sender, now)) return { view: contactPage(pc, { form, errors: { form: `Du har sendt flere beskeder på kort tid. Prøv igen lidt senere, eller skriv direkte til ${organiserEmail(pc)}.` }, status: 429, now }) };
+    await sendContact(db, env, form, sender, contactInbox(env), now);
+    return thanks;
+  }
+  if (path === "/api/kontakt" && !post) {
+    if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
+    return { json: await listContacts(db), status: 200 };
   }
   if (path === "/api/samarbejde" && !post) {
     if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };

@@ -3,6 +3,7 @@ import type { EventRow } from "../web/queries.js";
 import { html, type SafeHtml } from "../web/html.js";
 import { crumbsNav, organiserEmail, page, type Crumb, type PageContext } from "../web/layout.js";
 import type { View } from "./pages.js";
+import { contactFormBlock, emptyContact } from "./contact.js";
 
 /** Partners: local associations and venues that have their events on the site, and may offer flocks
  * something extra. There are no ticket discounts. Only offers the organiser has actually confirmed are shown; the list
@@ -27,7 +28,7 @@ export type PartnerOffer = {
 
 export const KIND_LABELS: Record<OfferKind, string> = {
   reserved_seats: "Reserverede pladser",
-  meeting_point: "Mødested før eventet",
+  meeting_point: "Mødested før arrangementet",
   welcome_drink: "Kaffe eller velkomstdrink",
   other: "Ekstra for flokke"
 };
@@ -51,40 +52,14 @@ export function offersBlock(offers: PartnerOffer[]): SafeHtml {
 </section>`;
 }
 
-// ————————————————————————————————————————— /samarbejde
-
-export type InquiryForm = { organisation: string; contactName: string; email: string; website: string; message: string };
-export type InquiryErrors = Partial<Record<keyof InquiryForm, string>>;
-
-export function readInquiry(data: FormData): InquiryForm {
-  const s = (k: string) => String(data.get(k) ?? "").trim();
-  return { organisation: s("organisation"), contactName: s("navn"), email: s("email"), website: s("hjemmeside"), message: s("besked") };
-}
-
-export function validateInquiry(f: InquiryForm): InquiryErrors {
-  const e: InquiryErrors = {};
-  if (f.organisation.length < 2 || f.organisation.length > 120) e.organisation = "Skriv foreningens eller stedets navn.";
-  if (f.contactName.length < 2 || f.contactName.length > 80) e.contactName = "Skriv dit navn.";
-  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(f.email) || f.email.length > 160) e.email = "Skriv en gyldig e-mail.";
-  if (f.website && (!/^https?:\/\/\S+$/i.test(f.website) || f.website.length > 200)) e.website = "Skriv hele adressen, fx https://eksempel.dk";
-  if (f.message.length > 2000) e.message = "Højst 2000 tegn.";
-  return e;
-}
-
-export async function saveInquiry(db: D1Database, f: InquiryForm, now: number): Promise<void> {
-  await db.prepare("INSERT INTO partner_inquiries (id, organisation, contact_name, email, website, message, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), f.organisation, f.contactName, f.email, f.website || null, f.message || null, now).run();
-}
+// ————————————————————————————————————————— /samarbejde (messages now come through the contact form; older ones are kept)
 
 export async function listInquiries(db: D1Database): Promise<unknown[]> {
   const { results } = await db.prepare("SELECT * FROM partner_inquiries ORDER BY created_at DESC LIMIT 500").all();
   return results;
 }
 
-export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; errors?: InquiryErrors; sent?: boolean; status?: number } = {}): View {
-  const f = state.form ?? { organisation: "", contactName: "", email: "", website: "", message: "" };
-  const errors = state.errors ?? {};
-  const err = (k: keyof InquiryForm) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
+export function partnerPage(ctx: PageContext, state: { now: number }): View {
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "For arrangører", path: "/samarbejde" }];
   const body = html`
 <div class="wrap narrow prose">
@@ -92,35 +67,24 @@ export function partnerPage(ctx: PageContext, state: { form?: InquiryForm; error
     ${crumbsNav(crumbs)}
     <p class="kicker">For foreninger og kultursteder</p>
     <h1>Få flere med – sammen med Flokken</h1>
-    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde events og nogen at følges med. Det er lettere at tage af sted, når man har nogen at følges med – og en flok kan blive til flere besøg hos jer.</p>
+    <p class="standfirst">Flokken hjælper folk i Aarhus med at finde arrangementer og nogen at følges med. Det er lettere at tage af sted, når man ikke skal gå alene – og en flok kan blive til flere besøg hos jer.</p>
   </header>
   <h2>Sådan er modellen tænkt</h2>
   <ol class="steps">
-    <li><strong>Vil I være med på siden, så <a href="mailto:${organiserEmail(ctx)}">kontakt os</a></strong> på ${organiserEmail(ctx)} eller via formularen herunder – så viser vi jeres events i kalenderen, på kortet og på eventsiderne, hvor flokkene bliver dannet.</li>
+    <li><strong>Vil I være med på siden, så <a href="#kontakt">skriv til os</a></strong> via formularen herunder eller på <a href="mailto:${organiserEmail(ctx)}">${organiserEmail(ctx)}</a> – så viser vi jeres arrangementer i kalenderen, på kortet og på arrangementssiderne, hvor flokkene bliver dannet.</li>
     <li><strong>Mulighed for radioomtale og anden promovering</strong> – vi er ved at bygge samarbejder op og aftaler det konkret med hver enkelt.</li>
   </ol>
   <h2>Valgfrie oplevelser for flokke</h2>
   <p>I kan også vælge at gøre det lettere at komme som flok. Vi viser kun det, som I har bekræftet:</p>
   <ul>
     <li>Reserverede pladser til flokke</li>
-    <li>Et fast mødested før eventet</li>
+    <li>Et fast mødested før arrangementet</li>
     <li>Kaffe eller en velkomstdrink</li>
   </ul>
-  <h2>Sådan kommer jeres events med</h2>
-  <p>Flokken henter hver nat events fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede eventdata på jeres hjemmeside, kan vi tage den med – så I ikke skal skrive noget to steder.</p>
+  <h2>Sådan kommer jeres arrangementer med</h2>
+  <p>Flokken henter hver nat arrangementer fra arrangørernes egne kalendere. Har I en offentlig kalender (fx et iCal-link), et RSS-feed eller strukturerede data om jeres arrangementer på hjemmesiden, kan vi tage den med – så I ikke skal skrive noget to steder.</p>
   <h2 id="kontakt">Skriv til os</h2>
-  ${state.sent ? html`<p class="flash" role="status">Tak for jeres henvendelse. Vi vender tilbage.</p>` : html`
-  ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
-  <form class="form-card" method="post" action="/samarbejde" novalidate>
-    <div class="field"><label for="p-org">Forening eller sted</label><input id="p-org" name="organisation" type="text" maxlength="120" required value="${f.organisation}">${err("organisation")}</div>
-    <div class="field"><label for="p-name">Dit navn</label><input id="p-name" name="navn" type="text" maxlength="80" autocomplete="name" required value="${f.contactName}">${err("contactName")}</div>
-    <div class="field"><label for="p-email">E-mail</label><input id="p-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${f.email}">${err("email")}</div>
-    <div class="field"><label for="p-web">Hjemmeside <span class="meta-muted">(valgfrit)</span></label><input id="p-web" name="hjemmeside" type="url" maxlength="200" value="${f.website}">${err("website")}</div>
-    <div class="field"><label for="p-msg">Besked <span class="meta-muted">(valgfrit)</span></label><textarea id="p-msg" name="besked" rows="4" maxlength="2000">${f.message}</textarea>${err("message")}</div>
-    <div class="hp" aria-hidden="true"><label>Lad dette felt stå tomt <input name="website_url" type="text" tabindex="-1" autocomplete="off"></label></div>
-    <div class="form-actions"><button type="submit">Send</button></div>
-    <p class="small meta-muted">Vi gemmer kun det, I skriver her, for at kunne svare jer.</p>
-  </form>`}
+  ${contactFormBlock(ctx, { form: emptyContact("arrangoer"), now: state.now })}
 </div>`;
-  return { status: state.status ?? 200, ...(state.sent || state.errors ? { headers: { "cache-control": "no-store" } } : {}), body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Vil I have jeres events med på Flokken? Kontakt os – og hør om mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: "For foreninger og kultursteder – Flokken", description: "Vil I have jeres arrangementer med på Flokken? Skriv til os – og hør om mulighed for radioomtale.", canonical: "/samarbejde", breadcrumbs: crumbs }, body) };
 }

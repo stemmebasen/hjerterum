@@ -286,18 +286,23 @@ describe("the flock's chat", () => {
 });
 
 describe("partners", () => {
-  it("explains the model and stores an inquiry, readable only with the token", async () => {
+  it("explains the model and has the contact form, set to organisers", async () => {
     const page = await call("/samarbejde");
-    expect(page.body).toContain("kontakt os");
+    expect(page.body).toContain("skriv til os");
     expect(page.body).not.toMatch(/rabat|billetfordel/i);
     expect(page.body).toContain("radioomtale");
-    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej" } });
+    expect(page.body).toContain('action="/kontakt"');
+    expect(page.body).toContain('<option value="arrangoer" selected>');
+    expect(page.body).toContain("kontakt@socialklubben.dk");
+    // An older copy of the page posts to /samarbejde: it is taken as a message from an organiser.
+    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej", besked: "Hej" } });
     expect(bad.status).toBe(400);
-    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej" } });
-    expect(ok.headers.get("location")).toBe("/samarbejde?besked=tak#kontakt");
+    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej", t: String(NOW - 60_000) }, headers: { "cf-connecting-ip": "10.0.0.1" } });
+    expect(ok.headers.get("location")).toBe("/kontakt?besked=tak#formular");
+    expect((await call("/api/kontakt")).status).toBe(401);
+    const list = await call("/api/kontakt", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
+    expect(JSON.parse(list.body)[0]).toMatchObject({ topic: "arrangoer", organisation: "Musikhuset", email: "sofie@example.dk", mail: "off" });
     expect((await call("/api/samarbejde")).status).toBe(401);
-    const list = await call("/api/samarbejde", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
-    expect(JSON.parse(list.body)[0]).toMatchObject({ organisation: "Musikhuset", email: "sofie@example.dk" });
   });
 
   it("shows an offer only when the organiser has confirmed it", () => {
