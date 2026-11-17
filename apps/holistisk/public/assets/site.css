@@ -508,6 +508,11 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .mission .mission-aims { margin-top: .8em; font-size: 1rem; }
 .mission .mission-en { margin-top: .8em; font-size: .95rem; font-style: italic; opacity: .85; }
 .aims-en { font-style: italic; }
+.founder { display: flow-root; margin-top: 8px; }
+.founder-photo { margin: 4px auto 20px; max-width: 340px; }
+.founder-photo img { display: block; width: 100%; height: auto; border-radius: 18px; }
+.founder-photo figcaption { margin-top: 8px; font-size: .92rem; color: var(--ink-2); text-align: center; }
+@media (min-width: 700px) { .founder-photo { float: right; width: 280px; margin: 6px 0 16px 28px; } }
 .values dt { font-weight: 700; margin-top: .8em; }
 .values dd { margin: .2em 0 0; }
 /* A member's own words: a paper card with a big berry quote mark, the punchline under the yellow marker. */
