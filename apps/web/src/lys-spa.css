@@ -1170,3 +1170,13 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .event-days { display: grid; gap: 6px; }
 .event-days select { width: auto; max-width: 100%; }
 .event-days small { color: var(--lys-muted); font-size: 13px; line-height: 1.45; }
+/* Joining here (join-membership.tsx). */
+.join-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; }
+.join-plan { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--lys-line); border-radius: 14px; cursor: pointer; }
+.join-plan.is-on { border-color: var(--lys-ink); box-shadow: 0 0 0 1px var(--lys-ink); }
+.join-plan input { position: absolute; opacity: 0; pointer-events: none; }
+.join-plan span { font-size: 14px; } .join-plan small { color: var(--lys-muted); font-size: 12.5px; line-height: 1.4; }
+.join-interval { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 6px 0; }
+.join-interval label, .join-terms { display: inline-flex; gap: 8px; align-items: flex-start; font-weight: 500; }
+.join-interval input, .join-terms input { width: auto; margin: 3px 0 0; }
+.join-terms { margin: 12px 0; } .join-trial { color: var(--lys-muted); }

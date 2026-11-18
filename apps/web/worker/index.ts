@@ -3,6 +3,7 @@ import { authenticateBearer, type AuthenticatedUser } from "./auth.js";
 import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
 import { notifyOrganiser, readSignupSettings, saveSignupSettings, signupSettingsByBooking } from "./event-signup-mail.js";
 import { CURRENT_SITE } from "./site-knowledge.js";
+import { sendWelcome } from "./member-welcome.js";
 import { queueContact } from "./mailchimp-sync.js";
 import { isPartnerEvent } from "../partner-events.js";
 import {
@@ -865,6 +866,7 @@ async function memberWebhook(request: Request, env: Env): Promise<Response> {
       env.STRIPE_MEMBER_WEBHOOK_SECRET
     );
     const result = await processMemberStripeEvent(env.DB, event);
+    if (result.welcome) await sendWelcome(env, fetch, result.welcome, CURRENT_SITE).catch(error => console.warn("welcome_mail_failed", error instanceof Error ? error.message : error));
     return json({ received: true, duplicate: result.duplicate });
   } catch (error) {
     const code = error instanceof Error ? error.message : "member_webhook_failed";
