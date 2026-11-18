@@ -222,11 +222,11 @@ export async function gather(db: D1Database, eventId: string, now: number): Prom
 // ————————————————————————————————————————— The list
 
 const when = (e: Pick<EventRow, "starts_at" | "ends_at" | "all_day">, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
-/** "1 interesseret", "4 interesserede", plus a flock with room; nothing when nobody is yet (Jake 2026-11-11: "Ingen
- * endnu" made the list look empty). */
+/** "Andre har vist interesse", plus a flock with room; nothing when nobody is yet (Jake 2026-11-11: "Ingen endnu" made
+ * the list look empty). Never how many (Jake 2026-11-18). */
 export function interestLine(n: number, e: Pick<EventRow, "flock_fill">): string {
   const room = flockRoom(e);
-  const people = n === 0 ? "" : `${n} ${n === 1 ? "interesseret" : "interesserede"}`;
+  const people = n === 0 ? "" : "Andre har vist interesse";
   const flock = room ? `flok med ${room.members} af ${room.size}` : "";
   return capitalize([people, flock].filter(Boolean).join(" · "));
 }
@@ -269,7 +269,7 @@ export async function kickoffJson(db: D1Database, regions: string[], member: { i
     member: !!member, ready, membershipLine: membershipLine(now), inFlock, onList: interests.some(i => i.status !== "declined" && i.status !== "expired"),
     events: list.map(({ event: e, interested, mine }) => ({
       slug: e.slug, title: e.title, when: when(e, now), place: [placeLine(e), priceLabel(e)].filter(Boolean).join(" · "),
-      image: imageOf(e), blurb: blurb(e), groups: groupsOf(e.categories), interested: Math.max(0, interested - (mine ? 1 : 0)), line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
+      image: imageOf(e), blurb: blurb(e), groups: groupsOf(e.categories), others: interested - (mine ? 1 : 0) > 0, line: interestLine(Math.max(0, interested - (mine ? 1 : 0)), e), mine, url: eventPath(e)
     }))
   };
 }
@@ -336,7 +336,7 @@ export function interestsSection(interests: InterestRow[], now: number): SafeHtm
     }
     if (i.status === "waiting" && !tooLate) {
       return html`<li class="flock-card">${head}
-        <p class="interest-state">${i.others ? `${i.others} ${i.others === 1 ? "anden" : "andre"} er interesseret.` : "Du er den første."} Vi samler en flok, når I er ${GATHER_AT}, og giver dig besked.</p>
+        <p class="interest-state">${i.others ? "Andre har vist interesse. " : ""}Vi samler en flok, når I er ${GATHER_AT}, og giver dig besked.</p>
         <form method="post" action="${base(i)}/fjern"><button type="submit" class="button-link">Fjern fra listen</button></form></li>`;
     }
     return html`<li class="flock-card is-past">${head}<p class="interest-state meta-muted">${i.status === "expired" ? "Du nåede ikke at svare, så pladsen gik videre." : "Det blev ikke til en flok denne gang."} <a href="${KICKOFF_PATH}">Find et andet arrangement</a></p></li>`;
