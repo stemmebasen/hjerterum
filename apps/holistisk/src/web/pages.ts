@@ -661,20 +661,6 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   </header>
   <h2 id="saadan">Sådan virker det</h2>
   <p>Find et arrangement i kalenderen, og tryk "Jeg vil gerne med!". Når nok vil med til det samme, samler vi jer i en lille flok. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Du køber selv billet hos arrangøren, og det er frivilligt fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
-  <section class="founder" aria-labelledby="jacob">
-  <h2 id="jacob">Hvem står bag?</h2>
-  <figure class="founder-photo">
-    <img src="/assets/jacob-hauge-480.jpg" srcset="/assets/jacob-hauge-480.jpg 480w, /assets/jacob-hauge-900.jpg 900w" sizes="(min-width: 700px) 280px, 82vw" width="480" height="588" alt="Jacob Hauge, der har skabt Flokken, sidder ved et cafébord bag et vindue om aftenen med et tændt stearinlys foran sig og smiler let." loading="eager" decoding="async">
-    <figcaption>Jacob Hauge, der har skabt Flokken</figcaption>
-  </figure>
-  <p>Flokken er skabt af Jacob Hauge ud fra en dyb og oprigtig passion for at bringe mennesker sammen, skabe meningsfulde fællesskaber og gøre op med den ensomhed og sociale afstand, som alt for mange mennesker oplever i deres hverdag.</p>
-  <p>Visionen er enkel, men betydningsfuld: Flere mennesker skal have mulighed for at leve et rigere socialliv, opleve nye fællesskaber og få adgang til de kulturelle oplevelser, der gør en by levende.</p>
-  <p>Flokken bygger på en grundlæggende erkendelse af, at mange mennesker længes efter mere. Mere nærvær, flere relationer, nye bekendtskaber og et stærkere social- og kulturliv. Ikke nødvendigvis fordi de mangler lysten til at opsøge det, men fordi det kan være svært at tage det første skridt eller finde de rette mennesker at gøre det sammen med.</p>
-  <p>Derfor handler Flokken om at skabe rammerne for, at mennesker kan mødes på tværs af alder, baggrund og interesser. Et inkluderende fællesskab, hvor man kan komme, som man er, møde nye mennesker og blive en del af noget større.</p>
-  <p>Men visionen rækker også ud over det enkelte menneske. Flokken ønsker aktivt at støtte byens lokale venues, kultursteder og spillesteder. Særligt de mindre steder og kulturelle initiativer, som har svært ved at tiltrække publikum, men som spiller en vigtig rolle for byens identitet, mangfoldighed og levende kulturliv.</p>
-  <p>For Jacob Hauge er Flokken derfor ikke bare et spørgsmål om arrangementer og oplevelser. Det er hjerteblod. Det handler om mennesker, relationer og om at skabe en by, hvor flere føler sig forbundet med hinanden og med det sted, de bor.</p>
-  <p>Flokken er grundlæggende skabt ud fra troen på, at vi får et rigere liv, når vi oplever mere sammen.</p>
-  </section>
   <h2 id="formaal">Vores formål</h2>
   <p>Kort sagt har Flokken to formål, og de vejer lige tungt:</p>
   <ol class="aims">
@@ -701,6 +687,20 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
   </details>
   <h2 id="arrangoerer">For arrangører</h2>
   <p>Vil I samarbejde med Flokken – eller have jeres arrangementer med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres arrangementer, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres arrangementer.</p>
+  <section class="founder" aria-labelledby="jacob">
+  <h2 id="jacob">Hvem står bag?</h2>
+  <figure class="founder-photo">
+    <img src="/assets/jacob-hauge-480.jpg" srcset="/assets/jacob-hauge-480.jpg 480w, /assets/jacob-hauge-900.jpg 900w" sizes="(min-width: 700px) 280px, 82vw" width="480" height="588" alt="Jacob Hauge, der har skabt Flokken, sidder ved et cafébord bag et vindue om aftenen med et tændt stearinlys foran sig og smiler let." loading="lazy" decoding="async">
+    <figcaption>Jacob Hauge, der har skabt Flokken</figcaption>
+  </figure>
+  <p>Flokken er skabt af Jacob Hauge ud fra en dyb og oprigtig passion for at bringe mennesker sammen, skabe meningsfulde fællesskaber og gøre op med den ensomhed og sociale afstand, som alt for mange mennesker oplever i deres hverdag.</p>
+  <p>Visionen er enkel, men betydningsfuld: Flere mennesker skal have mulighed for at leve et rigere socialliv, opleve nye fællesskaber og få adgang til de kulturelle oplevelser, der gør en by levende.</p>
+  <p>Flokken bygger på en grundlæggende erkendelse af, at mange mennesker længes efter mere. Mere nærvær, flere relationer, nye bekendtskaber og et stærkere social- og kulturliv. Ikke nødvendigvis fordi de mangler lysten til at opsøge det, men fordi det kan være svært at tage det første skridt eller finde de rette mennesker at gøre det sammen med.</p>
+  <p>Derfor handler Flokken om at skabe rammerne for, at mennesker kan mødes på tværs af alder, baggrund og interesser. Et inkluderende fællesskab, hvor man kan komme, som man er, møde nye mennesker og blive en del af noget større.</p>
+  <p>Men visionen rækker også ud over det enkelte menneske. Flokken ønsker aktivt at støtte byens lokale venues, kultursteder og spillesteder. Særligt de mindre steder og kulturelle initiativer, som har svært ved at tiltrække publikum, men som spiller en vigtig rolle for byens identitet, mangfoldighed og levende kulturliv.</p>
+  <p>For Jacob Hauge er Flokken derfor ikke bare et spørgsmål om arrangementer og oplevelser. Det er hjerteblod. Det handler om mennesker, relationer og om at skabe en by, hvor flere føler sig forbundet med hinanden og med det sted, de bor.</p>
+  <p>Flokken er grundlæggende skabt ud fra troen på, at vi får et rigere liv, når vi oplever mere sammen.</p>
+  </section>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Flokken er en social forening i Aarhus: vi hjælper folk ud og møde nye mennesker – og byens mindre arrangører med at blive set. Læs om vores formål og værdier.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }
