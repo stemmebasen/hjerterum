@@ -18,6 +18,8 @@ export type CreateRoomBookingInput = {
   cleanupMinutes?: number;
   /** The calculator's booking type: standard (package price), reduced (member discount) or free rent. */
   bookingType?: RoomBookingType;
+  /** Douglas (18 Nov 2026), for the board: "book a whole weekend" - days in a row with the same times (1-4). */
+  days?: number;
   /** Set by the server, never from the request: a fixed teacher's or the board's event needs no approval. */
   preApproved?: boolean;
   memberName?: string;
@@ -47,6 +49,7 @@ export type RoomBookingRow = {
   non_member_price_minor?: number | null;
   setup_minutes?: number;
   cleanup_minutes?: number;
+  days?: number;
   booking_type?: RoomBookingType;
   review_status?: ReviewStatus;
   review_note?: string | null;
@@ -148,8 +151,36 @@ const HALF_HOUR_MS = 30 * 60_000;
 export function pricedWindow(fromMs: number, toMs: number) {
   return { fromMs: Math.floor(fromMs / HALF_HOUR_MS) * HALF_HOUR_MS, toMs: Math.ceil(toMs / HALF_HOUR_MS) * HALF_HOUR_MS };
 }
+export const MAX_DAYS = 4;
+const COPENHAGEN_OFFSET = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Copenhagen", timeZoneName: "shortOffset" });
+const offsetMinutes = (ms: number) => { const m = /GMT([+-]\d+)(?::(\d+))?/.exec(COPENHAGEN_OFFSET.format(ms)); return m ? Number(m[1]) * 60 + Math.sign(Number(m[1])) * Number(m[2] ?? 0) : 0; };
+/** The same clock time `n` days later in Denmark (over a change to or from summer time too). */
+export const laterDay = (ms: number, n: number) => { const t = ms + n * 86_400_000; return t - (offsetMinutes(t) - offsetMinutes(ms)) * 60_000; };
+/** Each day of a booking over several days, as its own start and end (the first day's times, day after day). */
+export function dayWindows(startMs: number, firstEndMs: number, days: number): Array<{ startMs: number; endMs: number }> {
+  return Array.from({ length: Math.max(1, days) }, (_, i) => ({ startMs: laterDay(startMs, i), endMs: laterDay(firstEndMs, i) }));
+}
+
 export function roomWindow(startMs: number, endMs: number, input: { setupMinutes?: number; cleanupMinutes?: number }) {
   return { fromMs: startMs - (input.setupMinutes ?? 0) * 60_000, toMs: endMs + (input.cleanupMinutes ?? 0) * 60_000 };
+}
+
+/** Every day of the booking must find the room free - of the house's bookings (but the one being changed) and of the calendar's events. */
+async function assertRoomFree(db: D1Database, windows: Array<{ startMs: number; endMs: number }>, input: { setupMinutes?: number; cleanupMinutes?: number }, exceptId: number | null): Promise<void> {
+  for (const day of windows) {
+    const { fromMs, toMs } = roomWindow(day.startMs, day.endMs, input);
+    const conflict = await db.prepare(`SELECT id FROM room_bookings WHERE status = 'scheduled' AND id <> ? AND ${WINDOW_START} < ? AND ${WINDOW_END} > ? LIMIT 1`)
+      .bind(exceptId ?? -1, toMs, fromMs).first<{ id: number }>();
+    if (conflict || await hasExternalEventConflict(fromMs, toMs)) throw new Error("booking_conflict");
+  }
+}
+
+/** The rent of every day, added up. */
+function feeForDays(windows: Array<{ startMs: number; endMs: number }>, input: { setupMinutes?: number; cleanupMinutes?: number; bookingType?: RoomBookingType }): number {
+  return windows.reduce((sum, day) => {
+    const { fromMs, toMs } = roomWindow(day.startMs, day.endMs, input);
+    return sum + calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
+  }, 0);
 }
 
 export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBookingInput {
@@ -194,6 +225,8 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     return n;
   };
   const setupMinutes = buffer(body.setupMinutes, "setup_minutes"), cleanupMinutes = buffer(body.cleanupMinutes, "cleanup_minutes");
+  const days = body.days === undefined || body.days === null || body.days === "" ? 1 : Number(body.days);
+  if (!Number.isInteger(days) || days < 1 || days > MAX_DAYS) throw new Error("invalid_days");
   const bookingType = body.bookingType === undefined ? "standard" : body.bookingType;
   if (!BOOKING_TYPES.includes(bookingType as RoomBookingType)) throw new Error("invalid_booking_type");
 
@@ -209,6 +242,7 @@ export function normalizeCreateRoomBookingInput(value: unknown): CreateRoomBooki
     nonMemberPriceMinor,
     setupMinutes,
     cleanupMinutes,
+    days,
     bookingType: bookingType as RoomBookingType,
     ...(typeof body.memberName === "string" && body.memberName.trim()
       ? { memberName: body.memberName.trim() }
@@ -235,7 +269,7 @@ export async function listOwnedRoomBookings(
   const result = await db
     .prepare(
       `SELECT id, clerk_user_id, teacher_name, teacher_email, title, description,
-              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, non_member_price_minor, setup_minutes, cleanup_minutes, booking_type, review_status, review_note, status, cancelled_at_ms
+              starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor, non_member_price_minor, setup_minutes, cleanup_minutes, days, booking_type, review_status, review_note, status, cancelled_at_ms
        FROM room_bookings
        WHERE clerk_user_id = ? AND status = 'scheduled'
        ORDER BY starts_at_ms ASC`
@@ -254,7 +288,7 @@ export async function listMemberCalendarBookings(
     `SELECT b.id, b.clerk_user_id, b.teacher_name, b.teacher_email, b.title, b.description,
             b.starts_at_ms, b.ends_at_ms, b.max_attendees, b.fee_minor, b.ticket_price_minor, b.booking_type, b.status,
             -- Reported (Gitta): her event waiting for the board said "Godkendt og offentligt" - the review status was not read, so it counted as approved.
-            b.non_member_price_minor, b.setup_minutes, b.cleanup_minutes, b.review_status, b.review_note,
+            b.non_member_price_minor, b.setup_minutes, b.cleanup_minutes, b.days, b.review_status, b.review_note,
             b.cancelled_at_ms,
             SUM(CASE WHEN a.registration_status = 'confirmed' THEN a.seats ELSE 0 END) AS attendee_count,
             MAX(CASE WHEN a.clerk_user_id = ? AND a.registration_status = 'confirmed' THEN 1 ELSE 0 END) AS is_attending,
@@ -294,23 +328,12 @@ export async function createRoomBooking(
   input: CreateRoomBookingInput
 ): Promise<CreatedRoomBooking> {
   const startMs = Date.parse(input.startsAt);
-  const endMs = Date.parse(input.endsAt);
-  const { fromMs, toMs } = roomWindow(startMs, endMs, input);
-
-  const conflict = await db
-    .prepare(
-      `SELECT id FROM room_bookings
-       WHERE status = 'scheduled' AND ${WINDOW_START} < ? AND ${WINDOW_END} > ?
-       LIMIT 1`
-    )
-    .bind(toMs, fromMs)
-    .first<{ id: number }>();
-  if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
-    throw new Error("booking_conflict");
-  }
+  const windows = dayWindows(startMs, Date.parse(input.endsAt), input.days ?? 1);
+  const endMs = windows[windows.length - 1]!.endMs;
+  await assertRoomFree(db, windows, input, null);
   if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, null)) throw new Error("free_rent_week_used");
 
-  const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
+  const feeKr = feeForDays(windows, input);
   checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const now = Date.now();
   const insert = await db
@@ -319,8 +342,8 @@ export async function createRoomBooking(
          clerk_user_id, teacher_name, teacher_email, title, description,
          starts_at_ms, ends_at_ms, max_attendees, fee_minor, ticket_price_minor,
          payout_clerk_user_id, created_at_ms, updated_at_ms, booking_type,
-         review_status, reviewed_by, reviewed_at_ms, non_member_price_minor, setup_minutes, cleanup_minutes
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         review_status, reviewed_by, reviewed_at_ms, non_member_price_minor, setup_minutes, cleanup_minutes, days
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       ownerClerkUserId,
@@ -342,7 +365,8 @@ export async function createRoomBooking(
       input.preApproved ? now : null,
       input.nonMemberPriceMinor ?? null,
       input.setupMinutes ?? 0,
-      input.cleanupMinutes ?? 0
+      input.cleanupMinutes ?? 0,
+      windows.length
     )
     .run();
 
@@ -378,20 +402,9 @@ export async function updateOwnedRoomBooking(
   input: CreateRoomBookingInput
 ): Promise<{ feeKr: number }> {
   const startMs = Date.parse(input.startsAt);
-  const endMs = Date.parse(input.endsAt);
-  const { fromMs, toMs } = roomWindow(startMs, endMs, input);
-
-  const conflict = await db
-    .prepare(
-      `SELECT id FROM room_bookings
-       WHERE status = 'scheduled' AND id <> ? AND ${WINDOW_START} < ? AND ${WINDOW_END} > ?
-       LIMIT 1`
-    )
-    .bind(bookingId, toMs, fromMs)
-    .first<{ id: number }>();
-  if (conflict || await hasExternalEventConflict(fromMs, toMs)) {
-    throw new Error("booking_conflict");
-  }
+  const windows = dayWindows(startMs, Date.parse(input.endsAt), input.days ?? 1);
+  const endMs = windows[windows.length - 1]!.endMs;
+  await assertRoomFree(db, windows, input, bookingId);
   if (input.bookingType === "free" && await freeRentUsed(db, ownerClerkUserId, startMs, bookingId)) throw new Error("free_rent_week_used");
 
   const current = await db.prepare(
@@ -407,7 +420,7 @@ export async function updateOwnedRoomBooking(
     if ((registrations?.count ?? 0) > 0) throw new Error("booking_has_registrations");
   }
 
-  const feeKr = calculateFee(pricedWindow(fromMs, toMs).fromMs, pricedWindow(fromMs, toMs).toMs, input.bookingType);
+  const feeKr = feeForDays(windows, input);
   checkNonMemberPrice(ownerClerkUserId, startMs, input);
   const result = await db
     .prepare(
@@ -416,7 +429,7 @@ export async function updateOwnedRoomBooking(
            starts_at_ms = ?, ends_at_ms = ?, max_attendees = ?, fee_minor = ?,
            ticket_price_minor = ?, payout_clerk_user_id = ?, updated_at_ms = ?, booking_type = ?,
            review_status = ?, review_note = NULL, reviewed_by = ?, reviewed_at_ms = ?, non_member_price_minor = ?,
-           setup_minutes = ?, cleanup_minutes = ?
+           setup_minutes = ?, cleanup_minutes = ?, days = ?
        WHERE id = ? AND clerk_user_id = ?`
     )
     .bind(
@@ -439,6 +452,7 @@ export async function updateOwnedRoomBooking(
       input.nonMemberPriceMinor ?? null,
       input.setupMinutes ?? 0,
       input.cleanupMinutes ?? 0,
+      windows.length,
       bookingId,
       ownerClerkUserId
     )

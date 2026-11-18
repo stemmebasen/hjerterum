@@ -189,11 +189,12 @@ export const RENT_TYPES: Array<{ id: RentType; name: string; text: string }> = [
 ];
 
 /** A Plan from an existing booking's start and end (local time), for editing. */
-export function planFromBooking(startsAt: string, endsAt: string, type: RentType, setup = 0, cleanup = 0): Plan {
+export function planFromBooking(startsAt: string, endsAt: string, type: RentType, setup = 0, cleanup = 0, days = 1): Plan {
   const s = new Date(startsAt), e = new Date(endsAt);
   const key = todayKey(s);
   const endKey = todayKey(e);
-  const end = endKey > key ? "24:00" : clockOf(e.getHours() * 60 + e.getMinutes());
+  // Over several days (a weekend course) the last day ends at the same time as each day does.
+  const end = endKey > key && days <= 1 ? "24:00" : clockOf(e.getHours() * 60 + e.getMinutes());
   return { date: key, start: clockOf(s.getHours() * 60 + s.getMinutes()), end, type, setup, cleanup };
 }
 /** The instants the server wants, from the plan's local date and times. */

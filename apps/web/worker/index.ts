@@ -155,6 +155,7 @@ function roomBookingView(row: RoomBookingRow) {
     ticketPriceKr: row.ticket_price_minor / 100,
     nonMemberPriceKr: row.non_member_price_minor == null ? null : row.non_member_price_minor / 100,
     setupMinutes: row.setup_minutes ?? 0,
+    days: row.days ?? 1,
     cleanupMinutes: row.cleanup_minutes ?? 0,
     bookingType: row.booking_type ?? "standard",
     reviewStatus: row.review_status ?? "approved",

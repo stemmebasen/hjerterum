@@ -12,7 +12,7 @@ import { EventTextHelp } from "./event-text-help";
 import { EventVarietyNote } from "./event-variety-note";
 import { MIN_EVENT_WORDS, wordCount } from "../site/event-text";
 import { AUTO_POSTER, PosterChoice, savePosterChoice, type PosterChoiceValue, type SavedPoster } from "./poster-choice";
-import { planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
+import { longDay, planFromBooking, planInstants, todayKey, DEFAULT_BUFFER, PROBLEM_TEXT, type Plan } from "./event-planner-logic";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { apiFetch, type ClerkBrowser, type ClerkUser } from "./clerk";
 import { MemberNewsletter } from "./member-newsletter";
@@ -78,6 +78,8 @@ type Booking = {
   notifySignups?: boolean;
   confirmationNote?: string | null;
   setupMinutes?: number;
+  /** Days in a row with the same times (a weekend course). */
+  days?: number;
   cleanupMinutes?: number;
   bookingType?: "standard" | "reduced" | "free";
   reviewStatus?: "pending" | "approved" | "needs_board" | "rejected";
@@ -370,6 +372,8 @@ function MemberEvents({
     return () => window.removeEventListener("popstate", back);
   }, []);
   const [plan, setPlan] = useState<Plan>(EMPTY_PLAN);
+  // Douglas (18 Nov 2026), for the board: "I cannot see any way to book a whole weekend" - the same times on days in a row.
+  const [days, setDays] = useState(1);
   const [cover, setCover] = useState<File | null>(null);
   const [extraFiles, setExtraFiles] = useState<File[]>([]);
   // Requested: "Når man opretter event skal man også kunne vælge en af skabelonerne eller alternativt uploade sit eget" (poster-choice.tsx).
@@ -436,7 +440,8 @@ function MemberEvents({
   const active = member?.status === "active" && includesMemberBenefits(member.tier);
 
   useEffect(() => {
-    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard", editing.setupMinutes ?? 0, editing.cleanupMinutes ?? 0)
+    setDays(editing?.days ?? 1);
+    setPlan(editing ? planFromBooking(editing.startsAt, editing.endsAt, editing.bookingType ?? "standard", editing.setupMinutes ?? 0, editing.cleanupMinutes ?? 0, editing.days ?? 1)
       : prefill ? { date: prefill.draft.date, start: prefill.draft.start, end: prefill.draft.end, type: prefill.draft.booking_type, setup: DEFAULT_BUFFER, cleanup: DEFAULT_BUFFER } : EMPTY_PLAN);
     setCover(null);
     setExtraFiles([]);
@@ -510,6 +515,7 @@ function MemberEvents({
             bookingType: plan.type,
             setupMinutes: plan.setup,
             cleanupMinutes: plan.cleanup,
+            days,
             notifySignups: form.get("notifySignups") === "on",
             confirmationNote: String(form.get("confirmationNote") ?? "")
           })
@@ -543,7 +549,7 @@ function MemberEvents({
     } catch (error) {
       const code = error instanceof Error ? error.message : "event_save_failed";
       setMessage(
-        code === "booking_conflict" ? "Tidsrummet er allerede optaget." :
+        code === "booking_conflict" ? (days > 1 ? "Salen er optaget på mindst én af dagene." : "Tidsrummet er allerede optaget.") :
         code === "free_rent_week_used" ? "Du har allerede et event med gratis leje i den uge. Som underviser kan man booke ét gratis event om ugen - vælg en anden uge, eller reduceret pris eller standardpris." :
         code === "payout_onboarding_required" ? "Klargør udbetaling med Stripe, før du opretter et betalt event." :
         code === "payments_not_configured" ? "Betalte events kan ikke oprettes endnu, fordi betalingen ikke er koblet til. Sæt billetprisen til 0 kr., så oprettes eventet som gratis." :
@@ -606,6 +612,12 @@ function MemberEvents({
               <EventTextHelp clerk={clerk} field={descriptionField} title={liveTitle} />
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates} title={liveTitle}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />
+              <div className="event-days">
+                <label>Antal dage<select value={days} onChange={e => setDays(Number(e.target.value))}>
+                  <option value={1}>1 dag</option><option value={2}>2 dage i træk (fx en weekend)</option><option value={3}>3 dage i træk</option><option value={4}>4 dage i træk</option>
+                </select></label>
+                {days > 1 && plan.date && <small>Samme tider hver dag: {Array.from({ length: days }, (_, i) => { const d = new Date(`${plan.date}T12:00:00`); d.setDate(d.getDate() + i); return longDay(todayKey(d)); }).join(", ")}. Lejen regnes for hver dag, og salen skal være ledig alle dagene. Deltagerne tilmelder sig hele forløbet.</small>}
+              </div>
               <EventVarietyNote clerk={clerk} title={liveTitle} description={readDescription} bookingId={editing?.id ?? null}
                 startsAt={plan.date && plan.start ? planInstants(plan).startsAt : null} endsAt={plan.date && plan.start && plan.end ? planInstants(plan).endsAt : null} />
               {/* Reported: "Dette layout er ikke kønt. det kan gøres meget bedre." - the numbers as one calm row of three, each with one short line. */}
