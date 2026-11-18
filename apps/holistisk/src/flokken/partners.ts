@@ -66,7 +66,7 @@ export function partnerPage(ctx: PageContext, state: { now: number }): View {
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <p class="kicker">For foreninger og kultursteder</p>
-    <h1>Få flere med – sammen med Flokken</h1>
+    <h1>Få flere med til jeres arrangementer i Aarhus</h1>
     <p class="standfirst">Flokken hjælper folk i Aarhus med at finde arrangementer og nogen at følges med. Det er lettere at tage af sted, når man ikke skal gå alene – og en flok kan blive til flere besøg hos jer.</p>
   </header>
   <h2>Sådan er modellen tænkt</h2>

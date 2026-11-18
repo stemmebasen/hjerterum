@@ -269,7 +269,7 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
     <div class="field">
       <label for="f-place">Mødested</label>
       <input id="f-place" name="moedested" type="text" maxlength="120" required value="${form.meetingPlace}"${describedBy("meetingPlace")}>
-      <span class="hint">Et offentligt sted, fx foran et kendt sted i byen, ved indgangen eller på en café.</span>
+      <span class="hint">Et offentligt sted, fx foran et kendt sted i Aarhus, ved indgangen eller på en café.</span>
       ${err("meetingPlace")}
     </div>
     <div class="field">
@@ -456,7 +456,7 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
 <div class="wrap narrow prose">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Bliv medlem af Flokken</h1>
+    <h1>Bliv medlem af Flokken i Aarhus</h1>
     <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. <a href="#meld-ind">Meld dig ind her</a>.</p>
   </header>
   ${free
@@ -469,8 +469,8 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
   <ul>
     <li>kan du blive ved med at tage med i flokke, så ofte du vil,</li>
     <li>er du med til at forme foreningen – kom med idéer, ønsker og arrangementer,</li>
-    <li>hjælper du byens mindre spillesteder, teatre og foreninger med at blive set,</li>
-    <li>gør du det lettere for nye i byen at finde en vej ind i fællesskabet.</li>
+    <li>hjælper du Aarhus’ mindre spillesteder, teatre og foreninger med at blive set,</li>
+    <li>gør du det lettere for nye i Aarhus at finde en vej ind i fællesskabet.</li>
   </ul>
   <h2>Kontingent</h2>
   ${free
@@ -514,7 +514,7 @@ export function safetyPage(ctx: PageContext): View {
     <p class="standfirst">En flok er nogle få mennesker, der følges til det samme arrangement. Det skal føles trygt at sige ja.</p>
   </header>
   <h2>Mød altid et offentligt sted</h2>
-  <p>En flok mødes altid udenfor foran et kendt sted i byen og sætter sig gerne på en café i nærheden med en kop kaffe, inden den går til arrangementet. Aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
+  <p>En flok mødes altid udenfor foran et kendt sted i Aarhus og sætter sig gerne på en café i nærheden med en kop kaffe, inden den går til arrangementet. Aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
   <h2>I ved, hvem I skal møde</h2>
   <p>Når du vil være med i en flok, beder vi om dit fornavn, din aldersgruppe og én linje om dig selv, fx “Glæder mig til jazz, er lidt genert i starten”. Et billede er frivilligt. Det hele kan kun ses af dem, der er med i flokken. Andre kan kun se, hvilke aldersgrupper der er med, før de siger ja. Vi beder aldrig om telefonnummer eller adresse, og telefonnumre og e-mails bliver skjult, hvis de står i en præsentation. Din e-mail, hvis du giver den, bruger vi kun til at give dig besked om dine flokke – ingen andre ser den.</p>
   <p>Ved hver person kan der stå <strong>Bekræftet e-mail</strong> (de har logget ind med et link sendt til deres e-mail) og hvor mange gange de har været med i en flok før. Det giver en idé om, hvem der har prøvet det før, og hvem der er ny.</p>
@@ -555,7 +555,7 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Vil du med?</h1>
+    <h1>Vil du med til noget i Aarhus?</h1>
     <p class="standfirst">Sæt kryds ved de arrangementer, du har lyst til at opleve sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig – først dér siger du ja. Find arrangementet i <a href="/kalender">kalenderen</a> og tryk <strong>Jeg vil gerne med!</strong>, eller vælg flere på én gang: <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
   </header>
   ${flocks.length ? html`<section class="section" aria-labelledby="h-open"><div class="section-head"><h2 id="h-open">Flokke med plads lige nu</h2></div>${flockCards(flocks, ctx.now)}</section>` : ""}

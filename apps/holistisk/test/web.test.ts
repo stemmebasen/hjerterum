@@ -66,12 +66,12 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities and the city's stages and houses", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain('<h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
+    expect(body).toContain('<h1 class="hero-title">Aarhus er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
     expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ arrangement(?:er)? – dag for dag<\/span>/);
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ arrangement(?:er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg vil gerne med!(&quot;|") Så samler vi en lille flok, du kan følges med\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen\. Find noget blandt \d+ arrangement(?:er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg vil gerne med!(&quot;|") Så samler vi en lille flok, du kan følges med\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
@@ -110,7 +110,7 @@ describe("front page", () => {
     expect(body).not.toContain('href="/klarsyn"');
     expect(body).not.toContain('href="/breathwork"');
     expect(body).not.toContain("Karmapa");
-    expect(body).toContain('<h2 id="h-venues">Byens scener, huse og foreninger</h2>');
+    expect(body).toContain('<h2 id="h-venues">Aarhus’ scener, huse og foreninger</h2>');
     expect(body).toContain('href="/arrangoerer/voxhall"');
     expect(body).toContain('href="/arrangoerer/dokk1"');
     expect(body).not.toContain('href="/arrangoerer/lysets-hus"');
