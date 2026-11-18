@@ -131,6 +131,14 @@ strong { font-weight: 800; }
 .masthead-tools { display: flex; align-items: center; gap: 8px; }
 .my-flocks { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: var(--radius-s); background: var(--green); color: var(--butter); font-weight: 800; font-size: .93rem; white-space: nowrap; box-shadow: 0 3px 0 #0c1c19; }
 .my-flocks:hover, .my-flocks[aria-current="page"] { background: var(--green-2); color: #fff; text-decoration: none; }
+/* The other language (EN on the Danish pages, DA on the English ones). */
+.lang-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 6px; border-radius: var(--radius-s); border: 2px solid var(--ink); color: var(--ink); font-weight: 800; font-size: .82rem; letter-spacing: .04em; }
+.lang-switch:hover { background: var(--butter-soft); text-decoration: none; }
+/* The English pages need no "In English" summaries of their own text. */
+/* The English menu words are longer: "Free and cheap" stays in the menu only, so the row never runs over. */
+html[lang="en"] .nav li:nth-child(4) { display: none; }
+html[lang="en"] .nav a { padding: 8px 10px; }
+html[lang="en"] .mission-en, html[lang="en"] .aims-en, html[lang="en"] section.guide-text[lang="en"] { display: none; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--radius-s); color: var(--ink); }
 .icon-button:hover { background: var(--paper-2); }
 .menu { position: relative; }
@@ -162,6 +170,7 @@ strong { font-weight: 800; }
   .masthead-tools { gap: 4px; }
   .masthead-tools .icon-button { display: none; }
   .my-flocks { padding: 0 10px; }
+  .lang-switch { min-width: 34px; height: 36px; padding: 0 4px; font-size: .76rem; }
 }
 @media (max-width: 360px) { .wordmark { font-size: 1.08rem; } .my-flocks { padding: 0 8px; font-size: .8rem; } }
 

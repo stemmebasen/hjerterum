@@ -3,6 +3,7 @@ import { isoWithOffset } from "../time.js";
 import { escapeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { eventPath } from "./components.js";
+import { englishPath } from "../i18n/paths.js";
 
 /** schema.org Event for an event page (https://schema.org/Event, as search engines read it). */
 export function eventJsonLd(e: EventRow, origin: string, fallbackImage?: string): Record<string, unknown> {
@@ -47,13 +48,21 @@ export function eventJsonLd(e: EventRow, origin: string, fallbackImage?: string)
   };
 }
 
+/** Every page twice, in Danish and in English (/en/...), each naming the other as its alternate (hreflang), as
+ * Google asks for sites in more than one language. */
 export function sitemapXml(origin: string, pages: string[], events: Array<{ slug: string; updated_at: number }>): string {
-  const urls: Array<{ loc: string; lastmod?: string }> = [
-    ...pages.map(p => ({ loc: origin + p })),
-    ...events.map(e => ({ loc: `${origin}${eventPath(e)}`, lastmod: new Date(e.updated_at).toISOString().slice(0, 10) }))
+  const paths: Array<{ path: string; lastmod?: string }> = [
+    ...pages.map(p => ({ path: p })),
+    ...events.map(e => ({ path: eventPath(e), lastmod: new Date(e.updated_at).toISOString().slice(0, 10) }))
   ];
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
-    .map(u => `  <url><loc>${escapeHtml(u.loc)}</loc>${u.lastmod ? `<lastmod>${u.lastmod}</lastmod>` : ""}</url>`).join("\n")}\n</urlset>\n`;
+  const url = (loc: string, da: string, en: string, lastmod?: string) => `  <url><loc>${escapeHtml(loc)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}`
+    + `<xhtml:link rel="alternate" hreflang="da" href="${escapeHtml(da)}"/><xhtml:link rel="alternate" hreflang="en" href="${escapeHtml(en)}"/>`
+    + `<xhtml:link rel="alternate" hreflang="x-default" href="${escapeHtml(da)}"/></url>`;
+  const lines = paths.flatMap(({ path, lastmod }) => {
+    const da = origin + path, en = origin + englishPath(path);
+    return [url(da, da, en, lastmod), url(en, da, en, lastmod)];
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${lines.join("\n")}\n</urlset>\n`;
 }
 
 /** Only production may be indexed; staging and local answer "stay away". */
@@ -61,11 +70,14 @@ export function robotsTxt(origin: string, production: boolean): string {
   if (!production) return "User-agent: *\nDisallow: /\n";
   // Private pages (log-in, profile, own flocks, forms) and the endless filter combinations are kept out of the crawl:
   // they are noindex anyway, and every crawled page costs database reads. Plain pagination (?side=) stays open.
+  const hidden = ["/log-ind", "/log-ud", "/profil", "/flokke/", "/interesser/", "/kom-godt-i-gang", "/events/*/opret-flok", "/events/*/interesse", "/kalender?", "/kort?"];
   return [
     "User-agent: *",
     "Allow: /",
-    ...["/api/", "/log-ind", "/log-ud", "/profil", "/flokke/", "/interesser/", "/til-dig/", "/kom-godt-i-gang", "/events/*/opret-flok", "/events/*/interesse", "/*.ics$", "/kalender?", "/kort?"].map(p => `Disallow: ${p}`),
+    // The same pages in English (/en/...) are kept out the same way.
+    ...["/api/", "/til-dig/", "/*.ics$", ...hidden, ...hidden.map(englishPath)].map(p => `Disallow: ${p}`),
     "Allow: /kalender?side=",
+    `Allow: ${englishPath("/kalender")}?side=`,
     "",
     `Sitemap: ${origin}/sitemap.xml`,
     ""

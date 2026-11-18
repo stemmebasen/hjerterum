@@ -370,7 +370,7 @@ describe("served under www.jacobhauge.com", () => {
     const home = await call("/", { headers: sk });
     expect(home.body).toContain("<span>Socialklubben</span>");
     expect(home.body).toContain("Sådan virker Socialklubben");
-    expect(home.body).toContain("<title>Socialklubben – find arrangementer");
+    expect(home.body).toContain("<title>Socialklubben – arrangementer og events i Aarhus");
     expect(home.body).toContain('content="https://www.jacobhauge.com/socialklubben/assets/og-socialklubben.jpg"');
     expect(home.body).toContain('href="/socialklubben/find-en-flok"');
     expect(home.body).not.toContain("Flokken");

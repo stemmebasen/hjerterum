@@ -2,6 +2,10 @@
 (function () {
   "use strict";
 
+  // Socialklubben in English (/en/): the few texts this file writes itself.
+  var EN = document.documentElement.lang === "en" ? {"Finder din placering …": "Finding your location …", "Vi dækker ikke dit område endnu – se alle områder ovenfor.": "We don't cover your area yet – see all areas above.", "Vi kunne ikke finde din placering. Vælg et område ovenfor.": "We couldn't find your location. Choose an area above.", "Vil du melde beskeden? Den bliver skjult for dig, og vi kigger på den.": "Do you want to report the message? It will be hidden for you, and we'll look at it.", "Meldt.": "Reported.", " (dig)": " (you)", "Meld besked": "Report message", "Chatten er lukket. Den lukker en uge efter arrangementet.": "The chat is closed. It closes a week after the event.", "Beskeden blev ikke sendt. Prøv igen.": "The message wasn't sent. Please try again.", "Sæt flueben, hvis dit billede må ses af andre i dine flokke. Ellers gemmer vi det ikke.": "Tick the box if others in your groups may see your photo. Otherwise we won't save it.", "Billedet er for stort (højst 250 KB), så det er taget af igen. Vælg et mindre billede, eller gem uden billede.": "The photo is too big (at most 250 KB), so it has been removed again. Choose a smaller photo, or save without one.", "Åbn arrangementet": "Open the event", "Luk": "Close", "Lad os komme godt i gang": "Let's get started", "Sæt kryds ved de oplevelser, du kunne tænke dig. ": "Tick the experiences you'd like. ", "Det er helt uforpligtende": "There's no commitment at all", "Se mere om arrangementet": "See more about the event", "Skjul": "Hide", "Om arrangementet": "About the event", "Ikke nu": "Not now", "Vis interesse": "Show interest", "Du kan altid rette din liste under Mine flokke.": "You can always change your list under My groups.", "Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den.": "Afterwards you tell us briefly about yourself and give us your e-mail, so we can let you know. Nobody else sees it.", "Alle": "All", "Underholdning": "Nights out", "Krea": "Creative", "Oplysning": "Learning", "Fordybelse": "Calm and reflection", "Vis kun": "Show only", "Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.": "You're not committing to anything. You only say yes once the group is gathered.", " mere": " more", "Vis ": "Show "} : null;
+  function L(text) { return (EN && EN[text]) || text; }
+
   // Filters: submit when a choice changes (the form also has a normal submit button).
   document.querySelectorAll("form[data-autosubmit]").forEach(function (form) {
     form.addEventListener("change", function (event) {
@@ -43,7 +47,7 @@
     var status = document.querySelector("[data-near-status]");
     near.addEventListener("click", function () {
       var areas = JSON.parse(near.getAttribute("data-areas") || "[]");
-      if (status) status.textContent = "Finder din placering …";
+      if (status) status.textContent = L("Finder din placering …");
       navigator.geolocation.getCurrentPosition(function (pos) {
         var best = null, bestKm = Infinity;
         areas.forEach(function (a) {
@@ -53,9 +57,9 @@
           if (km < bestKm) { bestKm = km; best = a; }
         });
         if (best && bestKm < 80) location.href = (document.documentElement.getAttribute("data-base") || "/") + best.slug;
-        else if (status) status.textContent = "Vi dækker ikke dit område endnu – se alle områder ovenfor.";
+        else if (status) status.textContent = L("Vi dækker ikke dit område endnu – se alle områder ovenfor.");
       }, function () {
-        if (status) status.textContent = "Vi kunne ikke finde din placering. Vælg et område ovenfor.";
+        if (status) status.textContent = L("Vi kunne ikke finde din placering. Vælg et område ovenfor.");
       }, { maximumAge: 600000, timeout: 10000 });
     });
   }
@@ -89,12 +93,12 @@
     var confirmReport = function (form) {
       form.addEventListener("submit", function (event) {
         event.preventDefault();
-        if (!window.confirm("Vil du melde beskeden? Den bliver skjult for dig, og vi kigger på den.")) return;
+        if (!window.confirm(L("Vil du melde beskeden? Den bliver skjult for dig, og vi kigger på den."))) return;
         fetch(form.getAttribute("action"), { method: "POST", headers: asJson, credentials: "same-origin" })
           .then(function (r) { return r.json(); })
           .then(function (data) {
             var li = form.closest("li");
-            if (li) { li.textContent = ""; var p = document.createElement("p"); p.className = "chat-meta meta-muted"; p.textContent = data.text || "Meldt."; li.appendChild(p); }
+            if (li) { li.textContent = ""; var p = document.createElement("p"); p.className = "chat-meta meta-muted"; p.textContent = data.text || L("Meldt."); li.appendChild(p); }
           })
           .catch(function () { form.submit(); });
       });
@@ -108,7 +112,7 @@
       li.setAttribute("data-at", String(m.at));
       var meta = document.createElement("p"); meta.className = "chat-meta";
       var name = document.createElement("strong"); name.textContent = m.name; meta.appendChild(name);
-      if (m.mine) { var you = document.createElement("span"); you.className = "meta-muted"; you.textContent = " (dig)"; meta.appendChild(you); }
+      if (m.mine) { var you = document.createElement("span"); you.className = "meta-muted"; you.textContent = L(" (dig)"); meta.appendChild(you); }
       var time = document.createElement("time"); time.textContent = m.time; time.setAttribute("datetime", new Date(m.at).toISOString());
       meta.appendChild(document.createTextNode(" ")); meta.appendChild(time);
       var body = document.createElement("p"); body.className = "chat-body"; body.textContent = m.body;
@@ -116,7 +120,7 @@
       if (!m.mine && endpoint) {
         var form = document.createElement("form");
         form.method = "post"; form.className = "chat-report"; form.setAttribute("action", endpoint + "/" + m.id + "/meld");
-        var button = document.createElement("button"); button.type = "submit"; button.className = "button-link"; button.textContent = "Meld besked";
+        var button = document.createElement("button"); button.type = "submit"; button.className = "button-link"; button.textContent = L("Meld besked");
         form.appendChild(button); li.appendChild(form); confirmReport(form);
       }
       chatList.appendChild(li);
@@ -131,7 +135,7 @@
     var closeChat = function () {
       stopped = true; clearTimeout(timer);
       if (chatForm) {
-        var note = document.createElement("p"); note.className = "notice"; note.textContent = "Chatten er lukket. Den lukker en uge efter arrangementet.";
+        var note = document.createElement("p"); note.className = "notice"; note.textContent = L("Chatten er lukket. Den lukker en uge efter arrangementet.");
         chatForm.replaceWith(note); chatForm = null;
       }
     };
@@ -165,7 +169,7 @@
             if (data.message) { add(data.message); toBottom(); text.value = ""; showError(""); delay = 15000; schedule(); }
             else { showError(data.text); if (data.error === "chat_closed") closeChat(); }
           })
-          .catch(function () { showError("Beskeden blev ikke sendt. Prøv igen."); })
+          .catch(function () { showError(L("Beskeden blev ikke sendt. Prøv igen.")); })
           .then(function () { button.disabled = false; text.focus(); });
       });
     }
@@ -233,7 +237,7 @@
       var chosen = photoInput.files && photoInput.files[0];
       if (chosen && consent && !consent.checked) {
         event.preventDefault();
-        photoError("Sæt flueben, hvis dit billede må ses af andre i dine flokke. Ellers gemmer vi det ikke.");
+        photoError(L("Sæt flueben, hvis dit billede må ses af andre i dine flokke. Ellers gemmer vi det ikke."));
         consent.focus();
         return;
       }
@@ -248,15 +252,15 @@
       if (file && file.size > PHOTO_MAX) {
         event.preventDefault();
         photoInput.value = "";
-        photoError("Billedet er for stort (højst 250 KB), så det er taget af igen. Vælg et mindre billede, eller gem uden billede.");
+        photoError(L("Billedet er for stort (højst 250 KB), så det er taget af igen. Vælg et mindre billede, eller gem uden billede."));
         photoInput.focus();
       }
     });
   }
-  // "Lad os komme godt i gang": the interest list. On the first visit to the event portal, a pop-up with the coming
+  // L("Lad os komme godt i gang"): the interest list. On the first visit to the event portal, a pop-up with the coming
   // events, ten at a time, to tick the ones you would like to go to with others; the ticks are sent to /kom-godt-i-gang
   // (after becoming a member, if needed). Shown once per browser, not to people already in a flock or on the list, and
-  // it closes with the cross, "Ikke nu", Escape or a click outside. ?velkommen shows it again. The page
+  // it closes with the cross, L("Ikke nu"), Escape or a click outside. ?velkommen shows it again. The page
   // /kom-godt-i-gang is the same list; with this file it too shows ten at a time.
   var STEP = 10;
   var pageInList = function (list, more) {
@@ -270,7 +274,7 @@
       });
       var rest = fits.length - shown;
       more.hidden = rest <= 0;
-      more.textContent = "Vis " + Math.min(STEP, Math.max(rest, 0)) + " mere";
+      more.textContent = L("Vis ") + Math.min(STEP, Math.max(rest, 0)) + L(" mere");
     };
     more.addEventListener("click", function () { shown += STEP; render(); });
     render();
@@ -324,7 +328,7 @@
         box.appendChild(img);
       }
       if (e.blurb) box.appendChild(el("p", "kickoff-blurb", e.blurb));
-      var link = el("a", "kickoff-more", "Åbn arrangementet");
+      var link = el("a", "kickoff-more", L("Åbn arrangementet"));
       link.href = base + e.url.replace(/^\//, ""); link.target = "_blank"; link.rel = "noopener";
       box.appendChild(link);
     }
@@ -334,13 +338,13 @@
       var dialog = el("dialog", "kickoff");
       dialog.setAttribute("aria-labelledby", "kickoff-h");
       var close = el("button", "kickoff-close");
-      close.type = "button"; close.setAttribute("aria-label", "Luk"); close.textContent = "×";
+      close.type = "button"; close.setAttribute("aria-label", L("Luk")); close.textContent = "×";
       var head = el("div", "kickoff-head");
-      var h = el("h2", null, "Lad os komme godt i gang"); h.id = "kickoff-h";
+      var h = el("h2", null, L("Lad os komme godt i gang")); h.id = "kickoff-h";
       head.appendChild(h);
       var lead = el("p", "kickoff-lead");
-      lead.appendChild(document.createTextNode("Sæt kryds ved de oplevelser, du kunne tænke dig. "));
-      lead.appendChild(el("strong", null, "Det er helt uforpligtende"));
+      lead.appendChild(document.createTextNode(L("Sæt kryds ved de oplevelser, du kunne tænke dig. ")));
+      lead.appendChild(el("strong", null, L("Det er helt uforpligtende")));
       lead.appendChild(document.createTextNode(" – du viser bare interesse. Når vi er en håndfuld (3–6), der vil det samme, samler vi en flok og spørger dig, om du vil med." + (data.membershipLine ? " " + data.membershipLine : "")));
       head.appendChild(lead);
       var form = el("form", "kickoff-form");
@@ -359,14 +363,14 @@
         label.appendChild(box); label.appendChild(text); li.appendChild(label);
         var shown = el("input"); shown.type = "hidden"; shown.name = "vist"; shown.value = e.slug; li.appendChild(shown);
         // "Se mere": the event unfolds in the row (on a wide screen with a mouse, the panel beside the list shows it).
-        var toggle = el("button", "button-link kickoff-toggle", "Se mere om arrangementet"); toggle.type = "button";
+        var toggle = el("button", "button-link kickoff-toggle", L("Se mere om arrangementet")); toggle.type = "button";
         toggle.setAttribute("aria-expanded", "false");
         var unfold = el("div", "kickoff-unfold"); unfold.hidden = true;
         toggle.addEventListener("click", function () {
           if (!unfold.firstChild) fill(unfold, e);
           unfold.hidden = !unfold.hidden;
           toggle.setAttribute("aria-expanded", unfold.hidden ? "false" : "true");
-          toggle.textContent = unfold.hidden ? "Se mere om arrangementet" : "Skjul";
+          toggle.textContent = unfold.hidden ? L("Se mere om arrangementet") : L("Skjul");
         });
         li.appendChild(toggle); li.appendChild(unfold);
         li.addEventListener("mouseenter", function () { show(e); });
@@ -376,7 +380,7 @@
       var more = el("button", "button-secondary kickoff-showmore"); more.type = "button";
       // The panel beside the list on a wide screen: the event the pointer is over.
       var preview = el("aside", "kickoff-preview");
-      preview.setAttribute("aria-label", "Om arrangementet");
+      preview.setAttribute("aria-label", L("Om arrangementet"));
       var shownSlug = null;
       function show(e) {
         if (shownSlug === e.slug) return;
@@ -387,15 +391,15 @@
         fill(preview, e);
       }
       var bar = el("div", "kickoff-bar");
-      var later = el("button", "button-link", "Ikke nu"); later.type = "button";
-      var save = el("button", null, "Vis interesse"); save.type = "submit";
+      var later = el("button", "button-link", L("Ikke nu")); later.type = "button";
+      var save = el("button", null, L("Vis interesse")); save.type = "submit";
       bar.appendChild(later); bar.appendChild(save);
-      var note = el("p", "kickoff-note", data.member && data.ready ? "Du kan altid rette din liste under Mine flokke."
-        : "Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den.");
+      var note = el("p", "kickoff-note", data.member && data.ready ? L("Du kan altid rette din liste under Mine flokke.")
+        : L("Bagefter fortæller du kort om dig selv og giver os din e-mail, så vi kan give besked. Ingen andre ser den."));
       // The four main kinds, to see only one of them.
-      var GROUPS = [["", "Alle"], ["underholdning", "Underholdning"], ["krea", "Krea"], ["oplysning", "Oplysning"], ["fordybelse", "Fordybelse"]];
+      var GROUPS = [["", L("Alle")], ["underholdning", L("Underholdning")], ["krea", L("Krea")], ["oplysning", L("Oplysning")], ["fordybelse", L("Fordybelse")]];
       var seg = el("div", "kickoff-groups");
-      seg.setAttribute("role", "group"); seg.setAttribute("aria-label", "Vis kun");
+      seg.setAttribute("role", "group"); seg.setAttribute("aria-label", L("Vis kun"));
       var segButtons = GROUPS.filter(function (g) { return !g[0] || data.events.some(function (e) { return (e.groups || []).indexOf(g[0]) >= 0; }); }).map(function (g) {
         var b = el("button", "kickoff-group" + (g[0] ? " group-" + g[0] : ""), g[1]); b.type = "button";
         b.setAttribute("aria-pressed", g[0] ? "false" : "true");
@@ -410,7 +414,7 @@
       var left = el("div", "kickoff-left");
       left.appendChild(list); left.appendChild(more);
       cols.appendChild(left); cols.appendChild(preview);
-      var promise = el("p", "kickoff-promise", "Du binder dig ikke til noget. Du siger først ja, når flokken er samlet.");
+      var promise = el("p", "kickoff-promise", L("Du binder dig ikke til noget. Du siger først ja, når flokken er samlet."));
       form.appendChild(seg); form.appendChild(cols); form.appendChild(promise); form.appendChild(note); form.appendChild(bar);
       if (data.events[0]) show(data.events[0]);
       dialog.appendChild(close); dialog.appendChild(head); dialog.appendChild(form);
@@ -418,7 +422,7 @@
 
       var count = function () {
         var n = list.querySelectorAll("input:checked").length;
-        save.textContent = n ? "Vis interesse (" + n + ")" : "Vis interesse";
+        save.textContent = n ? L("Vis interesse") + " (" + n + ")" : L("Vis interesse");
         save.disabled = n === 0 && !data.events.some(function (e) { return e.mine; });
       };
       list.addEventListener("change", count);

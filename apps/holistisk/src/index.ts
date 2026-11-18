@@ -24,6 +24,8 @@ import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
 import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters } from "./web/foryou.js";
 import { activityFilters } from "./web/pages.js";
 import { adminRoute } from "./admin.js";
+import { danishPath, englishCanonicalOf, englishPath } from "./i18n/paths.js";
+import { translateHtml } from "./i18n/translate.js";
 import { countable, recordVisit, rollUpVisits } from "./stats.js";
 import { refreshPicks } from "./curation.js";
 
@@ -62,8 +64,8 @@ function places(edition: "forening" | "portal", regions: string[]): Pick<PageCon
     : { areas: activeAreas(regions), regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og ") };
 }
 
-function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null, signedIn = false): PageContext {
-  if (mount) return { ...context(env, url, now, regions, null, signedIn), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
+function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null, signedIn = false, lang: "da" | "en" = "da"): PageContext {
+  if (mount) return { ...context(env, url, now, regions, null, signedIn, lang), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
     origin: configured ?? url.origin,
@@ -74,6 +76,7 @@ function context(env: Env, url: URL, now: number, regions: string[], mount: Moun
     contactEmail: publicContactEmail(env),
     base: "",
     signedIn,
+    lang,
     // Without a mount: EDITION, else Flokken as an association.
     edition: env.EDITION === "portal" ? "portal" : "forening"
   };
@@ -144,15 +147,53 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   // An own domain is the real, public address: search engines may index it, also when the Worker is the staging one.
   // The Worker's workers.dev address and the proxied addresses stay hidden from them (noindex), so Google sees one copy.
   const live = DOMAINS[url.hostname] ? { ...env, ENVIRONMENT: "production" } : env;
+  // Socialklubben in English: /en/... is the same page, rendered in Danish and translated on the way out.
+  const edition = mount?.edition ?? (env.EDITION === "portal" ? "portal" : "forening");
+  const danish = edition === "portal" ? danishPath(url.pathname) : null;
+  if (danish !== null) {
+    const proper = englishCanonicalOf(url.pathname);
+    if (proper) return withMount(redirect(`${proper}${url.search}`), mount);
+    // Files, the admin and the machine endpoints have no English page.
+    if (englishPath(danish) === danish && danish !== "/") return withMount(new Response(null, { status: 302, headers: { location: `${danish}${url.search}`, "cache-control": "no-store" } }), mount);
+    const inner = new URL(url);
+    inner.pathname = danish;
+    const response = await route(new Request(inner, request), live, now, mount, "en");
+    const mounted = mount ? await underMount(response, mount) : response;
+    return inEnglish(mounted, mount ? mount.origin + mount.base : (live.PUBLIC_BASE_URL?.replace(/\/$/, "") || url.origin), mount?.base ?? "");
+  }
   const response = await route(request, live, now, mount);
   return mount ? underMount(response, mount) : response;
 }
 
-async function route(request: Request, env: Env, now: number, mount: Mount | null): Promise<Response> {
+const withMount = (response: Response, mount: Mount | null): Response | Promise<Response> => mount ? underMount(response, mount) : response;
+
+/** The English version of an answer (src/i18n): its page translated, its links, redirects and cookies moved to /en/. */
+async function inEnglish(response: Response, origin: string, base: string): Promise<Response> {
+  const headers = new Headers(response.headers);
+  const local = (path: string) => base && (path === base || path.startsWith(base + "/")) ? base + englishPath(path.slice(base.length) || "/") : englishPath(path);
+  const location = headers.get("location");
+  if (location) {
+    if (/^\/(?!\/)/.test(location)) headers.set("location", local(location));
+    else if (location.startsWith(origin + "/")) headers.set("location", origin + englishPath(location.slice(origin.length)));
+  }
+  const cookies = headers.getSetCookie?.() ?? [];
+  if (cookies.length) {
+    headers.delete("set-cookie");
+    // A cookie kept for one page (e.g. the welcome page's code) must follow that page to its English address.
+    for (const c of cookies) headers.append("set-cookie", c.replace(/; Path=(\/[^;]+)/, (all, p: string) => p === "/" || p === base || p === base + "/" ? all : `; Path=${local(p)}`));
+  }
+  const type = headers.get("content-type") ?? "";
+  if (!type.startsWith("text/html") || !response.body) return new Response(response.body, { status: response.status, headers });
+  headers.set("content-language", "en");
+  headers.delete("content-length");
+  return new Response(translateHtml(await response.text(), origin, base), { status: response.status, headers });
+}
+
+async function route(request: Request, env: Env, now: number, mount: Mount | null, lang: "da" | "en" = "da"): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const regions = activeRegions(env.ACTIVE_REGIONS);
-  const pc = context(env, url, now, regions, mount, /(?:^|;\s*)flok_session=[A-Za-z0-9_-]{20,}/.test(request.headers.get("cookie") ?? ""));
+  const pc = context(env, url, now, regions, mount, /(?:^|;\s*)flok_session=[A-Za-z0-9_-]{20,}/.test(request.headers.get("cookie") ?? ""), lang);
 
   if (path === "/api/health") {
     const db = env.DB;

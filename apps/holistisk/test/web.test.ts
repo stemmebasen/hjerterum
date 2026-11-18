@@ -97,7 +97,7 @@ describe("front page", () => {
     // No "Spar på billetten" (Jake 2026-11-10): it promised a saving we don't give.
     expect(body).not.toMatch(/spar på billetten/i);
     expect(body).toContain('href="/gratis-og-billigt"');
-    expect(body).toContain("<title>Flokken – find arrangementer i Aarhus og nogen at følges med</title>");
+    expect(body).toContain("<title>Flokken – arrangementer og events i Aarhus, og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
     expect(body).toContain('class="card ticket');
@@ -234,7 +234,7 @@ describe("the calendar", () => {
     const weekend = await text("/weekend");
     expect(weekend.body).toContain("<h1>Det sker i weekenden i Aarhus</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Arrangementer i Aarhus – Flokken</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i Aarhus i dag? Events og arrangementer – Flokken</title>");
   });
 });
 
@@ -290,7 +290,7 @@ describe("landing pages: activity, then city", () => {
   it("a city's page", async () => {
     const { body } = await text("/aarhus");
     expect(body).toContain("<h1>Arrangementer i Aarhus</h1>");
-    expect(body).toContain("<title>Hvad sker der i Aarhus? Arrangementer og flokke – Flokken</title>");
+    expect(body).toContain("<title>Hvad sker der i Aarhus? Events, arrangementer og aktiviteter – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
     expect(body).toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");
@@ -465,7 +465,8 @@ describe("search engines and safety", () => {
     const body = await r.text();
     expect(body).toContain('<meta name="twitter:card" content="summary_large_image">');
     expect(body).toContain('<meta property="og:image" content="https://portal.example/assets/og.jpg">');
-    expect(body).toContain('<link rel="alternate" hreflang="da-DK" href="https://portal.example/meditation/aarhus">');
+    expect(body).toContain('<link rel="alternate" hreflang="da" href="https://portal.example/meditation/aarhus">');
+    expect(body).toContain('<link rel="alternate" hreflang="en" href="https://portal.example/en/meditation/aarhus">');
     expect(r.headers.get("content-security-policy")).toContain("default-src 'self'");
     // The profile photo is made small in the browser from a blob: picture.
     expect(r.headers.get("content-security-policy")).toMatch(/img-src [^;]*blob:/);
