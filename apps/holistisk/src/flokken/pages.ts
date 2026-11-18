@@ -9,9 +9,9 @@ import { eventOver, isFull, MAX_SIZE, MIN_SIZE, type FlockRow } from "./store.js
 import { MAX_LENGTH, type ChatMessage } from "./chat.js";
 import type { SignupErrors, SignupForm } from "./membership.js";
 import { meetingPointByPlace } from "./meetingPoints.js";
-import { AGE_GROUPS, AGE_LABELS, FREE_OUTINGS, INTRO_MAX, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
+import { AGE_GROUPS, AGE_LABELS, FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership, INTRO_MAX, membershipLine, type FlockMember, type Profile, type ProfileErrors, type ProfileForm } from "./profile.js";
 
-/** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg er interesseret, start selv en flok,
+/** Flokken's own pages and the flock panel on event pages. Words used throughout: flok, Vil du med?, Jeg vil gerne med!, start selv en flok,
  * Bliv en del af flokken. */
 
 export type View = { status: number; body: string; headers?: Record<string, string> };
@@ -40,12 +40,14 @@ const MESSAGES: Record<string, string> = {
   forladt: "Du har forladt flokken.",
   rettet: "Mødested og tidspunkt er opdateret.",
   logget_ud: "Du er logget ud.",
+  logget_ind: "Du er logget ind.",
+  velkommen_mail: "Velkommen! Du er logget ind. Når du vil med i en flok, beder vi om din aldersgruppe og en linje om dig selv.",
   tak: "Tak for din henvendelse. Vi vender tilbage.",
   meldt: "Tak. Beskeden er meldt og skjult for dig. Vi kigger på den.",
   profil_gemt: "Din profil er gemt.",
   interesser_gemt: "Tak! Du står på listen – helt uforpligtende. Når vi er en håndfuld, der vil med til det samme, samler vi en flok og spørger dig, om du vil med.",
   interesse_fjernet: "Arrangementet er fjernet fra din liste.",
-  interesse_her: "Tak! Du er på listen – helt uforpligtende. Når vi er en håndfuld, samler vi en flok og skriver til dig.",
+  interesse_her: "Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken. Du får en e-mail og kan også se det under Mine flokke. Du har 48 timer til at sige ja. Billetten køber du selv.",
   nej_tak: "Tak for svaret. Pladsen går videre til den næste.",
   bekraeftet: "Du er med! Sig hej i chatten herunder, og find sammen ud af, hvor I mødes."
 };
@@ -53,19 +55,19 @@ const ERRORS: Record<string, string> = {
   event_closed: "Arrangementet er gået i gang, afholdt eller aflyst, så flokken kan ikke ændres.",
   already_in_flock: "Du er allerede i en flok til dette arrangement. Forlad den først, hvis du vil skifte.",
   too_many: "Du har oprettet mange flokke i dag. Prøv igen i morgen.",
-  full: "Flokken er fuld.",
-  closed: "Flokken er lukket.",
+  full: "Den her flok er fuld.",
+  closed: "Den her flok er lukket.",
   not_member: "Du er ikke en del af flokken.",
   not_host: "Kun den, der står for flokken, kan rette mødested og tidspunkt.",
-  too_small: "Flokken har allerede flere medlemmer end det.",
-  chat_closed: "Chatten er lukket. Den lukker en uge efter eventet.",
+  too_small: "Der er allerede flere med i flokken end det.",
+  chat_closed: "Chatten er lukket. Den lukker en uge efter arrangementet.",
   chat_empty: "Skriv en besked først.",
   chat_too_long: `Beskeden er for lang. Højst ${MAX_LENGTH} tegn.`,
   chat_too_fast: "Du har skrevet mange beskeder på kort tid. Vent lidt, og prøv igen.",
   not_found: "Beskeden findes ikke længere.",
   invitation_not_invited: "Invitationen findes ikke længere.",
   invitation_too_late: "Fristen for at svare er gået, så pladsen er gået videre. Sæt kryds igen, hvis du stadig vil med.",
-  invitation_full: "Flokken blev fuld i mellemtiden. Du står forrest på listen til den næste.",
+  invitation_full: "Den her flok blev fuld i mellemtiden. Du står forrest på listen til den næste.",
   invitation_event_closed: "Arrangementet er gået i gang, afholdt eller aflyst.",
   intet_valgt: "Vælg mindst ét arrangement først."
 };
@@ -80,7 +82,7 @@ export const flash = (code: string | null): SafeHtml => {
   return ok ? html`<p class="flash" role="status">${ok}</p>` : err ? html`<p class="flash flash-error" role="alert">${err}</p>` : html``;
 };
 
-const trustLine = html`<p class="trust-line">Flokke mødes et offentligt sted. Kun dem i flokken ser dit fornavn, din alder og din linje om dig selv, og du kan altid forlade en flok. <a href="/tryghed">Sådan holder vi det trygt</a></p>`;
+const trustLine = html`<p class="trust-line">I mødes et offentligt sted, og kun flokken ser, hvem du er. <a href="/tryghed">Sådan holder vi det trygt</a></p>`;
 
 // ————————————————————————————————————————— On the event page
 
@@ -88,64 +90,63 @@ const trustLine = html`<p class="trust-line">Flokke mødes et offentligt sted. K
  * standing (null when they have not ticked it). */
 export type EventInterest = { others: number; mine: "waiting" | "invited" | "confirmed" | "declined" | "expired" | null };
 
-/** "1 anden er interesseret", "3 andre er interesseret". Only said when there is at least one. */
-const othersLine = (n: number, also: boolean): string => n === 1 ? `1 anden er ${also ? "også " : ""}interesseret.` : `${n} andre er ${also ? "også " : ""}interesseret.`;
+/** "Andre har vist interesse." Only said when at least one other is interested, and never how many (Jake 2026-11-18). */
+const othersLine = (n: number): string => n > 0 ? "Andre har vist interesse." : "";
 
 /** "Vil du med?" on the event page. The interest list's tick for this one event comes first: Socialklubben gathers a
  * flock when a handful are interested. Flocks with room are still shown, and starting one yourself is a small link. */
-export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
-  const over = (e.ends_at ?? e.starts_at + 3 * 3600_000) < now;
+export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | null, myFlockId: string | null, now: number): SafeHtml {
   const canStart = e.status === "scheduled" && e.starts_at > now;
-  const create = `${eventPath(e)}/opret-flok`;
-  const interestPath = `${eventPath(e)}/interesse`;
   const action = (f: FlockRow): SafeHtml => {
     if (f.is_member) return html`<a class="button" href="${flockPath(f.id)}">Du er en del af flokken – se den</a>`;
     if (!canStart) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
-    if (isFull(f)) return html`<span class="flock-state">Flokken er fuld</span> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
+    if (isFull(f)) return html`<span class="flock-state">Fuld flok</span> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
     if (!member) return html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
     if (myFlockId) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
     return html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
   };
-  const inFlock = !!(myFlockId && member);
-  const count = interest.others > 0 ? html` <span class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</span>` : "";
-  // The tick itself is the "Jeg er interesseret" button at the top of the event page (interestButton). The panel
-  // explains it, shows how many others are interested and lets you take it back.
-  const tick = (): SafeHtml => {
-    if (interest.mine === "waiting") return html`<div class="flock-interest is-on">
-      <p class="flock-interest-state"><strong>Du er på listen.</strong> Vi skriver, når der er en flok.${count}</p>
-      <form method="post" action="${interestPath}/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>
-    </div>`;
-    if (interest.mine === "invited") return html`<div class="flock-interest is-on">
-      <p class="flock-interest-state"><strong>Din flok er klar!</strong> <a href="/flokke#interesser">Sig ja eller nej tak under Mine flokke</a>.</p>
-    </div>`;
-    return interest.others > 0 ? html`<p class="flock-interest">${count}</p>` : html``;
-  };
+  // Only flocks that already exist get a box of their own (Jake 2026-11-15: the old "Vil du med?" box repeated the
+  // button at the top). Showing interest, taking it back and starting a flock yourself sit under the buttons (flockLine).
+  if (!flocks.length) return html``;
   return html`<section class="flock-panel" id="flokke" aria-labelledby="h-flokke">
-  <div class="flock-panel-head">
-    <h2 id="h-flokke">Vil du med?</h2>
-    ${canStart && !inFlock ? html`<p>Tryk <strong>Jeg er interesseret</strong>, hvis du har lyst til at opleve det her sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig. Først dér siger du ja.</p>` : ""}
-  </div>
-  ${flocks.length ? html`<ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
+  <h2 id="h-flokke">${flocks.length === 1 ? "Der er en flok til arrangementet" : "Der er flokke til arrangementet"}</h2>
+  <ul class="flock-list">${flocks.map(f => html`<li class="flock-card${f.is_member ? " is-mine" : ""}">
     <p class="flock-when"><span class="visually-hidden">Mødes: </span>${meetingLine(f, now)}</p>
     <p class="flock-meta">${seats(f.member_count, f.max_size)} ${spotsLine(f)}</p>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
     <div class="flock-actions">${action(f)}</div>
-  </li>`)}</ul>` : over ? html`<p class="flock-empty">Der var ingen flok til dette arrangement.</p>` : ""}
-  ${canStart ? inFlock ? flocks.some(f => f.id === myFlockId) ? "" : html`<p class="flock-mine">Du er med i en flok til eventet. <a href="${flockPath(myFlockId!)}">Se din flok</a></p>`
-    : html`${tick()}<p class="flock-create">eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> – vælg selv tid og mødested, og lad andre slutte sig til.</p>` : ""}
+  </li>`)}</ul>
   ${trustLine}
 </section>`;
 }
 
-/** The "Jeg er interesseret" button beside "Køb billet" at the top of the event page: the interest list's tick for
+/** The lines under "Jeg vil gerne med!" at the top of the event page: whether others are interested and starting a
+ * flock yourself. Nothing once you are in a flock or the event can no longer be joined. Kept to one underlined link
+ * (Jake 2026-11-18: too many underlined lines); the safety page is linked from the flock panel, the menu and the footer. */
+export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now || (myFlockId && member)) return html``;
+  const create = `${eventPath(e)}/opret-flok`;
+  const count = interest.others > 0 ? html`<p class="interest-count">${othersLine(interest.others)}</p>` : "";
+  const start = interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`;
+  return count || start ? html`<div class="event-flock">${count}${start}</div>` : html``;
+}
+
+/** "Fjern mig fra listen" beside the calendar button, once you are on the interest list for an event that can still
+ * be joined. A quiet grey text button, not underlined. */
+export function interestUndo(e: EventRow, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
+  if (interest.mine !== "waiting" || e.status !== "scheduled" || e.starts_at <= now) return html``;
+  return html`<form method="post" action="${eventPath(e)}/interesse/fjern" class="inline-form"><button type="submit" class="button-link">Fjern mig fra listen</button></form>`;
+}
+
+/** The "Jeg vil gerne med!" button beside "Køb billet" at the top of the event page: the interest list's tick for
  * this one event. Once ticked (or in a flock) it turns into where you stand, linking down to the panel. Nothing when
  * the event can no longer be joined. */
 export function interestButton(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   if (myFlockId && member) return html`<a class="button-secondary" href="${flockPath(myFlockId)}">Se din flok</a>`;
   if (interest.mine === "invited") return html`<a class="button-secondary" href="/flokke#interesser">Din flok er klar!</a>`;
-  if (interest.mine === "waiting") return html`<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>`;
-  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`;
+  if (interest.mine === "waiting") return html`<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>`;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`;
 }
 
 // ————————————————————————————————————————— A flock's own page
@@ -172,12 +173,22 @@ export function chatSection(f: Pick<FlockRow, "id">, chat: { messages: ChatMessa
       <textarea id="chat-text" name="tekst" rows="2" maxlength="${MAX_LENGTH}" required placeholder="Skriv en besked …"></textarea>
       <button type="submit">Send</button>
       <p class="field-error" data-chat-error role="alert" hidden></p>
-    </form>` : html`<p class="notice" data-chat-closed>Chatten er lukket. Den lukker en uge efter eventet.</p>`}
+    </form>` : html`<p class="notice" data-chat-closed>Chatten er lukket. Den lukker en uge efter arrangementet.</p>`}
   </section>`;
 }
 
 /** "Har været med 3 gange", or "Første flok" for someone new. */
 export const timesLine = (n: number): string => n === 0 ? "Første flok" : `Har været med ${n} ${n === 1 ? "gang" : "gange"}`;
+/** The light marks on a profile. There is no ID check: they show that the e-mail is the member's own (they have logged
+ * in with a link sent to it) and that they have turned up with a flock before. */
+export function badges(p: { email_verified_at: number | null; times: number }): SafeHtml {
+  const marks = [
+    p.email_verified_at ? html`<span class="badge" title="Har logget ind med et link sendt til sin e-mail">Bekræftet e-mail</span>` : "",
+    p.times > 0 ? html`<span class="badge" title="Har været med til et arrangement med en flok">${timesLine(p.times)}</span>` : ""
+  ].filter(Boolean);
+  return marks.length ? html`<p class="badges">${marks}</p>` : html``;
+}
+
 /** "30–39, 40–49" */
 const ageList = (ages: string[]) => ages.map(a => (AGE_LABELS[a] ?? a).replace(/ år$/, "")).join(", ");
 
@@ -188,7 +199,8 @@ function memberCard(n: FlockMember, flockId: string, member: Member | null, host
     <div class="member-text">
       <p class="member-name"><strong>${n.first_name}</strong>${n.age_group ? html` <span class="meta-muted">· ${AGE_LABELS[n.age_group] ?? n.age_group}</span>` : ""}${member && n.id === member.id ? html` <span class="meta-muted">(dig)</span>` : ""}${n.id === hostId ? html` <span class="pill-small">står for flokken</span>` : ""}</p>
       ${n.intro ? html`<p class="member-intro">${n.intro}</p>` : ""}
-      <p class="member-times small meta-muted">${timesLine(n.times)}</p>
+      ${n.times === 0 ? html`<p class="member-times small meta-muted">${timesLine(0)}</p>` : ""}
+      ${badges(n)}
     </div>
   </li>`;
 }
@@ -198,7 +210,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, peo
   const isHost = !!member && hostId === member.id;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: f.event_title, path: `/events/${f.event_slug}` }, { name: "Flokken", path: flockPath(f.id) }];
   const join = !canJoin || f.is_member ? html``
-    : isFull(f) ? html`<p class="flock-state">Flokken er fuld.</p>`
+    : isFull(f) ? html`<p class="flock-state">Den her flok er fuld.</p>`
     : member ? html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form>`
     : html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
   const body = html`
@@ -208,14 +220,14 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, peo
     <p class="kicker">Flok til arrangementet</p>
     <h1>${f.event_title}</h1>
     ${flash(message)}
-    ${f.status === "closed" ? html`<p class="notice">Flokken er lukket.</p>` : ""}
+    ${f.status === "closed" ? html`<p class="notice">Den her flok er lukket.</p>` : ""}
   </header>
   <section class="meet-box" aria-labelledby="h-meet">
     <h2 id="h-meet">Her mødes flokken</h2>
     <dl class="facts-list">
       <dt>Hvornår</dt><dd>${capitalize(dayLabel(f.meeting_at, ctx.now))} kl. ${hhmm(f.meeting_at)}</dd>
       <dt>Hvor</dt><dd>${f.meeting_place}<br><a href="${mapLink(f.meeting_place, f.event_city)}" rel="noopener" target="_blank">Find det på kortet</a></dd>
-      <dt>Eventet</dt><dd><a href="/events/${f.event_slug}">${f.event_title}</a><br>${capitalize(dayLabel(f.event_starts_at, ctx.now))} · ${timeRangeLabel(f.event_starts_at, f.event_ends_at, false, ctx.now)}${e ? html`<br>${placeLine(e)}` : ""}</dd>
+      <dt>Arrangementet</dt><dd><a href="/events/${f.event_slug}">${f.event_title}</a><br>${capitalize(dayLabel(f.event_starts_at, ctx.now))} · ${timeRangeLabel(f.event_starts_at, f.event_ends_at, false, ctx.now)}${e ? html`<br>${placeLine(e)}` : ""}</dd>
       <dt>Flokken</dt><dd>${seats(f.member_count, f.max_size)} ${spotsLine(f)}</dd>
     </dl>
     ${f.note ? html`<p class="flock-note">${f.note}</p>` : ""}
@@ -257,7 +269,7 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
     <div class="field">
       <label for="f-place">Mødested</label>
       <input id="f-place" name="moedested" type="text" maxlength="120" required value="${form.meetingPlace}"${describedBy("meetingPlace")}>
-      <span class="hint">Et offentligt sted tæt på eventet: indgangen, en café, et torv.</span>
+      <span class="hint">Et offentligt sted, fx foran et kendt sted i Aarhus, ved indgangen eller på en café.</span>
       ${err("meetingPlace")}
     </div>
     <div class="field">
@@ -287,7 +299,7 @@ export function flockFormPage(ctx: PageContext, e: EventRow, form: FlockForm, er
   </form>
   ${trustLine}
 </div>`;
-  return { status: options.status ?? 200, headers: PRIVATE, body: page(ctx, { title: `${create ? "Opret en flok" : "Ret flokken"} – ${e.title}`, description: "Opret en flok og følges med andre til eventet.", canonical: options.action, noindex: true, breadcrumbs: crumbs }, body) };
+  return { status: options.status ?? 200, headers: PRIVATE, body: page(ctx, { title: `${create ? "Opret en flok" : "Ret flokken"} – ${e.title}`, description: "Opret en flok og følges med andre til arrangementet.", canonical: options.action, noindex: true, breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Mine flokke
@@ -313,13 +325,13 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
     <h1>Hej ${member.first_name}</h1>
     ${flash(message)}
     <p class="standfirst">Her er dine flokke. Find et arrangement i <a href="/kalender">kalenderen</a> for at finde eller oprette en flok.</p>
-    ${extra.outings !== undefined ? freeOutings(extra.outings) : ""}
+    ${extra.outings !== undefined && !freeMembership(ctx.now) ? freeOutings(extra.outings) : ""}
   </header>
   ${extra.top ?? ""}
   ${extra.interests ?? ""}
   <section class="section" aria-labelledby="h-up">
     <div class="section-head"><h2 id="h-up">Kommende</h2></div>
-    ${upcoming.length ? html`<ul class="flock-list">${upcoming.map(row)}</ul>` : html`<p class="empty">Du er ikke i nogen flok endnu. <a href="/kalender">Find et arrangement</a>, og tryk <strong>Jeg er interesseret</strong> under <strong>Vil du med?</strong>.</p>`}
+    ${upcoming.length ? html`<ul class="flock-list">${upcoming.map(row)}</ul>` : html`<p class="empty">Du er ikke i nogen flok endnu. <a href="/kalender">Find et arrangement</a>, og tryk <strong>Jeg vil gerne med!</strong> under <strong>Vil du med?</strong>.</p>`}
   </section>
   ${past.length ? html`<section class="section" aria-labelledby="h-past">
     <div class="section-head"><h2 id="h-past">Tidligere</h2></div>
@@ -337,13 +349,13 @@ export function myFlocksPage(ctx: PageContext, member: Member, flocks: FlockRow[
 
 // ————————————————————————————————————————— Joining and logging in
 
-export function loginPage(ctx: PageContext, next: string, state: { nameError?: string; codeError?: string; name?: string; status?: number } = {}): View {
+export function loginPage(ctx: PageContext, next: string, state: { nameError?: string; codeError?: string; name?: string; email?: string; emailError?: string; sentTo?: string; status?: number } = {}): View {
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Log ind", path: "/log-ind" }];
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Bliv en del af Flokken</h1>
+    <h1>${ctx.edition === "portal" ? "Opret dig på et øjeblik - og kom med i klubben!" : "Bliv en del af Flokken"}</h1>
     <p class="standfirst">For at oprette eller blive en del af en flok skal du have en profil. Det kræver kun dit fornavn – intet telefonnummer. Når du vil være med i en flok, beder vi om din aldersgruppe og en linje om dig selv, så de andre ved, hvem de skal møde. Vil du have besked, når vi har samlet en flok til dig, beder vi også om din e-mail.</p>
   </header>
   <div class="two-forms">
@@ -357,35 +369,76 @@ export function loginPage(ctx: PageContext, next: string, state: { nameError?: s
         ${state.nameError ? html`<span class="field-error" id="err-name">${state.nameError}</span>` : ""}
       </div>
       <div class="form-actions"><button type="submit">Opret profil</button></div>
-      <p class="small meta-muted">Du får en personlig kode, som du bruger til at logge ind på andre enheder. Læs <a href="/tryghed">sådan holder vi det trygt</a>.</p>
+      <p class="small meta-muted">Du får en personlig kode til at logge ind på andre enheder. Giver du os din e-mail, kan du også logge ind med et link på e-mail. Læs <a href="/tryghed">sådan holder vi det trygt</a>.</p>
     </form>
-    <form class="form-card" method="post" action="/log-ind" novalidate>
-      <h2>Har du en kode?</h2>
-      <input type="hidden" name="naeste" value="${next}">
-      <div class="field">
-        <label for="m-code">Din personlige kode</label>
-        <input id="m-code" name="kode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required${state.codeError ? raw(' aria-invalid="true" aria-describedby="err-code"') : ""}>
-        ${state.codeError ? html`<span class="field-error" id="err-code">${state.codeError}</span>` : ""}
-      </div>
-      <div class="form-actions"><button type="submit" class="button-alt">Log ind</button></div>
-    </form>
+    <div class="form-card login-card">
+      <h2>Har du allerede en profil?</h2>
+      ${state.sentTo
+        ? html`<p class="notice" role="status">Tjek din indbakke. Hører <strong>${state.sentTo}</strong> til en profil eller et medlemskab, har vi sendt dig et link, som du logger ind med. Det virker i en time. Kan du ikke finde mailen, så kig også i spam.</p>`
+        : html`<form method="post" action="/log-ind/mail" class="login-form" novalidate>
+        <input type="hidden" name="naeste" value="${next}">
+        <div class="field">
+          <label for="m-email">Din e-mail</label>
+          <input id="m-email" name="email" type="email" maxlength="160" autocomplete="email" required value="${state.email ?? ""}"${state.emailError ? raw(' aria-invalid="true" aria-describedby="err-email"') : ""}>
+          <span class="hint">Vi sender dig et link, som du logger ind med.</span>
+          ${state.emailError ? html`<span class="field-error" id="err-email">${state.emailError}</span>` : ""}
+        </div>
+        <div class="form-actions"><button type="submit" class="button-alt">Send mig et login-link</button></div>
+      </form>`}
+      <details class="login-code"${state.codeError ? raw(" open") : ""}>
+        <summary>Log ind med din personlige kode</summary>
+        <form method="post" action="/log-ind" class="login-form" novalidate>
+          <input type="hidden" name="naeste" value="${next}">
+          <div class="field">
+            <label for="m-code">Din personlige kode</label>
+            <input id="m-code" name="kode" type="text" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required${state.codeError ? raw(' aria-invalid="true" aria-describedby="err-code"') : ""}>
+            ${state.codeError ? html`<span class="field-error" id="err-code">${state.codeError}</span>` : ""}
+          </div>
+          <div class="form-actions"><button type="submit" class="button-secondary">Log ind</button></div>
+        </form>
+      </details>
+    </div>
   </div>
 </div>`;
   return { status: state.status ?? 200, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Opret en profil på Flokken eller log ind.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
 }
 
-export function welcomePage(ctx: PageContext, member: Member, code: string, next: string): View {
+/** The page a login link opens: a button that logs in (so a mail program checking the link does not use it up). */
+export function linkPage(ctx: PageContext, state: { token?: string; error?: "used" | "expired" | "unknown"; loggedIn?: boolean }): View {
+  const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Log ind", path: "/log-ind" }];
+  const problem = state.error === "used" ? "Linket er allerede brugt." : state.error === "expired" ? "Linket er udløbet." : "Linket virker ikke.";
+  const body = html`
+<div class="wrap narrow">
+  <header class="page-head">
+    ${crumbsNav(crumbs)}
+    <h1>${state.token ? "Log ind" : problem}</h1>
+  </header>
+  ${state.token
+    ? html`<form class="form-card" method="post" action="/log-ind/link">
+      <input type="hidden" name="t" value="${state.token}">
+      <p>Tryk på knappen for at logge ind på denne enhed.</p>
+      <div class="form-actions"><button type="submit">Log ind</button></div>
+    </form>`
+    : state.loggedIn
+      ? html`<p>Du er allerede logget ind. <a href="/flokke">Gå til Mine flokke</a></p>`
+      : html`<p>Et login-link virker kun én gang og i en begrænset tid. Du kan nemt få et nyt.</p>
+    <p class="more-line"><a class="button" href="/log-ind">Send mig et nyt link</a></p>`}
+</div>`;
+  return { status: state.token ? 200 : 400, headers: PRIVATE, body: page(ctx, { title: "Log ind – Flokken", description: "Log ind med et link fra din e-mail.", canonical: "/log-ind", noindex: true, breadcrumbs: crumbs }, body) };
+}
+
+export function welcomePage(ctx: PageContext, member: Member, code: string | null, next: string): View {
   const body = html`
 <div class="wrap narrow">
   <header class="page-head">
     <h1>Velkommen, ${member.first_name}!</h1>
-    <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem.</p>
+    <p class="standfirst">Din profil er oprettet, og du er logget ind på denne enhed. ${membershipLine(ctx.now)}</p>
   </header>
-  <section class="code-box" aria-labelledby="h-code">
+  ${code ? html`<section class="code-box" aria-labelledby="h-code">
     <h2 id="h-code">Din personlige kode</h2>
     <p class="code">${code}</p>
-    <p>Gem koden et sikkert sted, fx som en note på din telefon. Du skal bruge den for at logge ind på en anden enhed. Vi viser den ikke igen og kan ikke finde den frem for dig.</p>
-  </section>
+    <p>Gem koden et sikkert sted, fx som en note på din telefon. Du skal bruge den for at logge ind på en anden enhed. Vi viser den ikke igen. Giver du os din e-mail på din profil, kan du også logge ind med et link på e-mail.</p>
+  </section>` : html`<p>Giver du os din e-mail på <a href="/profil">din profil</a>, kan du logge ind med et link på e-mail på andre enheder.</p>`}
   <p class="more-line"><a class="button" href="${next}">Fortsæt</a></p>
 </div>`;
   return { status: 200, headers: PRIVATE, body: page(ctx, { title: "Velkommen til Flokken", description: "Din personlige kode.", canonical: "/log-ind", noindex: true }, body) };
@@ -398,31 +451,38 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
   const f = state.form ?? { name: "", email: "" };
   const errors = state.errors ?? {};
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Bliv medlem", path: "/bliv-medlem" }];
+  const free = freeMembership(ctx.now);
   const body = html`
 <div class="wrap narrow prose">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Bliv medlem af Flokken</h1>
+    <h1>Bliv medlem af Flokken i Aarhus</h1>
     <p class="standfirst">Flokken er en forening, og den findes, fordi folk er med. Som medlem holder du fællesskabet i gang – for dig selv og for dem, der har brug for en ekstra hånd for at komme ud. <a href="#meld-ind">Meld dig ind her</a>.</p>
   </header>
-  <h2>Prøv det først</h2>
-  <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>
+  ${free
+    ? html`<p class="notice"><strong>Gratis i opstarten:</strong> Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}.</p>
+  <h2>Kom med fra start</h2>
+  <p>Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Du kan tage med, så tit du vil.</p>`
+    : html`<h2>Prøv det først</h2>
+  <p>Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem. Opret en profil med dit fornavn, sæt kryds ved det, du har lyst til, og kom med, når vi har samlet en flok. Så ved du, hvad du siger ja til.</p>`}
   <h2>Som medlem</h2>
   <ul>
     <li>kan du blive ved med at tage med i flokke, så ofte du vil,</li>
     <li>er du med til at forme foreningen – kom med idéer, ønsker og arrangementer,</li>
-    <li>hjælper du byens mindre spillesteder, teatre og foreninger med at blive set,</li>
-    <li>gør du det lettere for nye i byen at finde en vej ind i fællesskabet.</li>
+    <li>hjælper du Aarhus’ mindre spillesteder, teatre og foreninger med at blive set,</li>
+    <li>gør du det lettere for nye i Aarhus at finde en vej ind i fællesskabet.</li>
   </ul>
   <h2>Kontingent</h2>
-  <p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Betalingen er ikke åben endnu. Du kan melde dig ind nu, og vi skriver til dig, før du skal betale noget.</p>
+  ${free
+    ? html`<p>Medlemskab er <strong>gratis til ${FREE_MEMBERSHIP_DATE}</strong>. Hvad kontingentet bliver derefter, fortæller vi i god tid, og du bestemmer selv, om du vil fortsætte. Du skal ikke betale noget nu.</p>`
+    : html`<p>Kontingentet er <strong>250 kr. om året</strong> (inkl. moms), og pengene går tilbage til foreningen og fællesskabet. Betalingen er ikke åben endnu. Du kan melde dig ind nu, og vi skriver til dig, før du skal betale noget.</p>`}
   <p class="more-line">${loggedIn
     ? html`<a class="button" href="/kom-godt-i-gang">Find en oplevelse</a> <a class="button-secondary" href="/flokke">Mine flokke</a>`
     : html`<a class="button" href="/log-ind?naeste=/kom-godt-i-gang">Opret profil og kom i gang</a>`}</p>
   <h2 id="meld-ind">Meld dig ind</h2>
-  <p>Du behøver ingen profil for at være medlem, og du behøver ikke tage med på noget. Mange er medlem for at støtte fællesskabet – også selvom de ikke selv tager med. Skriv dit navn og din e-mail, så skriver vi til dig, når betalingen åbner.</p>
+  <p>Du behøver ingen profil for at være medlem, og du behøver ikke tage med på noget. Mange er medlem for at støtte fællesskabet – også selvom de ikke selv tager med. ${free ? "Skriv dit navn og din e-mail, så er du med." : "Skriv dit navn og din e-mail, så skriver vi til dig, når betalingen åbner."}</p>
   ${state.sent
-    ? html`<p class="notice" role="status">Tak, du er meldt ind! Vi skriver til dig, når betalingen åbner.</p>`
+    ? html`<p class="notice" role="status">${free ? `Tak, du er meldt ind! Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}, og vi skriver til dig i god tid, før noget ændrer sig.` : "Tak, du er meldt ind! Vi skriver til dig, når betalingen åbner."}</p>`
     : html`<form class="form-card" method="post" action="/bliv-medlem/meld-ind#meld-ind" novalidate>
     <div class="field">
       <label for="s-name">Dit navn</label>
@@ -439,7 +499,7 @@ export function membershipPage(ctx: PageContext, loggedIn: boolean, state: { for
     <div class="form-actions"><button type="submit">Bliv medlem</button></div>
   </form>`}
 </div>`;
-  return { status: state.status ?? 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
+  return { status: state.status ?? 200, body: page(ctx, { title: "Bliv medlem af Flokken", description: free ? `Flokken er en forening. Medlemskab er gratis til ${FREE_MEMBERSHIP_DATE} – og som medlem holder du fællesskabet i gang.` : `Flokken er en forening. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og som medlem holder du fællesskabet i gang.`, canonical: "/bliv-medlem", breadcrumbs: crumbs }, body) };
 }
 
 // ————————————————————————————————————————— Safety
@@ -454,10 +514,10 @@ export function safetyPage(ctx: PageContext): View {
     <p class="standfirst">En flok er nogle få mennesker, der følges til det samme arrangement. Det skal føles trygt at sige ja.</p>
   </header>
   <h2>Mød altid et offentligt sted</h2>
-  <p>En flok mødes ved indgangen til arrangementet, på en café eller et andet offentligt sted – aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
+  <p>En flok mødes altid udenfor foran et kendt sted i Aarhus og sætter sig gerne på en café i nærheden med en kop kaffe, inden den går til arrangementet. Aldrig hjemme hos nogen. Den, der opretter en flok, bekræfter, at mødestedet er offentligt.</p>
   <h2>I ved, hvem I skal møde</h2>
   <p>Når du vil være med i en flok, beder vi om dit fornavn, din aldersgruppe og én linje om dig selv, fx “Glæder mig til jazz, er lidt genert i starten”. Et billede er frivilligt. Det hele kan kun ses af dem, der er med i flokken. Andre kan kun se, hvilke aldersgrupper der er med, før de siger ja. Vi beder aldrig om telefonnummer eller adresse, og telefonnumre og e-mails bliver skjult, hvis de står i en præsentation. Din e-mail, hvis du giver den, bruger vi kun til at give dig besked om dine flokke – ingen andre ser den.</p>
-  <p>Ved hver person står, hvor mange flokke de har været med i før. Det giver en idé om, hvem der har prøvet det før, og hvem der er ny.</p>
+  <p>Ved hver person kan der stå <strong>Bekræftet e-mail</strong> (de har logget ind med et link sendt til deres e-mail) og hvor mange gange de har været med i en flok før. Det giver en idé om, hvem der har prøvet det før, og hvem der er ny.</p>
   <h2>Chatten i flokken</h2>
   <p>Hver flok har en lille chat, som kun dem i flokken kan læse. Telefonnumre og e-mails bliver skjult automatisk, så I ikke behøver at dele dem. Chatten lukker en uge efter arrangementet, og beskederne slettes 30 dage efter.</p>
   <p>Er en besked ubehagelig, så tryk <strong>Meld besked</strong>. Den forsvinder med det samme for dig, og når to har meldt den, forsvinder den for alle. Vi læser alle meldinger.</p>
@@ -466,7 +526,7 @@ export function safetyPage(ctx: PageContext): View {
   <h2>Billet og tilmelding</h2>
   <p>Hver person køber selv billet eller tilmelder sig hos arrangøren. Flokken håndterer ikke betaling.</p>
   <h2>Det har vi ikke endnu</h2>
-  <p>Vi har endnu ikke blokering eller verificerede profiler.${ctx.contactEmail ? html` Oplever du noget ubehageligt, så skriv til <a href="mailto:${ctx.contactEmail}">${ctx.contactEmail}</a>.` : ""} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
+  <p>Vi har endnu ikke blokering, og vi tjekker ikke ID.${html` Oplever du noget ubehageligt, så <a href="/kontakt">skriv til os</a>.`} Gå fra, hvis noget føles forkert – og forlad flokken.</p>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Tryghed i Flokken", description: "Offentlige mødesteder, en kort præsentation kun for flokken, og du kan altid forlade en flok.", canonical: "/tryghed", breadcrumbs: crumbs }, body) };
 }
@@ -485,8 +545,8 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 /** The three steps, on the front page and on Vil du med?. */
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et arrangement</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
-  <li><span class="how-n" aria-hidden="true">2</span><strong>Vis interesse – så samler vi flokken</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
-  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>Et offentligt sted før arrangementet – og så går I ind sammen.</span></li>
+  <li><span class="how-n" aria-hidden="true">2</span><strong>Vis interesse – så samler vi flokken</strong><span>Alting er sjovere i samlet flok. Når I er nogle stykker, der vil med, samler vi jer i en lille flok på 3 til 6.</span></li>
+  <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>I mødes udenfor foran et kendt sted, fx Domkirken, og sætter jer et sted i nærheden med en kop kaffe eller noget andet at drikke. Så kan I hilse og snakke lidt, inden I går til arrangementet sammen.</span></li>
 </ol>`;
 
 export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
@@ -495,8 +555,8 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Vil du med?</h1>
-    <p class="standfirst">Sæt kryds ved de arrangementer, du har lyst til at opleve sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig – først dér siger du ja. Find arrangementet i <a href="/kalender">kalenderen</a> og tryk <strong>Jeg er interesseret</strong>, eller vælg flere på én gang: <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
+    <h1>Vil du med til noget i Aarhus?</h1>
+    <p class="standfirst">Sæt kryds ved de arrangementer, du har lyst til at opleve sammen med andre. Når vi er en håndfuld, samler vi en flok og skriver til dig – først dér siger du ja. Find arrangementet i <a href="/kalender">kalenderen</a> og tryk <strong>Jeg vil gerne med!</strong>, eller vælg flere på én gang: <a href="/kom-godt-i-gang">Lad os komme godt i gang</a>.</p>
   </header>
   ${flocks.length ? html`<section class="section" aria-labelledby="h-open"><div class="section-head"><h2 id="h-open">Flokke med plads lige nu</h2></div>${flockCards(flocks, ctx.now)}</section>` : ""}
   <section class="section" aria-labelledby="h-how"><div class="section-head"><h2 id="h-how">Sådan virker en flok</h2></div>${howItWorks}</section>
@@ -507,7 +567,31 @@ export function findFlockPage(ctx: PageContext, flocks: FlockRow[]): View {
 
 // ————————————————————————————————————————— Profile: age group, one line and an optional photo
 
-export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
+/** On the member's own profile page: how the others in a flock see them, and the two marks and how to get them. */
+function ownCard(p: Profile, outings: number): SafeHtml {
+  const initial = [...p.first_name][0]?.toUpperCase() ?? "?";
+  const mark = (on: boolean, title: string, text: string) =>
+    html`<li class="${on ? "mark-on" : "mark-off"}"><span class="mark-icon" aria-hidden="true">${on ? "✓" : "○"}</span><span><strong>${title}</strong>${on ? "" : html` <span class="meta-muted">(ikke endnu)</span>`}<br><span class="small">${text}</span></span></li>`;
+  return html`<section class="own-card" aria-labelledby="own-card-h">
+    <h2 id="own-card-h" class="small-heading">Sådan ser dem i dine flokke dig</h2>
+    <div class="member-card">
+      ${p.photo_id ? html`<img class="avatar" src="/profil/foto/${p.photo_id}" alt="" width="56" height="56">` : html`<span class="avatar avatar-initial" aria-hidden="true">${initial}</span>`}
+      <div class="member-text">
+        <p class="member-name"><strong>${p.first_name}</strong>${p.age_group ? html` <span class="meta-muted">· ${AGE_LABELS[p.age_group] ?? p.age_group}</span>` : ""}</p>
+        ${p.intro ? html`<p class="member-intro">${p.intro}</p>` : ""}
+        ${badges({ email_verified_at: p.email_verified_at, times: outings })}
+      </div>
+    </div>
+    <h2 class="small-heading">Dine mærker</h2>
+    <ul class="marks">
+      ${mark(!!p.email_verified_at, "Bekræftet e-mail", p.email_verified_at ? "Du har logget ind med et link sendt til din e-mail." : p.email ? "Du får det, næste gang du logger ind med et link sendt til din e-mail." : "Skriv din e-mail herunder, og log ind med et link sendt til den.")}
+      ${mark(outings > 0, "Har været med til et arrangement", outings > 0 ? `Du har været med en flok ${outings} ${outings === 1 ? "gang" : "gange"}.` : "Du får det, når du har været med til et arrangement med en flok.")}
+    </ul>
+    <p class="small meta-muted">Vi tjekker ikke ID. Mærkerne viser bare, at e-mailen er din, og at du er dukket op før.</p>
+  </section>`;
+}
+
+export function profilePage(ctx: PageContext, state: { action: string; next: string; joinId: string | null; profile: Profile; firstTime: boolean; requireEmail?: boolean; outings: number; form: ProfileForm; errors: ProfileErrors; status?: number }): View {
   const { form, errors } = state;
   const err = (k: keyof ProfileErrors) => errors[k] ? html`<span class="field-error" id="err-${k}">${errors[k]}</span>` : "";
   const describedBy = (k: keyof ProfileErrors, hint?: string) => errors[k] ? raw(` aria-describedby="err-${k}${hint ? ` ${hint}` : ""}" aria-invalid="true"`) : hint ? raw(` aria-describedby="${hint}"`) : "";
@@ -517,8 +601,9 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${state.firstTime ? "Sig hej til flokken" : "Din profil"}</h1>
-    <p class="standfirst">${state.firstTime ? "Før du er med i en flok, så fortæl de andre lidt om dig selv. Det tager 20 sekunder, og det gør det lettere at møde nogen, man ikke kender." : "Det her ser dem i dine flokke."}</p>
+    <p class="standfirst">${state.firstTime ? "Før du er med i en flok, så fortæl de andre lidt om dig selv. Det tager 20 sekunder, og det gør det lettere at møde nogen, man ikke kender." : "Her kan du rette det, dem i dine flokke ser om dig."}</p>
   </header>
+  ${state.firstTime ? "" : ownCard(state.profile, state.outings)}
   ${Object.keys(errors).length ? html`<p class="flash flash-error" role="alert">Ret de markerede felter.</p>` : ""}
   <form class="form-card" method="post" action="${state.action}" enctype="multipart/form-data" novalidate data-profile-form>
     <div class="field">
@@ -543,17 +628,24 @@ export function profilePage(ctx: PageContext, state: { action: string; next: str
     <div class="field">
       <label for="p-email">E-mail${state.requireEmail ? "" : html` <span class="meta-muted">(frivilligt)</span>`}</label>
       <input id="p-email" name="email" type="email" maxlength="160" autocomplete="email"${state.requireEmail ? raw(" required") : ""} value="${form.email}"${describedBy("email", "hint-email")}>
-      <span class="hint" id="hint-email">Kun til at give dig besked, når en flok er klar til dig, eller hvis et arrangement bliver aflyst. Ingen andre ser den.</span>
+      <span class="hint" id="hint-email">Til at give dig besked, når en flok er klar til dig, og så du kan logge ind med et link på e-mail. Ingen andre ser den.</span>
       ${err("email")}
     </div>
-    <div class="field">
-      <label for="p-photo">Billede <span class="meta-muted">(frivilligt)</span></label>
-      ${state.profile.photo_id ? html`<p class="small">Du har et billede. Vælg et nyt for at skifte det.</p>` : ""}
+    <fieldset class="field photo-field">
+      <legend>Billede <span class="meta-muted">(frivilligt)</span></legend>
+      ${state.profile.photo_id ? html`<div class="photo-now">
+        <img class="avatar avatar-large" src="/profil/foto/${state.profile.photo_id}" alt="Dit billede" width="96" height="96">
+        <div>
+          <p class="small">Dem i dine flokke kan se dit billede. Vælg et nyt for at skifte det.</p>
+          <div class="field-check"><label><input type="checkbox" name="fjern_foto" value="ja"${form.removePhoto ? raw(" checked") : ""}> Fjern mit billede</label></div>
+        </div>
+      </div>` : ""}
+      <label class="small-label" for="p-photo">${state.profile.photo_id ? "Nyt billede" : "Vælg et billede"}</label>
       <input id="p-photo" name="foto" type="file" accept="image/jpeg,image/png,image/webp" data-photo-input${describedBy("photo", "hint-photo")}>
-      <span class="hint" id="hint-photo">Kun dem i dine flokke kan se det, og først når du er med. Det gør det lettere at finde hinanden ved mødestedet.</span>
+      <span class="hint" id="hint-photo">Et billede gør det lettere at finde hinanden ved mødestedet. Det vises aldrig offentligt på siden.</span>
+      <div class="field-check consent"><label><input type="checkbox" name="foto_samtykke" value="ja" data-photo-consent${form.photoConsent ? raw(" checked") : ""}> Mit billede må ses af andre i mine flokke</label></div>
       ${err("photo")}
-    </div>
-    ${state.profile.photo_id ? html`<div class="field field-check"><label><input type="checkbox" name="fjern_foto" value="ja"${form.removePhoto ? raw(" checked") : ""}> Fjern mit billede</label></div>` : ""}
+    </fieldset>
     <div class="form-actions">
       <button type="submit">${state.joinId ? "Gem og bliv en del af flokken" : state.requireEmail ? "Gem og sæt mig på listen" : "Gem"}</button>
       <a href="${state.next}">Fortryd</a>

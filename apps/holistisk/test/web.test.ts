@@ -66,20 +66,27 @@ describe("front page", () => {
   it("shows a few events with pictures, the whole coming week, cities, activities and the city's stages and houses", async () => {
     const { status, body } = await text("/");
     expect(status).toBe(200);
-    expect(body).toContain('<h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
-    expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ arrangement(er)? – dag for dag<\/span>/);
+    expect(body).toContain('<h1 class="hero-title">Aarhus er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>');
+    expect(body).toMatch(/<a class="calendar-cta" href="\/kalender">[\s\S]*?<strong>Se kalenderen<\/strong><span>\d+ arrangement(?:er)? – dag for dag<\/span>/);
     expect(body).toContain('<h2 id="h-mission">Derfor findes Flokken</h2>');
     expect(body).toContain("så er du IKKE alene");
     // The intro carries both aims and promises no savings.
-    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve byen sammen\. Find noget blandt \d+ arrangement(er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg er interesseret(&quot;|")\. Så samler vi en lille flok, du kan følges med\.<\/p>/);
+    expect(body).toMatch(/<p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen\. Find noget blandt \d+ arrangement(?:er)? i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk (&quot;|")Jeg vil gerne med!(&quot;|") Så samler vi en lille flok, du kan følges med\.<\/p>/);
     // The association's two aims and a line for newcomers who read English.
     expect(body).toContain("Flokken er en social forening med to formål");
     expect(body).toContain('<p class="mission-en" lang="en">New in Aarhus?');
+    // A member's own words, right after the mission: no photo until the member gives us one.
+    expect(body).toMatch(/<\/aside>\s*<figure class="testimonial"/);
+    expect(body).toContain('<span class="marker">Det er blevet 200% nemmere at være mig!</span>');
+    expect(body).toContain('<span class="testimonial-role">Medlem af Flokken</span>');
+    expect(body).not.toContain('class="testimonial-photo"');
     // Not yet registered: never claim the protected RSV status.
     expect(body).not.toMatch(/registreret socialøkonomisk/i);
-    // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
+    // Step 2: how a flock is gathered. There is no gift (Jake 2026-11-18), so no promise and no teaser.
     expect(body).toContain("<strong>Vis interesse – så samler vi flokken</strong>");
-    expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");
+    expect(body).toContain("Alting er sjovere i samlet flok. Når I er nogle stykker, der vil med, samler vi jer i en lille flok på 3 til 6.");
+    expect(body).not.toMatch(/giver vi en|gave\b/);
+    expect(body).not.toContain('class="secret"');
     expect(body).toContain('class="ticket-stack"');
     // The hero's tickets: coming events on different days, weekday and part of the day on the stub.
     const stubs = [...body.matchAll(/<span class="mini-weekday">(\w+)<\/span><span class="mini-part">(\w+)<\/span>/g)].map(m => m[1]);
@@ -92,7 +99,7 @@ describe("front page", () => {
     // No "Spar på billetten" (Jake 2026-11-10): it promised a saving we don't give.
     expect(body).not.toMatch(/spar på billetten/i);
     expect(body).toContain('href="/gratis-og-billigt"');
-    expect(body).toContain("<title>Flokken – find arrangementer i Aarhus og nogen at følges med</title>");
+    expect(body).toContain("<title>Flokken – arrangementer og events i Aarhus, og nogen at følges med</title>");
     expect(body).toContain("Sådan virker Flokken");
     expect(body).toContain('href="/samarbejde"');
     expect(body).toContain('class="card ticket');
@@ -103,7 +110,7 @@ describe("front page", () => {
     expect(body).not.toContain('href="/klarsyn"');
     expect(body).not.toContain('href="/breathwork"');
     expect(body).not.toContain("Karmapa");
-    expect(body).toContain('<h2 id="h-venues">Byens scener, huse og foreninger</h2>');
+    expect(body).toContain('<h2 id="h-venues">Aarhus’ scener, huse og foreninger</h2>');
     expect(body).toContain('href="/arrangoerer/voxhall"');
     expect(body).toContain('href="/arrangoerer/dokk1"');
     expect(body).not.toContain('href="/arrangoerer/lysets-hus"');
@@ -128,7 +135,9 @@ describe("spar på billetten", () => {
     expect(body).not.toMatch(/medlemsfordel|billetfordel|rabat/i);
     expect(rows(body).length).toBeGreaterThan(3);
     expect(count((await text("/kalender?pris=under-100")).body)).toBeGreaterThanOrEqual(count((await text("/kalender?pris=gratis")).body));
-    expect((await text("/kalender?pris=gratis")).body).toContain('<span class="price-chip">Gratis</span>');
+    const free = (await text("/kalender?pris=gratis")).body;
+    expect(free).not.toContain('<span class="price-chip">Gratis</span>');
+    expect(free).toContain("Gratis");
   });
 });
 
@@ -147,7 +156,8 @@ describe("the calendar", () => {
     expect(count((await text("/kalender?fra=2026-10-13&til=2026-10-13")).body)).toBe(3);
     expect(count((await text("/kalender?periode=idag")).body)).toBe(0);
     expect(rows((await text("/kalender?periode=weekend")).body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect(count((await text("/kalender?omraade=randers")).body)).toBe(0);
+    // The towns around Aarhus no longer have their own filter: an old ?omraade=randers shows everything.
+    expect(count((await text("/kalender?omraade=randers")).body)).toBe(count((await text("/kalender")).body));
     expect(rows((await text("/kalender?by=Lisbjerg")).body)).toEqual(["You Can Sing! / Aarhus"]);
     expect(count((await text("/kalender?pris=gratis")).body)).toBeGreaterThan(5);
     expect(rows((await text("/kalender?emne=klarsyn")).body)).toContain("Klarsyn med Karina Graabæk");
@@ -155,7 +165,10 @@ describe("the calendar", () => {
 
   it("invites organisers in the top banner instead of calling the site a test version", async () => {
     const { body } = await text("/");
-    expect(body).toContain('Mangler dit arrangement på siden? Skynd dig og tag fat i os – <a href="mailto:jh@jacobhauge.com?subject=Mit%20arrangement%20p%C3%A5%20Socialklubben">klik her</a>');
+    expect(body).toContain('Mangler jeres arrangement på siden? <a href="/kontakt?emne=arrangoer">Skriv til os her</a>');
+    // No private address anywhere on the site (Jake 2026-11-17): only kontakt@socialklubben.dk.
+    expect(body).not.toContain("jacobhauge.com\"");
+    expect(body).not.toMatch(/mailto:(?!kontakt@socialklubben\.dk)/);
     expect(body).not.toContain("Testversion");
   });
 
@@ -221,16 +234,16 @@ describe("the calendar", () => {
 
   it("today and the weekend have their own pages", async () => {
     const weekend = await text("/weekend");
-    expect(weekend.body).toContain("<h1>Det sker i weekenden i Østjylland</h1>");
+    expect(weekend.body).toContain("<h1>Det sker i weekenden i Aarhus</h1>");
     expect(rows(weekend.body)).toEqual(["Deep Shamanic Healing Journey"]);
-    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i dag? Arrangementer i Østjylland – Flokken</title>");
+    expect((await text("/i-dag")).body).toContain("<title>Hvad sker der i Aarhus i dag? Events og arrangementer – Flokken</title>");
   });
 });
 
 describe("landing pages: activity, then city", () => {
   it("an activity across the region and in one city", async () => {
     const meditation = await text("/meditation");
-    expect(meditation.body).toContain("<h1>Meditation i Østjylland</h1>");
+    expect(meditation.body).toContain("<h1>Meditation i Aarhus</h1>");
     const aarhus = await text("/meditation/aarhus");
     expect(aarhus.status).toBe(200);
     expect(aarhus.body).toContain("<h1>Meditation i Aarhus</h1>");
@@ -240,7 +253,7 @@ describe("landing pages: activity, then city", () => {
     expect(aarhus.body).toContain('href="/arrangoerer/skandinavisk-yoga-og-meditationsskole-aarhus"');
     // Switched off with the turn to a broad selection (2026-11-10).
     expect(aarhus.body).not.toContain('href="/arrangoerer/buddhistisk-center-aarhus"');
-    expect(aarhus.body).toContain('href="/meditation/randers"');
+    expect(aarhus.body).not.toContain('href="/meditation/randers"');
     expect(aarhus.body).toContain('"@type":"BreadcrumbList"');
     expect(aarhus.body).toContain('"@type":"ItemList"');
   });
@@ -261,15 +274,25 @@ describe("landing pages: activity, then city", () => {
     expect(yinYoga.status).toBe(200);
     expect(yinYoga.body).toContain("YO Studios");
     expect(yinYoga.body).toContain('<meta name="robots" content="index, follow');
-    // Hidden with the turn to a broad selection (2026-11-10), so Horsens' yin yoga page has nothing left.
-    expect((await text("/yin-yoga/horsens", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
-    expect((await text("/kakaoceremoni/randers", prod)).body).toContain('<meta name="robots" content="noindex, nofollow">');
+  });
+
+  it("the towns around Aarhus have no pages of their own: their old addresses move", async () => {
+    const moved = async (path: string) => { const r = await get(path); return [r.status, r.headers.get("location")]; };
+    expect(await moved("/randers")).toEqual([301, "/aarhus"]);
+    expect(await moved("/omraade/horsens")).toEqual([301, "/aarhus"]);
+    expect(await moved("/yin-yoga/horsens")).toEqual([301, "/yin-yoga"]);
+    expect(await moved("/silkeborg/meditation")).toEqual([301, "/meditation"]);
+    expect(await moved("/omraade/aarhus")).toEqual([301, "/aarhus"]);
+    const home = (await text("/")).body;
+    for (const town of ["randers", "djursland", "silkeborg", "skanderborg", "horsens"]) expect(home).not.toContain(`href="/${town}"`);
+    expect(home).not.toContain("Events i din by");
+    expect(home).not.toContain("Hele Østjylland");
   });
 
   it("a city's page", async () => {
     const { body } = await text("/aarhus");
     expect(body).toContain("<h1>Arrangementer i Aarhus</h1>");
-    expect(body).toContain("<title>Hvad sker der i Aarhus? Arrangementer og flokke – Flokken</title>");
+    expect(body).toContain("<title>Hvad sker der i Aarhus? Events, arrangementer og aktiviteter – Flokken</title>");
     expect(body).toContain("I weekenden i Aarhus");
     expect(body).toContain('href="/klarsyn/aarhus"');
     expect(body).toContain("Arrangører i Aarhus");
@@ -322,7 +345,7 @@ describe("the map", () => {
     expect(status).toBe(200);
     expect(body).toContain('class="map" data-map');
     expect(body).toContain('src="/assets/vendor/leaflet/leaflet.js?v=1.9.4"');
-    expect(body).toContain('src="/assets/map.js?v=2"');
+    expect(body).toContain('src="/assets/map.js?v=4"');
     expect(body).not.toContain('class="site-footer"');
     const data = JSON.parse(/<script type="application\/json" id="kort-data">([\s\S]*?)<\/script>/.exec(body)![1]!);
     expect(data.days).toHaveLength(14);
@@ -378,6 +401,7 @@ describe("search engines and safety", () => {
       expect(sitemap).toContain(`<loc>https://holistisk.org${p}</loc>`);
     }
     expect(sitemap).not.toContain("<loc>https://holistisk.org/kakaoceremoni/randers</loc>");
+    expect(sitemap).not.toContain("<loc>https://holistisk.org/horsens</loc>");
     expect((await text("/", prod)).body).toContain('<link rel="canonical" href="https://holistisk.org/">');
   });
 
@@ -412,7 +436,7 @@ describe("search engines and safety", () => {
       expect(r.body).toContain('"@type":"BreadcrumbList"');
       expect(r.body).not.toMatch(/rabat|halv pris|spar på billetten/i);
     }
-    expect((await text("/moed-nye-mennesker")).body).toContain("uden at være medlem");
+    expect((await text("/moed-nye-mennesker")).body).toContain("Medlemskab af foreningen er gratis til");
     expect((await text("/ny-i-aarhus")).body).toContain('lang="en"');
   });
 
@@ -424,12 +448,27 @@ describe("search engines and safety", () => {
     if (noImage) expect((await text(`/events/${noImage.slug}`)).body).toMatch(/"@type":"Event".*"image":\["https:\/\/portal\.example\/assets\/og\.jpg"\]/);
   });
 
+  it("an event page has a small section about the place: name, description, address, map and the way there", async () => {
+    const row = db.raw.prepare("SELECT slug FROM events WHERE venue_name = 'Hjerterum' AND lat IS NOT NULL AND starts_at > ? AND status = 'scheduled' LIMIT 1").all(NOW)[0] as { slug: string };
+    const body = (await text(`/events/${row.slug}`)).body;
+    const venue = /<section class="venue" id="stedet"[\s\S]*?<\/section>/.exec(body)?.[0] ?? "";
+    expect(venue).toContain('<h2 id="h-venue">Hjerterum</h2>');
+    expect(venue).toContain("Holistisk hus og forening midt i Aarhus");
+    expect(venue).toContain("Guldsmedgade 26B, 8000 Aarhus C");
+    expect(venue).toMatch(/<image href="https:\/\/tile\.openstreetmap\.org\/16\/\d+\/\d+\.png"/);
+    expect(venue).toContain("https://www.google.com/maps/dir/?api=1&amp;destination=");
+    expect(venue).toContain('href="/arrangoerer/hjerterum">Flere arrangementer her</a>');
+    expect(venue).not.toContain("style=");
+    expect(body).toContain('<a href="#stedet">Mere om stedet</a>');
+  });
+
   it("share cards, language and security headers", async () => {
     const r = await get("/meditation/aarhus");
     const body = await r.text();
     expect(body).toContain('<meta name="twitter:card" content="summary_large_image">');
     expect(body).toContain('<meta property="og:image" content="https://portal.example/assets/og.jpg">');
-    expect(body).toContain('<link rel="alternate" hreflang="da-DK" href="https://portal.example/meditation/aarhus">');
+    expect(body).toContain('<link rel="alternate" hreflang="da" href="https://portal.example/meditation/aarhus">');
+    expect(body).toContain('<link rel="alternate" hreflang="en" href="https://portal.example/en/meditation/aarhus">');
     expect(r.headers.get("content-security-policy")).toContain("default-src 'self'");
     // The profile photo is made small in the browser from a blob: picture.
     expect(r.headers.get("content-security-policy")).toMatch(/img-src [^;]*blob:/);

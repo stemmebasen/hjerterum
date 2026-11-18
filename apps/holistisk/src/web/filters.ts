@@ -1,4 +1,4 @@
-import { activeAreas, areaBySlug } from "../geo.js";
+import { areaBySlug, cityAreas } from "../geo.js";
 import { categoryBySlug } from "../categories.js";
 import { groupBySlug, type Group } from "../groups.js";
 import { activityBySlug } from "../activities.js";
@@ -26,7 +26,13 @@ export type Filters = {
   organizer: string | null;
   /** Only the broad offer, without spiritual and alternative events (src/mainstream.ts): the front page's lists. */
   broad?: boolean;
+  /** Every arrangement, not only "Dagens fem" (src/curation.ts). A search shows everything anyway (isSearch). */
+  everything?: boolean;
 };
+
+/** A search: free text, a category, one of the four main kinds, a topic or an organiser. A search shows every
+ * arrangement that matches (Jake 2026-11-17); everything else shows "Dagens fem" (src/curation.ts). */
+export const isSearch = (f: Filters): boolean => !!(f.q || f.categories.length || f.group || f.topic || f.organizer);
 
 export type Period = "idag" | "imorgen" | "weekend" | "14-dage" | "uge" | "maaned";
 export type PriceFilter = "gratis" | "under-100" | "under-200" | "under-500";
@@ -53,7 +59,7 @@ export const PERIOD_CHIPS: Period[] = ["idag", "imorgen", "weekend", "14-dage"];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parseFilters(params: URLSearchParams, activeRegions: string[]): Filters {
-  const areas = activeAreas(activeRegions);
+  const areas = cityAreas(activeRegions);
   const q = (params.get("q") ?? "").replace(/[\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
   const date = (v: string | null) => v && DATE.test(v) && startOfLocalDay(v) !== null ? v : null;
   const period = PERIODS.find(p => p.value === params.get("periode"))?.value ?? null;

@@ -52,9 +52,14 @@ const meetAt = (ms: number) => toLocalInput(ms - 30 * 60_000);
  * everyone must before starting or joining a flock. */
 async function join(name: string, profile: { alder: string; om_mig: string } | null = { alder: "30-39", om_mig: `${name} her, glæder mig` }): Promise<{ cookie: string; code: string }> {
   const r = await call("/bliv-medlem", { form: { fornavn: name, naeste: "/flokke" } });
-  expect(r.status).toBe(200);
-  const code = /<p class="code">([A-Z0-9-]+)<\/p>/.exec(r.body)?.[1] ?? "";
+  // Post/Redirect/Get: the form's answer is a redirect, so reloading the welcome page never sends the form again.
+  expect(r.status).toBe(303);
+  expect(r.headers.get("location")).toBe("/bliv-medlem/velkommen?naeste=%2Fflokke");
   const cookie = cookieOf(r);
+  const note = /flok_ny_kode=[^;]+/.exec(r.headers.get("set-cookie") ?? "")?.[0] ?? "";
+  const welcome = await call("/bliv-medlem/velkommen?naeste=%2Fflokke", { cookie: `${cookie}; ${note}` });
+  expect(welcome.status).toBe(200);
+  const code = /<p class="code">([A-Z0-9-]+)<\/p>/.exec(welcome.body)?.[1] ?? "";
   if (profile) expect((await call("/profil", { cookie, form: { fornavn: name, ...profile } })).status).toBe(303);
   return { cookie, code };
 }
@@ -76,9 +81,16 @@ describe("membership", () => {
     // Nothing else is stored for an event-portal member (the other columns are Flokk's).
     expect(Object.entries(stored).filter(([, v]) => v !== null).map(([k]) => k).sort()).toEqual(["code_hash", "created_at", "first_name", "id", "is_admin", "last_seen_at"]);
     expect(String(stored.code_hash)).not.toContain(code);
+    // The welcome page shows the code only with the short-lived note, and only to the member it belongs to.
+    expect((await call("/bliv-medlem/velkommen", { cookie })).body).not.toContain('class="code"');
+    const other = await call("/bliv-medlem", { form: { fornavn: "Oda" } });
+    const odaNote = /flok_ny_kode=[^;]+/.exec(other.headers.get("set-cookie") ?? "")?.[0] ?? "";
+    expect(other.headers.get("set-cookie")).toContain("Path=/bliv-medlem/velkommen; HttpOnly");
+    expect((await call("/bliv-medlem/velkommen", { cookie: `${cookie}; ${odaNote}` })).body).not.toContain('class="code"');
+    expect((await call("/bliv-medlem/velkommen")).headers.get("location")).toMatch(/^\/log-ind\?naeste=/);
     const login = await call("/log-ind", { form: { kode: code.toLowerCase().replace(/-/g, " "), naeste: "/flokke" } });
     expect(login.status).toBe(303);
-    expect(login.headers.get("location")).toBe("/flokke");
+    expect(login.headers.get("location")).toBe("/flokke?besked=logget_ind");
     expect(cookieOf(login)).toMatch(/^flok_session=/);
     const wrong = await call("/log-ind", { form: { kode: "AAAA-BBBB-CCCC" } });
     expect(wrong.status).toBe(400);
@@ -100,9 +112,9 @@ describe("membership", () => {
 describe("flocks", () => {
   it("are found on the event page, created only by choice, joined, left and capped in size", async () => {
     const before = await call(`/events/${event.slug}`);
-    expect(before.body).toContain('<h2 id="h-flokke">Vil du med?</h2>');
+    expect(before.body).not.toContain('id="flokke"');
     expect(before.body).not.toContain("ingen flok");
-    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`);
+    expect(before.body).toContain(`<form method="post" action="/events/${event.slug}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`);
     expect(before.body).toContain(`href="/log-ind?naeste=${encodeURIComponent(`/events/${event.slug}/opret-flok`)}"`);
     expect(before.headers.get("cache-control")).toBe("private, no-store");
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM flocks").all()[0]).toEqual({ n: 0 });
@@ -151,7 +163,7 @@ describe("flocks", () => {
     const dan = await join("Dan");
     const full = await call(`/flokke/${id}/bliv-del-af`, { cookie: dan.cookie, form: {} });
     expect(full.headers.get("location")).toContain("besked=full");
-    expect((await call(`/events/${event.slug}`, { cookie: dan.cookie })).body).toContain("Flokken er fuld");
+    expect((await call(`/events/${event.slug}`, { cookie: dan.cookie })).body).toContain("Fuld flok");
 
     const left = await call(`/flokke/${id}/forlad`, { cookie: cleo.cookie, form: {} });
     expect(left.headers.get("location")).toContain("besked=forladt");
@@ -286,18 +298,23 @@ describe("the flock's chat", () => {
 });
 
 describe("partners", () => {
-  it("explains the model and stores an inquiry, readable only with the token", async () => {
+  it("explains the model and has the contact form, set to organisers", async () => {
     const page = await call("/samarbejde");
-    expect(page.body).toContain("kontakt os");
+    expect(page.body).toContain("skriv til os");
     expect(page.body).not.toMatch(/rabat|billetfordel/i);
     expect(page.body).toContain("radioomtale");
-    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej" } });
+    expect(page.body).toContain('action="/kontakt"');
+    expect(page.body).toContain('<option value="arrangoer" selected>');
+    expect(page.body).toContain("kontakt@socialklubben.dk");
+    // An older copy of the page posts to /samarbejde: it is taken as a message from an organiser.
+    const bad = await call("/samarbejde", { form: { organisation: "X", navn: "", email: "nej", besked: "Hej" } });
     expect(bad.status).toBe(400);
-    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej" } });
-    expect(ok.headers.get("location")).toBe("/samarbejde?besked=tak#kontakt");
+    const ok = await call("/samarbejde", { form: { organisation: "Musikhuset", navn: "Sofie", email: "sofie@example.dk", besked: "Hej", t: String(NOW - 60_000) }, headers: { "cf-connecting-ip": "10.0.0.1" } });
+    expect(ok.headers.get("location")).toBe("/kontakt?besked=tak#formular");
+    expect((await call("/api/kontakt")).status).toBe(401);
+    const list = await call("/api/kontakt", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
+    expect(JSON.parse(list.body)[0]).toMatchObject({ topic: "arrangoer", organisation: "Musikhuset", email: "sofie@example.dk", mail: "off" });
     expect((await call("/api/samarbejde")).status).toBe(401);
-    const list = await call("/api/samarbejde", { headers: { authorization: `Bearer ${"x".repeat(32)}` } });
-    expect(JSON.parse(list.body)[0]).toMatchObject({ organisation: "Musikhuset", email: "sofie@example.dk" });
   });
 
   it("shows an offer only when the organiser has confirmed it", () => {
@@ -321,9 +338,14 @@ describe("served under www.jacobhauge.com", () => {
     expect(home.body).toContain('<link rel="canonical" href="https://www.jacobhauge.com/socialklubben/">');
     expect(home.body).not.toMatch(/\s(href|src|action)="\/(?!socialklubben\/|\/)/);
     const r = await call("/bliv-medlem", { form: { fornavn: "Kim", naeste: "/flokke" }, headers: sk, origin: "https://www.jacobhauge.com" });
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe("/socialklubben/bliv-medlem/velkommen?naeste=%2Fflokke");
     expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben;");
-    expect(r.body).toContain('href="/socialklubben/flokke"');
+    expect(r.headers.get("set-cookie")).toContain("Path=/socialklubben/bliv-medlem/velkommen;");
+    const kim = `${cookieOf(r)}; ${/flok_ny_kode=[^;]+/.exec(r.headers.get("set-cookie") ?? "")?.[0]}`;
+    const welcome = await call("/bliv-medlem/velkommen?naeste=%2Fflokke", { headers: sk, cookie: kim });
+    expect(welcome.body).toContain('href="/socialklubben/flokke"');
+    expect(welcome.body).toContain('class="code"');
     expect((await call("/flokke", { headers: sk })).headers.get("location")).toBe("/socialklubben/log-ind?naeste=%2Fflokke");
     expect((await call("/bliv-medlem", { form: { fornavn: "Kim" }, headers: sk })).status).toBe(403);
     // Any other value of the header is ignored.
@@ -348,7 +370,7 @@ describe("served under www.jacobhauge.com", () => {
     const home = await call("/", { headers: sk });
     expect(home.body).toContain("<span>Socialklubben</span>");
     expect(home.body).toContain("Sådan virker Socialklubben");
-    expect(home.body).toContain("<title>Socialklubben – find arrangementer");
+    expect(home.body).toContain("<title>Socialklubben – arrangementer og events i Aarhus");
     expect(home.body).toContain('content="https://www.jacobhauge.com/socialklubben/assets/og-socialklubben.jpg"');
     expect(home.body).toContain('href="/socialklubben/find-en-flok"');
     expect(home.body).not.toContain("Flokken");
@@ -375,7 +397,7 @@ describe("served on its own domain socialklubben.dk", () => {
     expect(home.body).not.toContain("Flokken");
     expect(home.body).not.toContain('data-edition="forening"');
     const r = await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" } });
-    expect(r.status).toBe(200);
+    expect(r.status).toBe(303);
     expect(r.headers.get("set-cookie")).toMatch(/Path=\/(;|$)/);
     expect((await at("https://socialklubben.dk/bliv-medlem", { form: { fornavn: "Kim" }, origin: "https://www.jacobhauge.com" })).status).toBe(403);
     // The proxy header cannot turn the own domain into Samfolk.
@@ -437,6 +459,19 @@ describe("profile", () => {
     expect((await call(`/flokke/${id}`)).body).not.toContain("40–49");
   });
 
+  it("shows the marks on the profile page: not yet, then 'Har været med' after an event", async () => {
+    const kaj = await join("Kaj");
+    const page = (await call("/profil", { cookie: kaj.cookie })).body;
+    expect(page).toContain("Dine mærker");
+    expect(page).toContain("Bekræftet e-mail</strong> <span class=\"meta-muted\">(ikke endnu)");
+    expect(page).toContain("Har været med til et arrangement</strong> <span class=\"meta-muted\">(ikke endnu)");
+    expect(page).not.toContain('class="badge"');
+    await startFlock(kaj.cookie);
+    const after = (await call("/profil", { cookie: kaj.cookie }, event.starts_at + 6 * 3600_000)).body;
+    expect(after).toContain("Du har været med en flok 1 gang.");
+    expect(after).toContain('<span class="badge" title="Har været med til et arrangement med en flok">Har været med 1 gang</span>');
+  });
+
   it("counts the flocks someone has been with, once the event is over", async () => {
     const lis = await join("Lis");
     await startFlock(lis.cookie);
@@ -466,7 +501,20 @@ describe("profile", () => {
     const huge = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, phone), headers: { "content-length": length } });
     expect(huge.status).toBe(400);
     expect(huge.body).toContain("Billedet var for stort til at blive sendt");
-    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) })).status).toBe(303);
+    // A photo is only saved with a clear yes to the others in the flock seeing it.
+    const noYes = await call("/profil", { cookie: nina.cookie, multipart: photoForm(fields, JPEG) });
+    expect(noYes.status).toBe(400);
+    expect(noYes.body).toContain("Sæt flueben, hvis dit billede må ses af andre i dine flokke");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM member_photos").all()[0]).toEqual({ n: 0 });
+    expect((await call("/profil", { cookie: nina.cookie, multipart: photoForm({ ...fields, foto_samtykke: "ja" }, JPEG) })).status).toBe(303);
+    expect((db.raw.prepare("SELECT consent_at FROM member_photos").all()[0] as { consent_at: number }).consent_at).toBe(NOW);
+    // Nina sees her own photo and how the others see her on her profile page; nobody else can open it there.
+    const own = (await call("/profil", { cookie: nina.cookie })).body;
+    expect(own).toContain("Sådan ser dem i dine flokke dig");
+    const ownSrc = /<img class="avatar avatar-large" src="([^"]+)"/.exec(own)?.[1] ?? "";
+    expect(ownSrc).toMatch(/^\/profil\/foto\/[0-9a-f-]{36}$/);
+    expect((await call(ownSrc, { cookie: nina.cookie })).bytes).toEqual(JPEG);
+    expect((await call(ownSrc)).status).toBe(404);
 
     const ole = await join("Ole");
     await call(`/flokke/${id}/bliv-del-af`, { cookie: ole.cookie, form: {} });
@@ -492,7 +540,7 @@ describe("profile", () => {
 });
 
 describe("Lad os komme godt i gang", () => {
-  type Item = { slug: string; title: string; interested: number; line: string; mine: boolean; url: string };
+  type Item = { slug: string; title: string; others: boolean; line: string; mine: boolean; url: string };
   type Kickoff = { member: boolean; ready: boolean; inFlock: boolean; onList: boolean; events: Item[] };
   const api = async (cookie?: string) => JSON.parse((await call("/api/kom-godt-i-gang", cookie ? { cookie } : {})).body) as Kickoff;
   const choose = (slugs: string[], cookie?: string, shown: string[] = [], now = NOW) => {
@@ -509,7 +557,7 @@ describe("Lad os komme godt i gang", () => {
     return r.cookie;
   };
   /** Events nobody has shown interest in and that have no flock. */
-  const fresh = async () => (await api()).events.filter(e => e.interested === 0 && flocksOf(e.slug) === 0).map(e => e.slug);
+  const fresh = async () => (await api()).events.filter(e => !e.others && flocksOf(e.slug) === 0).map(e => e.slug);
 
   it("lists the coming weeks' events with how many are interested, those with people first", async () => {
     const first = await api();
@@ -520,11 +568,11 @@ describe("Lad os komme godt i gang", () => {
     await choose([target], await ready("Asta"));
     const after = (await api()).events;
     const at = after.findIndex(e => e.slug === target);
-    expect(after[at]!.interested).toBe(1);
-    expect(after[at]!.line).toBe("1 interesseret");
-    expect(after.slice(0, at).every(e => e.interested > 0 || /flok med/i.test(e.line))).toBe(true);
+    expect(after[at]!.others).toBe(true);
+    expect(after[at]!.line).toBe("Andre har vist interesse");
+    expect(after.slice(0, at).every(e => e.others || /flok med/i.test(e.line))).toBe(true);
     // Nobody yet: no line at all, so the list does not look empty.
-    expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("");
+    expect(after.find(e => !e.others && !/flok/i.test(e.line))?.line).toBe("");
     expect((await call("/kom-godt-i-gang")).body).not.toContain("Ingen endnu");
     // The first-visit pop-up asks for the next two days only.
     const soon = (await call("/api/kom-godt-i-gang?dage=2")).body;
@@ -537,7 +585,7 @@ describe("Lad os komme godt i gang", () => {
     }
   });
 
-  it("is one tap on the event page: Vil du med? → Jeg er interesseret, the same tick as the list", async () => {
+  it("is one tap on the event page: Vil du med? → Jeg vil gerne med!, the same tick as the list", async () => {
     const slug = (await fresh()).at(-2)!;
     const tick = `/events/${slug}/interesse`;
     // A newcomer: the tick waits in the cookie while they become a member and give an e-mail, then they land back on the event.
@@ -552,29 +600,31 @@ describe("Lad os komme godt i gang", () => {
     const saved = await call(toProfile, { cookie: both, form: { fornavn: "Tove", alder: "50-59", om_mig: "Glad for musik", email: "tove@example.dk" } });
     expect(saved.headers.get("location")).toBe(`${tick}?besked=profil_gemt`);
     const back = await call(`${tick}?besked=profil_gemt`, { cookie: both });
-    expect(back.headers.get("location")).toBe(`/events/${slug}?besked=interesse_her#flokke`);
+    expect(back.headers.get("location")).toBe(`/events/${slug}?besked=interesse_her#besked`);
     expect(statusOf("Tove", slug)).toBe("waiting");
     // Without the cookie a plain visit to the address saves nothing.
     expect((await call(tick, { cookie: await ready("Ulla") })).headers.get("location")).toBe(`/events/${slug}#flokke`);
     expect(statusOf("Ulla", slug)).toBe(null);
 
     const page = (await call(`/events/${slug}?besked=interesse_her`, { cookie })).body;
-    expect(page).toContain("Tak! Du er på listen – helt uforpligtende.");
-    expect(page).toContain("<strong>Du er på listen.</strong> Vi skriver, når der er en flok.");
+    expect(page).toContain('<div id="besked" class="event-message is-new"><p class="flash" role="status">Tak! Du har vist interesse');
+    expect(page).toContain("Tak! Du har vist interesse – helt uforpligtende. Når 3-6 mennesker vil med, tilbyder vi dig en konkret plads i flokken.");
     expect(page).toContain(`action="/events/${slug}/interesse/fjern"`);
-    expect(page).toContain('<a class="button-secondary is-on" href="#flokke">✓ Du er interesseret</a>');
+    expect(page).toContain('<span class="button-secondary is-on"><span class="tick" aria-hidden="true">✓</span> Du er på listen</span>');
     expect(page).not.toContain('href="#flokke">Vil du med?</a>');
     expect(page).not.toContain("interesseret.</span>");
     // Others see the count once someone is interested, never "nobody yet".
     const stranger = (await call(`/events/${slug}`)).body;
-    // Two buttons side by side at the top: the tick and the organiser's ticket; the calendar is a small link below.
-    expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form"><button type="submit" class="button-alt">Jeg er interesseret</button></form>`);
-    expect(stranger).toContain('<p class="event-calendar">');
+    // Two buttons side by side at the top: the tick and the organiser's ticket; below them a framed calendar button.
+    expect(stranger).toContain(`<form method="post" action="/events/${slug}/interesse" class="inline-form interest-form"><button type="submit" class="button-alt">Jeg vil gerne med!</button></form>`);
+    expect(stranger).toContain(`<a class="calendar-button" href="/events/${slug}.ics" download>`);
+    expect(stranger).not.toContain('id="besked"');
     expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
-    expect(stranger).toContain('<span class="interest-count">1 anden er interesseret.</span>');
-    expect(stranger).toContain(`eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> – vælg selv tid og mødested`);
+    expect(stranger).toContain('<p class="interest-count">Andre har vist interesse.</p>');
+    expect(stranger).toContain(`Eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`);
+    expect(stranger).not.toContain('class="trust-link"');
     // Taking it back.
-    expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#flokke`);
+    expect((await call(`${tick}/fjern`, { cookie, form: {} })).headers.get("location")).toBe(`/events/${slug}?besked=interesse_fjernet#besked`);
     expect(statusOf("Tove", slug)).toBe(null);
     expect((await call(`/events/${slug}`)).body).not.toContain('class="interest-count"');
   });
@@ -603,7 +653,7 @@ describe("Lad os komme godt i gang", () => {
     const mine = (await call("/flokke?besked=interesser_gemt", { cookie })).body;
     expect(mine).toContain("Tak! Du står på listen – helt uforpligtende.");
     expect(mine).toContain("Dine interesser");
-    expect(mine).toContain("Du er den første. Vi samler en flok, når I er 3");
+    expect(mine).toContain("<p class=\"interest-state\">Vi samler en flok, når I er 3");
     // On the list: the pop-up is not shown again, and the ticks show as ticked.
     const own = await api(cookie);
     expect(own.onList).toBe(true);
@@ -628,7 +678,7 @@ describe("Lad os komme godt i gang", () => {
     expect(flocksOf(slug)).toBe(1);
     expect(["Dan", "Eja", "Finn"].map(n => statusOf(n, slug))).toEqual(["invited", "invited", "invited"]);
     // The flock is not shown to others until someone has said yes.
-    expect((await api()).events.find(e => e.slug === slug)?.line).toBe("3 interesserede");
+    expect((await api()).events.find(e => e.slug === slug)?.line).toBe("Andre har vist interesse");
     const invite = (await call("/flokke", { cookie: dan })).body;
     expect(invite).toContain("Din flok er klar!");
     expect(invite).toContain("I er 3 inviteret.");
@@ -659,13 +709,17 @@ describe("Lad os komme godt i gang", () => {
     expect((await call("/flokke", { cookie: finn }, later)).body).toContain("Du nåede ikke at svare");
   });
 
-  it("counts the free outings: a confirmed flock counts once its event is over", async () => {
+  it("counts the free outings, but not while membership is free in the start-up period", async () => {
+    const { FREE_MEMBERSHIP_UNTIL } = await import("../src/flokken/profile.js");
+    const paused = FREE_MEMBERSHIP_UNTIL + 86_400_000;
     const cookie = await ready("Sif");
+    db.raw.prepare("UPDATE member_sessions SET expires_at = ?").run(paused + 86_400_000); // still logged in after the date
     const before = (await call("/flokke", { cookie })).body;
-    expect(before).toContain("0 af 3 udflugter uden medlemskab brugt");
+    expect(before).not.toContain("udflugter uden medlemskab");
+    expect((await call("/flokke", { cookie }, paused)).body).toContain("0 af 3 udflugter uden medlemskab brugt");
     expect((await startFlock(cookie)).status).toBe(303);
-    expect((await call("/flokke", { cookie })).body).toContain("0 af 3 udflugter uden medlemskab brugt");
-    const after = (await call("/flokke", { cookie }, event.starts_at + 6 * 3600_000)).body;
+    expect((await call("/flokke", { cookie }, event.starts_at + 6 * 3600_000)).body).not.toContain("udflugter uden medlemskab");
+    const after = (await call("/flokke", { cookie }, paused)).body;
     expect(after).toContain("1 af 3 udflugter uden medlemskab brugt");
     expect(after.match(/free-dot is-used/g)).toHaveLength(1);
   });
@@ -703,12 +757,21 @@ describe("Lad os komme godt i gang", () => {
     const r = await call("/kom-godt-i-gang");
     expect(r.status).toBe(200);
     expect(r.body).toContain("<h1>Lad os komme godt i gang</h1>");
-    expect(r.body).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
+    expect(r.body).toContain("Medlemskab er gratis til 1. marts 2027, så du kan tage med, så tit du vil.");
+    expect(r.body).not.toContain("udflugter uden at være medlem");
     // "Bliv medlem" explains membership of the association; signing up is "Opret profil".
     const m = await call("/bliv-medlem");
     expect(m.status).toBe(200);
-    expect(m.body).toContain("<h1>Bliv medlem af Flokken</h1>");
-    expect(m.body).toContain("<strong>250 kr. om året</strong>");
+    expect(m.body).toContain("<h1>Bliv medlem af Flokken i Aarhus</h1>");
+    // Free in the start-up period: no price, no outings rule. Both come back after the date.
+    expect(m.body).toContain("<strong>gratis til 1. marts 2027</strong>");
+    expect(m.body).not.toMatch(/250 kr|udflugter uden at være medlem|betalingen åbner/);
+    const { FREE_MEMBERSHIP_UNTIL } = await import("../src/flokken/profile.js");
+    const later = (await call("/bliv-medlem", {}, FREE_MEMBERSHIP_UNTIL)).body;
+    expect(later).toContain("<strong>250 kr. om året</strong>");
+    expect(later).toContain("Du kan deltage i de første 3 udflugter uden at være medlem.");
+    expect((await call("/")).body).toContain("medlemskab er gratis til 1. marts 2027");
+    expect((await call("/moed-nye-mennesker")).body).toContain("Medlemskab af foreningen er gratis til 1. marts 2027.");
     expect(m.body).toContain('href="/log-ind?naeste=/kom-godt-i-gang"');
     expect((await call("/log-ind")).body).toContain('<button type="submit">Opret profil</button>');
     expect((await call("/")).body).toContain('<h2 id="h-member">Bliv medlem</h2>');
@@ -719,7 +782,7 @@ describe("Lad os komme godt i gang", () => {
     const ok = await call("/bliv-medlem/meld-ind", { form: { navn: "Birgit", email: "birgit@example.dk" } });
     expect(ok.status).toBe(303);
     await call("/bliv-medlem/meld-ind", { form: { navn: "Birgit", email: "BIRGIT@example.dk" } });
-    expect((await call("/bliv-medlem?besked=tak")).body).toContain("Tak, du er meldt ind!");
+    expect((await call("/bliv-medlem?besked=tak")).body).toContain("Tak, du er meldt ind! Medlemskab er gratis til 1. marts 2027");
     expect((await call("/api/indmeldelser")).status).toBe(401);
     const list = JSON.parse((await call("/api/indmeldelser", { headers: { authorization: `Bearer ${"x".repeat(32)}` } })).body) as Array<{ name: string }>;
     expect(list.map(r => r.name)).toEqual(["Birgit"]);

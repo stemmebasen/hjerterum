@@ -1,24 +1,26 @@
+import { eventTranslation } from "../i18n/machine.js";
 import { ACTIVITIES, TOPICS, activityBySlug, headingFor, type Activity } from "../activities.js";
 import { categoryBySlug } from "../categories.js";
 import type { D1Database } from "../db.js";
-import { activeAreas, areaBySlug, type Area } from "../geo.js";
+import { activeAreas, areaBySlug, CITY_PAGES, type Area } from "../geo.js";
 import { ORGANIZERS, organizerBySlug, organizersFor, type OrganizerProfile } from "../organizers.js";
 import { BROAD_CATEGORIES, isAlternativeOrganizer } from "../mainstream.js";
 import { priceLabel } from "../price.js";
 import { sourceById } from "../sources/registry.js";
 import { capitalize, dayLabel, hhmm, timeRangeLabel } from "../time.js";
 import type { Member } from "../flokken/auth.js";
-import { flash, flockCards, flockPanel, howItWorks, interestButton, type EventInterest } from "../flokken/pages.js";
+import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, interestUndo, type EventInterest } from "../flokken/pages.js";
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
-import { FREE_OUTINGS } from "../flokken/profile.js";
-import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
-import { hasFilters, toQuery, type Filters } from "./filters.js";
+import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, picksNote, placeLine, searchForm, section } from "./components.js";
+import { hasFilters, isSearch, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageContext } from "./layout.js";
-import { areaCounts, categoryCounts, countByArea, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
+import { areaCounts, categoryCounts, countEvents, eventBySlug, groupCounts, heroEvents, listEvents, PAGE_SIZE, relatedEvents, sourcesForAbout, type EventRow } from "./queries.js";
 import { eventJsonLd } from "./seo.js";
 import { forYou, whyNote, type Taste } from "./foryou.js";
+import { venueSection } from "./venue.js";
 
 /** Plain text with its web addresses as links (only http/https; the text itself stays escaped). */
 export function linkify(text: string): SafeHtml[] {
@@ -57,6 +59,9 @@ function itemList(events: EventRow[], ctx: PageContext, offset = 0) {
 const eventsLabel = (n: number) => n === 1 ? "1 arrangement" : `${n} arrangementer`;
 
 /** The regular offerings of a set of organisers. */
+/** Yoga schools: shown after the stages and houses on the front page, and their weekly classes are not on it. */
+const YOGA_SCHOOLS = new Set(["skandinavisk-yoga-og-meditationsskole-aarhus", "yo-studios"]);
+
 function offeringsBlock(profiles: OrganizerProfile[]): SafeHtml {
   const withOfferings = profiles.filter(p => p.offerings.length);
   if (!withOfferings.length) return html``;
@@ -84,10 +89,36 @@ const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 const MISSION = "Hvis du savner at opleve nye ting og møde nye mennesker, så er du IKKE alene. Vi er rigtig mange, der har det ligesom dig. Derfor lavede vi Flokken!";
 
 /** The two aims, in one breath. Shown under the mission on the front page. */
-const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud af døren, så de møder nye mennesker og oplever noget sammen – og at hjælpe byens mindre spillesteder, teatre og foreninger med at blive set.";
+const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud af døren, så de møder nye mennesker og oplever noget sammen – og at hjælpe Aarhus’ mindre spillesteder, teatre og foreninger med at blive set.";
 
 /** One line for newcomers who don't read Danish yet, such as international students. */
 const ENGLISH_LINE = "New in Aarhus? Flokken is for you too. Pick an event, join a small group and go together – plenty of concerts and workshops need no Danish at all.";
+
+/**
+ * A member's own words on the front page (Jake 2026-11-15, from a real member). No photo: show a face only
+ * when it is the member's own picture. To add one later, set `name` (e.g. "Mette, 34") and/or `photo`
+ * (a path under /assets/, square, at least 160×160); the card then shows them instead of the quote-mark badge.
+ * `highlight` is the part of the quote that gets the yellow marker stroke.
+ */
+const TESTIMONIAL: { quote: string; highlight?: string; name?: string; photo?: string; role: string } = {
+  quote: "Flokken hjælper mig med to ting, jeg altid har haft pissesvært ved: At prøve nye ting og at møde nye mennesker. Det er blevet 200% nemmere at være mig!",
+  highlight: "Det er blevet 200% nemmere at være mig!",
+  role: "Medlem af Flokken"
+};
+
+function testimonialCard(t: typeof TESTIMONIAL): SafeHtml {
+  const [before, after] = t.highlight && t.quote.includes(t.highlight) ? t.quote.split(t.highlight) : [t.quote, undefined];
+  const text = after === undefined ? html`${before}` : html`${before}<span class="marker">${t.highlight}</span>${after}`;
+  return html`<figure class="testimonial" aria-labelledby="h-testimonial">
+  <h2 id="h-testimonial" class="visually-hidden">Det siger et medlem</h2>
+  <span class="testimonial-mark" aria-hidden="true">“</span>
+  <blockquote class="testimonial-quote"><p>${text}</p></blockquote>
+  <figcaption class="testimonial-by">
+    ${t.photo ? html`<img class="testimonial-photo" src="${t.photo}" alt="" width="56" height="56" loading="lazy">` : html`<span class="testimonial-badge" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26"><path d="M12 20.5s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 8a4.2 4.2 0 0 1 7.5 2.4c0 5.5-7.5 10.1-7.5 10.1Z" fill="currentColor"/></svg></span>`}
+    <span>${t.name ? html`<strong>${t.name}</strong><br>` : ""}<span class="testimonial-role">${t.role}</span></span>
+  </figcaption>
+</figure>`;
+}
 
 /** How many of the coming week's events the front page lists before pointing to the calendar. */
 const FRONT_WEEK_LIMIT = 80;
@@ -128,19 +159,20 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   const broadActivities = BROAD_CATEGORIES.map(slug => ACTIVITIES.find(a => a.category === slug)).filter((a): a is Activity => !!a);
   const activityCounts = await Promise.all(broadActivities.map(a => countEvents(db, activityFilters(a), regions, ctx.now)));
   const total = [...byArea.values()].reduce((a, b) => a + b, 0);
-  const areaData = JSON.stringify(areas.map(a => ({ slug: a.slug, lat: a.centre.lat, lon: a.centre.lon })));
   const activityChips = (list: Activity[]) => chipLinks(list.map(a => ({ href: `/${a.slug}`, label: a.name, count: countOf(a) })));
   const countOf = (a: Activity) => activityCounts[broadActivities.indexOf(a)] ?? 0;
   // The city's stages, houses and associations (the second aim: help them be seen).
-  const venues = ORGANIZERS.filter(o => areas.some(a => a.slug === o.area) && !isAlternativeOrganizer(o.slug));
+  // Stages, music venues, libraries and houses first; the yoga schools last (Jake 2026-11-17).
+  const venues = ORGANIZERS.filter(o => areas.some(a => a.slug === o.area) && !isAlternativeOrganizer(o.slug))
+    .sort((a, b) => Number(YOGA_SCHOOLS.has(a.slug)) - Number(YOGA_SCHOOLS.has(b.slug)));
   const byCount = (list: Activity[]) => [...list].sort((a, b) => countOf(b) - countOf(a));
   const body = html`
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
-      <p class="standfirst">Vi vil have flere ud at opleve byen sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg er interesseret". Så samler vi en lille flok, du kan følges med.</p>
-      ${searchForm(areas, {})}
+      <h1 class="hero-title">Aarhus er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
+      <p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
+      ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>
     <div class="hero-visual">${ticketStack(heroTickets)}</div>
@@ -158,10 +190,13 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p class="mission-aims">${AIMS} <a href="/om#formaal">Læs om vores formål og værdier</a></p>
     <p class="mission-en" lang="en">${ENGLISH_LINE}</p>
   </aside>
+  ${testimonialCard(TESTIMONIAL)}
   ${section("h-how", "Sådan virker Flokken", howItWorks)}
   <aside class="partner-teaser member-teaser" aria-labelledby="h-member">
     <div><p class="hero-kicker">Foreningen</p><h2 id="h-member">Bliv medlem</h2>
-    <p>Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.</p></div>
+    <p>${freeMembership(ctx.now)
+      ? `Flokken er en forening, der findes, fordi folk er med. Vi er lige gået i gang, så medlemskab er gratis til ${FREE_MEMBERSHIP_DATE}. Meld dig ind, og vær med til at holde fællesskabet i gang.`
+      : `Flokken er en forening, der findes, fordi folk er med. Du kan deltage i de første ${FREE_OUTINGS} udflugter uden at være medlem – og bagefter holder du som medlem fællesskabet i gang.`}</p></div>
     <p><a class="button button-alt" href="/bliv-medlem">Læs om medlemskab</a></p>
   </aside>
   <section class="section savings" aria-labelledby="h-save">
@@ -170,29 +205,26 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
-    ? html`${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se alle ${week.total} arrangementer de næste 7 dage</a></p>` : ""}`
+    ? html`${picksNote()}${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se de næste 7 dage i kalenderen</a></p>` : ""}`
     : html`<p class="empty">Der er ingen arrangementer de næste 7 dage endnu. <a href="/kalender">Se hele kalenderen</a>.</p>`,
     { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
   ${section("h-activities", "Find din aktivitet", activityChips(byCount(broadActivities.filter(a => countOf(a) > 0))), { href: "/kategorier", label: "Alle aktiviteter og emner →" })}
-  ${section("h-cities", "Arrangementer i din by", html`${chipLinks(areas.map(a => ({ href: `/${a.slug}`, label: a.place, count: byArea.get(a.slug) ?? 0 })))}
-    <p><button class="pill near-me" type="button" data-near-me data-areas="${areaData}" hidden>Brug min placering</button> <span class="near-status meta-muted" data-near-status aria-live="polite"></span></p>`)}
   <aside class="partner-teaser" aria-labelledby="h-partner">
     <div><p class="hero-kicker">For foreninger og kultursteder</p><h2 id="h-partner">Vil I have flere med?</h2>
     <p>Vil I have jeres arrangementer med på Flokken? Kontakt os – og hør om mulighed for radioomtale.</p></div>
     <p><a class="button button-alt" href="/samarbejde">Læs om samarbejde</a></p>
   </aside>
-  ${venues.length ? section("h-venues", "Byens scener, huse og foreninger", chipLinks(venues.map(o => ({ href: `/arrangoerer/${o.slug}`, label: o.name }))), { href: "/arrangoerer", label: "Alle arrangører →" }) : ""}
-  ${venues.some(o => o.offerings.length) ? section("h-regular", "Faste ugentlige tilbud", offeringsBlock(venues)) : ""}
+  ${venues.length ? section("h-venues", "Aarhus’ scener, huse og foreninger", chipLinks(venues.map(o => ({ href: `/arrangoerer/${o.slug}`, label: o.name }))), { href: "/arrangoerer", label: "Alle arrangører →" }) : ""}
 </div>`;
   return {
     status: 200,
     body: page(ctx, {
-      title: `Flokken – find arrangementer i Aarhus og nogen at følges med`,
-      description: `Koncerter, teater, foredrag og meget mere – ${total} kommende arrangementer i Aarhus og omegn. Vis interesse, så samler vi en lille flok, du kan følges med.`,
+      title: `Flokken – arrangementer og events i Aarhus, og nogen at følges med`,
+      description: `Ting at lave i Aarhus: koncerter, teater, foredrag og meget mere – ${total} kommende arrangementer. Mød nye mennesker: vis interesse, så samler vi en lille flok, du kan følges med.`,
       canonical: "/",
       jsonLd: [
-        { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK", publisher: { "@id": ctx.origin + "/#organisation" } },
+        { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: ["da-DK", "en"], publisher: { "@id": ctx.origin + "/#organisation" } },
         {
           "@context": "https://schema.org", "@type": "Organization", "@id": ctx.origin + "/#organisation", name: "Flokken", url: ctx.origin + "/",
           // A raster logo: search engines do not take an SVG as an organisation's logo.
@@ -207,20 +239,22 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 // ————————————————————————————————————————— The calendar, today, the weekend
 
 export async function calendarPage(db: D1Database, ctx: PageContext, regions: string[], f: Filters, personal?: Personal): Promise<View> {
-  const areas = activeAreas(regions);
   // "Til dig" on the calendar's first page, also right after a tile was picked (the page the front page's tiles lead to); not on a search.
   const showForYou = f.page === 1 && !f.q;
   const [{ events, total }, cats, groups, forYouBlock] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now),
     showForYou ? forYouSection(db, ctx, regions, personal, "/kalender") : Promise.resolve(html``)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
-  const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
+  const heading = f.q ? `Søgning: “${f.q}”` : `Kalender over arrangementer i ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
   const body = html`
 <div class="wrap">
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
-    <p class="standfirst">Alle kommende arrangementer i ${ctx.regionLabel}, dag for dag. Filtrér efter område, pris, tid og aktivitet – og find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    <p class="standfirst">${isSearch(f)
+      ? html`Alle kommende arrangementer i ${ctx.regionLabel}, der passer på din søgning, dag for dag.`
+      : html`Kommende arrangementer i ${ctx.regionLabel}, dag for dag.`} Find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    ${isSearch(f) ? "" : picksNote()}
   </header>
   ${groupTiles(f.group, groups, g => "/kalender" + toQuery({ ...f, page: 1 }, { group: g }) + "#soeg", { compact: true })}
   ${forYouBlock}
@@ -246,7 +280,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   return {
     status: 200,
     body: page(ctx, {
-      title: f.page > 1 ? `Kalender – side ${f.page}` : `Kalender – arrangementer i ${ctx.regionLabel}`,
+      title: f.page > 1 ? `Kalender – side ${f.page}` : `Eventkalender for ${ctx.regionLabel} – arrangementer og aktiviteter dag for dag`,
       description: `Kalender for ${ctx.regionLabel}: ${total} kommende arrangementer fra lokale arrangører – dag for dag. Find en flok at følges med.`,
       canonical: "/kalender" + (f.page > 1 ? toQuery({ page: f.page }) : ""),
       breadcrumbs: crumbs,
@@ -269,6 +303,7 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
     <p class="standfirst">${period === "idag" ? "Koncerter, teater, foredrag, udstillinger og fællesskaber i dag" : "Koncerter, teater, comedy, quiz, udstillinger og foredrag fra fredag til søndag"} – fra arrangører i hele ${ctx.regionLabel}.</p>
+    ${picksNote()}
   </header>
   <h2 class="results-count">${eventsLabel(total)}</h2>
   ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p>Intet i kalenderen ${period === "idag" ? "i dag" : "i weekenden"} endnu.</p><p><a class="button-secondary" href="/kalender">Se hele kalenderen</a></p></div>`}
@@ -277,7 +312,7 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
   return {
     status: 200,
     body: page(ctx, {
-      title: period === "idag" ? `Hvad sker der i dag? Arrangementer i ${ctx.regionLabel}` : `Hvad sker der i weekenden? Arrangementer i ${ctx.regionLabel}`,
+      title: period === "idag" ? `Hvad sker der i ${ctx.regionLabel} i dag? Events og arrangementer` : `Hvad sker der i ${ctx.regionLabel} i weekenden? Events og arrangementer`,
       description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.` : `Det sker i weekenden i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.`,
       canonical: path,
       breadcrumbs: crumbs,
@@ -292,7 +327,7 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
   const areas = activeAreas(regions);
   const place = area?.place ?? ctx.regionLabel;
   const f = activityFilters(activity, { area: area?.slug ?? null, page: pageNo });
-  const [{ events, total }, byArea] = await Promise.all([listEvents(db, f, regions, ctx.now), countByArea(db, activityFilters(activity), regions, ctx.now)]);
+  const { events, total } = await listEvents(db, f, regions, ctx.now);
   const profiles = organizersFor(activity.slug, area?.slug ?? null).filter(o => areas.some(a => a.slug === o.area));
   const basePath = area ? `/${activity.slug}/${area.slug}` : `/${activity.slug}`;
   const heading = headingFor(activity, place);
@@ -314,7 +349,6 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
       ${profiles.some(p => p.offerings.length) ? section("h-regular", `Faste tilbud${area ? ` i ${area.place}` : ""}`, offeringsBlock(profiles)) : html``}
     </div>
     <aside class="aside">
-      ${section("h-cities", `${activity.name} i din by`, linkList(areas.map(a => ({ href: `/${activity.slug}/${a.slug}`, label: `${activity.name} i ${a.place}`, count: byArea.get(a.slug) ?? 0 })), { columns: false }))}
       ${profiles.length ? section("h-orgs", "Arrangører", organizerList(profiles)) : html``}
       ${related.length ? section("h-related", "Relaterede emner", linkList(related.map(r => ({ href: area ? `/${r.slug}/${area.slug}` : `/${r.slug}`, label: area ? `${r.name} i ${area.place}` : r.name })), { columns: false })) : html``}
     </aside>
@@ -337,11 +371,10 @@ export async function activityPage(db: D1Database, ctx: PageContext, regions: st
 // ————————————————————————————————————————— Cities: /aarhus
 
 export async function areaPage(db: D1Database, ctx: PageContext, regions: string[], area: Area): Promise<View> {
-  const areas = activeAreas(regions);
   const base = emptyFilters({ area: area.slug });
-  const [today, weekend, upcoming, byArea] = await Promise.all([
+  const [today, weekend, upcoming] = await Promise.all([
     listEvents(db, { ...base, period: "idag" }, regions, ctx.now), listEvents(db, { ...base, period: "weekend" }, regions, ctx.now),
-    listEvents(db, base, regions, ctx.now), areaCounts(db, regions, ctx.now)
+    listEvents(db, base, regions, ctx.now)
   ]);
   const activityCounts = await Promise.all(ACTIVITIES.map(a => countEvents(db, activityFilters(a, { area: area.slug }), regions, ctx.now)));
   const profiles = ORGANIZERS.filter(o => o.area === area.slug);
@@ -353,6 +386,7 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
     ${crumbsNav(crumbs)}
     <h1>Arrangementer i ${area.place}</h1>
     <p class="standfirst">Hvad sker der i ${area.place}? Arrangementer fra lokale arrangører, opdateret hver nat – find en flok at følges med, eller opret din egen.</p>
+    ${picksNote()}
   </header>
   <div class="main-aside">
     <div>
@@ -366,14 +400,13 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
     <aside class="aside">
       ${activityLinks.length ? section("h-acts", `Aktiviteter i ${area.place}`, linkList(activityLinks.map(x => ({ href: `/${x.a.slug}/${area.slug}`, label: `${x.a.name} i ${area.place}`, count: x.n })), { columns: false })) : html``}
       ${profiles.length ? section("h-orgs", `Arrangører i ${area.place}`, organizerList(profiles)) : html``}
-      ${section("h-other", "Andre byer", linkList(areas.filter(a => a.slug !== area.slug).map(a => ({ href: `/${a.slug}`, label: `Arrangementer i ${a.place}`, count: byArea.get(a.slug) ?? 0 })), { columns: false }))}
     </aside>
   </div>
 </div>`;
   return {
     status: 200,
     body: page(ctx, {
-      title: `Hvad sker der i ${area.place}? Arrangementer og flokke`,
+      title: `Hvad sker der i ${area.place}? Events, arrangementer og aktiviteter`,
       description: `Det sker i ${area.place}: ${upcoming.total} kommende arrangementer fra lokale arrangører. Find en flok at følges med.`,
       canonical: `/${area.slug}`,
       breadcrumbs: crumbs,
@@ -395,7 +428,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Arrangører</h1>
+    <h1>Arrangører i Aarhus</h1>
     <p class="standfirst">Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel}, hvis arrangementer du finder på Flokken – med deres faste tilbud og kommende arrangementer. <a href="/samarbejde">Vil I være med?</a></p>
   </header>
   ${byArea.map(x => section(`h-${x.a.slug}`, x.a.place, html`<ul class="org-list">${x.list.map(o => html`<li>
@@ -404,7 +437,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
     <p class="meta meta-muted">${[o.address, [o.postalCode, o.city].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</p>
   </li>`)}</ul>`))}
 </div>`;
-  return { status: 200, body: page(ctx, { title: `Arrangører i ${ctx.regionLabel}`, description: `Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel} – med kommende events.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
+  return { status: 200, body: page(ctx, { title: `Arrangører i ${ctx.regionLabel}`, description: `Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel} – med kommende arrangementer.`, canonical: "/arrangoerer", breadcrumbs: crumbs }, body) };
 }
 
 export async function organizerPage(db: D1Database, ctx: PageContext, regions: string[], profile: OrganizerProfile): Promise<View | null> {
@@ -463,6 +496,9 @@ export type EventPageExtras = {
   interest?: (eventId: string) => Promise<EventInterest>;
 };
 
+/** An arrangement's description, one paragraph per line; "• " lines as bullets. */
+const textBlock = (paragraphs: string[]) => paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`);
+
 export async function eventPage(db: D1Database, ctx: PageContext, regions: string[], slug: string, extras?: EventPageExtras): Promise<View | null> {
   const e = await eventBySlug(db, slug);
   if (!e || !e.region || !regions.includes(e.region)) return null;
@@ -477,6 +513,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const categories = (e.categories ?? "").split(",").filter(Boolean);
   const price = priceLabel(e);
   const paragraphs = (e.description ?? "").split(/\n+/).filter(Boolean);
+  // English pages: the arrangement's own text machine-translated, when it has been (src/i18n/machine.ts).
+  const english = ctx.lang === "en" ? await eventTranslation(db, e) : null;
   const over = (e.ends_at ?? e.starts_at + 3 * 3600_000) < ctx.now;
   const notice = e.status === "cancelled" ? html`<p class="notice notice-cancelled" role="status"><strong>Aflyst.</strong> Arrangøren har meldt dette arrangement aflyst.</p>`
     : e.status === "withdrawn" ? html`<p class="notice" role="status">Dette arrangement er ikke længere annonceret hos arrangøren. Tjek arrangørens egen side.</p>`
@@ -486,7 +524,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
     : e.address || e.city ? `https://www.openstreetmap.org/search?query=${encodeURIComponent([e.address, e.postal_code, e.city].filter(Boolean).join(" "))}` : null;
   const firstCategory = categories[0] ? categoryBySlug(categories[0]) : null;
   const firstActivity = firstCategory ? activityBySlug(firstCategory.path) : undefined;
-  const area = e.area ? areaBySlug(e.area) ?? null : null;
+  const area = e.area && CITY_PAGES.includes(e.area) ? areaBySlug(e.area) ?? null : null;
   const profile = e.organizer_id ? organizerBySlug(e.organizer_id) : undefined;
   const crumbs: Crumb[] = [
     { name: "Forside", path: "/" },
@@ -502,6 +540,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const body = html`
 <article class="event wrap">
   ${crumbsNav(crumbs)}
+  <div class="event-layout">
+  <div class="event-main">
   <header class="ticket event-ticket">
     ${e.image_url ? html`<figure class="event-image"><img src="${e.image_url}" alt="${e.title}" decoding="async" fetchpriority="high"></figure>` : ""}
     <div class="ticket-body">
@@ -512,28 +552,35 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
         <p class="event-when">${capitalize(dayLabel(e.starts_at, ctx.now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</p>
         <p class="event-where">${placeLine(e)}${price ? ` · ${price}` : ""}</p>
         ${notice}
-        ${flash(extras?.message ?? null)}
+        ${extras?.message ? html`<div id="besked" class="event-message${extras.message === "interesse_her" ? " is-new" : ""}">${flash(extras.message)}</div>` : ""}
         <div class="event-actions">
           ${interestButton(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
           ${e.signup_url && e.status !== "cancelled" && !over ? html`<a class="button" href="${e.signup_url}" rel="noopener" target="_blank">${e.is_free === 1 ? "Tilmeld dig" : "Køb billet"}<span class="visually-hidden"> hos arrangøren (åbner i nyt vindue)</span></a>` : ""}
         </div>
-        ${!over && e.status !== "withdrawn" ? html`<p class="event-calendar"><a href="${eventPath(e)}.ics" download>Tilføj til kalender</a></p>` : ""}
+        ${!over && e.status !== "withdrawn" ? html`<div class="event-extras"><a class="calendar-button" href="${eventPath(e)}.ics" download><svg class="calendar-button-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Tilføj til kalender</a>${interestUndo(e, ctx.now, interest)}</div>` : ""}
+        ${flockLine(e, extras?.member ?? null, myFlockId, ctx.now, interest)}
       </div>
     </div>
   </header>
   ${e.image_url && e.image_credit ? html`<p class="event-image-credit">Billede: ${e.image_credit}</p>` : ""}
   ${offersBlock(offers)}
-  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now, interest) : ""}
-  <div class="main-aside">
+  ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
     <div class="event-text">
-      ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
-        : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
+      ${english?.description_en ? html`<p class="meta-muted small machine-note" lang="en">Automatically translated from Danish. The organiser's own text is under “Original in Danish” below. Many events welcome English speakers – ask the organiser if you are unsure.</p>
+      <h2 class="visually-hidden">Beskrivelse</h2>${textBlock(english.description_en.split(/\n+/).filter(Boolean))}
+      ${english.partial ? html`<p class="meta-muted small" lang="en">The rest of the description is in the Danish original below.</p>` : ""}
+      <details class="original-text"><summary lang="en">Original in Danish</summary><div translate="no" lang="da">${english.title_en ? html`<p><strong>${e.title}</strong></p>` : ""}${paragraphs.length ? textBlock(paragraphs) : html`<p>${e.summary ?? ""}</p>`}</div></details>`
+      : html`
+      ${ctx.lang === "en" && (paragraphs.length || e.summary) ? html`<p class="meta-muted small" lang="en">The description below is the organiser's own, usually in Danish. Many events welcome English speakers – ask the organiser if you are unsure.</p>` : ""}
+      ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${textBlock(paragraphs)}`
+        : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}`}
       ${source?.descriptionPolicy === "excerpt" && e.source_url ? html`<p><a href="${e.source_url}" rel="noopener">Læs hele beskrivelsen hos ${e.source_name} →</a></p>` : ""}
     </div>
-    <aside class="aside facts" aria-label="Fakta">
+  </div>
+    <aside class="aside facts event-facts" aria-label="Fakta">
       <dl class="facts-list">
         <dt>Hvornår</dt><dd>${capitalize(dayLabel(e.starts_at, ctx.now))}<br>${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, ctx.now)}</dd>
-        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.lat !== null && e.lon !== null && !over ? html`<br><a href="/kort?event=${e.slug}">Vis på kortet</a>${mapUrl ? html` · <a href="${mapUrl}" rel="noopener" target="_blank">OpenStreetMap</a>` : ""}` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere arrangementer i ${area.place}</a>` : ""}</dd>
+        <dt>Hvor</dt><dd>${e.venue_name ? html`${e.venue_name}<br>` : ""}${e.address ? html`${e.address}<br>` : ""}${[e.postal_code, e.city].filter(Boolean).join(" ")}${e.venue_name || e.address ? html`<br><a href="#stedet">Mere om stedet</a>` : mapUrl ? html`<br><a href="${mapUrl}" rel="noopener" target="_blank">Vis på kort</a>` : ""}${area ? html`<br><a href="/${area.slug}">Flere arrangementer i ${area.place}</a>` : ""}</dd>
         ${e.organizer_name ? html`<dt>Arrangør</dt><dd>${profile ? html`<a href="/arrangoerer/${profile.slug}">${e.organizer_name}</a>` : e.organizer_url ? html`<a href="${e.organizer_url}" rel="noopener">${e.organizer_name}</a>` : e.organizer_name}</dd>` : ""}
         ${e.host_name ? html`<dt>Underviser / vært</dt><dd>${e.host_name}</dd>` : ""}
         <dt>Pris</dt><dd>${price ?? "Se arrangørens side"}${e.price_text ? html`<br><span class="meta-muted small">Ifølge beskrivelsen: ${e.price_text}</span>` : ""}</dd>
@@ -543,6 +590,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
       <span class="meta-muted small">Sidst kontrolleret ${dayLabel(e.last_checked_at, ctx.now)}. Ret eller aflys altid hos arrangøren.</span></p>
     </aside>
   </div>
+  ${venueSection(e, over)}
   ${related.length ? section("h-related", "Måske også", cardGrid(related, ctx.now)) : ""}
 </article>`;
   // A source whose terms require it (Billetto) is named as the canonical home of the event.
@@ -579,7 +627,7 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <p class="section-kicker">Gratis og billigt</p>
-    <h1>Det skal ikke koste en formue <span class="marker">at komme ud.</span></h1>
+    <h1>Det skal ikke koste en formue <span class="marker">at komme ud i Aarhus.</span></h1>
     <p class="standfirst">Gratis og billige arrangementer i ${ctx.regionLabel} den næste måned.</p>
     <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis arrangementer</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
   </header>
@@ -602,8 +650,8 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Aktiviteter og emner</h1>
-    <p class="standfirst">Koncerter, teater og comedy, foredrag, quiz, udstillinger, dans og meget mere. Vælg en aktivitet for at se, hvad der sker i ${ctx.regionLabel} – eller i din by.</p>
+    <h1>Aktiviteter og emner i Aarhus</h1>
+    <p class="standfirst">Koncerter, teater og comedy, foredrag, quiz, udstillinger, dans og meget mere. Vælg en aktivitet for at se, hvad der sker i ${ctx.regionLabel}.</p>
   </header>
   ${section("h-acts", "Aktiviteter", list(broad))}
   ${section("h-calm", "Ro og fordybelse", list(calm))}
@@ -612,45 +660,58 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
   return { status: 200, body: page(ctx, { title: `Aktiviteter og emner – arrangementer i ${ctx.regionLabel}`, description: `Koncerter, teater, comedy, foredrag, quiz, udstillinger, dans, natur og fællesskaber i ${ctx.regionLabel}.`, canonical: "/kategorier", breadcrumbs: crumbs }, body) };
 }
 
-export async function aboutPage(db: D1Database, ctx: PageContext, areas: Area[]): Promise<View> {
+export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View> {
   const sources = (await sourcesForAbout(db)).filter(s => s.enabled === 1);
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Om Flokken", path: "/om" }];
   const body = html`
 <div class="wrap narrow prose">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Om Flokken</h1>
+    <h1>Om Flokken – en social forening i Aarhus</h1>
     <p class="standfirst">${MISSION}</p>
   </header>
+  <h2 id="saadan">Sådan virker det</h2>
+  <p>Find et arrangement i kalenderen, og tryk "Jeg vil gerne med!". Når nok vil med til det samme, samler vi jer i en lille flok. I mødes udenfor foran et kendt sted, tager en kop kaffe i nærheden og går så til arrangementet sammen. Du køber selv billet hos arrangøren, og det er frivilligt fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
   <h2 id="formaal">Vores formål</h2>
-  <p>Flokken er en social forening i Aarhus. Vi har to formål, og de vejer lige tungt:</p>
+  <p>Kort sagt har Flokken to formål, og de vejer lige tungt:</p>
   <ol class="aims">
-    <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen. Det er nemmere at tage afsted, når man ved, at andre venter på en.</li>
-    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at få opmærksomhed om deres arrangementer. Bag hvert arrangement står et sted, en forening eller en ildsjæl, som flere burde opdage.</li>
+    <li><strong>Fællesskab.</strong> Vi hjælper folk ud af døren, så de møder nye mennesker og oplever noget sammen.</li>
+    <li><strong>Byens arrangører.</strong> Vi hjælper de mindre spillesteder, teatre og foreninger med at blive opdaget.</li>
   </ol>
-  <h2>For alle – og særligt for dig, der har brug for en håndsrækning</h2>
-  <p>Flokken er for alle. Men vi er her især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i byen, fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene. Hos os mødes man i små flokke, på et offentligt sted og under trygge rammer.</p>
-  <p>Det gælder også internationale studerende og andre nye i Aarhus, som mangler en vej ind i fællesskabet.</p>
+  <p>Flokken er for alle, men især for dig, der har brug for lidt ekstra for at komme afsted: fordi du er ny i Aarhus (det gælder også internationale studerende), fordi du har været meget alene, eller fordi det kræver mod at gå ind ad døren alene.</p>
   <p class="aims-en" lang="en"><strong>In English:</strong> Flokken is a non-profit social club in Aarhus. We help people get out, meet new people and share an experience – and we help small venues, theatres and associations get noticed. Everyone is welcome, and especially those who need a little extra help to get out there, such as international students looking for a way in. Many events need no Danish at all, and you can always write in English in your flock.</p>
   <h2>Vores værdier</h2>
   <dl class="values">
-    <dt>Fællesskab</dt><dd>Vi tror på, at gode oplevelser bliver bedre, når de deles. Ingen skal stå alene i døren.</dd>
+    <dt>Fællesskab</dt><dd>Ingen skal stå alene i døren.</dd>
     <dt>Inddragelse</dt><dd>Flokken bygges sammen med dem, der bruger den. Medlemmer og arrangører er med til at bestemme, hvad vi laver, og hvordan.</dd>
-    <dt>Inklusion</dt><dd>Alle er velkomne, uanset alder, baggrund, sprog og hvor meget man har brug for at blive taget i hånden.</dd>
+    <dt>Inklusion</dt><dd>Alle er velkomne, uanset sprog og hvor meget man har brug for at blive taget i hånden.</dd>
   </dl>
   <h2>Fællesskabet før profitten</h2>
   <p>Flokken drives ikke for at tjene penge til nogen. Hvis der bliver et overskud, går det tilbage til fællesskabet og til at få flere med.</p>
-  <h2>Hvad er en flok?</h2>
-  <p>En flok er en lille, uformel gruppe, der følges til et bestemt arrangement. I mødes et offentligt sted før arrangementet og går ind sammen. Deltagelse er frivillig fra gang til gang. <a href="/tryghed">Læs om tryghed</a>.</p>
-  <h2>Hvor finder du arrangementer?</h2>
-  <p>Vi starter i ${ctx.regionLabel} (${areas.map(a => a.place).join(", ")}). Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra.</p>
+  <h2>Hvor kommer arrangementerne fra?</h2>
+  <p>Vi starter i Aarhus og omegn. Hver nat henter Flokken arrangementer fra arrangørernes egne kalendere og fra tjenester, der tillader det. Vi opfinder aldrig arrangementer eller oplysninger, og hvert arrangement viser, hvor det kommer fra. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig, og arrangørens egen side er den gældende.</p>
+  <details class="source-details">
+  <summary>Se alle kilder, og hvordan vi bruger dem</summary>
   <ul class="source-list">
     ${sources.map(s => html`<li><strong>${s.homepage_url ? html`<a href="${s.homepage_url}" rel="noopener">${s.name}</a>` : s.name}</strong><br><span class="meta-muted small">${s.permission_basis}</span></li>`)}
   </ul>
-  <h2>Billet og tilmelding</h2>
-  <p>Du køber billet eller tilmelder dig altid hos arrangøren. Flokken sælger ikke billetter og håndterer ikke betaling. Datoer, priser og aflysninger kan ændre sig – arrangørens egen side er den gældende.</p>
+  </details>
   <h2 id="arrangoerer">For arrangører</h2>
   <p>Vil I samarbejde med Flokken – eller have jeres arrangementer med? <a href="/samarbejde">Læs om samarbejde og skriv til os</a>. Ser I en fejl ved et af jeres arrangementer, så ret det i jeres egen kalender – Flokken henter ændringen ved næste opdatering. Vil I ikke være med, fjerner vi jeres arrangementer.</p>
+  <section class="founder" aria-labelledby="jacob">
+  <h2 id="jacob">Hvem står bag?</h2>
+  <figure class="founder-photo">
+    <img src="/assets/jacob-hauge-480.jpg" srcset="/assets/jacob-hauge-480.jpg 480w, /assets/jacob-hauge-900.jpg 900w" sizes="(min-width: 700px) 280px, 82vw" width="480" height="588" alt="Jacob Hauge, der har skabt Flokken, sidder ved et cafébord bag et vindue om aftenen med et tændt stearinlys foran sig og smiler let." loading="lazy" decoding="async">
+    <figcaption>Jacob Hauge, der har skabt Flokken</figcaption>
+  </figure>
+  <p>Flokken er skabt af Jacob Hauge ud fra en dyb og oprigtig passion for at bringe mennesker sammen, skabe meningsfulde fællesskaber og gøre op med den ensomhed og sociale afstand, som alt for mange mennesker oplever i deres hverdag.</p>
+  <p>Visionen er enkel, men betydningsfuld: Flere mennesker skal have mulighed for at leve et rigere socialliv, opleve nye fællesskaber og få adgang til de kulturelle oplevelser, der gør en by levende.</p>
+  <p>Flokken bygger på en grundlæggende erkendelse af, at mange mennesker længes efter mere. Mere nærvær, flere relationer, nye bekendtskaber og et stærkere social- og kulturliv. Ikke nødvendigvis fordi de mangler lysten til at opsøge det, men fordi det kan være svært at tage det første skridt eller finde de rette mennesker at gøre det sammen med.</p>
+  <p>Derfor handler Flokken om at skabe rammerne for, at mennesker kan mødes på tværs af alder, baggrund og interesser. Et inkluderende fællesskab, hvor man kan komme, som man er, møde nye mennesker og blive en del af noget større.</p>
+  <p>Men visionen rækker også ud over det enkelte menneske. Flokken ønsker aktivt at støtte byens lokale venues, kultursteder og spillesteder. Særligt de mindre steder og kulturelle initiativer, som har svært ved at tiltrække publikum, men som spiller en vigtig rolle for byens identitet, mangfoldighed og levende kulturliv.</p>
+  <p>For Jacob Hauge er Flokken derfor ikke bare et spørgsmål om arrangementer og oplevelser. Det er hjerteblod. Det handler om mennesker, relationer og om at skabe en by, hvor flere føler sig forbundet med hinanden og med det sted, de bor.</p>
+  <p>Flokken er grundlæggende skabt ud fra troen på, at vi får et rigere liv, når vi oplever mere sammen.</p>
+  </section>
 </div>`;
   return { status: 200, body: page(ctx, { title: "Om Flokken – sådan virker det", description: "Flokken er en social forening i Aarhus: vi hjælper folk ud og møde nye mennesker – og byens mindre arrangører med at blive set. Læs om vores formål og værdier.", canonical: "/om", breadcrumbs: crumbs }, body) };
 }

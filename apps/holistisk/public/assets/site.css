@@ -90,7 +90,7 @@ body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 va
 img { max-width: 100%; display: block; }
 a { color: inherit; text-decoration: none; }
 a:hover { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: .18em; }
-.standfirst a, .event-text a, .prose a, .facts-list a, .source a, .empty a, .meta-muted a, .offerings ul a, .more-line a:not(.button):not(.button-secondary), .trust-line a { color: var(--berry); font-weight: 700; }
+.standfirst a, .event-text a, .prose a:not(.button):not(.button-secondary), .facts-list a, .source a, .empty a, .meta-muted a, .offerings ul a, .more-line a:not(.button):not(.button-secondary), .trust-line a { color: var(--berry); font-weight: 700; }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
 h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.08; letter-spacing: -.01em; margin: 0 0 .4em; color: var(--ink); }
 h1 { font-size: clamp(2.3rem, 1.5rem + 3.6vw, 4.2rem); line-height: 1.02; }
@@ -100,6 +100,10 @@ p { margin: 0 0 1em; }
 strong { font-weight: 800; }
 .wrap { width: 100%; max-width: 1140px; margin: 0 auto; padding: 0 16px; }
 .wrap.narrow { max-width: 820px; }
+/* Socialklubben: every page has the same outer margins as the header (Jake 2026-11-18). The text pages keep a
+ * readable line length, but start at the same left edge as the logo instead of being centred in a narrower column. */
+[data-edition="portal"] .wrap.narrow, [data-edition="portal"] .wrap.sk-admin { max-width: 1140px; }
+[data-edition="portal"] .wrap.narrow > * { max-width: 820px; }
 @media (min-width: 760px) { .wrap { padding: 0 28px; } }
 .visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--card); padding: 8px 12px; z-index: 10; border-radius: var(--radius-s); }
@@ -127,6 +131,15 @@ strong { font-weight: 800; }
 .masthead-tools { display: flex; align-items: center; gap: 8px; }
 .my-flocks { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: var(--radius-s); background: var(--green); color: var(--butter); font-weight: 800; font-size: .93rem; white-space: nowrap; box-shadow: 0 3px 0 #0c1c19; }
 .my-flocks:hover, .my-flocks[aria-current="page"] { background: var(--green-2); color: #fff; text-decoration: none; }
+/* The other language (EN on the Danish pages, DA on the English ones). */
+.lang-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 6px; border-radius: var(--radius-s); border: 2px solid var(--ink); color: var(--ink); font-weight: 800; font-size: .82rem; letter-spacing: .04em; }
+.lang-switch:hover { background: var(--butter-soft); text-decoration: none; }
+.menu-lang { margin-top: .8em !important; font-weight: 700; }
+/* The English pages need no "In English" summaries of their own text. */
+/* The English menu words are longer: "Free and cheap" stays in the menu only, so the row never runs over. */
+html[lang="en"] .nav li:nth-child(4) { display: none; }
+html[lang="en"] .nav a { padding: 8px 10px; }
+html[lang="en"] .mission-en, html[lang="en"] .aims-en, html[lang="en"] section.guide-text[lang="en"] { display: none; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--radius-s); color: var(--ink); }
 .icon-button:hover { background: var(--paper-2); }
 .menu { position: relative; }
@@ -149,6 +162,8 @@ strong { font-weight: 800; }
   .menu-label { display: none; }
   .menu > summary { padding: 0 11px; }
   .my-flocks { padding: 0 12px; font-size: .86rem; }
+  /* On a phone the language switch lives in the menu (and the footer), so the header keeps its breathing room. */
+  .masthead-tools .lang-switch { display: none; }
   .menu-panel { position: fixed; left: 8px; right: 8px; top: 74px; width: auto; max-height: 80vh; overflow: auto; }
 }
 @media (max-width: 440px) {
@@ -282,14 +297,16 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .how span:not(.how-n) { color: var(--ink-2); font-size: .96rem; }
 
 /* Tickets: the event cards */
-.card-grid { display: grid; gap: 26px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+/* At most three cards a row (Jake 2026-11-15): a column is never narrower than a third of the row. */
+.card-grid { display: grid; gap: 26px 22px; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(250px, calc((100% - 44px) / 3))), 1fr)); }
 .ticket { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 5px 0 var(--ink); overflow: hidden; transition: transform .15s ease; }
 .ticket:hover { transform: translateY(-3px); }
 .card-link { display: flex; flex-direction: column; height: 100%; }
 .card-link:hover { text-decoration: none; }
 .card-link:hover .card-title { text-decoration: underline; text-decoration-thickness: 2px; }
 .media { position: relative; display: block; aspect-ratio: 16 / 10; background: var(--paper-2); overflow: hidden; border-bottom: 2px solid var(--ink); }
-.media img { width: 100%; height: 100%; object-fit: cover; }
+/* Event pictures often carry text, so they are shown whole (never cropped), on a quiet panel. */
+.media img { width: 100%; height: 100%; object-fit: contain; }
 .media-plain { display: flex; align-items: center; justify-content: center; background-color: var(--lilac); background-image: repeating-linear-gradient(-45deg, rgba(23, 51, 45, .07) 0 10px, transparent 10px 20px); }
 .plain-word { font: 700 1.4rem var(--display); color: var(--ink); background: var(--card); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 16px; }
 .stamp { position: absolute; top: 10px; right: 10px; width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--butter); color: var(--ink); border: 2px dashed var(--ink); outline: 3px solid var(--butter); font: 700 .95rem var(--display); text-transform: uppercase; letter-spacing: .04em; transform: rotate(-12deg); }
@@ -331,8 +348,15 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 @media (max-width: 560px) { .row-more > details > summary { padding-left: 60px; } }
 .for-you .for-you-why { font-size: .86rem; color: var(--muted); margin: -10px 0 16px; }
 .for-you .for-you-why a { color: var(--muted); }
-.row-img { width: 104px; height: 76px; object-fit: cover; border-radius: var(--radius-s); border: 2px solid var(--ink); }
-@media (max-width: 560px) { .day { padding: 2px 14px 4px; } .row a { grid-template-columns: 50px 1fr; gap: 10px; } .row-img { display: none; } .row-time { font-size: .98rem; } }
+.row-img { width: 104px; height: 76px; object-fit: contain; background: var(--paper-2); border-radius: var(--radius-s); border: 2px solid var(--ink); }
+/* "Jeg vil gerne med!" under a row, in line with the text column, and at the foot of a card. */
+.interest-form { margin: 0; display: inline-flex; flex-direction: column; align-items: stretch; text-align: center; }
+.interest-button { min-height: 40px; padding: 6px 16px; font-size: .9rem; }
+.row .interest-form { margin: -4px 0 0 78px; padding-bottom: 14px; }
+.card.ticket { display: flex; flex-direction: column; }
+.card.ticket .card-link { height: auto; flex: 1; }
+.card.ticket .interest-form { display: flex; align-items: center; padding: 12px 16px 14px; border-top: 2px dashed var(--ink); background: var(--card); }
+@media (max-width: 560px) { .day { padding: 2px 14px 4px; } .row a { grid-template-columns: 50px 1fr; gap: 10px; } .row-img { display: none; } .row-time { font-size: .98rem; } .row .interest-form { margin-left: 60px; } }
 
 /* Chips */
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -342,7 +366,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .seats { display: inline-flex; gap: 1px; vertical-align: -2px; }
 .seat { fill: none; stroke: currentColor; stroke-width: 1.3; color: var(--green-2); }
 .seat.is-taken { fill: currentColor; }
-.flock-badge-new { background: var(--card); color: var(--green-2); border-style: dashed; }
 .chip-links { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; margin: 0; padding: 0; }
 .chip-links a { display: inline-flex; align-items: baseline; gap: 8px; padding: 8px 16px; border-radius: 999px; background: var(--card); border: 2px solid var(--ink); font-size: .98rem; font-weight: 700; box-shadow: 0 3px 0 var(--ink); }
 .chip-links a:hover { background: var(--butter); text-decoration: none; }
@@ -425,11 +448,41 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .event-when { font: 600 1.3rem var(--display); margin-bottom: .1em; }
 .event-where { color: var(--ink-2); }
 .event-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 230px)); gap: 12px; margin: 18px 0 6px; }
-.event-actions > a, .event-actions button { width: 100%; justify-content: center; text-align: center; }
+.event-actions > a, .event-actions > span, .event-actions button { width: 100%; justify-content: center; text-align: center; }
 .event-actions .inline-form { margin: 0; }
+.event-actions { align-items: start; }
+.event-actions .interest-form { display: flex; }
 .event-actions .button-secondary.is-on { background: var(--green-soft, #e3efe8); }
-.event-calendar { margin: 0 0 8px; font-size: .9rem; }
-.event-calendar a { color: var(--ink-2); font-weight: 700; text-decoration: underline; }
+.event-actions span.button-secondary.is-on { box-shadow: none; cursor: default; }
+/* Under the buttons: others interested, "Fjern mig fra listen", and starting a flock yourself (Jake 2026-11-15: no separate box). */
+.event-head .flash { font-weight: 600; font-size: .95rem; line-height: 1.45; }
+.event-flock { margin: 0 0 8px; font-size: .9rem; color: var(--ink-2); }
+.event-flock .flock-create { margin: 0; font-size: inherit; }
+/* Under the two big buttons: one framed calendar button and a quiet "Fjern mig fra listen", then one sentence with a
+   single underlined link (Jake 2026-11-18: too many underlined lines). */
+.event-extras { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 6px 0 12px; }
+.calendar-button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 6px 14px; border: 2px solid var(--ink); border-radius: 12px; background: var(--card); color: var(--ink); font-weight: 700; font-size: .9rem; text-decoration: none; }
+.calendar-button:hover, .calendar-button:focus-visible { background: var(--butter); text-decoration: none; }
+.calendar-button-icon { flex: none; }
+.event-extras .inline-form { margin: 0; }
+.event-extras .button-link { font-size: .85rem; text-decoration: none; }
+.event-extras .button-link:hover, .event-extras .button-link:focus-visible { text-decoration: underline; }
+.event-flock .interest-count { margin: 0 0 4px; }
+/* After "Jeg vil gerne med!" the page opens at the thank-you (#besked), with the date and place still in view above it. */
+.event-message { scroll-margin-top: 96px; }
+.event-message:empty { display: none; }
+/* Just tapped "Jeg vil gerne med!" (Jake 2026-11-18: make it feel like something happened). The thank-you pops in
+   with a soft green glow, then the tick on "Du er på listen" bounces and the button sends out one ring. Once only. */
+.event-message.is-new .flash { animation: tak-pop .5s cubic-bezier(.2, 1.4, .4, 1) both, tak-glow 1.4s ease-out .45s 1; }
+.event-message.is-new ~ .event-actions .is-on { position: relative; animation: tak-nudge .5s ease-out .55s both; }
+.event-message.is-new ~ .event-actions .is-on .tick { display: inline-block; animation: tak-tick .6s cubic-bezier(.2, 1.6, .4, 1) .6s both; }
+.event-message.is-new ~ .event-actions .is-on::after { content: ""; position: absolute; inset: -2px; border-radius: inherit; border: 3px solid #17543f; opacity: 0; pointer-events: none; animation: tak-ring .9s ease-out .7s 1; }
+@keyframes tak-pop { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes tak-glow { 0% { box-shadow: 0 0 0 0 rgba(23, 84, 63, .45); } 100% { box-shadow: 0 0 0 14px rgba(23, 84, 63, 0); } }
+@keyframes tak-nudge { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
+@keyframes tak-tick { 0% { transform: scale(0) rotate(-30deg); } 60% { transform: scale(1.5) rotate(8deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes tak-ring { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(1.18, 1.5); } }
+@media (prefers-reduced-motion: reduce) { .event-message.is-new .flash, .event-message.is-new ~ .event-actions .is-on, .event-message.is-new ~ .event-actions .is-on .tick, .event-message.is-new ~ .event-actions .is-on::after { animation: none; } }
 @media (max-width: 420px) { .event-actions { grid-template-columns: 1fr 1fr; gap: 10px; } .event-actions > a, .event-actions button { padding-left: 6px; padding-right: 6px; font-size: .9rem; } }
 /* The top of the event page is one big ticket like the cards: picture, then the stub torn off from the details.
    The picture is never cropped (event pictures often carry text) and is kept low on phones so the buttons stay on
@@ -472,6 +525,9 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .prose p, .prose li { font-size: 1.05rem; }
 .source-list { padding-left: 1.1em; }
 .source-list li { margin-bottom: .8em; }
+.source-details { margin: .6em 0 1.4em; }
+.source-details > summary { cursor: pointer; font-weight: 600; color: var(--green); text-decoration: underline; }
+.source-details[open] > summary { margin-bottom: .8em; }
 
 /* Spar på billetten */
 .savings { background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 24px 24px 20px; box-shadow: 0 5px 0 var(--ink); }
@@ -480,15 +536,36 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .savings .ticket-body::before, .savings .ticket-body::after { background: var(--butter); }
 .offer-list { padding-left: 1.1em; }
 /* What a flock of five gets is not decided: a teaser, *****. */
-.secret, .how span.secret { display: inline-block; background: var(--ink); color: var(--butter); border-radius: 8px; padding: 0 8px; font-weight: 800; letter-spacing: .12em; transform: rotate(-3deg); }
 .mission { margin-top: 40px; background: var(--butter); border-radius: var(--radius); padding: 24px 30px; }
 .mission h2 { margin-bottom: .3em; }
 .mission p { margin-bottom: 0; max-width: 40em; font-size: 1.14rem; line-height: 1.55; }
 .mission .mission-aims { margin-top: .8em; font-size: 1rem; }
 .mission .mission-en { margin-top: .8em; font-size: .95rem; font-style: italic; opacity: .85; }
 .aims-en { font-style: italic; }
+.founder { display: flow-root; margin-top: 8px; }
+.founder-photo { margin: 4px auto 20px; max-width: 340px; }
+.founder-photo img { display: block; width: 100%; height: auto; border-radius: 18px; }
+.founder-photo figcaption { margin-top: 8px; font-size: .92rem; color: var(--ink-2); text-align: center; }
+@media (min-width: 700px) { .founder-photo { float: right; width: 280px; margin: 6px 0 16px 28px; } }
 .values dt { font-weight: 700; margin-top: .8em; }
 .values dd { margin: .2em 0 0; }
+/* A member's own words: a paper card with a big berry quote mark, the punchline under the yellow marker. */
+.testimonial { position: relative; margin: 40px 0 0; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 6px 0 var(--ink); padding: 74px 24px 26px; overflow: hidden; }
+.testimonial::after { content: ""; position: absolute; right: -50px; bottom: -50px; width: 130px; height: 130px; border-radius: 50%; background: var(--green-soft); z-index: 0; }
+.testimonial > * { position: relative; z-index: 1; }
+.testimonial-mark { position: absolute; top: 2px; left: 20px; font: 700 7rem/1 var(--display); color: var(--berry); }
+.testimonial-quote { margin: 0; }
+.testimonial-quote p { margin: 0; max-width: 34em; font: 500 clamp(1.3rem, 1.05rem + 1.1vw, 1.9rem)/1.35 var(--display); color: var(--ink); text-wrap: pretty; }
+.testimonial-by { display: flex; align-items: center; gap: 12px; margin-top: 22px; font-size: 1rem; line-height: 1.3; }
+.testimonial-badge, .testimonial-photo { flex: none; width: 56px; height: 56px; border-radius: 50%; }
+.testimonial-badge { display: grid; place-items: center; background: var(--berry-soft); color: var(--berry); border: 2px solid var(--ink); }
+.testimonial-photo { object-fit: cover; border: 2px solid var(--ink); }
+.testimonial-role { color: var(--ink-2); font-weight: 700; }
+@media (min-width: 760px) {
+  .testimonial { padding: 44px 48px 34px 128px; }
+  .testimonial-mark { top: 14px; left: 30px; font-size: 9rem; }
+  .testimonial::after { right: -60px; bottom: -60px; width: 200px; height: 200px; }
+}
 .partner-teaser { margin-top: 56px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; background: var(--green); color: #e6efe9; border-radius: var(--radius); padding: 26px 30px; }
 .partner-teaser h2 { color: #fff; margin-bottom: .2em; }
 .partner-teaser .hero-kicker, .partner-teaser .section-kicker { color: var(--butter); background: none; padding: 0; }
@@ -504,8 +581,7 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flash-error { background: #fdeceb; color: var(--alert); border-color: var(--alert); }
 .trust-line { font-size: .9rem; color: var(--muted); margin-top: 14px; }
 .flock-panel { margin-top: 28px; background: var(--green-soft); border: 2px solid var(--ink); border-radius: var(--radius); padding: 24px 24px 18px; box-shadow: 0 5px 0 var(--ink); }
-.flock-panel-head h2 { margin-bottom: .2em; }
-.flock-panel-head p { max-width: 46em; color: var(--ink-2); }
+.flock-panel h2 { margin-bottom: .4em; }
 .flock-list, .flock-grid { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 12px; }
 .flock-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); }
 .flock-card { background: var(--card); border-radius: 16px; border: 2px solid var(--ink); padding: 14px 16px; box-shadow: 0 4px 0 var(--ink); }
@@ -523,10 +599,6 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .flock-empty, .flock-mine { font-weight: 700; }
 .flock-create { margin: 14px 0 0; font-size: .95rem; color: var(--ink-2); }
 .flock-create a { color: var(--berry); font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
-.flock-interest { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 0; }
-.flock-interest.is-on { display: block; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-s); padding: 10px 14px; }
-.flock-interest-state { margin: 0 0 4px; }
-.flock-interest .inline-form { margin: 0; }
 .interest-count { font-weight: 700; color: var(--ink-2); }
 .meet-box { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 8px 22px 18px; box-shadow: 0 5px 0 var(--ink); }
 .member-list { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 8px; }
@@ -571,10 +643,34 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .field [aria-invalid="true"] { border-color: var(--alert); }
 .field-check label { display: flex; gap: 10px; align-items: center; font-weight: 700; }
 .field-check input { width: 20px; height: 20px; accent-color: var(--green-2); }
+/* The profile: how the others see you, the two marks, and the photo with its yes. */
+.own-card { margin: 0 0 22px; display: grid; gap: 10px; }
+.small-heading { font-size: 1rem; margin: 6px 0 0; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 0 !important; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: .74rem; font-weight: 800; color: #17543f; background: var(--green-soft); border-radius: 999px; padding: 2px 9px; }
+.badge::before { content: "✓"; }
+.marks { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.marks li { display: flex; gap: 10px; align-items: flex-start; }
+.mark-icon { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; border: 2px solid var(--ink); }
+.mark-on .mark-icon { background: var(--green-soft); color: #17543f; }
+.mark-off .mark-icon { color: var(--muted); border-color: var(--rule); }
+.photo-field { border: 0; padding: 0; margin: 0; }
+.photo-field legend { font-weight: 800; padding: 0; margin-bottom: 6px; }
+.photo-now { display: flex; gap: 14px; align-items: center; margin-bottom: 6px; }
+.photo-now p { margin: 0 0 4px; }
+.avatar-large { width: 96px; height: 96px; }
+.small-label { font-size: .88rem; font-weight: 800; }
+.field-check.consent { margin-top: 4px; }
 .field-error { color: var(--alert); font-size: .88rem; font-weight: 800; }
 .form-actions { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .two-forms { display: grid; gap: 22px; grid-template-columns: 1fr; }
-@media (min-width: 760px) { .two-forms { grid-template-columns: 1fr 1fr; } }
+/* Side by side only when both headings fit on one line, so label, field, hint and button line up in the two cards.
+ * align-content: start keeps the shorter card from spreading its rows out to match the taller one. */
+.two-forms > .form-card { align-content: start; }
+@media (min-width: 860px) { .two-forms { grid-template-columns: 1fr 1fr; } }
+.login-card .login-form { display: grid; gap: 16px; }
+.login-code summary { cursor: pointer; font-weight: 600; }
+.login-code[open] summary { margin-bottom: 14px; }
 .code-box { background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 8px 22px 16px; box-shadow: 0 5px 0 var(--ink); }
 .code { font: 700 clamp(1.6rem, 1.2rem + 2vw, 2.4rem)/1.2 var(--display); letter-spacing: .08em; color: var(--ink); user-select: all; margin: .2em 0 .4em; }
 .offer-box { margin-top: 24px; background: var(--butter); border: 2px solid var(--ink); border-radius: var(--radius); padding: 6px 22px 12px; }
@@ -615,6 +711,26 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .pin-wrap:hover .pin, .pin-wrap:focus-visible .pin { transform: translate(-50%, calc(-100% - 11px)); }
 .pin-wrap:focus-visible { outline: none; }
 .pin-wrap:focus-visible .pin { outline: 3px solid var(--focus); outline-offset: 2px; }
+/* Pin labels: a small card beside each pin with time, place and title; map.js picks the side that is free. */
+.pin-measure { position: absolute; left: 0; top: 0; width: 400px; height: 400px; visibility: hidden; pointer-events: none; z-index: -1; }
+.pin-label { position: absolute; display: flex; align-items: center; gap: 8px; box-sizing: border-box; max-width: 220px; padding: 6px 10px 6px 6px; background: var(--card); color: var(--ink); border: 2px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink); font: 600 .8rem/1.2 var(--sans); text-align: left; white-space: normal; cursor: pointer; }
+.pin-label:not(.pin-label-one) { flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 10px; max-width: 210px; }
+.map .pin-label, .map .pin-label:hover { color: var(--ink); text-decoration: none; }
+.pin-label:hover { background: var(--butter-soft); }
+.pin-wrap:hover .pin-label, .pin-label:focus-visible { border-color: var(--berry); }
+.pin-label:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.pin-label-img { position: relative; flex: none; width: 42px; height: 42px; border-radius: 8px; overflow: hidden; background: var(--paper-2); }
+.pin-label-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pin-label-img .pin-label-blur { inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); object-fit: cover; filter: blur(6px); opacity: .6; }
+.pin-label-text { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.pin-label-when { font-size: .72rem; font-weight: 800; color: var(--berry); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-label-place { color: var(--muted); font-weight: 700; }
+.pin-label-title { font: 600 .86rem/1.18 var(--display); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.pin-label-head { font-size: .7rem; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pin-label-row { display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.pin-label-row .pin-label-when { flex: none; }
+.pin-label-row .pin-label-title { -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; min-width: 0; }
+.pin-label-more { font-size: .72rem; font-weight: 800; color: var(--ink-2); }
 
 .map-sheet { position: absolute; z-index: 1000; left: 16px; bottom: 16px; width: min(540px, calc(100% - 32px)); max-height: calc(100% - 32px); overflow: auto; box-sizing: border-box; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); box-shadow: 0 6px 0 var(--ink); padding: 16px 18px 14px; }
 .sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -675,6 +791,10 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
   .bar-num { font-size: .8rem; }
   .day-bars { gap: 1px; margin-top: 10px; }
   .sheet-list { max-height: 40vh; }
+  .pin-label { max-width: 168px; gap: 6px; padding: 4px 8px 4px 4px; border-radius: 10px; }
+  .pin-label:not(.pin-label-one) { max-width: 160px; padding: 4px 8px; }
+  .pin-label-img { width: 34px; height: 34px; border-radius: 7px; }
+  .pin-label-title { font-size: .8rem; }
 }
 
 /* ————————————————————————————————————————— Flokk, the association
@@ -1187,3 +1307,45 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
   .kickoff .kickoff-item:not(:has(input:checked)):hover { background: var(--paper-2); }
 }
 .kickoff-preview .kickoff-more, .kickoff-unfold .kickoff-more, .kickoff-details .kickoff-more { margin-left: 0; }
+
+/* "Om stedet" on an event page (src/web/venue.ts): the place's name, a line about it, the address and a little map. */
+.venue { margin-top: 48px; display: grid; gap: 20px; grid-template-columns: 1fr; align-items: center; background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius); padding: 22px 22px; box-shadow: 0 4px 0 var(--ink); scroll-margin-top: 24px; }
+@media (min-width: 760px) { .venue { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 32px; padding: 28px 32px; } }
+.venue h2 { margin: 0 0 .35em; font-size: 1.6rem; }
+.venue-about { margin: 0 0 .7em; font-size: 1.04rem; line-height: 1.6; color: var(--ink-2); max-width: 46ch; }
+.venue-address { margin: 0 0 .9em; font-weight: 700; }
+.venue-links { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.venue-links a { color: var(--berry); font-weight: 700; }
+.venue-map { margin: 0; position: relative; border-radius: var(--radius-s); overflow: hidden; border: 2px solid var(--ink); background: var(--paper-2); }
+.venue-map > a { display: block; line-height: 0; }
+.venue-map-svg { display: block; width: 100%; height: auto; aspect-ratio: 7 / 3; }
+.venue-map-tiles { filter: saturate(.55) contrast(.95); }
+.venue-map-pin path { fill: var(--berry); stroke: #fff; stroke-width: 2.5; }
+.venue-map-dot { fill: #fff; }
+.venue-map-shadow { fill: rgba(23, 51, 45, .28); }
+.venue-map figcaption { position: absolute; right: 0; bottom: 0; padding: 2px 8px; font-size: .7rem; line-height: 1.5; background: rgba(255, 253, 248, .85); border-top-left-radius: 8px; color: var(--muted); }
+.venue-map figcaption a { color: inherit; }
+@media (max-width: 759px) { .venue-map { order: -1; } .venue-map-svg { aspect-ratio: 2 / 1; } }
+
+/* Event page: the facts sit beside the ticket from the top on wide screens (Jake 2026-11-15: no empty space to the
+   right of the picture), and come after the description on phones. */
+.event-layout { display: grid; gap: 0 40px; grid-template-columns: 1fr; align-items: start; }
+.event-main { min-width: 0; }
+.event-main .event-ticket { max-width: none; }
+@media (min-width: 940px) {
+  .event-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .event-layout .event-facts { margin-top: 4px; }
+}
+
+/* "Dagens fem – Socialklubbens udvalgte" (src/web/components.ts picksNote): the label on every list that shows the pick. */
+.picks-note { background: var(--butter-soft); border: 2px solid var(--ink); border-radius: var(--radius-s, 14px); padding: 12px 16px; margin: 14px 0 18px; max-width: 46em; }
+.picks-note p { margin: 0; }
+.picks-label { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 800; font-size: 1.05rem; margin-bottom: 4px !important; }
+.picks-badge { background: var(--butter); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 10px; font-size: .9rem; }
+.picks-text { font-size: .95rem; line-height: 1.5; color: var(--ink-2); }
+.picks-text a { color: var(--berry); font-weight: 700; }
+
+/* English event pages: the organiser's Danish original under the machine translation (Jake 2026-11-18). */
+.original-text { margin-top: 1.25rem; }
+.original-text summary { cursor: pointer; font-weight: 600; }
+.original-text[open] summary { margin-bottom: .5rem; }

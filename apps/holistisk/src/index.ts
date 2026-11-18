@@ -1,11 +1,14 @@
+import { englishTitles, translateEvents, TRANSLATE_CRON } from "./i18n/machine.js";
 import type { Env } from "./env.js";
 import { isProduction } from "./env.js";
-import { activeAreas, activeRegions, areaBySlug, regionBySlug } from "./geo.js";
+import { activeAreas, activeRegions, areaBySlug, cityAreas, regionBySlug } from "./geo.js";
 import { activityBySlug } from "./activities.js";
 import { organizerBySlug } from "./organizers.js";
 import { DAILY_CRON, ingestStatus, runIngest, scheduledRun } from "./ingest/run.js";
 import { purgeOldChats } from "./flokken/chat.js";
 import { eventInterest, gatherAll, readChoices } from "./flokken/kickoff.js";
+import { sendDueMails } from "./flokken/notify.js";
+import { mailConfigured, publicContactEmail, purgeMailData } from "./mail.js";
 import { parseFilters } from "./web/filters.js";
 import { SHARE_IMAGE, SHARE_IMAGES, SITE, type PageContext } from "./web/layout.js";
 import { aboutPage, activityPage, areaPage, calendarPage, categoriesPage, eventPage, homePage, notFoundPage, organizerPage, organizersPage, periodPage, savingsPage, type View } from "./web/pages.js";
@@ -21,6 +24,11 @@ import { flokkenRoute } from "./flokken/routes.js";
 import { flocksForEvent, memberFlockForEvent } from "./flokken/store.js";
 import { clearTasteCookie, readTaste, RESET_PATH, tasteCookie, tasteFromFilters } from "./web/foryou.js";
 import { activityFilters } from "./web/pages.js";
+import { adminRoute } from "./admin.js";
+import { danishPath, englishCanonicalOf, englishPath } from "./i18n/paths.js";
+import { translateHtml } from "./i18n/translate.js";
+import { countable, recordVisit, rollUpVisits } from "./stats.js";
+import { refreshPicks } from "./curation.js";
 
 /** Flokken: the public event portal (server-rendered pages), its flocks, and its daily collector (the cron). */
 
@@ -35,7 +43,12 @@ const SECURITY_HEADERS: Record<string, string> = {
 };
 
 function respond(env: Env, body: string, init: { status?: number; type?: string; cache?: string; headers?: Record<string, string> } = {}): Response {
-  const headers = new Headers({ "content-type": init.type ?? "text/html; charset=utf-8", "cache-control": init.cache ?? "public, max-age=300", ...SECURITY_HEADERS, ...init.headers });
+  const type = init.type ?? "text/html; charset=utf-8";
+  // A page's header depends on whether the visitor is logged in ("Log ind" or "Mine flokke"), so no shared cache may
+  // keep one, and the browser keeps one copy per login state.
+  const html = type.startsWith("text/html");
+  const cache = (init.cache ?? "public, max-age=300").replace(html ? /^public\b/ : /^$/, "private");
+  const headers = new Headers({ "content-type": type, "cache-control": cache, ...(html ? { vary: "Cookie" } : {}), ...SECURITY_HEADERS, ...init.headers });
   // Nothing outside production may end up in a search index.
   if (!isProduction(env)) headers.set("x-robots-tag", "noindex, nofollow");
   return new Response(body, { status: init.status ?? 200, headers });
@@ -45,18 +58,26 @@ const json = (env: Env, data: unknown, status = 200, cache = "no-store") => resp
 const redirect = (location: string) => new Response(null, { status: 301, headers: { location, "cache-control": "public, max-age=86400" } });
 const view = (env: Env, v: View) => respond(env, v.body, { status: v.status, ...(v.headers ? { headers: v.headers } : {}), ...(v.status !== 200 ? { cache: "no-store" } : {}) });
 
-function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null): PageContext {
-  if (mount) return { ...context(env, url, now, regions, null), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition };
+/** The portal (Socialklubben) is about Aarhus alone; the association (Samfolk) keeps the whole region and its areas. */
+function places(edition: "forening" | "portal", regions: string[]): Pick<PageContext, "areas" | "regionLabel"> {
+  return edition === "portal"
+    ? { areas: cityAreas(regions), regionLabel: "Aarhus" }
+    : { areas: activeAreas(regions), regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og ") };
+}
+
+function context(env: Env, url: URL, now: number, regions: string[], mount: Mount | null, signedIn = false, lang: "da" | "en" = "da"): PageContext {
+  if (mount) return { ...context(env, url, now, regions, null, signedIn, lang), origin: mount.origin + mount.base, base: mount.base, edition: mount.edition, ...places(mount.edition, regions) };
   const configured = env.PUBLIC_BASE_URL && /^https:\/\/[^/]+$/.test(env.PUBLIC_BASE_URL.replace(/\/$/, "")) ? env.PUBLIC_BASE_URL.replace(/\/$/, "") : null;
   return {
     origin: configured ?? url.origin,
     environment: env.ENVIRONMENT ?? "local",
     path: url.pathname,
     now,
-    regionLabel: regions.map(r => regionBySlug(r)?.name ?? r).join(" og "),
-    contactEmail: env.CONTACT_EMAIL && /^[^\s@<>"]+@[^\s@<>"]+\.[a-z]{2,}$/i.test(env.CONTACT_EMAIL) ? env.CONTACT_EMAIL : null,
-    areas: activeAreas(regions),
+    ...places(env.EDITION === "portal" ? "portal" : "forening", regions),
+    contactEmail: publicContactEmail(env),
     base: "",
+    signedIn,
+    lang,
     // Without a mount: EDITION, else Flokken as an association.
     edition: env.EDITION === "portal" ? "portal" : "forening"
   };
@@ -104,7 +125,7 @@ async function underMount(response: Response, { base, name }: Mount): Promise<Re
   const cookies = headers.getSetCookie?.() ?? [];
   if (cookies.length) {
     headers.delete("set-cookie");
-    for (const c of cookies) headers.append("set-cookie", base ? c.replace(/; Path=\/(?=;|$)/, `; Path=${base}`) : c);
+    for (const c of cookies) headers.append("set-cookie", base ? c.replace(/; Path=(\/[^;]*)/, (_, p: string) => `; Path=${base}${p === "/" ? "" : p}`) : c);
   }
   const type = headers.get("content-type") ?? "";
   const rename = name !== SITE && type.startsWith("text/");
@@ -127,15 +148,54 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
   // An own domain is the real, public address: search engines may index it, also when the Worker is the staging one.
   // The Worker's workers.dev address and the proxied addresses stay hidden from them (noindex), so Google sees one copy.
   const live = DOMAINS[url.hostname] ? { ...env, ENVIRONMENT: "production" } : env;
+  // Socialklubben in English: /en/... is the same page, rendered in Danish and translated on the way out.
+  const edition = mount?.edition ?? (env.EDITION === "portal" ? "portal" : "forening");
+  const danish = edition === "portal" ? danishPath(url.pathname) : null;
+  if (danish !== null) {
+    const proper = englishCanonicalOf(url.pathname);
+    if (proper) return withMount(redirect(`${proper}${url.search}`), mount);
+    // Files, the admin and the machine endpoints have no English page.
+    if (englishPath(danish) === danish && danish !== "/") return withMount(new Response(null, { status: 302, headers: { location: `${danish}${url.search}`, "cache-control": "no-store" } }), mount);
+    const inner = new URL(url);
+    inner.pathname = danish;
+    const response = await route(new Request(inner, request), live, now, mount, "en");
+    const mounted = mount ? await underMount(response, mount) : response;
+    const titles = await englishTitles(live.DB, now);
+    return inEnglish(mounted, mount ? mount.origin + mount.base : (live.PUBLIC_BASE_URL?.replace(/\/$/, "") || url.origin), mount?.base ?? "", titles);
+  }
   const response = await route(request, live, now, mount);
   return mount ? underMount(response, mount) : response;
 }
 
-async function route(request: Request, env: Env, now: number, mount: Mount | null): Promise<Response> {
+const withMount = (response: Response, mount: Mount | null): Response | Promise<Response> => mount ? underMount(response, mount) : response;
+
+/** The English version of an answer (src/i18n): its page translated, its links, redirects and cookies moved to /en/. */
+async function inEnglish(response: Response, origin: string, base: string, titles?: Map<string, string>): Promise<Response> {
+  const headers = new Headers(response.headers);
+  const local = (path: string) => base && (path === base || path.startsWith(base + "/")) ? base + englishPath(path.slice(base.length) || "/") : englishPath(path);
+  const location = headers.get("location");
+  if (location) {
+    if (/^\/(?!\/)/.test(location)) headers.set("location", local(location));
+    else if (location.startsWith(origin + "/")) headers.set("location", origin + englishPath(location.slice(origin.length)));
+  }
+  const cookies = headers.getSetCookie?.() ?? [];
+  if (cookies.length) {
+    headers.delete("set-cookie");
+    // A cookie kept for one page (e.g. the welcome page's code) must follow that page to its English address.
+    for (const c of cookies) headers.append("set-cookie", c.replace(/; Path=(\/[^;]+)/, (all, p: string) => p === "/" || p === base || p === base + "/" ? all : `; Path=${local(p)}`));
+  }
+  const type = headers.get("content-type") ?? "";
+  if (!type.startsWith("text/html") || !response.body) return new Response(response.body, { status: response.status, headers });
+  headers.set("content-language", "en");
+  headers.delete("content-length");
+  return new Response(translateHtml(await response.text(), origin, base, titles), { status: response.status, headers });
+}
+
+async function route(request: Request, env: Env, now: number, mount: Mount | null, lang: "da" | "en" = "da"): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const regions = activeRegions(env.ACTIVE_REGIONS);
-  const pc = context(env, url, now, regions, mount);
+  const pc = context(env, url, now, regions, mount, /(?:^|;\s*)flok_session=[A-Za-z0-9_-]{20,}/.test(request.headers.get("cookie") ?? ""), lang);
 
   if (path === "/api/health") {
     const db = env.DB;
@@ -147,6 +207,14 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (!env.DB) return json(env, { error: "database_unbound" }, 503);
     return json(env, await ingestStatus(env.DB, now));
   }
+  if (path === "/api/translate/run") {
+    if (request.method !== "POST") return json(env, { error: "method_not_allowed" }, 405);
+    const token = env.INGEST_TOKEN;
+    const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
+    if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("antal")) || 5, 1), 40);
+    return json(env, await translateEvents(env, now, limit), 200);
+  }
   if (path === "/api/ingest/run") {
     if (request.method !== "POST") return json(env, { error: "method_not_allowed" }, 405);
     const token = env.INGEST_TOKEN;
@@ -154,7 +222,9 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
     // The sources that are due, a failed one included; ?alle=1 takes every source (stalest first, as far as the budget goes).
     const outcome = await runIngest(env, { trigger: "manual", now, onlyDue: url.searchParams.get("alle") !== "1", retryFailed: true });
-    return json(env, outcome, outcome.status === "failed" ? 502 : 200);
+    // "Dagens fem" (src/curation.ts) from what is in the calendar now.
+    const picks = env.DB ? await refreshPicks(env.DB, Date.now()).catch(() => null) : null;
+    return json(env, { ...outcome, picks }, outcome.status === "failed" ? 502 : 200);
   }
   // Foreningen Samfolk has its own pages; the event portal's are not shown there.
   if (pc.edition === "forening" && !path.startsWith("/assets/") && path !== "/favicon.svg" && path !== "/robots.txt") {
@@ -170,18 +240,36 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     // Pages show who is logged in and live numbers (places, waiting list): never kept by a shared cache.
     return respond(env, result.view.body, { status: result.view.status, cache: result.view.status !== 200 ? "no-store" : "private, no-cache", headers: { ...result.view.headers, ...cookie } });
   }
-  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
+  // Socialklubben's admin overview (src/admin.ts): only for the admin, never cached.
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra sidens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
+    if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
+    const result = await adminRoute(request, env, env.DB, pc, path, url, now);
+    if (!result) return view(env, notFoundPage(pc));
+    if (result.image) return new Response(result.image.body, { headers: { ...SECURITY_HEADERS, "content-type": result.image.type, "cache-control": "private, no-store", "x-robots-tag": "noindex" } });
+    const cookie = result.cookie ? { "set-cookie": result.cookie } : {};
+    if (result.redirect) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
+    return respond(env, result.body, { status: result.status, cache: "private, no-store", headers: { ...result.headers, "x-robots-tag": "noindex, nofollow", ...cookie } });
+  }
+  const flokkenPaths = /^\/(log-ind|log-ud|bliv-medlem|profil|flokke|find-en-flok|tryghed|samarbejde|api\/samarbejde|kontakt|api\/kontakt|api\/chat-meldinger|api\/indmeldelser|kom-godt-i-gang|api\/kom-godt-i-gang|interesser)(\/|$)|^\/events\/[a-z0-9-]+\/(opret-flok|interesse|interesse\/fjern)$/;
   if (flokkenPaths.test(path)) {
     if (request.method === "POST" && !sameOrigin(request, new URL(pc.origin).origin)) return respond(env, "Formularen skal sendes fra Flokkens egne sider.", { status: 403, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "POST") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
     if (!env.DB) return respond(env, "Databasen er ikke forbundet.", { status: 503, type: "text/plain; charset=utf-8", cache: "no-store" });
     const result = await flokkenRoute(request, env, env.DB, pc, regions, path, url, now, () => notFoundPage(pc));
     if (result) {
-      const cookie = "cookie" in result && result.cookie ? { "set-cookie": result.cookie } : {};
+      const cookies = "cookie" in result && result.cookie ? [result.cookie].flat() : [];
       if ("json" in result) return json(env, result.json, result.status);
       if ("image" in result) return new Response(result.image.body, { headers: { ...SECURITY_HEADERS, "content-type": result.image.type, "cache-control": "private, max-age=3600", "x-robots-tag": "noindex" } });
-      if ("redirect" in result) return new Response(null, { status: 303, headers: { location: result.redirect, "cache-control": "no-store", ...cookie } });
-      return respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers, ...cookie } });
+      if ("redirect" in result) {
+        const headers = new Headers({ location: result.redirect, "cache-control": "no-store" });
+        for (const c of cookies) headers.append("set-cookie", c);
+        return new Response(null, { status: 303, headers });
+      }
+      const response = respond(env, result.view.body, { status: result.view.status, cache: "no-store", headers: { ...result.view.headers } });
+      for (const c of cookies) response.headers.append("set-cookie", c);
+      return response;
     }
   }
   if (request.method !== "GET" && request.method !== "HEAD") return respond(env, "Method not allowed", { status: 405, type: "text/plain; charset=utf-8", cache: "no-store" });
@@ -230,7 +318,7 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/kort") return view(env, await mapPage(db, pc, regions));
   if (path === "/kategorier") return view(env, await categoriesPage(db, pc, regions));
   if (path === "/arrangoerer") return view(env, organizersPage(pc, regions));
-  if (path === "/om") return view(env, await aboutPage(db, pc, activeAreas(regions)));
+  if (path === "/om") return view(env, await aboutPage(db, pc));
   if (path === "/moed-nye-mennesker") return view(env, await meetPeoplePage(db, pc, regions));
   if (path === "/ny-i-aarhus") return view(env, await newInTownPage(db, pc, regions));
   if (path === "/ting-at-lave-i-aarhus") return view(env, await thingsToDoPage(db, pc, regions));
@@ -241,24 +329,27 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     return view(env, v ?? notFoundPage(pc));
   }
 
-  // Old addresses move permanently: /kategori/<x> -> /<activity>, /omraade/<city> -> /<city>.
+  // Old addresses move permanently: /kategori/<x> -> /<activity>, /omraade/<city> -> /<city> (a retired town -> /aarhus).
   const oldCategory = /^\/kategori\/([a-z0-9-]+)$/.exec(path)?.[1];
   if (oldCategory) {
     const activity = activityBySlug(oldCategory);
     return activity ? redirect(`/${activity.slug}${url.search}`) : view(env, notFoundPage(pc));
   }
   const oldArea = /^\/omraade\/([a-z0-9-]+)$/.exec(path)?.[1];
-  if (oldArea && areaBySlug(oldArea)) return redirect(`/${oldArea}${url.search}`);
+  if (oldArea && areaBySlug(oldArea)) return redirect(cityAreas(regions).some(a => a.slug === oldArea) ? `/${oldArea}${url.search}` : "/aarhus");
 
   // Landing pages, activity first as people search: /meditation, /meditation/aarhus, and the city's own /aarhus.
   const two = /^\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?$/.exec(path);
   if (two) {
     const [, first, second] = two as unknown as [string, string, string | undefined];
     const pageNo = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("side") ?? "1", 10) || 1));
-    const cityOf = (slug: string) => { const a = areaBySlug(slug); return a && regions.includes(a.region) ? a : undefined; };
+    const cityOf = (slug: string) => cityAreas(regions).find(a => a.slug === slug);
+    // The towns around Aarhus no longer have pages of their own: /randers -> /aarhus, /meditation/randers -> /meditation.
+    const retired = (slug: string) => { const a = areaBySlug(slug); return !!a && regions.includes(a.region) && !cityOf(slug); };
     const firstCity = cityOf(first);
     const firstActivity = activityBySlug(first);
     if (!second) {
+      if (retired(first)) return redirect("/aarhus");
       if (firstCity) return view(env, await areaPage(db, pc, regions, firstCity));
       if (firstActivity) {
         if (firstActivity.slug !== first) return redirect(`/${firstActivity.slug}`);
@@ -270,6 +361,8 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
     } else {
       // The earlier city-first addresses (/aarhus/meditation) move to activity-first.
       const secondActivity = activityBySlug(second);
+      if (retired(first) && secondActivity) return redirect(`/${secondActivity.slug}`);
+      if (firstActivity && retired(second)) return redirect(`/${firstActivity.slug}`);
       if (firstCity && secondActivity) return redirect(`/${secondActivity.slug}/${firstCity.slug}`);
       const secondCity = cityOf(second);
       if (firstActivity && secondCity) {
@@ -298,10 +391,33 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   return view(env, notFoundPage(pc));
 }
 
+/** Visits to Socialklubben itself: its own domain, or the portal mount on www.jacobhauge.com (not Samfolk, not the
+ * workers.dev test address). */
+function isSocialklubben(request: Request): boolean {
+  const host = new URL(request.url).hostname;
+  if (DOMAINS[host]) return true;
+  const given = request.headers.get("x-flokken-mount");
+  return !!given && MOUNTS[given]?.edition === "portal";
+}
+
+/** Requests after which someone may have been offered a flock place. */
+const MAY_INVITE = /\/(kom-godt-i-gang|interesser\/[a-z0-9-]+\/(bekraeft|nej-tak)|events\/[a-z0-9-]+\/interesse|flokke\/[0-9a-f-]+\/forlad|profil)$/;
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx?: ExecutionContextLike): Promise<Response> {
     try {
-      return await handle(request, env, Date.now());
+      const response = await handle(request, env, Date.now());
+      // Visitor statistics (src/stats.ts): counted after the answer is sent, so no one waits for it.
+      if (ctx && env.DB && isSocialklubben(request) && countable(request, response)) {
+        const db = env.DB;
+        ctx.waitUntil(recordVisit(db, request, Date.now()).catch(error => console.error(JSON.stringify({ event: "visit_failed", error: error instanceof Error ? error.message : String(error) }))));
+      }
+      // A tick, an answer or a "no thanks" can offer someone a place in a flock: mail them now, not at the next cron.
+      if (ctx && env.DB && request.method === "POST" && mailConfigured(env) && MAY_INVITE.test(new URL(request.url).pathname)) {
+        const db = env.DB;
+        ctx.waitUntil(sendDueMails(db, env, Date.now()).catch(error => console.error(JSON.stringify({ event: "mail_run_failed", error: error instanceof Error ? error.message : String(error) }))));
+      }
+      return response;
     } catch (error) {
       console.error(JSON.stringify({ event: "request_failed", path: new URL(request.url).pathname, error: error instanceof Error ? error.message : String(error) }));
       return new Response("Der skete en fejl. Prøv igen om lidt.", { status: 500, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
@@ -309,6 +425,14 @@ export default {
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env, ctx?: ExecutionContextLike): Promise<void> {
+    // Its own cron: arrangements' Danish text into English (src/i18n/machine.ts), nothing else.
+    if (controller.cron === TRANSLATE_CRON) {
+      const run = translateEvents(env, controller.scheduledTime || Date.now())
+        .catch(error => console.error(JSON.stringify({ event: "translate_failed", error: error instanceof Error ? error.message : String(error) })));
+      if (ctx) ctx.waitUntil(run);
+      await run;
+      return;
+    }
     const work = scheduledRun(env, controller.cron, { now: controller.scheduledTime || Date.now() })
       .then(outcome => console.log(JSON.stringify({ event: "cron", cron: controller.cron, status: outcome.status, reason: outcome.reason ?? null })))
       .catch(error => console.error(JSON.stringify({ event: "cron_failed", cron: controller.cron, error: error instanceof Error ? error.message : String(error) })));
@@ -324,7 +448,21 @@ export default {
         .then(invited => console.log(JSON.stringify({ event: "gather", invited })))
         .catch(error => console.error(JSON.stringify({ event: "gather_failed", error: error instanceof Error ? error.message : String(error) })))
       : Promise.resolve();
-    const all = Promise.all([work, purge, gather]);
+    // Mails about flock places, after the gathering above (which may have offered new ones).
+    const mail = env.DB && mailConfigured(env)
+      ? gather.then(() => sendDueMails(env.DB!, env, Date.now()))
+        .then(sent => console.log(JSON.stringify({ event: "mail", ...sent })))
+        .catch(error => console.error(JSON.stringify({ event: "mail_failed", error: error instanceof Error ? error.message : String(error) })))
+      : Promise.resolve();
+    // "Dagens fem" (src/curation.ts): picked again after every collector run, so new arrangements are considered.
+    const picks = env.DB
+      ? work.then(() => refreshPicks(env.DB!, Date.now()))
+        .then(result => console.log(JSON.stringify({ event: "picks", ...result })))
+        .catch(error => console.error(JSON.stringify({ event: "picks_failed", error: error instanceof Error ? error.message : String(error) })))
+      : Promise.resolve();
+    const visits = controller.cron === DAILY_CRON && env.DB ? rollUpVisits(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
+    const purgeMail = controller.cron === DAILY_CRON && env.DB ? purgeMailData(env.DB, controller.scheduledTime || Date.now()).catch(() => undefined) : Promise.resolve();
+    const all = Promise.all([work, picks, purge, gather, mail, purgeMail, visits]);
     if (ctx) ctx.waitUntil(all);
     await all;
   }

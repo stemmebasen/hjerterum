@@ -2,27 +2,45 @@ import type { D1Database } from "../db.js";
 import { groupBySlug } from "../groups.js";
 import type { Env } from "../env.js";
 import { eventBySlug, relatedEvents, type EventRow } from "../web/queries.js";
-import type { PageContext } from "../web/layout.js";
+import { organiserEmail, type PageContext } from "../web/layout.js";
 import { cleanFirstName, clearSessionCookie, createMember, currentMember, endSession, memberByCode, normalizeCode, safeNext, sameSecret, startSession, type Member } from "./auth.js";
 import { defaultFlockForm, readFlockForm, toLocalInput, validateFlockForm } from "./forms.js";
-import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
-import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
+import { chatTime, findFlockPage, flockFormPage, flockPage, flockPath, linkPage, loginPage, membershipPage, myFlocksPage, noticeText, profilePage, safetyPage, welcomePage, type View } from "./pages.js";
+import { outingsUsed, flockAgeGroups, flockMembers, flockPhoto, ownPhoto, PHOTO_CONSENT_ERROR, profileComplete, profileFor, PROFILE_MAX_BODY, readPhoto, readProfileForm, saveProfile, validateProfile } from "./profile.js";
 import { chatAccess, chatMessages, chatOpen, postMessage, reportedMessages, reportMessage, type ChatMessage } from "./chat.js";
+import { linkState, requestLoginLink, useLoginLink, validToken } from "./loginLink.js";
 import { listSignups, readSignup, saveSignup, validateSignup } from "./membership.js";
-import { listInquiries, partnerPage, readInquiry, saveInquiry, validateInquiry } from "./partners.js";
+import { listInquiries, partnerPage } from "./partners.js";
+import { contactInbox } from "../mail.js";
+import { contactPage, emptyContact, filledByPerson, listContacts, readContact, senderOf, sendContact, tooMany, topicFrom, validateContact } from "./contact.js";
 import { choiceCookie, clearChoiceCookie, cleanChoices, cancelledSection, confirmInterest, declineInterest, interestsSection, KICKOFF_PATH, kickoffJson, kickoffPage, memberInterests, readChoices, removeInterest, saveInterests } from "./kickoff.js";
 import { createFlock, eventOver, flockById, flockHost, joinFlock, leaveFlock, memberFlocks, updateFlock, upcomingFlocks } from "./store.js";
 
 /** Flokken's routes. Returns null for paths that are not Flokken's, so the portal's own routing goes on. */
 
 export type FlokkenResult =
-  | { view: View; cookie?: string }
-  | { redirect: string; cookie?: string }
+  | { view: View; cookie?: string | string[] }
+  | { redirect: string; cookie?: string | string[] }
   | { json: unknown; status: number }
   | { image: { type: string; body: Uint8Array<ArrayBuffer> } };
 
 const MAX_BODY = 20_000;
-const go = (to: string, cookie?: string): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
+const go = (to: string, cookie?: string | string[]): FlokkenResult => ({ redirect: to, ...(cookie ? { cookie } : {}) });
+
+/** A short-lived note to the page a form sends people on to (Post/Redirect/Get). A form's answer is always a redirect to
+ * a normal page, so going back or reloading never asks to send the form again ("Confirm Form Resubmission"). What that
+ * page must show and should not be in its address (the new personal code, an e-mail address) goes in this cookie. */
+const NOTE_MAX_AGE = 15 * 60;
+const noteCookie = (name: string, value: string, path: string) =>
+  `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; Secure; SameSite=Lax; Max-Age=${NOTE_MAX_AGE}`;
+const readNote = (request: Request, name: string): string | null => {
+  const m = new RegExp(`(?:^|;\\s*)${name}=([^;]*)`).exec(request.headers.get("cookie") ?? "");
+  if (!m?.[1]) return null;
+  try { return decodeURIComponent(m[1]); } catch { return null; }
+};
+const WELCOME_PATH = "/bliv-medlem/velkommen";
+const WELCOME_NOTE = "flok_ny_kode";
+const MAIL_NOTE = "flok_mail_sendt";
 const withMessage = (path: string, code: string) => `${path}${path.includes("?") ? "&" : "?"}besked=${encodeURIComponent(code)}`;
 
 /** The posted form, or null when it is too big or cannot be read. A body that is too big is still read to the end (and
@@ -77,17 +95,28 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
   if (path === "/tryghed" && !post) return { view: safetyPage(pc) };
   if (path === "/find-en-flok" && !post) return { view: findFlockPage(pc, await upcomingFlocks(db, regions, now, 60)) };
 
-  if (path === "/samarbejde") {
-    if (!post) return { view: partnerPage(pc, { sent: message === "tak" }) };
+  if (path === "/samarbejde" && !post) return { view: partnerPage(pc, { now }) };
+  if (path === "/kontakt" && !post) return { view: contactPage(pc, { sent: message === "tak", now, form: emptyContact(topicFrom(url.searchParams.get("emne"))) }) };
+  // The contact form, also on /samarbejde (an older copy of that page may still post there).
+  if ((path === "/kontakt" || path === "/samarbejde") && post) {
+    const thanks = go(withMessage("/kontakt", "tak") + "#formular");
     const data = await formData(request);
-    if (!data) return { view: partnerPage(pc, { status: 400, errors: { organisation: "Formularen kunne ikke læses. Prøv igen." } }) };
+    if (!data) return { view: contactPage(pc, { status: 400, errors: { form: "Formularen kunne ikke læses. Prøv igen." }, now }) };
     // A field people do not see; forms that fill it in are from robots.
-    if (String(data.get("website_url") ?? "")) return go(withMessage("/samarbejde", "tak") + "#kontakt");
-    const form = readInquiry(data);
-    const errors = validateInquiry(form);
-    if (Object.keys(errors).length) return { view: partnerPage(pc, { form, errors, status: 400 }) };
-    await saveInquiry(db, form, now);
-    return go(withMessage("/samarbejde", "tak") + "#kontakt");
+    if (String(data.get("website_url") ?? "")) return thanks;
+    const form = readContact(data);
+    if (path === "/samarbejde" && !data.get("emne")) form.topic = "arrangoer";
+    const errors = validateContact(form);
+    if (Object.keys(errors).length) return { view: contactPage(pc, { form, errors, status: 400, now }) };
+    if (data.has("t") && !filledByPerson(String(data.get("t")), now)) return { view: contactPage(pc, { form, errors: { form: "Det gik lidt for hurtigt. Tjek din besked, og tryk på „Send besked“ igen." }, status: 400, now }) };
+    const sender = await senderOf(request);
+    if (await tooMany(db, sender, now)) return { view: contactPage(pc, { form, errors: { form: `Du har sendt flere beskeder på kort tid. Prøv igen lidt senere, eller skriv direkte til ${organiserEmail(pc)}.` }, status: 429, now }) };
+    await sendContact(db, env, form, sender, contactInbox(env), now);
+    return thanks;
+  }
+  if (path === "/api/kontakt" && !post) {
+    if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
+    return { json: await listContacts(db), status: 200 };
   }
   if (path === "/api/samarbejde" && !post) {
     if (!bearerOk(request, env)) return { json: { error: "unauthorized" }, status: 401 };
@@ -98,18 +127,53 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     return { json: await reportedMessages(db), status: 200 };
   }
 
+  // Login with a link on e-mail: ask for it, open it (a page with a button), use it.
+  if (path === "/log-ind/mail" && post) {
+    const data = await formData(request);
+    const back = safeNext(String(data?.get("naeste") ?? ""));
+    const email = String(data?.get("email") ?? "").trim().slice(0, 160);
+    const result = await requestLoginLink(db, env, email, back, pc.origin, now);
+    if ("error" in result) {
+      const text = result.error === "invalid" ? "Skriv den e-mail, du har givet os, fx navn@eksempel.dk."
+        : result.error === "off" ? "Vi kan ikke sende e-mails lige nu. Log ind med din personlige kode, eller prøv igen senere."
+        : "Mailen kunne ikke sendes lige nu. Prøv igen om lidt.";
+      return { view: loginPage(pc, back, { email, emailError: text, status: result.error === "invalid" ? 400 : 503 }) };
+    }
+    return go(`/log-ind?naeste=${encodeURIComponent(back)}&besked=mail_sendt`, noteCookie(MAIL_NOTE, email, "/log-ind"));
+  }
+  if (path === "/log-ind/link") {
+    const data = post ? await formData(request) : null;
+    const token = String((post ? data?.get("t") : url.searchParams.get("t")) ?? "");
+    if (!validToken(token)) return { view: linkPage(pc, { error: "unknown" }) };
+    if (!post) {
+      const state = await linkState(db, token, now);
+      const m = await member();
+      // Already logged in as that person on this device: straight on.
+      if (m && "ok" in state && state.memberId === m.id) return go(safeNext(state.next));
+      if ("error" in state) return { view: linkPage(pc, { error: state.error, loggedIn: !!m }) };
+      return { view: linkPage(pc, { token }) };
+    }
+    const used = await useLoginLink(db, token, now);
+    if ("error" in used) {
+      const m = await member();
+      return { view: linkPage(pc, { error: used.error, loggedIn: !!m }) };
+    }
+    return go(withMessage(safeNext(used.next), used.created ? "velkommen_mail" : "logget_ind"), await startSession(db, used.memberId, now));
+  }
   if (path === "/log-ind") {
     const next = safeNext(post ? null : url.searchParams.get("naeste"));
     if (!post) {
       if (await member()) return go(next);
-      return { view: loginPage(pc, next) };
+      const sentTo = message === "mail_sendt" ? readNote(request, MAIL_NOTE) : null;
+      return { view: loginPage(pc, next, sentTo ? { sentTo } : {}) };
     }
     const data = await formData(request);
     const back = safeNext(String(data?.get("naeste") ?? ""));
     const code = normalizeCode(String(data?.get("kode") ?? ""));
     const found = code ? await memberByCode(db, code) : null;
     if (!found) return { view: loginPage(pc, back, { codeError: "Koden passer ikke. Den har 12 tegn, fx K7QF-29MX-T4HD.", status: 400 }) };
-    return go(back, await startSession(db, found.id, now));
+    // The same way back as with the link from the e-mail: to the page the person came from, with "Du er logget ind".
+    return go(withMessage(back, "logget_ind"), await startSession(db, found.id, now));
   }
   if (path === "/bliv-medlem" && !post) return { view: membershipPage(pc, !!(await member()), { sent: message === "tak" }) };
   if (path === "/bliv-medlem/meld-ind" && post) {
@@ -133,7 +197,17 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const name = cleanFirstName(raw);
     if (!name) return { view: loginPage(pc, back, { name: raw.slice(0, 30), nameError: "Skriv dit fornavn (højst 30 bogstaver).", status: 400 }) };
     const { member: created, code } = await createMember(db, name, now);
-    return { view: welcomePage(pc, created, code, back), cookie: await startSession(db, created.id, now) };
+    return go(`${WELCOME_PATH}?naeste=${encodeURIComponent(back)}`, [await startSession(db, created.id, now), noteCookie(WELCOME_NOTE, code, WELCOME_PATH)]);
+  }
+  // The welcome page after "Opret profil", with the new personal code (from the note, for 15 minutes; reloading is fine).
+  if (path === WELCOME_PATH && !post) {
+    const m = await member();
+    const next = safeNext(url.searchParams.get("naeste"));
+    if (!m) return go(`/log-ind?naeste=${encodeURIComponent(next)}`);
+    const code = normalizeCode(readNote(request, WELCOME_NOTE) ?? "");
+    // Only this member's own code: someone else may have made a profile on the same device a moment ago.
+    const own = code && (await memberByCode(db, code))?.id === m.id ? code : null;
+    return { view: welcomePage(pc, m, own, next) };
   }
   if (path === "/log-ud" && post) {
     await endSession(db, request);
@@ -148,17 +222,18 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const next = safeNext(url.searchParams.get("naeste"));
     const joinId = /^[0-9a-f-]{36}$/.test(url.searchParams.get("flok") ?? "") ? url.searchParams.get("flok")! : null;
     const requireEmail = url.searchParams.get("mail") === "1";
-    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail };
+    const state = { next, joinId, profile, firstTime: !profileComplete(profile), requireEmail, outings: await outingsUsed(db, m.id, now) };
     const action = `/profil${url.search}`;
-    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: {} }) };
+    if (!post) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: {} }) };
     const data = await formData(request, PROFILE_MAX_BODY);
-    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
+    if (!data) return { view: profilePage(pc, { ...state, action, form: { firstName: profile.first_name, ageGroup: profile.age_group ?? "", intro: profile.intro ?? "", email: profile.email ?? "", removePhoto: false, photoConsent: false }, errors: { photo: "Billedet var for stort til at blive sendt (højst 250 KB), så intet blev gemt. Udfyld felterne igen, og vælg et mindre billede eller gem uden billede." }, status: 400 }) };
     const form = readProfileForm(data);
     const checked = validateProfile(form, { requireEmail: requireEmail && !profile.email });
     const photo = await readPhoto(data);
-    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photo && "error" in photo ? { photo: photo.error } : {}) };
-    if ("errors" in checked || (photo && "error" in photo)) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
-    const saved = await saveProfile(db, m.id, checked.values, photo, form.removePhoto, now);
+    const photoError = photo && "error" in photo ? photo.error : photo && !form.photoConsent ? PHOTO_CONSENT_ERROR : null;
+    const errors = { ...("errors" in checked ? checked.errors : {}), ...(photoError ? { photo: photoError } : {}) };
+    if ("errors" in checked || photoError) return { view: profilePage(pc, { ...state, action, form, errors, status: 400 }) };
+    const saved = await saveProfile(db, m.id, checked.values, photo && !("error" in photo) ? photo : null, form.removePhoto, now);
     if ("error" in saved) return { view: profilePage(pc, { ...state, action, form, errors: { email: "Den e-mail bruges allerede af en anden profil. Log ind med koden for den, eller brug en anden e-mail." }, status: 400 }) };
     if (joinId) {
       const f = await flockById(db, joinId, m.id);
@@ -207,7 +282,7 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     await saveInterests(db, m.id, slugs, shown, regions, now);
     return go(withMessage("/flokke", "interesser_gemt") + "#interesser", clearChoiceCookie());
   }
-  // "Jeg er interesseret" on an event page: the interest list's tick for that one event. A newcomer first becomes a
+  // "Jeg vil gerne med!" on an event page: the interest list's tick for that one event. A newcomer first becomes a
   // member and fills in the profile with an e-mail; the tick waits in the choice cookie and is saved on the way back.
   const tick = /^\/events\/([a-z0-9-]{1,90})\/interesse(\/fjern)?$/.exec(path);
   if (tick) {
@@ -220,15 +295,17 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     if (remove) {
       if (!m || !post) return go(`${back}#flokke`);
       await removeInterest(db, m.id, e.slug);
-      return go(withMessage(back, "interesse_fjernet") + "#flokke");
+      return go(withMessage(back, "interesse_fjernet") + "#besked");
     }
     // Only a posted tick, or the way back with the tick in the cookie, saves anything.
     if (!post && !readChoices(request).includes(e.slug)) return go(`${back}#flokke`);
-    if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed") + "#flokke", clearChoiceCookie());
+    if (e.status !== "scheduled" || e.starts_at <= now) return go(withMessage(back, "event_closed") + "#besked", clearChoiceCookie());
     if (!m) return go(`/log-ind?naeste=${encodeURIComponent(self)}`, choiceCookie([e.slug]));
     if (!(await ready(m.id))) return go(profileForList(self), choiceCookie([e.slug]));
     await saveInterests(db, m.id, [e.slug], [], regions, now);
-    return go(withMessage(back, "interesse_her") + "#flokke", clearChoiceCookie());
+    // Back on the event page, scrolled to the thank-you above the buttons (Jake 2026-11-18: landing at the very top hid
+    // it below the picture, so most people never saw it).
+    return go(withMessage(back, "interesse_her") + "#besked", clearChoiceCookie());
   }
   const answer = /^\/interesser\/([a-z0-9-]{1,90})\/(bekraeft|nej-tak|fjern)$/.exec(path);
   if (answer) {
@@ -309,6 +386,15 @@ export async function flokkenRoute(request: Request, env: Env, db: D1Database, p
     const result = await postMessage(db, access, m.id, String(data?.get("tekst") ?? ""), now);
     if ("error" in result) return fail(result.error, result.error === "chat_too_fast" ? 429 : 400);
     return wantsJson ? { json: { message: chatJson(result.message, m.id, now) }, status: 200 } : go(`${here}#chat`);
+  }
+
+  // The member's own photo, on their profile page.
+  const mine = /^\/profil\/foto\/([0-9a-f-]{36})$/.exec(path);
+  if (mine && !post) {
+    const m = await member();
+    const found = m ? await ownPhoto(db, m.id, mine[1]!) : null;
+    if (!found) return { view: notFound() };
+    return { image: { type: found.type, body: found.data } };
   }
 
   // A member's photo, for the others in the flock only.

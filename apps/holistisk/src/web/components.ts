@@ -1,5 +1,5 @@
 import { CATEGORIES, categoryBySlug } from "../categories.js";
-import { areaBySlug, type Area } from "../geo.js";
+import { areaBySlug } from "../geo.js";
 import { priceLabel } from "../price.js";
 import { capitalize, dateBadge, dayLabel, hhmm, localDate, timeRangeLabel, wallClock } from "../time.js";
 import { hasFilters, PERIOD_CHIPS, PERIODS, PRICES, toQuery, type Filters } from "./filters.js";
@@ -8,6 +8,7 @@ import { html, raw, type SafeHtml } from "./html.js";
 import type { EventRow } from "./queries.js";
 import { offersFor } from "../flokken/partners.js";
 import { WEEKLY_FLAG } from "../sources/weekly.js";
+import { isAlternativeCategory } from "../mainstream.js";
 import { GROUPS, groupBySlug, type Group } from "../groups.js";
 
 /** The four main kinds as big tiles: one tap shows that kind, a tap on the chosen one shows everything again. */
@@ -47,13 +48,13 @@ export function kicker(e: Pick<EventRow, "categories" | "area" | "status" | "cit
   return html`<span class="kicker">${e.status === "cancelled" ? html`<span class="kicker-alert">Aflyst</span> · ` : ""}${isWeekly(e) ? html`<span class="kicker-weekly">Fast hver uge</span> · ` : ""}${[category, place].filter(Boolean).join(" · ")}</span>`;
 }
 
-/** The flock line on cards and calendar rows: how many flocks are going, or an invitation to start one. Nothing for
- * events that have started or are cancelled. */
+/** The flock line on cards and calendar rows: how many are in the flocks already going. Nothing when there is no flock
+ * yet (the "Jeg vil gerne med!" button under the event is the way in), or when the event has started or is cancelled. */
 export function flockBadge(e: Pick<EventRow, "flock_count" | "flock_fill" | "status" | "starts_at">, now: number): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now) return html``;
   const n = e.flock_count ?? 0;
   const [members, size] = (e.flock_fill ?? "").split("/").map(Number);
-  if (!n || !size) return html`<span class="flock-badge flock-badge-new">Opret en flok</span>`;
+  if (!n || !size) return html``;
   const more = n > 1 ? ` · ${n} flokke` : "";
   return html`<span class="flock-badge">${seats(members ?? 0, size)}<span class="flock-badge-text">${members} af ${size}${more} · Vil du med?</span></span>`;
 }
@@ -67,12 +68,21 @@ export function seats(members: number, size: number): SafeHtml {
     html`<svg class="seat${i < taken ? " is-taken" : ""}" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">${PERSON}</svg>`)}</span>`;
 }
 
-/** The chips under a card or row: free, a confirmed extra for flocks, and the flock line. */
-export function eventChips(e: EventRow, now: number, options: { freeStamped?: boolean } = {}): SafeHtml {
-  // A card with a picture panel already carries the round "Gratis" stamp.
-  const free = e.is_free === 1 && !options.freeStamped;
+/** The chips under a card or row: a confirmed extra for flocks, and the flock line. The price is already in the line
+ * above (and a card has the round "Gratis" stamp), so there is no separate price chip. Nothing when there is neither. */
+export function eventChips(e: EventRow, now: number): SafeHtml {
   const benefit = offersFor(e).length > 0;
-  return html`<span class="chip-row">${free ? html`<span class="price-chip">Gratis</span>` : ""}${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flockBadge(e, now)}</span>`;
+  const flock = flockBadge(e, now);
+  if (!benefit && !String(flock)) return html``;
+  return html`<span class="chip-row">${benefit ? html`<span class="price-chip price-chip-member">Ekstra for flokke</span>` : ""}${flock}</span>`;
+}
+
+/** "Jeg vil gerne med!" under an event in a list or on a card: the same tick as the button on the event page (one
+ * label everywhere). It sits outside the event's link, as a form can't be inside a link. Nothing when the event can no
+ * longer be joined. */
+export function interestAction(e: EventRow, now: number): SafeHtml {
+  if (e.status !== "scheduled" || e.starts_at <= now) return html``;
+  return html`<form method="post" action="${eventPath(e)}/interesse" class="interest-form"><button type="submit" class="button-alt interest-button">Jeg vil gerne med!</button></form>`;
 }
 
 const when = (e: EventRow, now: number) => `${capitalize(dayLabel(e.starts_at, now))} · ${timeRangeLabel(e.starts_at, e.ends_at, e.all_day === 1, now)}`;
@@ -108,10 +118,11 @@ export function eventCard(e: EventRow, now: number, options: { headingLevel?: 2 
         ${raw(`<${heading} class="card-title">`)}${e.title}${raw(`</${heading}>`)}
         <span class="visually-hidden">Tid: ${when(e, now)}. </span>
         <span class="meta meta-muted"><span class="visually-hidden">Sted: </span>${placeLine(e)}${price ? html` · <strong class="price">${price}</strong>` : ""}</span>
-        ${eventChips(e, now, { freeStamped: true })}
+        ${eventChips(e, now)}
       </span>
     </span>
   </a>
+  ${interestAction(e, now)}
 </article>`;
 }
 
@@ -169,7 +180,7 @@ function row(e: EventRow, date: string, now: number, also: number[] = []): SafeH
       <span class="row-time">${e.all_day ? "Hele dagen" : hhmm(e.starts_at)}</span>
       <span class="row-body">${kicker(e)}<span class="row-title">${e.title}</span><span class="meta meta-muted">${placeLine(e)}${price ? ` · ${price}` : ""}${e.ends_at && !e.all_day && localDate(e.ends_at) === date ? ` · til ${hhmm(e.ends_at)}` : ""}</span>${also.length ? html`<span class="row-also meta-muted">Også ${also.slice(0, 4).map(shortDay).join(", ")}${also.length > 4 ? " …" : ""}</span>` : ""}${eventChips(e, now)}</span>
       ${e.image_url ? html`<img class="row-img" src="${e.image_url}" alt="" loading="lazy" decoding="async">` : ""}
-    </a></li>`;
+    </a>${interestAction(e, now)}</li>`;
 }
 
 /** The calendar: events grouped under their day, one line each. With `spread` (the default) a day shows at most
@@ -217,15 +228,10 @@ export function dayList(events: EventRow[], now: number, options: { spread?: boo
   })}</div>`;
 }
 
-export function searchForm(areas: Area[], selected: { q?: string; area?: string | null }, options: { compact?: boolean } = {}): SafeHtml {
+export function searchForm(selected: { q?: string }, options: { compact?: boolean } = {}): SafeHtml {
   return html`<form class="search${options.compact ? " search-compact" : ""}" action="/kalender" method="get" role="search">
   <label class="visually-hidden" for="s-q">Søg i kalenderen</label>
   <input id="s-q" name="q" type="search" value="${selected.q ?? ""}" placeholder="Søg: workshop, yoga, foredrag …" autocomplete="off" maxlength="80">
-  <label class="visually-hidden" for="s-area">By</label>
-  <select id="s-area" name="omraade">
-    <option value="">Hele Østjylland</option>
-    ${areas.map(a => html`<option value="${a.slug}"${selected.area === a.slug ? raw(" selected") : ""}>${a.place}</option>`)}
-  </select>
   <button type="submit">Søg</button>
 </form>`;
 }
@@ -248,6 +254,17 @@ export function section(id: string, title: string, body: SafeHtml, more?: { href
 </section>`;
 }
 
+/** "Dagens fem – Flokkens udvalgte" (Jake 2026-11-18: it must be clear that the five a day are the club's own picks):
+ * the same label and line on every list that shows the pick (src/curation.ts), with the way to see all. "Flokken" is
+ * the site's name in the source and becomes "Socialklubben" on socialklubben.dk (src/index.ts). */
+export function picksNote(): SafeHtml {
+  return html`<aside class="picks-note" aria-label="Dagens fem">
+  <p class="picks-label"><span class="picks-badge">Dagens fem</span> <span>Flokkens udvalgte</span></p>
+  <p class="picks-text">Hver dag vælger vi op til fem arrangementer, som er gode at tage til sammen med andre.</p>
+  <p class="picks-text">Vil du se alle? <a href="/kalender#soeg">Søg eller vælg en aktivitet</a></p>
+</aside>`;
+}
+
 /** The filter panel: a plain GET form (it works without JavaScript); the script only submits on change. */
 /** The calendar's filters: Område, Pris and Hvornår as chips at the top, then the categories, and the search field at
  * the bottom. A chip is a link: clicking it chooses it, clicking it again takes it off, so with nothing chosen
@@ -263,7 +280,9 @@ export function filterPanel(f: Filters, categoryCounts: Map<string, number>): Sa
   ${group("fl-zone", "Område", ZONES.map(z => chip(z.label, f.zone === z.slug, { zone: f.zone === z.slug ? null : z.slug, area: null, city: null })))}
   ${group("fl-price", "Pris", PRICES.map(p => chip(p.label, f.price === p.value, { price: f.price === p.value ? null : p.value })))}
   ${group("fl-when", "Hvornår", PERIOD_CHIPS.map(v => chip(PERIODS.find(p => p.value === v)!.label, f.period === v, { period: f.period === v ? null : v, from: null, to: null })))}
-  ${group("fl-cat", "Kategori", CATEGORIES.filter(c => f.categories.includes(c.slug) || (categoryCounts.get(c.slug) ?? 0) > 0).map(c => {
+  ${group("fl-cat", "Kategori", CATEGORIES.filter(c => f.categories.includes(c.slug) || (categoryCounts.get(c.slug) ?? 0) > 0)
+    // The broad activities first, the quieter ones (meditation, breathwork …) after them.
+    .sort((a, b) => Number(isAlternativeCategory(a.slug)) - Number(isAlternativeCategory(b.slug))).map(c => {
     const on = f.categories.includes(c.slug);
     return chip(c.name, on, { categories: on ? f.categories.filter(x => x !== c.slug) : [...f.categories, c.slug] }, categoryCounts.get(c.slug) ?? 0);
   }))}

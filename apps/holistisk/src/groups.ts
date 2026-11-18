@@ -24,7 +24,7 @@ export const GROUPS: Group[] = [
     icon: '<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.9 1.2-1.8-.5-1.1.3-2.2 1.5-2.2H17a4 4 0 0 0 4-4c0-5.5-4-10-9-10z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15.5" cy="8" r="1.2"/>'
   },
   {
-    slug: "oplysning", name: "Oplysning", line: "Foredrag, debat og kurser",
+    slug: "oplysning", name: "Oplysning", line: "Foredrag, debat og workshops",
     categories: ["foredrag-debat", "workshops-kurser", "personlig-udvikling"],
     icon: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>'
   },

@@ -120,6 +120,10 @@ jobs:
             node -e 'const r=require("/tmp/run.json");console.log(JSON.stringify({status:r.status,reason:r.reason,deferred:r.deferred,sources:r.sources.map(s=>[s.id,s.status,s.error??s.fetched])}))'
             node -e 'process.exit(require("/tmp/run.json").deferred?.length ? 1 : 0)' && break
           done
+          # English pages: translate a few arrangements now (the cron does the rest, hourly). A model that is missing
+          # or out of its daily allowance is a warning, not a failed deploy: the English pages then show the Danish text.
+          curl --silent --show-error -o /tmp/translate.json -X POST -H "authorization: Bearer $TOKEN" "$URL/api/translate/run?antal=5" || true
+          node -e 'try{const r=require("/tmp/translate.json");console.log(JSON.stringify(r));if(r.error)console.log("::warning::translation: "+r.error)}catch(e){console.log("::warning::translation answered no JSON")}'
           retry "$URL/api/status" > /tmp/sources.json
           node -e 'const s=require("/tmp/sources.json");console.log(JSON.stringify(s.sources,null,1));for(const x of s.sources)if(x.status==="failed")console.log("::warning::source failed: "+x.id+" "+x.error);const h=s.sources.find(y=>y.id==="hjerterum");if(!h||h.status!=="ok"||!(h.fetched>0)){console.error("hjerterum not collected: "+JSON.stringify(h));process.exit(1)}'
           retry "$URL/api/status" | tee /tmp/status.json
@@ -153,15 +157,15 @@ jobs:
           test -n "$EVENT_PATH"
           P "$EVENT_PATH" > /tmp/event.html
           grep -q 'application/ld+json' /tmp/event.html
-          grep -q 'Jeg er interesseret\|Køb billet\|Tilmeld dig\|Dette event er afholdt\|Dette arrangement er afholdt' /tmp/event.html
-          grep -q 'id="flokke"' /tmp/event.html
+          grep -q 'Jeg vil gerne med!\|Jeg er interesseret\|Køb billet\|Tilmeld dig\|Dette event er afholdt\|Dette arrangement er afholdt' /tmp/event.html
+          grep -q 'class="event-actions"' /tmp/event.html
           PG "/kalender?kategori=yoga&periode=maaned&omraade=aarhus" 'class="results-count"'
           PG "/kalender?omraade=midtbyen&periode=14-dage" 'class="filter-chip is-on"'
-          PG /aarhus '<h1>Events i Aarhus</h1>'
+          PG /aarhus '<h1>Arrangementer i Aarhus</h1>'
           PG /kort 'id="kort-data"'
-          PG /find-en-flok '<h1>Vil du med?</h1>'
+          PG /find-en-flok '<h1>Vil du med til noget i Aarhus?</h1>'
           PG /log-ind 'action="/socialklubben/bliv-medlem"'
-          PG /samarbejde 'kontakt os'
+          PG /samarbejde 'Skriv til os'
           PG /tryghed 'offentligt sted'
           PG /moed-nye-mennesker '<h1>Mød nye mennesker i Aarhus</h1>'
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -H "$MOUNT" -X POST -H 'origin: https://evil.example' --data 'fornavn=X' "$URL/bliv-medlem")" = 403

@@ -1,4 +1,5 @@
 import type { D1Database } from "./db.js";
+import type { EmailBinding } from "./mail.js";
 
 export interface AssetsBinding {
   fetch(request: Request): Promise<Response>;
@@ -24,8 +25,28 @@ export interface Env {
   /** "portal" shows the event portal at the Worker's own address; anything else (the default) Flokken as an association.
    * Under a mount, the mount decides (src/index.ts). */
   EDITION?: string;
-  /** Optional address shown on the about page for organisers and corrections. */
+  /** Optional public contact address (default kontakt@socialklubben.dk); only a @socialklubben.dk address is used. */
   CONTACT_EMAIL?: string;
+  /** Secret. Where the contact form's messages are delivered (default: the public contact address). */
+  CONTACT_INBOX?: string;
+  /** Secret. Resend's API key (resend.com); with it the portal sends e-mail (src/mail.ts). */
+  RESEND_API_KEY?: string;
+  /** Cloudflare Email Service's send_email binding; used instead of Resend when present (needs Workers Paid). */
+  EMAIL?: EmailBinding;
+  /** The sender address (default besked@socialklubben.dk). Its domain must be verified with the mail service. */
+  MAIL_FROM?: string;
+  /** The only address Socialklubben's admin overview (/admin) sends its login link to (default: the organisers' address). */
+  ADMIN_EMAIL?: string;
+  /** The address used in links in mails from the cron (default https://socialklubben.dk). */
+  MAIL_SITE_URL?: string;
+  /** Cloudflare Workers AI; translates arrangements' own Danish text for the English pages (src/i18n/machine.ts). */
+  AI?: AiBinding;
+  /** The Workers AI model for that (default in src/i18n/machine.ts). */
+  TRANSLATE_MODEL?: string;
+}
+
+export interface AiBinding {
+  run(model: string, input: Record<string, unknown>): Promise<unknown>;
 }
 
 export const isProduction = (env: Env): boolean => env.ENVIRONMENT === "production";
