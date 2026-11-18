@@ -134,6 +134,7 @@ strong { font-weight: 800; }
 /* The other language (EN on the Danish pages, DA on the English ones). */
 .lang-switch { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; padding: 0 6px; border-radius: var(--radius-s); border: 2px solid var(--ink); color: var(--ink); font-weight: 800; font-size: .82rem; letter-spacing: .04em; }
 .lang-switch:hover { background: var(--butter-soft); text-decoration: none; }
+.menu-lang { margin-top: .8em !important; font-weight: 700; }
 /* The English pages need no "In English" summaries of their own text. */
 /* The English menu words are longer: "Free and cheap" stays in the menu only, so the row never runs over. */
 html[lang="en"] .nav li:nth-child(4) { display: none; }
@@ -161,6 +162,8 @@ html[lang="en"] .mission-en, html[lang="en"] .aims-en, html[lang="en"] section.g
   .menu-label { display: none; }
   .menu > summary { padding: 0 11px; }
   .my-flocks { padding: 0 12px; font-size: .86rem; }
+  /* On a phone the language switch lives in the menu (and the footer), so the header keeps its breathing room. */
+  .masthead-tools .lang-switch { display: none; }
   .menu-panel { position: fixed; left: 8px; right: 8px; top: 74px; width: auto; max-height: 80vh; overflow: auto; }
 }
 @media (max-width: 440px) {
@@ -170,7 +173,6 @@ html[lang="en"] .mission-en, html[lang="en"] .aims-en, html[lang="en"] section.g
   .masthead-tools { gap: 4px; }
   .masthead-tools .icon-button { display: none; }
   .my-flocks { padding: 0 10px; }
-  .lang-switch { min-width: 34px; height: 36px; padding: 0 4px; font-size: .76rem; }
 }
 @media (max-width: 360px) { .wordmark { font-size: 1.08rem; } .my-flocks { padding: 0 8px; font-size: .8rem; } }
 

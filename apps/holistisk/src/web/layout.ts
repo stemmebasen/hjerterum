@@ -132,7 +132,7 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=51">
+<link rel="stylesheet" href="/assets/site.css?v=52">
 <script src="/assets/site.js?v=18" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
@@ -170,7 +170,7 @@ function portalHeader(ctx: PageContext): SafeHtml {
       <details class="menu">
         <summary><span class="menu-label">Menu</span> <span class="burger" aria-hidden="true"></span></summary>
         <div class="menu-panel">
-          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li>${ctx.signedIn ? html`<li><a href="/flokke">Mine flokke</a></li><li><a href="/profil">Min profil</a></li>` : html`<li><a href="/log-ind">Log ind</a></li>`}<li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li><li><a href="/kontakt">Kontakt</a></li></ul></div>
+          <div><p class="menu-head">Flokken</p><ul><li><a href="/kom-godt-i-gang">Kom godt i gang</a></li><li><a href="/bliv-medlem">Bliv medlem</a></li><li><a href="/find-en-flok">Vil du med?</a></li><li><a href="/gratis-og-billigt">Gratis og billigt</a></li>${ctx.signedIn ? html`<li><a href="/flokke">Mine flokke</a></li><li><a href="/profil">Min profil</a></li>` : html`<li><a href="/log-ind">Log ind</a></li>`}<li><a href="/tryghed">Tryghed</a></li><li><a href="/moed-nye-mennesker">Mød nye mennesker</a></li><li><a href="/ny-i-aarhus">Ny i Aarhus</a></li><li><a href="/om">Om Flokken</a></li><li><a href="/kontakt">Kontakt</a></li><li class="menu-lang">${ctx.lang === "en" ? html`<a href="${ctx.origin + (ctx.path || "/")}" hreflang="da" lang="da">Dansk</a>` : html`<a href="${ctx.origin + englishPath(ctx.path || "/")}" hreflang="en" lang="en">English</a>`}</li></ul></div>
           <div><p class="menu-head">Kalender</p><ul><li><a href="/i-dag">Det sker i dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></li><li><a href="/kalender">Hele kalenderen</a></li><li><a href="/kort">Kortet</a></li><li><a href="/arrangoerer">Arrangører</a></li><li><a href="/samarbejde">For foreninger og kultursteder</a></li></ul></div>
           <div><p class="menu-head">Aktiviteter</p><ul>${MENU_CATEGORIES.map(c => html`<li><a href="/${c.path}">${c.name}</a></li>`)}<li><a href="/kategorier">Alle aktiviteter og emner</a></li></ul></div>
         </div>
