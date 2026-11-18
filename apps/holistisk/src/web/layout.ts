@@ -3,6 +3,7 @@ import { BROAD_CATEGORIES } from "../mainstream.js";
 import type { Area } from "../geo.js";
 import { html, jsonScript, raw, type SafeHtml } from "./html.js";
 import { SAMFOLK_MARK } from "../forening/brand.js";
+import { englishPath } from "../i18n/paths.js";
 
 export type PageContext = {
   /** The portal's own origin (PUBLIC_BASE_URL or the request's), without a trailing slash. */
@@ -23,6 +24,8 @@ export type PageContext = {
   /** Socialklubben: the visitor has a login cookie (not checked against the database, to save reads). The header then
    * shows "Mine flokke" instead of "Log ind". */
   signedIn?: boolean;
+  /** "en": the page is shown under /en/ and translated after rendering (src/i18n). Socialklubben only. */
+  lang?: "da" | "en";
 };
 
 /** The public address for everyone who writes to Socialklubben (forwarded by Cloudflare Email Routing). No private
@@ -86,11 +89,17 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
   const forening = ctx.edition === "forening";
   // Every title names the site, at the end so the search words come first.
   const title = meta.title.includes(name) ? meta.title : `${meta.title} – ${name}`;
-  const canonical = /^https?:\/\//.test(meta.canonical) ? meta.canonical : ctx.origin + meta.canonical;
+  const external = /^https?:\/\//.test(meta.canonical);
+  const en = ctx.lang === "en";
+  // Socialklubben's pages exist in Danish and in English (/en/...); search engines are told about both.
+  const bilingual = ctx.edition === "portal" && !external;
+  const daUrl = external ? meta.canonical : ctx.origin + meta.canonical;
+  const enUrl = external ? meta.canonical : ctx.origin + englishPath(meta.canonical);
+  const canonical = en && bilingual ? enUrl : daUrl;
   const robots = meta.noindex || ctx.environment !== "production" ? "noindex, nofollow" : "index, follow, max-image-preview:large";
   const image = meta.image ?? ctx.origin + (forening ? SAMFOLK_SHARE_IMAGE : SHARE_IMAGE);
   const jsonLd = [...(meta.jsonLd ?? []), ...(meta.breadcrumbs && meta.breadcrumbs.length > 1 ? [breadcrumbJsonLd(meta.breadcrumbs, ctx.origin)] : [])];
-  return "<!doctype html>" + html`<html lang="da" data-base="/" data-edition="${ctx.edition}">
+  return "<!doctype html>" + html`<html lang="${en ? "en" : "da"}" data-base="/" data-edition="${ctx.edition}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -98,11 +107,13 @@ export function page(ctx: PageContext, meta: PageMeta, body: SafeHtml): string {
 <meta name="description" content="${meta.description}">
 <meta name="robots" content="${robots}">
 <link rel="canonical" href="${canonical}">
-<link rel="alternate" hreflang="da-DK" href="${canonical}">
-<link rel="alternate" hreflang="x-default" href="${canonical}">
+<link rel="alternate" hreflang="da" href="${daUrl}">
+${bilingual ? html`<link rel="alternate" hreflang="en" href="${enUrl}">
+` : ""}<link rel="alternate" hreflang="x-default" href="${daUrl}">
 <meta property="og:site_name" content="${name}">
-<meta property="og:locale" content="da_DK">
-<meta property="og:type" content="${meta.type ?? "website"}">
+<meta property="og:locale" content="${en ? "en_GB" : "da_DK"}">
+${bilingual ? html`<meta property="og:locale:alternate" content="${en ? "da_DK" : "en_GB"}">
+` : ""}<meta property="og:type" content="${meta.type ?? "website"}">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${meta.description}">
 <meta property="og:url" content="${canonical}">
@@ -121,8 +132,8 @@ ${forening ? html`<link rel="icon" href="/assets/samfolk-icon.svg" type="image/s
 <link rel="manifest" href="/assets/site.webmanifest">
 <link rel="preload" href="/assets/fonts/fredoka-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>`}
-<link rel="stylesheet" href="/assets/site.css?v=50">
-<script src="/assets/site.js?v=17" defer></script>
+<link rel="stylesheet" href="/assets/site.css?v=51">
+<script src="/assets/site.js?v=18" defer></script>
 ${(meta.styles ?? []).map(href => html`<link rel="stylesheet" href="${href}">`)}
 ${(meta.scripts ?? []).map(src => html`<script src="${src}" defer></script>`)}
 ${jsonLd.map(data => html`<script type="application/ld+json">${jsonScript(data)}</script>`)}
@@ -151,6 +162,7 @@ function portalHeader(ctx: PageContext): SafeHtml {
       <ul>${NAV.map(([href, label]) => html`<li><a href="${href}"${ctx.path === href ? raw(' aria-current="page"') : ""}>${label}</a></li>`)}</ul>
     </nav>
     <div class="masthead-tools">
+      ${languageSwitch(ctx)}
       ${ctx.signedIn
         ? html`<a class="my-flocks" href="/flokke"${ctx.path === "/flokke" ? raw(' aria-current="page"') : ""}>Mine flokke</a>`
         : html`<a class="my-flocks" href="/log-ind"${ctx.path === "/log-ind" ? raw(' aria-current="page"') : ""}>Log ind</a>`}
@@ -168,6 +180,15 @@ function portalHeader(ctx: PageContext): SafeHtml {
 </header>`;
 }
 
+/** The link to the same page in the other language. Absolute, and marked with hreflang, so the English version's
+ * link rewriting (src/i18n/translate.ts) leaves it alone. */
+export function languageSwitch(ctx: PageContext): SafeHtml {
+  const path = ctx.path || "/";
+  return ctx.lang === "en"
+    ? html`<a class="lang-switch" href="${ctx.origin + path}" hreflang="da" lang="da" title="Dansk"><span aria-hidden="true">DA</span><span class="visually-hidden">På dansk</span></a>`
+    : html`<a class="lang-switch" href="${ctx.origin + englishPath(path)}" hreflang="en" lang="en" title="English"><span aria-hidden="true">EN</span><span class="visually-hidden">In English</span></a>`;
+}
+
 function portalFooter(ctx: PageContext): SafeHtml {
   return html`<footer class="site-footer">
   <div class="wrap footer-inner">
@@ -176,6 +197,7 @@ function portalFooter(ctx: PageContext): SafeHtml {
       <p>Flokken er en social forening, der hjælper folk ud og opleve ${ctx.regionLabel} sammen – og byens mindre arrangører med at blive set. Arrangementer fra mange arrangører, opdateret hver nat. Billet og tilmelding sker altid hos arrangøren.</p>
       <p><a href="/find-en-flok">Vil du med?</a> · <a href="/gratis-og-billigt">Gratis og billigt</a> · <a href="/tryghed">Tryghed</a> · <a href="/bliv-medlem">Bliv medlem</a> · <a href="/samarbejde">For arrangører</a> · <a href="/om">Om Flokken</a> · <a href="/kontakt">Kontakt</a></p>
       <p><a href="/moed-nye-mennesker">Mød nye mennesker i Aarhus</a> · <a href="/ny-i-aarhus">Ny i Aarhus</a> · <a href="/ting-at-lave-i-aarhus">Ting at lave i Aarhus</a></p>
+      <p>${ctx.lang === "en" ? html`<a href="${ctx.origin + (ctx.path || "/")}" hreflang="da" lang="da">Dansk</a> · <span>English</span>` : html`<span>Dansk</span> · <a href="${ctx.origin + englishPath(ctx.path || "/")}" hreflang="en" lang="en">English</a>`}</p>
     </div>
     <nav aria-labelledby="f-cities"><p class="footer-head" id="f-cities">Det sker i Aarhus</p>
       <ul><li><a href="/aarhus">Arrangementer i Aarhus</a></li><li><a href="/i-dag">I dag</a></li><li><a href="/weekend">I weekenden</a></li><li><a href="/kort">Kortet</a></li></ul></nav>

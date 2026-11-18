@@ -219,11 +219,11 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   return {
     status: 200,
     body: page(ctx, {
-      title: `Flokken – find arrangementer i Aarhus og nogen at følges med`,
-      description: `Koncerter, teater, foredrag og meget mere – ${total} kommende arrangementer i Aarhus og omegn. Vis interesse, så samler vi en lille flok, du kan følges med.`,
+      title: `Flokken – arrangementer og events i Aarhus, og nogen at følges med`,
+      description: `Ting at lave i Aarhus: koncerter, teater, foredrag og meget mere – ${total} kommende arrangementer. Mød nye mennesker: vis interesse, så samler vi en lille flok, du kan følges med.`,
       canonical: "/",
       jsonLd: [
-        { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: "da-DK", publisher: { "@id": ctx.origin + "/#organisation" } },
+        { "@context": "https://schema.org", "@type": "WebSite", name: "Flokken", url: ctx.origin + "/", inLanguage: ["da-DK", "en"], publisher: { "@id": ctx.origin + "/#organisation" } },
         {
           "@context": "https://schema.org", "@type": "Organization", "@id": ctx.origin + "/#organisation", name: "Flokken", url: ctx.origin + "/",
           // A raster logo: search engines do not take an SVG as an organisation's logo.
@@ -278,7 +278,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   return {
     status: 200,
     body: page(ctx, {
-      title: f.page > 1 ? `Kalender – side ${f.page}` : `Kalender – arrangementer i ${ctx.regionLabel}`,
+      title: f.page > 1 ? `Kalender – side ${f.page}` : `Eventkalender for ${ctx.regionLabel} – arrangementer og aktiviteter dag for dag`,
       description: `Kalender for ${ctx.regionLabel}: ${total} kommende arrangementer fra lokale arrangører – dag for dag. Find en flok at følges med.`,
       canonical: "/kalender" + (f.page > 1 ? toQuery({ page: f.page }) : ""),
       breadcrumbs: crumbs,
@@ -309,7 +309,7 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
   return {
     status: 200,
     body: page(ctx, {
-      title: period === "idag" ? `Hvad sker der i dag? Arrangementer i ${ctx.regionLabel}` : `Hvad sker der i weekenden? Arrangementer i ${ctx.regionLabel}`,
+      title: period === "idag" ? `Hvad sker der i ${ctx.regionLabel} i dag? Events og arrangementer` : `Hvad sker der i ${ctx.regionLabel} i weekenden? Events og arrangementer`,
       description: period === "idag" ? `Det sker i dag i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.` : `Det sker i weekenden i ${ctx.regionLabel}: ${total} arrangementer. Find en flok at følges med.`,
       canonical: path,
       breadcrumbs: crumbs,
@@ -402,7 +402,7 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
   return {
     status: 200,
     body: page(ctx, {
-      title: `Hvad sker der i ${area.place}? Arrangementer og flokke`,
+      title: `Hvad sker der i ${area.place}? Events, arrangementer og aktiviteter`,
       description: `Det sker i ${area.place}: ${upcoming.total} kommende arrangementer fra lokale arrangører. Find en flok at følges med.`,
       canonical: `/${area.slug}`,
       breadcrumbs: crumbs,
@@ -557,6 +557,7 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
     <div class="event-text">
+      ${ctx.lang === "en" && (paragraphs.length || e.summary) ? html`<p class="meta-muted small" lang="en">The description below is the organiser's own, usually in Danish. Many events welcome English speakers – ask the organiser if you are unsure.</p>` : ""}
       ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
         : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
       ${source?.descriptionPolicy === "excerpt" && e.source_url ? html`<p><a href="${e.source_url}" rel="noopener">Læs hele beskrivelsen hos ${e.source_name} →</a></p>` : ""}
