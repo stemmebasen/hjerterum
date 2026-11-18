@@ -24,4 +24,14 @@ describe("Douglas' email nr. 9", () => {
     expect(await memberNewsletter(env, deps, me, false)).toEqual({ subscribed: false });
     expect(await memberNewsletter(env, deps, me)).toEqual({ subscribed: false });
   });
+
+  // Douglas (18 Nov 2026), of his test event waiting for approval: "I cannot register for the event even when logged in".
+  it("says that an event waiting for approval cannot be signed up for yet", async () => {
+    const db = testDatabase();
+    const start = Date.now() + 10 * 86_400_000;
+    const id = Number((await db.prepare(`INSERT INTO room_bookings (clerk_user_id, teacher_name, teacher_email, title, starts_at_ms, ends_at_ms, review_status, status, created_at_ms, updated_at_ms)
+      VALUES ('douglas', 'Douglas', 'd@x.dk', 'Test', ?, ?, 'pending', 'scheduled', 1, 1)`).bind(start, start + 3_600_000).run()).meta!.last_row_id);
+    await expect(attendRoomBooking(db, "douglas", id, { memberName: "Douglas", memberEmail: "d@x.dk" })).rejects.toThrow("booking_not_approved");
+    await expect(attendRoomBooking(db, "douglas", 999, { memberName: "Douglas", memberEmail: "d@x.dk" })).rejects.toThrow("booking_not_found");
+  });
 });

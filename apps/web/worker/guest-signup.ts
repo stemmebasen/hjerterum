@@ -37,7 +37,8 @@ export async function signUpGuest(db: D1Database, id: number, sent: Record<strin
     await attendRoomBooking(db, `guest:${email}`, id, { memberName: name, memberEmail: email }, true);
     return { ok: true, confirmed: true };
   } catch (error) {
-    const code = error instanceof Error ? error.message : "signup_failed";
+    // An event that waits for approval is not there for the public.
+    const code = error instanceof Error ? (error.message === "booking_not_approved" ? "booking_not_found" : error.message) : "signup_failed";
     const status = code === "booking_not_found" ? 404 : ["already_attending", "booking_full", "booking_full_or_pending", "booking_started", "non_member_payment_unavailable", "event_payment_required"].includes(code) ? 409 : 503;
     return { error: code, status };
   }

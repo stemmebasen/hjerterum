@@ -541,6 +541,8 @@ export async function attendRoomBooking(
     id: number; clerk_user_id: string; starts_at_ms: number;
     max_attendees: number | null; ticket_price_minor: number; non_member_price_minor: number | null;
   }>();
+  // Douglas (18 Nov 2026), of his test event waiting for approval: "I cannot register for the event even when logged in" - and now it says why.
+  if (!booking && await db.prepare("SELECT 1 AS hit FROM room_bookings WHERE id = ? AND status = 'scheduled'").bind(bookingId).first()) throw new Error("booking_not_approved");
   if (!booking) throw new Error("booking_not_found");
   if (booking.starts_at_ms <= now) throw new Error("booking_started");
   // Checkout charges the members' price, so a non-member's paid ticket waits until it can charge theirs.

@@ -22,9 +22,11 @@ export function MemberNewsletter({ clerk }: { clerk: ClerkBrowser }) {
   };
   return <section className="profile-newsletter" aria-label="Nyhedsbrev">
     <div><p className="kicker">Nyhedsbrev</p><h3>Månedens events</h3>
-      <p>Én mail om måneden med det, der sker i Hjerterum.{state.subscribed ? " Du får den." : ""}</p></div>
+      {/* Douglas (18 Nov 2026), in English: "each time I remove the tick, the 'You get it' remains ... it keeps adding another" - Google's translation
+          holds on to a piece of text React changes in place. The sentence is drawn anew (its key) when the switch turns. */}
+      <p key={state.subscribed ? "til" : "fra"}>{state.subscribed ? "Én mail om måneden med det, der sker i Hjerterum. Du får den." : "Én mail om måneden med det, der sker i Hjerterum."}</p></div>
     <label className="profile-newsletter-switch"><input id="newsletter-switch" type="checkbox" checked={state.subscribed} disabled={busy} onChange={e => void change(e.target.checked)} />
-      <span>{state.subscribed ? "Til" : "Fra"}</span></label>
+      <span key={state.subscribed ? "til" : "fra"}>{state.subscribed ? "Til" : "Fra"}</span></label>
     {error && <p className="profile-newsletter-error" role="alert">{error}</p>}
   </section>;
 }
