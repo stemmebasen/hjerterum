@@ -11,6 +11,7 @@ import { SIGNUP_URL, type Section } from "../site/pages";
 import { membershipPlans } from "../membership";
 import { ProfilePage, PublicProfiles } from "./public-profiles";
 import { MembershipPlans } from "./membership-plans";
+import { DonationForm } from "./donation-form";
 import { loadMembershipLevels } from "./membership-levels";
 import { lazy, StrictMode, Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
@@ -488,6 +489,7 @@ function SiteContentPage({ path }: { path: string }) {
   return <SitePageView page={page} header={<SiteHeader current={page.section} />} widgets={{
     events: <EventSection events={events} reachable={eventsReachable} full />,
     "membership-plans": <MembershipPlans lang={page.lang} />,
+    donation: <DonationForm />,
     "price-calculator": <RoomPriceCalculator />,
     profiles: <PublicProfiles bare />
   }} />;

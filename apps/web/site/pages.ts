@@ -312,7 +312,7 @@ Læs [vilkårene for medlemskab](/medlemskab/vilkaar), før du melder dig ind.
 Se [alle fordelene ved et medlemskab](/medlemskab/fordele).
 
 ## Støt Hjerterum {#stoet}
-Donationer er – sammen med medlemskontingent og leje af salen – det, der får Hjerterum til at løbe rundt. Enhver donation, lille som stor, modtages med stor taknemmelighed.
+Donationer er – sammen med medlemskontingent og leje af salen – det, der får Hjerterum til at løbe rundt. Enhver donation, lille som stor, modtages med stor taknemmelighed. [Giv en donation](/stoet).
 
 - **MobilePay:** 734388
 - **Bankoverførsel** (fx ved beløb over 1.000 kr.): Djursland Bank, reg.nr. 7268, kontonr. 1211404
@@ -374,8 +374,28 @@ Skriv til os, hvis du vil vide mere om medlemskaberne, reduceret pris eller dit 
 
 {{enquiry-medlemskab}}`,
     image: { src: "/media/2021-05-cafe-time.webp", alt: "Café-stemning i Hjerterum" },
-    children: ["/medlemskab/fordele", "/medlemskab/vilkaar"],
+    children: ["/medlemskab/fordele", "/medlemskab/vilkaar", "/stoet"],
     sources: ["bliv-medlem", "lav-indkomst-medlemskab-low-income-membership", "donationer", "become-a-member", "donations"]
+  },
+  // Douglas (13 Nov 2026), for the board: "Are we having a donation page or somewhere where people can donate on the website? Plus an email that
+  // gets sent as a receipt for their donation." By card (worker/donations.ts, once Stripe is connected), MobilePay or the bank.
+  {
+    path: "/stoet", lang: "da", section: "medlemskab",
+    kicker: "Støt Hjerterum", title: "Giv en", em: "donation",
+    lead: "Donationer er – sammen med medlemskontingent og leje af salen – det, der får Hjerterum til at løbe rundt. Enhver donation, lille som stor, modtages med stor taknemmelighed.",
+    description: "Støt Hjerterum i Aarhus med en donation – med kort, MobilePay eller bankoverførsel.",
+    card: { title: "Giv en donation", text: "Støt huset med kort, MobilePay eller bankoverførsel." },
+    menu: "Donation",
+    body: `{{donation}}
+
+## MobilePay og bank
+- **MobilePay:** 734388
+- **Bankoverførsel** (fx ved beløb over 1.000 kr.): Djursland Bank, reg.nr. 7268, kontonr. 1211404
+
+Vil du støtte fast uden medlemsfordele, kan du vælge [Support-medlemskabet](/medlemskab). På forhånd tak fra teamet bag ♡
+
+Har du spørgsmål om din donation, så skriv til [[mail]].`,
+    sources: []
   },
   // Douglas' notes: "? Benefits on separate page".
   {

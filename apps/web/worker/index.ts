@@ -4,6 +4,7 @@ import { guestReceipt, publicEvent, signUpGuest } from "./guest-signup.js";
 import { notifyOrganiser, readSignupSettings, saveSignupSettings, signupSettingsByBooking } from "./event-signup-mail.js";
 import { CURRENT_SITE } from "./site-knowledge.js";
 import { sendWelcome } from "./member-welcome.js";
+import { recordDonation, startDonation } from "./donations.js";
 import { queueContact } from "./mailchimp-sync.js";
 import { isPartnerEvent } from "../partner-events.js";
 import {
@@ -865,6 +866,12 @@ async function memberWebhook(request: Request, env: Env): Promise<Response> {
       request.headers.get("stripe-signature"),
       env.STRIPE_MEMBER_WEBHOOK_SECRET
     );
+    // A donation (donations.ts) comes on the same account's webhook; it is not a membership.
+    const object = (event.data?.object ?? {}) as Record<string, unknown>;
+    if (event.type === "checkout.session.completed" && (object.metadata as Record<string, unknown> | undefined)?.kind === "donation") {
+      await recordDonation(env.DB, env, fetch, object, Date.now());
+      return json({ received: true, donation: true });
+    }
     const result = await processMemberStripeEvent(env.DB, event);
     if (result.welcome) await sendWelcome(env, fetch, result.welcome, CURRENT_SITE).catch(error => console.warn("welcome_mail_failed", error instanceof Error ? error.message : error));
     return json({ received: true, duplicate: result.duplicate });
@@ -972,6 +979,8 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/members/portal-url") {
       return memberPortal(request, env);
     }
+    // Douglas (13 Nov 2026), for the board: a donation page with a receipt (donations.ts).
+    if (url.pathname === "/api/donations") return startDonation(request, env);
     if (request.method === "POST" && url.pathname === "/api/stripe/member-webhook") {
       return memberWebhook(request, env);
     }
