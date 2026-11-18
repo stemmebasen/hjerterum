@@ -1,5 +1,6 @@
 import type { D1Database } from "./db.js";
 import { stripeRequest, type StripeEvent } from "./stripe.js";
+import { arrearsFor } from "./past-due.js";
 
 import { membershipPlan, membershipPlans, type MembershipTier } from "../membership.js";
 import { linkMembershipWorks, recordTimeline } from "./member-admin.js";
@@ -132,6 +133,16 @@ export async function createMembershipCheckout(
     "metadata[full_name]": input.fullName,
     "metadata[terms_accepted_at]": String(Date.now())
   };
+
+  // A member whose payment stopped and who comes back pays the past-due period by the board's rule (past-due.ts), on the first invoice.
+  const arrears = existing ? await arrearsFor(db, existing, Date.now()) : 0;
+  if (arrears > 0) {
+    params["line_items[1][quantity]"] = 1;
+    params["line_items[1][price_data][currency]"] = "dkk";
+    params["line_items[1][price_data][unit_amount]"] = arrears;
+    params["line_items[1][price_data][product_data][name]"] = "Restance fra tidligere medlemskab";
+    params["metadata[arrears_minor]"] = arrears;
+  }
 
   // A membership the board gave has no Stripe customer: only a real one is reused.
   if (existing?.stripeCustomerId?.startsWith("cus_")) {

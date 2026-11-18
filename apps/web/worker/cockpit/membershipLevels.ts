@@ -1,5 +1,6 @@
 import { MEMBERSHIP_TIERS, membershipPlans } from "../../membership.js";
 import type { LevelChange } from "../membership-levels.js";
+import type { PastDueRule } from "../past-due.js";
 import { COCKPIT_MEMBERS_STYLE } from "./membershipCockpit.js";
 import { esc, layout } from "./page.js";
 
@@ -9,7 +10,7 @@ import { esc, layout } from "./page.js";
 const kr = (minor: number) => (minor / 100).toLocaleString("da-DK", { maximumFractionDigits: 2 });
 const TIME = new Intl.DateTimeFormat("da-DK", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Copenhagen" });
 
-export function levelsPage(base: string, who: string | null, d: { changes: LevelChange[]; notice: string; error: string; errorTier?: string }): string {
+export function levelsPage(base: string, who: string | null, d: { changes: LevelChange[]; notice: string; error: string; errorTier?: string; pastDue?: PastDueRule }): string {
   const forms = MEMBERSHIP_TIERS.map(tier => {
     const p = membershipPlans[tier];
     return `<form class="card mc-form" method="post" action="${base}/medlemskab/niveauer" id="niveau-${tier}"><input type="hidden" name="tier" value="${tier}">
@@ -35,6 +36,12 @@ export function levelsPage(base: string, who: string | null, d: { changes: Level
 <p>En ny pris kræver en beslutning i bestyrelsen. Prøveperioden gælder kun dem, der melder sig ind første gang.</p></div>
 ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error && !d.errorTier ? `<p class="notice bad">${esc(d.error)}</p>` : ""}
 <section class="mc-grid ml-grid">${forms}</section>
+${d.pastDue ? `<form class="card mc-form" method="post" action="${base}/medlemskab/niveauer" id="restance"><input type="hidden" name="action" value="restance">
+<h2>Restance</h2><p class="small muted">Når et medlem, hvis betaling er stoppet, melder sig ind igen her (som MembershipWorks' "Past Due Charges").</p>
+<label class="mc-check"><input type="radio" name="mode" value="include"${d.pastDue.mode === "include" ? " checked" : ""}> Medregn restancen op til et maksimum, og start medlemskabet igen</label>
+<label class="mc-check"><input type="radio" name="mode" value="restart"${d.pastDue.mode === "restart" ? " checked" : ""}> Start medlemskabet forfra uden restance</label>
+<label class="mc-field"><span>Højst (kr.)</span><input name="max" inputmode="decimal" value="${kr(d.pastDue.maxMinor)}"></label>
+<p class="small muted">En prøveperiode gælder ikke for et medlem, der kommer tilbage.</p><button>Gem reglen</button></form>` : ""}
 <section class="card"><h2>Ændringer</h2>${history}</section></main>`;
   return layout(base, "Medlemskaber", body, { section: "/medlemskab", who, style: COCKPIT_MEMBERS_STYLE + LEVELS_STYLE });
 }
