@@ -163,7 +163,7 @@ describe("flocks", () => {
     const dan = await join("Dan");
     const full = await call(`/flokke/${id}/bliv-del-af`, { cookie: dan.cookie, form: {} });
     expect(full.headers.get("location")).toContain("besked=full");
-    expect((await call(`/events/${event.slug}`, { cookie: dan.cookie })).body).toContain("Flokken er fuld");
+    expect((await call(`/events/${event.slug}`, { cookie: dan.cookie })).body).toContain("Fuld flok");
 
     const left = await call(`/flokke/${id}/forlad`, { cookie: cleo.cookie, form: {} });
     expect(left.headers.get("location")).toContain("besked=forladt");

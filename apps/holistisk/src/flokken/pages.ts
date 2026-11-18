@@ -55,11 +55,11 @@ const ERRORS: Record<string, string> = {
   event_closed: "Arrangementet er gået i gang, afholdt eller aflyst, så flokken kan ikke ændres.",
   already_in_flock: "Du er allerede i en flok til dette arrangement. Forlad den først, hvis du vil skifte.",
   too_many: "Du har oprettet mange flokke i dag. Prøv igen i morgen.",
-  full: "Flokken er fuld.",
-  closed: "Flokken er lukket.",
+  full: "Den her flok er fuld.",
+  closed: "Den her flok er lukket.",
   not_member: "Du er ikke en del af flokken.",
   not_host: "Kun den, der står for flokken, kan rette mødested og tidspunkt.",
-  too_small: "Flokken har allerede flere medlemmer end det.",
+  too_small: "Der er allerede flere med i flokken end det.",
   chat_closed: "Chatten er lukket. Den lukker en uge efter arrangementet.",
   chat_empty: "Skriv en besked først.",
   chat_too_long: `Beskeden er for lang. Højst ${MAX_LENGTH} tegn.`,
@@ -67,7 +67,7 @@ const ERRORS: Record<string, string> = {
   not_found: "Beskeden findes ikke længere.",
   invitation_not_invited: "Invitationen findes ikke længere.",
   invitation_too_late: "Fristen for at svare er gået, så pladsen er gået videre. Sæt kryds igen, hvis du stadig vil med.",
-  invitation_full: "Flokken blev fuld i mellemtiden. Du står forrest på listen til den næste.",
+  invitation_full: "Den her flok blev fuld i mellemtiden. Du står forrest på listen til den næste.",
   invitation_event_closed: "Arrangementet er gået i gang, afholdt eller aflyst.",
   intet_valgt: "Vælg mindst ét arrangement først."
 };
@@ -100,7 +100,7 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
   const action = (f: FlockRow): SafeHtml => {
     if (f.is_member) return html`<a class="button" href="${flockPath(f.id)}">Du er en del af flokken – se den</a>`;
     if (!canStart) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
-    if (isFull(f)) return html`<span class="flock-state">Flokken er fuld</span> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
+    if (isFull(f)) return html`<span class="flock-state">Fuld flok</span> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
     if (!member) return html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
     if (myFlockId) return html`<a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
     return html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form> <a class="button-secondary" href="${flockPath(f.id)}">Se flokken</a>`;
@@ -210,7 +210,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, peo
   const isHost = !!member && hostId === member.id;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: f.event_title, path: `/events/${f.event_slug}` }, { name: "Flokken", path: flockPath(f.id) }];
   const join = !canJoin || f.is_member ? html``
-    : isFull(f) ? html`<p class="flock-state">Flokken er fuld.</p>`
+    : isFull(f) ? html`<p class="flock-state">Den her flok er fuld.</p>`
     : member ? html`<form method="post" action="${flockPath(f.id)}/bliv-del-af"><button type="submit">Bliv en del af flokken</button></form>`
     : html`<a class="button" href="${loginPath(flockPath(f.id))}">Bliv en del af flokken</a>`;
   const body = html`
@@ -220,7 +220,7 @@ export function flockPage(ctx: PageContext, f: FlockRow, e: EventRow | null, peo
     <p class="kicker">Flok til arrangementet</p>
     <h1>${f.event_title}</h1>
     ${flash(message)}
-    ${f.status === "closed" ? html`<p class="notice">Flokken er lukket.</p>` : ""}
+    ${f.status === "closed" ? html`<p class="notice">Den her flok er lukket.</p>` : ""}
   </header>
   <section class="meet-box" aria-labelledby="h-meet">
     <h2 id="h-meet">Her mødes flokken</h2>
