@@ -4,7 +4,7 @@ import { EVENTS_PER_PAGE, initialPage, Pager, rememberPage, RowDate, RowPhoto, R
 import { EventPrMaterial } from "./pr-material-editor";
 import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice } from "../membership";
 import { MembershipPlans } from "./membership-plans";
-import { TextTools } from "./text-tools";
+import { RichText } from "./rich-text";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
@@ -599,10 +599,10 @@ function MemberEvents({
             <>
             <form className="workspace-form" onSubmit={saveEvent} key={editing?.id ?? "new-" + (prefill?.n ?? 0)}>
               <label>Titel<input name="title" placeholder={titleHint} defaultValue={editing?.title ?? prefill?.draft.title ?? ""} required onChange={(e) => setLiveTitle(e.target.value)} /></label>
-              {/* htmlFor: the label belongs to the text, not to the first of the text buttons inside it. */}
-              <label htmlFor="event-description">Beskrivelse<TextTools field={descriptionField} /><textarea id="event-description" ref={descriptionField} name="description" rows={6} placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
+              <div className="rich-field"><span className="rich-field-label" id="event-description-label">Beskrivelse</span>
+                <RichText id="event-description" field={descriptionField} name="description" placeholder={descriptionHint} defaultValue={editing?.description ?? prefill?.draft.description ?? ""} />
                 {/* Requested: "Under beskrivelse skal der kort stå OBS: ..." */}
-                <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum. Beskrivelsen skal have mindst {MIN_EVENT_WORDS} ord.</small></label>
+                <small className="field-note">OBS: Eventet bliver evalueret ved indsendelse for at vurdere, om det passer til Hjerterum. Beskrivelsen skal have mindst {MIN_EVENT_WORDS} ord.</small></div>
               <EventTextHelp clerk={clerk} field={descriptionField} title={liveTitle} />
               <EventPlanner clerk={clerk} plan={plan} onChange={setPlan} markedDates={markedDates} title={liveTitle}
                 ignoreId={editing?.id ?? null} onProblem={setPlanProblemCode} />

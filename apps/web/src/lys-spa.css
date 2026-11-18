@@ -1157,3 +1157,12 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .text-tools-emojis { display: flex; flex-wrap: wrap; gap: 4px; flex-basis: 100%; }
 .text-tools-emojis button { padding: 2px 6px; font-size: 17px; border-color: transparent; }
 .text-tools small { flex-basis: 100%; color: var(--lys-muted); font-size: 12.5px; }
+/* The event text as it will look (rich-text.tsx). */
+.rich-field { display: grid; gap: 6px; }
+.rich-field-label { font-weight: 600; }
+.rich-text { display: grid; gap: 6px; }
+.rich-text-box { min-height: 170px; padding: 12px 14px; border: 1px solid var(--lys-line); border-radius: 12px; background: var(--lys-bg, #fff); color: inherit; font: 400 15px/1.55 var(--lys-sans); white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+.rich-text-box:focus { border-color: var(--lys-ink); }
+.rich-text-box.is-empty::before { content: attr(data-placeholder); color: var(--lys-muted); pointer-events: none; }
+.rich-text-box ul { margin: 4px 0; padding-left: 22px; }
+.rich-text-box a { color: var(--lys-terra, #94503f); text-decoration: underline; }
