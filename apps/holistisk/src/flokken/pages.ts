@@ -90,8 +90,8 @@ const trustLine = html`<p class="trust-line">I mødes et offentligt sted, og kun
  * standing (null when they have not ticked it). */
 export type EventInterest = { others: number; mine: "waiting" | "invited" | "confirmed" | "declined" | "expired" | null };
 
-/** "1 anden er interesseret", "3 andre er interesseret". Only said when there is at least one. */
-const othersLine = (n: number, also: boolean): string => n === 1 ? `1 anden er ${also ? "også " : ""}interesseret.` : `${n} andre er ${also ? "også " : ""}interesseret.`;
+/** "Andre har vist interesse." Only said when at least one other is interested, and never how many (Jake 2026-11-18). */
+const othersLine = (n: number): string => n > 0 ? "Andre har vist interesse." : "";
 
 /** "Vil du med?" on the event page. The interest list's tick for this one event comes first: Socialklubben gathers a
  * flock when a handful are interested. Flocks with room are still shown, and starting one yourself is a small link. */
@@ -120,13 +120,13 @@ export function flockPanel(e: EventRow, flocks: FlockRow[], member: Member | nul
 </section>`;
 }
 
-/** The lines under "Jeg vil gerne med!" at the top of the event page: how many others are interested and starting a
+/** The lines under "Jeg vil gerne med!" at the top of the event page: whether others are interested and starting a
  * flock yourself. Nothing once you are in a flock or the event can no longer be joined. Kept to one underlined link
  * (Jake 2026-11-18: too many underlined lines); the safety page is linked from the flock panel, the menu and the footer. */
 export function flockLine(e: EventRow, member: Member | null, myFlockId: string | null, now: number, interest: EventInterest = { others: 0, mine: null }): SafeHtml {
   if (e.status !== "scheduled" || e.starts_at <= now || (myFlockId && member)) return html``;
   const create = `${eventPath(e)}/opret-flok`;
-  const count = interest.others > 0 ? html`<p class="interest-count">${othersLine(interest.others, interest.mine === "waiting")}</p>` : "";
+  const count = interest.others > 0 ? html`<p class="interest-count">${othersLine(interest.others)}</p>` : "";
   const start = interest.mine === "invited" ? "" : html`<p class="flock-create">Eller <a href="${member ? create : loginPath(create)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`;
   return count || start ? html`<div class="event-flock">${count}${start}</div>` : html``;
 }

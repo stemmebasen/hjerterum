@@ -540,7 +540,7 @@ describe("profile", () => {
 });
 
 describe("Lad os komme godt i gang", () => {
-  type Item = { slug: string; title: string; interested: number; line: string; mine: boolean; url: string };
+  type Item = { slug: string; title: string; others: boolean; line: string; mine: boolean; url: string };
   type Kickoff = { member: boolean; ready: boolean; inFlock: boolean; onList: boolean; events: Item[] };
   const api = async (cookie?: string) => JSON.parse((await call("/api/kom-godt-i-gang", cookie ? { cookie } : {})).body) as Kickoff;
   const choose = (slugs: string[], cookie?: string, shown: string[] = [], now = NOW) => {
@@ -557,7 +557,7 @@ describe("Lad os komme godt i gang", () => {
     return r.cookie;
   };
   /** Events nobody has shown interest in and that have no flock. */
-  const fresh = async () => (await api()).events.filter(e => e.interested === 0 && flocksOf(e.slug) === 0).map(e => e.slug);
+  const fresh = async () => (await api()).events.filter(e => !e.others && flocksOf(e.slug) === 0).map(e => e.slug);
 
   it("lists the coming weeks' events with how many are interested, those with people first", async () => {
     const first = await api();
@@ -568,11 +568,11 @@ describe("Lad os komme godt i gang", () => {
     await choose([target], await ready("Asta"));
     const after = (await api()).events;
     const at = after.findIndex(e => e.slug === target);
-    expect(after[at]!.interested).toBe(1);
-    expect(after[at]!.line).toBe("1 interesseret");
-    expect(after.slice(0, at).every(e => e.interested > 0 || /flok med/i.test(e.line))).toBe(true);
+    expect(after[at]!.others).toBe(true);
+    expect(after[at]!.line).toBe("Andre har vist interesse");
+    expect(after.slice(0, at).every(e => e.others || /flok med/i.test(e.line))).toBe(true);
     // Nobody yet: no line at all, so the list does not look empty.
-    expect(after.find(e => e.interested === 0 && !/flok/i.test(e.line))?.line).toBe("");
+    expect(after.find(e => !e.others && !/flok/i.test(e.line))?.line).toBe("");
     expect((await call("/kom-godt-i-gang")).body).not.toContain("Ingen endnu");
     // The first-visit pop-up asks for the next two days only.
     const soon = (await call("/api/kom-godt-i-gang?dage=2")).body;
@@ -620,7 +620,7 @@ describe("Lad os komme godt i gang", () => {
     expect(stranger).toContain(`<a class="calendar-button" href="/events/${slug}.ics" download>`);
     expect(stranger).not.toContain('id="besked"');
     expect(stranger).not.toContain('class="button-secondary" href="#flokke"');
-    expect(stranger).toContain('<p class="interest-count">1 anden er interesseret.</p>');
+    expect(stranger).toContain('<p class="interest-count">Andre har vist interesse.</p>');
     expect(stranger).toContain(`Eller <a href="/log-ind?naeste=${encodeURIComponent(`/events/${slug}/opret-flok`)}">start selv en flok</a> med din egen tid og dit eget mødested.</p>`);
     expect(stranger).not.toContain('class="trust-link"');
     // Taking it back.
@@ -653,7 +653,7 @@ describe("Lad os komme godt i gang", () => {
     const mine = (await call("/flokke?besked=interesser_gemt", { cookie })).body;
     expect(mine).toContain("Tak! Du står på listen – helt uforpligtende.");
     expect(mine).toContain("Dine interesser");
-    expect(mine).toContain("Du er den første. Vi samler en flok, når I er 3");
+    expect(mine).toContain("<p class=\"interest-state\">Vi samler en flok, når I er 3");
     // On the list: the pop-up is not shown again, and the ticks show as ticked.
     const own = await api(cookie);
     expect(own.onList).toBe(true);
@@ -678,7 +678,7 @@ describe("Lad os komme godt i gang", () => {
     expect(flocksOf(slug)).toBe(1);
     expect(["Dan", "Eja", "Finn"].map(n => statusOf(n, slug))).toEqual(["invited", "invited", "invited"]);
     // The flock is not shown to others until someone has said yes.
-    expect((await api()).events.find(e => e.slug === slug)?.line).toBe("3 interesserede");
+    expect((await api()).events.find(e => e.slug === slug)?.line).toBe("Andre har vist interesse");
     const invite = (await call("/flokke", { cookie: dan })).body;
     expect(invite).toContain("Din flok er klar!");
     expect(invite).toContain("I er 3 inviteret.");
