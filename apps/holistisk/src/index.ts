@@ -1,3 +1,4 @@
+import { englishTitles, translateEvents, TRANSLATE_CRON } from "./i18n/machine.js";
 import type { Env } from "./env.js";
 import { isProduction } from "./env.js";
 import { activeAreas, activeRegions, areaBySlug, cityAreas, regionBySlug } from "./geo.js";
@@ -159,7 +160,8 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
     inner.pathname = danish;
     const response = await route(new Request(inner, request), live, now, mount, "en");
     const mounted = mount ? await underMount(response, mount) : response;
-    return inEnglish(mounted, mount ? mount.origin + mount.base : (live.PUBLIC_BASE_URL?.replace(/\/$/, "") || url.origin), mount?.base ?? "");
+    const titles = await englishTitles(live.DB, now);
+    return inEnglish(mounted, mount ? mount.origin + mount.base : (live.PUBLIC_BASE_URL?.replace(/\/$/, "") || url.origin), mount?.base ?? "", titles);
   }
   const response = await route(request, live, now, mount);
   return mount ? underMount(response, mount) : response;
@@ -168,7 +170,7 @@ export async function handle(request: Request, env: Env, now = Date.now()): Prom
 const withMount = (response: Response, mount: Mount | null): Response | Promise<Response> => mount ? underMount(response, mount) : response;
 
 /** The English version of an answer (src/i18n): its page translated, its links, redirects and cookies moved to /en/. */
-async function inEnglish(response: Response, origin: string, base: string): Promise<Response> {
+async function inEnglish(response: Response, origin: string, base: string, titles?: Map<string, string>): Promise<Response> {
   const headers = new Headers(response.headers);
   const local = (path: string) => base && (path === base || path.startsWith(base + "/")) ? base + englishPath(path.slice(base.length) || "/") : englishPath(path);
   const location = headers.get("location");
@@ -186,7 +188,7 @@ async function inEnglish(response: Response, origin: string, base: string): Prom
   if (!type.startsWith("text/html") || !response.body) return new Response(response.body, { status: response.status, headers });
   headers.set("content-language", "en");
   headers.delete("content-length");
-  return new Response(translateHtml(await response.text(), origin, base), { status: response.status, headers });
+  return new Response(translateHtml(await response.text(), origin, base, titles), { status: response.status, headers });
 }
 
 async function route(request: Request, env: Env, now: number, mount: Mount | null, lang: "da" | "en" = "da"): Promise<Response> {
@@ -204,6 +206,14 @@ async function route(request: Request, env: Env, now: number, mount: Mount | nul
   if (path === "/api/status") {
     if (!env.DB) return json(env, { error: "database_unbound" }, 503);
     return json(env, await ingestStatus(env.DB, now));
+  }
+  if (path === "/api/translate/run") {
+    if (request.method !== "POST") return json(env, { error: "method_not_allowed" }, 405);
+    const token = env.INGEST_TOKEN;
+    const given = /^Bearer\s+(.+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? "";
+    if (!token || token.length < 24 || !sameSecret(given, token)) return json(env, { error: "unauthorized" }, 401);
+    const limit = Math.min(Math.max(Number(url.searchParams.get("antal")) || 5, 1), 40);
+    return json(env, await translateEvents(env, now, limit), 200);
   }
   if (path === "/api/ingest/run") {
     if (request.method !== "POST") return json(env, { error: "method_not_allowed" }, 405);
@@ -415,6 +425,14 @@ export default {
   },
 
   async scheduled(controller: ScheduledControllerLike, env: Env, ctx?: ExecutionContextLike): Promise<void> {
+    // Its own cron: arrangements' Danish text into English (src/i18n/machine.ts), nothing else.
+    if (controller.cron === TRANSLATE_CRON) {
+      const run = translateEvents(env, controller.scheduledTime || Date.now())
+        .catch(error => console.error(JSON.stringify({ event: "translate_failed", error: error instanceof Error ? error.message : String(error) })));
+      if (ctx) ctx.waitUntil(run);
+      await run;
+      return;
+    }
     const work = scheduledRun(env, controller.cron, { now: controller.scheduledTime || Date.now() })
       .then(outcome => console.log(JSON.stringify({ event: "cron", cron: controller.cron, status: outcome.status, reason: outcome.reason ?? null })))
       .catch(error => console.error(JSON.stringify({ event: "cron_failed", cron: controller.cron, error: error instanceof Error ? error.message : String(error) })));

@@ -39,6 +39,14 @@ export interface Env {
   ADMIN_EMAIL?: string;
   /** The address used in links in mails from the cron (default https://socialklubben.dk). */
   MAIL_SITE_URL?: string;
+  /** Cloudflare Workers AI; translates arrangements' own Danish text for the English pages (src/i18n/machine.ts). */
+  AI?: AiBinding;
+  /** The Workers AI model for that (default in src/i18n/machine.ts). */
+  TRANSLATE_MODEL?: string;
+}
+
+export interface AiBinding {
+  run(model: string, input: Record<string, unknown>): Promise<unknown>;
 }
 
 export const isProduction = (env: Env): boolean => env.ENVIRONMENT === "production";
