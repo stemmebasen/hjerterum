@@ -1,5 +1,6 @@
 import type { D1Database } from "../db.js";
 import { membershipPlan, membershipPlans } from "../../membership.js";
+import { labelsByEmail } from "../member-labels.js";
 import { FREE_TIER, memberTimeline, memberById, planName, recordTimeline, type TimelineEntry } from "../member-admin.js";
 import { esc, layout } from "./page.js";
 
@@ -16,6 +17,8 @@ import { esc, layout } from "./page.js";
 export type CockpitStatus = "aktiv" | "restance" | "opsagt" | "uden";
 export type CockpitBilling = "kort" | "manuel" | "gratis" | "ingen";
 export type CockpitMember = {
+  /** The labels the board gave here (member-labels.ts); `labels` holds them and MembershipWorks' together. */
+  ownLabels: string[];
   key: string; source: "platform" | "membershipworks"; platformId: number | null;
   name: string; email: string; phone: string | null; address: string | null; birthday: string | null;
   tier: string | null; plan: string; interval: "month" | "year" | null; monthlyMinor: number;
@@ -46,11 +49,12 @@ export type CockpitData = { members: CockpitMember[]; export: { filename: string
 
 /** Everyone, the platform's members first in rank; an account only in MembershipWorks is judged as of its export's day. */
 export async function cockpitMembers(db: D1Database): Promise<CockpitData> {
-  const [platform, accounts, upload] = await Promise.all([
+  const [platform, accounts, upload, given] = await Promise.all([
     db.prepare(`SELECT id, full_name, email, phone, street_address, birthday, tier, interval, status, billing, status_since_ms, joined_on, created_at_ms, is_teacher,
       stripe_customer_id, stripe_subscription_id, pays_in_membershipworks, next_charge_on FROM members`).all<PlatformRow>().then(r => r.results ?? []).catch(() => [] as PlatformRow[]),
     db.prepare("SELECT email, full_name, phone, plan, tier, interval, billing, joined_on, renews_on, stripe_customer_id, labels FROM membershipworks_accounts").all<AccountRow>().then(r => r.results ?? []).catch(() => [] as AccountRow[]),
-    db.prepare("SELECT filename, uploaded_at_ms FROM membershipworks_uploads ORDER BY id DESC LIMIT 1").first<{ filename: string; uploaded_at_ms: number }>().catch(() => null)
+    db.prepare("SELECT filename, uploaded_at_ms FROM membershipworks_uploads ORDER BY id DESC LIMIT 1").first<{ filename: string; uploaded_at_ms: number }>().catch(() => null),
+    labelsByEmail(db)
   ]);
   const exportDay = upload ? copenhagenDay(upload.uploaded_at_ms) : copenhagenDay(Date.now());
   const labelsOf = (raw: string) => { try { const v = JSON.parse(raw) as unknown; return Array.isArray(v) ? v.map(String) : []; } catch { return []; } };
@@ -62,8 +66,10 @@ export async function cockpitMembers(db: D1Database): Promise<CockpitData> {
     const mw = mwByEmail.get(email);
     const free = p.tier === FREE_TIER;
     const status: CockpitStatus = p.status === "active" ? "aktiv" : p.status === "past_due" ? "restance" : "opsagt";
-    const labels = mw ? labelsOf(mw.labels) : [];
+    const ownLabels = given.get(email) ?? [];
+    const labels = [...new Set([...(mw ? labelsOf(mw.labels) : []), ...ownLabels])];
     return {
+      ownLabels,
       key: `p${p.id}`, source: "platform", platformId: p.id, name: p.full_name, email: p.email, phone: p.phone, address: p.street_address, birthday: p.birthday,
       tier: p.tier, plan: planName(p.tier), interval: p.interval === "year" ? "year" : p.interval === "month" ? "month" : null,
       monthlyMinor: status === "opsagt" ? 0 : monthlyMinor(p.tier, p.interval), status, statusSince: p.status_since_ms ? copenhagenDay(p.status_since_ms) : null,
@@ -80,8 +86,10 @@ export async function cockpitMembers(db: D1Database): Promise<CockpitData> {
     const former = !tier && /cancel/i.test(a.plan ?? "");
     const cancelled = Boolean(tier) && !free && a.billing === null;
     const status: CockpitStatus = former || cancelled ? "opsagt" : !tier ? "uden" : !free && a.renews_on !== null && a.renews_on < exportDay ? "restance" : "aktiv";
-    const labels = labelsOf(a.labels);
+    const ownLabels = given.get(a.email.toLowerCase()) ?? [];
+    const labels = [...new Set([...labelsOf(a.labels), ...ownLabels])];
     members.push({
+      ownLabels,
       key: `mw${encodeURIComponent(a.email.toLowerCase())}`, source: "membershipworks", platformId: null, name: a.full_name, email: a.email, phone: a.phone, address: null, birthday: null,
       tier, plan: former ? "Tidligere medlem" : tier ? planName(tier) : a.plan ? a.plan : "Intet medlemskab", interval: a.interval === "year" ? "year" : a.interval === "month" ? "month" : null,
       monthlyMinor: status === "aktiv" || status === "restance" ? monthlyMinor(tier, a.interval) : 0, status, statusSince: status === "restance" || cancelled ? a.renews_on : null,
@@ -209,6 +217,8 @@ ${d.notice ? `<p class="notice">${esc(d.notice)}</p>` : ""}${d.error ? `<p class
 ${field("Medlemskab", esc(m.plan))}${field("Betales", m.interval === "year" ? "Årligt" : m.interval === "month" ? "Månedligt" : "–")}${field("Betaling", esc(BILLING_LABEL[m.billing]))}
 ${field("Næste betaling", esc(shortDate(m.nextPayment)))}${field("Medlem siden", esc(shortDate(m.joinedOn)))}${field("Stripe-kunde", m.stripeCustomerId ? `<code>${esc(m.stripeCustomerId)}</code>` : "–")}
 ${field("Kilde", m.source === "platform" ? (m.paysInMembershipworks ? "Hjerterums system · betaler stadig via MembershipWorks" : "Hjerterums system") : "MembershipWorks (indtil skæringsdagen)")}</dl>
+${editable && m.billing !== "gratis" ? `<form method="post" action="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}" class="mc-form mc-renewal"><input type="hidden" name="action" value="renewal">
+<label class="mc-field"><span>Næste fornyelse</span><input type="date" name="renewal" value="${esc(m.nextPayment ?? "")}" required></label><button class="ghost">Ret datoen</button></form>` : ""}
 ${m.platformId ? `<p><a class="button ghost" href="${base}/medlemmer/${m.platformId}">Skift, giv eller afslut medlemskab →</a></p>` : `<p class="small muted">Medlemskab og betaling ændres i MembershipWorks indtil skæringsdagen, hvor alle flyttes hertil.</p>`}</div>
 <div class="card"><h2>Kontakt</h2>${editable ? `<form method="post" action="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}" class="mc-form">
 ${input("Navn", "name", m.name)}${input("Telefon", "phone", m.phone)}${input("Adresse", "address", m.address)}${input("Fødselsdag", "birthday", m.birthday, "date")}
@@ -216,6 +226,9 @@ ${input("Navn", "name", m.name)}${input("Telefon", "phone", m.phone)}${input("Ad
 <p class="small muted">E-mail: ${esc(m.email)} (bruges til login og kan ikke ændres her)</p><button>Gem</button></form>`
     : `<dl class="mc-dl">${field("E-mail", esc(m.email))}${field("Telefon", esc(m.phone ?? ""))}${field("Labels", m.labels.map(esc).join(", "))}</dl>`}</div>
 </section>
+<section class="card"><h2>Labels</h2>${m.labels.filter(l => !m.ownLabels.includes(l)).length ? `<p class="small muted">Fra MembershipWorks: ${m.labels.filter(l => !m.ownLabels.includes(l)).map(esc).join(", ")}</p>` : ""}
+<form method="post" action="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}" class="mc-form"><input type="hidden" name="action" value="labels">
+<label class="mc-field"><span>Bestyrelsens labels (komma imellem, fx Frivillig, Underviser)</span><input name="labels" value="${esc(m.ownLabels.join(", "))}" maxlength="800"></label><button class="ghost">Gem labels</button></form></section>
 ${editable ? `<section class="card"><h2>Historik</h2>${d.timeline.length ? `<ul class="mc-timeline">${d.timeline.map(t => `<li><span>${esc(TIME.format(t.atMs))}</span><div><b>${esc(t.title)}</b>${t.detail ? `<p>${esc(t.detail)}</p>` : ""}${t.by ? `<small>${esc(t.by)}</small>` : ""}</div></li>`).join("")}</ul>` : `<p class="muted">Intet endnu.</p>`}
 <form method="post" action="${base}/medlemskab/medlem?k=${encodeURIComponent(m.key)}" class="mc-form"><input type="hidden" name="action" value="note"><label class="mc-field"><span>Ny note</span><textarea name="note" rows="2" maxlength="2000"></textarea></label><button class="ghost">Tilføj note</button></form></section>`
     : `<section class="card"><h2>Historik</h2><p class="muted small">Betalinger og ændringer fra MembershipWorks kommer med, når den fulde eksport med betalingshistorik er hentet på skæringsdagen.</p></section>`}

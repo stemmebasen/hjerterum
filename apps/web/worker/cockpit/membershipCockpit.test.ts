@@ -131,6 +131,46 @@ describe("the membership cockpit", () => {
       expect(membershipPlans.standard.month).toBe(23_000);
     });
 
+    // Douglas (13 Nov 2026), for the board: "There must be an ability to make a free trial period available in the membership levels".
+    it("keep a free trial for each level, 30 days unless changed", async () => {
+      const { call, form, douglas } = await setup();
+      expect(membershipPlans.reduceret.trialDays).toBe(30);
+      await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "reduceret", name: "Reduceret pris medlemskab", description: membershipPlans.reduceret.description, month: "111", year: "1.155", trial: "0" }) });
+      expect(membershipPlans.reduceret.trialDays).toBe(0);
+      expect(await (await call("/medlemskab/niveauer", { cookie: douglas })).text()).toContain("prøveperiode: 30 → 0 dage");
+      const bad = await call("/medlemskab/niveauer", { method: "POST", cookie: douglas, body: form({ tier: "reduceret", name: "Reduceret pris medlemskab", description: "", month: "111", year: "1.155", trial: "900" }) });
+      expect(bad.status).toBe(400);
+    });
+
+  });
+
+  // Douglas (13 Nov 2026), for the board: "How can we assign a label to a member?" and "Editable renewal date".
+  describe("a member's labels and renewal date", () => {
+    it("lets the board give labels to anyone - also one still only in MembershipWorks - and keeps them by e-mail", async () => {
+      const { call, form, chair } = await setup();
+      const ole = encodeURIComponent("mwole%40example.dk");
+      const saved = await call(`/medlemskab/medlem?k=${ole}`, { method: "POST", cookie: chair, body: form({ action: "labels", labels: "Frivillig, Café-vagt" }) });
+      expect(await saved.text()).toContain("Labels er gemt.");
+      const list = await (await call("/medlemskab", { cookie: chair })).text();
+      expect(list).toContain('<i class="mc-label">Café-vagt</i>');
+      await call(`/medlemskab/medlem?k=${ole}`, { method: "POST", cookie: chair, body: form({ action: "labels", labels: "Frivillig" }) });
+      expect(await (await call("/medlemskab", { cookie: chair })).text()).not.toContain("Café-vagt");
+    });
+
+    it("moves a member's renewal date here (not one paid by card before Stripe is connected), and writes it in the history", async () => {
+      const { db, call, form, chair } = await setup();
+      await db.prepare("UPDATE members SET billing = 'manual', next_charge_on = '2026-12-01' WHERE id = 1").run();
+      const moved = await call("/medlemskab/medlem?k=p1", { method: "POST", cookie: chair, body: form({ action: "renewal", renewal: "2027-01-15" }) });
+      expect(await moved.text()).toContain("Fornyelsesdatoen er rettet.");
+      expect((await db.prepare("SELECT next_charge_on FROM members WHERE id = 1").first<{ next_charge_on: string }>())!.next_charge_on).toBe("2027-01-15");
+      expect(await (await call("/medlemskab/medlem?k=p1", { cookie: chair })).text()).toContain("2026-12-01 → 2027-01-15");
+      expect((await call("/medlemskab/medlem?k=p1", { method: "POST", cookie: chair, body: form({ action: "renewal", renewal: "2020-01-01" }) })).status).toBe(400);
+      await db.prepare("UPDATE members SET billing = 'stripe', stripe_subscription_id = 'sub_1' WHERE id = 1").run();
+      expect(await (await call("/medlemskab/medlem?k=p1", { method: "POST", cookie: chair, body: form({ action: "renewal", renewal: "2027-02-01" }) })).text()).toContain("Kortbetaling er ikke slået til");
+    });
+  });
+
+  describe("the membership levels, again", () => {
     it("reads prices as written in Danish", () => {
       expect(kroner("222")).toBe(22_200);
       expect(kroner("2.310")).toBe(231_000);
