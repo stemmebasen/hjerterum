@@ -324,7 +324,7 @@ function overviewView(pc: PageContext, o: Overview, now: number): AdminView {
 
   <section class="sk-card" aria-labelledby="flokke">
     <h2 id="flokke">Kommende flokke</h2>
-    ${o.flocks.length ? html`<ul class="sk-rows">${o.flocks.map(f => html`<li><div><a href="/flokke/${f.id}">${f.title}</a>${f.members >= 5 ? html` <span class="sk-tag sk-tag-berry">5 samlet: gave</span>` : null}<br><span class="sk-muted">Mødes ${when(f.meeting_at, now)} · ${f.meeting_place}</span><br><span class="sk-muted">${f.gathered ? "Samlet af Socialklubben" : "Startet af et medlem"}</span></div><div class="sk-counts"><span class="sk-tag ${f.members >= 3 ? "sk-tag-green" : ""}">${flockState(f)}</span></div></li>`)}</ul>` : html`<p class="sk-empty">Ingen kommende flokke endnu.</p>`}
+    ${o.flocks.length ? html`<ul class="sk-rows">${o.flocks.map(f => html`<li><div><a href="/flokke/${f.id}">${f.title}</a><br><span class="sk-muted">Mødes ${when(f.meeting_at, now)} · ${f.meeting_place}</span><br><span class="sk-muted">${f.gathered ? "Samlet af Socialklubben" : "Startet af et medlem"}</span></div><div class="sk-counts"><span class="sk-tag ${f.members >= 3 ? "sk-tag-green" : ""}">${flockState(f)}</span></div></li>`)}</ul>` : html`<p class="sk-empty">Ingen kommende flokke endnu.</p>`}
   </section>
 
   <section class="sk-card" aria-labelledby="aktivitet">

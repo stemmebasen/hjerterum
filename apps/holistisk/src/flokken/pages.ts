@@ -545,7 +545,7 @@ export function flockCards(flocks: FlockRow[], now: number): SafeHtml {
 /** The three steps, on the front page and on Vil du med?. */
 export const howItWorks = html`<ol class="how">
   <li><span class="how-n" aria-hidden="true">1</span><strong>Find et arrangement</strong><span>Koncerter, teater, foredrag, caféjazz, yoga og workshops fra spillesteder, biblioteker og foreninger.</span></li>
-  <li><span class="how-n" aria-hidden="true">2</span><strong>Vis interesse – så samler vi flokken</strong><span>Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class="secret" aria-hidden="true">*****</span><span class="visually-hidden">overraskelse – hvad det bliver, er ikke afgjort endnu</span>.</span></li>
+  <li><span class="how-n" aria-hidden="true">2</span><strong>Vis interesse – så samler vi flokken</strong><span>Alting er sjovere i samlet flok. Når I er nogle stykker, der vil med, samler vi jer i en lille flok på 3 til 6.</span></li>
   <li><span class="how-n" aria-hidden="true">3</span><strong>Mød hinanden</strong><span>I mødes udenfor foran et kendt sted, fx Domkirken, og sætter jer et sted i nærheden med en kop kaffe eller noget andet at drikke. Så kan I hilse og snakke lidt, inden I går til arrangementet sammen.</span></li>
 </ol>`;
 
