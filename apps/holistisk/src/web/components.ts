@@ -254,6 +254,17 @@ export function section(id: string, title: string, body: SafeHtml, more?: { href
 </section>`;
 }
 
+/** "Dagens fem – Flokkens udvalgte" (Jake 2026-11-18: it must be clear that the five a day are the club's own picks):
+ * the same label and line on every list that shows the pick (src/curation.ts), with the way to see all. "Flokken" is
+ * the site's name in the source and becomes "Socialklubben" on socialklubben.dk (src/index.ts). */
+export function picksNote(): SafeHtml {
+  return html`<aside class="picks-note" aria-label="Dagens fem">
+  <p class="picks-label"><span class="picks-badge">Dagens fem</span> <span>Flokkens udvalgte</span></p>
+  <p class="picks-text">Hver dag vælger vi op til fem arrangementer, som er gode at tage til sammen med andre.</p>
+  <p class="picks-text">Vil du se alle? <a href="/kalender#soeg">Søg eller vælg en aktivitet</a></p>
+</aside>`;
+}
+
 /** The filter panel: a plain GET form (it works without JavaScript); the script only submits on change. */
 /** The calendar's filters: Område, Pris and Hvornår as chips at the top, then the categories, and the search field at
  * the bottom. A chip is a link: clicking it chooses it, clicking it again takes it off, so with nothing chosen

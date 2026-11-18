@@ -97,6 +97,17 @@ describe("Dagens fem on three real days", () => {
     expect(search).toContain("Albus Festival: Smag på historien");
     const front = (await call("/")).body;
     expect(front).not.toContain("Albus Festival: Smag på historien");
+    // Jake 2026-11-18: clear everywhere that these are the club's own picks, and how to see all.
+    for (const body of [calendar, front, (await call("/i-dag")).body, (await call("/weekend")).body, (await call("/aarhus")).body]) {
+      expect(body).toContain('<span class="picks-badge">Dagens fem</span>');
+      expect(body).toContain("Flokkens udvalgte");
+      expect(body).toContain("Søg eller vælg en aktivitet");
+    }
+    expect(search).not.toContain("picks-badge");
+    const english = (await call("/en/calendar")).body;
+    expect(english).toContain("Today&#39;s five");
+    expect(english).toContain("Every day we pick up to five events");
+    expect(english).toContain("Search or choose an activity");
   });
 
   it("the admin can pin and hide; hidden is gone from search too, but its own page still opens", async () => {
