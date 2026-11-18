@@ -6,6 +6,7 @@ import { includesMemberBenefits, membershipName, membershipPlan, membershipPrice
 import { MembershipPlans } from "./membership-plans";
 import { RichText } from "./rich-text";
 import { JoinMembership } from "./join-membership";
+import { ChangePlan } from "./change-plan";
 import { EventPlanner } from "./event-planner";
 import { AuthImage, EventFilesField, FileLinks, fileProblems, uploadEventFiles, type EventFile } from "./event-files";
 import { SagaEventGuide } from "./saga-event-guide";
@@ -1000,6 +1001,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <p>{member.paysInMembershipworks ? "Dit medlemskab er flyttet til Hjerterums nye system. Din betaling fortsætter indtil videre uændret, som du er vant til." : "Dit medlemskab er givet af Hjerterum, og der trækkes ingen betaling via kort."}</p>
           {cancelBlock}
         </div>
+        <ChangePlan clerk={clerk} />
       </section>
     );
   }
@@ -1016,6 +1018,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           <p>Dit medlemskab og din betaling fortsætter uændret, som du er vant til.</p>
           {cancelBlock}
         </div>
+        <ChangePlan clerk={clerk} />
         <MembershipPlans />
       </section>
     );
@@ -1066,6 +1069,7 @@ function MemberBilling({ clerk, member }: { clerk: ClerkBrowser; member: Member 
           </div>
         ) : <p>Der er ingen fakturaer at vise endnu.</p>}
       </div>
+      <ChangePlan clerk={clerk} />
       <MembershipPlans />
     </section>
   );

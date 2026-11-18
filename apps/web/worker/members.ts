@@ -377,6 +377,14 @@ export async function processMemberStripeEvent(
         const reason = objectString(object, "billing_reason");
         await recordTimeline(db, member.id, { atMs: eventTime(event), kind: "payment", title: "Betaling", amountMinor: amount,
           detail: reason === "subscription_create" ? "Første betaling" : reason === "subscription_cycle" ? "Fornyelse" : null, by: "Stripe" }, event.id);
+        // A level chosen in the member area takes over at the renewal (membership-change.ts).
+        if (reason === "subscription_cycle") {
+          const waiting = await db.prepare("SELECT pending_tier FROM members WHERE id = ?").bind(member.id).first<{ pending_tier: string | null }>();
+          if (waiting?.pending_tier) {
+            await db.prepare("UPDATE members SET tier = ?, pending_tier = NULL, updated_at_ms = ? WHERE id = ?").bind(waiting.pending_tier, eventTime(event), member.id).run();
+            await recordTimeline(db, member.id, { atMs: eventTime(event), kind: "plan", title: `Skiftet til ${membershipPlan(waiting.pending_tier)?.name ?? waiting.pending_tier}`, by: "Stripe" }, `${event.id}:plan`);
+          }
+        }
       }
     }
 
