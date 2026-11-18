@@ -68,7 +68,8 @@ import { eventKeyOf, setStudioDesign, storeSocialDesign, studioData, studioEvent
 import { levelsPage } from "./membershipLevels.js";
 import { saveLabels } from "../member-labels.js";
 import { moveRenewal } from "../member-renewal.js";
-import { membershipLevelChanges, saveMembershipLevel } from "../membership-levels.js";
+import { kroner, membershipLevelChanges, saveMembershipLevel } from "../membership-levels.js";
+import { pastDueRule, savePastDueRule } from "../past-due.js";
 import { applyFilter, cardTimeline, cockpitMembers, cockpitPage, memberCardPage, membersCsv, readFilter, saveContact as saveMemberContact } from "./membershipCockpit.js";
 import { comingSystemEvents, readEventChange, systemEvent, systemEventPage, systemEventsSection } from "./systemEvents.js";
 import { cancelRoomBookingAsAdmin, updateRoomBookingAsAdmin } from "../room-bookings.js";
@@ -669,15 +670,23 @@ async function route(request: Request, env: SagaEnv, deps: SagaDeps, state: Stat
       if (!may("members.levels")) return denied("members.levels");
       if (request.method === "POST") {
         const form = await request.formData().catch(() => null);
+        // Douglas (13-17 Nov 2026), for the board: the past-due rule (past-due.ts).
+        if (form?.get("action") === "restance") {
+          const max = kroner(String(form.get("max") ?? ""));
+          if (max === null) return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice: "", error: "Skriv et beløb i kroner.", pastDue: await pastDueRule(db) }), 400);
+          await savePastDueRule(db, { mode: form.get("mode") === "restart" ? "restart" : "include", maxMinor: max }, who, now);
+          await audit(db, actor, "members.levels", `Restance: ${form.get("mode") === "restart" ? "start forfra" : `medregn op til ${max / 100} kr.`}`, now);
+          return redirect(`${base}/medlemskab/niveauer?besked=gemt#restance`);
+        }
         const tier = String(form?.get("tier") ?? "");
         const saved = await saveMembershipLevel(db, tier, { name: String(form?.get("name") ?? ""), description: String(form?.get("description") ?? ""),
           month: String(form?.get("month") ?? ""), year: String(form?.get("year") ?? ""), trialDays: String(form?.get("trial") ?? "") }, who, now);
-        if ("error" in saved) return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice: "", error: saved.error, errorTier: tier }), 400);
+        if ("error" in saved) return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice: "", error: saved.error, errorTier: tier, pastDue: await pastDueRule(db) }), 400);
         if (saved.changed.length) await audit(db, actor, "members.levels", `Rettede medlemskabet ${tier}: ${saved.changed.join(", ")}`, now);
         return redirect(`${base}/medlemskab/niveauer?besked=${saved.changed.length ? "gemt" : "uaendret"}#niveau-${tier}`);
       }
       const notice = ({ gemt: "Medlemskabet er gemt.", uaendret: "Intet blev ændret." } as Record<string, string>)[url.searchParams.get("besked") ?? ""] ?? "";
-      return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice, error: "" }));
+      return html(levelsPage(base, who, { changes: await membershipLevelChanges(db), notice, error: "", pastDue: await pastDueRule(db) }));
     }
     const data = await cockpitMembers(db);
     if (path === "/medlemskab" && request.method === "GET") {
