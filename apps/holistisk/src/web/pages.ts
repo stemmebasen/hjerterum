@@ -1,3 +1,4 @@
+import { eventTranslation } from "../i18n/machine.js";
 import { ACTIVITIES, TOPICS, activityBySlug, headingFor, type Activity } from "../activities.js";
 import { categoryBySlug } from "../categories.js";
 import type { D1Database } from "../db.js";
@@ -495,6 +496,9 @@ export type EventPageExtras = {
   interest?: (eventId: string) => Promise<EventInterest>;
 };
 
+/** An arrangement's description, one paragraph per line; "• " lines as bullets. */
+const textBlock = (paragraphs: string[]) => paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`);
+
 export async function eventPage(db: D1Database, ctx: PageContext, regions: string[], slug: string, extras?: EventPageExtras): Promise<View | null> {
   const e = await eventBySlug(db, slug);
   if (!e || !e.region || !regions.includes(e.region)) return null;
@@ -509,6 +513,8 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   const categories = (e.categories ?? "").split(",").filter(Boolean);
   const price = priceLabel(e);
   const paragraphs = (e.description ?? "").split(/\n+/).filter(Boolean);
+  // English pages: the arrangement's own text machine-translated, when it has been (src/i18n/machine.ts).
+  const english = ctx.lang === "en" ? await eventTranslation(db, e) : null;
   const over = (e.ends_at ?? e.starts_at + 3 * 3600_000) < ctx.now;
   const notice = e.status === "cancelled" ? html`<p class="notice notice-cancelled" role="status"><strong>Aflyst.</strong> Arrangøren har meldt dette arrangement aflyst.</p>`
     : e.status === "withdrawn" ? html`<p class="notice" role="status">Dette arrangement er ikke længere annonceret hos arrangøren. Tjek arrangørens egen side.</p>`
@@ -560,9 +566,14 @@ export async function eventPage(db: D1Database, ctx: PageContext, regions: strin
   ${offersBlock(offers)}
   ${e.status !== "withdrawn" ? flockPanel(e, flocks, extras?.member ?? null, myFlockId, ctx.now) : ""}
     <div class="event-text">
+      ${english?.description_en ? html`<p class="meta-muted small machine-note" lang="en">Automatically translated from Danish. The organiser's own text is under “Original in Danish” below. Many events welcome English speakers – ask the organiser if you are unsure.</p>
+      <h2 class="visually-hidden">Beskrivelse</h2>${textBlock(english.description_en.split(/\n+/).filter(Boolean))}
+      ${english.partial ? html`<p class="meta-muted small" lang="en">The rest of the description is in the Danish original below.</p>` : ""}
+      <details class="original-text"><summary lang="en">Original in Danish</summary><div translate="no" lang="da">${english.title_en ? html`<p><strong>${e.title}</strong></p>` : ""}${paragraphs.length ? textBlock(paragraphs) : html`<p>${e.summary ?? ""}</p>`}</div></details>`
+      : html`
       ${ctx.lang === "en" && (paragraphs.length || e.summary) ? html`<p class="meta-muted small" lang="en">The description below is the organiser's own, usually in Danish. Many events welcome English speakers – ask the organiser if you are unsure.</p>` : ""}
-      ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${paragraphs.map(p => /^•\s/.test(p) ? html`<p class="bullet">${linkify(p)}</p>` : html`<p>${linkify(p)}</p>`)}`
-        : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}
+      ${paragraphs.length ? html`<h2 class="visually-hidden">Beskrivelse</h2>${textBlock(paragraphs)}`
+        : e.summary ? html`<p>${e.summary}</p>` : html`<p class="meta-muted">Arrangøren har ikke givet en beskrivelse her. Læs mere hos arrangøren.</p>`}`}
       ${source?.descriptionPolicy === "excerpt" && e.source_url ? html`<p><a href="${e.source_url}" rel="noopener">Læs hele beskrivelsen hos ${e.source_name} →</a></p>` : ""}
     </div>
   </div>

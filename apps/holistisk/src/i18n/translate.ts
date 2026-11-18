@@ -35,13 +35,33 @@ function byRule(core: string): string | null {
   return null;
 }
 
+/** Arrangements' titles in English (src/i18n/machine.ts), for the page being translated now. */
+let extra: Map<string, string> | null = null;
+
+/** The dictionary first, then the arrangements' translated titles, also at the start of a longer line
+ * ("<title> – Socialklubben", "<title> · Aarhus"). */
+function lookup(text: string): string | null {
+  const found = translateText(text);
+  if (found !== null || !extra?.size) return found;
+  const core = norm(text);
+  const title = extra.get(core);
+  if (title !== undefined) return title;
+  for (const sep of [" – ", " · ", " | "]) {
+    const at = core.indexOf(sep);
+    if (at <= 0) continue;
+    const head = extra.get(core.slice(0, at));
+    if (head !== undefined) { const rest = core.slice(at + sep.length); return head + sep + (translateText(rest) ?? rest); }
+  }
+  return null;
+}
+
 /** A piece of text in English if known, else unchanged: for the parts of a rule. */
 export const t = (text: string): string => translateText(text) ?? text;
 
 function translateNode(raw: string): string {
   if (!/[A-Za-zÆØÅæøå]/.test(raw)) return raw;
   const lead = /^\s*/.exec(raw)![0], trail = /\s*$/.exec(raw)![0];
-  const en = translateText(decode(raw));
+  const en = lookup(decode(raw));
   return en === null ? raw : lead + encode(en) + trail;
 }
 
@@ -63,7 +83,7 @@ function translateTag(tag: string, base = ""): string {
       return `${sp}${attr}="${inside}"`;
     }
     if (TEXT_ATTRS.has(a) || (a === "content" && meta) || (a === "value" && button)) {
-      const en = translateText(decode(value));
+      const en = lookup(decode(value));
       if (en !== null) return `${sp}${attr}="${encode(en)}"`;
       // A title or description from a template with a value in it ("Meditation i Aarhus – 12 arrangementer").
       return all;
@@ -77,7 +97,7 @@ function translateJson(value: unknown, origin: string, key = ""): unknown {
   if (typeof value === "string") {
     if (key === "@id") return value;
     if (value.startsWith(origin + "/") || value === origin) return origin + englishPath(value.slice(origin.length) || "/");
-    if (["name", "description", "keywords"].includes(key)) return t(value);
+    if (["name", "description", "keywords"].includes(key)) return lookup(value) ?? value;
     if (key === "inLanguage" && value === "da") return value;
     return value;
   }
@@ -86,9 +106,18 @@ function translateJson(value: unknown, origin: string, key = ""): unknown {
   return value;
 }
 
-/** The whole page. Script and style contents, and text people typed (textarea), are left alone except JSON-LD. */
-export function translateHtml(page: string, origin: string, base = ""): string {
+/** The whole page. Script and style contents, and text people typed (textarea), are left alone except JSON-LD, and so
+ * is everything inside an element marked translate="no" (an arrangement's Danish original). `titles`: arrangements'
+ * titles in English. */
+export function translateHtml(page: string, origin: string, base = "", titles?: Map<string, string>): string {
+  extra = titles ?? null;
+  try { return translatePieces(page, origin, base); } finally { extra = null; }
+}
+
+function translatePieces(page: string, origin: string, base: string): string {
   const out: string[] = [];
+  // Inside translate="no": the element's name and how deep we are in elements of that name.
+  let keep: { name: string; depth: number } | null = null;
   const re = /<(script|style|textarea)\b[^>]*>[\s\S]*?<\/\1>|<!--[\s\S]*?-->|<[^>]+>|[^<]+/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(page))) {
@@ -101,8 +130,17 @@ export function translateHtml(page: string, origin: string, base = ""): string {
         try { inner = JSON.stringify(translateJson(JSON.parse(inner), origin)).replace(/</g, "\\u003c"); } catch { /* left as it was */ }
       }
       out.push(translateTag(open, base) + inner + close);
-    } else if (piece.startsWith("<")) out.push(piece.startsWith("<!--") ? piece : translateTag(piece, base));
-    else out.push(translateNode(piece));
+    } else if (keep) {
+      if (piece.startsWith("<") && !piece.startsWith("<!--")) {
+        const name = /^<\/?([a-zA-Z0-9-]+)/.exec(piece)?.[1]?.toLowerCase();
+        if (name === keep.name && !piece.endsWith("/>")) keep.depth += piece.startsWith("</") ? -1 : 1;
+        out.push(translateTag(piece, base));
+        if (keep.depth === 0) keep = null;
+      } else out.push(piece);
+    } else if (piece.startsWith("<")) {
+      if (/^<[a-zA-Z][^>]*\stranslate="no"/.test(piece) && !piece.endsWith("/>")) keep = { name: /^<([a-zA-Z0-9-]+)/.exec(piece)![1]!.toLowerCase(), depth: 1 };
+      out.push(piece.startsWith("<!--") ? piece : translateTag(piece, base));
+    } else out.push(translateNode(piece));
   }
   return out.join("");
 }

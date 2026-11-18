@@ -1344,3 +1344,8 @@ button:active, .button:active { transform: translateY(3px); box-shadow: 0 0 0 va
 .picks-badge { background: var(--butter); border: 2px solid var(--ink); border-radius: 999px; padding: 1px 10px; font-size: .9rem; }
 .picks-text { font-size: .95rem; line-height: 1.5; color: var(--ink-2); }
 .picks-text a { color: var(--berry); font-weight: 700; }
+
+/* English event pages: the organiser's Danish original under the machine translation (Jake 2026-11-18). */
+.original-text { margin-top: 1.25rem; }
+.original-text summary { cursor: pointer; font-weight: 600; }
+.original-text[open] summary { margin-bottom: .5rem; }
