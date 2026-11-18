@@ -80,7 +80,7 @@ describe("the English site", () => {
     expect(r.body).toContain(`<a class="lang-switch" href="${SITE}/" hreflang="da"`);
     expect(r.body).toContain('href="/en/calendar"');
     expect(r.body).toContain("I&#39;d like to come along!");
-    expect(r.body).toContain('href="/assets/site.css?v=51"');
+    expect(r.body).toContain('href="/assets/site.css?v=52"');
     expect(r.body).not.toContain('href="/kalender"');
   });
 

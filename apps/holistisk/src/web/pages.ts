@@ -12,7 +12,7 @@ import { flash, flockCards, flockLine, flockPanel, howItWorks, interestButton, i
 import { offersBlock, offersFor } from "../flokken/partners.js";
 import { upcomingFlocks, type FlockRow } from "../flokken/store.js";
 import { FREE_MEMBERSHIP_DATE, FREE_OUTINGS, freeMembership } from "../flokken/profile.js";
-import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, placeLine, searchForm, section } from "./components.js";
+import { activeFilterChips, cardGrid, chipLinks, dayList, stub, ticketStack, eventPath, filterPanel, groupTiles, linkList, pagination, picksNote, placeLine, searchForm, section } from "./components.js";
 import { hasFilters, isSearch, toQuery, type Filters } from "./filters.js";
 import { html, raw, type SafeHtml } from "./html.js";
 import { crumbsNav, organiserEmail, page, SHARE_IMAGE, type Crumb, type PageContext } from "./layout.js";
@@ -204,7 +204,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
   </section>
   ${flocks.length ? section("h-flocks", "Flokke på vej", flockCards(flocks, ctx.now), { href: "/find-en-flok", label: "Alle åbne flokke →" }) : ""}
   ${section("h-week", "De næste 7 dage", week.events.length
-    ? html`${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se alle ${week.total} arrangementer de næste 7 dage</a></p>` : ""}`
+    ? html`${picksNote()}${dayList(week.events, ctx.now)}${week.total > week.events.length ? html`<p class="more-line"><a class="button-secondary" href="/kalender?periode=uge">Se de næste 7 dage i kalenderen</a></p>` : ""}`
     : html`<p class="empty">Der er ingen arrangementer de næste 7 dage endnu. <a href="/kalender">Se hele kalenderen</a>.</p>`,
     { href: "/kalender", label: "Hele kalenderen →" })}
   <p class="more-line"><a class="button" href="/kalender">Se hele kalenderen – ${eventsLabel(total)}</a></p>
@@ -252,7 +252,8 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
     <h1>${heading}</h1>
     <p class="standfirst">${isSearch(f)
       ? html`Alle kommende arrangementer i ${ctx.regionLabel}, der passer på din søgning, dag for dag.`
-      : html`Dagens fem: hver dag udvælger vi op til fem arrangementer i ${ctx.regionLabel}, som er gode at tage til sammen med andre. Søg eller vælg en aktivitet for at se alle.`} Find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+      : html`Kommende arrangementer i ${ctx.regionLabel}, dag for dag.`} Find en flok at følges med.${topic ? html` Viser emnet <a href="/${topic.slug}">${topic.name}</a>.` : ""}</p>
+    ${isSearch(f) ? "" : picksNote()}
   </header>
   ${groupTiles(f.group, groups, g => "/kalender" + toQuery({ ...f, page: 1 }, { group: g }) + "#soeg", { compact: true })}
   ${forYouBlock}
@@ -301,6 +302,7 @@ export async function periodPage(db: D1Database, ctx: PageContext, regions: stri
     ${crumbsNav(crumbs)}
     <h1>${heading}</h1>
     <p class="standfirst">${period === "idag" ? "Koncerter, teater, foredrag, udstillinger og fællesskaber i dag" : "Koncerter, teater, comedy, quiz, udstillinger og foredrag fra fredag til søndag"} – fra arrangører i hele ${ctx.regionLabel}.</p>
+    ${picksNote()}
   </header>
   <h2 class="results-count">${eventsLabel(total)}</h2>
   ${events.length ? dayList(events, ctx.now) : html`<div class="empty"><p>Intet i kalenderen ${period === "idag" ? "i dag" : "i weekenden"} endnu.</p><p><a class="button-secondary" href="/kalender">Se hele kalenderen</a></p></div>`}
@@ -383,6 +385,7 @@ export async function areaPage(db: D1Database, ctx: PageContext, regions: string
     ${crumbsNav(crumbs)}
     <h1>Arrangementer i ${area.place}</h1>
     <p class="standfirst">Hvad sker der i ${area.place}? Arrangementer fra lokale arrangører, opdateret hver nat – find en flok at følges med, eller opret din egen.</p>
+    ${picksNote()}
   </header>
   <div class="main-aside">
     <div>
