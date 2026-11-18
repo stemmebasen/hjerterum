@@ -1180,3 +1180,11 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .join-interval label, .join-terms { display: inline-flex; gap: 8px; align-items: flex-start; font-weight: 500; }
 .join-interval input, .join-terms input { width: auto; margin: 3px 0 0; }
 .join-terms { margin: 12px 0; } .join-trial { color: var(--lys-muted); }
+/* Donations (donation-form.tsx). */
+.donation-form { display: grid; gap: 10px; max-width: 520px; padding: 18px 20px; border: 1px solid var(--lys-line); border-radius: 16px; margin: 12px 0; }
+.donation-form h3 { margin: 0; }
+.donation-amounts { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.donation-amounts button { padding: 8px 14px; border: 1px solid var(--lys-line); border-radius: 999px; background: transparent; color: inherit; font: 600 14px var(--lys-sans); cursor: pointer; }
+.donation-amounts button.is-on { background: var(--lys-ink); color: var(--lys-bg, #fff); border-color: var(--lys-ink); }
+.donation-amounts label { display: grid; gap: 4px; font-size: 13px; } .donation-amounts input { width: 110px; }
+.donation-form small { color: var(--lys-muted); }

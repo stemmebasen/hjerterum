@@ -221,7 +221,9 @@ async function handle(request: Request, env: Env, ctx?: ExecutionContextLike): P
           clerkPublishableKey: env.CLERK_PUBLISHABLE_KEY ?? null,
           stripePublishableKey: env.STRIPE_PUBLISHABLE_KEY ?? null,
           // Joining here (and paying by card) is open once Stripe is connected; until then the member area points to the old system.
-          membershipCheckout: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_MEMBER_WEBHOOK_SECRET && env.APP_BASE_URL)
+          membershipCheckout: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_MEMBER_WEBHOOK_SECRET && env.APP_BASE_URL),
+          // A donation by card (donations.ts) once Stripe is connected; MobilePay and the bank always.
+          donations: Boolean(env.STRIPE_SECRET_KEY && env.STRIPE_MEMBER_WEBHOOK_SECRET)
         },
         { headers: { "cache-control": "public, max-age=300" } }
       );
