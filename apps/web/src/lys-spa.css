@@ -1166,3 +1166,7 @@ body, .workspace-shell, .admin-workspace, .auth-shell, .profile-workspace { back
 .rich-text-box.is-empty::before { content: attr(data-placeholder); color: var(--lys-muted); pointer-events: none; }
 .rich-text-box ul { margin: 4px 0; padding-left: 22px; }
 .rich-text-box a { color: var(--lys-terra, #94503f); text-decoration: underline; }
+/* Days in a row (a weekend course). */
+.event-days { display: grid; gap: 6px; }
+.event-days select { width: auto; max-width: 100%; }
+.event-days small { color: var(--lys-muted); font-size: 13px; line-height: 1.45; }
