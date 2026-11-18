@@ -47,7 +47,7 @@ const otherGuides = (current: string): SafeHtml => section("h-guides", "Læs ogs
 
 const meetFaq = (now: number): Array<[string, SafeHtml | string]> => [
   ["Er det mærkeligt at gå alene til et arrangement?", "Slet ikke – og med Flokken behøver du ikke. Du viser interesse for et arrangement, og når I er nogle stykker, samler vi en lille flok. I mødes udenfor, tager en kop kaffe sammen og går så til arrangementet."],
-  ["Hvor mødes flokken?", "Altid udenfor, foran et kendt sted i byen – fx foran Domkirken, på Klostertorvet eller på Lille Torv. Aldrig hjemme hos nogen."],
+  ["Hvor mødes flokken?", "Altid udenfor, foran et kendt sted i Aarhus – fx foran Domkirken, på Klostertorvet eller på Lille Torv. Aldrig hjemme hos nogen."],
   ["Hvem er med i en flok?", "Folk i alle aldre, som har lyst til det samme arrangement som dig. Når du er med i en flok, kan du se de andres aldersgruppe og en kort linje om dem."],
   ["Hvad koster det?", html`Billet eller tilmelding klarer du selv hos arrangøren. ${freeMembership(now) ? `Medlemskab af foreningen er gratis til ${FREE_MEMBERSHIP_DATE}.` : `Du kan være med de første ${FREE_OUTINGS} gange uden at være medlem af foreningen.`} <a href="/bliv-medlem">Læs om medlemskab</a>.`],
   ["Hvad hvis jeg fortryder?", html`Det er helt i orden. Du siger først ja, når flokken er samlet, og du kan altid forlade en flok igen. <a href="/tryghed">Læs om tryghed</a>.`]
@@ -68,7 +68,7 @@ export async function meetPeoplePage(db: D1Database, ctx: PageContext, regions: 
   <div class="prose guide-text">
     <h2>Gør noget sammen – så kommer snakken af sig selv</h2>
     <p>De fleste nye venskaber starter ikke med en samtale, men med en fælles oplevelse: en koncert, en quiz, et foredrag eller en tur i naturen. Når man har oplevet noget sammen, har man noget at tale om bagefter.</p>
-    <p>Flokken samler små grupper, der følges ad til byens arrangementer. Du vælger selv, hvad du har lyst til – resten klarer vi sammen.</p>
+    <p>Flokken samler små grupper, der følges ad til arrangementer i Aarhus. Du vælger selv, hvad du har lyst til – resten klarer vi sammen.</p>
   </div>
   ${section("h-how", "Sådan virker Flokken", howItWorks, { href: "/find-en-flok", label: "Vil du med? →" })}
   ${flocks.length ? section("h-flocks", "Flokke med plads lige nu", flockCards(flocks, ctx.now)) : ""}
@@ -103,9 +103,9 @@ export async function newInTownPage(db: D1Database, ctx: PageContext, regions: s
   <div class="prose guide-text">
     <h2>Fem gode første skridt</h2>
     <ol>
-      <li><strong>Se, hvad der sker.</strong> <a href="/kalender">Kalenderen</a> samler arrangementer fra byens scener, spillesteder, biblioteker og foreninger – opdateret hver nat. Start med <a href="/i-dag">det sker i dag</a> eller <a href="/weekend">i weekenden</a>.</li>
+      <li><strong>Se, hvad der sker.</strong> <a href="/kalender">Kalenderen</a> samler arrangementer fra Aarhus’ scener, spillesteder, biblioteker og foreninger – opdateret hver nat. Start med <a href="/i-dag">det sker i dag</a> eller <a href="/weekend">i weekenden</a>.</li>
       <li><strong>Vælg det, du har lyst til.</strong> Tryk <strong>Jeg vil gerne med!</strong> ved et arrangement, så samler vi en lille flok, du kan følges med.</li>
-      <li><strong>Find noget fast.</strong> En ugentlig aktivitet giver de samme ansigter igen og igen – og så kommer venskaberne lettere. Se <a href="/arrangoerer">byens arrangører</a> og deres faste tilbud.</li>
+      <li><strong>Find noget fast.</strong> En ugentlig aktivitet giver de samme ansigter igen og igen – og så kommer venskaberne lettere. Se <a href="/arrangoerer">Aarhus’ arrangører</a> og deres faste tilbud.</li>
       <li><strong>Det skal ikke koste en formue.</strong> Der sker meget i Aarhus, som er <a href="/gratis-og-billigt">gratis eller billigt</a>.</li>
       <li><strong>Kig ud over midtbyen.</strong> Der sker også meget uden for centrum – i <a href="/kalender">kalenderen</a> kan du vælge område: nord, syd eller vest for Aarhus.</li>
     </ol>

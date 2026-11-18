@@ -762,7 +762,7 @@ describe("Lad os komme godt i gang", () => {
     // "Bliv medlem" explains membership of the association; signing up is "Opret profil".
     const m = await call("/bliv-medlem");
     expect(m.status).toBe(200);
-    expect(m.body).toContain("<h1>Bliv medlem af Flokken</h1>");
+    expect(m.body).toContain("<h1>Bliv medlem af Flokken i Aarhus</h1>");
     // Free in the start-up period: no price, no outings rule. Both come back after the date.
     expect(m.body).toContain("<strong>gratis til 1. marts 2027</strong>");
     expect(m.body).not.toMatch(/250 kr|udflugter uden at være medlem|betalingen åbner/);

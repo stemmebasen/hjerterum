@@ -88,7 +88,7 @@ const MAP_PIN = raw('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden
 const MISSION = "Hvis du savner at opleve nye ting og møde nye mennesker, så er du IKKE alene. Vi er rigtig mange, der har det ligesom dig. Derfor lavede vi Flokken!";
 
 /** The two aims, in one breath. Shown under the mission on the front page. */
-const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud af døren, så de møder nye mennesker og oplever noget sammen – og at hjælpe byens mindre spillesteder, teatre og foreninger med at blive set.";
+const AIMS = "Flokken er en social forening med to formål: at hjælpe folk ud af døren, så de møder nye mennesker og oplever noget sammen – og at hjælpe Aarhus’ mindre spillesteder, teatre og foreninger med at blive set.";
 
 /** One line for newcomers who don't read Danish yet, such as international students. */
 const ENGLISH_LINE = "New in Aarhus? Flokken is for you too. Pick an event, join a small group and go together – plenty of concerts and workshops need no Danish at all.";
@@ -169,8 +169,8 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
 <div class="hero">
   <div class="wrap hero-inner">
     <div class="hero-text">
-      <h1 class="hero-title">Byen er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
-      <p class="standfirst">Vi vil have flere ud at opleve byen sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
+      <h1 class="hero-title">Aarhus er fuld af gode oplevelser <span class="hero-line">–&nbsp;<span class="marker">del dem med gode&nbsp;mennesker!</span></span></h1>
+      <p class="standfirst">Vi vil have flere ud at opleve Aarhus sammen. Find noget blandt ${eventsLabel(total)} i Aarhus – fra de store scener til de små spillesteder og foreninger, som fortjener at blive opdaget – og tryk "Jeg vil gerne med!" Så samler vi en lille flok, du kan følges med.</p>
       ${searchForm({})}
       <a class="calendar-cta" href="/kalender">${CALENDAR_ICON}<span class="calendar-cta-text"><strong>Se kalenderen</strong><span>${eventsLabel(total)} – dag for dag</span></span><span class="calendar-cta-arrow" aria-hidden="true">→</span></a>
     </div>
@@ -214,7 +214,7 @@ export async function homePage(db: D1Database, ctx: PageContext, regions: string
     <p>Vil I have jeres arrangementer med på Flokken? Kontakt os – og hør om mulighed for radioomtale.</p></div>
     <p><a class="button button-alt" href="/samarbejde">Læs om samarbejde</a></p>
   </aside>
-  ${venues.length ? section("h-venues", "Byens scener, huse og foreninger", chipLinks(venues.map(o => ({ href: `/arrangoerer/${o.slug}`, label: o.name }))), { href: "/arrangoerer", label: "Alle arrangører →" }) : ""}
+  ${venues.length ? section("h-venues", "Aarhus’ scener, huse og foreninger", chipLinks(venues.map(o => ({ href: `/arrangoerer/${o.slug}`, label: o.name }))), { href: "/arrangoerer", label: "Alle arrangører →" }) : ""}
 </div>`;
   return {
     status: 200,
@@ -243,7 +243,7 @@ export async function calendarPage(db: D1Database, ctx: PageContext, regions: st
   const [{ events, total }, cats, groups, forYouBlock] = await Promise.all([listEvents(db, f, regions, ctx.now), categoryCounts(db, regions, ctx.now), groupCounts(db, regions, ctx.now),
     showForYou ? forYouSection(db, ctx, regions, personal, "/kalender") : Promise.resolve(html``)]);
   const topic = f.topic ? activityBySlug(f.topic) : null;
-  const heading = f.q ? `Søgning: “${f.q}”` : `Kalender – ${ctx.regionLabel}`;
+  const heading = f.q ? `Søgning: “${f.q}”` : `Kalender over arrangementer i ${ctx.regionLabel}`;
   const crumbs: Crumb[] = [{ name: "Forside", path: "/" }, { name: "Kalender", path: "/kalender" }];
   const body = html`
 <div class="wrap">
@@ -427,7 +427,7 @@ export function organizersPage(ctx: PageContext, regions: string[]): View {
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Arrangører</h1>
+    <h1>Arrangører i Aarhus</h1>
     <p class="standfirst">Spillesteder, teatre, biblioteker, kulturhuse og foreninger i ${ctx.regionLabel}, hvis arrangementer du finder på Flokken – med deres faste tilbud og kommende arrangementer. <a href="/samarbejde">Vil I være med?</a></p>
   </header>
   ${byArea.map(x => section(`h-${x.a.slug}`, x.a.place, html`<ul class="org-list">${x.list.map(o => html`<li>
@@ -616,7 +616,7 @@ export async function savingsPage(db: D1Database, ctx: PageContext, regions: str
   <header class="page-head">
     ${crumbsNav(crumbs)}
     <p class="section-kicker">Gratis og billigt</p>
-    <h1>Det skal ikke koste en formue <span class="marker">at komme ud.</span></h1>
+    <h1>Det skal ikke koste en formue <span class="marker">at komme ud i Aarhus.</span></h1>
     <p class="standfirst">Gratis og billige arrangementer i ${ctx.regionLabel} den næste måned.</p>
     <ul class="quick-links" aria-label="Genveje"><li><a href="/kalender?pris=gratis">Alle gratis arrangementer</a></li><li><a href="/kalender?pris=under-100">Op til 100 kr.</a></li><li><a href="/kalender?pris=under-200">Op til 200 kr.</a></li></ul>
   </header>
@@ -639,7 +639,7 @@ export async function categoriesPage(db: D1Database, ctx: PageContext, regions: 
 <div class="wrap narrow">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Aktiviteter og emner</h1>
+    <h1>Aktiviteter og emner i Aarhus</h1>
     <p class="standfirst">Koncerter, teater og comedy, foredrag, quiz, udstillinger, dans og meget mere. Vælg en aktivitet for at se, hvad der sker i ${ctx.regionLabel}.</p>
   </header>
   ${section("h-acts", "Aktiviteter", list(broad))}
@@ -656,7 +656,7 @@ export async function aboutPage(db: D1Database, ctx: PageContext): Promise<View>
 <div class="wrap narrow prose">
   <header class="page-head">
     ${crumbsNav(crumbs)}
-    <h1>Om Flokken</h1>
+    <h1>Om Flokken – en social forening i Aarhus</h1>
     <p class="standfirst">${MISSION}</p>
   </header>
   <h2 id="saadan">Sådan virker det</h2>
