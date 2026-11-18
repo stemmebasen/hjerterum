@@ -82,9 +82,11 @@ describe("front page", () => {
     expect(body).not.toContain('class="testimonial-photo"');
     // Not yet registered: never claim the protected RSV status.
     expect(body).not.toMatch(/registreret socialøkonomisk/i);
-    // Step 2: find a flock or start one; what a flock of five gets is not decided, so it stays a teaser.
+    // Step 2: how a flock is gathered. There is no gift (Jake 2026-11-18), so no promise and no teaser.
     expect(body).toContain("<strong>Vis interesse – så samler vi flokken</strong>");
-    expect(body).toContain("Alting er sjovere i samlet flok. Når I er 5 samlet, giver vi en <span class=\"secret\" aria-hidden=\"true\">*****</span>");
+    expect(body).toContain("Alting er sjovere i samlet flok. Når I er nogle stykker, der vil med, samler vi jer i en lille flok på 3 til 6.");
+    expect(body).not.toMatch(/giver vi en|gave\b/);
+    expect(body).not.toContain('class="secret"');
     expect(body).toContain('class="ticket-stack"');
     // The hero's tickets: coming events on different days, weekday and part of the day on the stub.
     const stubs = [...body.matchAll(/<span class="mini-weekday">(\w+)<\/span><span class="mini-part">(\w+)<\/span>/g)].map(m => m[1]);
